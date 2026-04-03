@@ -700,7 +700,7 @@ const ProductCosting = () => {
                     <TableHead>Component</TableHead>
                     <TableHead className="w-20">Vendor</TableHead>
                     <TableHead className="w-12">Units</TableHead>
-                    <TableHead className="w-16 text-right">Qty/Prod</TableHead>
+                    <TableHead className="w-24 text-right">Qty/Prod</TableHead>
                     <TableHead className="w-20 text-right">Cost (₹)</TableHead>
                     <TableHead className="w-14 text-right">Waste%</TableHead>
                     <TableHead className="w-20 text-right">Unit Cost</TableHead>
