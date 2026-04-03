@@ -469,11 +469,47 @@ const ProductCosting = () => {
             <div><SectionHeader title="A. Product Info" open={sections.info} onToggle={() => {}} badge={`RI: ${ri.toFixed(1)}″ | Pre-pkg: ${fmt.cbm(prePackCbm)}`} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="grid grid-cols-4 gap-2 py-2 px-1">
-              <div>
-                <label className="text-[10px] text-muted-foreground">Name</label>
-                <Input className="h-7 text-xs" defaultValue={product.name} onBlur={e => updateProduct('name', e.target.value)} />
-              </div>
+            <div className="py-2 px-1 space-y-2">
+              {/* Product Photo */}
+              <div className="flex items-start gap-3 mb-2">
+                <div className="relative group">
+                  {product.photo_url ? (
+                    <div className="relative">
+                      <img src={product.photo_url} alt={product.name} className="h-20 w-20 object-cover rounded-md border" />
+                      <button
+                        onClick={async () => {
+                          updateProduct('photo_url', null);
+                        }}
+                        className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="h-20 w-20 border-2 border-dashed rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[8px] text-muted-foreground mt-0.5">Add Photo</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !id) return;
+                          const ext = file.name.split('.').pop() || 'jpg';
+                          const path = `${id}.${ext}`;
+                          const { error: uploadErr } = await supabase.storage.from('product-photos').upload(path, file, { contentType: file.type, upsert: true });
+                          if (uploadErr) { toast.error('Upload failed: ' + uploadErr.message); return; }
+                          const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(path);
+                          updateProduct('photo_url', urlData.publicUrl);
+                          toast.success('Photo uploaded');
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                <div className="flex-1 grid grid-cols-4 gap-2">
+
               <div>
                 <label className="text-[10px] text-muted-foreground">SKU</label>
                 <Input className="h-7 text-xs" defaultValue={product.sku || ''} onBlur={e => updateProduct('sku', e.target.value)} />
