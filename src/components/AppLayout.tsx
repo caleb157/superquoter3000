@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -11,6 +11,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
+    { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
     { to: '/search', label: 'Search', icon: Search, show: isAdminOrTeam },
   ];
