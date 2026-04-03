@@ -43,6 +43,7 @@ const ProductCosting = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
+  const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
 
   // Section open state
   const [sections, setSections] = useState({
