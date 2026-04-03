@@ -11,9 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, ArrowLeft, Package } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import * as calc from '@/lib/calculations';
+import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
 import ProjectSummary from './ProjectSummary';
 import ProjectSettingsTab from './ProjectSettingsTab';
 
