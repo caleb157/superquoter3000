@@ -137,13 +137,18 @@ const Quotes = () => {
                         </TableCell>
                         <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
                         <TableCell>
-                          <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
-                            {snap.status || 'draft'}
-                          </Badge>
-                          {approvedAt && (
-                            <p className="text-[9px] text-muted-foreground mt-0.5">{approvedAt}</p>
-                          )}
-                        </TableCell>
+                          <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
+                            <SelectTrigger className="h-7 w-24 text-[10px] p-1">
+                              <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
+                                {snap.status || 'draft'}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUS_OPTIONS.map(s => (
+                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         <TableCell className="text-xs">{viewedAt}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
