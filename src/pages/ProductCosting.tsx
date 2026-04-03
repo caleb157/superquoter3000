@@ -84,7 +84,7 @@ const ProductCosting = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -96,6 +96,7 @@ const ProductCosting = () => {
         (supabase as any).from('labor_employees').select('*'),
         (supabase as any).from('global_settings').select('*').limit(1).single(),
         (supabase as any).from('box_data').select('*'),
+        (supabase as any).from('chemical_prices').select('*'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -108,6 +109,7 @@ const ProductCosting = () => {
       if (empRes.data) setEmployees(empRes.data);
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
+      if (chemRes.data) setChemicalPrices(chemRes.data);
     };
     fetchAll();
   }, [id]);
