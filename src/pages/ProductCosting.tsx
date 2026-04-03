@@ -313,6 +313,43 @@ const ProductCosting = () => {
                 <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
                 <Input className="h-7 text-xs" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
               </div>
+              <div className="col-span-2 flex items-center gap-3 pt-2">
+                <Switch
+                  checked={product.sourced_externally || false}
+                  onCheckedChange={async (checked) => {
+                    updateProduct('sourced_externally', checked);
+                    if (checked) {
+                      // Add Local Transport COGS row
+                      const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
+                      const { data } = await (supabase as any).from('cogs_items').insert({
+                        product_id: id,
+                        cogs_type: 'Local Transport',
+                        component_name: 'Local Transport',
+                        units: 'CBM',
+                        components_per_product: prePackCbm,
+                        unit_cost_inr: transportCost,
+                        waste_factor: 0,
+                        is_auto_calculated: true,
+                        sort_order: cogsItems.length,
+                      }).select().single();
+                      if (data) setCogsItems(prev => [...prev, data]);
+                    } else {
+                      // Remove Local Transport COGS row
+                      const ltItem = cogsItems.find(i => i.cogs_type === 'Local Transport' && i.is_auto_calculated);
+                      if (ltItem) {
+                        await (supabase as any).from('cogs_items').delete().eq('id', ltItem.id);
+                        setCogsItems(prev => prev.filter(i => i.id !== ltItem.id));
+                      }
+                    }
+                  }}
+                />
+                <div>
+                  <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
+                  {product.sourced_externally && (
+                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM will be added to COGS</p>
+                  )}
+                </div>
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
