@@ -59,6 +59,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
   const [rows, setRows] = useState<ProductSummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<ProductSummaryRow>({
+    storageKey: 'summary-sort',
+  });
 
   useEffect(() => {
     if (!projectId) return;
