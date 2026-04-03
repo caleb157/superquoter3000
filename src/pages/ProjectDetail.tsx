@@ -41,6 +41,19 @@ const ProjectDetail = () => {
   const [showUploadParse, setShowUploadParse] = useState(false);
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
+    storageKey: 'project-products-sort',
+  });
+
+  const sortedProducts = useMemo(() => {
+    const getters: Record<string, (p: any) => string | number> = {
+      name: (p) => (p.name || '').toLowerCase(),
+      sku: (p) => (p.sku || '').toLowerCase(),
+      qty: (p) => p.quantity || 0,
+      status: (p) => getStatusLevel(p),
+    };
+    return sortItems(products, getters);
+  }, [products, sortColumn, sortDirection]);
 
   const fetchProject = async () => {
     if (!id) return;
