@@ -278,6 +278,7 @@ export type Database = {
       }
       global_settings: {
         Row: {
+          auto_transport_cost_per_cbm: number
           available_hours_per_month: number
           contractor_to_inhouse_decrease: number
           created_at: string | null
@@ -290,6 +291,7 @@ export type Database = {
           packaging_cost_per_cbm: number
         }
         Insert: {
+          auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
           contractor_to_inhouse_decrease?: number
           created_at?: string | null
@@ -302,6 +304,7 @@ export type Database = {
           packaging_cost_per_cbm?: number
         }
         Update: {
+          auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
           contractor_to_inhouse_decrease?: number
           created_at?: string | null
