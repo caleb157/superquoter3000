@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
