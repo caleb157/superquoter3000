@@ -254,7 +254,7 @@ const ProjectDetail = () => {
       switch (type) {
         case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
         case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
-        case 'quote': generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
+        case 'quote': await generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
       }
     } catch (err: any) { toast.error(`Export failed: ${err.message}`); }
     setExporting(null);

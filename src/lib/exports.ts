@@ -349,10 +349,27 @@ export function downloadSummaryPDF(ctx: ExportContext) {
 }
 
 // ============================================================
+// Helper: load image URL as base64 data URL for jsPDF
+// ============================================================
+async function loadImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch { return null; }
+}
+
+// ============================================================
 // Customer Quote PDF — Enhanced with entity header, bank details
 // ============================================================
 
-export function generateCustomerQuotePDF(ctx: ExportContext) {
+export async function generateCustomerQuotePDF(ctx: ExportContext) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -366,28 +383,49 @@ export function generateCustomerQuotePDF(ctx: ExportContext) {
   validDate.setDate(validDate.getDate() + validDays);
   const validStr = validDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // Pre-load logos
+  const [entityLogoData, customerLogoData] = await Promise.all([
+    ent?.logo_url ? loadImageAsBase64(ent.logo_url) : Promise.resolve(null),
+    ctx.customerLogoUrl ? loadImageAsBase64(ctx.customerLogoUrl) : Promise.resolve(null),
+  ]);
+
   let yPos = 14;
 
   // ---- HEADER ----
-  // Entity info (left)
+  // Entity logo + info (left)
+  let textStartX = 14;
+  if (entityLogoData) {
+    try {
+      doc.addImage(entityLogoData, 'AUTO', 14, yPos - 4, 22, 22);
+      textStartX = 40;
+    } catch { /* skip logo if format unsupported */ }
+  }
+
   if (ent) {
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text(ent.name, 14, yPos);
+    doc.text(ent.name, textStartX, yPos);
     doc.setFont('helvetica', 'normal');
     if (ent.legal_name && ent.legal_name !== ent.name) {
       yPos += 4.5;
       doc.setFontSize(8);
       doc.setTextColor(80);
-      doc.text(ent.legal_name, 14, yPos);
+      doc.text(ent.legal_name, textStartX, yPos);
     }
     doc.setFontSize(7);
     doc.setTextColor(100);
     const addrParts = [ent.address_line1, ent.address_line2, [ent.city, ent.state, ent.postal_code].filter(Boolean).join(', '), ent.country].filter(Boolean);
-    addrParts.forEach(line => { yPos += 3.5; doc.text(line!, 14, yPos); });
+    addrParts.forEach(line => { yPos += 3.5; doc.text(line!, textStartX, yPos); });
     const contactParts = [ent.phone ? `Tel: ${ent.phone}` : null, ent.email, ent.website].filter(Boolean);
-    contactParts.forEach(line => { yPos += 3.5; doc.text(line!, 14, yPos); });
+    contactParts.forEach(line => { yPos += 3.5; doc.text(line!, textStartX, yPos); });
     doc.setTextColor(0);
+  }
+
+  // Customer logo (right side, below QUOTATION)
+  if (customerLogoData) {
+    try {
+      doc.addImage(customerLogoData, 'AUTO', pageW - 14 - 25, 38, 25, 18);
+    } catch { /* skip if unsupported */ }
   }
 
   // "QUOTATION" label (right)
