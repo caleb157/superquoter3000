@@ -405,18 +405,18 @@ const ProjectDetail = () => {
                 <Table className="dense-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>SKU</TableHead>
+                      <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                       <TableHead>Dims (in)</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
+                      <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                       <TableHead className="text-right">Unit CBM</TableHead>
                       <TableHead className="text-right">Cost (USD)</TableHead>
                       <TableHead className="text-right">Price (USD)</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
+                      <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map(p => (
+                    {sortedProducts.map(p => (
                       <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50"
                         onClick={() => navigate(`/product/${p.id}`)}>
                         <TableCell className="font-medium">{p.name}</TableCell>
@@ -426,12 +426,14 @@ const ProjectDetail = () => {
                         <TableCell className="text-right calc-field">—</TableCell>
                         <TableCell className="text-right calc-field">—</TableCell>
                         <TableCell className="text-right calc-field">—</TableCell>
-                        <TableCell className="text-center space-x-1">
-                          {statusDot(p.cbm_done)}
-                          {statusDot(p.cogs_done)}
-                          {statusDot(p.overhead_done)}
-                          {statusDot(p.shipping_done)}
-                          {statusDot(p.revenue_done)}
+                        <TableCell className="text-center">
+                          <ProductStatusIndicator
+                            cbm_done={p.cbm_done}
+                            cogs_done={p.cogs_done}
+                            overhead_done={p.overhead_done}
+                            shipping_done={p.shipping_done}
+                            revenue_done={p.revenue_done}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
