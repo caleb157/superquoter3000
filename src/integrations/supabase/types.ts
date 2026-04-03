@@ -243,6 +243,39 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
       global_settings: {
         Row: {
           available_hours_per_month: number
@@ -252,6 +285,7 @@ export type Database = {
           exchange_rate: number
           id: string
           indirect_overhead_monthly: number
+          local_transport_cost_per_cbm: number | null
           num_laborers: number
           packaging_cost_per_cbm: number
         }
@@ -263,6 +297,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           indirect_overhead_monthly?: number
+          local_transport_cost_per_cbm?: number | null
           num_laborers?: number
           packaging_cost_per_cbm?: number
         }
@@ -274,6 +309,7 @@ export type Database = {
           exchange_rate?: number
           id?: string
           indirect_overhead_monthly?: number
+          local_transport_cost_per_cbm?: number | null
           num_laborers?: number
           packaging_cost_per_cbm?: number
         }
@@ -507,6 +543,7 @@ export type Database = {
           shipping_done: boolean | null
           sku: string | null
           sort_order: number | null
+          sourced_externally: boolean | null
           target_price_usd: number | null
           updated_at: string | null
           weight_kg: number | null
@@ -535,6 +572,7 @@ export type Database = {
           shipping_done?: boolean | null
           sku?: string | null
           sort_order?: number | null
+          sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null
@@ -563,6 +601,7 @@ export type Database = {
           shipping_done?: boolean | null
           sku?: string | null
           sort_order?: number | null
+          sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null
@@ -655,6 +694,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           customer_email: string | null
+          customer_id: string | null
           customer_logo_url: string | null
           customer_name: string | null
           id: string
@@ -667,6 +707,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_logo_url?: string | null
           customer_name?: string | null
           id?: string
@@ -679,6 +720,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_logo_url?: string | null
           customer_name?: string | null
           id?: string
@@ -687,7 +729,15 @@ export type Database = {
           status?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shipping_items: {
         Row: {

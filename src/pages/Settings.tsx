@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
@@ -22,8 +23,6 @@ function EditableTable<T extends { id: string }>({
   fetchData: () => void;
   defaultRow: Partial<T>;
 }) {
-  const [editingRow, setEditingRow] = useState<string | null>(null);
-
   const addRow = async () => {
     const client = supabase as any;
     const { data: newRow, error } = await client.from(tableName).insert(defaultRow).select().single();
@@ -137,13 +136,18 @@ function EditableTable<T extends { id: string }>({
 // Global Settings form (single row)
 function GeneralSettings() {
   const [settings, setSettings] = useState<any>(null);
+  const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
-  const fetch = async () => {
-    const { data } = await supabase.from('global_settings').select('*').limit(1).single();
-    if (data) setSettings(data);
+  const fetchSettings = async () => {
+    const [settingsRes, stRes] = await Promise.all([
+      supabase.from('global_settings').select('*').limit(1).single(),
+      supabase.from('shipping_types').select('*').order('name'),
+    ]);
+    if (settingsRes.data) setSettings(settingsRes.data);
+    if (stRes.data) setShippingTypes(stRes.data);
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchSettings(); }, []);
 
   const update = async (field: string, value: any) => {
     if (!settings) return;
@@ -161,7 +165,7 @@ function GeneralSettings() {
     { key: 'indirect_overhead_monthly', label: 'Indirect Overhead Monthly (₹)', type: 'number' },
     { key: 'packaging_cost_per_cbm', label: 'Packaging Cost/CBM (₹)', type: 'number' },
     { key: 'contractor_to_inhouse_decrease', label: 'Contractor→In-house Decrease', type: 'number' },
-    { key: 'default_shipping_type', label: 'Default Shipping Type', type: 'text' },
+    { key: 'local_transport_cost_per_cbm', label: 'Local Transport Cost/CBM (₹)', type: 'number', hint: 'Cost to transport raw goods from supplier cities (Agra, Moradabad, Saharanpur) to Jodhpur' },
   ];
 
   const indirectOhPerMh = settings.num_laborers * settings.available_hours_per_month > 0
@@ -171,19 +175,36 @@ function GeneralSettings() {
   return (
     <div className="space-y-4 max-w-lg">
       {fields.map(f => (
-        <div key={f.key} className="flex items-center gap-3">
-          <label className="text-xs font-medium w-52 shrink-0">{f.label}</label>
-          <Input
-            className="h-8 text-sm"
-            type={f.type}
-            defaultValue={settings[f.key]}
-            onBlur={(e) => {
-              const val = f.type === 'number' ? Number(e.target.value) : e.target.value;
-              if (val !== settings[f.key]) update(f.key, val);
-            }}
-          />
+        <div key={f.key}>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium w-52 shrink-0">{f.label}</label>
+            <Input
+              className="h-8 text-sm"
+              type={f.type}
+              defaultValue={settings[f.key]}
+              onBlur={(e) => {
+                const val = f.type === 'number' ? Number(e.target.value) : e.target.value;
+                if (val !== settings[f.key]) update(f.key, val);
+              }}
+            />
+          </div>
+          {(f as any).hint && <p className="text-[10px] text-muted-foreground ml-[13.5rem] mt-0.5">{(f as any).hint}</p>}
         </div>
       ))}
+
+      {/* Default Shipping Type dropdown */}
+      <div className="flex items-center gap-3">
+        <label className="text-xs font-medium w-52 shrink-0">Default Shipping Type</label>
+        <Select value={settings.default_shipping_type || ''} onValueChange={v => update('default_shipping_type', v)}>
+          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+          <SelectContent>
+            {shippingTypes.map(st => (
+              <SelectItem key={st.id} value={st.name}>{st.name} — {fmt.inr(st.cost_inr)}/{st.per_unit}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex items-center gap-3 pt-2 border-t">
         <label className="text-xs font-medium w-52 shrink-0">Indirect OH / Man-Hour (₹)</label>
         <span className="calc-field px-2 py-1 rounded text-sm">{fmt.inr(indirectOhPerMh)}</span>
@@ -200,6 +221,7 @@ const Settings = () => {
   const [chemicals, setChemicals] = useState<any[]>([]);
   const [hardware, setHardware] = useState<any[]>([]);
   const [woodPrices, setWoodPrices] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
 
   const fetchAll = () => {
     supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data));
@@ -209,6 +231,7 @@ const Settings = () => {
     supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data));
     supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
     supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data));
+    (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -218,8 +241,9 @@ const Settings = () => {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-lg font-bold mb-4">Global Settings</h1>
         <Tabs defaultValue="general">
-          <TabsList className="mb-4">
+          <TabsList className="mb-4 flex-wrap h-auto gap-1">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="shipping">Shipping</TabsTrigger>
             <TabsTrigger value="product-types">Product Types</TabsTrigger>
             <TabsTrigger value="box-data">Box Data</TabsTrigger>
@@ -230,6 +254,22 @@ const Settings = () => {
           </TabsList>
 
           <TabsContent value="general"><GeneralSettings /></TabsContent>
+
+          <TabsContent value="customers">
+            <EditableTable
+              tableName="customers"
+              data={customers} setData={setCustomers}
+              fetchData={() => (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data))}
+              defaultRow={{ name: 'New Customer' } as any}
+              columns={[
+                { key: 'name', label: 'Name', width: '160px' },
+                { key: 'company', label: 'Company', width: '150px' },
+                { key: 'email', label: 'Email', width: '180px' },
+                { key: 'phone', label: 'Phone', width: '120px' },
+                { key: 'notes', label: 'Notes' },
+              ]}
+            />
+          </TabsContent>
 
           <TabsContent value="shipping">
             <EditableTable
