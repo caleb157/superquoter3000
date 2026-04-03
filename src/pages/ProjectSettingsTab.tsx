@@ -31,11 +31,12 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const customerLogoRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const fetchData = async () => {
-      const [settingsRes, gsRes, stRes, projRes] = await Promise.all([
+      const [settingsRes, gsRes, stRes, projRes, entRes] = await Promise.all([
         supabase.from('project_settings').select('*').eq('project_id', projectId).maybeSingle(),
         supabase.from('global_settings').select('*').limit(1).single(),
         supabase.from('shipping_types').select('*').order('name'),
         supabase.from('projects').select('name, customer_name').eq('id', projectId).single(),
+        (supabase as any).from('company_entities').select('*').order('name'),
       ]);
 
       setGlobalSettings(gsRes.data);
