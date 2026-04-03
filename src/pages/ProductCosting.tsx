@@ -122,6 +122,89 @@ const ProductCosting = () => {
   const qty = product?.quantity || 100;
   const ri = calc.runningInches(w, d, h);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
+  const percentWood = product?.percent_wood || 1;
+  const difficulty = product?.finishing_difficulty || 'Medium';
+  const difficultyFactor = calc.getDifficultyFactor(difficulty);
+
+  // Auto-populate finishing materials COGS when product type or dimensions change
+  useEffect(() => {
+    if (!product || !productType || ri <= 0 || cogsItems.length === 0) return;
+
+    // Find chemical prices
+    const colorPrice = chemicalPrices.find(c => c.category === 'Color')?.price_per_litre_inr || 0;
+    const sealerPrice = chemicalPrices.find(c => c.category === 'Sealer')?.price_per_litre_inr || 0;
+    const lacquerPrice = chemicalPrices.find(c => c.category === 'Lacquer' && c.name.includes('NC'))?.price_per_litre_inr ||
+                         chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
+
+    // Finishing material quantities from product type rates
+    const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri, ri, percentWood);
+    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri, ri, percentWood);
+    const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri, ri, percentWood);
+
+    const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
+
+    cogsItems.forEach(item => {
+      if (!item.is_auto_calculated || item.cogs_type !== 'Finishing Materials') return;
+      const name = (item.component_name || '').toLowerCase();
+      if (name.includes('color')) {
+        autoUpdates.push({ id: item.id, components_per_product: colorQty, unit_cost_inr: colorPrice, units: 'L' });
+      } else if (name.includes('sealer')) {
+        autoUpdates.push({ id: item.id, components_per_product: sealerQty, unit_cost_inr: sealerPrice, units: 'L' });
+      } else if (name.includes('lacquer')) {
+        autoUpdates.push({ id: item.id, components_per_product: lacquerQty, unit_cost_inr: lacquerPrice, units: 'L' });
+      }
+    });
+
+    if (autoUpdates.length > 0) {
+      setCogsItems(prev => prev.map(item => {
+        const upd = autoUpdates.find(u => u.id === item.id);
+        if (!upd) return item;
+        return { ...item, components_per_product: upd.components_per_product, unit_cost_inr: upd.unit_cost_inr, units: upd.units };
+      }));
+      // Persist to DB
+      autoUpdates.forEach(upd => {
+        (supabase as any).from('cogs_items').update({
+          components_per_product: upd.components_per_product,
+          unit_cost_inr: upd.unit_cost_inr,
+          units: upd.units,
+        }).eq('id', upd.id);
+      });
+    }
+  }, [product?.product_type_id, w, d, h, percentWood, productType?.id, chemicalPrices.length, cogsItems.length > 0 ? 'loaded' : 'empty']);
+
+  // Auto-populate Finishing and Packaging overhead MH
+  useEffect(() => {
+    if (!product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
+
+    const avgFinishingSandingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
+    const contractorRate = productType.contractor_base_rate_per_ri || 0;
+    const decrease = globalSettings.contractor_to_inhouse_decrease || 0;
+
+    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingSandingRate, ri);
+    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+
+    const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
+
+    overheadItems.forEach(item => {
+      if (!item.is_auto_estimated) return;
+      if (item.labor_type === 'Finishing' && finishingMh > 0) {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
+      } else if (item.labor_type === 'Packaging' && packagingMh > 0) {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(packagingMh.toFixed(4)) });
+      }
+    });
+
+    if (ohUpdates.length > 0) {
+      setOverheadItems(prev => prev.map(item => {
+        const upd = ohUpdates.find(u => u.id === item.id);
+        if (!upd) return item;
+        return { ...item, man_hours_per_unit: upd.man_hours_per_unit };
+      }));
+      ohUpdates.forEach(upd => {
+        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
+      });
+    }
+  }, [product?.product_type_id, w, d, h, difficulty, percentWood, productType?.id, globalSettings?.id, employees.length, overheadItems.length > 0 ? 'loaded' : 'empty']);
 
   // IC calcs
   const icAdd = productType?.ic_addition_per_side_inch || 0.5;
