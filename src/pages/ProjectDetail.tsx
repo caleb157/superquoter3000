@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
@@ -10,15 +10,19 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, ArrowLeft, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import ProjectSummary from './ProjectSummary';
+import ProjectSettingsTab from './ProjectSettingsTab';
 
 const STATUS_OPTIONS = ['draft', 'costing', 'quoted', 'po_confirmed', 'archived'];
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -26,6 +30,9 @@ const ProjectDetail = () => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
+
+  const activeTab = searchParams.get('tab') || 'products';
+  const setActiveTab = (tab: string) => setSearchParams({ tab });
 
   const fetchProject = async () => {
     if (!id) return;
@@ -68,7 +75,6 @@ const ProjectDetail = () => {
 
     if (error) { toast.error(error.message); return; }
 
-    // Create default COGS rows
     if (data) {
       const defaultCogs = [
         { product_id: data.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
@@ -88,7 +94,6 @@ const ProjectDetail = () => {
       ];
       await supabase.from('cogs_items').insert(defaultCogs as any);
 
-      // Default overhead rows
       const defaultOverhead = [
         { product_id: data.id, labor_type: 'Manufacturing', sort_order: 0 },
         { product_id: data.id, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
@@ -100,7 +105,6 @@ const ProjectDetail = () => {
       ];
       await supabase.from('overhead_items').insert(defaultOverhead as any);
 
-      // Create CBM estimate row
       await supabase.from('cbm_estimates').insert({ product_id: data.id } as any);
     }
 
@@ -158,77 +162,96 @@ const ProjectDetail = () => {
           />
         </div>
 
-        {/* Products table */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Products ({products.length})</h2>
-          <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 h-7 text-xs">
-                <Plus className="h-3 w-3" /> Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
-                <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
-                  <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
-                  <SelectContent>
-                    {productTypes.map(pt => (
-                      <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={addProduct} className="w-full">Create Product</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
 
-        {products.length === 0 ? (
-          <Card><CardContent className="py-12 text-center text-muted-foreground">
-            <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
-            <p>No products yet. Add your first product to start costing.</p>
-          </CardContent></Card>
-        ) : (
-          <div className="border rounded-md overflow-auto">
-            <Table className="dense-table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Dims (in)</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit CBM</TableHead>
-                  <TableHead className="text-right">Cost (USD)</TableHead>
-                  <TableHead className="text-right">Price (USD)</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map(p => (
-                  <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50"
-                    onClick={() => navigate(`/product/${p.id}`)}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
-                    <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
-                    <TableCell className="text-right">{fmt.qty(p.quantity)}</TableCell>
-                    <TableCell className="text-right calc-field">—</TableCell>
-                    <TableCell className="text-right calc-field">—</TableCell>
-                    <TableCell className="text-right calc-field">—</TableCell>
-                    <TableCell className="text-center space-x-1">
-                      {statusDot(p.cbm_done)}
-                      {statusDot(p.cogs_done)}
-                      {statusDot(p.overhead_done)}
-                      {statusDot(p.shipping_done)}
-                      {statusDot(p.revenue_done)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+          <TabsContent value="products">
+            {/* Add product button */}
+            <div className="flex items-center justify-between mb-2">
+              <div />
+              <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5 h-7 text-xs">
+                    <Plus className="h-3 w-3" /> Add Product
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
+                    <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
+                      <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
+                      <SelectContent>
+                        {productTypes.map(pt => (
+                          <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addProduct} className="w-full">Create Product</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {products.length === 0 ? (
+              <Card><CardContent className="py-12 text-center text-muted-foreground">
+                <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p>No products yet. Add your first product to start costing.</p>
+              </CardContent></Card>
+            ) : (
+              <div className="border rounded-md overflow-auto">
+                <Table className="dense-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Dims (in)</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Unit CBM</TableHead>
+                      <TableHead className="text-right">Cost (USD)</TableHead>
+                      <TableHead className="text-right">Price (USD)</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map(p => (
+                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50"
+                        onClick={() => navigate(`/product/${p.id}`)}>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
+                        <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
+                        <TableCell className="text-right">{fmt.qty(p.quantity)}</TableCell>
+                        <TableCell className="text-right calc-field">—</TableCell>
+                        <TableCell className="text-right calc-field">—</TableCell>
+                        <TableCell className="text-right calc-field">—</TableCell>
+                        <TableCell className="text-center space-x-1">
+                          {statusDot(p.cbm_done)}
+                          {statusDot(p.cogs_done)}
+                          {statusDot(p.overhead_done)}
+                          {statusDot(p.shipping_done)}
+                          {statusDot(p.revenue_done)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="summary">
+            {id && <ProjectSummary projectId={id} />}
+          </TabsContent>
+
+          <TabsContent value="settings">
+            {id && <ProjectSettingsTab projectId={id} />}
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );

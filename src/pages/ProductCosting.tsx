@@ -407,7 +407,13 @@ const ProductCosting = () => {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/project/${product.project_id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-base font-bold flex-1 truncate">{product.name}</h1>
+          <div className="flex-1">
+            <h1 className="text-base font-bold truncate">{product.name}</h1>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <Link to={`/project/${product.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
+              <Link to={`/project/${product.project_id}?tab=summary`} className="hover:text-foreground hover:underline">View Summary</Link>
+            </div>
+          </div>
           <span className="text-xs text-muted-foreground">
             Cost: {fmt.usd(summary.product_cost_per_unit_usd)} | Price: {fmt.usd(summary.unit_price_usd)}
           </span>
