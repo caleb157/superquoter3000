@@ -406,7 +406,7 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(r => (
+              {sortedRows.map(r => (
                 <TableRow key={r.id} className={excluded.has(r.id) ? 'opacity-40' : ''}>
                   <TableCell>
                     <Checkbox checked={!excluded.has(r.id)} onCheckedChange={() => toggleInclude(r.id)} />
@@ -435,7 +435,14 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                   <TableCell className="text-right font-mono">{fmt.pct(r.npm)}</TableCell>
                   <TableCell className="text-right font-mono">{r.target_price_usd ? fmt.usd(r.target_price_usd) : '—'}</TableCell>
                   <TableCell className="text-center">
-                    <span className={`h-2.5 w-2.5 rounded-full inline-block ${statusColor(r)}`} />
+                    <ProductStatusIndicator
+                      cbm_done={r.cbm_done}
+                      cogs_done={r.cogs_done}
+                      overhead_done={r.overhead_done}
+                      shipping_done={r.shipping_done}
+                      revenue_done={r.revenue_done}
+                      hasReview={r.review_count > 0}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
