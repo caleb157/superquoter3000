@@ -258,7 +258,7 @@ const Dashboard = () => {
                   const agg = projectAggregates[p.id] || { skuCount: 0, totalCbm: 0 };
                   const custName = p.customer_id ? customerMap[p.customer_id]?.name : p.customer_name;
                   return (
-                    <tr key={p.id} className="border-b hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => window.location.href = `/project/${p.id}`}>
+                    <tr key={p.id} className="border-b hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => navigate(`/project/${p.id}`)}>
                       <td className="py-2.5 px-3 font-medium">{p.name}</td>
                       <td className="py-2.5 px-3 text-muted-foreground text-xs">{custName || '—'}</td>
                       <td className="py-2.5 px-3">
