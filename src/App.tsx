@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import Products from "./pages/Products";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
+import CustomerQuote from "./pages/CustomerQuote";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
