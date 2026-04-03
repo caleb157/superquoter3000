@@ -9,11 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2 } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw } from 'lucide-react';
 import * as calc from '@/lib/calculations';
-import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
+import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext, type QuotePDFResult } from '@/lib/exports';
 
 interface ProjectSettingsTabProps {
   projectId: string;
