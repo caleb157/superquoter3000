@@ -33,7 +33,7 @@ const ProjectDetail = () => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
-
+  const [exporting, setExporting] = useState<string | null>(null);
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
 
