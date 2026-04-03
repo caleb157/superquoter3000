@@ -226,15 +226,23 @@ const ProjectDetail = () => {
     const bShip = exportProducts.reduce((s, r) => s + r.total_shipping, 0);
     const bTotal = bCogs + bDoh + bIoh + bShip;
 
+    const allEntities = entRes.data || [];
+    const selectedEntity = ps?.quoting_entity_id
+      ? allEntities.find((e: any) => e.id === ps.quoting_entity_id)
+      : allEntities[0] || null;
+
     return {
       projectName: project.name, customerName: project.customer_name || undefined,
+      customerEmail: project.customer_email || undefined,
+      customerLogoUrl: ps?.customer_logo_url || undefined,
       products: exportProducts,
       aggregates: { skuCount: exportProducts.length, totalQty, totalCbm, totalCost, totalRevenue, totalProfit, weightedGpm, weightedNpm, totalMh, totalReview, fullyCosted, bCogs, bDoh, bIoh, bShip, bTotal },
       exchangeRate,
       quoteTitle: ps?.quote_title, quoteNotes: ps?.quote_notes, quoteValidityDays: ps?.quote_validity_days,
       quoteCurrency: ps?.quote_currency, showCbm: ps?.show_cbm_on_quote ?? true,
       showDimensions: ps?.show_dimensions_on_quote ?? true, showWeight: ps?.show_weight_on_quote ?? false,
-      showSku: ps?.show_sku_on_quote ?? true,
+      showSku: ps?.show_sku_on_quote ?? true, showPhotos: ps?.show_photos_on_quote ?? true,
+      entity: selectedEntity || undefined,
     };
   };
 
