@@ -1,22 +1,42 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { FileText, Copy, RefreshCw, Loader2 } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, Search, CalendarIcon, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { generateCustomerQuotePDF } from '@/lib/exports';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { SortableHeader } from '@/components/SortableHeader';
+import { useTableSort } from '@/hooks/use-table-sort';
+
+const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
 const Quotes = () => {
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [projects, setProjects] = useState<Record<string, string>>({});
   const [entities, setEntities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [filterProject, setFilterProject] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterEntity, setFilterEntity] = useState('all');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
+    storageKey: 'quotes-sort',
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -51,8 +71,6 @@ const Quotes = () => {
     }
   };
 
-  const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
-
   const updateStatus = async (snapId: string, newStatus: string) => {
     const updates: any = { status: newStatus };
     if (newStatus === 'approved') updates.approved_at = new Date().toISOString();
@@ -64,14 +82,143 @@ const Quotes = () => {
     toast.success(`Quote marked as ${newStatus}`);
   };
 
+  const filtered = useMemo(() => {
+    let result = snapshots.filter(snap => {
+      // Search by quote number or project name
+      if (search) {
+        const s = search.toLowerCase();
+        const projName = (snap.project_id ? projects[snap.project_id] : '') || '';
+        const quoteNum = snap.quote_number || '';
+        if (!quoteNum.toLowerCase().includes(s) && !projName.toLowerCase().includes(s)) return false;
+      }
+      if (filterProject !== 'all' && snap.project_id !== filterProject) return false;
+      if (filterStatus !== 'all' && (snap.status || 'draft') !== filterStatus) return false;
+      if (filterEntity !== 'all' && snap.entity_id !== filterEntity) return false;
+      if (dateFrom) {
+        const created = new Date(snap.created_at);
+        if (created < dateFrom) return false;
+      }
+      if (dateTo) {
+        const created = new Date(snap.created_at);
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (created > endOfDay) return false;
+      }
+      return true;
+    });
+
+    const getters: Record<string, (s: any) => string | number> = {
+      quote_number: (s) => (s.quote_number || '').toLowerCase(),
+      project: (s) => (projects[s.project_id] || '').toLowerCase(),
+      entity: (s) => (entities[s.entity_id] || '').toLowerCase(),
+      date: (s) => new Date(s.created_at).getTime(),
+      valid_until: (s) => s.valid_until ? new Date(s.valid_until).getTime() : 0,
+      skus: (s) => (s.totals as any)?.sku_count || 0,
+      qty: (s) => (s.totals as any)?.total_qty || 0,
+      cbm: (s) => (s.totals as any)?.total_cbm || 0,
+      total: (s) => (s.totals as any)?.grand_total || 0,
+      status: (s) => STATUS_OPTIONS.indexOf(s.status || 'draft'),
+    };
+
+    return sortItems(result, getters);
+  }, [snapshots, search, filterProject, filterStatus, filterEntity, dateFrom, dateTo, projects, entities, sortColumn, sortDirection]);
+
+  const projectList = useMemo(() => {
+    const ids = new Set(snapshots.map(s => s.project_id).filter(Boolean));
+    return Array.from(ids).map(id => ({ id, name: projects[id] || 'Unknown' })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [snapshots, projects]);
+
+  const entityList = useMemo(() => {
+    const ids = new Set(snapshots.map(s => s.entity_id).filter(Boolean));
+    return Array.from(ids).map(id => ({ id, name: entities[id] || 'Unknown' })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [snapshots, entities]);
+
+  const hasActiveFilters = search || filterProject !== 'all' || filterStatus !== 'all' || filterEntity !== 'all' || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterProject('all');
+    setFilterStatus('all');
+    setFilterEntity('all');
+    setDateFrom(undefined);
+    setDateTo(undefined);
+  };
+
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-bold">All Quotes</h1>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchData}>
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap mb-4">
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search quote # or project..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+
+          <Select value={filterProject} onValueChange={setFilterProject}>
+            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Projects" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projectList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterEntity} onValueChange={setFilterEntity}>
+            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Entities" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Entities</SelectItem>
+              {entityList.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 min-w-[120px] justify-start", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'From date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 min-w-[120px] justify-start", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="h-3.5 w-3.5" />
+                {dateTo ? format(dateTo, 'MMM d, yyyy') : 'To date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+            </PopoverContent>
+          </Popover>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" /> Clear
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -80,31 +227,33 @@ const Quotes = () => {
               <div className="py-12 flex justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : snapshots.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
-                No quotes generated yet. Generate one from a project's Settings tab.
+                {snapshots.length === 0
+                  ? 'No quotes generated yet. Generate one from a project\'s Settings tab.'
+                  : 'No quotes match the current filters.'}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs">Quote #</TableHead>
-                    <TableHead className="text-xs">Project</TableHead>
-                    <TableHead className="text-xs">Entity</TableHead>
-                    <TableHead className="text-xs">Date</TableHead>
-                    <TableHead className="text-xs">Valid Until</TableHead>
-                    <TableHead className="text-xs text-right">SKUs</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    <TableHead className="text-xs text-right">CBM</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
+                    <SortableHeader column="quote_number" label="Quote #" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="project" label="Project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="entity" label="Entity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="date" label="Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="valid_until" label="Valid Until" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="skus" label="SKUs" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                    <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                    <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                    <SortableHeader column="total" label="Total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                     <TableHead className="text-xs">Currency</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
+                    <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <TableHead className="text-xs">Viewed</TableHead>
                     <TableHead className="text-xs">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {snapshots.map((snap: any) => {
+                  {filtered.map((snap: any) => {
                     const totals = (snap.totals || {}) as any;
                     const sym = snap.currency === 'INR' ? '₹' : '$';
                     const viewedAt = snap.viewed_at ? new Date(snap.viewed_at).toLocaleDateString() : '—';
