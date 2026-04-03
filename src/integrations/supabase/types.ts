@@ -927,6 +927,7 @@ export type Database = {
           project_id: string | null
           quote_number: string | null
           sent_at: string | null
+          share_token: string | null
           status: string | null
           totals: Json | null
           valid_until: string | null
@@ -945,6 +946,7 @@ export type Database = {
           project_id?: string | null
           quote_number?: string | null
           sent_at?: string | null
+          share_token?: string | null
           status?: string | null
           totals?: Json | null
           valid_until?: string | null
@@ -963,6 +965,7 @@ export type Database = {
           project_id?: string | null
           quote_number?: string | null
           sent_at?: string | null
+          share_token?: string | null
           status?: string | null
           totals?: Json | null
           valid_until?: string | null
