@@ -431,6 +431,26 @@ const ProductCosting = () => {
           </span>
         </div>
 
+        {/* Project-level override banner */}
+        {projectSettings && (
+          (() => {
+            const overrides: string[] = [];
+            if (!projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
+              overrides.push(`Custom exchange rate (₹${projectSettings.exchange_rate_override}/USD)`);
+            if (projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
+              overrides.push(`Uniform markup of ${(projectSettings.default_markup_override * 100).toFixed(0)}%`);
+            if (!projectSettings.use_global_shipping && projectSettings.shipping_type_override)
+              overrides.push(`Custom shipping: ${projectSettings.shipping_type_override}`);
+            if (overrides.length === 0) return null;
+            return (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                <span>⚙️</span>
+                <span>{overrides.join(' · ')}</span>
+              </div>
+            );
+          })()
+        )}
+
         {/* Section A: Product Info */}
         <Collapsible open={sections.info} onOpenChange={() => toggle('info')}>
           <CollapsibleTrigger asChild>
