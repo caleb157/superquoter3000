@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { FileText, Copy, RefreshCw, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { buildExportContextForProject } from '@/lib/quoteHelpers';
 import { generateCustomerQuotePDF } from '@/lib/exports';
 
 const Quotes = () => {
