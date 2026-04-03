@@ -314,6 +314,18 @@ const ProductCosting = () => {
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length]);
 
+  // Step 7b: Auto-populate "Auto Transport" non-unit COGS based on finalUnitCbm * qty * rate
+  useEffect(() => {
+    if (!dataLoaded || !globalSettings || !product || finalUnitCbm <= 0) return;
+    const autoTransportRate = (globalSettings as any).auto_transport_cost_per_cbm || 500;
+    const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
+    if (!transportItem) return;
+    const newCost = finalUnitCbm * qty * autoTransportRate;
+    if (Math.abs((transportItem.cost_each_inr || 0) - newCost) < 0.01) return;
+    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, cost_each_inr: newCost } : i));
+    (supabase as any).from('non_unit_cogs').update({ cost_each_inr: newCost }).eq('id', transportItem.id);
+  }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
+
   // Step 8-9: Overhead cost calculations (pure derived, no side effects)
   const ohItems = overheadItems.map(item => ({
     include: item.include,
