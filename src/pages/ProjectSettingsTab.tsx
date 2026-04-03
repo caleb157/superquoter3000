@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2 } from 'lucide-react';
 import * as calc from '@/lib/calculations';
 import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
 
@@ -23,23 +23,27 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const [settings, setSettings] = useState<any>(null);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
   const [projectName, setProjectName] = useState('');
   const [customerName, setCustomerName] = useState('');
-
+  const customerLogoRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const fetchData = async () => {
-      const [settingsRes, gsRes, stRes, projRes] = await Promise.all([
+      const [settingsRes, gsRes, stRes, projRes, entRes] = await Promise.all([
         supabase.from('project_settings').select('*').eq('project_id', projectId).maybeSingle(),
         supabase.from('global_settings').select('*').limit(1).single(),
         supabase.from('shipping_types').select('*').order('name'),
         supabase.from('projects').select('name, customer_name').eq('id', projectId).single(),
+        (supabase as any).from('company_entities').select('*').order('name'),
       ]);
 
       setGlobalSettings(gsRes.data);
       setShippingTypes(stRes.data || []);
+      setEntities(entRes.data || []);
       setProjectName(projRes.data?.name || 'Project');
+      setCustomerName(projRes.data?.customer_name || '');
       setCustomerName(projRes.data?.customer_name || '');
 
       if (settingsRes.data) {
@@ -205,9 +209,15 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       bCogs, bDoh, bIoh, bShip, bTotal,
     };
 
+    // Find entity
+    const selectedEntity = settings?.quoting_entity_id
+      ? entities.find((e: any) => e.id === settings.quoting_entity_id)
+      : entities[0] || null;
+
     return {
       projectName,
       customerName: customerName || undefined,
+      customerLogoUrl: settings?.customer_logo_url || undefined,
       products: exportProducts,
       aggregates,
       exchangeRate,
@@ -219,6 +229,8 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       showDimensions: settings?.show_dimensions_on_quote ?? true,
       showWeight: settings?.show_weight_on_quote ?? false,
       showSku: settings?.show_sku_on_quote ?? true,
+      showPhotos: settings?.show_photos_on_quote ?? true,
+      entity: selectedEntity || undefined,
     };
   };
 
@@ -433,6 +445,71 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
                 </label>
               ))}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quoting Entity */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Quoting Entity</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-xs">Select company entity for this quote</Label>
+            <Select
+              value={settings.quoting_entity_id || ''}
+              onValueChange={v => updateSetting('quoting_entity_id', v || null)}
+            >
+              <SelectTrigger className="h-8 text-sm w-72 mt-1">
+                <SelectValue placeholder="Select entity..." />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {e.name} ({e.entity_type || '?'})
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer Logo */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Customer Logo</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-4">
+          {settings.customer_logo_url ? (
+            <img src={settings.customer_logo_url} alt="Customer logo" className="h-14 w-auto max-w-[180px] object-contain border rounded p-1" />
+          ) : (
+            <div className="h-14 w-28 border border-dashed rounded flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+          )}
+          <div>
+            <input ref={customerLogoRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const ext = file.name.split('.').pop();
+              const path = `${projectId}.${ext}`;
+              const { error: uploadErr } = await supabase.storage.from('customer-logos').upload(path, file, { upsert: true });
+              if (uploadErr) { toast.error(uploadErr.message); return; }
+              const { data: urlData } = supabase.storage.from('customer-logos').getPublicUrl(path);
+              updateSetting('customer_logo_url', urlData.publicUrl);
+              toast.success('Customer logo uploaded');
+            }} />
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => customerLogoRef.current?.click()}>
+              <Upload className="h-3.5 w-3.5" /> Upload Logo
+            </Button>
+            {settings.customer_logo_url && (
+              <Button variant="ghost" size="sm" className="text-destructive ml-2" onClick={() => updateSetting('customer_logo_url', null)}>
+                Remove
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

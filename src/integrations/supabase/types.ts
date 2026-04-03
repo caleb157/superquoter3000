@@ -243,6 +243,87 @@ export type Database = {
           },
         ]
       }
+      company_entities: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          address_line1: string | null
+          address_line2: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          ein_number: string | null
+          email: string | null
+          entity_type: string | null
+          gst_number: string | null
+          id: string
+          ifsc_code: string | null
+          legal_name: string | null
+          logo_url: string | null
+          name: string
+          phone: string | null
+          postal_code: string | null
+          routing_number: string | null
+          state: string | null
+          swift_code: string | null
+          website: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          ein_number?: string | null
+          email?: string | null
+          entity_type?: string | null
+          gst_number?: string | null
+          id?: string
+          ifsc_code?: string | null
+          legal_name?: string | null
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          postal_code?: string | null
+          routing_number?: string | null
+          state?: string | null
+          swift_code?: string | null
+          website?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          ein_number?: string | null
+          email?: string | null
+          entity_type?: string | null
+          gst_number?: string | null
+          id?: string
+          ifsc_code?: string | null
+          legal_name?: string | null
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          postal_code?: string | null
+          routing_number?: string | null
+          state?: string | null
+          swift_code?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           company: string | null
@@ -705,6 +786,7 @@ export type Database = {
           quote_notes: string | null
           quote_title: string | null
           quote_validity_days: number | null
+          quoting_entity_id: string | null
           rfq_discount_percent: number | null
           shipping_type_override: string | null
           show_cbm_on_quote: boolean | null
@@ -728,6 +810,7 @@ export type Database = {
           quote_notes?: string | null
           quote_title?: string | null
           quote_validity_days?: number | null
+          quoting_entity_id?: string | null
           rfq_discount_percent?: number | null
           shipping_type_override?: string | null
           show_cbm_on_quote?: boolean | null
@@ -751,6 +834,7 @@ export type Database = {
           quote_notes?: string | null
           quote_title?: string | null
           quote_validity_days?: number | null
+          quoting_entity_id?: string | null
           rfq_discount_percent?: number | null
           shipping_type_override?: string | null
           show_cbm_on_quote?: boolean | null
@@ -768,6 +852,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_settings_quoting_entity_id_fkey"
+            columns: ["quoting_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
             referencedColumns: ["id"]
           },
         ]
@@ -818,6 +909,78 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_snapshots: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          currency: string | null
+          customer_selections: Json | null
+          entity_id: string | null
+          id: string
+          notes: string | null
+          products: Json | null
+          project_id: string | null
+          quote_number: string | null
+          sent_at: string | null
+          status: string | null
+          totals: Json | null
+          valid_until: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_selections?: Json | null
+          entity_id?: string | null
+          id?: string
+          notes?: string | null
+          products?: Json | null
+          project_id?: string | null
+          quote_number?: string | null
+          sent_at?: string | null
+          status?: string | null
+          totals?: Json | null
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_selections?: Json | null
+          entity_id?: string | null
+          id?: string
+          notes?: string | null
+          products?: Json | null
+          project_id?: string | null
+          quote_number?: string | null
+          sent_at?: string | null
+          status?: string | null
+          totals?: Json | null
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_snapshots_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
