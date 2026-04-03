@@ -126,17 +126,47 @@ const ProductCosting = () => {
   const difficulty = product?.finishing_difficulty || 'Medium';
   const difficultyFactor = calc.getDifficultyFactor(difficulty);
 
+  // IC calcs (needed before auto-populate effects)
+  const icAdd = productType?.ic_addition_per_side_inch || 0.5;
+  const icDims = calc.calcICDimensions(w, d, h, icAdd);
+  const avgBoxCostPerSqIn = boxData.length > 0
+    ? boxData.filter(b => b.cost_per_sq_in > 0).reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) /
+      Math.max(1, boxData.filter(b => b.cost_per_sq_in > 0).length)
+    : 0;
+  const icCost = calc.calcICCostEstimate(icDims.ic_width, icDims.ic_depth, icDims.ic_height, avgBoxCostPerSqIn);
+  const icVolume = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
+  const productsPerIc = cbm?.products_per_ic || 1;
+
+  // MC calcs
+  const includeMc = cbm?.include_mc ?? true;
+  const mcResult = calc.calcMCPacking({
+    include_mc: includeMc,
+    mc_type: cbm?.mc_type || '7 ply',
+    mc_max_width: cbm?.mc_max_width || 25,
+    mc_max_depth: cbm?.mc_max_depth || 25,
+    mc_max_height: cbm?.mc_max_height || 25,
+    mc_buffer_inch: cbm?.mc_buffer_inch || 1,
+    mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20,
+    mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
+    product_weight_kg: product?.weight_kg || 0,
+    quantity: qty,
+    products_per_ic: productsPerIc,
+    ic_width: icDims.ic_width,
+    ic_depth: icDims.ic_depth,
+    ic_height: icDims.ic_height,
+  });
+  const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
+  const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
+
   // Auto-populate finishing materials COGS when product type or dimensions change
   useEffect(() => {
     if (!product || !productType || ri <= 0 || cogsItems.length === 0) return;
 
-    // Find chemical prices
     const colorPrice = chemicalPrices.find(c => c.category === 'Color')?.price_per_litre_inr || 0;
     const sealerPrice = chemicalPrices.find(c => c.category === 'Sealer')?.price_per_litre_inr || 0;
     const lacquerPrice = chemicalPrices.find(c => c.category === 'Lacquer' && c.name.includes('NC'))?.price_per_litre_inr ||
                          chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
 
-    // Finishing material quantities from product type rates
     const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri, ri, percentWood);
     const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri, ri, percentWood);
     const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri, ri, percentWood);
@@ -161,7 +191,6 @@ const ProductCosting = () => {
         if (!upd) return item;
         return { ...item, components_per_product: upd.components_per_product, unit_cost_inr: upd.unit_cost_inr, units: upd.units };
       }));
-      // Persist to DB
       autoUpdates.forEach(upd => {
         (supabase as any).from('cogs_items').update({
           components_per_product: upd.components_per_product,
@@ -204,39 +233,7 @@ const ProductCosting = () => {
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
       });
     }
-  }, [product?.product_type_id, w, d, h, difficulty, percentWood, productType?.id, globalSettings?.id, employees.length, overheadItems.length > 0 ? 'loaded' : 'empty']);
-
-  // IC calcs
-  const icAdd = productType?.ic_addition_per_side_inch || 0.5;
-  const icDims = calc.calcICDimensions(w, d, h, icAdd);
-  const avgBoxCostPerSqIn = boxData.length > 0
-    ? boxData.filter(b => b.cost_per_sq_in > 0).reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) /
-      Math.max(1, boxData.filter(b => b.cost_per_sq_in > 0).length)
-    : 0;
-  const icCost = calc.calcICCostEstimate(icDims.ic_width, icDims.ic_depth, icDims.ic_height, avgBoxCostPerSqIn);
-  const icVolume = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
-  const productsPerIc = cbm?.products_per_ic || 1;
-
-  // MC calcs
-  const includeMc = cbm?.include_mc ?? true;
-  const mcResult = calc.calcMCPacking({
-    include_mc: includeMc,
-    mc_type: cbm?.mc_type || '7 ply',
-    mc_max_width: cbm?.mc_max_width || 25,
-    mc_max_depth: cbm?.mc_max_depth || 25,
-    mc_max_height: cbm?.mc_max_height || 25,
-    mc_buffer_inch: cbm?.mc_buffer_inch || 1,
-    mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20,
-    mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
-    product_weight_kg: product?.weight_kg || 0,
-    quantity: qty,
-    products_per_ic: productsPerIc,
-    ic_width: icDims.ic_width,
-    ic_depth: icDims.ic_depth,
-    ic_height: icDims.ic_height,
-  });
-  const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
-  const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
+  }, [product?.product_type_id, w, d, h, difficulty, percentWood, productType?.id, globalSettings?.id, employees.length, finalUnitCbm, overheadItems.length > 0 ? 'loaded' : 'empty']);
 
   // COGS calculations
   const cogsPerUnit = cogsItems
