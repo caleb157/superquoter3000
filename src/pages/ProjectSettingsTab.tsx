@@ -27,6 +27,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
   const [exporting, setExporting] = useState<string | null>(null);
   const [projectName, setProjectName] = useState('');
   const [customerName, setCustomerName] = useState('');
