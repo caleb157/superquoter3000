@@ -255,7 +255,33 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       switch (type) {
         case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
         case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
-        case 'quote': await generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
+        case 'quote': {
+          const result = await generateCustomerQuotePDF(ctx);
+          // Save snapshot
+          const snapshotProducts = ctx.products.map(p => ({
+            name: p.name, sku: p.sku, quantity: p.quantity,
+            unit_price_usd: p.unit_price_usd, total_usd: p.unit_price_usd * p.quantity,
+            unit_cbm: p.unit_cbm,
+          }));
+          await (supabase as any).from('quote_snapshots').insert({
+            project_id: projectId,
+            entity_id: settings?.quoting_entity_id || null,
+            quote_number: result.quoteNumber,
+            currency: result.currency,
+            valid_until: result.validUntil,
+            status: 'draft',
+            products: snapshotProducts,
+            totals: {
+              grand_total: result.grandTotal,
+              total_qty: ctx.aggregates.totalQty,
+              total_cbm: ctx.aggregates.totalCbm,
+              sku_count: ctx.aggregates.skuCount,
+            },
+          });
+          await fetchSnapshots();
+          toast.success(`Quote ${result.quoteNumber} generated`);
+          break;
+        }
       }
     } catch (err: any) {
       toast.error(`Export failed: ${err.message}`);
