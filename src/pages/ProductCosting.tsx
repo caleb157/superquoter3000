@@ -319,26 +319,24 @@ const ProductCosting = () => {
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
                     if (checked) {
-                      // Add Local Transport COGS row
+                      // Add Local Transport to non-unit COGS
                       const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
-                      const { data } = await (supabase as any).from('cogs_items').insert({
+                      const totalTransport = prePackCbm * transportCost * qty;
+                      const { data } = await (supabase as any).from('non_unit_cogs').insert({
                         product_id: id,
-                        cogs_type: 'Local Transport',
-                        component_name: 'Local Transport',
-                        units: 'CBM',
-                        components_per_product: prePackCbm,
-                        unit_cost_inr: transportCost,
-                        waste_factor: 0,
-                        is_auto_calculated: true,
-                        sort_order: cogsItems.length,
+                        name: 'Local Transport',
+                        total_quantity: 1,
+                        cost_each_inr: totalTransport,
+                        include: 'Yes',
+                        sort_order: nonUnitCogs.length,
                       }).select().single();
-                      if (data) setCogsItems(prev => [...prev, data]);
+                      if (data) setNonUnitCogs(prev => [...prev, data]);
                     } else {
-                      // Remove Local Transport COGS row
-                      const ltItem = cogsItems.find(i => i.cogs_type === 'Local Transport' && i.is_auto_calculated);
+                      // Remove Local Transport non-unit COGS row
+                      const ltItem = nonUnitCogs.find(i => i.name === 'Local Transport');
                       if (ltItem) {
-                        await (supabase as any).from('cogs_items').delete().eq('id', ltItem.id);
-                        setCogsItems(prev => prev.filter(i => i.id !== ltItem.id));
+                        await (supabase as any).from('non_unit_cogs').delete().eq('id', ltItem.id);
+                        setNonUnitCogs(prev => prev.filter(i => i.id !== ltItem.id));
                       }
                     }
                   }}
@@ -346,7 +344,7 @@ const ProductCosting = () => {
                 <div>
                   <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
                   {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM will be added to COGS</p>
+                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM added to non-unit COGS</p>
                   )}
                 </div>
               </div>
