@@ -106,6 +106,18 @@ const ProjectDetail = () => {
       await supabase.from('overhead_items').insert(defaultOverhead as any);
 
       await supabase.from('cbm_estimates').insert({ product_id: data.id } as any);
+
+      // Auto-add "Auto Transport" non-unit COGS
+      const { data: gs } = await supabase.from('global_settings').select('auto_transport_cost_per_cbm').limit(1).single();
+      const autoTransportRate = (gs as any)?.auto_transport_cost_per_cbm || 500;
+      await (supabase as any).from('non_unit_cogs').insert({
+        product_id: data.id,
+        name: 'Auto Transport',
+        total_quantity: 1,
+        cost_each_inr: 0,
+        include: 'Yes',
+        sort_order: 0,
+      });
     }
 
     toast.success('Product created with default BOM');
