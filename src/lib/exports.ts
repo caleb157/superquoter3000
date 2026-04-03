@@ -369,7 +369,14 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
 // Customer Quote PDF — Enhanced with entity header, bank details
 // ============================================================
 
-export async function generateCustomerQuotePDF(ctx: ExportContext) {
+export interface QuotePDFResult {
+  quoteNumber: string;
+  validUntil: string; // ISO date
+  grandTotal: number;
+  currency: string;
+}
+
+export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<QuotePDFResult> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
