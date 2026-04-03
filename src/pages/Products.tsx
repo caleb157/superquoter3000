@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Search, Upload } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
+import { SortableHeader } from '@/components/SortableHeader';
+import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
+import { useTableSort } from '@/hooks/use-table-sort';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -19,23 +22,32 @@ const Products = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
+  const [cogsMap, setCogsMap] = useState<Record<string, any[]>>({});
+  const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterProject, setFilterProject] = useState('all');
   const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [showUploadParse, setShowUploadParse] = useState(false);
   const [uploadProjectId, setUploadProjectId] = useState('');
   const [showProjectPicker, setShowProjectPicker] = useState(false);
 
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
+    storageKey: 'products-sort',
+  });
+
   useEffect(() => {
     const fetchAll = async () => {
-      const [prodRes, projRes, custRes, typesRes, cbmRes] = await Promise.all([
+      const [prodRes, projRes, custRes, typesRes, cbmRes, cogsRes, ohRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('projects').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
+        supabase.from('cogs_items').select('id, product_id, include'),
+        supabase.from('overhead_items').select('id, product_id, include'),
       ]);
       if (prodRes.data) setProducts(prodRes.data);
       if (projRes.data) setProjects(projRes.data);
@@ -46,6 +58,16 @@ const Products = () => {
         cbmRes.data.forEach((c: any) => { if (c.product_id) map[c.product_id] = c; });
         setCbmMap(map);
       }
+      if (cogsRes.data) {
+        const map: Record<string, any[]> = {};
+        cogsRes.data.forEach((c: any) => { if (c.product_id) { if (!map[c.product_id]) map[c.product_id] = []; map[c.product_id].push(c); } });
+        setCogsMap(map);
+      }
+      if (ohRes.data) {
+        const map: Record<string, any[]> = {};
+        ohRes.data.forEach((o: any) => { if (o.product_id) { if (!map[o.product_id]) map[o.product_id] = []; map[o.product_id].push(o); } });
+        setOhMap(map);
+      }
       setLoading(false);
     };
     fetchAll();
@@ -54,27 +76,56 @@ const Products = () => {
   const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c]));
 
-  const filtered = products.filter(p => {
-    if (search) {
-      const s = search.toLowerCase();
-      if (!(p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s))) return false;
-    }
-    if (filterProject !== 'all' && p.project_id !== filterProject) return false;
-    if (filterType !== 'all' && p.product_type_id !== filterType) return false;
-    if (filterCustomer !== 'all') {
-      const proj = projectMap[p.project_id];
-      if (!proj || proj.customer_id !== filterCustomer) return false;
-    }
-    return true;
-  });
-
-  const getStatus = (p: any) => {
-    const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
-    const done = flags.filter(Boolean).length;
-    if (done === 5) return 'green';
-    if (done > 0) return 'yellow';
-    return 'gray';
+  const hasReview = (productId: string) => {
+    const cogs = cogsMap[productId] || [];
+    const oh = ohMap[productId] || [];
+    return cogs.some((c: any) => c.include === 'Review') || oh.some((o: any) => o.include === 'Review');
   };
+
+  const filtered = useMemo(() => {
+    let result = products.filter(p => {
+      if (search) {
+        const s = search.toLowerCase();
+        if (!(p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s))) return false;
+      }
+      if (filterProject !== 'all' && p.project_id !== filterProject) return false;
+      if (filterType !== 'all' && p.product_type_id !== filterType) return false;
+      if (filterCustomer !== 'all') {
+        const proj = projectMap[p.project_id];
+        if (!proj || proj.customer_id !== filterCustomer) return false;
+      }
+      if (filterStatus !== 'all') {
+        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+        const done = flags.filter(Boolean).length;
+        switch (filterStatus) {
+          case 'complete': if (done !== 5) return false; break;
+          case 'in_progress': if (done === 0 || done === 5) return false; break;
+          case 'not_started': if (done !== 0) return false; break;
+          case 'needs_review': if (!hasReview(p.id)) return false; break;
+        }
+      }
+      return true;
+    });
+
+    const getters: Record<string, (p: any) => string | number> = {
+      product: (p) => (p.name || '').toLowerCase(),
+      sku: (p) => (p.sku || '').toLowerCase(),
+      project: (p) => (projectMap[p.project_id]?.name || '').toLowerCase(),
+      customer: (p) => {
+        const proj = projectMap[p.project_id];
+        const cust = proj?.customer_id ? customerMap[proj.customer_id] : null;
+        return (cust?.name || proj?.customer_name || '').toLowerCase();
+      },
+      qty: (p) => p.quantity || 0,
+      unit_cbm: (p) => cbmMap[p.id]?.final_unit_cbm || 0,
+      cost: (p) => 0,
+      price: (p) => 0,
+      status: (p) => getStatusLevel(p),
+    };
+
+    result = sortItems(result, getters);
+    return result;
+  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap]);
 
   return (
     <AppLayout>
@@ -86,7 +137,6 @@ const Products = () => {
           </Button>
         </div>
 
-        {/* Project picker dialog for upload */}
         <Dialog open={showProjectPicker} onOpenChange={setShowProjectPicker}>
           <DialogContent className="max-w-sm">
             <DialogHeader><DialogTitle>Select Project</DialogTitle></DialogHeader>
@@ -111,12 +161,11 @@ const Products = () => {
             productTypes={productTypes}
             onProductsCreated={() => {
               setUploadProjectId('');
-              // refetch
               supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
             }}
           />
         )}
-        
+
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -143,6 +192,16 @@ const Products = () => {
               {productTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="not_started">Not Started</SelectItem>
+              <SelectItem value="needs_review">Needs Review</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
@@ -153,15 +212,15 @@ const Products = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Unit CBM</TableHead>
-                  <TableHead className="text-right">Cost ($)</TableHead>
-                  <TableHead className="text-right">Price ($)</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  <SortableHeader column="project" label="Project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                  <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                  <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                  <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                  <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -169,7 +228,7 @@ const Products = () => {
                   const proj = projectMap[p.project_id];
                   const cust = proj?.customer_id ? customerMap[proj.customer_id] : null;
                   const cbm = cbmMap[p.id];
-                  const status = getStatus(p);
+                  const review = hasReview(p.id);
                   return (
                     <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
                       <TableCell>
@@ -191,9 +250,14 @@ const Products = () => {
                       <TableCell className="text-right text-xs">—</TableCell>
                       <TableCell className="text-right text-xs">—</TableCell>
                       <TableCell className="text-center">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${
-                          status === 'green' ? 'bg-emerald-500' : status === 'yellow' ? 'bg-amber-500' : 'bg-gray-300'
-                        }`} />
+                        <ProductStatusIndicator
+                          cbm_done={p.cbm_done}
+                          cogs_done={p.cogs_done}
+                          overhead_done={p.overhead_done}
+                          shipping_done={p.shipping_done}
+                          revenue_done={p.revenue_done}
+                          hasReview={review}
+                        />
                       </TableCell>
                     </TableRow>
                   );

@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { Package, TrendingUp, Clock, AlertTriangle, Container, BarChart3 } from 'lucide-react';
+import { SortableHeader } from '@/components/SortableHeader';
+import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
+import { useTableSort } from '@/hooks/use-table-sort';
 
 interface ProductSummaryRow {
   id: string;
@@ -56,6 +59,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
   const [rows, setRows] = useState<ProductSummaryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<ProductSummaryRow>({
+    storageKey: 'summary-sort',
+  });
 
   useEffect(() => {
     if (!projectId) return;
@@ -195,7 +201,28 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
     });
   };
 
-  const includedRows = rows.filter(r => !excluded.has(r.id));
+  const sortedRows = useMemo(() => {
+    const getters: Record<string, (r: ProductSummaryRow) => string | number> = {
+      product: (r) => (r.name || '').toLowerCase(),
+      sku: (r) => (r.sku || '').toLowerCase(),
+      qty: (r) => r.quantity,
+      unit_cbm: (r) => r.unit_cbm,
+      total_cbm: (r) => r.total_cbm,
+      cost_inr: (r) => r.unit_cost_inr,
+      cost_usd: (r) => r.unit_cost_usd,
+      price_usd: (r) => r.unit_price_usd,
+      total_cost: (r) => r.total_cost_usd,
+      total_rev: (r) => r.total_revenue_usd,
+      profit: (r) => r.total_profit_usd,
+      gpm: (r) => r.gpm,
+      npm: (r) => r.npm,
+      target: (r) => r.target_price_usd || 0,
+      status: (r) => getStatusLevel(r),
+    };
+    return sortItems(rows, getters);
+  }, [rows, sortColumn, sortDirection]);
+
+  const includedRows = sortedRows.filter(r => !excluded.has(r.id));
 
   // Aggregates
   const agg = useMemo(() => {
@@ -357,29 +384,29 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
       ) : (
         <div className="border rounded-md overflow-auto">
           <Table className="dense-table">
-            <TableHeader>
+             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">✓</TableHead>
                 <TableHead className="w-10">Photo</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Unit CBM</TableHead>
-                <TableHead className="text-right">Total CBM</TableHead>
-                <TableHead className="text-right">Cost (₹)</TableHead>
-                <TableHead className="text-right">Cost ($)</TableHead>
-                <TableHead className="text-right">Price ($)</TableHead>
-                <TableHead className="text-right">Total Cost ($)</TableHead>
-                <TableHead className="text-right">Total Rev ($)</TableHead>
-                <TableHead className="text-right">Profit ($)</TableHead>
-                <TableHead className="text-right">GPM</TableHead>
-                <TableHead className="text-right">NPM</TableHead>
-                <TableHead className="text-right">Target ($)</TableHead>
-                <TableHead className="text-center">Status</TableHead>
+                <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="total_cbm" label="Total CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="cost_inr" label="Cost (₹)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="cost_usd" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="price_usd" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="total_cost" label="Total Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="total_rev" label="Total Rev ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="profit" label="Profit ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="gpm" label="GPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="target" label="Target ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(r => (
+              {sortedRows.map(r => (
                 <TableRow key={r.id} className={excluded.has(r.id) ? 'opacity-40' : ''}>
                   <TableCell>
                     <Checkbox checked={!excluded.has(r.id)} onCheckedChange={() => toggleInclude(r.id)} />
@@ -408,7 +435,14 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                   <TableCell className="text-right font-mono">{fmt.pct(r.npm)}</TableCell>
                   <TableCell className="text-right font-mono">{r.target_price_usd ? fmt.usd(r.target_price_usd) : '—'}</TableCell>
                   <TableCell className="text-center">
-                    <span className={`h-2.5 w-2.5 rounded-full inline-block ${statusColor(r)}`} />
+                    <ProductStatusIndicator
+                      cbm_done={r.cbm_done}
+                      cogs_done={r.cogs_done}
+                      overhead_done={r.overhead_done}
+                      shipping_done={r.shipping_done}
+                      revenue_done={r.revenue_done}
+                      hasReview={r.review_count > 0}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
