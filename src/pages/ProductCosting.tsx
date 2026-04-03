@@ -365,9 +365,13 @@ const ProductCosting = () => {
     qty
   );
 
-  // Step 12: Cost summary
-  const exchangeRate = globalSettings?.exchange_rate || 90;
-  const markupPercent = product?.markup_percent || 0.2;
+  // Step 12: Cost summary — apply project-level overrides
+  const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
+    ? projectSettings.exchange_rate_override
+    : (globalSettings?.exchange_rate || 90);
+  const markupPercent = (projectSettings && projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
+    ? projectSettings.default_markup_override
+    : (product?.markup_percent || 0.2);
   const summary = calc.calcProductCostSummary(
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty
