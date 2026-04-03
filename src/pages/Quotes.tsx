@@ -149,6 +149,10 @@ const Quotes = () => {
                               ))}
                             </SelectContent>
                           </Select>
+                          {approvedAt && (
+                            <p className="text-[9px] text-muted-foreground mt-0.5">Approved {approvedAt}</p>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs">{viewedAt}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
