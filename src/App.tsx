@@ -51,6 +51,11 @@ const App = () => (
                 <ProductCosting />
               </ProtectedRoute>
             } />
+            <Route path="/quotes" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Quotes />
+              </ProtectedRoute>
+            } />
             <Route path="/quote/:token" element={<CustomerQuote />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
