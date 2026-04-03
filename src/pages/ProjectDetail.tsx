@@ -130,12 +130,13 @@ const ProjectDetail = () => {
 
   // Export functionality
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, settingsRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, settingsRes, entRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', id!).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('project_settings').select('*').eq('project_id', id!).maybeSingle(),
+      (supabase as any).from('company_entities').select('*').order('name'),
     ]);
 
     const prods = productsRes.data || [];
