@@ -201,7 +201,28 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
     });
   };
 
-  const includedRows = rows.filter(r => !excluded.has(r.id));
+  const sortedRows = useMemo(() => {
+    const getters: Record<string, (r: ProductSummaryRow) => string | number> = {
+      product: (r) => (r.name || '').toLowerCase(),
+      sku: (r) => (r.sku || '').toLowerCase(),
+      qty: (r) => r.quantity,
+      unit_cbm: (r) => r.unit_cbm,
+      total_cbm: (r) => r.total_cbm,
+      cost_inr: (r) => r.unit_cost_inr,
+      cost_usd: (r) => r.unit_cost_usd,
+      price_usd: (r) => r.unit_price_usd,
+      total_cost: (r) => r.total_cost_usd,
+      total_rev: (r) => r.total_revenue_usd,
+      profit: (r) => r.total_profit_usd,
+      gpm: (r) => r.gpm,
+      npm: (r) => r.npm,
+      target: (r) => r.target_price_usd || 0,
+      status: (r) => getStatusLevel(r),
+    };
+    return sortItems(rows, getters);
+  }, [rows, sortColumn, sortDirection]);
+
+  const includedRows = sortedRows.filter(r => !excluded.has(r.id));
 
   // Aggregates
   const agg = useMemo(() => {
