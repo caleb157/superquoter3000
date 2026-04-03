@@ -315,6 +315,7 @@ const Settings = () => {
                 { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
                 { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
                 { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
+                { key: 'date_quoted', label: 'Date', width: '100px' },
                 { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
                 { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
               ]}
