@@ -339,32 +339,45 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="products">
-            {/* Add product button */}
+            {/* Add product buttons */}
             <div className="flex items-center justify-between mb-2">
               <div />
-              <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-1.5 h-7 text-xs">
-                    <Plus className="h-3 w-3" /> Add Product
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
-                    <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
-                      <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
-                      <SelectContent>
-                        {productTypes.map(pt => (
-                          <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={addProduct} className="w-full">Create Product</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
+                  <Upload className="h-3 w-3" /> Upload & Parse
+                </Button>
+                <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5 h-7 text-xs">
+                      <Plus className="h-3 w-3" /> Add Product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
+                    <div className="space-y-3">
+                      <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
+                      <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
+                        <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
+                        <SelectContent>
+                          {productTypes.map(pt => (
+                            <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={addProduct} className="w-full">Create Product</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
+
+            <UploadParseDialog
+              open={showUploadParse}
+              onOpenChange={setShowUploadParse}
+              projectId={id!}
+              productTypes={productTypes}
+              onProductsCreated={fetchProducts}
+            />
 
             {products.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">
