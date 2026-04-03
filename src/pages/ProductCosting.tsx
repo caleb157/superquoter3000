@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ const ProductCosting = () => {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
+  const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Section open state
@@ -115,6 +116,13 @@ const ProductCosting = () => {
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
+
+      // Fetch project settings if product has a project_id
+      if (prodRes.data?.project_id) {
+        const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', prodRes.data.project_id).maybeSingle();
+        if (ps) setProjectSettings(ps);
+      }
+
       setDataLoaded(true);
     };
     fetchAll();
@@ -357,9 +365,13 @@ const ProductCosting = () => {
     qty
   );
 
-  // Step 12: Cost summary
-  const exchangeRate = globalSettings?.exchange_rate || 90;
-  const markupPercent = product?.markup_percent || 0.2;
+  // Step 12: Cost summary — apply project-level overrides
+  const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
+    ? projectSettings.exchange_rate_override
+    : (globalSettings?.exchange_rate || 90);
+  const markupPercent = (projectSettings && projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
+    ? projectSettings.default_markup_override
+    : (product?.markup_percent || 0.2);
   const summary = calc.calcProductCostSummary(
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty
@@ -407,11 +419,37 @@ const ProductCosting = () => {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/project/${product.project_id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-base font-bold flex-1 truncate">{product.name}</h1>
+          <div className="flex-1">
+            <h1 className="text-base font-bold truncate">{product.name}</h1>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <Link to={`/project/${product.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
+              <Link to={`/project/${product.project_id}?tab=summary`} className="hover:text-foreground hover:underline">View Summary</Link>
+            </div>
+          </div>
           <span className="text-xs text-muted-foreground">
             Cost: {fmt.usd(summary.product_cost_per_unit_usd)} | Price: {fmt.usd(summary.unit_price_usd)}
           </span>
         </div>
+
+        {/* Project-level override banner */}
+        {projectSettings && (
+          (() => {
+            const overrides: string[] = [];
+            if (!projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
+              overrides.push(`Custom exchange rate (₹${projectSettings.exchange_rate_override}/USD)`);
+            if (projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
+              overrides.push(`Uniform markup of ${(projectSettings.default_markup_override * 100).toFixed(0)}%`);
+            if (!projectSettings.use_global_shipping && projectSettings.shipping_type_override)
+              overrides.push(`Custom shipping: ${projectSettings.shipping_type_override}`);
+            if (overrides.length === 0) return null;
+            return (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                <span>⚙️</span>
+                <span>{overrides.join(' · ')}</span>
+              </div>
+            );
+          })()
+        )}
 
         {/* Section A: Product Info */}
         <Collapsible open={sections.info} onOpenChange={() => toggle('info')}>

@@ -689,6 +689,86 @@ export type Database = {
           },
         ]
       }
+      project_settings: {
+        Row: {
+          apply_uniform_markup: boolean | null
+          created_at: string | null
+          customer_logo_url: string | null
+          default_markup_override: number | null
+          exchange_rate_override: number | null
+          id: string
+          project_id: string
+          quote_currency: string | null
+          quote_notes: string | null
+          quote_title: string | null
+          quote_validity_days: number | null
+          rfq_discount_percent: number | null
+          shipping_type_override: string | null
+          show_cbm_on_quote: boolean | null
+          show_dimensions_on_quote: boolean | null
+          show_photos_on_quote: boolean | null
+          show_sku_on_quote: boolean | null
+          show_weight_on_quote: boolean | null
+          updated_at: string | null
+          use_global_exchange_rate: boolean | null
+          use_global_shipping: boolean | null
+        }
+        Insert: {
+          apply_uniform_markup?: boolean | null
+          created_at?: string | null
+          customer_logo_url?: string | null
+          default_markup_override?: number | null
+          exchange_rate_override?: number | null
+          id?: string
+          project_id: string
+          quote_currency?: string | null
+          quote_notes?: string | null
+          quote_title?: string | null
+          quote_validity_days?: number | null
+          rfq_discount_percent?: number | null
+          shipping_type_override?: string | null
+          show_cbm_on_quote?: boolean | null
+          show_dimensions_on_quote?: boolean | null
+          show_photos_on_quote?: boolean | null
+          show_sku_on_quote?: boolean | null
+          show_weight_on_quote?: boolean | null
+          updated_at?: string | null
+          use_global_exchange_rate?: boolean | null
+          use_global_shipping?: boolean | null
+        }
+        Update: {
+          apply_uniform_markup?: boolean | null
+          created_at?: string | null
+          customer_logo_url?: string | null
+          default_markup_override?: number | null
+          exchange_rate_override?: number | null
+          id?: string
+          project_id?: string
+          quote_currency?: string | null
+          quote_notes?: string | null
+          quote_title?: string | null
+          quote_validity_days?: number | null
+          rfq_discount_percent?: number | null
+          shipping_type_override?: string | null
+          show_cbm_on_quote?: boolean | null
+          show_dimensions_on_quote?: boolean | null
+          show_photos_on_quote?: boolean | null
+          show_sku_on_quote?: boolean | null
+          show_weight_on_quote?: boolean | null
+          updated_at?: string | null
+          use_global_exchange_rate?: boolean | null
+          use_global_shipping?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string | null
