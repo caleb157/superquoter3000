@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { Package, TrendingUp, Clock, AlertTriangle, Container, BarChart3 } from 'lucide-react';
+import { SortableHeader } from '@/components/SortableHeader';
+import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
+import { useTableSort } from '@/hooks/use-table-sort';
 
 interface ProductSummaryRow {
   id: string;
