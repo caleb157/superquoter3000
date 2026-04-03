@@ -245,6 +245,7 @@ const Settings = () => {
         <Tabs defaultValue="general">
           <TabsList className="mb-4 flex-wrap h-auto gap-1">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="entities">Company Entities</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="shipping">Shipping</TabsTrigger>
             <TabsTrigger value="product-types">Product Types</TabsTrigger>
@@ -256,6 +257,7 @@ const Settings = () => {
           </TabsList>
 
           <TabsContent value="general"><GeneralSettings /></TabsContent>
+          <TabsContent value="entities"><CompanyEntitiesSettings /></TabsContent>
 
           <TabsContent value="customers">
             <EditableTable
