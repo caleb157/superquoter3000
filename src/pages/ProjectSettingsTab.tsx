@@ -9,11 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2 } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw } from 'lucide-react';
 import * as calc from '@/lib/calculations';
-import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
+import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext, type QuotePDFResult } from '@/lib/exports';
 
 interface ProjectSettingsTabProps {
   projectId: string;
@@ -25,10 +27,19 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
   const [exporting, setExporting] = useState<string | null>(null);
   const [projectName, setProjectName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const customerLogoRef = useRef<HTMLInputElement>(null);
+  const fetchSnapshots = async () => {
+    const { data } = await (supabase as any).from('quote_snapshots')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    setSnapshots(data || []);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       const [settingsRes, gsRes, stRes, projRes, entRes] = await Promise.all([
@@ -44,7 +55,6 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       setEntities(entRes.data || []);
       setProjectName(projRes.data?.name || 'Project');
       setCustomerName(projRes.data?.customer_name || '');
-      setCustomerName(projRes.data?.customer_name || '');
 
       if (settingsRes.data) {
         setSettings(settingsRes.data);
@@ -54,6 +64,8 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         } as any).select().single();
         if (data) setSettings(data);
       }
+
+      await fetchSnapshots();
       setLoading(false);
     };
     fetchData();
@@ -243,7 +255,33 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       switch (type) {
         case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
         case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
-        case 'quote': await generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
+        case 'quote': {
+          const result = await generateCustomerQuotePDF(ctx);
+          // Save snapshot
+          const snapshotProducts = ctx.products.map(p => ({
+            name: p.name, sku: p.sku, quantity: p.quantity,
+            unit_price_usd: p.unit_price_usd, total_usd: p.unit_price_usd * p.quantity,
+            unit_cbm: p.unit_cbm,
+          }));
+          await (supabase as any).from('quote_snapshots').insert({
+            project_id: projectId,
+            entity_id: settings?.quoting_entity_id || null,
+            quote_number: result.quoteNumber,
+            currency: result.currency,
+            valid_until: result.validUntil,
+            status: 'draft',
+            products: snapshotProducts,
+            totals: {
+              grand_total: result.grandTotal,
+              total_qty: ctx.aggregates.totalQty,
+              total_cbm: ctx.aggregates.totalCbm,
+              sku_count: ctx.aggregates.skuCount,
+            },
+          });
+          await fetchSnapshots();
+          toast.success(`Quote ${result.quoteNumber} generated`);
+          break;
+        }
       }
     } catch (err: any) {
       toast.error(`Export failed: ${err.message}`);
@@ -514,7 +552,72 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         </CardContent>
       </Card>
 
-      {/* Actions */}
+      {/* Quote History */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <History className="h-4 w-4" /> Quote History
+          </CardTitle>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchSnapshots}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {snapshots.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No quotes generated yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Quote #</TableHead>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Valid Until</TableHead>
+                  <TableHead className="text-xs">Currency</TableHead>
+                  <TableHead className="text-xs text-right">Total</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshots.map((snap: any) => {
+                  const totals = snap.totals as any;
+                  const sym = snap.currency === 'INR' ? '₹' : '$';
+                  const statusColor = snap.status === 'approved' ? 'default' : snap.status === 'sent' ? 'secondary' : 'outline';
+                  return (
+                    <TableRow key={snap.id}>
+                      <TableCell className="text-xs font-mono">{snap.quote_number || '—'}</TableCell>
+                      <TableCell className="text-xs">{new Date(snap.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs">{snap.valid_until ? new Date(snap.valid_until).toLocaleDateString() : '—'}</TableCell>
+                      <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
+                      <TableCell className="text-xs text-right font-medium">
+                        {totals?.grand_total != null ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusColor as any} className="text-[10px]">{snap.status || 'draft'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                          onClick={async () => {
+                            const ctx = await buildExportContext();
+                            if (!ctx) return;
+                            ctx.quoteNumber = snap.quote_number;
+                            await generateCustomerQuotePDF(ctx);
+                            toast.success('Quote PDF regenerated');
+                          }}
+                        >
+                          <FileText className="h-3 w-3" /> View PDF
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Actions</CardTitle>
