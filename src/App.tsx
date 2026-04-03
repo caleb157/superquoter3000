@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
+import Products from "./pages/Products";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute requireAdmin>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/products" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Products />
               </ProtectedRoute>
             } />
             <Route path="/project/:id" element={
