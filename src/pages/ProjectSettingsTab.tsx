@@ -41,7 +41,9 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
 
       setGlobalSettings(gsRes.data);
       setShippingTypes(stRes.data || []);
+      setEntities(entRes.data || []);
       setProjectName(projRes.data?.name || 'Project');
+      setCustomerName(projRes.data?.customer_name || '');
       setCustomerName(projRes.data?.customer_name || '');
 
       if (settingsRes.data) {
