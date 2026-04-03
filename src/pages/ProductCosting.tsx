@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -27,6 +27,10 @@ const SectionHeader = ({ title, open, onToggle, badge }: { title: string; open: 
   </button>
 );
 
+const AutoCell = ({ children, isAuto }: { children: React.ReactNode; isAuto?: boolean }) => (
+  <span className={isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}>{children}</span>
+);
+
 const ProductCosting = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -44,6 +48,7 @@ const ProductCosting = () => {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Section open state
   const [sections, setSections] = useState({
@@ -110,11 +115,12 @@ const ProductCosting = () => {
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
+      setDataLoaded(true);
     };
     fetchAll();
   }, [id]);
 
-  // Derived calculations
+  // ===== DERIVED CALCULATIONS (Steps 1-12) =====
   const productType = productTypes.find(t => t.id === product?.product_type_id);
   const w = product?.width_inch || 0;
   const d = product?.depth_inch || 0;
@@ -126,22 +132,31 @@ const ProductCosting = () => {
   const difficulty = product?.finishing_difficulty || 'Medium';
   const difficultyFactor = calc.getDifficultyFactor(difficulty);
 
-  // IC calcs (needed before auto-populate effects)
+  // Unique box types for dropdowns
+  const uniqueBoxTypes = useMemo(() => {
+    const types = [...new Set(boxData.map(b => b.box_type))];
+    return types.sort();
+  }, [boxData]);
+
+  const icType = cbm?.ic_type || '7 ply';
+  const mcType = cbm?.mc_type || '7 ply';
+
+  // Step 2 & 3: IC calcs with type-specific cost lookup
   const icAdd = productType?.ic_addition_per_side_inch || 0.5;
   const icDims = calc.calcICDimensions(w, d, h, icAdd);
-  const avgBoxCostPerSqIn = boxData.length > 0
-    ? boxData.filter(b => b.cost_per_sq_in > 0).reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) /
-      Math.max(1, boxData.filter(b => b.cost_per_sq_in > 0).length)
+  const icBoxes = boxData.filter(b => b.box_type === icType && b.cost_per_sq_in > 0);
+  const avgIcCostPerSqIn = icBoxes.length > 0
+    ? icBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / icBoxes.length
     : 0;
-  const icCost = calc.calcICCostEstimate(icDims.ic_width, icDims.ic_depth, icDims.ic_height, avgBoxCostPerSqIn);
+  const icCost = calc.calcICCostEstimate(icDims.ic_width, icDims.ic_depth, icDims.ic_height, avgIcCostPerSqIn);
   const icVolume = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
   const productsPerIc = cbm?.products_per_ic || 1;
 
-  // MC calcs
+  // Step 4: MC calcs with type-specific cost lookup
   const includeMc = cbm?.include_mc ?? true;
   const mcResult = calc.calcMCPacking({
     include_mc: includeMc,
-    mc_type: cbm?.mc_type || '7 ply',
+    mc_type: mcType,
     mc_max_width: cbm?.mc_max_width || 25,
     mc_max_depth: cbm?.mc_max_depth || 25,
     mc_max_height: cbm?.mc_max_height || 25,
@@ -155,28 +170,36 @@ const ProductCosting = () => {
     ic_depth: icDims.ic_depth,
     ic_height: icDims.ic_height,
   });
+
+  // MC cost estimate
+  const mcBoxes = boxData.filter(b => b.box_type === mcType && b.cost_per_sq_in > 0);
+  const avgMcCostPerSqIn = mcBoxes.length > 0
+    ? mcBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / mcBoxes.length
+    : 0;
+  const mcCost = calc.calcICCostEstimate(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, avgMcCostPerSqIn);
+
   const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
-  // Auto-populate finishing materials COGS when product type or dimensions change
+  // Step 5: Auto-populate finishing materials COGS
   useEffect(() => {
-    if (!product || !productType || ri <= 0 || cogsItems.length === 0) return;
+    if (!dataLoaded || !product || !productType || ri <= 0 || cogsItems.length === 0) return;
 
     const colorPrice = chemicalPrices.find(c => c.category === 'Color')?.price_per_litre_inr || 0;
     const sealerPrice = chemicalPrices.find(c => c.category === 'Sealer')?.price_per_litre_inr || 0;
     const lacquerPrice = chemicalPrices.find(c => c.category === 'Lacquer' && c.name.includes('NC'))?.price_per_litre_inr ||
                          chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
 
-    const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri, ri, percentWood);
-    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri, ri, percentWood);
-    const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri, ri, percentWood);
+    const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood);
+    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri || 0, ri, percentWood);
+    const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood);
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
 
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated || item.cogs_type !== 'Finishing Materials') return;
       const name = (item.component_name || '').toLowerCase();
-      if (name.includes('color')) {
+      if (name.includes('color') || name.includes('stain')) {
         autoUpdates.push({ id: item.id, components_per_product: colorQty, unit_cost_inr: colorPrice, units: 'L' });
       } else if (name.includes('sealer')) {
         autoUpdates.push({ id: item.id, components_per_product: sealerQty, unit_cost_inr: sealerPrice, units: 'L' });
@@ -199,17 +222,65 @@ const ProductCosting = () => {
         }).eq('id', upd.id);
       });
     }
-  }, [product?.product_type_id, w, d, h, percentWood, productType?.id, chemicalPrices.length, cogsItems.length > 0 ? 'loaded' : 'empty']);
+  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood]);
 
-  // Auto-populate Finishing and Packaging overhead MH
+  // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
   useEffect(() => {
-    if (!product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
+    if (!dataLoaded || !product || cogsItems.length === 0 || w === 0) return;
 
-    const avgFinishingSandingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
+    const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number }[] = [];
+
+    cogsItems.forEach(item => {
+      if (!item.is_auto_calculated) return;
+      const name = (item.component_name || '').toLowerCase();
+      if (item.cogs_type === 'Packaging' || name.includes('ic box') || name.includes('inner carton')) {
+        updates.push({
+          id: item.id,
+          components_per_product: productsPerIc > 0 ? 1 / productsPerIc : 1,
+          unit_cost_inr: icCost,
+          include: 'Yes',
+          waste_factor: 0.05,
+        });
+      } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
+        const ppmc = mcResult.products_per_mc || 1;
+        updates.push({
+          id: item.id,
+          components_per_product: includeMc && ppmc > 0 ? 1 / ppmc : 0,
+          unit_cost_inr: mcCost,
+          include: includeMc ? 'Yes' : 'No',
+          waste_factor: 0,
+        });
+      }
+    });
+
+    if (updates.length > 0) {
+      setCogsItems(prev => prev.map(item => {
+        const upd = updates.find(u => u.id === item.id);
+        if (!upd) return item;
+        return { ...item, ...upd };
+      }));
+      updates.forEach(upd => {
+        (supabase as any).from('cogs_items').update({
+          components_per_product: upd.components_per_product,
+          unit_cost_inr: upd.unit_cost_inr,
+          include: upd.include,
+          waste_factor: upd.waste_factor,
+        }).eq('id', upd.id);
+      });
+    }
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w]);
+
+  // Step 7: Auto-populate Finishing and Packaging overhead MH
+  useEffect(() => {
+    if (!dataLoaded || !product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
+
+    const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType.contractor_base_rate_per_ri || 0;
     const decrease = globalSettings.contractor_to_inhouse_decrease || 0;
 
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingSandingRate, ri);
+    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
+
+    // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
     const packagingMh = calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
 
     const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
@@ -233,9 +304,42 @@ const ProductCosting = () => {
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
       });
     }
-  }, [product?.product_type_id, w, d, h, difficulty, percentWood, productType?.id, globalSettings?.id, employees.length, finalUnitCbm, overheadItems.length > 0 ? 'loaded' : 'empty']);
+  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length]);
 
-  // COGS calculations
+  // Step 8-9: Overhead cost calculations (pure derived, no side effects)
+  const ohItems = overheadItems.map(item => ({
+    include: item.include,
+    labor_type: item.labor_type,
+    man_hours_per_unit: item.man_hours_per_unit || 0,
+    hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+  }));
+  const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+  const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+  const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
+  const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+
+  // Step 10: Shipping
+  const shipItem = shippingItems[0];
+  const shipType = shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
+  const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+    cost_inr: shipType.cost_inr,
+    per_unit: shipType.per_unit,
+    final_unit_cbm: finalUnitCbm,
+    weight_kg: product?.weight_kg || 0,
+  }) : 0;
+
+  // Auto-assign default shipping type if none set
+  useEffect(() => {
+    if (!dataLoaded || !globalSettings || shippingItems.length > 0 || shippingTypes.length === 0) return;
+    const defaultName = globalSettings.default_shipping_type;
+    const defaultType = shippingTypes.find(s => s.name === defaultName) || shippingTypes[0];
+    if (defaultType && id) {
+      (supabase as any).from('shipping_items').insert({ product_id: id, shipping_type_id: defaultType.id }).select().single()
+        .then(({ data }: any) => { if (data) setShippingItems([data]); });
+    }
+  }, [dataLoaded, globalSettings?.id, shippingTypes.length, shippingItems.length]);
+
+  // COGS calculations (Step 12)
   const cogsPerUnit = cogsItems
     .filter(i => i.include !== 'No')
     .reduce((sum, item) => {
@@ -253,31 +357,7 @@ const ProductCosting = () => {
     qty
   );
 
-  // Overhead calculations
-  const ohItems = overheadItems.map(item => ({
-    include: item.include,
-    labor_type: item.labor_type,
-    man_hours_per_unit: item.man_hours_per_unit || 0,
-    hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
-  }));
-  const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-  const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-
-  // Indirect overhead
-  const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
-  const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-
-  // Shipping
-  const shipItem = shippingItems[0];
-  const shipType = shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
-  const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-    cost_inr: shipType.cost_inr,
-    per_unit: shipType.per_unit,
-    final_unit_cbm: finalUnitCbm,
-    weight_kg: product?.weight_kg || 0,
-  }) : 0;
-
-  // Cost summary
+  // Step 12: Cost summary
   const exchangeRate = globalSettings?.exchange_rate || 90;
   const markupPercent = product?.markup_percent || 0.2;
   const summary = calc.calcProductCostSummary(
@@ -287,14 +367,23 @@ const ProductCosting = () => {
 
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
-    setCogsItems(items => items.map(i => i.id === itemId ? { ...i, [field]: value } : i));
-    await (supabase as any).from('cogs_items').update({ [field]: value }).eq('id', itemId);
+    // If user edits an auto-calculated field, mark it as manual
+    const updates: any = { [field]: value };
+    if (field === 'components_per_product' || field === 'unit_cost_inr') {
+      updates.is_auto_calculated = false;
+    }
+    setCogsItems(items => items.map(i => i.id === itemId ? { ...i, ...updates } : i));
+    await (supabase as any).from('cogs_items').update(updates).eq('id', itemId);
   };
 
   // Overhead item update helper
   const updateOverheadItem = async (itemId: string, field: string, value: any) => {
-    setOverheadItems(items => items.map(i => i.id === itemId ? { ...i, [field]: value } : i));
-    await (supabase as any).from('overhead_items').update({ [field]: value }).eq('id', itemId);
+    const updates: any = { [field]: value };
+    if (field === 'man_hours_per_unit') {
+      updates.is_auto_estimated = false;
+    }
+    setOverheadItems(items => items.map(i => i.id === itemId ? { ...i, ...updates } : i));
+    await (supabase as any).from('overhead_items').update(updates).eq('id', itemId);
   };
 
   // Shipping update
@@ -349,15 +438,15 @@ const ProductCosting = () => {
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Width (in)</label>
-                <Input className="h-7 text-xs" type="number" defaultValue={w} onBlur={e => updateProduct('width_inch', Number(e.target.value))} />
+                <Input className="h-7 text-xs" type="number" defaultValue={w || ''} onBlur={e => updateProduct('width_inch', Number(e.target.value))} />
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Depth (in)</label>
-                <Input className="h-7 text-xs" type="number" defaultValue={d} onBlur={e => updateProduct('depth_inch', Number(e.target.value))} />
+                <Input className="h-7 text-xs" type="number" defaultValue={d || ''} onBlur={e => updateProduct('depth_inch', Number(e.target.value))} />
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Height (in)</label>
-                <Input className="h-7 text-xs" type="number" defaultValue={h} onBlur={e => updateProduct('height_inch', Number(e.target.value))} />
+                <Input className="h-7 text-xs" type="number" defaultValue={h || ''} onBlur={e => updateProduct('height_inch', Number(e.target.value))} />
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Weight (kg)</label>
@@ -402,7 +491,6 @@ const ProductCosting = () => {
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
                     if (checked) {
-                      // Add Local Transport to non-unit COGS
                       const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
                       const totalTransport = prePackCbm * transportCost * qty;
                       const { data } = await (supabase as any).from('non_unit_cogs').insert({
@@ -415,7 +503,6 @@ const ProductCosting = () => {
                       }).select().single();
                       if (data) setNonUnitCogs(prev => [...prev, data]);
                     } else {
-                      // Remove Local Transport non-unit COGS row
                       const ltItem = nonUnitCogs.find(i => i.name === 'Local Transport');
                       if (ltItem) {
                         await (supabase as any).from('non_unit_cogs').delete().eq('id', ltItem.id);
@@ -442,7 +529,18 @@ const ProductCosting = () => {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-6 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">IC Type</label>
+                  <Select value={icType} onValueChange={v => updateCbm('ic_type', v)}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {uniqueBoxTypes.map(bt => (
+                        <SelectItem key={bt} value={bt}>{bt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Products/IC</label>
                   <Input className="h-7 text-xs" type="number" defaultValue={productsPerIc} onBlur={e => updateCbm('products_per_ic', parseInt(e.target.value))} />
@@ -465,9 +563,23 @@ const ProductCosting = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Checkbox checked={includeMc} onCheckedChange={(v) => updateCbm('include_mc', !!v)} />
-                <span className="text-xs font-medium">Include Master Carton (MC)</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={includeMc} onCheckedChange={(v) => updateCbm('include_mc', !!v)} />
+                  <span className="text-xs font-medium">Include Master Carton (MC)</span>
+                </div>
+                {includeMc && (
+                  <div className="w-36">
+                    <Select value={mcType} onValueChange={v => updateCbm('mc_type', v)}>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {uniqueBoxTypes.map(bt => (
+                          <SelectItem key={bt} value={bt}>{bt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {includeMc && (
@@ -496,7 +608,7 @@ const ProductCosting = () => {
               )}
 
               {includeMc && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <div><label className="text-[10px] text-muted-foreground">Layout (W×D×H)</label>
                     <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_w}×{mcResult.mc_ics_along_d}×{mcResult.mc_ics_along_h}</span>
                   </div>
@@ -509,8 +621,25 @@ const ProductCosting = () => {
                   <div><label className="text-[10px] text-muted-foreground">MC Volume</label>
                     <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(mcResult.mc_volume_cbm)}</span>
                   </div>
+                  <div><label className="text-[10px] text-muted-foreground">MC Cost</label>
+                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
+                  </div>
                   <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
                     <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                  </div>
+                </div>
+              )}
+
+              {!includeMc && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div><label className="text-[10px] text-muted-foreground">IC Volume</label>
+                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(icVolume)}</span>
+                  </div>
+                  <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
+                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                  </div>
+                  <div><label className="text-[10px] text-muted-foreground">Total CBM</label>
+                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(totalCbm)}</span>
                   </div>
                 </div>
               )}
@@ -547,8 +676,9 @@ const ProductCosting = () => {
                       unit_cost_inr: item.unit_cost_inr || 0,
                       waste_factor: item.waste_factor || 0,
                     });
+                    const isAuto = item.is_auto_calculated;
                     return (
-                      <TableRow key={item.id} className={item.include === 'No' ? 'opacity-40' : ''}>
+                      <TableRow key={item.id} className={`${item.include === 'No' ? 'opacity-40' : ''} ${isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                         <TableCell>
                           <Select value={item.include || 'Yes'} onValueChange={v => updateCogsItem(item.id, 'include', v)}>
                             <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>
@@ -559,9 +689,12 @@ const ProductCosting = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-[10px] text-muted-foreground">{item.cogs_type}</TableCell>
+                        <TableCell className="text-[10px] text-muted-foreground">
+                          {item.cogs_type}
+                          {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
+                        </TableCell>
                         <TableCell>
-                          <Input className="h-6 text-xs border-transparent hover:border-input" defaultValue={item.component_name || ''}
+                          <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}
                             onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
                         </TableCell>
                         <TableCell>
@@ -570,13 +703,21 @@ const ProductCosting = () => {
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">
-                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-14" type="number"
-                            defaultValue={item.components_per_product || 0}
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-14 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                            value={item.components_per_product ?? 0}
+                            onChange={e => {
+                              const v = Number(e.target.value);
+                              setCogsItems(items => items.map(i => i.id === item.id ? { ...i, components_per_product: v, is_auto_calculated: false } : i));
+                            }}
                             onBlur={e => updateCogsItem(item.id, 'components_per_product', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-18" type="number"
-                            defaultValue={item.unit_cost_inr || 0}
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-18 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                            value={item.unit_cost_inr ?? 0}
+                            onChange={e => {
+                              const v = Number(e.target.value);
+                              setCogsItems(items => items.map(i => i.id === item.id ? { ...i, unit_cost_inr: v, is_auto_calculated: false } : i));
+                            }}
                             onBlur={e => updateCogsItem(item.id, 'unit_cost_inr', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
@@ -584,7 +725,7 @@ const ProductCosting = () => {
                             defaultValue={(item.waste_factor || 0) * 100}
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
-                        <TableCell className="text-right calc-field">{fmt.inr(costCalc.unit_cost)}</TableCell>
+                        <TableCell className="text-right calc-field font-mono text-xs">{fmt.inr(costCalc.unit_cost)}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -677,8 +818,9 @@ const ProductCosting = () => {
                 {overheadItems.map(item => {
                   const rate = calc.avgRateByDesignation(employees, item.labor_type);
                   const unitCost = (item.man_hours_per_unit || 0) * rate;
+                  const isAuto = item.is_auto_estimated;
                   return (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} className={isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
                       <TableCell>
                         <Select value={item.include || 'Yes'} onValueChange={v => updateOverheadItem(item.id, 'include', v)}>
                           <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>
@@ -689,11 +831,15 @@ const ProductCosting = () => {
                         </Select>
                       </TableCell>
                       <TableCell className="text-xs font-medium">{item.labor_type}
-                        {item.is_auto_estimated && <Badge variant="secondary" className="ml-1 text-[8px] h-4">Auto</Badge>}
+                        {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Input className="h-6 text-xs text-right border-transparent hover:border-input w-16" type="number"
-                          defaultValue={item.man_hours_per_unit || 0}
+                        <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-16 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                          value={item.man_hours_per_unit ?? 0}
+                          onChange={e => {
+                            const v = Number(e.target.value);
+                            setOverheadItems(items => items.map(i => i.id === item.id ? { ...i, man_hours_per_unit: v, is_auto_estimated: false } : i));
+                          }}
                           onBlur={e => updateOverheadItem(item.id, 'man_hours_per_unit', Number(e.target.value))} />
                       </TableCell>
                       <TableCell className="text-right calc-field">{fmt.hrs((item.man_hours_per_unit || 0) * qty)}</TableCell>
@@ -738,6 +884,10 @@ const ProductCosting = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="text-xs">
+                <span className="text-muted-foreground">Unit CBM:</span>{' '}
+                <span className="font-mono">{fmt.cbm(finalUnitCbm)}</span>
               </div>
               <div className="text-xs">
                 <span className="text-muted-foreground">Unit Cost:</span>{' '}
@@ -835,6 +985,16 @@ const ProductCosting = () => {
                   <span className="font-mono font-semibold">{fmt.pct(summary.npm)}</span>
                 </div>
               </div>
+
+              {/* Target price comparison */}
+              {product.target_price_usd && (
+                <div className="flex items-center gap-4 text-xs border-t pt-2">
+                  <span className="text-muted-foreground">Target: {fmt.usd(product.target_price_usd)}</span>
+                  <span className={summary.unit_price_usd <= product.target_price_usd ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                    {summary.unit_price_usd <= product.target_price_usd ? '✓ Under target' : '✗ Over target'} by {fmt.usd(Math.abs(summary.unit_price_usd - product.target_price_usd))}
+                  </span>
+                </div>
+              )}
 
               {/* Completion checklist */}
               <div className="flex items-center gap-4 border-t pt-3">
