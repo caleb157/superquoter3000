@@ -241,7 +241,7 @@ const ProductCosting = () => {
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated) return;
       const name = (item.component_name || '').toLowerCase();
-      if (item.cogs_type === 'Packaging' || name.includes('ic box') || name.includes('inner carton')) {
+      if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
         updates.push({
           id: item.id,
           components_per_product: productsPerIc > 0 ? 1 / productsPerIc : 1,
