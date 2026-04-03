@@ -35,6 +35,7 @@ const ProjectDetail = () => {
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
+  const [showUploadParse, setShowUploadParse] = useState(false);
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
 
