@@ -675,4 +675,11 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
 
   const filename = `${ctx.projectName.replace(/[^a-zA-Z0-9]/g, '_')}_quote.pdf`;
   doc.save(filename);
+
+  return {
+    quoteNumber,
+    validUntil: validDate.toISOString().split('T')[0],
+    grandTotal,
+    currency,
+  };
 }
