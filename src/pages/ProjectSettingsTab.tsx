@@ -11,7 +11,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import * as calc from '@/lib/calculations';
+import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
 
 interface ProjectSettingsTabProps {
   projectId: string;
@@ -22,22 +24,27 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState('');
+  const [customerName, setCustomerName] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
-      const [settingsRes, gsRes, stRes] = await Promise.all([
+      const [settingsRes, gsRes, stRes, projRes] = await Promise.all([
         supabase.from('project_settings').select('*').eq('project_id', projectId).maybeSingle(),
         supabase.from('global_settings').select('*').limit(1).single(),
         supabase.from('shipping_types').select('*').order('name'),
+        supabase.from('projects').select('name, customer_name').eq('id', projectId).single(),
       ]);
 
       setGlobalSettings(gsRes.data);
       setShippingTypes(stRes.data || []);
+      setProjectName(projRes.data?.name || 'Project');
+      setCustomerName(projRes.data?.customer_name || '');
 
       if (settingsRes.data) {
         setSettings(settingsRes.data);
       } else {
-        // Create default settings
         const { data } = await supabase.from('project_settings').insert({
           project_id: projectId,
         } as any).select().single();
@@ -53,6 +60,183 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
     setSettings((s: any) => ({ ...s, [field]: value }));
     const { error } = await supabase.from('project_settings').update({ [field]: value } as any).eq('id', settings.id);
     if (error) toast.error('Failed to save setting');
+  };
+
+  // Fetch all product data for export
+  const buildExportContext = async (): Promise<ExportContext | null> => {
+    const [productsRes, gsRes, empRes, stRes, boxRes] = await Promise.all([
+      supabase.from('products').select('*').eq('project_id', projectId).order('sort_order'),
+      supabase.from('global_settings').select('*').limit(1).single(),
+      supabase.from('labor_employees').select('*'),
+      supabase.from('shipping_types').select('*'),
+      supabase.from('box_data').select('*'),
+    ]);
+
+    const products = productsRes.data || [];
+    const gs = gsRes.data;
+    const employees = empRes.data || [];
+    const shTypes = stRes.data || [];
+
+    // Use project-level exchange rate override if set
+    const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
+      ? settings.exchange_rate_override : (gs?.exchange_rate || 90);
+
+    const productIds = products.map((p: any) => p.id);
+    if (productIds.length === 0) { toast.error('No products to export'); return null; }
+
+    const [cogsRes, nucRes, ohRes, shipRes, cbmRes] = await Promise.all([
+      supabase.from('cogs_items').select('*').in('product_id', productIds),
+      supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
+      supabase.from('overhead_items').select('*').in('product_id', productIds),
+      supabase.from('shipping_items').select('*').in('product_id', productIds),
+      supabase.from('cbm_estimates').select('*').in('product_id', productIds),
+    ]);
+
+    const allCogs = cogsRes.data || [];
+    const allNuc = nucRes.data || [];
+    const allOh = ohRes.data || [];
+    const allShip = shipRes.data || [];
+    const allCbm = cbmRes.data || [];
+
+    const exportProducts: ExportProduct[] = products.map((p: any) => {
+      const cbmEst = allCbm.find((c: any) => c.product_id === p.id);
+      const pCogs = allCogs.filter((c: any) => c.product_id === p.id);
+      const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
+      const pOh = allOh.filter((c: any) => c.product_id === p.id);
+      const pShip = allShip.filter((c: any) => c.product_id === p.id);
+      const qty = p.quantity || 100;
+
+      const unit_cbm = cbmEst?.final_unit_cbm || 0;
+      const total_cbm = unit_cbm * qty;
+
+      const cogsPerUnit = pCogs
+        .filter((i: any) => i.include !== 'No')
+        .reduce((sum: number, item: any) => {
+          const c = calc.calcCogsItemCost({
+            include: item.include, components_per_product: item.components_per_product || 0,
+            unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+          });
+          return sum + c.unit_cost;
+        }, 0);
+
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+        pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty
+      );
+
+      const ohItems = pOh.map((item: any) => ({
+        include: item.include, labor_type: item.labor_type,
+        man_hours_per_unit: item.man_hours_per_unit || 0,
+        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+      }));
+      const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+      const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+      const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+      const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+
+      const shipItem = pShip[0];
+      const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+      const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+        cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
+        final_unit_cbm: unit_cbm, weight_kg: p.weight_kg || 0,
+      }) : 0;
+
+      const markupPercent = (settings?.apply_uniform_markup && settings.default_markup_override != null)
+        ? settings.default_markup_override : (p.markup_percent || 0.2);
+
+      const summary = calc.calcProductCostSummary(
+        cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+        shippingPerUnit, markupPercent, exchangeRate, qty
+      );
+
+      const reviewCount = pCogs.filter((i: any) => i.include === 'Review').length +
+        pOh.filter((i: any) => i.include === 'Review').length;
+
+      let remaining_to_target_inr: number | null = null;
+      if (p.target_price_usd && summary.unit_price_usd > 0) {
+        const targetCostRatio = summary.product_cost_per_unit_inr / summary.unit_price_inr;
+        remaining_to_target_inr = (p.target_price_usd * targetCostRatio - summary.product_cost_per_unit_usd) * exchangeRate;
+      }
+
+      return {
+        name: p.name, sku: p.sku, quantity: qty,
+        target_price_usd: p.target_price_usd, markup_percent: markupPercent,
+        cbm_done: p.cbm_done, cogs_done: p.cogs_done,
+        overhead_done: p.overhead_done, shipping_done: p.shipping_done, revenue_done: p.revenue_done,
+        unit_cbm, total_cbm,
+        unit_cost_inr: summary.product_cost_per_unit_inr,
+        unit_cost_usd: summary.product_cost_per_unit_usd,
+        unit_price_usd: summary.unit_price_usd,
+        total_cost_usd: summary.product_cost_per_unit_usd * qty,
+        total_revenue_usd: summary.unit_price_usd * qty,
+        total_profit_usd: (summary.unit_price_usd - summary.product_cost_per_unit_usd) * qty,
+        gpm: summary.gpm, npm: summary.npm,
+        remaining_to_target_inr,
+        total_direct_mh: totalDirectMhPerUnit * qty,
+        total_cogs: (cogsPerUnit + nonUnitCogsPerUnit) * qty,
+        total_direct_oh: directOhPerUnit * qty,
+        total_indirect_oh: indirectOhPerUnit * qty,
+        total_shipping: shippingPerUnit * qty,
+        review_count: reviewCount,
+        width_inch: p.width_inch, depth_inch: p.depth_inch, height_inch: p.height_inch,
+        weight_kg: p.weight_kg, finishing_difficulty: p.finishing_difficulty,
+      };
+    });
+
+    // Aggregates
+    const totalQty = exportProducts.reduce((s, r) => s + r.quantity, 0);
+    const totalCbm = exportProducts.reduce((s, r) => s + r.total_cbm, 0);
+    const totalCost = exportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
+    const totalRevenue = exportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
+    const totalProfit = exportProducts.reduce((s, r) => s + r.total_profit_usd, 0);
+    const weightedGpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.gpm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const weightedNpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.npm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const totalMh = exportProducts.reduce((s, r) => s + r.total_direct_mh, 0);
+    const totalReview = exportProducts.reduce((s, r) => s + r.review_count, 0);
+    const fullyCosted = exportProducts.filter(r => r.cbm_done && r.cogs_done && r.overhead_done && r.shipping_done && r.revenue_done).length;
+    const bCogs = exportProducts.reduce((s, r) => s + r.total_cogs, 0);
+    const bDoh = exportProducts.reduce((s, r) => s + r.total_direct_oh, 0);
+    const bIoh = exportProducts.reduce((s, r) => s + r.total_indirect_oh, 0);
+    const bShip = exportProducts.reduce((s, r) => s + r.total_shipping, 0);
+    const bTotal = bCogs + bDoh + bIoh + bShip;
+
+    const aggregates: ExportAggregates = {
+      skuCount: exportProducts.length, totalQty, totalCbm, totalCost, totalRevenue,
+      totalProfit, weightedGpm, weightedNpm, totalMh, totalReview, fullyCosted,
+      bCogs, bDoh, bIoh, bShip, bTotal,
+    };
+
+    return {
+      projectName,
+      customerName: customerName || undefined,
+      products: exportProducts,
+      aggregates,
+      exchangeRate,
+      quoteTitle: settings?.quote_title,
+      quoteNotes: settings?.quote_notes,
+      quoteValidityDays: settings?.quote_validity_days,
+      quoteCurrency: settings?.quote_currency,
+      showCbm: settings?.show_cbm_on_quote ?? true,
+      showDimensions: settings?.show_dimensions_on_quote ?? true,
+      showWeight: settings?.show_weight_on_quote ?? false,
+      showSku: settings?.show_sku_on_quote ?? true,
+    };
+  };
+
+  const handleExport = async (type: 'excel' | 'pdf' | 'quote') => {
+    setExporting(type);
+    try {
+      const ctx = await buildExportContext();
+      if (!ctx) { setExporting(null); return; }
+
+      switch (type) {
+        case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
+        case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
+        case 'quote': generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
+      }
+    } catch (err: any) {
+      toast.error(`Export failed: ${err.message}`);
+    }
+    setExporting(null);
   };
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading settings...</div>;
@@ -259,16 +443,18 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
           <CardTitle className="text-sm">Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button variant="outline" size="sm" className="gap-1.5" disabled>
-            <Download className="h-3.5 w-3.5" /> Download Summary PDF
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleExport('pdf')} disabled={!!exporting}>
+            {exporting === 'pdf' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Download Summary PDF
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" disabled>
-            <FileText className="h-3.5 w-3.5" /> Generate Customer Quote
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleExport('quote')} disabled={!!exporting}>
+            {exporting === 'quote' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            Generate Customer Quote
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" disabled>
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Export to Excel
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleExport('excel')} disabled={!!exporting}>
+            {exporting === 'excel' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+            Export to Excel
           </Button>
-          <p className="text-[10px] text-muted-foreground w-full mt-1">Export features coming soon</p>
         </CardContent>
       </Card>
     </div>
