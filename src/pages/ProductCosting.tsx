@@ -604,6 +604,8 @@ const ProductCosting = () => {
                   )}
                 </div>
               </div>
+                </div>
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
