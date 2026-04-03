@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw, Link2, Copy } from 'lucide-react';
 import * as calc from '@/lib/calculations';
 import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext, type QuotePDFResult } from '@/lib/exports';
 
@@ -595,7 +595,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
                       <TableCell>
                         <Badge variant={statusColor as any} className="text-[10px]">{snap.status || 'draft'}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="flex gap-1">
                         <Button
                           variant="ghost" size="sm" className="text-xs h-7 gap-1"
                           onClick={async () => {
@@ -606,8 +606,20 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
                             toast.success('Quote PDF regenerated');
                           }}
                         >
-                          <FileText className="h-3 w-3" /> View PDF
+                          <FileText className="h-3 w-3" /> PDF
                         </Button>
+                        {snap.share_token && (
+                          <Button
+                            variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                            onClick={() => {
+                              const url = `${window.location.origin}/quote/${snap.share_token}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success('Share link copied!');
+                            }}
+                          >
+                            <Copy className="h-3 w-3" /> Link
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

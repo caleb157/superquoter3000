@@ -1,67 +1,47 @@
 
+# Customer Portal — Shareable Quote Builder
 
-# DKT Costing App — Phase 1 Plan
+## Architecture
+- **Public route**: `/quote/:token` — no login required
+- **Token**: Use the existing `quote_snapshots` table, adding a `share_token` column (UUID)
+- **Data access**: Edge function `get-quote` returns quote data by token (bypasses RLS)
+- **Customer actions**: Adjust quantities, select variants, confirm order → saved back to `customer_selections` on the snapshot
 
-## 1. Auth & Role-Based Routing
-- Supabase Auth with email magic links
-- `profiles` table (display name, avatar) + `user_roles` table with `app_role` enum (`admin`, `team`, `guest`)
-- `has_role()` security definer function for RLS policies
-- `project_invitations` table for guest access
-- Role-based routing: admin/team → dashboard, guest → their quote
-- Login page with magic link flow
+## Database Changes
+1. Add `share_token` (unique UUID, auto-generated) to `quote_snapshots`
+2. Add `share_url` computed from token for display
 
-## 2. Database & Seed Data
-- Create all reference/settings tables: `global_settings`, `shipping_types`, `product_types`, `box_data`, `labor_employees`, `chemical_prices`, `hardware_prices`, `wood_prices`
-- Create project/product tables: `projects`, `products`, `product_variants`, `cbm_estimates`, `cogs_items`, `non_unit_cogs`, `overhead_items`, `shipping_items`
-- RLS policies on every table (admin/team full access, guests read-only on invited projects)
-- Seed product types (12 types with rates), global settings, shipping types (4), and default employees (5)
+## Edge Function: `get-quote`
+- GET with `?token=xxx` → returns quote snapshot + entity + product details
+- POST with `?token=xxx` → saves customer selections (quantities, variants, confirmation)
+- No JWT required (public access)
 
-## 3. Global Settings Pages (Admin Only)
-- Settings page with tabs for each reference table
-- Inline-editable data tables (shadcn Table) with add/delete row for:
-  - General settings (exchange rate, laborers, hours, overhead, etc.)
-  - Shipping Types, Product Types, Box Data, Employees, Chemical Prices, Hardware Prices, Wood Prices
-- Employee designation tags as multi-select
+## Frontend Pages
 
-## 4. Project List & Detail
-- **Dashboard**: Project list with status badges, quick stats, create project button
-- **Project Detail**: Header with customer info, logo upload (Supabase Storage), status management
-- Product table showing: thumbnail, name, SKU, dims, qty, unit CBM, unit cost USD, unit price USD, completion dots
-- Add product, bulk actions (markup%, shipping type, status flags)
+### `/quote/:token` — Customer Quote Portal
+1. **Header**: Entity logo, entity name, quote number, validity date
+2. **Product Cards Grid**: Each card shows:
+   - Product photo (if available)
+   - Name, SKU, dimensions, unit price
+   - Quantity adjuster (±, with MOQ minimum)
+   - Variant selector (if variants exist)
+   - Line total auto-calculated
+3. **Sidebar / Bottom Bar**:
+   - Order summary: total items, total CBM, total value
+   - **Container Fill Visualization**: Animated bar showing % of 20ft/40ft/40HC filled
+   - Confirm Order button
+4. **Order Confirmation Modal**:
+   - Summary of selected products + quantities
+   - Customer name/email input
+   - "Confirm Order" → saves to `customer_selections` on snapshot, updates status to `approved`
+   - Thank you screen
 
-## 5. Calculation Engine (`/src/lib/calculations.ts`)
-- Pure TypeScript functions for all business logic:
-  - Volume & packing (IC/MC dimensions, costs, CBM)
-  - COGS per item, finishing materials auto-calc, packaging auto-calc
-  - Labor/overhead with auto-estimates (finishing, packaging)
-  - Indirect overhead
-  - Shipping (per CBM or KG)
-  - Cost summary, pricing, margins (GPM/NPM)
-  - Variant pricing (wood price factor adjustment)
-- All functions are pure, testable, and dependency-chained
+### Project Settings Updates
+- "Copy Share Link" button next to each quote in history
+- Generate share token when creating a quote
 
-## 6. Product Costing Page — The Core Workspace
-- Single scrollable page with 8 collapsible sections (A–H)
-- **Section A** (Product Info): Name, SKU, photo upload, dims, weight, product type, difficulty, percent wood, auto-displayed pre-packaged CBM & running inches
-- **Section B** (CBM Calculator): IC config with auto-calc dims/cost, MC toggle with packing layout, final unit CBM, total CBM
-- **Section C** (COGS/BOM): Spreadsheet-style table with auto-generated default rows (raw pieces, subcontracting, finishing chemicals, packaging, hardware, accessories). Inline editing, add/delete rows. Auto-calculated finishing materials from chemical rates × running inches × percent wood
-- **Section D** (Non-Unit COGS): Simple add/remove table
-- **Section E** (Direct Overhead): Labor table with auto-estimated finishing and packaging rows, employee rate lookups
-- **Section F** (Indirect Overhead): Auto-calculated display
-- **Section G** (Shipping): Dropdown + auto-calc, override toggle
-- **Section H** (Cost & Revenue Summary): Full breakdown in INR/USD with markup input, totals, margins, completion checklist toggles
-- **Real-time recalculation**: All fields chain-update instantly as inputs change (spreadsheet feel)
-- **Auto-save**: Debounced save on field blur with toast feedback
-- Dense, tab-navigable layout using shadcn Table components — not card forms
-
-## 7. Project Summary
-- Aggregated stats across all products in a project: total CBM, total cost, total revenue, margins
-- Per-product row summary for quick overview
-
-## UI Patterns Throughout
-- Units on every number (₹, $, CBM, inch, kg, hrs, L, pc)
-- Formatted numbers (2 decimal currency, integer quantities, 1 decimal percentages)
-- Status colors: green=complete, yellow=review, red=issue, gray=not started
-- Toast notifications for save/error
-- Desktop-first responsive layout
-
+## UI Design
+- Clean, professional, customer-facing aesthetic
+- No cost/margin data exposed — only prices
+- Responsive (works on mobile for customer viewing)
+- Brand colors from entity
