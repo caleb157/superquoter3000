@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Loader2, Upload, Building2, History, RefreshCw, Link2, Copy } from 'lucide-react';
 import * as calc from '@/lib/calculations';
 import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext, type QuotePDFResult } from '@/lib/exports';
 
