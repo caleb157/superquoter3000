@@ -24,6 +24,9 @@ const Products = () => {
   const [filterProject, setFilterProject] = useState('all');
   const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [showUploadParse, setShowUploadParse] = useState(false);
+  const [uploadProjectId, setUploadProjectId] = useState('');
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
