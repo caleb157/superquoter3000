@@ -509,7 +509,10 @@ const ProductCosting = () => {
                   )}
                 </div>
                 <div className="flex-1 grid grid-cols-4 gap-2">
-
+              <div>
+                <label className="text-[10px] text-muted-foreground">Name</label>
+                <Input className="h-7 text-xs" defaultValue={product.name} onBlur={e => updateProduct('name', e.target.value)} />
+              </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">SKU</label>
                 <Input className="h-7 text-xs" defaultValue={product.sku || ''} onBlur={e => updateProduct('sku', e.target.value)} />
