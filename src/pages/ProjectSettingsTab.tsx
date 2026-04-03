@@ -32,6 +32,14 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
   const [projectName, setProjectName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const customerLogoRef = useRef<HTMLInputElement>(null);
+  const fetchSnapshots = async () => {
+    const { data } = await (supabase as any).from('quote_snapshots')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    setSnapshots(data || []);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       const [settingsRes, gsRes, stRes, projRes, entRes] = await Promise.all([
@@ -47,7 +55,6 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       setEntities(entRes.data || []);
       setProjectName(projRes.data?.name || 'Project');
       setCustomerName(projRes.data?.customer_name || '');
-      setCustomerName(projRes.data?.customer_name || '');
 
       if (settingsRes.data) {
         setSettings(settingsRes.data);
@@ -57,6 +64,8 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         } as any).select().single();
         if (data) setSettings(data);
       }
+
+      await fetchSnapshots();
       setLoading(false);
     };
     fetchData();
