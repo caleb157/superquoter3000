@@ -441,6 +441,71 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         </CardContent>
       </Card>
 
+      {/* Quoting Entity */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Quoting Entity</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-xs">Select company entity for this quote</Label>
+            <Select
+              value={settings.quoting_entity_id || ''}
+              onValueChange={v => updateSetting('quoting_entity_id', v || null)}
+            >
+              <SelectTrigger className="h-8 text-sm w-72 mt-1">
+                <SelectValue placeholder="Select entity..." />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {e.name} ({e.entity_type || '?'})
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer Logo */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Customer Logo</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-4">
+          {settings.customer_logo_url ? (
+            <img src={settings.customer_logo_url} alt="Customer logo" className="h-14 w-auto max-w-[180px] object-contain border rounded p-1" />
+          ) : (
+            <div className="h-14 w-28 border border-dashed rounded flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+          )}
+          <div>
+            <input ref={customerLogoRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const ext = file.name.split('.').pop();
+              const path = `${projectId}.${ext}`;
+              const { error: uploadErr } = await supabase.storage.from('customer-logos').upload(path, file, { upsert: true });
+              if (uploadErr) { toast.error(uploadErr.message); return; }
+              const { data: urlData } = supabase.storage.from('customer-logos').getPublicUrl(path);
+              updateSetting('customer_logo_url', urlData.publicUrl);
+              toast.success('Customer logo uploaded');
+            }} />
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => customerLogoRef.current?.click()}>
+              <Upload className="h-3.5 w-3.5" /> Upload Logo
+            </Button>
+            {settings.customer_logo_url && (
+              <Button variant="ghost" size="sm" className="text-destructive ml-2" onClick={() => updateSetting('customer_logo_url', null)}>
+                Remove
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Actions */}
       <Card>
         <CardHeader className="pb-3">
