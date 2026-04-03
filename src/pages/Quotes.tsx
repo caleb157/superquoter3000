@@ -45,9 +45,23 @@ const Quotes = () => {
     switch (status) {
       case 'approved': return 'default';
       case 'sent': return 'secondary';
+      case 'expired': return 'destructive';
       case 'draft': return 'outline';
       default: return 'outline';
     }
+  };
+
+  const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
+
+  const updateStatus = async (snapId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'approved') updates.approved_at = new Date().toISOString();
+    if (newStatus === 'sent') updates.sent_at = new Date().toISOString();
+
+    const { error } = await (supabase as any).from('quote_snapshots').update(updates).eq('id', snapId);
+    if (error) { toast.error('Failed to update status'); return; }
+    setSnapshots(prev => prev.map(s => s.id === snapId ? { ...s, ...updates } : s));
+    toast.success(`Quote marked as ${newStatus}`);
   };
 
   return (
