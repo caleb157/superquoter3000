@@ -116,6 +116,13 @@ const ProductCosting = () => {
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
+
+      // Fetch project settings if product has a project_id
+      if (prodRes.data?.project_id) {
+        const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', prodRes.data.project_id).maybeSingle();
+        if (ps) setProjectSettings(ps);
+      }
+
       setDataLoaded(true);
     };
     fetchAll();
