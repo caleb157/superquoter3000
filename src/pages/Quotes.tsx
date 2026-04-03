@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { FileText, Copy, RefreshCw, Loader2 } from 'lucide-react';
@@ -44,9 +45,23 @@ const Quotes = () => {
     switch (status) {
       case 'approved': return 'default';
       case 'sent': return 'secondary';
+      case 'expired': return 'destructive';
       case 'draft': return 'outline';
       default: return 'outline';
     }
+  };
+
+  const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
+
+  const updateStatus = async (snapId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'approved') updates.approved_at = new Date().toISOString();
+    if (newStatus === 'sent') updates.sent_at = new Date().toISOString();
+
+    const { error } = await (supabase as any).from('quote_snapshots').update(updates).eq('id', snapId);
+    if (error) { toast.error('Failed to update status'); return; }
+    setSnapshots(prev => prev.map(s => s.id === snapId ? { ...s, ...updates } : s));
+    toast.success(`Quote marked as ${newStatus}`);
   };
 
   return (
@@ -122,11 +137,20 @@ const Quotes = () => {
                         </TableCell>
                         <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
                         <TableCell>
-                          <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
-                            {snap.status || 'draft'}
-                          </Badge>
+                          <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
+                            <SelectTrigger className="h-7 w-24 text-[10px] p-1">
+                              <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
+                                {snap.status || 'draft'}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUS_OPTIONS.map(s => (
+                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {approvedAt && (
-                            <p className="text-[9px] text-muted-foreground mt-0.5">{approvedAt}</p>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">Approved {approvedAt}</p>
                           )}
                         </TableCell>
                         <TableCell className="text-xs">{viewedAt}</TableCell>
