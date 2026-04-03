@@ -43,6 +43,7 @@ const ProductCosting = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
+  const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
 
   // Section open state
   const [sections, setSections] = useState({
@@ -83,7 +84,7 @@ const ProductCosting = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -95,6 +96,7 @@ const ProductCosting = () => {
         (supabase as any).from('labor_employees').select('*'),
         (supabase as any).from('global_settings').select('*').limit(1).single(),
         (supabase as any).from('box_data').select('*'),
+        (supabase as any).from('chemical_prices').select('*'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -107,6 +109,7 @@ const ProductCosting = () => {
       if (empRes.data) setEmployees(empRes.data);
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
+      if (chemRes.data) setChemicalPrices(chemRes.data);
     };
     fetchAll();
   }, [id]);
@@ -119,8 +122,11 @@ const ProductCosting = () => {
   const qty = product?.quantity || 100;
   const ri = calc.runningInches(w, d, h);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
+  const percentWood = product?.percent_wood || 1;
+  const difficulty = product?.finishing_difficulty || 'Medium';
+  const difficultyFactor = calc.getDifficultyFactor(difficulty);
 
-  // IC calcs
+  // IC calcs (needed before auto-populate effects)
   const icAdd = productType?.ic_addition_per_side_inch || 0.5;
   const icDims = calc.calcICDimensions(w, d, h, icAdd);
   const avgBoxCostPerSqIn = boxData.length > 0
@@ -151,6 +157,83 @@ const ProductCosting = () => {
   });
   const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
+
+  // Auto-populate finishing materials COGS when product type or dimensions change
+  useEffect(() => {
+    if (!product || !productType || ri <= 0 || cogsItems.length === 0) return;
+
+    const colorPrice = chemicalPrices.find(c => c.category === 'Color')?.price_per_litre_inr || 0;
+    const sealerPrice = chemicalPrices.find(c => c.category === 'Sealer')?.price_per_litre_inr || 0;
+    const lacquerPrice = chemicalPrices.find(c => c.category === 'Lacquer' && c.name.includes('NC'))?.price_per_litre_inr ||
+                         chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
+
+    const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri, ri, percentWood);
+    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri, ri, percentWood);
+    const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri, ri, percentWood);
+
+    const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
+
+    cogsItems.forEach(item => {
+      if (!item.is_auto_calculated || item.cogs_type !== 'Finishing Materials') return;
+      const name = (item.component_name || '').toLowerCase();
+      if (name.includes('color')) {
+        autoUpdates.push({ id: item.id, components_per_product: colorQty, unit_cost_inr: colorPrice, units: 'L' });
+      } else if (name.includes('sealer')) {
+        autoUpdates.push({ id: item.id, components_per_product: sealerQty, unit_cost_inr: sealerPrice, units: 'L' });
+      } else if (name.includes('lacquer')) {
+        autoUpdates.push({ id: item.id, components_per_product: lacquerQty, unit_cost_inr: lacquerPrice, units: 'L' });
+      }
+    });
+
+    if (autoUpdates.length > 0) {
+      setCogsItems(prev => prev.map(item => {
+        const upd = autoUpdates.find(u => u.id === item.id);
+        if (!upd) return item;
+        return { ...item, components_per_product: upd.components_per_product, unit_cost_inr: upd.unit_cost_inr, units: upd.units };
+      }));
+      autoUpdates.forEach(upd => {
+        (supabase as any).from('cogs_items').update({
+          components_per_product: upd.components_per_product,
+          unit_cost_inr: upd.unit_cost_inr,
+          units: upd.units,
+        }).eq('id', upd.id);
+      });
+    }
+  }, [product?.product_type_id, w, d, h, percentWood, productType?.id, chemicalPrices.length, cogsItems.length > 0 ? 'loaded' : 'empty']);
+
+  // Auto-populate Finishing and Packaging overhead MH
+  useEffect(() => {
+    if (!product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
+
+    const avgFinishingSandingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
+    const contractorRate = productType.contractor_base_rate_per_ri || 0;
+    const decrease = globalSettings.contractor_to_inhouse_decrease || 0;
+
+    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingSandingRate, ri);
+    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+
+    const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
+
+    overheadItems.forEach(item => {
+      if (!item.is_auto_estimated) return;
+      if (item.labor_type === 'Finishing' && finishingMh > 0) {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
+      } else if (item.labor_type === 'Packaging' && packagingMh > 0) {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(packagingMh.toFixed(4)) });
+      }
+    });
+
+    if (ohUpdates.length > 0) {
+      setOverheadItems(prev => prev.map(item => {
+        const upd = ohUpdates.find(u => u.id === item.id);
+        if (!upd) return item;
+        return { ...item, man_hours_per_unit: upd.man_hours_per_unit };
+      }));
+      ohUpdates.forEach(upd => {
+        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
+      });
+    }
+  }, [product?.product_type_id, w, d, h, difficulty, percentWood, productType?.id, globalSettings?.id, employees.length, finalUnitCbm, overheadItems.length > 0 ? 'loaded' : 'empty']);
 
   // COGS calculations
   const cogsPerUnit = cogsItems
@@ -319,26 +402,24 @@ const ProductCosting = () => {
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
                     if (checked) {
-                      // Add Local Transport COGS row
+                      // Add Local Transport to non-unit COGS
                       const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
-                      const { data } = await (supabase as any).from('cogs_items').insert({
+                      const totalTransport = prePackCbm * transportCost * qty;
+                      const { data } = await (supabase as any).from('non_unit_cogs').insert({
                         product_id: id,
-                        cogs_type: 'Local Transport',
-                        component_name: 'Local Transport',
-                        units: 'CBM',
-                        components_per_product: prePackCbm,
-                        unit_cost_inr: transportCost,
-                        waste_factor: 0,
-                        is_auto_calculated: true,
-                        sort_order: cogsItems.length,
+                        name: 'Local Transport',
+                        total_quantity: 1,
+                        cost_each_inr: totalTransport,
+                        include: 'Yes',
+                        sort_order: nonUnitCogs.length,
                       }).select().single();
-                      if (data) setCogsItems(prev => [...prev, data]);
+                      if (data) setNonUnitCogs(prev => [...prev, data]);
                     } else {
-                      // Remove Local Transport COGS row
-                      const ltItem = cogsItems.find(i => i.cogs_type === 'Local Transport' && i.is_auto_calculated);
+                      // Remove Local Transport non-unit COGS row
+                      const ltItem = nonUnitCogs.find(i => i.name === 'Local Transport');
                       if (ltItem) {
-                        await (supabase as any).from('cogs_items').delete().eq('id', ltItem.id);
-                        setCogsItems(prev => prev.filter(i => i.id !== ltItem.id));
+                        await (supabase as any).from('non_unit_cogs').delete().eq('id', ltItem.id);
+                        setNonUnitCogs(prev => prev.filter(i => i.id !== ltItem.id));
                       }
                     }
                   }}
@@ -346,7 +427,7 @@ const ProductCosting = () => {
                 <div>
                   <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
                   {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM will be added to COGS</p>
+                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM added to non-unit COGS</p>
                   )}
                 </div>
               </div>
