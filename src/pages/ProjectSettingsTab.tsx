@@ -552,7 +552,72 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         </CardContent>
       </Card>
 
-      {/* Actions */}
+      {/* Quote History */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <History className="h-4 w-4" /> Quote History
+          </CardTitle>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={fetchSnapshots}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {snapshots.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No quotes generated yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Quote #</TableHead>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Valid Until</TableHead>
+                  <TableHead className="text-xs">Currency</TableHead>
+                  <TableHead className="text-xs text-right">Total</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshots.map((snap: any) => {
+                  const totals = snap.totals as any;
+                  const sym = snap.currency === 'INR' ? '₹' : '$';
+                  const statusColor = snap.status === 'approved' ? 'default' : snap.status === 'sent' ? 'secondary' : 'outline';
+                  return (
+                    <TableRow key={snap.id}>
+                      <TableCell className="text-xs font-mono">{snap.quote_number || '—'}</TableCell>
+                      <TableCell className="text-xs">{new Date(snap.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs">{snap.valid_until ? new Date(snap.valid_until).toLocaleDateString() : '—'}</TableCell>
+                      <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
+                      <TableCell className="text-xs text-right font-medium">
+                        {totals?.grand_total != null ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusColor as any} className="text-[10px]">{snap.status || 'draft'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                          onClick={async () => {
+                            const ctx = await buildExportContext();
+                            if (!ctx) return;
+                            ctx.quoteNumber = snap.quote_number;
+                            await generateCustomerQuotePDF(ctx);
+                            toast.success('Quote PDF regenerated');
+                          }}
+                        >
+                          <FileText className="h-3 w-3" /> View PDF
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Actions</CardTitle>
