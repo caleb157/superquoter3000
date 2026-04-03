@@ -314,6 +314,18 @@ const ProductCosting = () => {
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length]);
 
+  // Step 7b: Auto-populate "Auto Transport" non-unit COGS based on finalUnitCbm * qty * rate
+  useEffect(() => {
+    if (!dataLoaded || !globalSettings || !product || finalUnitCbm <= 0) return;
+    const autoTransportRate = (globalSettings as any).auto_transport_cost_per_cbm || 500;
+    const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
+    if (!transportItem) return;
+    const newCost = finalUnitCbm * qty * autoTransportRate;
+    if (Math.abs((transportItem.cost_each_inr || 0) - newCost) < 0.01) return;
+    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, cost_each_inr: newCost } : i));
+    (supabase as any).from('non_unit_cogs').update({ cost_each_inr: newCost }).eq('id', transportItem.id);
+  }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
+
   // Step 8-9: Overhead cost calculations (pure derived, no side effects)
   const ohItems = overheadItems.map(item => ({
     include: item.include,
@@ -700,7 +712,7 @@ const ProductCosting = () => {
                     <TableHead>Component</TableHead>
                     <TableHead className="w-20">Vendor</TableHead>
                     <TableHead className="w-12">Units</TableHead>
-                    <TableHead className="w-16 text-right">Qty/Prod</TableHead>
+                    <TableHead className="w-24 text-right">Qty/Prod</TableHead>
                     <TableHead className="w-20 text-right">Cost (₹)</TableHead>
                     <TableHead className="w-14 text-right">Waste%</TableHead>
                     <TableHead className="w-20 text-right">Unit Cost</TableHead>
@@ -741,7 +753,7 @@ const ProductCosting = () => {
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">
-                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-14 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-20 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                             value={item.components_per_product ?? 0}
                             onChange={e => {
                               const v = Number(e.target.value);
