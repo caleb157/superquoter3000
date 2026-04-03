@@ -6,7 +6,7 @@ interface UseSortOptions {
   storageKey?: string;
 }
 
-export function useTableSort<T>(items: T[], opts?: UseSortOptions) {
+export function useTableSort<T>(opts?: UseSortOptions) {
   const storageKey = opts?.storageKey;
 
   const [sortColumn, setSortColumn] = useState<string | null>(() => {
