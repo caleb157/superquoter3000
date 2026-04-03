@@ -25,20 +25,20 @@ function EditableTable<T extends { id: string }>({
   const [editingRow, setEditingRow] = useState<string | null>(null);
 
   const addRow = async () => {
-    const { data: newRow, error } = await supabase.from(tableName).insert(defaultRow as any).select().single();
+    const { data: newRow, error } = await (supabase.from(tableName) as any).insert(defaultRow).select().single();
     if (error) { toast.error(error.message); return; }
     fetchData();
     toast.success('Row added');
   };
 
   const updateField = async (id: string, field: string, value: any) => {
-    const { error } = await supabase.from(tableName).update({ [field]: value } as any).eq('id', id);
+    const { error } = await (supabase.from(tableName) as any).update({ [field]: value }).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setData(data.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
   const deleteRow = async (id: string) => {
-    const { error } = await supabase.from(tableName).delete().eq('id', id);
+    const { error } = await (supabase.from(tableName) as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     fetchData();
     toast.success('Row deleted');
