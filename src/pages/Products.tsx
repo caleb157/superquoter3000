@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Upload } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
+import { UploadParseDialog } from '@/components/UploadParseDialog';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -21,6 +24,9 @@ const Products = () => {
   const [filterProject, setFilterProject] = useState('all');
   const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [showUploadParse, setShowUploadParse] = useState(false);
+  const [uploadProjectId, setUploadProjectId] = useState('');
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -73,7 +79,43 @@ const Products = () => {
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-4">
-        <h1 className="text-lg font-bold">All Products</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold">All Products</h1>
+          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowProjectPicker(true)}>
+            <Upload className="h-3 w-3" /> Upload & Parse
+          </Button>
+        </div>
+
+        {/* Project picker dialog for upload */}
+        <Dialog open={showProjectPicker} onOpenChange={setShowProjectPicker}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader><DialogTitle>Select Project</DialogTitle></DialogHeader>
+            <p className="text-xs text-muted-foreground">Choose which project to add parsed products to:</p>
+            <Select value={uploadProjectId} onValueChange={setUploadProjectId}>
+              <SelectTrigger><SelectValue placeholder="Select a project..." /></SelectTrigger>
+              <SelectContent>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button disabled={!uploadProjectId} onClick={() => { setShowProjectPicker(false); setShowUploadParse(true); }}>
+              Continue
+            </Button>
+          </DialogContent>
+        </Dialog>
+
+        {uploadProjectId && (
+          <UploadParseDialog
+            open={showUploadParse}
+            onOpenChange={setShowUploadParse}
+            projectId={uploadProjectId}
+            productTypes={productTypes}
+            onProductsCreated={() => {
+              setUploadProjectId('');
+              // refetch
+              supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
+            }}
+          />
+        )}
         
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
