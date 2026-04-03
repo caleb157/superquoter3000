@@ -209,9 +209,15 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       bCogs, bDoh, bIoh, bShip, bTotal,
     };
 
+    // Find entity
+    const selectedEntity = settings?.quoting_entity_id
+      ? entities.find((e: any) => e.id === settings.quoting_entity_id)
+      : entities[0] || null;
+
     return {
       projectName,
       customerName: customerName || undefined,
+      customerLogoUrl: settings?.customer_logo_url || undefined,
       products: exportProducts,
       aggregates,
       exchangeRate,
@@ -223,6 +229,8 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       showDimensions: settings?.show_dimensions_on_quote ?? true,
       showWeight: settings?.show_weight_on_quote ?? false,
       showSku: settings?.show_sku_on_quote ?? true,
+      showPhotos: settings?.show_photos_on_quote ?? true,
+      entity: selectedEntity || undefined,
     };
   };
 
