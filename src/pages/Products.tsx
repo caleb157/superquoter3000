@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import * as calc from '@/lib/calculations';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ const Products = () => {
   const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
   const [cogsMap, setCogsMap] = useState<Record<string, any[]>>({});
   const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
+  const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterProject, setFilterProject] = useState('all');
@@ -40,34 +42,85 @@ const Products = () => {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [prodRes, projRes, custRes, typesRes, cbmRes, cogsRes, ohRes] = await Promise.all([
+      const [prodRes, projRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes, psRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         supabase.from('projects').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
-        supabase.from('cogs_items').select('id, product_id, include'),
-        supabase.from('overhead_items').select('id, product_id, include'),
+        supabase.from('cogs_items').select('*'),
+        supabase.from('overhead_items').select('*'),
+        supabase.from('global_settings').select('*').limit(1).single(),
+        supabase.from('labor_employees').select('*'),
+        supabase.from('shipping_types').select('*'),
+        supabase.from('non_unit_cogs').select('*'),
+        supabase.from('shipping_items').select('*'),
+        supabase.from('project_settings').select('*'),
       ]);
-      if (prodRes.data) setProducts(prodRes.data);
+      const prods = prodRes.data || [];
+      const gs = gsRes.data;
+      const employees = empRes.data || [];
+      const shTypes = stRes.data || [];
+      const allNuc = nucRes.data || [];
+      const allShip = shipRes.data || [];
+      const allCogs = cogsRes.data || [];
+      const allOh = ohRes.data || [];
+      const allCbm = cbmRes.data || [];
+      const allPs = psRes.data || [];
+
+      setProducts(prods);
       if (projRes.data) setProjects(projRes.data);
       if (custRes.data) setCustomers(custRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
-      if (cbmRes.data) {
-        const map: Record<string, any> = {};
-        cbmRes.data.forEach((c: any) => { if (c.product_id) map[c.product_id] = c; });
-        setCbmMap(map);
-      }
-      if (cogsRes.data) {
-        const map: Record<string, any[]> = {};
-        cogsRes.data.forEach((c: any) => { if (c.product_id) { if (!map[c.product_id]) map[c.product_id] = []; map[c.product_id].push(c); } });
-        setCogsMap(map);
-      }
-      if (ohRes.data) {
-        const map: Record<string, any[]> = {};
-        ohRes.data.forEach((o: any) => { if (o.product_id) { if (!map[o.product_id]) map[o.product_id] = []; map[o.product_id].push(o); } });
-        setOhMap(map);
-      }
+
+      const cbm: Record<string, any> = {};
+      allCbm.forEach((c: any) => { if (c.product_id) cbm[c.product_id] = c; });
+      setCbmMap(cbm);
+
+      const cogsM: Record<string, any[]> = {};
+      allCogs.forEach((c: any) => { if (c.product_id) { if (!cogsM[c.product_id]) cogsM[c.product_id] = []; cogsM[c.product_id].push(c); } });
+      setCogsMap(cogsM);
+
+      const ohM: Record<string, any[]> = {};
+      allOh.forEach((o: any) => { if (o.product_id) { if (!ohM[o.product_id]) ohM[o.product_id] = []; ohM[o.product_id].push(o); } });
+      setOhMap(ohM);
+
+      // Build per-project settings map
+      const psMap: Record<string, any> = {};
+      allPs.forEach((s: any) => { psMap[s.project_id] = s; });
+
+      // Compute cost/price per product
+      const cMap: Record<string, { cost_usd: number; price_usd: number }> = {};
+      prods.forEach((p: any) => {
+        const cbmEst = cbm[p.id];
+        const pCogs = cogsM[p.id] || [];
+        const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
+        const pOh = ohM[p.id] || [];
+        const pShip = allShip.filter((c: any) => c.product_id === p.id);
+        const ps = psMap[p.project_id];
+        const qty = p.quantity || 100;
+        const unit_cbm = cbmEst?.final_unit_cbm || 0;
+        const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override) ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
+
+        const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
+          const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
+          return sum + c.unit_cost;
+        }, 0);
+        const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty);
+        const ohItems = pOh.map((item: any) => ({ include: item.include, labor_type: item.labor_type, man_hours_per_unit: item.man_hours_per_unit || 0, hourly_rate: calc.avgRateByDesignation(employees, item.labor_type) }));
+        const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+        const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+        const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs as any) : 0;
+        const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+        const shipItem = pShip[0];
+        const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+        const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG', final_unit_cbm: unit_cbm, weight_kg: p.weight_kg || 0 }) : 0;
+        const markupPercent = (ps?.apply_uniform_markup && ps.default_markup_override != null) ? ps.default_markup_override : (p.markup_percent || 0.2);
+        const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
+        cMap[p.id] = { cost_usd: summary.product_cost_per_unit_usd, price_usd: summary.unit_price_usd };
+      });
+      setCostDataMap(cMap);
+
       setLoading(false);
     };
     fetchAll();
@@ -118,14 +171,14 @@ const Products = () => {
       },
       qty: (p) => p.quantity || 0,
       unit_cbm: (p) => cbmMap[p.id]?.final_unit_cbm || 0,
-      cost: (p) => 0,
-      price: (p) => 0,
+      cost: (p) => costDataMap[p.id]?.cost_usd || 0,
+      price: (p) => costDataMap[p.id]?.price_usd || 0,
       status: (p) => getStatusLevel(p),
     };
 
     result = sortItems(result, getters);
     return result;
-  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap]);
+  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap, costDataMap]);
 
   return (
     <AppLayout>
@@ -247,8 +300,8 @@ const Products = () => {
                       <TableCell className="text-xs">{cust?.name || proj?.customer_name || '—'}</TableCell>
                       <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
                       <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
-                      <TableCell className="text-right text-xs">—</TableCell>
-                      <TableCell className="text-right text-xs">—</TableCell>
+                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
+                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
                       <TableCell className="text-center">
                         <ProductStatusIndicator
                           cbm_done={p.cbm_done}
