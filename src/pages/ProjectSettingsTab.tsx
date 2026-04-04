@@ -127,7 +127,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       // Use persisted CBM, or compute on-the-fly as fallback
       let unit_cbm = cbmEst?.final_unit_cbm || 0;
       if (unit_cbm === 0 && p.width_inch && p.depth_inch && p.height_inch) {
-        const ptType = (window as any).__productTypes?.find((t: any) => t.id === p.product_type_id);
+        const ptType = productTypes.find((t: any) => t.id === p.product_type_id);
         const icAdd = ptType?.ic_addition_per_side_inch || 0.5;
         const icDims = calc.calcICDimensions(p.width_inch, p.depth_inch, p.height_inch, icAdd);
         const icVol = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
