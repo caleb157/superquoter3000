@@ -12,6 +12,7 @@ import Products from "./pages/Products";
 import Customers from "./pages/Customers";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
+import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
 import RfqList from "./pages/RfqList";
