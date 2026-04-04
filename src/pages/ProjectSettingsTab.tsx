@@ -93,6 +93,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
     const gs = gsRes.data;
     const employees = empRes.data || [];
     const shTypes = stRes.data || [];
+    const productTypes = ptRes.data || [];
 
     // Use project-level exchange rate override if set
     const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
