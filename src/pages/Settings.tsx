@@ -224,6 +224,7 @@ const Settings = () => {
   const [hardware, setHardware] = useState<any[]>([]);
   const [woodPrices, setWoodPrices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
 
   const fetchAll = () => {
     supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data));
@@ -234,6 +235,7 @@ const Settings = () => {
     supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
     supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data));
     (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data));
+    (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -247,6 +249,7 @@ const Settings = () => {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="entities">Company Entities</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
+            <TabsTrigger value="vendors">Vendors</TabsTrigger>
             <TabsTrigger value="shipping">Shipping</TabsTrigger>
             <TabsTrigger value="product-types">Product Types</TabsTrigger>
             <TabsTrigger value="box-data">Box Data</TabsTrigger>
