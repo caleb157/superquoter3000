@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core", "@radix-ui/react-tooltip"],
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom", "@radix-ui/react-tooltip"],
   },
 }));
