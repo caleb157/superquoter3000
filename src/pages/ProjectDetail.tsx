@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus } from 'lucide-react';
+import { BulkPhotoUpload } from '@/components/BulkPhotoUpload';
 import { ProjectRfqTab } from '@/components/ProjectRfqTab';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -498,6 +499,11 @@ const ProjectDetail = () => {
             <div className="flex items-center justify-between mb-2">
               <div />
               <div className="flex items-center gap-2">
+                <BulkPhotoUpload products={products} onPhotosUploaded={fetchProducts}>
+                  <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                    <ImagePlus className="h-3 w-3" /> Bulk Photos
+                  </Button>
+                </BulkPhotoUpload>
                 <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
                   <Upload className="h-3 w-3" /> Upload & Parse
                 </Button>
