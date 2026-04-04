@@ -138,9 +138,22 @@ const ProjectDetail = () => {
   useEffect(() => {
     fetchProject();
     fetchProducts();
+    fetchAssemblies();
     fetchProductTypes();
     fetchCostData();
   }, [id]);
+
+  const addAssembly = async () => {
+    if (!newAssemblyName.trim() || !id) return;
+    const { data, error } = await (supabase as any).from('product_assemblies').insert({
+      project_id: id,
+      name: newAssemblyName.trim(),
+    }).select().single();
+    if (error) { toast.error(error.message); return; }
+    toast.success('Assembly created');
+    setNewAssemblyName(''); setShowAddAssembly(false);
+    if (data) navigate(`/assembly/${data.id}`);
+  };
 
   const updateProject = async (field: string, value: any) => {
     if (!id) return;
