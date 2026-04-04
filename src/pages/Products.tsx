@@ -25,6 +25,7 @@ const Products = () => {
   const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
   const [cogsMap, setCogsMap] = useState<Record<string, any[]>>({});
   const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
+  const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterProject, setFilterProject] = useState('all');
