@@ -391,12 +391,45 @@ const ProductCosting = () => {
     (supabase as any).from('non_unit_cogs').update({ cost_each_inr: newCost }).eq('id', transportItem.id);
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
 
-  // Step 7c: Auto-update Domestic Freight COGS when prePackCbm changes
+  // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
+  const freightCreatingRef = useRef(false);
   useEffect(() => {
-    if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0) return;
+    if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-    if (!freightItem) return;
     const transportRate = globalSettings.local_transport_cost_per_cbm || 3500;
+    if (!freightItem) {
+      if (freightCreatingRef.current) return;
+      freightCreatingRef.current = true;
+      // Check DB first to avoid duplicates
+      (async () => {
+        const { data: existing } = await (supabase as any).from('cogs_items')
+          .select('id').eq('product_id', id)
+          .eq('component_name', 'Domestic Freight (External Sourcing)')
+          .eq('is_auto_calculated', true).limit(1);
+        if (existing && existing.length > 0) {
+          // Already exists in DB, just refetch
+          const { data: row } = await (supabase as any).from('cogs_items').select('*').eq('id', existing[0].id).single();
+          if (row) setCogsItems(prev => [...prev, row]);
+          freightCreatingRef.current = false;
+          return;
+        }
+        const { data } = await (supabase as any).from('cogs_items').insert({
+          product_id: id,
+          cogs_type: 'Subcontracting',
+          component_name: 'Domestic Freight (External Sourcing)',
+          units: 'CBM',
+          components_per_product: prePackCbm,
+          unit_cost_inr: transportRate,
+          waste_factor: 0,
+          is_auto_calculated: true,
+          include: 'Yes',
+          sort_order: cogsItems.length,
+        }).select().single();
+        if (data) setCogsItems(prev => [...prev, data]);
+        freightCreatingRef.current = false;
+      })();
+      return;
+    }
     if (Math.abs((freightItem.components_per_product || 0) - prePackCbm) < 0.0001 &&
         Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
     setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
