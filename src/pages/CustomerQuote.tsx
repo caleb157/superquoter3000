@@ -129,7 +129,7 @@ const CustomerQuote = () => {
           selectedVariant: currentSelections[i]?.selectedVariant,
           line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
         })),
-        summary: { ...summary, draft_saved_at: new Date().toISOString() },
+        draft_saved_at: new Date().toISOString(),
       };
       const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
         method: 'POST',
@@ -144,7 +144,7 @@ const CustomerQuote = () => {
     } catch {
       setSaveStatus('idle');
     }
-  }, [token, data, confirmed, supabaseUrl, summary]);
+  }, [token, data, confirmed, supabaseUrl]);
 
   useEffect(() => {
     if (initialLoadRef.current) {
