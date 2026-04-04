@@ -167,6 +167,23 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
           remaining_to_target_inr = (p.target_price_usd * targetCostRatio - summary.product_cost_per_unit_usd) * exchangeRate;
         }
 
+        // Target price analysis: delta and max raw piece
+        const rawPieceCostInr = pCogs
+          .filter((i: any) => i.include !== 'No' && i.cogs_type === 'Raw Piece')
+          .reduce((sum: number, item: any) => sum + calc.calcCogsItemCost({
+            include: item.include, components_per_product: item.components_per_product || 0,
+            unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+          }).unit_cost, 0);
+        const nonRawPieceCostsInr = summary.product_cost_per_unit_inr - rawPieceCostInr;
+
+        let delta_to_target_usd: number | null = null;
+        let max_raw_piece_inr: number | null = null;
+        if (p.target_price_usd) {
+          delta_to_target_usd = p.target_price_usd - summary.unit_price_usd;
+          const maxTotalCostInr = (p.target_price_usd / (1 + markupPercent)) * exchangeRate;
+          max_raw_piece_inr = maxTotalCostInr - nonRawPieceCostsInr;
+        }
+
         return {
           id: p.id, name: p.name, sku: p.sku, photo_url: p.photo_url,
           quantity: qty, target_price_usd: p.target_price_usd, markup_percent: markupPercent,
@@ -188,6 +205,10 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
           total_indirect_oh: indirectOhPerUnit * qty,
           total_shipping: shippingPerUnit * qty,
           review_count: reviewCount,
+          delta_to_target_usd,
+          raw_piece_cost_inr: rawPieceCostInr,
+          max_raw_piece_inr,
+          non_raw_piece_costs_inr: nonRawPieceCostsInr,
         };
       });
 
