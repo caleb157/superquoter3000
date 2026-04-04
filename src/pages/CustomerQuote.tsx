@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe } from 'lucide-react';
 
 interface QuoteProduct {
   name: string;
@@ -39,6 +39,7 @@ interface QuoteData {
     totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number };
     customer_selections?: any;
     approved_at?: string;
+    notes?: string;
   };
   entity: {
     name: string;
@@ -55,16 +56,15 @@ interface QuoteData {
   } | null;
 }
 
-// Selection state per product
 interface ProductSelection {
   quantity: number;
   selectedVariant?: string;
 }
 
 const CONTAINERS = [
-  { name: '20ft', cbm: 33 },
-  { name: '40ft', cbm: 67 },
-  { name: '40ft HC', cbm: 76 },
+  { name: '20ft', cbm: 33, icon: '📦' },
+  { name: '40ft', cbm: 67, icon: '🚛' },
+  { name: '40ft HC', cbm: 76, icon: '🚢' },
 ];
 
 const CustomerQuote = () => {
@@ -92,7 +92,6 @@ const CustomerQuote = () => {
         const quoteData: QuoteData = await res.json();
         setData(quoteData);
 
-        // Initialize selections from snapshot quantities or customer_selections
         const existing = quoteData.snapshot.customer_selections;
         const initSelections: Record<number, ProductSelection> = {};
         quoteData.snapshot.products.forEach((p, i) => {
@@ -188,25 +187,34 @@ const CustomerQuote = () => {
     setSubmitting(false);
   };
 
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-3">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading your quote...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
+            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary relative" />
+          </div>
+          <p className="text-sm text-muted-foreground font-medium tracking-wide">Loading your quote…</p>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="pt-6 text-center space-y-3">
-            <AlertCircle className="h-10 w-10 mx-auto text-destructive" />
-            <h2 className="text-lg font-semibold">Quote Not Found</h2>
-            <p className="text-sm text-muted-foreground">{error || 'This quote link may have expired or is invalid.'}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40 px-4">
+        <Card className="max-w-md w-full shadow-xl border-destructive/20">
+          <CardContent className="pt-8 pb-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight">Quote Not Found</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {error || 'This quote link may have expired or is invalid. Please contact us for assistance.'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -217,126 +225,191 @@ const CustomerQuote = () => {
   const isExpired = snapshot.valid_until && new Date(snapshot.valid_until) < new Date();
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-muted/30">
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {entity?.logo_url && (
-              <img src={entity.logo_url} alt={entity.name} className="h-8 w-auto" />
-            )}
-            <div>
-              <h1 className="text-sm font-semibold">{entity?.name || 'Quote'}</h1>
-              <p className="text-[10px] text-muted-foreground">
-                Quote #{snapshot.quote_number} • Valid until {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString() : '—'}
-              </p>
+      <header className="bg-background/80 backdrop-blur-lg border-b border-border/50 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              {entity?.logo_url ? (
+                <img src={entity.logo_url} alt={entity.name} className="h-9 w-auto object-contain" />
+              ) : (
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+              )}
+              <div>
+                <h1 className="text-base font-semibold tracking-tight">{entity?.name || 'Quote'}</h1>
+                <p className="text-xs text-muted-foreground">
+                  {snapshot.quote_number} · Valid until {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isExpired && <Badge variant="destructive" className="text-[10px]">Expired</Badge>}
-            {confirmed && <Badge className="text-[10px] bg-green-600">Confirmed</Badge>}
-            {!isExpired && !confirmed && <Badge variant="secondary" className="text-[10px]">Open</Badge>}
+            <div className="flex items-center gap-3">
+              {isExpired && (
+                <Badge variant="destructive" className="font-medium">Expired</Badge>
+              )}
+              {confirmed && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 font-medium gap-1">
+                  <Check className="h-3 w-3" /> Confirmed
+                </Badge>
+              )}
+              {!isExpired && !confirmed && (
+                <Badge variant="outline" className="font-medium text-primary border-primary/30">Active</Badge>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Project title */}
-        {project && (
-          <div className="mb-6">
-            <h2 className="text-xl font-bold">{snapshot.quote_number ? `Quotation` : project.name}</h2>
-            {project.customer_name && (
-              <p className="text-sm text-muted-foreground mt-1">Prepared for {project.customer_name}</p>
-            )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Title Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            {snapshot.quote_number ? 'Quotation' : project?.name || 'Quote'}
+          </h2>
+          {project?.customer_name && (
+            <p className="text-base text-muted-foreground mt-1">
+              Prepared for <span className="font-medium text-foreground">{project.customer_name}</span>
+            </p>
+          )}
+          {snapshot.notes && (
+            <p className="text-sm text-muted-foreground mt-3 max-w-2xl leading-relaxed">{snapshot.notes}</p>
+          )}
+        </div>
+
+        {/* Confirmed Banner */}
+        {confirmed && (
+          <div className="mb-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-5 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+              <Check className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">Order Confirmed</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-0.5">
+                Thank you for your order! Our team will be in touch shortly with next steps.
+              </p>
+            </div>
           </div>
         )}
 
-        {confirmed && (
-          <Card className="mb-6 border-green-200 bg-green-50 dark:bg-green-950/20">
-            <CardContent className="pt-4 pb-4 flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="text-sm font-medium text-green-800 dark:text-green-200">Order Confirmed</p>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  Thank you! Your order has been confirmed. We'll be in touch shortly.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Product Cards */}
           <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Products ({snapshot.products.length})
+              </h3>
+            </div>
+
             {snapshot.products.map((product, idx) => {
               const sel = selections[idx];
               const qty = sel?.quantity ?? product.quantity;
               const lineTotal = (product.unit_price_usd || 0) * qty;
 
               return (
-                <Card key={idx} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      {/* Photo */}
-                      <div className="w-20 h-20 rounded-md bg-muted flex-shrink-0 overflow-hidden">
+                <Card key={idx} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 border-border/60">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col sm:flex-row">
+                      {/* Product Photo - larger, prominent */}
+                      <div className="sm:w-48 h-48 sm:h-auto bg-muted/50 flex-shrink-0 overflow-hidden relative group">
                         {product.photo_url ? (
-                          <img src={product.photo_url} alt={product.name} className="w-full h-full object-cover" />
+                          <img
+                            src={product.photo_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="h-6 w-6 text-muted-foreground/40" />
+                          <div className="w-full h-full flex items-center justify-center min-h-[140px]">
+                            <div className="text-center space-y-2">
+                              <Package className="h-10 w-10 text-muted-foreground/25 mx-auto" />
+                              <span className="text-[10px] text-muted-foreground/40 font-medium">No image</span>
+                            </div>
                           </div>
                         )}
                       </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-sm font-semibold truncate">{product.name}</h3>
-                            {product.sku && <p className="text-[10px] text-muted-foreground font-mono">{product.sku}</p>}
+                      {/* Product Info */}
+                      <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
+                        <div>
+                          {/* Header row */}
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="min-w-0">
+                              <h3 className="text-lg font-semibold tracking-tight leading-tight">{product.name}</h3>
+                              {product.sku && (
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5 bg-muted/50 inline-block px-1.5 py-0.5 rounded">
+                                  {product.sku}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xl font-bold tracking-tight">
+                                {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {symbol}{(product.unit_price_usd || 0).toFixed(2)} per unit
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold">{symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                            <p className="text-[10px] text-muted-foreground">{symbol}{(product.unit_price_usd || 0).toFixed(2)} / unit</p>
-                          </div>
+
+                          {/* Specs row */}
+                          {(product.width_inch || product.weight_kg || product.unit_cbm > 0) && (
+                            <div className="flex flex-wrap gap-3 mb-4">
+                              {product.width_inch && (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
+                                  <Ruler className="h-3 w-3" />
+                                  {product.width_inch}" × {product.depth_inch}" × {product.height_inch}"
+                                </span>
+                              )}
+                              {product.weight_kg && (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
+                                  <Weight className="h-3 w-3" />
+                                  {product.weight_kg} kg
+                                </span>
+                              )}
+                              {product.unit_cbm > 0 && (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
+                                  <Box className="h-3 w-3" />
+                                  {product.unit_cbm.toFixed(4)} CBM
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        {/* Dimensions */}
-                        {product.width_inch && (
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {product.width_inch}" × {product.depth_inch}" × {product.height_inch}"
-                            {product.unit_cbm ? ` • ${product.unit_cbm.toFixed(4)} CBM` : ''}
-                          </p>
-                        )}
-
-                        <div className="flex items-center gap-4 mt-3">
+                        {/* Controls */}
+                        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-border/40">
                           {/* Quantity adjuster */}
-                          <div className="flex items-center gap-1">
-                            <Label className="text-[10px] text-muted-foreground mr-1">Qty</Label>
-                            <Button
-                              variant="outline" size="icon" className="h-7 w-7"
-                              onClick={() => updateQuantity(idx, -10)}
-                              disabled={confirmed || isExpired}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              className="h-7 w-16 text-center text-sm"
-                              type="number"
-                              value={qty}
-                              onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
-                              disabled={confirmed || isExpired}
-                              min={product.moq || 1}
-                            />
-                            <Button
-                              variant="outline" size="icon" className="h-7 w-7"
-                              onClick={() => updateQuantity(idx, 10)}
-                              disabled={confirmed || isExpired}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            {product.moq && (
-                              <span className="text-[9px] text-muted-foreground ml-1">MOQ: {product.moq}</span>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground font-medium">Qty</Label>
+                            <div className="flex items-center border rounded-lg overflow-hidden">
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-8 w-8 rounded-none hover:bg-muted"
+                                onClick={() => updateQuantity(idx, -10)}
+                                disabled={confirmed || !!isExpired}
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                              <Input
+                                className="h-8 w-20 text-center text-sm font-medium border-0 border-x rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                                type="number"
+                                value={qty}
+                                onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
+                                disabled={confirmed || !!isExpired}
+                                min={product.moq || 1}
+                              />
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-8 w-8 rounded-none hover:bg-muted"
+                                onClick={() => updateQuantity(idx, 10)}
+                                disabled={confirmed || !!isExpired}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                            {product.moq && product.moq > 1 && (
+                              <span className="text-[10px] text-muted-foreground">MOQ: {product.moq}</span>
                             )}
                           </div>
 
@@ -345,10 +418,10 @@ const CustomerQuote = () => {
                             <Select
                               value={sel?.selectedVariant || ''}
                               onValueChange={v => setVariant(idx, v)}
-                              disabled={confirmed || isExpired}
+                              disabled={confirmed || !!isExpired}
                             >
-                              <SelectTrigger className="h-7 text-xs w-40">
-                                <SelectValue placeholder="Select variant..." />
+                              <SelectTrigger className="h-8 text-xs w-44">
+                                <SelectValue placeholder="Select variant…" />
                               </SelectTrigger>
                               <SelectContent>
                                 {product.variants.map(v => (
@@ -366,86 +439,118 @@ const CustomerQuote = () => {
             })}
           </div>
 
-          {/* Sidebar: Summary + Container Fill */}
-          <div className="space-y-4">
-            <Card className="sticky top-20">
-              <CardContent className="pt-5 space-y-5">
+          {/* Sidebar */}
+          <div className="space-y-5">
+            <Card className="sticky top-24 shadow-lg border-border/60">
+              <CardContent className="p-6 space-y-6">
                 {/* Order Summary */}
                 <div>
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Package className="h-4 w-4" /> Order Summary
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+                    Order Summary
                   </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Products</span>
-                      <span>{summary.totalItems}</span>
+                      <span className="font-medium">{summary.totalItems}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total Quantity</span>
-                      <span>{summary.totalQty.toLocaleString()}</span>
+                      <span className="font-medium">{summary.totalQty.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total CBM</span>
-                      <span>{summary.totalCbm.toFixed(2)}</span>
-                    </div>
-                    <div className="border-t pt-2 flex justify-between font-bold text-base">
-                      <span>Total</span>
-                      <span>{symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    {summary.totalCbm > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Volume</span>
+                        <span className="font-medium">{summary.totalCbm.toFixed(2)} CBM</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm font-medium">Total</span>
+                      <span className="text-2xl font-bold tracking-tight">
+                        {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Container Fill */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Ship className="h-4 w-4" /> Container Fill
-                  </h3>
-                  <div className="space-y-3">
-                    {CONTAINERS.map(c => {
-                      const fill = Math.min((summary.totalCbm / c.cbm) * 100, 100);
-                      const color = fill > 95 ? 'bg-red-500' : fill > 80 ? 'bg-yellow-500' : 'bg-primary';
-                      return (
-                        <div key={c.name}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-muted-foreground">{c.name}</span>
-                            <span className="font-medium">{fill.toFixed(0)}%</span>
+                {summary.totalCbm > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                      <Ship className="h-4 w-4" /> Container Fill
+                    </h3>
+                    <div className="space-y-3">
+                      {CONTAINERS.map(c => {
+                        const fill = Math.min((summary.totalCbm / c.cbm) * 100, 100);
+                        const colorClass = fill > 95
+                          ? 'bg-red-500'
+                          : fill > 80
+                          ? 'bg-amber-500'
+                          : fill > 50
+                          ? 'bg-primary'
+                          : 'bg-primary/70';
+                        return (
+                          <div key={c.name} className="space-y-1.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground font-medium">{c.icon} {c.name}</span>
+                              <span className="font-semibold tabular-nums">{fill.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-700 ease-out ${colorClass}`}
+                                style={{ width: `${fill}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground tabular-nums">
+                              {summary.totalCbm.toFixed(1)} / {c.cbm} CBM
+                            </p>
                           </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${color}`}
-                              style={{ width: `${fill}%` }}
-                            />
-                          </div>
-                          <p className="text-[9px] text-muted-foreground mt-0.5">
-                            {summary.totalCbm.toFixed(1)} / {c.cbm} CBM
-                          </p>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Confirm Button */}
                 {!confirmed && !isExpired && (
                   <Button
-                    className="w-full gap-2"
-                    size="lg"
+                    className="w-full h-12 text-base font-semibold gap-2 shadow-md hover:shadow-lg transition-shadow"
                     onClick={() => setConfirmOpen(true)}
                   >
-                    <Check className="h-4 w-4" /> Confirm Order
+                    <Check className="h-5 w-5" /> Confirm Order
                   </Button>
                 )}
               </CardContent>
             </Card>
 
-            {/* Entity Contact */}
+            {/* Entity Contact Card */}
             {entity && (
-              <Card>
-                <CardContent className="pt-4 text-xs text-muted-foreground space-y-1">
-                  <p className="font-medium text-foreground">{entity.name}</p>
-                  {entity.phone && <p>{entity.phone}</p>}
-                  {entity.email && <p>{entity.email}</p>}
-                  {entity.website && <p>{entity.website}</p>}
+              <Card className="border-border/40">
+                <CardContent className="p-5 space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h4>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">{entity.name}</p>
+                    {entity.legal_name && entity.legal_name !== entity.name && (
+                      <p className="text-xs text-muted-foreground">{entity.legal_name}</p>
+                    )}
+                    {entity.phone && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Phone className="h-3 w-3" /> {entity.phone}
+                      </p>
+                    )}
+                    {entity.email && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Mail className="h-3 w-3" />
+                        <a href={`mailto:${entity.email}`} className="hover:text-primary transition-colors">{entity.email}</a>
+                      </p>
+                    )}
+                    {entity.website && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Globe className="h-3 w-3" />
+                        <a href={entity.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{entity.website}</a>
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -453,45 +558,68 @@ const CustomerQuote = () => {
         </div>
       </div>
 
+      {/* Footer */}
+      <footer className="mt-16 border-t border-border/30 bg-muted/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            {entity?.name && `© ${new Date().getFullYear()} ${entity.name}. `}
+            All prices are subject to final confirmation.
+          </p>
+        </div>
+      </footer>
+
       {/* Confirmation Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Confirm Your Order</DialogTitle>
+            <DialogTitle className="text-xl">Confirm Your Order</DialogTitle>
+            <DialogDescription>Review your selections and provide your details to confirm.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+          <div className="space-y-5">
+            {/* Order recap */}
+            <div className="bg-muted/40 rounded-xl p-4 space-y-2.5">
               {data.snapshot.products.map((p, i) => {
                 const qty = selections[i]?.quantity ?? p.quantity;
+                const lineTotal = (p.unit_price_usd || 0) * qty;
                 return (
-                  <div key={i} className="flex justify-between">
-                    <span className="truncate mr-2">{p.name} × {qty}</span>
-                    <span className="font-medium flex-shrink-0">
-                      {symbol}{((p.unit_price_usd || 0) * qty).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {p.photo_url && (
+                        <img src={p.photo_url} alt={p.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                      )}
+                      <span className="truncate">{p.name}</span>
+                      <span className="text-muted-foreground flex-shrink-0">× {qty}</span>
+                    </div>
+                    <span className="font-semibold flex-shrink-0 ml-3">
+                      {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 );
               })}
-              <div className="border-t pt-2 flex justify-between font-bold">
+              <Separator />
+              <div className="flex justify-between items-baseline font-bold text-base">
                 <span>Total</span>
-                <span>{symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-lg">
+                  {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             </div>
 
+            {/* Customer details */}
             <div className="space-y-3">
-              <div>
-                <Label className="text-xs">Your Name</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Your Name</Label>
                 <Input
-                  className="h-8 text-sm mt-1"
+                  className="h-10"
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
                   placeholder="Full name"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Email Address</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Email Address</Label>
                 <Input
-                  className="h-8 text-sm mt-1"
+                  className="h-10"
                   value={customerEmail}
                   onChange={e => setCustomerEmail(e.target.value)}
                   placeholder="email@example.com"
@@ -500,10 +628,10 @@ const CustomerQuote = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirm} disabled={submitting || !customerName}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+            <Button onClick={handleConfirm} disabled={submitting || !customerName} className="gap-2">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Confirm Order
             </Button>
           </DialogFooter>
