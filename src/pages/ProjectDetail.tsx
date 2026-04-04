@@ -34,11 +34,14 @@ const ProjectDetail = () => {
   const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [assemblies, setAssemblies] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [costData, setCostData] = useState<Record<string, { unit_cbm: number; cost_usd: number; price_usd: number }>>({});
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddAssembly, setShowAddAssembly] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
+  const [newAssemblyName, setNewAssemblyName] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
   const [showUploadParse, setShowUploadParse] = useState(false);
   const activeTab = searchParams.get('tab') || 'products';
