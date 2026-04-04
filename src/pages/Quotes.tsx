@@ -308,15 +308,33 @@ const Quotes = () => {
                         <TableCell>
                           <div className="flex gap-1">
                             {snap.share_token && (
+                              <>
+                                <Button
+                                  variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/quote/${snap.share_token}`;
+                                    navigator.clipboard.writeText(url);
+                                    toast.success('Share link copied!');
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" /> Link
+                                </Button>
+                                <Button
+                                  variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                  asChild
+                                >
+                                  <Link to={`/quote/${snap.share_token}`} target="_blank">
+                                    <ExternalLink className="h-3 w-3" /> Preview
+                                  </Link>
+                                </Button>
+                              </>
+                            )}
+                            {snap.customer_selections && (
                               <Button
                                 variant="ghost" size="sm" className="text-xs h-7 gap-1"
-                                onClick={() => {
-                                  const url = `${window.location.origin}/quote/${snap.share_token}`;
-                                  navigator.clipboard.writeText(url);
-                                  toast.success('Share link copied!');
-                                }}
+                                onClick={() => setSelectionsSnap(snap)}
                               >
-                                <Copy className="h-3 w-3" /> Link
+                                <Eye className="h-3 w-3" /> Selections
                               </Button>
                             )}
                           </div>
@@ -329,6 +347,60 @@ const Quotes = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Customer Selections Dialog */}
+        <Dialog open={!!selectionsSnap} onOpenChange={(open) => !open && setSelectionsSnap(null)}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Customer Selections</DialogTitle>
+              <DialogDescription>
+                {selectionsSnap?.quote_number || 'Quote'} — {projects[selectionsSnap?.project_id] || 'Project'}
+              </DialogDescription>
+            </DialogHeader>
+            {selectionsSnap?.customer_selections ? (
+              <div className="space-y-4">
+                {selectionsSnap.customer_selections.draft_saved_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Last saved: {new Date(selectionsSnap.customer_selections.draft_saved_at).toLocaleString()}
+                  </p>
+                )}
+                {selectionsSnap.customer_selections.summary?.confirmed_at && (
+                  <Badge className="bg-emerald-600 text-xs">
+                    Confirmed {new Date(selectionsSnap.customer_selections.summary.confirmed_at).toLocaleString()}
+                  </Badge>
+                )}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Product</TableHead>
+                      <TableHead className="text-xs">SKU</TableHead>
+                      <TableHead className="text-xs text-right">Qty</TableHead>
+                      <TableHead className="text-xs">Variant</TableHead>
+                      <TableHead className="text-xs text-right">Line Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(selectionsSnap.customer_selections.products || []).map((p: any, i: number) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-medium">{p.name}</TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{p.sku || '—'}</TableCell>
+                        <TableCell className="text-xs text-right font-medium">{p.quantity?.toLocaleString()}</TableCell>
+                        <TableCell className="text-xs">{p.selectedVariant || '—'}</TableCell>
+                        <TableCell className="text-xs text-right">
+                          {p.line_total != null
+                            ? `${selectionsSnap.currency === 'INR' ? '₹' : '$'}${Number(p.line_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No customer selections saved yet.</p>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
