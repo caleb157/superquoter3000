@@ -34,6 +34,7 @@ const ProjectDetail = () => {
   const [project, setProject] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [costData, setCostData] = useState<Record<string, { unit_cbm: number; cost_usd: number; price_usd: number }>>({});
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
