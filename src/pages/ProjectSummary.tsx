@@ -46,6 +46,11 @@ interface ProductSummaryRow {
   total_indirect_oh: number;
   total_shipping: number;
   review_count: number;
+  // Target price analysis
+  delta_to_target_usd: number | null;
+  raw_piece_cost_inr: number;
+  max_raw_piece_inr: number | null;
+  non_raw_piece_costs_inr: number;
 }
 
 const CONTAINER_SIZES = [
