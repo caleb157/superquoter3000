@@ -498,6 +498,19 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
                         <td className="p-1.5">
                           <Input className="h-6 text-xs text-right w-14" type="number" value={p.target_price_usd ?? ''} onChange={e => updateParsed(i, 'target_price_usd', e.target.value ? Number(e.target.value) : null)} />
                         </td>
+                        <td className="p-1.5">
+                          {p.hardware_guess.length > 0 ? (
+                            <div className="flex flex-wrap gap-0.5">
+                              {p.hardware_guess.map((hw, hi) => (
+                                <Badge key={hi} variant="secondary" className="text-[9px] px-1 py-0">
+                                  {hw.quantity_per_product}× {hw.type}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-[9px]">None detected</span>
+                          )}
+                        </td>
                         <td className="p-1.5 text-center">
                           {confidenceBadge(p.confidence)}
                         </td>
