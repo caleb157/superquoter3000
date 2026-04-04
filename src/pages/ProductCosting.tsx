@@ -391,7 +391,18 @@ const ProductCosting = () => {
     (supabase as any).from('non_unit_cogs').update({ cost_each_inr: newCost }).eq('id', transportItem.id);
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
 
-  // Step 8-9: Overhead cost calculations (pure derived, no side effects)
+  // Step 7c: Auto-update Domestic Freight COGS when prePackCbm changes
+  useEffect(() => {
+    if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0) return;
+    const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
+    if (!freightItem) return;
+    const transportRate = globalSettings.local_transport_cost_per_cbm || 3500;
+    if (Math.abs((freightItem.components_per_product || 0) - prePackCbm) < 0.0001 &&
+        Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
+    setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
+    (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
+  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length]);
+
   const ohItems = overheadItems.map(item => ({
     include: item.include,
     labor_type: item.labor_type,
