@@ -249,7 +249,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
 
   // Fetch additional data needed for full cost summary
   const productIds = products.map((p: any) => p.id);
-  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes] = await Promise.all([
+  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
     supabase.from('overhead_items').select('*'),
     supabase.from('non_unit_cogs').select('*'),
     supabase.from('shipping_items').select('*'),
@@ -257,6 +257,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     supabase.from('labor_employees').select('*'),
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*'),
+    supabase.from('product_types').select('*'),
   ]);
 
   const allOh = (ohRes.data || []).filter((o: any) => productIds.includes(o.product_id));
@@ -266,6 +267,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
   const employees = empRes.data || [];
   const gs = gsRes.data as any;
   const allCbm = (cbmRes.data || []).filter((c: any) => productIds.includes(c.product_id));
+  const productTypes = ptRes.data || [];
 
   const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
     ? settings.exchange_rate_override
@@ -296,18 +298,42 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     );
 
     const productOh = allOh.filter((o: any) => o.product_id === p.id);
-    const ohItems = productOh.map((item: any) => ({
-      include: item.include, labor_type: item.labor_type,
-      man_hours_per_unit: item.man_hours_per_unit || 0,
-      hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
-    }));
+
+    // Auto-estimate Finishing & Packaging OH (mirrors costing page logic)
+    const productType = productTypes.find((pt: any) => pt.id === p.product_type_id);
+    const w = p.width_inch || 0;
+    const d = p.depth_inch || 0;
+    const h = p.height_inch || 0;
+    const ri = calc.runningInches(w, d, h);
+    const difficultyFactor = calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
+    const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
+    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
+
+    const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
+    const contractorRate = productType?.contractor_base_rate_per_ri || 0;
+    const decrease = gs?.contractor_to_inhouse_decrease || 0;
+    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
+    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+
+    const ohItems = productOh.map((item: any) => {
+      let mh = item.man_hours_per_unit || 0;
+      // Apply auto-estimation for items flagged as auto-estimated
+      if (item.is_auto_estimated) {
+        if (item.labor_type === 'Finishing' && finishingMh > 0) mh = parseFloat(finishingMh.toFixed(4));
+        else if (item.labor_type === 'Packaging' && packagingMh > 0) mh = parseFloat(packagingMh.toFixed(4));
+      }
+      return {
+        include: item.include, labor_type: item.labor_type,
+        man_hours_per_unit: mh,
+        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+      };
+    });
     const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
     const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
     const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
-    const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
-    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
+    // cbmRow and finalUnitCbm already declared above
 
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
     const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
