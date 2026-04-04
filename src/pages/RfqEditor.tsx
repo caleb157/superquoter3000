@@ -139,9 +139,18 @@ const RfqEditor = () => {
     toast.success('Share link copied');
   };
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     if (!rfq?.share_token) return;
-    window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-rfq-pdf?token=${rfq.share_token}`, '_blank');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-rfq-pdf?token=${rfq.share_token}`);
+      const html = await res.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) w.onload = () => URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error('Failed to load RFQ PDF');
+    }
   };
 
   const priceColor = (item: any) => {
