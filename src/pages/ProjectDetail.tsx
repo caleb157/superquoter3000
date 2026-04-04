@@ -467,6 +467,7 @@ const ProjectDetail = () => {
           <TabsList>
             <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
             <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="rfqs">RFQs</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
