@@ -326,13 +326,13 @@ export function downloadSummaryPDF(ctx: ExportContext) {
   doc.setFontSize(8); doc.setTextColor(0); doc.text('Cost Breakdown', 14, breakdownY);
   autoTable(doc, {
     startY: breakdownY + 3,
-    head: [['Category', 'Total (₹)', '% of Total']],
+    head: [['Category', 'Total (Rs.)', '% of Total']],
     body: [
-      ['COGS', `₹${agg.bCogs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bCogs / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Direct Overhead', `₹${agg.bDoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bDoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Indirect Overhead', `₹${agg.bIoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bIoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Shipping', `₹${agg.bShip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bShip / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['TOTAL', `₹${agg.bTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, '100%'],
+      ['COGS', `Rs.${agg.bCogs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bCogs / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Direct Overhead', `Rs.${agg.bDoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bDoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Indirect Overhead', `Rs.${agg.bIoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bIoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Shipping', `Rs.${agg.bShip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bShip / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['TOTAL', `Rs.${agg.bTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, '100%'],
     ],
     theme: 'grid',
     styles: { fontSize: 7, cellPadding: 1.5 },
