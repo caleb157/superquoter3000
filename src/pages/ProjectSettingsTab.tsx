@@ -80,12 +80,13 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
 
   // Fetch all product data for export
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, boxRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, boxRes, ptRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('box_data').select('*'),
+      supabase.from('product_types').select('*'),
     ]);
 
     const products = productsRes.data || [];
