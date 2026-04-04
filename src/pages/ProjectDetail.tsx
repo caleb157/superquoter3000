@@ -501,6 +501,20 @@ const ProjectDetail = () => {
                 <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
                   <Upload className="h-3 w-3" /> Upload & Parse
                 </Button>
+                <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                      <Package className="h-3 w-3" /> Create Assembly
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
+                    <div className="space-y-3">
+                      <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
+                      <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5 h-7 text-xs">
