@@ -1,47 +1,44 @@
 
-# Customer Portal — Shareable Quote Builder
 
-## Architecture
-- **Public route**: `/quote/:token` — no login required
-- **Token**: Use the existing `quote_snapshots` table, adding a `share_token` column (UUID)
-- **Data access**: Edge function `get-quote` returns quote data by token (bypasses RLS)
-- **Customer actions**: Adjust quantities, select variants, confirm order → saved back to `customer_selections` on the snapshot
+# Add Product Variant Management UI
 
-## Database Changes
-1. Add `share_token` (unique UUID, auto-generated) to `quote_snapshots`
-2. Add `share_url` computed from token for display
+## Current State
+- `product_variants` table exists with columns: `variant_name`, `photo_url`, `wood_price_factor`, `notes`, `product_id`
+- Customer quote page already renders variants if they exist
+- Calculation engine has `calcVariantCost()` for variant pricing
+- **No UI exists** to create, edit, or delete variants
 
-## Edge Function: `get-quote`
-- GET with `?token=xxx` → returns quote snapshot + entity + product details
-- POST with `?token=xxx` → saves customer selections (quantities, variants, confirmation)
-- No JWT required (public access)
+## Plan
 
-## Frontend Pages
+### 1. Add Variants Section to Product Costing Page
+Add a collapsible "Variants" section on the `ProductCosting.tsx` page (below the existing cost sections) with:
+- Table listing existing variants: name, photo thumbnail, wood price factor, calculated variant price, actions (edit/delete)
+- "Add Variant" button that opens an inline row or dialog
+- Each variant shows its computed price using `calcVariantCost()` from the calculation engine
 
-### `/quote/:token` — Customer Quote Portal
-1. **Header**: Entity logo, entity name, quote number, validity date
-2. **Product Cards Grid**: Each card shows:
-   - Product photo (if available)
-   - Name, SKU, dimensions, unit price
-   - Quantity adjuster (±, with MOQ minimum)
-   - Variant selector (if variants exist)
-   - Line total auto-calculated
-3. **Sidebar / Bottom Bar**:
-   - Order summary: total items, total CBM, total value
-   - **Container Fill Visualization**: Animated bar showing % of 20ft/40ft/40HC filled
-   - Confirm Order button
-4. **Order Confirmation Modal**:
-   - Summary of selected products + quantities
-   - Customer name/email input
-   - "Confirm Order" → saves to `customer_selections` on snapshot, updates status to `approved`
-   - Thank you screen
+### 2. Variant Add/Edit Form
+Fields:
+- **Variant Name** (required) — e.g. "Sheesham", "Mango Wood"
+- **Wood Price Factor** — multiplier on the master raw piece cost (default 1.0)
+- **Photo** — optional upload to `product-photos` storage bucket
+- **Notes** — optional text
 
-### Project Settings Updates
-- "Copy Share Link" button next to each quote in history
-- Generate share token when creating a quote
+### 3. CRUD Operations
+- **Create**: Insert into `product_variants` with the current product's ID
+- **Update**: Edit name, factor, photo, notes inline or via dialog
+- **Delete**: Remove with confirmation
 
-## UI Design
-- Clean, professional, customer-facing aesthetic
-- No cost/margin data exposed — only prices
-- Responsive (works on mobile for customer viewing)
-- Brand colors from entity
+### 4. Variant Pricing Display
+For each variant, compute and display:
+- Variant raw piece cost = master raw piece cost × wood_price_factor
+- Variant product cost = variant raw piece cost + other costs
+- Variant unit price (INR and USD)
+
+Using the existing `calcVariantCost()` function from `calculations.ts`.
+
+## Technical Details
+- File modified: `src/pages/ProductCosting.tsx`
+- No database changes needed — table and RLS policies already exist
+- Uses existing `product-photos` storage bucket for variant photos
+- Existing RLS: admin/team can CRUD, guests can view
+
