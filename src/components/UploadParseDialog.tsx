@@ -202,6 +202,10 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
       const toImport = parsedProducts.filter(p => p.selected);
       let created = 0;
 
+      // Fetch hardware prices for auto-matching
+      const { data: hardwarePrices } = await supabase.from('hardware_prices').select('*');
+      const hwPrices = hardwarePrices || [];
+
       for (const p of toImport) {
         // Match product type
         const matchedType = productTypes.find(pt =>
@@ -243,6 +247,35 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           } catch (e) { console.error('Photo upload failed:', e); }
         }
 
+        // Build hardware COGS from AI detection, matching against hardware_prices table
+        const hardwareCogs: any[] = [];
+        const hardware = p.hardware_guess || [];
+        hardware.forEach((hw, idx) => {
+          // Try to match hardware type to a price in the hardware_prices table
+          const matchedPrice = hwPrices.find(hp =>
+            hp.name.toLowerCase().includes(hw.type.toLowerCase()) ||
+            hw.type.toLowerCase().includes(hp.name.toLowerCase())
+          );
+          hardwareCogs.push({
+            product_id: prod.id,
+            cogs_type: 'Hardware',
+            component_name: hw.type + (hw.notes ? ` (${hw.notes})` : ''),
+            components_per_product: hw.quantity_per_product || 1,
+            unit_cost_inr: matchedPrice?.unit_cost_inr || 0,
+            units: matchedPrice?.units || 'pc',
+            waste_factor: 0.05,
+            is_auto_calculated: !!matchedPrice,
+            vendor_name: matchedPrice ? `Auto: ${matchedPrice.name}` : null,
+            sort_order: 10 + idx,
+          });
+        });
+
+        // If no hardware detected by AI, add default placeholder rows
+        const hwRows = hardwareCogs.length > 0 ? hardwareCogs : [
+          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
+          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
+        ];
+
         // Create default BOM rows
         const defaultCogs = [
           { product_id: prod.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
@@ -255,10 +288,9 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           { product_id: prod.id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
           { product_id: prod.id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
           { product_id: prod.id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 12 },
-          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 13 },
+          ...hwRows,
+          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
+          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
         ];
         await supabase.from('cogs_items').insert(defaultCogs as any);
 
