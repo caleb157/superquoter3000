@@ -15,6 +15,12 @@ const ACCEPTED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.xls'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 10;
 
+interface HardwareGuess {
+  type: string;
+  quantity_per_product: number;
+  notes?: string;
+}
+
 interface ParsedProduct {
   name: string;
   sku: string | null;
@@ -33,6 +39,7 @@ interface ParsedProduct {
   useAsPhoto: boolean;
   sourceFileData?: string;
   sourceFileType?: string;
+  hardware_guess: HardwareGuess[];
 }
 
 interface UploadParseDialogProps {
