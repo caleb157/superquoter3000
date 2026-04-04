@@ -394,10 +394,12 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         case 'quote': {
           const result = await generateCustomerQuotePDF(ctx);
           // Save snapshot
-          const snapshotProducts = ctx.products.map(p => ({
+          const snapshotProducts = ctx.products.map((p: any) => ({
             name: p.name, sku: p.sku, quantity: p.quantity,
             unit_price_usd: p.unit_price_usd, total_usd: p.unit_price_usd * p.quantity,
             unit_cbm: p.unit_cbm,
+            photo_url: p.photo_url || null,
+            is_assembly: p.is_assembly || false,
           }));
           await (supabase as any).from('quote_snapshots').insert({
             project_id: projectId,
