@@ -431,6 +431,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                 <SortableHeader column="gpm" label="GPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="target" label="Target ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="delta" label="Δ Target" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="raw_piece" label="Raw Piece (₹)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="max_raw" label="Max Raw (₹)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
               </TableRow>
             </TableHeader>
@@ -463,6 +466,13 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                   <TableCell className="text-right font-mono">{fmt.pct(r.gpm)}</TableCell>
                   <TableCell className="text-right font-mono">{fmt.pct(r.npm)}</TableCell>
                   <TableCell className="text-right font-mono">{r.target_price_usd ? fmt.usd(r.target_price_usd) : '—'}</TableCell>
+                  <TableCell className={`text-right font-mono font-semibold ${r.delta_to_target_usd != null ? (r.delta_to_target_usd >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                    {r.delta_to_target_usd != null ? `${r.delta_to_target_usd >= 0 ? '+' : ''}${fmt.usd(r.delta_to_target_usd)}` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{r.raw_piece_cost_inr > 0 ? fmt.inr(r.raw_piece_cost_inr) : '—'}</TableCell>
+                  <TableCell className={`text-right font-mono font-semibold ${r.max_raw_piece_inr != null ? (r.max_raw_piece_inr >= r.raw_piece_cost_inr ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                    {r.max_raw_piece_inr != null ? fmt.inr(r.max_raw_piece_inr) : '—'}
+                  </TableCell>
                   <TableCell className="text-center">
                     <ProductStatusIndicator
                       cbm_done={r.cbm_done}
