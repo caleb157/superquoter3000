@@ -645,22 +645,27 @@ const ProductCosting = () => {
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
                     if (checked) {
+                      // Add a COGS item for domestic freight
                       const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
-                      const totalTransport = prePackCbm * transportCost * qty;
-                      const { data } = await (supabase as any).from('non_unit_cogs').insert({
+                      const { data } = await (supabase as any).from('cogs_items').insert({
                         product_id: id,
-                        name: 'Local Transport',
-                        total_quantity: 1,
-                        cost_each_inr: totalTransport,
+                        cogs_type: 'Subcontracting',
+                        component_name: 'Domestic Freight (External Sourcing)',
+                        units: 'CBM',
+                        components_per_product: prePackCbm,
+                        unit_cost_inr: transportCost,
+                        waste_factor: 0,
+                        is_auto_calculated: true,
                         include: 'Yes',
-                        sort_order: nonUnitCogs.length,
+                        sort_order: cogsItems.length,
                       }).select().single();
-                      if (data) setNonUnitCogs(prev => [...prev, data]);
+                      if (data) setCogsItems(prev => [...prev, data]);
                     } else {
-                      const ltItem = nonUnitCogs.find(i => i.name === 'Local Transport');
-                      if (ltItem) {
-                        await (supabase as any).from('non_unit_cogs').delete().eq('id', ltItem.id);
-                        setNonUnitCogs(prev => prev.filter(i => i.id !== ltItem.id));
+                      // Remove the domestic freight COGS item
+                      const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)');
+                      if (freightItem) {
+                        await (supabase as any).from('cogs_items').delete().eq('id', freightItem.id);
+                        setCogsItems(prev => prev.filter(i => i.id !== freightItem.id));
                       }
                     }
                   }}
@@ -668,7 +673,7 @@ const ProductCosting = () => {
                 <div>
                   <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
                   {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Local transport ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM added to non-unit COGS</p>
+                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
                   )}
                 </div>
               </div>
