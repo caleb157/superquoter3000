@@ -270,8 +270,8 @@ const CustomerQuote = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-muted/30">
-      {/* Header */}
-      <header className="bg-background/80 backdrop-blur-lg border-b border-border/50 sticky top-0 z-20">
+      {/* Sticky Header */}
+      <header className="bg-background/80 backdrop-blur-lg border-b border-border/50 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
@@ -282,34 +282,41 @@ const CustomerQuote = () => {
                   <Package className="h-5 w-5 text-primary" />
                 </div>
               )}
-              <div>
+              {/* Full info on desktop, condensed on mobile */}
+              <div className="hidden sm:block">
                 <h1 className="text-base font-semibold tracking-tight">{entity?.name || 'Quote'}</h1>
                 <p className="text-xs text-muted-foreground">
                   {snapshot.quote_number} · Valid until {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                 </p>
               </div>
+              <div className="sm:hidden">
+                <p className="text-xs font-semibold">{snapshot.quote_number}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {saveStatus === 'saving' && (
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
                   <Cloud className="h-3.5 w-3.5" /> Saving…
                 </span>
               )}
               {saveStatus === 'saved' && (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+                <span className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-600">
                   <Check className="h-3.5 w-3.5" /> Draft saved
                 </span>
               )}
               {isExpired && (
-                <Badge variant="destructive" className="font-medium">Expired</Badge>
+                <Badge variant="destructive" className="font-medium text-[10px] sm:text-xs">Expired</Badge>
               )}
               {confirmed && (
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 font-medium gap-1">
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 font-medium gap-1 text-[10px] sm:text-xs">
                   <Check className="h-3 w-3" /> Confirmed
                 </Badge>
               )}
               {!isExpired && !confirmed && (
-                <Badge variant="outline" className="font-medium text-primary border-primary/30">Active</Badge>
+                <Badge variant="outline" className="font-medium text-primary border-primary/30 text-[10px] sm:text-xs">Active</Badge>
               )}
             </div>
           </div>
