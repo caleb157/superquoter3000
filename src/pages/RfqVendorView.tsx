@@ -34,10 +34,18 @@ const RfqVendorView = () => {
     fetch();
   }, [token]);
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     if (!token) return;
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-rfq-pdf?token=${token}`;
-    window.open(url, '_blank');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-rfq-pdf?token=${token}`);
+      const html = await res.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) w.onload = () => URL.revokeObjectURL(url);
+    } catch {
+      console.error('Failed to load RFQ PDF');
+    }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
