@@ -78,6 +78,9 @@ const CustomerQuote = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadRef = useRef(true);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
