@@ -196,6 +196,64 @@ const ProductCosting = () => {
   const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
+  // Persist derived CBM values so summary/quotes always use current numbers
+  useEffect(() => {
+    if (!dataLoaded || !id || !cbm) return;
+
+    const derivedUpdates = {
+      ic_width: icDims.ic_width,
+      ic_depth: icDims.ic_depth,
+      ic_height: icDims.ic_height,
+      ic_cost_estimate: icCost,
+      ic_volume_cbm: icVolume,
+      mc_ics_along_w: mcResult.mc_ics_along_w,
+      mc_ics_along_d: mcResult.mc_ics_along_d,
+      mc_ics_along_h: mcResult.mc_ics_along_h,
+      mc_width: mcResult.mc_width,
+      mc_depth: mcResult.mc_depth,
+      mc_height: mcResult.mc_height,
+      products_per_mc: mcResult.products_per_mc,
+      mc_cost_estimate: mcCost,
+      mc_volume_cbm: mcResult.mc_volume_cbm,
+      final_unit_cbm: finalUnitCbm,
+      total_cbm: totalCbm,
+      total_weight_kg: (product?.weight_kg || 0) * qty,
+    };
+
+    const hasChanges = Object.entries(derivedUpdates).some(([key, value]) => {
+      const current = cbm[key as keyof typeof cbm];
+      return Math.abs((Number(current) || 0) - (Number(value) || 0)) > 0.0001;
+    });
+
+    if (!hasChanges) return;
+
+    setCbm((prev: any) => ({ ...prev, ...derivedUpdates }));
+    saveCbm(derivedUpdates);
+  }, [
+    dataLoaded,
+    id,
+    cbm?.id,
+    icDims.ic_width,
+    icDims.ic_depth,
+    icDims.ic_height,
+    icCost,
+    icVolume,
+    mcResult.mc_ics_along_w,
+    mcResult.mc_ics_along_d,
+    mcResult.mc_ics_along_h,
+    mcResult.mc_width,
+    mcResult.mc_depth,
+    mcResult.mc_height,
+    mcResult.products_per_mc,
+    mcResult.mc_volume_cbm,
+    mcCost,
+    finalUnitCbm,
+    totalCbm,
+    product?.weight_kg,
+    qty,
+    saveCbm,
+  ]);
+
   // Step 5: Auto-populate finishing materials COGS
   useEffect(() => {
     if (!dataLoaded || !product || !productType || ri <= 0 || cogsItems.length === 0) return;
