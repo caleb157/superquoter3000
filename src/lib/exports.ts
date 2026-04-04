@@ -281,13 +281,13 @@ export function downloadSummaryPDF(ctx: ExportContext) {
   yPos += 5;
 
   // Products table
-  const tableHeaders = ['Product', 'SKU', 'Qty', 'Unit CBM', 'Total CBM', 'Cost (₹)', 'Cost ($)', 'Price ($)', 'Total Cost ($)', 'Total Rev ($)', 'Profit ($)', 'GPM%', 'NPM%', 'Target ($)', 'Status'];
+  const tableHeaders = ['Product', 'SKU', 'Qty', 'Unit CBM', 'Total CBM', 'Cost (Rs.)', 'Cost ($)', 'Price ($)', 'Total Cost ($)', 'Total Rev ($)', 'Profit ($)', 'GPM%', 'NPM%', 'Target ($)', 'Status'];
   const tableData = ctx.products.map(p => {
     const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
     const done = flags.filter(Boolean).length;
     return [
       p.name, p.sku || '—', p.quantity.toString(), p.unit_cbm.toFixed(4), p.total_cbm.toFixed(2),
-      `₹${p.unit_cost_inr.toFixed(0)}`, `$${p.unit_cost_usd.toFixed(2)}`, `$${p.unit_price_usd.toFixed(2)}`,
+      `Rs.${p.unit_cost_inr.toFixed(0)}`, `$${p.unit_cost_usd.toFixed(2)}`, `$${p.unit_price_usd.toFixed(2)}`,
       `$${p.total_cost_usd.toFixed(0)}`, `$${p.total_revenue_usd.toFixed(0)}`, `$${p.total_profit_usd.toFixed(0)}`,
       `${(p.gpm * 100).toFixed(1)}%`, `${(p.npm * 100).toFixed(1)}%`,
       p.target_price_usd ? `$${p.target_price_usd.toFixed(2)}` : '—',
@@ -326,13 +326,13 @@ export function downloadSummaryPDF(ctx: ExportContext) {
   doc.setFontSize(8); doc.setTextColor(0); doc.text('Cost Breakdown', 14, breakdownY);
   autoTable(doc, {
     startY: breakdownY + 3,
-    head: [['Category', 'Total (₹)', '% of Total']],
+    head: [['Category', 'Total (Rs.)', '% of Total']],
     body: [
-      ['COGS', `₹${agg.bCogs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bCogs / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Direct Overhead', `₹${agg.bDoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bDoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Indirect Overhead', `₹${agg.bIoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bIoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['Shipping', `₹${agg.bShip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bShip / agg.bTotal) * 100).toFixed(1)}%` : '—'],
-      ['TOTAL', `₹${agg.bTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, '100%'],
+      ['COGS', `Rs.${agg.bCogs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bCogs / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Direct Overhead', `Rs.${agg.bDoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bDoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Indirect Overhead', `Rs.${agg.bIoh.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bIoh / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['Shipping', `Rs.${agg.bShip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, agg.bTotal > 0 ? `${((agg.bShip / agg.bTotal) * 100).toFixed(1)}%` : '—'],
+      ['TOTAL', `Rs.${agg.bTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, '100%'],
     ],
     theme: 'grid',
     styles: { fontSize: 7, cellPadding: 1.5 },
@@ -381,7 +381,7 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const currency = ctx.quoteCurrency || 'USD';
-  const symbol = currency === 'INR' ? '₹' : '$';
+  const symbol = currency === 'INR' ? 'Rs.' : '$';
   const ent = ctx.entity;
   const quoteNumber = ctx.quoteNumber || generateQuoteNumber(ent);
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -553,8 +553,8 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
     startY: yPos,
     head: [headers], body: tableData,
     theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2.5 },
-    headStyles: { fillColor: [41, 65, 94], fontSize: 7.5, fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'left' as const },
+    headStyles: { fillColor: [41, 65, 94], fontSize: 7.5, fontStyle: 'bold', halign: 'left' as const },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: colStyles,
     didParseCell: (data) => {
@@ -612,7 +612,7 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
   if (currency === 'INR') {
     doc.setFontSize(6.5);
     doc.setTextColor(150);
-    doc.text(`Exchange rate: ₹${ctx.exchangeRate}/USD`, 14, afterTableY);
+    doc.text(`Exchange rate: Rs.${ctx.exchangeRate}/USD`, 14, afterTableY);
     afterTableY += 5;
   }
 
