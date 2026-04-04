@@ -92,7 +92,7 @@ const ProductCosting = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
