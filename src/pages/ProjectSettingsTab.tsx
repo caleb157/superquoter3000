@@ -366,7 +366,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       projectName,
       customerName: customerName || undefined,
       customerLogoUrl: settings?.customer_logo_url || undefined,
-      products: exportProducts,
+      products: allExportProducts,
       aggregates,
       exchangeRate,
       quoteTitle: settings?.quote_title,
