@@ -66,10 +66,9 @@ const RfqVendorView = () => {
               <span>{rfq.rfq_number}</span>
               {rfq.response_due && <span>Due: {new Date(rfq.response_due).toLocaleDateString()}</span>}
             </div>
-            {project && (
+            {rfq.vendor_name && (
               <p className="text-sm text-muted-foreground mt-1">
-                Project: <strong>{project.name}</strong>
-                {project.customer_name && ` — ${project.customer_name}`}
+                Vendor: <strong>{rfq.vendor_name}</strong>
               </p>
             )}
           </div>
