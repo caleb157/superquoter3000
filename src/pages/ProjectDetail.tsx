@@ -72,6 +72,12 @@ const ProjectDetail = () => {
     if (data) setProducts(data);
   };
 
+  const fetchAssemblies = async () => {
+    if (!id) return;
+    const { data } = await (supabase as any).from('product_assemblies').select('*').eq('project_id', id).order('name');
+    if (data) setAssemblies(data);
+  };
+
   const fetchProductTypes = async () => {
     const { data } = await supabase.from('product_types').select('*').order('name');
     if (data) setProductTypes(data);
