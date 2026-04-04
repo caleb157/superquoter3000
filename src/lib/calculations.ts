@@ -428,6 +428,43 @@ export function calcVariantCost(
 }
 
 // ============================================================
+// Assembly Pricing (multi-component products)
+// ============================================================
+
+export interface AssemblyComponent {
+  product_cost_per_unit: number;
+  final_unit_cbm: number;
+  weight_kg: number;
+  total_man_hours_per_unit: number;
+  quantity_per_assembly: number;
+}
+
+export function calcAssemblyCost(
+  components: AssemblyComponent[],
+  markupPercent: number,
+  exchangeRate: number
+): {
+  unit_cost_inr: number;
+  unit_cbm: number;
+  unit_weight_kg: number;
+  unit_man_hours: number;
+  unit_price_inr: number;
+  unit_cost_usd: number;
+  unit_price_usd: number;
+  num_cartons: number;
+} {
+  const unit_cost_inr = components.reduce((sum, c) => sum + c.product_cost_per_unit * c.quantity_per_assembly, 0);
+  const unit_cbm = components.reduce((sum, c) => sum + c.final_unit_cbm * c.quantity_per_assembly, 0);
+  const unit_weight_kg = components.reduce((sum, c) => sum + c.weight_kg * c.quantity_per_assembly, 0);
+  const unit_man_hours = components.reduce((sum, c) => sum + c.total_man_hours_per_unit * c.quantity_per_assembly, 0);
+  const unit_price_inr = unit_cost_inr * (1 + markupPercent);
+  const unit_cost_usd = exchangeRate > 0 ? unit_cost_inr / exchangeRate : 0;
+  const unit_price_usd = exchangeRate > 0 ? unit_price_inr / exchangeRate : 0;
+  const num_cartons = components.length;
+  return { unit_cost_inr, unit_cbm, unit_weight_kg, unit_man_hours, unit_price_inr, unit_cost_usd, unit_price_usd, num_cartons };
+}
+
+// ============================================================
 // Formatting Helpers
 // ============================================================
 
