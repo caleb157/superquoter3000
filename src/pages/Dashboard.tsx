@@ -14,6 +14,7 @@ import { Plus, FolderOpen, Search, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import * as calc from '@/lib/calculations';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -42,19 +43,47 @@ const Dashboard = () => {
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustCompany, setNewCustCompany] = useState('');
 
+  // Extra data for cost calculations
+  const [allCogs, setAllCogs] = useState<any[]>([]);
+  const [allNuc, setAllNuc] = useState<any[]>([]);
+  const [allOh, setAllOh] = useState<any[]>([]);
+  const [allShip, setAllShip] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [shippingTypes, setShippingTypes] = useState<any[]>([]);
+
   const fetchAll = async () => {
-    const [projRes, prodRes, cbmRes, gsRes, custRes] = await Promise.all([
+    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes] = await Promise.all([
       supabase.from('projects').select('*').order('updated_at', { ascending: false }),
       supabase.from('products').select('*'),
       supabase.from('cbm_estimates').select('product_id, final_unit_cbm, total_cbm'),
       supabase.from('global_settings').select('*').limit(1).single(),
       (supabase as any).from('customers').select('*').order('name'),
+      supabase.from('labor_employees').select('*'),
+      supabase.from('shipping_types').select('*'),
     ]);
     if (projRes.data) setProjects(projRes.data);
     if (prodRes.data) setProducts(prodRes.data);
     if (cbmRes.data) setCbmData(cbmRes.data);
     if (gsRes.data) setGlobalSettings(gsRes.data);
     if (custRes.data) setCustomers(custRes.data);
+    if (empRes.data) setEmployees(empRes.data);
+    if (stRes.data) setShippingTypes(stRes.data);
+
+    // Fetch per-product cost data
+    const productIds = (prodRes.data || []).map((p: any) => p.id);
+    if (productIds.length > 0) {
+      const [cogsRes, nucRes, ohRes, shipRes] = await Promise.all([
+        supabase.from('cogs_items').select('*').in('product_id', productIds),
+        supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
+        supabase.from('overhead_items').select('*').in('product_id', productIds),
+        supabase.from('shipping_items').select('*').in('product_id', productIds),
+      ]);
+      setAllCogs(cogsRes.data || []);
+      setAllNuc(nucRes.data || []);
+      setAllOh(ohRes.data || []);
+      setAllShip(shipRes.data || []);
+    }
+
     setLoading(false);
   };
 
@@ -68,20 +97,70 @@ const Dashboard = () => {
   }, [cbmData]);
   const customerMap = useMemo(() => Object.fromEntries(customers.map((c: any) => [c.id, c])), [customers]);
 
-  // Compute per-project aggregates
+  // Compute per-project aggregates with full cost calculations
   const projectAggregates = useMemo(() => {
-    const map: Record<string, { skuCount: number; totalCbm: number; totalCostUsd: number; totalRevenueUsd: number; hasCostedProducts: boolean }> = {};
-    projects.forEach(p => { map[p.id] = { skuCount: 0, totalCbm: 0, totalCostUsd: 0, totalRevenueUsd: 0, hasCostedProducts: false }; });
+    const map: Record<string, { skuCount: number; totalCbm: number; totalCostUsd: number; totalRevenueUsd: number; totalProfitUsd: number }> = {};
+    projects.forEach(p => { map[p.id] = { skuCount: 0, totalCbm: 0, totalCostUsd: 0, totalRevenueUsd: 0, totalProfitUsd: 0 }; });
+
     products.forEach(prod => {
       const agg = map[prod.project_id];
       if (!agg) return;
       agg.skuCount++;
-      const cbm = cbmMap[prod.id];
-      if (cbm?.total_cbm) agg.totalCbm += cbm.total_cbm;
-      // Simple cost/revenue estimates aren't available without full recalc, show — for now unless we have the data
+
+      const cbmEst = cbmMap[prod.id];
+      const unitCbm = cbmEst?.final_unit_cbm || 0;
+      const qty = prod.quantity || 100;
+      agg.totalCbm += unitCbm * qty;
+
+      // COGS
+      const pCogs = allCogs.filter((c: any) => c.product_id === prod.id);
+      const pNuc = allNuc.filter((c: any) => c.product_id === prod.id);
+      const pOh = allOh.filter((c: any) => c.product_id === prod.id);
+      const pShip = allShip.filter((c: any) => c.product_id === prod.id);
+
+      const cogsPerUnit = pCogs
+        .filter((i: any) => i.include !== 'No')
+        .reduce((sum: number, item: any) => sum + calc.calcCogsItemCost({
+          include: item.include, components_per_product: item.components_per_product || 0,
+          unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+        }).unit_cost, 0);
+
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+        pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty
+      );
+
+      // Overhead
+      const ohItems = pOh.map((item: any) => ({
+        include: item.include, labor_type: item.labor_type,
+        man_hours_per_unit: item.man_hours_per_unit || 0,
+        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+      }));
+      const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+      const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+      const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
+      const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+
+      // Shipping
+      const shipItem = pShip[0];
+      const shipType = shippingTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+      const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+        cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
+        final_unit_cbm: unitCbm, weight_kg: prod.weight_kg || 0,
+      }) : 0;
+
+      const markupPercent = prod.markup_percent || 0.2;
+      const summary = calc.calcProductCostSummary(
+        cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+        shippingPerUnit, markupPercent, exchangeRate, qty
+      );
+
+      agg.totalCostUsd += summary.product_cost_per_unit_usd * qty;
+      agg.totalRevenueUsd += summary.unit_price_usd * qty;
+      agg.totalProfitUsd += (summary.unit_price_usd - summary.product_cost_per_unit_usd) * qty;
     });
+
     return map;
-  }, [projects, products, cbmMap]);
+  }, [projects, products, cbmMap, allCogs, allNuc, allOh, allShip, employees, shippingTypes, globalSettings, exchangeRate]);
 
   const createCustomer = async () => {
     if (!newCustName.trim()) return;
@@ -119,11 +198,17 @@ const Dashboard = () => {
     (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  // Pipeline value = sum of all revenue for active projects
+  const pipelineValue = useMemo(() => {
+    return projects
+      .filter(p => ['costing', 'quoted'].includes(p.status))
+      .reduce((sum, p) => sum + (projectAggregates[p.id]?.totalRevenueUsd || 0), 0);
+  }, [projects, projectAggregates]);
+
   const stats = {
     total: projects.length,
     active: projects.filter(p => ['costing', 'quoted'].includes(p.status)).length,
     confirmed: projects.filter(p => p.status === 'po_confirmed').length,
-    pipeline: 0, // Would need full product cost calcs
   };
 
   return (
@@ -144,7 +229,7 @@ const Dashboard = () => {
             <div className="text-xs text-muted-foreground">PO Confirmed</div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3">
-            <div className="text-2xl font-bold text-primary">—</div>
+            <div className="text-2xl font-bold text-primary">{pipelineValue > 0 ? fmt.usd(pipelineValue) : '—'}</div>
             <div className="text-xs text-muted-foreground">Pipeline Value (USD)</div>
           </CardContent></Card>
         </div>
@@ -255,7 +340,7 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {filtered.map(p => {
-                  const agg = projectAggregates[p.id] || { skuCount: 0, totalCbm: 0 };
+                  const agg = projectAggregates[p.id] || { skuCount: 0, totalCbm: 0, totalCostUsd: 0, totalRevenueUsd: 0, totalProfitUsd: 0 };
                   const custName = p.customer_id ? customerMap[p.customer_id]?.name : p.customer_name;
                   return (
                     <tr key={p.id} className="border-b hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => navigate(`/project/${p.id}`)}>
@@ -268,9 +353,15 @@ const Dashboard = () => {
                       </td>
                       <td className="py-2.5 px-3 text-right">{agg.skuCount || '—'}</td>
                       <td className="py-2.5 px-3 text-right text-xs">{agg.totalCbm > 0 ? fmt.cbm(agg.totalCbm) : '—'}</td>
-                      <td className="py-2.5 px-3 text-right text-xs">—</td>
-                      <td className="py-2.5 px-3 text-right text-xs">—</td>
-                      <td className="py-2.5 px-3 text-right text-xs">—</td>
+                      <td className="py-2.5 px-3 text-right text-xs">{agg.totalCostUsd > 0 ? fmt.usd(agg.totalCostUsd) : '—'}</td>
+                      <td className="py-2.5 px-3 text-right text-xs">{agg.totalRevenueUsd > 0 ? fmt.usd(agg.totalRevenueUsd) : '—'}</td>
+                      <td className="py-2.5 px-3 text-right text-xs">
+                        {agg.totalProfitUsd !== 0 ? (
+                          <span className={agg.totalProfitUsd > 0 ? 'text-emerald-600' : 'text-destructive'}>
+                            {fmt.usd(agg.totalProfitUsd)}
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td className="py-2.5 px-3 text-right text-xs text-muted-foreground">
                         {new Date(p.updated_at).toLocaleDateString()}
                       </td>
