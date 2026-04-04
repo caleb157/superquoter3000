@@ -23,12 +23,10 @@ const RfqVendorView = () => {
       if (!rfqData) { setLoading(false); return; }
       setRfq(rfqData);
 
-      const [itemsRes, projRes] = await Promise.all([
+      const [itemsRes] = await Promise.all([
         (supabase as any).from('rfq_line_items').select('*').eq('rfq_id', rfqData.id).order('sort_order'),
-        supabase.from('projects').select('name, customer_name').eq('id', rfqData.project_id).single(),
       ]);
       setItems(itemsRes.data || []);
-      setProject(projRes.data);
       setLoading(false);
     };
     fetch();
