@@ -202,13 +202,14 @@ const ProjectDetail = () => {
 
   // Export functionality
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, settingsRes, entRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, settingsRes, entRes, ptRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', id!).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('project_settings').select('*').eq('project_id', id!).maybeSingle(),
       (supabase as any).from('company_entities').select('*').order('name'),
+      supabase.from('product_types').select('*'),
     ]);
 
     const prods = productsRes.data || [];
@@ -216,6 +217,7 @@ const ProjectDetail = () => {
     const employees = empRes.data || [];
     const shTypes = stRes.data || [];
     const ps = settingsRes.data as any;
+    const pTypes = ptRes.data || [];
 
     const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override)
       ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
