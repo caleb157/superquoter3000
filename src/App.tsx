@@ -14,6 +14,9 @@ import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
+import RfqList from "./pages/RfqList";
+import RfqEditor from "./pages/RfqEditor";
+import RfqVendorView from "./pages/RfqVendorView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +60,17 @@ const App = () => (
                 <ProductCosting />
               </ProtectedRoute>
             } />
+            <Route path="/rfqs" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <RfqList />
+              </ProtectedRoute>
+            } />
+            <Route path="/rfq/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <RfqEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/rfq/view/:token" element={<RfqVendorView />} />
             <Route path="/quotes" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Quotes />

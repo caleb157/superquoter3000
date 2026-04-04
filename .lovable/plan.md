@@ -1,44 +1,56 @@
 
+# RFQ Generation System — Implementation Plan
 
-# Add Product Variant Management UI
+## Phase 1: Database Schema
+- Create `rfqs` table with project reference, vendor info, status tracking, share token
+- Create `rfq_line_items` table with product references, pricing columns, sort order
+- RLS policies: admin/team can CRUD, public can view by share_token
+- Auto-update trigger for `updated_at`
 
-## Current State
-- `product_variants` table exists with columns: `variant_name`, `photo_url`, `wood_price_factor`, `notes`, `product_id`
-- Customer quote page already renders variants if they exist
-- Calculation engine has `calcVariantCost()` for variant pricing
-- **No UI exists** to create, edit, or delete variants
+## Phase 2: Navigation & Routing
+- Add "RFQs" to top-level nav bar (between Products and Settings)
+- Add "RFQs" tab within ProjectDetail page
+- Add routes: `/rfqs` (top-level list), `/rfq/:id` (editor), `/rfq/view/:token` (vendor view)
 
-## Plan
+## Phase 3: RFQ Generation Logic
+- **Box RFQ**: Scan products → pull IC/MC from cbm_estimates → group by box type/dimensions → create line items with quantities and cost estimates
+- **Chemical RFQ**: Pull finishing COGS rows → aggregate litres per chemical type → create line items with breakdowns
+- **Hardware RFQ**: Pull hardware COGS rows → group by component_name → aggregate quantities with per-product breakdowns
+- **Raw Piece RFQ**: Pull raw piece COGS rows → one line per product (no aggregation) → include dimensions and photos
+- **Custom RFQ**: Blank RFQ with empty line items for manual entry
 
-### 1. Add Variants Section to Product Costing Page
-Add a collapsible "Variants" section on the `ProductCosting.tsx` page (below the existing cost sections) with:
-- Table listing existing variants: name, photo thumbnail, wood price factor, calculated variant price, actions (edit/delete)
-- "Add Variant" button that opens an inline row or dialog
-- Each variant shows its computed price using `calcVariantCost()` from the calculation engine
+## Phase 4: Project-Level RFQ Tab
+- "Generate RFQ" dropdown with 5 options
+- List existing RFQs for this project with status badges, actions (edit/delete)
 
-### 2. Variant Add/Edit Form
-Fields:
-- **Variant Name** (required) — e.g. "Sheesham", "Mango Wood"
-- **Wood Price Factor** — multiplier on the master raw piece cost (default 1.0)
-- **Photo** — optional upload to `product-photos` storage bucket
-- **Notes** — optional text
+## Phase 5: Top-Level RFQs Page
+- All RFQs across projects, searchable/filterable
+- Sortable columns: RFQ #, Type, Project, Customer, Vendor, # Items, Est. Total, Status, Date
 
-### 3. CRUD Operations
-- **Create**: Insert into `product_variants` with the current product's ID
-- **Update**: Edit name, factor, photo, notes inline or via dialog
-- **Delete**: Remove with confirmation
+## Phase 6: RFQ Editor Page (`/rfq/:id`)
+- Header: title, RFQ number, vendor info fields, dates, payment terms, notes
+- Line items: inline-editable spreadsheet table with photos, quantities, pricing
+- Discount control with auto-recalculation
+- Summary bar: totals for items, estimated cost, target value, vendor price, savings
+- Actions: Save Draft, Download PDF, Copy Share Link, Mark as Sent/Responded
 
-### 4. Variant Pricing Display
-For each variant, compute and display:
-- Variant raw piece cost = master raw piece cost × wood_price_factor
-- Variant product cost = variant raw piece cost + other costs
-- Variant unit price (INR and USD)
+## Phase 7: Vendor-Facing PDF
+- Edge function to generate PDF (similar to quote PDF)
+- Company header, RFQ details, item table with photos
+- Hides estimated cost — only shows target prices
+- Footer with notes, deadlines, payment terms
 
-Using the existing `calcVariantCost()` function from `calculations.ts`.
+## Phase 8: Vendor Web View (`/rfq/view/:token`)
+- Public page (no auth) showing RFQ details
+- Same content as PDF in web format
+- Download PDF button
 
-## Technical Details
-- File modified: `src/pages/ProductCosting.tsx`
-- No database changes needed — table and RLS policies already exist
-- Uses existing `product-photos` storage bucket for variant photos
-- Existing RLS: admin/team can CRUD, guests can view
+## Phase 9: Status Tracking & Price Comparison
+- Color-coded status badges (draft/sent/responded/accepted/rejected)
+- Vendor price comparison: green (≤ target), yellow (≤ estimate), red (> estimate)
 
+---
+
+**Implementation order**: Phase 1 → 2 → 3+4 → 5 → 6 → 7+8 → 9
+
+This is a large feature — I'll implement it incrementally across multiple messages, starting with the database schema (Phase 1) which needs your approval before code changes.

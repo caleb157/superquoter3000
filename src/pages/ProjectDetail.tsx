@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { ProjectRfqTab } from '@/components/ProjectRfqTab';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { SortableHeader } from '@/components/SortableHeader';
 import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
@@ -466,6 +467,7 @@ const ProjectDetail = () => {
           <TabsList>
             <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
             <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="rfqs">RFQs</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -579,6 +581,10 @@ const ProjectDetail = () => {
 
           <TabsContent value="summary">
             {id && <ProjectSummary projectId={id} />}
+          </TabsContent>
+
+          <TabsContent value="rfqs">
+            {id && <ProjectRfqTab projectId={id} />}
           </TabsContent>
 
           <TabsContent value="settings">
