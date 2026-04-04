@@ -27,9 +27,6 @@ const Quotes = () => {
   const [entities, setEntities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selectionsSnap, setSelectionsSnap] = useState<any | null>(null);
-  const [projects, setProjects] = useState<Record<string, string>>({});
-  const [entities, setEntities] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
 
   // Filters
   const [search, setSearch] = useState('');
