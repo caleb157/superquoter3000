@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      assembly_components: {
+        Row: {
+          assembly_id: string
+          created_at: string | null
+          id: string
+          product_id: string
+          quantity_per_assembly: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          assembly_id: string
+          created_at?: string | null
+          id?: string
+          product_id: string
+          quantity_per_assembly?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          assembly_id?: string
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          quantity_per_assembly?: number | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assembly_components_assembly_id_fkey"
+            columns: ["assembly_id"]
+            isOneToOne: false
+            referencedRelation: "product_assemblies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assembly_components_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       box_data: {
         Row: {
           box_type: string
@@ -525,6 +567,59 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_assemblies: {
+        Row: {
+          created_at: string | null
+          id: string
+          markup_percent: number | null
+          moq: number | null
+          name: string
+          notes: string | null
+          photo_url: string | null
+          project_id: string
+          quantity: number
+          sku: string | null
+          target_price_usd: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          markup_percent?: number | null
+          moq?: number | null
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          project_id: string
+          quantity?: number
+          sku?: string | null
+          target_price_usd?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          markup_percent?: number | null
+          moq?: number | null
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          project_id?: string
+          quantity?: number
+          sku?: string | null
+          target_price_usd?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_assemblies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

@@ -34,11 +34,14 @@ const ProjectDetail = () => {
   const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [assemblies, setAssemblies] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [costData, setCostData] = useState<Record<string, { unit_cbm: number; cost_usd: number; price_usd: number }>>({});
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddAssembly, setShowAddAssembly] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
+  const [newAssemblyName, setNewAssemblyName] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
   const [showUploadParse, setShowUploadParse] = useState(false);
   const activeTab = searchParams.get('tab') || 'products';
@@ -67,6 +70,12 @@ const ProjectDetail = () => {
     if (!id) return;
     const { data } = await supabase.from('products').select('*').eq('project_id', id).order('sort_order');
     if (data) setProducts(data);
+  };
+
+  const fetchAssemblies = async () => {
+    if (!id) return;
+    const { data } = await (supabase as any).from('product_assemblies').select('*').eq('project_id', id).order('name');
+    if (data) setAssemblies(data);
   };
 
   const fetchProductTypes = async () => {
@@ -129,9 +138,22 @@ const ProjectDetail = () => {
   useEffect(() => {
     fetchProject();
     fetchProducts();
+    fetchAssemblies();
     fetchProductTypes();
     fetchCostData();
   }, [id]);
+
+  const addAssembly = async () => {
+    if (!newAssemblyName.trim() || !id) return;
+    const { data, error } = await (supabase as any).from('product_assemblies').insert({
+      project_id: id,
+      name: newAssemblyName.trim(),
+    }).select().single();
+    if (error) { toast.error(error.message); return; }
+    toast.success('Assembly created');
+    setNewAssemblyName(''); setShowAddAssembly(false);
+    if (data) navigate(`/assembly/${data.id}`);
+  };
 
   const updateProject = async (field: string, value: any) => {
     if (!id) return;
@@ -479,6 +501,20 @@ const ProjectDetail = () => {
                 <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
                   <Upload className="h-3 w-3" /> Upload & Parse
                 </Button>
+                <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
+                      <Package className="h-3 w-3" /> Create Assembly
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
+                    <div className="space-y-3">
+                      <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
+                      <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5 h-7 text-xs">
@@ -575,6 +611,35 @@ const ProjectDetail = () => {
                     <span>Revenue: <strong>{fmt.usd(sortedProducts.reduce((s, p) => s + ((costData[p.id]?.price_usd || 0) * (p.quantity || 0)), 0))}</strong></span>
                   </div>
                 )}
+              </div>
+             )}
+
+            {/* Assemblies */}
+            {assemblies.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-1">📦 Assemblies</h3>
+                <div className="border rounded-md overflow-auto">
+                  <Table className="dense-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Assembly</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Target (USD)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assemblies.map(a => (
+                        <TableRow key={a.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/assembly/${a.id}`)}>
+                          <TableCell className="font-medium"><Package className="h-3 w-3 inline mr-1 text-primary" />{a.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{a.sku || '—'}</TableCell>
+                          <TableCell className="text-right">{fmt.qty(a.quantity)}</TableCell>
+                          <TableCell className="text-right">{a.target_price_usd ? fmt.usd(a.target_price_usd) : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </TabsContent>

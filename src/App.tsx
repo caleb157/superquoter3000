@@ -12,6 +12,7 @@ import Products from "./pages/Products";
 import Customers from "./pages/Customers";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
+import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
 import RfqList from "./pages/RfqList";
@@ -58,6 +59,11 @@ const App = () => (
             <Route path="/product/:id" element={
               <ProtectedRoute requireAdminOrTeam>
                 <ProductCosting />
+              </ProtectedRoute>
+            } />
+            <Route path="/assembly/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <AssemblyDetail />
               </ProtectedRoute>
             } />
             <Route path="/rfqs" element={
