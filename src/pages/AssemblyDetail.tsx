@@ -15,6 +15,7 @@ import * as calc from '@/lib/calculations';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [refetchKey, setRefetchKey] = useState(0);
   const navigate = useNavigate();
 
   const [assembly, setAssembly] = useState<any>(null);
@@ -122,7 +123,7 @@ const AssemblyDetail = () => {
       }
     };
     fetchAll();
-  }, [id]);
+  }, [id, refetchKey]);
 
   const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
     ? projectSettings.exchange_rate_override : (globalSettings?.exchange_rate || 90);
@@ -154,12 +155,14 @@ const AssemblyDetail = () => {
     }
     setSelectedProductId('');
     setShowAddComponent(false);
+    setRefetchKey(k => k + 1);
     toast.success('Component added');
   };
 
   const removeComponent = async (compId: string) => {
     await (supabase as any).from('assembly_components').delete().eq('id', compId);
     setComponents(prev => prev.filter(c => c.id !== compId));
+    setRefetchKey(k => k + 1);
     toast.success('Component removed');
   };
 
