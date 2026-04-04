@@ -68,12 +68,20 @@ Deno.serve(async (req) => {
 
       if (products && products.length > 0) {
         const productIds = products.map((p: any) => p.id);
-        const { data: variants } = await supabase
-          .from("product_variants")
-          .select("id, product_id, variant_name, photo_url, wood_price_factor")
-          .in("product_id", productIds);
+        const [variantsRes, cbmRes] = await Promise.all([
+          supabase
+            .from("product_variants")
+            .select("id, product_id, variant_name, photo_url, wood_price_factor")
+            .in("product_id", productIds),
+          supabase
+            .from("cbm_estimates")
+            .select("product_id, final_unit_cbm")
+            .in("product_id", productIds),
+        ]);
+        const variants = variantsRes.data || [];
+        const cbmEstimates = cbmRes.data || [];
 
-        // Attach variants to snapshot products
+        // Attach variants + CBM to snapshot products
         const snapshotProducts = (snapshot.products as any[]) || [];
         for (const sp of snapshotProducts) {
           const dbProduct = products.find((p: any) => p.name === sp.name || p.sku === sp.sku);
@@ -85,7 +93,12 @@ Deno.serve(async (req) => {
             sp.depth_inch = dbProduct.depth_inch;
             sp.height_inch = dbProduct.height_inch;
             sp.weight_kg = dbProduct.weight_kg;
-            sp.variants = (variants || []).filter((v: any) => v.product_id === dbProduct.id);
+            sp.variants = variants.filter((v: any) => v.product_id === dbProduct.id);
+            // Use latest CBM from cbm_estimates, fall back to snapshot value
+            const cbmEst = cbmEstimates.find((c: any) => c.product_id === dbProduct.id);
+            if (cbmEst?.final_unit_cbm) {
+              sp.unit_cbm = cbmEst.final_unit_cbm;
+            }
           }
         }
         snapshot.products = snapshotProducts;
