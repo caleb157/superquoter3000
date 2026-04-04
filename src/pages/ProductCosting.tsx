@@ -49,6 +49,7 @@ const ProductCosting = () => {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
+  const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
