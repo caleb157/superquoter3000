@@ -136,6 +136,11 @@ Deno.serve(async (req) => {
 </style>
 </head>
 <body>
+  <div class="print-bar">
+    <span>${rfq.rfq_number || 'RFQ'} — ${rfq.title || ''}</span>
+    <button onclick="window.print()">⌘P Print / Save as PDF</button>
+  </div>
+  <div class="print-spacer"></div>
   <div class="header">
     <div class="header-left">
       <h1>${entity?.name || 'Company'}</h1>
