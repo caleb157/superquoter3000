@@ -1372,6 +1372,64 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_rfq_by_share_token: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string | null
+          created_by: string | null
+          delivery_deadline: string | null
+          discount_percent: number | null
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          project_id: string | null
+          response_due: string | null
+          rfq_number: string | null
+          rfq_type: string
+          sent_at: string | null
+          share_token: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          vendor_address: string | null
+          vendor_email: string | null
+          vendor_name: string | null
+          vendor_phone: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rfqs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_rfq_line_items_by_share_token: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string | null
+          description: string | null
+          dimensions: string | null
+          estimated_cost: number | null
+          id: string
+          item_name: string
+          notes: string | null
+          product_id: string | null
+          product_name: string | null
+          product_photo_url: string | null
+          quantity: number
+          rfq_id: string
+          sort_order: number | null
+          target_price: number | null
+          units: string | null
+          vendor_price: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rfq_line_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
