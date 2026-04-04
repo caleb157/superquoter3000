@@ -249,7 +249,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
 
   // Fetch additional data needed for full cost summary
   const productIds = products.map((p: any) => p.id);
-  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes] = await Promise.all([
+  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
     supabase.from('overhead_items').select('*'),
     supabase.from('non_unit_cogs').select('*'),
     supabase.from('shipping_items').select('*'),
@@ -257,6 +257,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     supabase.from('labor_employees').select('*'),
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*'),
+    supabase.from('product_types').select('*'),
   ]);
 
   const allOh = (ohRes.data || []).filter((o: any) => productIds.includes(o.product_id));
@@ -266,6 +267,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
   const employees = empRes.data || [];
   const gs = gsRes.data as any;
   const allCbm = (cbmRes.data || []).filter((c: any) => productIds.includes(c.product_id));
+  const productTypes = ptRes.data || [];
 
   const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
     ? settings.exchange_rate_override
