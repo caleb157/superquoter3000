@@ -1372,6 +1372,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_entity_for_guest: {
+        Args: { _entity_id: string }
+        Returns: {
+          address_line1: string
+          address_line2: string
+          city: string
+          country: string
+          email: string
+          entity_type: string
+          id: string
+          legal_name: string
+          logo_url: string
+          name: string
+          phone: string
+          postal_code: string
+          state: string
+          website: string
+        }[]
+      }
       get_rfq_by_share_token: {
         Args: { _token: string }
         Returns: {
