@@ -11,8 +11,6 @@ const RfqVendorView = () => {
   const { token } = useParams<{ token: string }>();
   const [rfq, setRfq] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
-  const [entity, setEntity] = useState<any>(null);
-  const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,12 +21,10 @@ const RfqVendorView = () => {
       if (!rfqData) { setLoading(false); return; }
       setRfq(rfqData);
 
-      const [itemsRes, projRes] = await Promise.all([
+      const [itemsRes] = await Promise.all([
         (supabase as any).from('rfq_line_items').select('*').eq('rfq_id', rfqData.id).order('sort_order'),
-        supabase.from('projects').select('name, customer_name').eq('id', rfqData.project_id).single(),
       ]);
       setItems(itemsRes.data || []);
-      setProject(projRes.data);
       setLoading(false);
     };
     fetch();
@@ -68,10 +64,9 @@ const RfqVendorView = () => {
               <span>{rfq.rfq_number}</span>
               {rfq.response_due && <span>Due: {new Date(rfq.response_due).toLocaleDateString()}</span>}
             </div>
-            {project && (
+            {rfq.vendor_name && (
               <p className="text-sm text-muted-foreground mt-1">
-                Project: <strong>{project.name}</strong>
-                {project.customer_name && ` — ${project.customer_name}`}
+                Vendor: <strong>{rfq.vendor_name}</strong>
               </p>
             )}
           </div>

@@ -167,13 +167,6 @@ Deno.serve(async (req) => {
       ${rfq.vendor_phone ? `<p>${rfq.vendor_phone}</p>` : ''}
     </div>
     ` : ''}
-    ${project ? `
-    <div class="meta-section">
-      <h3>Project</h3>
-      <p><strong>${project.name}</strong></p>
-      ${project.customer_name ? `<p>Customer: ${project.customer_name}</p>` : ''}
-    </div>
-    ` : ''}
   </div>
 
   <table>
