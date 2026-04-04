@@ -14,20 +14,19 @@ const RfqVendorView = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       if (!token) return;
-      // Use anon client to fetch by share_token
-      const { data: rfqData } = await (supabase as any).from('rfqs').select('*').eq('share_token', token).single();
+      // Use secure RPC functions to fetch by share_token
+      const { data: rfqRows } = await (supabase as any).rpc('get_rfq_by_share_token', { _token: token });
+      const rfqData = rfqRows?.[0];
       if (!rfqData) { setLoading(false); return; }
       setRfq(rfqData);
 
-      const [itemsRes] = await Promise.all([
-        (supabase as any).from('rfq_line_items').select('*').eq('rfq_id', rfqData.id).order('sort_order'),
-      ]);
-      setItems(itemsRes.data || []);
+      const { data: itemsData } = await (supabase as any).rpc('get_rfq_line_items_by_share_token', { _token: token });
+      setItems(itemsData || []);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [token]);
 
   const downloadPdf = async () => {
