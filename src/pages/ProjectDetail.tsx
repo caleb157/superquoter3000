@@ -493,6 +493,25 @@ const ProjectDetail = () => {
                     ))}
                   </TableBody>
                 </Table>
+                {/* Aggregate footer */}
+                {Object.keys(costData).length > 0 && (
+                  <div className="border-t bg-muted/30 px-3 py-2 flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono">
+                    <span><strong>{sortedProducts.length}</strong> products</span>
+                    <span>Qty: <strong>{fmt.qty(sortedProducts.reduce((s, p) => s + (p.quantity || 0), 0))}</strong></span>
+                    <span>CBM: <strong>{sortedProducts.reduce((s, p) => s + ((costData[p.id]?.unit_cbm || 0) * (p.quantity || 0)), 0).toFixed(2)}</strong></span>
+                    {(() => {
+                      const totalCbm = sortedProducts.reduce((s, p) => s + ((costData[p.id]?.unit_cbm || 0) * (p.quantity || 0)), 0);
+                      return totalCbm > 0 ? (
+                        <span className="text-muted-foreground">
+                          Container: {[{ name: '20ft', cbm: 33 }, { name: '40ft', cbm: 67 }, { name: '40ft HC', cbm: 76 }]
+                            .map(c => `${((totalCbm / c.cbm) * 100).toFixed(0)}% ${c.name}`).join(' | ')}
+                        </span>
+                      ) : null;
+                    })()}
+                    <span>Cost: <strong>{fmt.usd(sortedProducts.reduce((s, p) => s + ((costData[p.id]?.cost_usd || 0) * (p.quantity || 0)), 0))}</strong></span>
+                    <span>Revenue: <strong>{fmt.usd(sortedProducts.reduce((s, p) => s + ((costData[p.id]?.price_usd || 0) * (p.quantity || 0)), 0))}</strong></span>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
