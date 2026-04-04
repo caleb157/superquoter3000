@@ -477,9 +477,9 @@ const ProjectDetail = () => {
                         <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
                         <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
                         <TableCell className="text-right">{fmt.qty(p.quantity)}</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.unit_cbm ? fmt.cbm(costData[p.id].unit_cbm) : '—'}</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.cost_usd ? fmt.usd(costData[p.id].cost_usd) : '—'}</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.price_usd ? fmt.usd(costData[p.id].price_usd) : '—'}</TableCell>
                         <TableCell className="text-center">
                           <ProductStatusIndicator
                             cbm_done={p.cbm_done}
