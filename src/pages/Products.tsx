@@ -300,8 +300,8 @@ const Products = () => {
                       <TableCell className="text-xs">{cust?.name || proj?.customer_name || '—'}</TableCell>
                       <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
                       <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
-                      <TableCell className="text-right text-xs">—</TableCell>
-                      <TableCell className="text-right text-xs">—</TableCell>
+                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
+                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
                       <TableCell className="text-center">
                         <ProductStatusIndicator
                           cbm_done={p.cbm_done}
