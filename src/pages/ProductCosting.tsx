@@ -105,6 +105,7 @@ const ProductCosting = () => {
         (supabase as any).from('global_settings').select('*').limit(1).single(),
         (supabase as any).from('box_data').select('*'),
         (supabase as any).from('chemical_prices').select('*'),
+        (supabase as any).from('hardware_prices').select('*').order('name'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -118,6 +119,7 @@ const ProductCosting = () => {
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
+      if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
 
       // Fetch project settings if product has a project_id
       if (prodRes.data?.project_id) {
