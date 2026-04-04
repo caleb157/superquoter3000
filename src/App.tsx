@@ -60,6 +60,17 @@ const App = () => (
                 <ProductCosting />
               </ProtectedRoute>
             } />
+            <Route path="/rfqs" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <RfqList />
+              </ProtectedRoute>
+            } />
+            <Route path="/rfq/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <RfqEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/rfq/view/:token" element={<RfqVendorView />} />
             <Route path="/quotes" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Quotes />
