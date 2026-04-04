@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe } from 'lucide-react';
+import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe, Cloud, CloudOff } from 'lucide-react';
 
 interface QuoteProduct {
   name: string;
