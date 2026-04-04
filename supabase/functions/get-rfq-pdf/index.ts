@@ -117,9 +117,30 @@ Deno.serve(async (req) => {
   .notes h3 { font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
   .notes p { font-size: 10px; line-height: 1.5; white-space: pre-wrap; }
   .photo { width: 36px; height: 36px; object-fit: cover; border-radius: 3px; }
+  .print-bar { position: fixed; top: 0; left: 0; right: 0; background: #1e293b; color: #fff; padding: 10px 40px; display: flex; align-items: center; justify-content: space-between; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .print-bar button { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Noto Sans', sans-serif; }
+  .print-bar button:hover { background: #1d4ed8; }
+  .print-bar span { font-size: 13px; opacity: 0.8; }
+  .print-spacer { height: 50px; }
+
+  @media print {
+    .print-bar, .print-spacer { display: none !important; }
+    body { padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header { break-after: avoid; }
+    table { break-inside: auto; }
+    tr { break-inside: avoid; }
+    .notes, .footer { break-inside: avoid; }
+    th { background: #f1f5f9 !important; }
+    @page { margin: 15mm; size: A4; }
+  }
 </style>
 </head>
 <body>
+  <div class="print-bar">
+    <span>${rfq.rfq_number || 'RFQ'} — ${rfq.title || ''}</span>
+    <button onclick="window.print()">⌘P Print / Save as PDF</button>
+  </div>
+  <div class="print-spacer"></div>
   <div class="header">
     <div class="header-left">
       <h1>${entity?.name || 'Company'}</h1>
