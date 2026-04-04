@@ -434,6 +434,7 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
                       <th className="p-1.5 text-left w-28">Type</th>
                       <th className="p-1.5 text-left w-24">Material</th>
                       <th className="p-1.5 text-right w-16">Target $</th>
+                      <th className="p-1.5 text-left w-32">Hardware</th>
                       <th className="p-1.5 text-center w-16">Conf.</th>
                     </tr>
                   </thead>
