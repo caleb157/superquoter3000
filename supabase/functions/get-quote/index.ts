@@ -84,10 +84,13 @@ Deno.serve(async (req) => {
         // Attach variants + CBM to snapshot products
         const snapshotProducts = (snapshot.products as any[]) || [];
         for (const sp of snapshotProducts) {
+          // Assembly items are stored with their own photo_url and don't need DB matching
+          if (sp.is_assembly) continue;
+
           const dbProduct = products.find((p: any) => p.name === sp.name || p.sku === sp.sku);
           if (dbProduct) {
             sp.product_id = dbProduct.id;
-            sp.photo_url = dbProduct.photo_url;
+            sp.photo_url = sp.photo_url || dbProduct.photo_url;
             sp.moq = dbProduct.moq;
             sp.width_inch = dbProduct.width_inch;
             sp.depth_inch = dbProduct.depth_inch;
@@ -99,7 +102,6 @@ Deno.serve(async (req) => {
             if (cbmEst?.final_unit_cbm && cbmEst.final_unit_cbm > 0) {
               sp.unit_cbm = cbmEst.final_unit_cbm;
             } else if ((!sp.unit_cbm || sp.unit_cbm === 0) && dbProduct.width_inch && dbProduct.depth_inch && dbProduct.height_inch) {
-              // Bug 5 fix: fall back to pre-packaged CBM
               sp.unit_cbm = (dbProduct.width_inch * dbProduct.depth_inch * dbProduct.height_inch) / 61020;
             }
           }

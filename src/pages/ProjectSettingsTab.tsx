@@ -80,27 +80,42 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
 
   // Fetch all product data for export
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, boxRes, ptRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, boxRes, ptRes, asmRes, asmCompRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('box_data').select('*'),
       supabase.from('product_types').select('*'),
+      supabase.from('product_assemblies').select('*').eq('project_id', projectId),
+      supabase.from('assembly_components').select('*'),
     ]);
 
-    const products = productsRes.data || [];
+    const allProducts = productsRes.data || [];
     const gs = gsRes.data;
     const employees = empRes.data || [];
     const shTypes = stRes.data || [];
     const productTypes = ptRes.data || [];
+    const assemblies = asmRes.data || [];
+    const asmComponents = asmCompRes.data || [];
+
+    // Build set of product IDs that are components of assemblies
+    const componentProductIds = new Set<string>();
+    assemblies.forEach((asm: any) => {
+      const comps = asmComponents.filter((c: any) => c.assembly_id === asm.id);
+      comps.forEach((c: any) => componentProductIds.add(c.product_id));
+    });
+
+    // Standalone products (not components of any assembly)
+    const products = allProducts.filter((p: any) => !componentProductIds.has(p.id));
 
     // Use project-level exchange rate override if set
     const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
       ? settings.exchange_rate_override : (gs?.exchange_rate || 90);
 
-    const productIds = products.map((p: any) => p.id);
-    if (productIds.length === 0) { toast.error('No products to export'); return null; }
+    const allProductIds = allProducts.map((p: any) => p.id);
+    if (allProductIds.length === 0 && assemblies.length === 0) { toast.error('No products to export'); return null; }
+    const productIds = allProductIds;
 
     const [cogsRes, nucRes, ohRes, shipRes, cbmRes] = await Promise.all([
       supabase.from('cogs_items').select('*').in('product_id', productIds),
@@ -222,25 +237,122 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       };
     });
 
+    // Build a lookup of ALL product cost data (including components) for assembly calculations
+    const allProductCostMap: Record<string, { unit_cost_usd: number; unit_price_usd: number; unit_cbm: number }> = {};
+    allProducts.forEach((p: any) => {
+      const cbmEst = allCbm.find((c: any) => c.product_id === p.id);
+      const pCogs = allCogs.filter((c: any) => c.product_id === p.id);
+      const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
+      const pOh = allOh.filter((c: any) => c.product_id === p.id);
+      const pShip = allShip.filter((c: any) => c.product_id === p.id);
+      const qty = p.quantity || 100;
+      const ucbm = cbmEst?.final_unit_cbm || 0;
+
+      const cogsPerUnit = pCogs
+        .filter((i: any) => i.include !== 'No')
+        .reduce((sum: number, item: any) => sum + calc.calcCogsItemCost({
+          include: item.include, components_per_product: item.components_per_product || 0,
+          unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+        }).unit_cost, 0);
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+        pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty
+      );
+      const ohItems = pOh.map((item: any) => ({
+        include: item.include, labor_type: item.labor_type,
+        man_hours_per_unit: item.man_hours_per_unit || 0,
+        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+      }));
+      const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+      const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+      const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+      const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+      const shipItem = pShip[0];
+      const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+      const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+        cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
+        final_unit_cbm: ucbm, weight_kg: p.weight_kg || 0,
+      }) : 0;
+      const markupPercent = (settings?.apply_uniform_markup && settings.default_markup_override != null)
+        ? settings.default_markup_override : (p.markup_percent || 0.2);
+      const summary = calc.calcProductCostSummary(
+        cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+        shippingPerUnit, markupPercent, exchangeRate, qty
+      );
+      allProductCostMap[p.id] = {
+        unit_cost_usd: summary.product_cost_per_unit_usd,
+        unit_price_usd: summary.unit_price_usd,
+        unit_cbm: ucbm,
+      };
+    });
+
+    // Build assembly line items
+    const assemblyProducts: ExportProduct[] = assemblies.map((asm: any) => {
+      const comps = asmComponents.filter((c: any) => c.assembly_id === asm.id);
+      let asmUnitCostUsd = 0;
+      let asmUnitCbm = 0;
+      comps.forEach((comp: any) => {
+        const pc = allProductCostMap[comp.product_id];
+        if (!pc) return;
+        const qpa = comp.quantity_per_assembly || 1;
+        asmUnitCostUsd += pc.unit_cost_usd * qpa;
+        asmUnitCbm += pc.unit_cbm * qpa;
+      });
+      const asmMarkup = (settings?.apply_uniform_markup && settings.default_markup_override != null)
+        ? settings.default_markup_override : (asm.markup_percent || 0.2);
+      const asmUnitPriceUsd = asmUnitCostUsd * (1 + asmMarkup);
+      const qty = asm.quantity || 100;
+      const totalCbm = asmUnitCbm * qty;
+      const totalRevenue = asmUnitPriceUsd * qty;
+      const totalCost = asmUnitCostUsd * qty;
+      const totalProfit = totalRevenue - totalCost;
+      const gpm = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
+
+      return {
+        name: asm.name, sku: asm.sku, quantity: qty,
+        target_price_usd: asm.target_price_usd, markup_percent: asmMarkup,
+        cbm_done: true, cogs_done: true, overhead_done: true, shipping_done: true, revenue_done: true,
+        unit_cbm: asmUnitCbm, total_cbm: totalCbm,
+        unit_cost_inr: asmUnitCostUsd * exchangeRate,
+        unit_cost_usd: asmUnitCostUsd,
+        unit_price_usd: asmUnitPriceUsd,
+        total_cost_usd: totalCost,
+        total_revenue_usd: totalRevenue,
+        total_profit_usd: totalProfit,
+        gpm, npm: gpm,
+        remaining_to_target_inr: null,
+        total_direct_mh: 0,
+        total_cogs: 0, total_direct_oh: 0, total_indirect_oh: 0, total_shipping: 0,
+        review_count: 0,
+        width_inch: null, depth_inch: null, height_inch: null,
+        weight_kg: null, finishing_difficulty: null,
+        // Extra fields for snapshot
+        photo_url: asm.photo_url,
+        is_assembly: true,
+      } as any;
+    });
+
+    // Combine standalone products + assemblies
+    const allExportProducts = [...exportProducts, ...assemblyProducts];
+
     // Aggregates
-    const totalQty = exportProducts.reduce((s, r) => s + r.quantity, 0);
-    const totalCbm = exportProducts.reduce((s, r) => s + r.total_cbm, 0);
-    const totalCost = exportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
-    const totalRevenue = exportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
-    const totalProfit = exportProducts.reduce((s, r) => s + r.total_profit_usd, 0);
-    const weightedGpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.gpm * r.total_revenue_usd, 0) / totalRevenue : 0;
-    const weightedNpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.npm * r.total_revenue_usd, 0) / totalRevenue : 0;
-    const totalMh = exportProducts.reduce((s, r) => s + r.total_direct_mh, 0);
-    const totalReview = exportProducts.reduce((s, r) => s + r.review_count, 0);
-    const fullyCosted = exportProducts.filter(r => r.cbm_done && r.cogs_done && r.overhead_done && r.shipping_done && r.revenue_done).length;
-    const bCogs = exportProducts.reduce((s, r) => s + r.total_cogs, 0);
-    const bDoh = exportProducts.reduce((s, r) => s + r.total_direct_oh, 0);
-    const bIoh = exportProducts.reduce((s, r) => s + r.total_indirect_oh, 0);
-    const bShip = exportProducts.reduce((s, r) => s + r.total_shipping, 0);
+    const totalQty = allExportProducts.reduce((s, r) => s + r.quantity, 0);
+    const totalCbm = allExportProducts.reduce((s, r) => s + r.total_cbm, 0);
+    const totalCost = allExportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
+    const totalRevenue = allExportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
+    const totalProfit = allExportProducts.reduce((s, r) => s + r.total_profit_usd, 0);
+    const weightedGpm = totalRevenue > 0 ? allExportProducts.reduce((s, r) => s + r.gpm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const weightedNpm = totalRevenue > 0 ? allExportProducts.reduce((s, r) => s + r.npm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const totalMh = allExportProducts.reduce((s, r) => s + r.total_direct_mh, 0);
+    const totalReview = allExportProducts.reduce((s, r) => s + r.review_count, 0);
+    const fullyCosted = allExportProducts.filter(r => r.cbm_done && r.cogs_done && r.overhead_done && r.shipping_done && r.revenue_done).length;
+    const bCogs = allExportProducts.reduce((s, r) => s + r.total_cogs, 0);
+    const bDoh = allExportProducts.reduce((s, r) => s + r.total_direct_oh, 0);
+    const bIoh = allExportProducts.reduce((s, r) => s + r.total_indirect_oh, 0);
+    const bShip = allExportProducts.reduce((s, r) => s + r.total_shipping, 0);
     const bTotal = bCogs + bDoh + bIoh + bShip;
 
     const aggregates: ExportAggregates = {
-      skuCount: exportProducts.length, totalQty, totalCbm, totalCost, totalRevenue,
+      skuCount: allExportProducts.length, totalQty, totalCbm, totalCost, totalRevenue,
       totalProfit, weightedGpm, weightedNpm, totalMh, totalReview, fullyCosted,
       bCogs, bDoh, bIoh, bShip, bTotal,
     };
@@ -254,7 +366,7 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       projectName,
       customerName: customerName || undefined,
       customerLogoUrl: settings?.customer_logo_url || undefined,
-      products: exportProducts,
+      products: allExportProducts,
       aggregates,
       exchangeRate,
       quoteTitle: settings?.quote_title,
@@ -282,10 +394,12 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
         case 'quote': {
           const result = await generateCustomerQuotePDF(ctx);
           // Save snapshot
-          const snapshotProducts = ctx.products.map(p => ({
+          const snapshotProducts = ctx.products.map((p: any) => ({
             name: p.name, sku: p.sku, quantity: p.quantity,
             unit_price_usd: p.unit_price_usd, total_usd: p.unit_price_usd * p.quantity,
             unit_cbm: p.unit_cbm,
+            photo_url: p.photo_url || null,
+            is_assembly: p.is_assembly || false,
           }));
           await (supabase as any).from('quote_snapshots').insert({
             project_id: projectId,
