@@ -312,7 +312,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
     const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
     const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-      cost_inr: shipType.cost_inr, per_unit: shipType.per_unit,
+      cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
       final_unit_cbm: finalUnitCbm, weight_kg: p.weight_kg || 0,
     }) : 0;
 
