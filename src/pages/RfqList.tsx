@@ -12,7 +12,7 @@ import { Search, FileText, Trash2 } from 'lucide-react';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { toast } from 'sonner';
-import * as fmt from '@/lib/formatters';
+import { fmt } from '@/lib/formatters';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -23,11 +23,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  boxes: 'Boxes',
-  chemicals: 'Chemicals',
-  hardware: 'Hardware',
-  raw_pieces: 'Raw Pieces',
-  custom: 'Custom',
+  boxes: 'Boxes', chemicals: 'Chemicals', hardware: 'Hardware',
+  raw_pieces: 'Raw Pieces', custom: 'Custom',
 };
 
 const RfqList = () => {
@@ -87,21 +84,19 @@ const RfqList = () => {
     });
   }, [rfqs, search, statusFilter, typeFilter, projectMap]);
 
-  const { sortConfig, onSort, sorted: sortedRfqs } = useTableSort(filtered, {
-    key: 'created_at',
-    direction: 'desc',
-    sortFns: {
-      rfq_number: (r) => r.rfq_number || '',
-      rfq_type: (r) => r.rfq_type,
-      project: (r) => projectMap[r.project_id]?.name || '',
-      customer: (r) => projectMap[r.project_id]?.customer_name || '',
-      vendor: (r) => r.vendor_name || '',
-      items: (r) => itemAgg[r.id]?.count || 0,
-      est_total: (r) => itemAgg[r.id]?.estTotal || 0,
-      status: (r) => r.status,
-      created_at: (r) => r.created_at,
-    },
-  });
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort({ storageKey: 'rfq-list' });
+
+  const sortedRfqs = useMemo(() => sortItems(filtered, {
+    rfq_number: (r: any) => r.rfq_number || '',
+    rfq_type: (r: any) => r.rfq_type,
+    project: (r: any) => projectMap[r.project_id]?.name || '',
+    customer: (r: any) => projectMap[r.project_id]?.customer_name || '',
+    vendor: (r: any) => r.vendor_name || '',
+    items: (r: any) => itemAgg[r.id]?.count || 0,
+    est_total: (r: any) => itemAgg[r.id]?.estTotal || 0,
+    status: (r: any) => r.status,
+    created_at: (r: any) => r.created_at,
+  }), [filtered, sortItems, projectMap, itemAgg]);
 
   const deleteRfq = async (rfqId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -150,15 +145,15 @@ const RfqList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableHeader label="RFQ #" sortKey="rfq_number" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Type" sortKey="rfq_type" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Project" sortKey="project" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Customer" sortKey="customer" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Vendor" sortKey="vendor" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Items" sortKey="items" sortConfig={sortConfig} onSort={onSort} className="text-xs text-right" />
-                    <SortableHeader label="Est. Total" sortKey="est_total" sortConfig={sortConfig} onSort={onSort} className="text-xs text-right" />
-                    <SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={onSort} className="text-xs" />
-                    <SortableHeader label="Date" sortKey="created_at" sortConfig={sortConfig} onSort={onSort} className="text-xs text-right" />
+                    <SortableHeader label="RFQ #" column="rfq_number" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Type" column="rfq_type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Project" column="project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Customer" column="customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Vendor" column="vendor" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Items" column="items" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                    <SortableHeader label="Est. Total" column="est_total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                    <SortableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Date" column="created_at" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                     <TableHead className="text-xs w-10" />
                   </TableRow>
                 </TableHeader>
