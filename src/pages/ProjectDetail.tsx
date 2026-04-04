@@ -202,13 +202,14 @@ const ProjectDetail = () => {
 
   // Export functionality
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, settingsRes, entRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, settingsRes, entRes, ptRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', id!).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('project_settings').select('*').eq('project_id', id!).maybeSingle(),
       (supabase as any).from('company_entities').select('*').order('name'),
+      supabase.from('product_types').select('*'),
     ]);
 
     const prods = productsRes.data || [];
@@ -216,6 +217,7 @@ const ProjectDetail = () => {
     const employees = empRes.data || [];
     const shTypes = stRes.data || [];
     const ps = settingsRes.data as any;
+    const pTypes = ptRes.data || [];
 
     const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override)
       ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
@@ -244,7 +246,30 @@ const ProjectDetail = () => {
       const pOh = allOh.filter((c: any) => c.product_id === p.id);
       const pShip = allShip.filter((c: any) => c.product_id === p.id);
       const pQty = p.quantity || 100;
-      const unit_cbm = cbmEst?.final_unit_cbm || 0;
+
+      // Use persisted CBM, or compute on-the-fly as fallback
+      let unit_cbm = cbmEst?.final_unit_cbm || 0;
+      if (unit_cbm === 0 && p.width_inch && p.depth_inch && p.height_inch) {
+        const ptType = pTypes.find((t: any) => t.id === p.product_type_id);
+        const icAdd = ptType?.ic_addition_per_side_inch || 0.5;
+        const icDims = calc.calcICDimensions(p.width_inch, p.depth_inch, p.height_inch, icAdd);
+        const icVol = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
+        const productsPerIc = cbmEst?.products_per_ic || 1;
+        const includeMc = cbmEst?.include_mc ?? true;
+        if (includeMc) {
+          const mcPack = calc.calcMCPacking({
+            include_mc: true, mc_type: cbmEst?.mc_type || '7 ply',
+            mc_max_width: cbmEst?.mc_max_width || 25, mc_max_depth: cbmEst?.mc_max_depth || 25,
+            mc_max_height: cbmEst?.mc_max_height || 25, mc_buffer_inch: cbmEst?.mc_buffer_inch || 1,
+            mc_weight_limit_kg: cbmEst?.mc_weight_limit_kg || 20, mc_empty_weight_kg: cbmEst?.mc_empty_weight_kg || 1.5,
+            product_weight_kg: p.weight_kg || 0, quantity: pQty, products_per_ic: productsPerIc,
+            ic_width: icDims.ic_width, ic_depth: icDims.ic_depth, ic_height: icDims.ic_height,
+          });
+          unit_cbm = calc.calcFinalUnitCbm(true, icVol, productsPerIc, mcPack.mc_volume_cbm, mcPack.products_per_mc);
+        } else {
+          unit_cbm = calc.calcFinalUnitCbm(false, icVol, productsPerIc, 0, 0);
+        }
+      }
       const total_cbm = unit_cbm * pQty;
 
       const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
