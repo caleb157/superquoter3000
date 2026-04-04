@@ -123,7 +123,7 @@ const AssemblyDetail = () => {
       }
     };
     fetchAll();
-  }, [id]);
+  }, [id, refetchKey]);
 
   const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
     ? projectSettings.exchange_rate_override : (globalSettings?.exchange_rate || 90);
