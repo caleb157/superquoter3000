@@ -62,12 +62,17 @@ const RfqEditor = () => {
     setRfq((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const roundTarget = (estCost: number, discountDecimal: number) => {
+    const discountPercent = discountDecimal * 100;
+    return Math.round((estCost * (1 - discountPercent / 100)) / 10) * 10;
+  };
+
   const updateItem = (itemId: string, field: string, value: any) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item;
       const updated = { ...item, [field]: value };
-      if (field === 'estimated_cost' && rfq?.discount_percent != null) {
-        updated.target_price = +(value * (1 - rfq.discount_percent)).toFixed(2);
+      if (field === 'estimated_cost' && rfq?.discount_percent != null && value > 0) {
+        updated.target_price = roundTarget(value, rfq.discount_percent);
       }
       return updated;
     }));
@@ -76,7 +81,7 @@ const RfqEditor = () => {
   const recalculateTargetPrices = (discount: number) => {
     setItems(prev => prev.map(item => ({
       ...item,
-      target_price: item.estimated_cost ? +(item.estimated_cost * (1 - discount)).toFixed(2) : item.target_price,
+      target_price: item.estimated_cost ? roundTarget(item.estimated_cost, discount) : item.target_price,
     })));
   };
 
