@@ -267,7 +267,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
       quantity: p.quantity || 0,
       units: 'pc',
       estimated_cost: rawCost > 0 ? +rawCost.toFixed(2) : undefined,
-      target_price: rawCost > 0 ? +(rawCost * (1 - discount)).toFixed(2) : undefined,
+      target_price: rawCost > 0 ? +rawCost.toFixed(2) : undefined,
       notes: p.notes || undefined,
       sort_order: sortOrder++,
     });
