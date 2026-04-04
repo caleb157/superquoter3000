@@ -15,6 +15,7 @@ import * as calc from '@/lib/calculations';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [refetchKey, setRefetchKey] = useState(0);
   const navigate = useNavigate();
 
   const [assembly, setAssembly] = useState<any>(null);
