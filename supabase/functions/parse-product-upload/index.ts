@@ -45,7 +45,14 @@ Return ONLY a valid JSON object (no markdown, no backticks, no explanation) with
       "material_guess": "e.g. Mango Wood, Sheesham, Acacia, Oak, Iron, Marble",
       "target_price_usd": number or null,
       "notes": "any other details: finish type, number of drawers/shelves, hardware, special features",
-      "confidence": "high" or "medium" or "low"
+      "confidence": "high" or "medium" or "low",
+      "hardware_guess": [
+        {
+          "type": "one of: Drawer Slides, Hinges, Door Pulls, Knobs, Furniture Foot Pads, Casters, Shelf Brackets, Locks, Magnetic Catches, Shelf Pins",
+          "quantity_per_product": number,
+          "notes": "e.g. soft-close, full extension, antique brass"
+        }
+      ]
     }
   ]
 }
@@ -56,7 +63,13 @@ Rules:
 - If you see multiple products, return all of them
 - If no dimensions are visible, leave as null
 - Guess the product_type based on visual appearance or description
-- For furniture: width = side-to-side, depth = front-to-back, height = floor-to-top`;
+- For furniture: width = side-to-side, depth = front-to-back, height = floor-to-top
+- IMPORTANT: Analyze the product carefully to determine what hardware it would need:
+  - Drawers → Drawer Slides (2 per drawer, or 1 pair) + Door Pulls or Knobs (1 per drawer)
+  - Doors/cabinets → Hinges (2-3 per door) + Door Pulls or Knobs (1 per door) + Magnetic Catches (1 per door)
+  - Any furniture sitting on a floor → Furniture Foot Pads (4 typically)
+  - Shelving → Shelf Pins or Shelf Brackets as needed
+  - If you cannot determine hardware, return an empty array []`;
 
     for (const file of files) {
       try {
@@ -72,7 +85,7 @@ Rules:
               },
               {
                 type: "text",
-                text: "Extract product information from this image. Look for dimensions, product names, SKUs, materials, and any other relevant details.",
+                text: "Extract product information from this image. Look for dimensions, product names, SKUs, materials, and any other relevant details. Also analyze the product to determine what hardware it would need (drawer slides, hinges, pulls, knobs, foot pads, etc.).",
               },
             ],
           }];
@@ -86,7 +99,7 @@ Rules:
               },
               {
                 type: "text",
-                text: "Extract all product information from this PDF. It may be a spec sheet, catalog, customer RFQ, or price list.",
+                text: "Extract all product information from this PDF. It may be a spec sheet, catalog, customer RFQ, or price list. Also determine what hardware each product would need.",
               },
             ],
           }];
@@ -94,7 +107,7 @@ Rules:
           // Spreadsheet data sent as text
           messages = [{
             role: "user",
-            content: `Extract product information from this spreadsheet data:\n\n${file.data}\n\nParse each row as a product if it appears to contain product data. Ignore header rows, summary rows, and empty rows.`,
+            content: `Extract product information from this spreadsheet data:\n\n${file.data}\n\nParse each row as a product if it appears to contain product data. Ignore header rows, summary rows, and empty rows. Also determine what hardware each product would need based on its type and description.`,
           }];
         }
 
@@ -121,6 +134,7 @@ Rules:
             notes: `AI API returned status ${response.status}. Please enter product details manually.`,
             confidence: "low",
             source_file: file.name,
+            hardware_guess: [],
           });
           continue;
         }
@@ -131,7 +145,11 @@ Rules:
         try {
           const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
           if (parsed.products) {
-            allProducts.push(...parsed.products.map((p: any) => ({ ...p, source_file: file.name })));
+            allProducts.push(...parsed.products.map((p: any) => ({
+              ...p,
+              source_file: file.name,
+              hardware_guess: p.hardware_guess || [],
+            })));
           }
         } catch {
           allProducts.push({
@@ -139,6 +157,7 @@ Rules:
             notes: "AI could not extract structured data from this file. Please enter product details manually.",
             confidence: "low",
             source_file: file.name,
+            hardware_guess: [],
           });
         }
       } catch (fileErr: any) {
@@ -148,6 +167,7 @@ Rules:
           notes: fileErr.message || "Unknown error processing file",
           confidence: "low",
           source_file: file.name,
+          hardware_guess: [],
         });
       }
     }

@@ -1096,15 +1096,63 @@ const ProductCosting = () => {
                 </div>
               </div>
 
-              {/* Target price comparison */}
-              {product.target_price_usd && (
-                <div className="flex items-center gap-4 text-xs border-t pt-2">
-                  <span className="text-muted-foreground">Target: {fmt.usd(product.target_price_usd)}</span>
-                  <span className={summary.unit_price_usd <= product.target_price_usd ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                    {summary.unit_price_usd <= product.target_price_usd ? '✓ Under target' : '✗ Over target'} by {fmt.usd(Math.abs(summary.unit_price_usd - product.target_price_usd))}
-                  </span>
-                </div>
-              )}
+              {/* Target price comparison + Max Raw Piece */}
+              {product.target_price_usd && (() => {
+                const targetUsd = product.target_price_usd;
+                const deltaUsd = targetUsd - summary.unit_price_usd;
+                const isUnder = deltaUsd >= 0;
+
+                // Back-calculate max raw piece cost:
+                // Target price = cost × (1 + markup), so max cost = target / (1 + markup)
+                // Max raw piece = max cost - all non-raw-piece costs
+                const maxTotalCostUsd = targetUsd / (1 + markupPercent);
+                const maxTotalCostInr = maxTotalCostUsd * exchangeRate;
+                // Non-raw-piece costs = overhead + indirect OH + shipping + non-unit COGS + finishing + packaging + hardware + accessories COGS
+                const rawPieceCogs = cogsItems
+                  .filter(i => i.include !== 'No' && i.cogs_type === 'Raw Piece')
+                  .reduce((sum, item) => sum + calc.calcCogsItemCost({
+                    include: item.include, components_per_product: item.components_per_product || 0,
+                    unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+                  }).unit_cost, 0);
+                const nonRawPieceCosts = summary.product_cost_per_unit_inr - rawPieceCogs;
+                const maxRawPieceInr = maxTotalCostInr - nonRawPieceCosts;
+                const maxRawPieceUsd = exchangeRate > 0 ? maxRawPieceInr / exchangeRate : 0;
+
+                return (
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex items-center gap-4 text-xs">
+                      <span className="text-muted-foreground">Target: <strong>{fmt.usd(targetUsd)}</strong></span>
+                      <span className={isUnder ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                        {isUnder ? '✓ Under target' : '✗ Over target'} by {fmt.usd(Math.abs(deltaUsd))}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Current Raw Piece</span>
+                        <span className="font-mono font-semibold">{fmt.inr(rawPieceCogs)}</span>
+                        <span className="text-muted-foreground ml-1">({fmt.usd(exchangeRate > 0 ? rawPieceCogs / exchangeRate : 0)})</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Max Raw Piece (at target)</span>
+                        <span className={`font-mono font-semibold ${maxRawPieceInr >= rawPieceCogs ? 'text-green-600' : 'text-red-600'}`}>
+                          {fmt.inr(maxRawPieceInr)}
+                        </span>
+                        <span className="text-muted-foreground ml-1">({fmt.usd(maxRawPieceUsd)})</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Raw Piece Budget Left</span>
+                        <span className={`font-mono font-semibold ${maxRawPieceInr - rawPieceCogs >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {fmt.inr(maxRawPieceInr - rawPieceCogs)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Non-Raw-Piece Costs</span>
+                        <span className="font-mono">{fmt.inr(nonRawPieceCosts)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Variants */}
               <ProductVariants

@@ -46,6 +46,11 @@ interface ProductSummaryRow {
   total_indirect_oh: number;
   total_shipping: number;
   review_count: number;
+  // Target price analysis
+  delta_to_target_usd: number | null;
+  raw_piece_cost_inr: number;
+  max_raw_piece_inr: number | null;
+  non_raw_piece_costs_inr: number;
 }
 
 const CONTAINER_SIZES = [
@@ -162,6 +167,23 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
           remaining_to_target_inr = (p.target_price_usd * targetCostRatio - summary.product_cost_per_unit_usd) * exchangeRate;
         }
 
+        // Target price analysis: delta and max raw piece
+        const rawPieceCostInr = pCogs
+          .filter((i: any) => i.include !== 'No' && i.cogs_type === 'Raw Piece')
+          .reduce((sum: number, item: any) => sum + calc.calcCogsItemCost({
+            include: item.include, components_per_product: item.components_per_product || 0,
+            unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+          }).unit_cost, 0);
+        const nonRawPieceCostsInr = summary.product_cost_per_unit_inr - rawPieceCostInr;
+
+        let delta_to_target_usd: number | null = null;
+        let max_raw_piece_inr: number | null = null;
+        if (p.target_price_usd) {
+          delta_to_target_usd = p.target_price_usd - summary.unit_price_usd;
+          const maxTotalCostInr = (p.target_price_usd / (1 + markupPercent)) * exchangeRate;
+          max_raw_piece_inr = maxTotalCostInr - nonRawPieceCostsInr;
+        }
+
         return {
           id: p.id, name: p.name, sku: p.sku, photo_url: p.photo_url,
           quantity: qty, target_price_usd: p.target_price_usd, markup_percent: markupPercent,
@@ -183,6 +205,10 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
           total_indirect_oh: indirectOhPerUnit * qty,
           total_shipping: shippingPerUnit * qty,
           review_count: reviewCount,
+          delta_to_target_usd,
+          raw_piece_cost_inr: rawPieceCostInr,
+          max_raw_piece_inr,
+          non_raw_piece_costs_inr: nonRawPieceCostsInr,
         };
       });
 
@@ -217,6 +243,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
       gpm: (r) => r.gpm,
       npm: (r) => r.npm,
       target: (r) => r.target_price_usd || 0,
+      delta: (r) => r.delta_to_target_usd || 0,
+      max_raw: (r) => r.max_raw_piece_inr || 0,
+      raw_piece: (r) => r.raw_piece_cost_inr,
       status: (r) => getStatusLevel(r),
     };
     return sortItems(rows, getters);
@@ -402,6 +431,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                 <SortableHeader column="gpm" label="GPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="target" label="Target ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="delta" label="Δ Target" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="raw_piece" label="Raw Piece (₹)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                <SortableHeader column="max_raw" label="Max Raw (₹)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                 <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
               </TableRow>
             </TableHeader>
@@ -434,6 +466,13 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
                   <TableCell className="text-right font-mono">{fmt.pct(r.gpm)}</TableCell>
                   <TableCell className="text-right font-mono">{fmt.pct(r.npm)}</TableCell>
                   <TableCell className="text-right font-mono">{r.target_price_usd ? fmt.usd(r.target_price_usd) : '—'}</TableCell>
+                  <TableCell className={`text-right font-mono font-semibold ${r.delta_to_target_usd != null ? (r.delta_to_target_usd >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                    {r.delta_to_target_usd != null ? `${r.delta_to_target_usd >= 0 ? '+' : ''}${fmt.usd(r.delta_to_target_usd)}` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{r.raw_piece_cost_inr > 0 ? fmt.inr(r.raw_piece_cost_inr) : '—'}</TableCell>
+                  <TableCell className={`text-right font-mono font-semibold ${r.max_raw_piece_inr != null ? (r.max_raw_piece_inr >= r.raw_piece_cost_inr ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                    {r.max_raw_piece_inr != null ? fmt.inr(r.max_raw_piece_inr) : '—'}
+                  </TableCell>
                   <TableCell className="text-center">
                     <ProductStatusIndicator
                       cbm_done={r.cbm_done}
