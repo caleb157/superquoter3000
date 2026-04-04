@@ -553,8 +553,8 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
     startY: yPos,
     head: [headers], body: tableData,
     theme: 'striped',
-    styles: { fontSize: 8, cellPadding: 2.5 },
-    headStyles: { fillColor: [41, 65, 94], fontSize: 7.5, fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'left' as const },
+    headStyles: { fillColor: [41, 65, 94], fontSize: 7.5, fontStyle: 'bold', halign: 'left' as const },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: colStyles,
     didParseCell: (data) => {
