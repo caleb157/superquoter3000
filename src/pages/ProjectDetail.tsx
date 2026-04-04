@@ -134,6 +134,42 @@ const ProjectDetail = () => {
 
   const updateProject = async (field: string, value: any) => {
     if (!id) return;
+
+    // When customer_name changes, auto-create or link a customer record
+    if (field === 'customer_name' && value?.trim()) {
+      const name = value.trim();
+      // Check if a customer with this name already exists
+      const { data: existing } = await (supabase as any).from('customers').select('id, name, email').eq('name', name).maybeSingle();
+      if (existing) {
+        // Link to existing customer
+        const { error } = await supabase.from('projects').update({
+          customer_name: existing.name,
+          customer_id: existing.id,
+        } as any).eq('id', id);
+        if (error) { toast.error(error.message); return; }
+        setProject({ ...project, customer_name: existing.name, customer_id: existing.id });
+      } else {
+        // Create new customer and link
+        const { data: newCust, error: custErr } = await (supabase as any).from('customers').insert({
+          name,
+          email: project.customer_email || null,
+        }).select().single();
+        if (custErr) { toast.error(custErr.message); return; }
+        const { error } = await supabase.from('projects').update({
+          customer_name: name,
+          customer_id: newCust.id,
+        } as any).eq('id', id);
+        if (error) { toast.error(error.message); return; }
+        setProject({ ...project, customer_name: name, customer_id: newCust.id });
+      }
+      return;
+    }
+
+    // When customer_email changes, also update the linked customer record
+    if (field === 'customer_email' && project.customer_id) {
+      await (supabase as any).from('customers').update({ email: value || null }).eq('id', project.customer_id);
+    }
+
     const { error } = await supabase.from('projects').update({ [field]: value } as any).eq('id', id);
     if (error) toast.error(error.message);
     else setProject({ ...project, [field]: value });
