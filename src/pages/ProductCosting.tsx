@@ -392,7 +392,7 @@ const ProductCosting = () => {
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
-  const freightCreatingRef = React.useRef(false);
+  const freightCreatingRef = useRef(false);
   useEffect(() => {
     if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
