@@ -80,27 +80,42 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
 
   // Fetch all product data for export
   const buildExportContext = async (): Promise<ExportContext | null> => {
-    const [productsRes, gsRes, empRes, stRes, boxRes, ptRes] = await Promise.all([
+    const [productsRes, gsRes, empRes, stRes, boxRes, ptRes, asmRes, asmCompRes] = await Promise.all([
       supabase.from('products').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('global_settings').select('*').limit(1).single(),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
       supabase.from('box_data').select('*'),
       supabase.from('product_types').select('*'),
+      supabase.from('product_assemblies').select('*').eq('project_id', projectId),
+      supabase.from('assembly_components').select('*'),
     ]);
 
-    const products = productsRes.data || [];
+    const allProducts = productsRes.data || [];
     const gs = gsRes.data;
     const employees = empRes.data || [];
     const shTypes = stRes.data || [];
     const productTypes = ptRes.data || [];
+    const assemblies = asmRes.data || [];
+    const asmComponents = asmCompRes.data || [];
+
+    // Build set of product IDs that are components of assemblies
+    const componentProductIds = new Set<string>();
+    assemblies.forEach((asm: any) => {
+      const comps = asmComponents.filter((c: any) => c.assembly_id === asm.id);
+      comps.forEach((c: any) => componentProductIds.add(c.product_id));
+    });
+
+    // Standalone products (not components of any assembly)
+    const products = allProducts.filter((p: any) => !componentProductIds.has(p.id));
 
     // Use project-level exchange rate override if set
     const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
       ? settings.exchange_rate_override : (gs?.exchange_rate || 90);
 
-    const productIds = products.map((p: any) => p.id);
-    if (productIds.length === 0) { toast.error('No products to export'); return null; }
+    const allProductIds = allProducts.map((p: any) => p.id);
+    if (allProductIds.length === 0 && assemblies.length === 0) { toast.error('No products to export'); return null; }
+    const productIds = allProductIds;
 
     const [cogsRes, nucRes, ohRes, shipRes, cbmRes] = await Promise.all([
       supabase.from('cogs_items').select('*').in('product_id', productIds),
