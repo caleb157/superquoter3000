@@ -287,7 +287,7 @@ export function downloadSummaryPDF(ctx: ExportContext) {
     const done = flags.filter(Boolean).length;
     return [
       p.name, p.sku || '—', p.quantity.toString(), p.unit_cbm.toFixed(4), p.total_cbm.toFixed(2),
-      `₹${p.unit_cost_inr.toFixed(0)}`, `$${p.unit_cost_usd.toFixed(2)}`, `$${p.unit_price_usd.toFixed(2)}`,
+      `Rs.${p.unit_cost_inr.toFixed(0)}`, `$${p.unit_cost_usd.toFixed(2)}`, `$${p.unit_price_usd.toFixed(2)}`,
       `$${p.total_cost_usd.toFixed(0)}`, `$${p.total_revenue_usd.toFixed(0)}`, `$${p.total_profit_usd.toFixed(0)}`,
       `${(p.gpm * 100).toFixed(1)}%`, `${(p.npm * 100).toFixed(1)}%`,
       p.target_price_usd ? `$${p.target_price_usd.toFixed(2)}` : '—',
