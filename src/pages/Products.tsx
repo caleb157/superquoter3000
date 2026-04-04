@@ -171,8 +171,8 @@ const Products = () => {
       },
       qty: (p) => p.quantity || 0,
       unit_cbm: (p) => cbmMap[p.id]?.final_unit_cbm || 0,
-      cost: (p) => 0,
-      price: (p) => 0,
+      cost: (p) => costDataMap[p.id]?.cost_usd || 0,
+      price: (p) => costDataMap[p.id]?.price_usd || 0,
       status: (p) => getStatusLevel(p),
     };
 
