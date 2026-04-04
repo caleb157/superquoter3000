@@ -392,13 +392,27 @@ const ProductCosting = () => {
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
+  const freightCreatingRef = React.useRef(false);
   useEffect(() => {
     if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
     const transportRate = globalSettings.local_transport_cost_per_cbm || 3500;
     if (!freightItem) {
-      // Create the freight item if it doesn't exist
+      if (freightCreatingRef.current) return;
+      freightCreatingRef.current = true;
+      // Check DB first to avoid duplicates
       (async () => {
+        const { data: existing } = await (supabase as any).from('cogs_items')
+          .select('id').eq('product_id', id)
+          .eq('component_name', 'Domestic Freight (External Sourcing)')
+          .eq('is_auto_calculated', true).limit(1);
+        if (existing && existing.length > 0) {
+          // Already exists in DB, just refetch
+          const { data: row } = await (supabase as any).from('cogs_items').select('*').eq('id', existing[0].id).single();
+          if (row) setCogsItems(prev => [...prev, row]);
+          freightCreatingRef.current = false;
+          return;
+        }
         const { data } = await (supabase as any).from('cogs_items').insert({
           product_id: id,
           cogs_type: 'Subcontracting',
@@ -412,6 +426,7 @@ const ProductCosting = () => {
           sort_order: cogsItems.length,
         }).select().single();
         if (data) setCogsItems(prev => [...prev, data]);
+        freightCreatingRef.current = false;
       })();
       return;
     }
