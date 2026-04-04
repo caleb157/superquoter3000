@@ -11,8 +11,6 @@ const RfqVendorView = () => {
   const { token } = useParams<{ token: string }>();
   const [rfq, setRfq] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
-  const [entity, setEntity] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
