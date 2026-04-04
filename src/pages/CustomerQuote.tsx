@@ -116,6 +116,47 @@ const CustomerQuote = () => {
     if (token) fetchQuote();
   }, [token, supabaseUrl]);
 
+  // Auto-save selections on change (debounced 1.5s)
+  const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
+    if (!token || !data || confirmed) return;
+    setSaveStatus('saving');
+    try {
+      const customerSelections = {
+        products: data.snapshot.products.map((p, i) => ({
+          name: p.name,
+          sku: p.sku,
+          quantity: currentSelections[i]?.quantity ?? p.quantity,
+          selectedVariant: currentSelections[i]?.selectedVariant,
+          line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
+        })),
+        summary: { ...summary, draft_saved_at: new Date().toISOString() },
+      };
+      const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_selections: customerSelections, confirmed: false }),
+      });
+      if (res.ok) {
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('idle');
+      }
+    } catch {
+      setSaveStatus('idle');
+    }
+  }, [token, data, confirmed, supabaseUrl, summary]);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    if (confirmed || !data) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => autoSave(selections), 1500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [selections, autoSave, confirmed, data]);
+
   const updateQuantity = (idx: number, delta: number) => {
     setSelections(prev => {
       const current = prev[idx]?.quantity || 0;
