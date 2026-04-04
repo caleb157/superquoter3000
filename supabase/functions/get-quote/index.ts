@@ -96,8 +96,11 @@ Deno.serve(async (req) => {
             sp.variants = variants.filter((v: any) => v.product_id === dbProduct.id);
             // Use latest CBM from cbm_estimates, fall back to snapshot value
             const cbmEst = cbmEstimates.find((c: any) => c.product_id === dbProduct.id);
-            if (cbmEst?.final_unit_cbm) {
+            if (cbmEst?.final_unit_cbm && cbmEst.final_unit_cbm > 0) {
               sp.unit_cbm = cbmEst.final_unit_cbm;
+            } else if ((!sp.unit_cbm || sp.unit_cbm === 0) && dbProduct.width_inch && dbProduct.depth_inch && dbProduct.height_inch) {
+              // Bug 5 fix: fall back to pre-packaged CBM
+              sp.unit_cbm = (dbProduct.width_inch * dbProduct.depth_inch * dbProduct.height_inch) / 61020;
             }
           }
         }

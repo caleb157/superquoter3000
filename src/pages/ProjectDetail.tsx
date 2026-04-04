@@ -113,7 +113,7 @@ const ProjectDetail = () => {
       const pOh = (ohRes.data || []).filter((c: any) => c.product_id === p.id);
       const pShip = (shipRes.data || []).filter((c: any) => c.product_id === p.id);
       const qty = p.quantity || 100;
-      const unit_cbm = cbmEst?.final_unit_cbm || 0;
+      const unit_cbm = cbmEst?.final_unit_cbm || calc.prePackagedCbm(p.width_inch || 0, p.depth_inch || 0, p.height_inch || 0);
 
       const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
         const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
