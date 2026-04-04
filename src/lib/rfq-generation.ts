@@ -192,7 +192,16 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
-  const hwCogs = cogs.filter((c: any) => c.cogs_type === 'Hardware' && c.include === 'Yes');
+  // Filter out empty/placeholder hardware rows and zero-quantity items
+  const hwCogs = cogs.filter((c: any) => 
+    c.cogs_type === 'Hardware' && 
+    c.include === 'Yes' &&
+    c.component_name && 
+    c.component_name.trim() !== '' &&
+    !c.component_name.match(/^Hardware \d+$/i) &&
+    !c.component_name.match(/^Accessory \d+$/i) &&
+    (c.components_per_product || 0) > 0
+  );
 
   // Group by component_name
   const hwGroups: Record<string, {
@@ -204,7 +213,7 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
     const product = products.find((p: any) => p.id === item.product_id);
     if (!product) continue;
 
-    const name = item.component_name || 'Hardware Item';
+    const name = item.component_name;
     const perUnit = item.components_per_product || 0;
     const pQty = product.quantity || 0;
     const total = perUnit * pQty;
@@ -217,16 +226,15 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
   }
 
   for (const [, g] of Object.entries(hwGroups)) {
-    const desc = g.breakdown.map(b => b.productName).join(', ');
-    const notes = g.breakdown.map(b => `${b.productName}: ${b.perUnit}/unit × ${b.qty} = ${b.total}${g.units}`).join('\n');
+    const desc = g.breakdown.map(b => `${b.productName}: ${b.perUnit} ${g.units}/unit × ${b.qty} = ${b.total} ${g.units}`).join('\n');
     items.push({
-      item_name: g.name,
+      item_name: `${g.name} (${g.units})`,
       description: desc,
       quantity: g.totalQty,
       units: g.units,
       estimated_cost: g.unitCost,
       target_price: g.unitCost ? +(g.unitCost * (1 - discount)).toFixed(2) : undefined,
-      notes,
+      notes: `Total: ${g.totalQty} ${g.units}`,
       sort_order: sortOrder++,
     });
   }

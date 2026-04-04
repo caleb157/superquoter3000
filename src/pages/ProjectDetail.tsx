@@ -221,10 +221,10 @@ const ProjectDetail = () => {
         { product_id: data.id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
         { product_id: data.id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
         { product_id: data.id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-        { product_id: data.id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-        { product_id: data.id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-        { product_id: data.id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 12 },
-        { product_id: data.id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 13 },
+        { product_id: data.id, cogs_type: 'Hardware', component_name: '', waste_factor: 0.05, sort_order: 10 },
+        { product_id: data.id, cogs_type: 'Hardware', component_name: '', waste_factor: 0.05, sort_order: 11 },
+        { product_id: data.id, cogs_type: 'Accessories', component_name: '', waste_factor: 0.05, sort_order: 12 },
+        { product_id: data.id, cogs_type: 'Accessories', component_name: '', waste_factor: 0.05, sort_order: 13 },
       ];
       await supabase.from('cogs_items').insert(defaultCogs as any);
 

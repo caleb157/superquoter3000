@@ -49,6 +49,7 @@ const ProductCosting = () => {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
+  const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -91,7 +92,7 @@ const ProductCosting = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -104,6 +105,7 @@ const ProductCosting = () => {
         (supabase as any).from('global_settings').select('*').limit(1).single(),
         (supabase as any).from('box_data').select('*'),
         (supabase as any).from('chemical_prices').select('*'),
+        (supabase as any).from('hardware_prices').select('*').order('name'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -117,6 +119,7 @@ const ProductCosting = () => {
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
+      if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
 
       // Fetch project settings if product has a project_id
       if (prodRes.data?.project_id) {
@@ -938,8 +941,35 @@ const ProductCosting = () => {
                           {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
                         </TableCell>
                         <TableCell>
-                          <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}
-                            onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
+                          {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
+                            <Select
+                              value={item.component_name || ''}
+                              onValueChange={(v) => {
+                                const hwItem = hardwarePrices.find(hp => hp.name === v);
+                                const updates: any = { component_name: v };
+                                if (hwItem) {
+                                  updates.unit_cost_inr = hwItem.unit_cost_inr;
+                                  updates.units = hwItem.units || 'pc';
+                                }
+                                setCogsItems(items => items.map(i => i.id === item.id ? { ...i, ...updates } : i));
+                                Object.entries(updates).forEach(([k, val]) => updateCogsItem(item.id, k, val));
+                              }}
+                            >
+                              <SelectTrigger className="h-6 text-xs border-transparent hover:border-input">
+                                <SelectValue placeholder="Select hardware..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {hardwarePrices.map(hp => (
+                                  <SelectItem key={hp.id} value={hp.name}>
+                                    {hp.name} — {fmt.inr(hp.unit_cost_inr)}/{hp.units || 'pc'}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}
+                              onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input className="h-6 text-xs border-transparent hover:border-input" defaultValue={item.vendor_name || ''}

@@ -224,6 +224,7 @@ const Settings = () => {
   const [hardware, setHardware] = useState<any[]>([]);
   const [woodPrices, setWoodPrices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
 
   const fetchAll = () => {
     supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data));
@@ -234,6 +235,7 @@ const Settings = () => {
     supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
     supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data));
     (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data));
+    (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -247,6 +249,7 @@ const Settings = () => {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="entities">Company Entities</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
+            <TabsTrigger value="vendors">Vendors</TabsTrigger>
             <TabsTrigger value="shipping">Shipping</TabsTrigger>
             <TabsTrigger value="product-types">Product Types</TabsTrigger>
             <TabsTrigger value="box-data">Box Data</TabsTrigger>
@@ -271,6 +274,23 @@ const Settings = () => {
                 { key: 'email', label: 'Email', width: '180px' },
                 { key: 'phone', label: 'Phone', width: '120px' },
                 { key: 'notes', label: 'Notes' },
+              ]}
+            />
+          </TabsContent>
+
+          <TabsContent value="vendors">
+            <EditableTable
+              tableName="vendors"
+              data={vendors} setData={setVendors}
+              fetchData={() => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data))}
+              defaultRow={{ name: 'New Vendor', category: 'general' } as any}
+              columns={[
+                { key: 'name', label: 'Name', width: '160px' },
+                { key: 'email', label: 'Email', width: '160px' },
+                { key: 'phone', label: 'Phone', width: '120px' },
+                { key: 'address', label: 'Address', width: '200px' },
+                { key: 'category', label: 'Category', width: '120px' },
+                { key: 'notes', label: 'Notes', width: '150px' },
               ]}
             />
           </TabsContent>
