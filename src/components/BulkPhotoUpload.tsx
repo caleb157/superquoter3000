@@ -235,10 +235,10 @@ export function BulkPhotoUpload({ products, onPhotosUploaded, children }: BulkPh
 
                 {/* Match indicator */}
                 {mapping.confidence === 'exact' && mapping.productId && (
-                  <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                  <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 )}
                 {mapping.confidence === 'partial' && mapping.productId && (
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                  <AlertCircle className="h-3.5 w-3.5 text-destructive/70 flex-shrink-0" />
                 )}
 
                 {/* Product selector */}
