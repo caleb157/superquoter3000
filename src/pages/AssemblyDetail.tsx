@@ -162,6 +162,7 @@ const AssemblyDetail = () => {
   const removeComponent = async (compId: string) => {
     await (supabase as any).from('assembly_components').delete().eq('id', compId);
     setComponents(prev => prev.filter(c => c.id !== compId));
+    setRefetchKey(k => k + 1);
     toast.success('Component removed');
   };
 
