@@ -155,6 +155,7 @@ const AssemblyDetail = () => {
     }
     setSelectedProductId('');
     setShowAddComponent(false);
+    setRefetchKey(k => k + 1);
     toast.success('Component added');
   };
 
