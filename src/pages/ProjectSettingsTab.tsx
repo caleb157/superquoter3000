@@ -237,8 +237,105 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
       };
     });
 
+    // Build a lookup of ALL product cost data (including components) for assembly calculations
+    const allProductCostMap: Record<string, { unit_cost_usd: number; unit_price_usd: number; unit_cbm: number }> = {};
+    allProducts.forEach((p: any) => {
+      const cbmEst = allCbm.find((c: any) => c.product_id === p.id);
+      const pCogs = allCogs.filter((c: any) => c.product_id === p.id);
+      const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
+      const pOh = allOh.filter((c: any) => c.product_id === p.id);
+      const pShip = allShip.filter((c: any) => c.product_id === p.id);
+      const qty = p.quantity || 100;
+      const ucbm = cbmEst?.final_unit_cbm || 0;
+
+      const cogsPerUnit = pCogs
+        .filter((i: any) => i.include !== 'No')
+        .reduce((sum: number, item: any) => sum + calc.calcCogsItemCost({
+          include: item.include, components_per_product: item.components_per_product || 0,
+          unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+        }).unit_cost, 0);
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+        pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty
+      );
+      const ohItems = pOh.map((item: any) => ({
+        include: item.include, labor_type: item.labor_type,
+        man_hours_per_unit: item.man_hours_per_unit || 0,
+        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+      }));
+      const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+      const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+      const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+      const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+      const shipItem = pShip[0];
+      const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+      const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+        cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
+        final_unit_cbm: ucbm, weight_kg: p.weight_kg || 0,
+      }) : 0;
+      const markupPercent = (settings?.apply_uniform_markup && settings.default_markup_override != null)
+        ? settings.default_markup_override : (p.markup_percent || 0.2);
+      const summary = calc.calcProductCostSummary(
+        cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+        shippingPerUnit, markupPercent, exchangeRate, qty
+      );
+      allProductCostMap[p.id] = {
+        unit_cost_usd: summary.product_cost_per_unit_usd,
+        unit_price_usd: summary.unit_price_usd,
+        unit_cbm: ucbm,
+      };
+    });
+
+    // Build assembly line items
+    const assemblyProducts: ExportProduct[] = assemblies.map((asm: any) => {
+      const comps = asmComponents.filter((c: any) => c.assembly_id === asm.id);
+      let asmUnitCostUsd = 0;
+      let asmUnitCbm = 0;
+      comps.forEach((comp: any) => {
+        const pc = allProductCostMap[comp.product_id];
+        if (!pc) return;
+        const qpa = comp.quantity_per_assembly || 1;
+        asmUnitCostUsd += pc.unit_cost_usd * qpa;
+        asmUnitCbm += pc.unit_cbm * qpa;
+      });
+      const asmMarkup = (settings?.apply_uniform_markup && settings.default_markup_override != null)
+        ? settings.default_markup_override : (asm.markup_percent || 0.2);
+      const asmUnitPriceUsd = asmUnitCostUsd * (1 + asmMarkup);
+      const qty = asm.quantity || 100;
+      const totalCbm = asmUnitCbm * qty;
+      const totalRevenue = asmUnitPriceUsd * qty;
+      const totalCost = asmUnitCostUsd * qty;
+      const totalProfit = totalRevenue - totalCost;
+      const gpm = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
+
+      return {
+        name: asm.name, sku: asm.sku, quantity: qty,
+        target_price_usd: asm.target_price_usd, markup_percent: asmMarkup,
+        cbm_done: true, cogs_done: true, overhead_done: true, shipping_done: true, revenue_done: true,
+        unit_cbm: asmUnitCbm, total_cbm: totalCbm,
+        unit_cost_inr: asmUnitCostUsd * exchangeRate,
+        unit_cost_usd: asmUnitCostUsd,
+        unit_price_usd: asmUnitPriceUsd,
+        total_cost_usd: totalCost,
+        total_revenue_usd: totalRevenue,
+        total_profit_usd: totalProfit,
+        gpm, npm: gpm,
+        remaining_to_target_inr: null,
+        total_direct_mh: 0,
+        total_cogs: 0, total_direct_oh: 0, total_indirect_oh: 0, total_shipping: 0,
+        review_count: 0,
+        width_inch: null, depth_inch: null, height_inch: null,
+        weight_kg: null, finishing_difficulty: null,
+        // Extra fields for snapshot
+        photo_url: asm.photo_url,
+        is_assembly: true,
+      } as any;
+    });
+
+    // Combine standalone products + assemblies
+    const allExportProducts = [...exportProducts, ...assemblyProducts];
+
     // Aggregates
-    const totalQty = exportProducts.reduce((s, r) => s + r.quantity, 0);
+    const totalQty = allExportProducts.reduce((s, r) => s + r.quantity, 0);
     const totalCbm = exportProducts.reduce((s, r) => s + r.total_cbm, 0);
     const totalCost = exportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
     const totalRevenue = exportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
