@@ -281,7 +281,7 @@ export function downloadSummaryPDF(ctx: ExportContext) {
   yPos += 5;
 
   // Products table
-  const tableHeaders = ['Product', 'SKU', 'Qty', 'Unit CBM', 'Total CBM', 'Cost (₹)', 'Cost ($)', 'Price ($)', 'Total Cost ($)', 'Total Rev ($)', 'Profit ($)', 'GPM%', 'NPM%', 'Target ($)', 'Status'];
+  const tableHeaders = ['Product', 'SKU', 'Qty', 'Unit CBM', 'Total CBM', 'Cost (Rs.)', 'Cost ($)', 'Price ($)', 'Total Cost ($)', 'Total Rev ($)', 'Profit ($)', 'GPM%', 'NPM%', 'Target ($)', 'Status'];
   const tableData = ctx.products.map(p => {
     const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
     const done = flags.filter(Boolean).length;
