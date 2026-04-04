@@ -61,6 +61,11 @@ const App = () => (
                 <ProductCosting />
               </ProtectedRoute>
             } />
+            <Route path="/assembly/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <AssemblyDetail />
+              </ProtectedRoute>
+            } />
             <Route path="/rfqs" element={
               <ProtectedRoute requireAdminOrTeam>
                 <RfqList />
