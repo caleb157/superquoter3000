@@ -1,5 +1,6 @@
 // RFQ Generation Logic — aggregates project data into RFQ line items
 import { supabase } from '@/integrations/supabase/client';
+import * as calc from '@/lib/calculations';
 
 interface RfqLineItem {
   product_id?: string;
@@ -244,15 +245,101 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
 
 // ---------- Raw Piece RFQ ----------
 export async function generateRawPieceRfq(projectId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount } = await fetchProjectContext(projectId);
+  const { products, cogs, settings, project, discount } = await fetchProjectContext(projectId);
+
+  // Fetch additional data needed for full cost summary
+  const productIds = products.map((p: any) => p.id);
+  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes] = await Promise.all([
+    supabase.from('overhead_items').select('*'),
+    supabase.from('non_unit_cogs').select('*'),
+    supabase.from('shipping_items').select('*'),
+    supabase.from('shipping_types').select('*'),
+    supabase.from('labor_employees').select('*'),
+    supabase.from('global_settings').select('*').limit(1).single(),
+    supabase.from('cbm_estimates').select('*'),
+  ]);
+
+  const allOh = (ohRes.data || []).filter((o: any) => productIds.includes(o.product_id));
+  const allNu = (nuRes.data || []).filter((n: any) => productIds.includes(n.product_id));
+  const allShipItems = (shipItemsRes.data || []).filter((s: any) => productIds.includes(s.product_id));
+  const shipTypes = shipTypesRes.data || [];
+  const employees = empRes.data || [];
+  const gs = gsRes.data as any;
+  const allCbm = (cbmRes.data || []).filter((c: any) => productIds.includes(c.product_id));
+
+  const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
+    ? settings.exchange_rate_override
+    : (gs?.exchange_rate || 90);
+
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
   for (const p of products) {
-    const rawCogs = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
-    if (rawCogs.length === 0) continue;
+    const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
+    if (rawCogsRows.length === 0) continue;
 
-    const rawCost = rawCogs.reduce((sum: number, c: any) => sum + ((c.components_per_product || 0) * (c.unit_cost_inr || 0) * (1 + (c.waste_factor || 0))), 0);
+    // Compute full product cost to derive Raw Piece Budget Left
+    const productCogs = cogs.filter((c: any) => c.product_id === p.id && c.include !== 'No');
+    const cogsPerUnit = productCogs.reduce((sum: number, item: any) => {
+      const c = calc.calcCogsItemCost({
+        include: item.include, components_per_product: item.components_per_product || 0,
+        unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
+      });
+      return sum + c.unit_cost;
+    }, 0);
+
+    const productNuCogs = allNu.filter((n: any) => n.product_id === p.id);
+    const qty = p.quantity || 100;
+    const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+      productNuCogs.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity || 0, cost_each_inr: i.cost_each_inr || 0 })),
+      qty
+    );
+
+    const productOh = allOh.filter((o: any) => o.product_id === p.id);
+    const ohItems = productOh.map((item: any) => ({
+      include: item.include, labor_type: item.labor_type,
+      man_hours_per_unit: item.man_hours_per_unit || 0,
+      hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
+    }));
+    const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+    const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+    const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+    const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+
+    const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
+    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
+
+    const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
+    const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
+    const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+      cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
+      final_unit_cbm: finalUnitCbm, weight_kg: p.weight_kg || 0,
+    }) : 0;
+
+    const markupPercent = (settings && settings.apply_uniform_markup && settings.default_markup_override != null)
+      ? settings.default_markup_override
+      : (p.markup_percent || 0.2);
+
+    const summary = calc.calcProductCostSummary(
+      cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+      shippingPerUnit, markupPercent, exchangeRate, qty
+    );
+
+    // Raw Piece Budget Left = maxTotalCostInr - product_cost_per_unit_inr
+    const targetUsd = p.target_price_usd || 0;
+    const maxTotalCostInr = targetUsd > 0 ? (targetUsd / (1 + markupPercent)) * exchangeRate : 0;
+    const rawPieceBudgetLeft = targetUsd > 0 ? maxTotalCostInr - summary.product_cost_per_unit_inr : 0;
+
+    // Est. Cost = Raw Piece Budget Left (in ₹), blank if zero or negative
+    const estCost = rawPieceBudgetLeft > 0 ? +rawPieceBudgetLeft.toFixed(2) : undefined;
+
+    // Target = ROUND((budgetLeft × (1 − discountPercent/100)) / 10) × 10
+    // discount is stored as decimal (0.10 = 10%), so discountPercent = discount * 100
+    const discountPercent = discount * 100;
+    const targetPrice = (estCost && estCost > 0)
+      ? Math.round((rawPieceBudgetLeft * (1 - discountPercent / 100)) / 10) * 10
+      : undefined;
+
     const dims = (p.width_inch && p.depth_inch && p.height_inch)
       ? `${p.width_inch} × ${p.depth_inch} × ${p.height_inch} inches`
       : undefined;
@@ -266,8 +353,8 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
       dimensions: dims,
       quantity: p.quantity || 0,
       units: 'pc',
-      estimated_cost: rawCost > 0 ? +rawCost.toFixed(2) : undefined,
-      target_price: rawCost > 0 ? +rawCost.toFixed(2) : undefined,
+      estimated_cost: estCost,
+      target_price: targetPrice,
       notes: p.notes || undefined,
       sort_order: sortOrder++,
     });
