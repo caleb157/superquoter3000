@@ -290,6 +290,16 @@ const CustomerQuote = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                  <Cloud className="h-3.5 w-3.5" /> Saving…
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+                  <Check className="h-3.5 w-3.5" /> Draft saved
+                </span>
+              )}
               {isExpired && (
                 <Badge variant="destructive" className="font-medium">Expired</Badge>
               )}
