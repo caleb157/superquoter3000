@@ -151,7 +151,13 @@ const ProductCosting = () => {
 
   // Step 2 & 3: IC calcs with type-specific cost lookup
   const icAdd = productType?.ic_addition_per_side_inch || 0.5;
-  const icDims = calc.calcICDimensions(w, d, h, icAdd);
+  const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
+  // Allow manual overrides: use saved values from cbm if they exist, otherwise auto-calculated
+  const icDims = {
+    ic_width: cbm?.ic_width ?? autoIcDims.ic_width,
+    ic_depth: cbm?.ic_depth ?? autoIcDims.ic_depth,
+    ic_height: cbm?.ic_height ?? autoIcDims.ic_height,
+  };
   const icBoxes = boxData.filter(b => b.box_type === icType && b.cost_per_sq_in > 0);
   const avgIcCostPerSqIn = icBoxes.length > 0
     ? icBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / icBoxes.length
