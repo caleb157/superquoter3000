@@ -336,23 +336,23 @@ const ProjectSettingsTab = ({ projectId }: ProjectSettingsTabProps) => {
 
     // Aggregates
     const totalQty = allExportProducts.reduce((s, r) => s + r.quantity, 0);
-    const totalCbm = exportProducts.reduce((s, r) => s + r.total_cbm, 0);
-    const totalCost = exportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
-    const totalRevenue = exportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
-    const totalProfit = exportProducts.reduce((s, r) => s + r.total_profit_usd, 0);
-    const weightedGpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.gpm * r.total_revenue_usd, 0) / totalRevenue : 0;
-    const weightedNpm = totalRevenue > 0 ? exportProducts.reduce((s, r) => s + r.npm * r.total_revenue_usd, 0) / totalRevenue : 0;
-    const totalMh = exportProducts.reduce((s, r) => s + r.total_direct_mh, 0);
-    const totalReview = exportProducts.reduce((s, r) => s + r.review_count, 0);
-    const fullyCosted = exportProducts.filter(r => r.cbm_done && r.cogs_done && r.overhead_done && r.shipping_done && r.revenue_done).length;
-    const bCogs = exportProducts.reduce((s, r) => s + r.total_cogs, 0);
-    const bDoh = exportProducts.reduce((s, r) => s + r.total_direct_oh, 0);
-    const bIoh = exportProducts.reduce((s, r) => s + r.total_indirect_oh, 0);
-    const bShip = exportProducts.reduce((s, r) => s + r.total_shipping, 0);
+    const totalCbm = allExportProducts.reduce((s, r) => s + r.total_cbm, 0);
+    const totalCost = allExportProducts.reduce((s, r) => s + r.total_cost_usd, 0);
+    const totalRevenue = allExportProducts.reduce((s, r) => s + r.total_revenue_usd, 0);
+    const totalProfit = allExportProducts.reduce((s, r) => s + r.total_profit_usd, 0);
+    const weightedGpm = totalRevenue > 0 ? allExportProducts.reduce((s, r) => s + r.gpm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const weightedNpm = totalRevenue > 0 ? allExportProducts.reduce((s, r) => s + r.npm * r.total_revenue_usd, 0) / totalRevenue : 0;
+    const totalMh = allExportProducts.reduce((s, r) => s + r.total_direct_mh, 0);
+    const totalReview = allExportProducts.reduce((s, r) => s + r.review_count, 0);
+    const fullyCosted = allExportProducts.filter(r => r.cbm_done && r.cogs_done && r.overhead_done && r.shipping_done && r.revenue_done).length;
+    const bCogs = allExportProducts.reduce((s, r) => s + r.total_cogs, 0);
+    const bDoh = allExportProducts.reduce((s, r) => s + r.total_direct_oh, 0);
+    const bIoh = allExportProducts.reduce((s, r) => s + r.total_indirect_oh, 0);
+    const bShip = allExportProducts.reduce((s, r) => s + r.total_shipping, 0);
     const bTotal = bCogs + bDoh + bIoh + bShip;
 
     const aggregates: ExportAggregates = {
-      skuCount: exportProducts.length, totalQty, totalCbm, totalCost, totalRevenue,
+      skuCount: allExportProducts.length, totalQty, totalCbm, totalCost, totalRevenue,
       totalProfit, weightedGpm, weightedNpm, totalMh, totalReview, fullyCosted,
       bCogs, bDoh, bIoh, bShip, bTotal,
     };
