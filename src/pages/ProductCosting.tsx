@@ -1106,6 +1106,19 @@ const ProductCosting = () => {
                 </div>
               )}
 
+              {/* Variants */}
+              <ProductVariants
+                productId={id!}
+                masterRawPieceCost={cogsItems
+                  .filter(i => i.include !== 'No' && (i.cogs_type === 'Raw Materials' || (i.component_name || '').toLowerCase().includes('wood')))
+                  .reduce((sum, item) => sum + calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 }).unit_cost, 0)}
+                otherCostsPerUnit={summary.product_cost_per_unit_inr - cogsItems
+                  .filter(i => i.include !== 'No' && (i.cogs_type === 'Raw Materials' || (i.component_name || '').toLowerCase().includes('wood')))
+                  .reduce((sum, item) => sum + calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 }).unit_cost, 0)}
+                markupPercent={markupPercent}
+                exchangeRate={exchangeRate}
+              />
+
               {/* Completion checklist */}
               <div className="flex items-center gap-4 border-t pt-3">
                 {[
