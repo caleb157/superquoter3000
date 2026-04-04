@@ -612,7 +612,7 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
   if (currency === 'INR') {
     doc.setFontSize(6.5);
     doc.setTextColor(150);
-    doc.text(`Exchange rate: ₹${ctx.exchangeRate}/USD`, 14, afterTableY);
+    doc.text(`Exchange rate: Rs.${ctx.exchangeRate}/USD`, 14, afterTableY);
     afterTableY += 5;
   }
 
