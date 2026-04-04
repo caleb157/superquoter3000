@@ -278,6 +278,23 @@ const Settings = () => {
             />
           </TabsContent>
 
+          <TabsContent value="vendors">
+            <EditableTable
+              tableName="vendors"
+              data={vendors} setData={setVendors}
+              fetchData={() => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data))}
+              defaultRow={{ name: 'New Vendor', category: 'general' } as any}
+              columns={[
+                { key: 'name', label: 'Name', width: '160px' },
+                { key: 'email', label: 'Email', width: '160px' },
+                { key: 'phone', label: 'Phone', width: '120px' },
+                { key: 'address', label: 'Address', width: '200px' },
+                { key: 'category', label: 'Category', width: '120px' },
+                { key: 'notes', label: 'Notes', width: '150px' },
+              ]}
+            />
+          </TabsContent>
+
           <TabsContent value="shipping">
             <EditableTable
               tableName="shipping_types"
