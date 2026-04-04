@@ -37,6 +37,11 @@ const App = () => (
                 <Settings />
               </ProtectedRoute>
             } />
+            <Route path="/customers" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Customers />
+              </ProtectedRoute>
+            } />
             <Route path="/products" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Products />
