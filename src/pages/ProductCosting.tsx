@@ -151,7 +151,13 @@ const ProductCosting = () => {
 
   // Step 2 & 3: IC calcs with type-specific cost lookup
   const icAdd = productType?.ic_addition_per_side_inch || 0.5;
-  const icDims = calc.calcICDimensions(w, d, h, icAdd);
+  const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
+  // Allow manual overrides: use saved values from cbm if they exist, otherwise auto-calculated
+  const icDims = {
+    ic_width: cbm?.ic_width ?? autoIcDims.ic_width,
+    ic_depth: cbm?.ic_depth ?? autoIcDims.ic_depth,
+    ic_height: cbm?.ic_height ?? autoIcDims.ic_height,
+  };
   const icBoxes = boxData.filter(b => b.box_type === icType && b.cost_per_sq_in > 0);
   const avgIcCostPerSqIn = icBoxes.length > 0
     ? icBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / icBoxes.length
@@ -638,15 +644,27 @@ const ProductCosting = () => {
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Width</label>
-                  <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inch(icDims.ic_width)}</span>
+                  <Input className="h-7 text-xs" type="number" step="0.1"
+                    value={icDims.ic_width}
+                    onChange={e => updateCbm('ic_width', Number(e.target.value))}
+                    placeholder={String(autoIcDims.ic_width)}
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Depth</label>
-                  <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inch(icDims.ic_depth)}</span>
+                  <Input className="h-7 text-xs" type="number" step="0.1"
+                    value={icDims.ic_depth}
+                    onChange={e => updateCbm('ic_depth', Number(e.target.value))}
+                    placeholder={String(autoIcDims.ic_depth)}
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Height</label>
-                  <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inch(icDims.ic_height)}</span>
+                  <Input className="h-7 text-xs" type="number" step="0.1"
+                    value={icDims.ic_height}
+                    onChange={e => updateCbm('ic_height', Number(e.target.value))}
+                    placeholder={String(autoIcDims.ic_height)}
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Cost</label>
