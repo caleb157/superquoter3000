@@ -14,6 +14,9 @@ import ProjectDetail from "./pages/ProjectDetail";
 import ProductCosting from "./pages/ProductCosting";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
+import RfqList from "./pages/RfqList";
+import RfqEditor from "./pages/RfqEditor";
+import RfqVendorView from "./pages/RfqVendorView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
