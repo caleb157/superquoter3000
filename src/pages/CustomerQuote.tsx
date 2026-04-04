@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe } from 'lucide-react';
+import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe, Cloud, CloudOff } from 'lucide-react';
 
 interface QuoteProduct {
   name: string;
@@ -78,6 +78,9 @@ const CustomerQuote = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadRef = useRef(true);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
@@ -112,6 +115,47 @@ const CustomerQuote = () => {
     };
     if (token) fetchQuote();
   }, [token, supabaseUrl]);
+
+  // Auto-save selections on change (debounced 1.5s)
+  const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
+    if (!token || !data || confirmed) return;
+    setSaveStatus('saving');
+    try {
+      const customerSelections = {
+        products: data.snapshot.products.map((p, i) => ({
+          name: p.name,
+          sku: p.sku,
+          quantity: currentSelections[i]?.quantity ?? p.quantity,
+          selectedVariant: currentSelections[i]?.selectedVariant,
+          line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
+        })),
+        draft_saved_at: new Date().toISOString(),
+      };
+      const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_selections: customerSelections, confirmed: false }),
+      });
+      if (res.ok) {
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('idle');
+      }
+    } catch {
+      setSaveStatus('idle');
+    }
+  }, [token, data, confirmed, supabaseUrl]);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    if (confirmed || !data) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => autoSave(selections), 1500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [selections, autoSave, confirmed, data]);
 
   const updateQuantity = (idx: number, delta: number) => {
     setSelections(prev => {
@@ -246,6 +290,16 @@ const CustomerQuote = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                  <Cloud className="h-3.5 w-3.5" /> Saving…
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+                  <Check className="h-3.5 w-3.5" /> Draft saved
+                </span>
+              )}
               {isExpired && (
                 <Badge variant="destructive" className="font-medium">Expired</Badge>
               )}
