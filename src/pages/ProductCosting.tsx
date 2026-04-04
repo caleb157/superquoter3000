@@ -16,6 +16,7 @@ import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera } from 'lucide-
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { ProductVariants } from '@/components/ProductVariants';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
