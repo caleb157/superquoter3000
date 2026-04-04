@@ -333,8 +333,7 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
-    const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
-    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
+    // cbmRow and finalUnitCbm already declared above
 
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
     const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
