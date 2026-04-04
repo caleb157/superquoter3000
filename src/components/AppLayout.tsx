@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users } from 'lucide-react';
+import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
