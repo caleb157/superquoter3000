@@ -381,7 +381,7 @@ export async function generateCustomerQuotePDF(ctx: ExportContext): Promise<Quot
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const currency = ctx.quoteCurrency || 'USD';
-  const symbol = currency === 'INR' ? '₹' : '$';
+  const symbol = currency === 'INR' ? 'Rs.' : '$';
   const ent = ctx.entity;
   const quoteNumber = ctx.quoteNumber || generateQuoteNumber(ent);
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
