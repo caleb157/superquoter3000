@@ -178,7 +178,7 @@ const Products = () => {
 
     result = sortItems(result, getters);
     return result;
-  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap]);
+  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap, costDataMap]);
 
   return (
     <AppLayout>
