@@ -178,6 +178,7 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
         useAsPhoto: !!imageDataMap[p.source_file],
         sourceFileData: imageDataMap[p.source_file]?.data,
         sourceFileType: imageDataMap[p.source_file]?.type,
+        hardware_guess: p.hardware_guess || [],
       }));
 
       setParsedProducts(products);
