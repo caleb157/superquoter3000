@@ -243,6 +243,9 @@ const ProjectSummary = ({ projectId }: { projectId: string }) => {
       gpm: (r) => r.gpm,
       npm: (r) => r.npm,
       target: (r) => r.target_price_usd || 0,
+      delta: (r) => r.delta_to_target_usd || 0,
+      max_raw: (r) => r.max_raw_piece_inr || 0,
+      raw_piece: (r) => r.raw_piece_cost_inr,
       status: (r) => getStatusLevel(r),
     };
     return sortItems(rows, getters);
