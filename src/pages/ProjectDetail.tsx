@@ -34,6 +34,7 @@ const ProjectDetail = () => {
   const [project, setProject] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [costData, setCostData] = useState<Record<string, { unit_cbm: number; cost_usd: number; price_usd: number }>>({});
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductTypeId, setNewProductTypeId] = useState('');
@@ -72,10 +73,63 @@ const ProjectDetail = () => {
     if (data) setProductTypes(data);
   };
 
+  const fetchCostData = async () => {
+    if (!id) return;
+    const { data: prods } = await supabase.from('products').select('id, quantity, markup_percent, weight_kg').eq('project_id', id);
+    if (!prods || prods.length === 0) return;
+    const productIds = prods.map((p: any) => p.id);
+    const [gsRes, empRes, stRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, psRes] = await Promise.all([
+      supabase.from('global_settings').select('*').limit(1).single(),
+      supabase.from('labor_employees').select('*'),
+      supabase.from('shipping_types').select('*'),
+      supabase.from('cbm_estimates').select('*').in('product_id', productIds),
+      supabase.from('cogs_items').select('*').in('product_id', productIds),
+      supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
+      supabase.from('overhead_items').select('*').in('product_id', productIds),
+      supabase.from('shipping_items').select('*').in('product_id', productIds),
+      supabase.from('project_settings').select('*').eq('project_id', id).maybeSingle(),
+    ]);
+    const gs = gsRes.data;
+    const employees = empRes.data || [];
+    const shTypes = stRes.data || [];
+    const ps = psRes.data as any;
+    const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override) ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
+    const map: Record<string, { unit_cbm: number; cost_usd: number; price_usd: number }> = {};
+
+    prods.forEach((p: any) => {
+      const cbmEst = (cbmRes.data || []).find((c: any) => c.product_id === p.id);
+      const pCogs = (cogsRes.data || []).filter((c: any) => c.product_id === p.id);
+      const pNuc = (nucRes.data || []).filter((c: any) => c.product_id === p.id);
+      const pOh = (ohRes.data || []).filter((c: any) => c.product_id === p.id);
+      const pShip = (shipRes.data || []).filter((c: any) => c.product_id === p.id);
+      const qty = p.quantity || 100;
+      const unit_cbm = cbmEst?.final_unit_cbm || 0;
+
+      const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
+        const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
+        return sum + c.unit_cost;
+      }, 0);
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty);
+      const ohItems = pOh.map((item: any) => ({ include: item.include, labor_type: item.labor_type, man_hours_per_unit: item.man_hours_per_unit || 0, hourly_rate: calc.avgRateByDesignation(employees, item.labor_type) }));
+      const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+      const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+      const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs as any) : 0;
+      const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+      const shipItem = pShip[0];
+      const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
+      const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG', final_unit_cbm: unit_cbm, weight_kg: p.weight_kg || 0 }) : 0;
+      const markupPercent = (ps?.apply_uniform_markup && ps.default_markup_override != null) ? ps.default_markup_override : (p.markup_percent || 0.2);
+      const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
+      map[p.id] = { unit_cbm, cost_usd: summary.product_cost_per_unit_usd, price_usd: summary.unit_price_usd };
+    });
+    setCostData(map);
+  };
+
   useEffect(() => {
     fetchProject();
     fetchProducts();
     fetchProductTypes();
+    fetchCostData();
   }, [id]);
 
   const updateProject = async (field: string, value: any) => {
@@ -423,9 +477,9 @@ const ProjectDetail = () => {
                         <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
                         <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
                         <TableCell className="text-right">{fmt.qty(p.quantity)}</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
-                        <TableCell className="text-right calc-field">—</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.unit_cbm ? fmt.cbm(costData[p.id].unit_cbm) : '—'}</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.cost_usd ? fmt.usd(costData[p.id].cost_usd) : '—'}</TableCell>
+                        <TableCell className="text-right calc-field">{costData[p.id]?.price_usd ? fmt.usd(costData[p.id].price_usd) : '—'}</TableCell>
                         <TableCell className="text-center">
                           <ProductStatusIndicator
                             cbm_done={p.cbm_done}
