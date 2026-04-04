@@ -612,6 +612,35 @@ const ProjectDetail = () => {
                   </div>
                 )}
               </div>
+             )}
+
+            {/* Assemblies */}
+            {assemblies.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-1">📦 Assemblies</h3>
+                <div className="border rounded-md overflow-auto">
+                  <Table className="dense-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Assembly</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Target (USD)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assemblies.map(a => (
+                        <TableRow key={a.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/assembly/${a.id}`)}>
+                          <TableCell className="font-medium"><Package className="h-3 w-3 inline mr-1 text-primary" />{a.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{a.sku || '—'}</TableCell>
+                          <TableCell className="text-right">{fmt.qty(a.quantity)}</TableCell>
+                          <TableCell className="text-right">{a.target_price_usd ? fmt.usd(a.target_price_usd) : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             )}
           </TabsContent>
 
