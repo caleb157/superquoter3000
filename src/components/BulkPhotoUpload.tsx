@@ -259,7 +259,7 @@ export function BulkPhotoUpload({ products, onPhotosUploaded, children }: BulkPh
                           {p.name}
                           {p.sku && <span className="text-muted-foreground text-[10px]">({p.sku})</span>}
                           {assignedProductIds.has(p.id) && mapping.productId !== p.id && (
-                            <span className="text-amber-500 text-[10px]">⚠️</span>
+                            <span className="text-destructive/70 text-[10px]">⚠️</span>
                           )}
                         </span>
                       </SelectItem>
