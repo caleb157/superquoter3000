@@ -574,6 +574,96 @@ export type Database = {
           },
         ]
       }
+      pipeline_items: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          description: string | null
+          design_done: boolean
+          dimensions_inch: string | null
+          final_sample_date: string | null
+          finish: string | null
+          id: string
+          initial_quote_date: string | null
+          initial_sample_date: string | null
+          is_foak: boolean
+          name: string
+          notes: string | null
+          photo_done: boolean
+          project_id: string | null
+          rfq_date: string | null
+          sample_request_date: string | null
+          sort_order: number | null
+          status: string
+          updated_at: string
+          weight_kg: number | null
+          who: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          design_done?: boolean
+          dimensions_inch?: string | null
+          final_sample_date?: string | null
+          finish?: string | null
+          id?: string
+          initial_quote_date?: string | null
+          initial_sample_date?: string | null
+          is_foak?: boolean
+          name: string
+          notes?: string | null
+          photo_done?: boolean
+          project_id?: string | null
+          rfq_date?: string | null
+          sample_request_date?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+          weight_kg?: number | null
+          who?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          design_done?: boolean
+          dimensions_inch?: string | null
+          final_sample_date?: string | null
+          finish?: string | null
+          id?: string
+          initial_quote_date?: string | null
+          initial_sample_date?: string | null
+          is_foak?: boolean
+          name?: string
+          notes?: string | null
+          photo_done?: boolean
+          project_id?: string | null
+          rfq_date?: string | null
+          sample_request_date?: string | null
+          sort_order?: number | null
+          status?: string
+          updated_at?: string
+          weight_kg?: number | null
+          who?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_assemblies: {
         Row: {
           created_at: string | null

@@ -20,6 +20,7 @@ import RfqEditor from "./pages/RfqEditor";
 import RfqVendorView from "./pages/RfqVendorView";
 import QCList from "./pages/QCList";
 import QCEditor from "./pages/QCEditor";
+import Pipeline from "./pages/Pipeline";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute requireAdmin>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/pipeline" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Pipeline />
               </ProtectedRoute>
             } />
             <Route path="/customers" element={

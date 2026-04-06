@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -10,6 +10,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const navItems = [
     { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
+    { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },

@@ -26,6 +26,7 @@ import * as calc from '@/lib/calculations';
 import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
 import ProjectSummary from './ProjectSummary';
 import ProjectSettingsTab from './ProjectSettingsTab';
+import { ProjectPipelineTab } from '@/components/ProjectPipelineTab';
 
 const STATUS_OPTIONS = ['draft', 'costing', 'quoted', 'po_confirmed', 'archived'];
 
@@ -638,6 +639,7 @@ const ProjectDetail = () => {
             <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="rfqs">RFQs</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -859,6 +861,10 @@ const ProjectDetail = () => {
 
           <TabsContent value="rfqs">
             {id && <ProjectRfqTab projectId={id} />}
+          </TabsContent>
+
+          <TabsContent value="pipeline">
+            {id && <ProjectPipelineTab projectId={id} customerId={project?.customer_id} />}
           </TabsContent>
 
           <TabsContent value="settings">
