@@ -10,6 +10,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const navItems = [
     { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
+    { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },

@@ -20,6 +20,7 @@ import RfqEditor from "./pages/RfqEditor";
 import RfqVendorView from "./pages/RfqVendorView";
 import QCList from "./pages/QCList";
 import QCEditor from "./pages/QCEditor";
+import Pipeline from "./pages/Pipeline";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
