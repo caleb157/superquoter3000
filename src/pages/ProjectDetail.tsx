@@ -863,6 +863,10 @@ const ProjectDetail = () => {
             {id && <ProjectRfqTab projectId={id} />}
           </TabsContent>
 
+          <TabsContent value="pipeline">
+            {id && <ProjectPipelineTab projectId={id} customerId={project?.customer_id} />}
+          </TabsContent>
+
           <TabsContent value="settings">
             {id && <ProjectSettingsTab projectId={id} />}
           </TabsContent>
