@@ -21,10 +21,10 @@ import { QCGuidesSection } from '@/components/QCGuidesSection'; // force reload
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
-const SectionHeader = ({ title, open, onToggle, badge }: { title: string; open: boolean; onToggle: () => void; badge?: string }) => (
-  <button onClick={onToggle} className="w-full flex items-center gap-2 py-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-left">
+const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
+  <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
-    <span className="text-sm font-semibold flex-1">{title}</span>
+    <span className={`text-sm font-semibold flex-1 ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
     {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
   </button>
 );
@@ -762,7 +762,7 @@ const ProductCosting = () => {
         {/* Section B: CBM Calculator */}
         <Collapsible open={sections.cbm} onOpenChange={() => toggle('cbm')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} /></div>
+            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} done={product.cbm_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
@@ -952,7 +952,7 @@ const ProductCosting = () => {
         {/* Section C: COGS */}
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="overflow-auto">
@@ -1150,7 +1150,7 @@ const ProductCosting = () => {
         {/* Section E: Direct Overhead */}
         <Collapsible open={sections.overhead} onOpenChange={() => toggle('overhead')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
@@ -1220,7 +1220,7 @@ const ProductCosting = () => {
         {/* Section G: Shipping */}
         <Collapsible open={sections.shipping} onOpenChange={() => toggle('shipping')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} done={product.shipping_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 flex items-center gap-4">
@@ -1250,7 +1250,7 @@ const ProductCosting = () => {
         {/* Section H: Cost & Revenue Summary */}
         <Collapsible open={sections.summary} onOpenChange={() => toggle('summary')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} /></div>
+            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} done={product.revenue_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
