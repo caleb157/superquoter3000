@@ -115,6 +115,7 @@ export type Database = {
           mc_ics_along_d: number | null
           mc_ics_along_h: number | null
           mc_ics_along_w: number | null
+          mc_manual_layout: boolean
           mc_max_depth: number | null
           mc_max_height: number | null
           mc_max_width: number | null
@@ -148,6 +149,7 @@ export type Database = {
           mc_ics_along_d?: number | null
           mc_ics_along_h?: number | null
           mc_ics_along_w?: number | null
+          mc_manual_layout?: boolean
           mc_max_depth?: number | null
           mc_max_height?: number | null
           mc_max_width?: number | null
@@ -181,6 +183,7 @@ export type Database = {
           mc_ics_along_d?: number | null
           mc_ics_along_h?: number | null
           mc_ics_along_w?: number | null
+          mc_manual_layout?: boolean
           mc_max_depth?: number | null
           mc_max_height?: number | null
           mc_max_width?: number | null

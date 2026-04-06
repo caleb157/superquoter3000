@@ -173,7 +173,8 @@ const ProductCosting = () => {
 
   // Step 4: MC calcs with type-specific cost lookup
   const includeMc = cbm?.include_mc ?? true;
-  const mcResult = calc.calcMCPacking({
+  const mcManualLayout = cbm?.mc_manual_layout ?? false;
+  const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
     mc_type: mcType,
     mc_max_width: cbm?.mc_max_width || 25,
@@ -189,6 +190,21 @@ const ProductCosting = () => {
     ic_depth: icDims.ic_depth,
     ic_height: icDims.ic_height,
   });
+
+  // When manual layout override is on, use stored layout values and recompute dims/volume
+  const mcResult = (() => {
+    if (!mcManualLayout || !includeMc) return autoMcResult;
+    const along_w = cbm?.mc_ics_along_w || autoMcResult.mc_ics_along_w;
+    const along_d = cbm?.mc_ics_along_d || autoMcResult.mc_ics_along_d;
+    const along_h = cbm?.mc_ics_along_h || autoMcResult.mc_ics_along_h;
+    const buffer = cbm?.mc_buffer_inch || 1;
+    const mc_width = icDims.ic_width * along_w + buffer;
+    const mc_depth = icDims.ic_depth * along_d + buffer;
+    const mc_height = icDims.ic_height * along_h + buffer;
+    const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
+    const products_per_mc = along_w * along_d * along_h * productsPerIc;
+    return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
+  })();
 
   // MC cost estimate
   const mcBoxes = boxData.filter(b => b.box_type === mcType && b.cost_per_sq_in > 0);
@@ -841,24 +857,50 @@ const ProductCosting = () => {
               )}
 
               {includeMc && (
-                <div className="grid grid-cols-6 gap-2">
-                  <div><label className="text-[10px] text-muted-foreground">Layout (W×D×H)</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_w}×{mcResult.mc_ics_along_d}×{mcResult.mc_ics_along_h}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={mcManualLayout} onCheckedChange={(v) => updateCbm('mc_manual_layout', !!v)} id="mc-manual" />
+                    <label htmlFor="mc-manual" className="text-[10px] text-muted-foreground cursor-pointer">Manual layout override</label>
                   </div>
-                  <div><label className="text-[10px] text-muted-foreground">Products/MC</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.products_per_mc}</span>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div><label className="text-[10px] text-muted-foreground">ICs along W</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_w} onBlur={e => updateCbm('mc_ics_along_w', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_w}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">ICs along D</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_d} onBlur={e => updateCbm('mc_ics_along_d', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_d}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">ICs along H</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_h} onBlur={e => updateCbm('mc_ics_along_h', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_h}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">Products/MC</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.products_per_mc}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">MC Dims</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">MC Volume</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(mcResult.mc_volume_cbm)}</span>
+                    </div>
                   </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Dims</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Volume</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(mcResult.mc_volume_cbm)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Cost</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div><label className="text-[10px] text-muted-foreground">MC Cost</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                    </div>
                   </div>
                 </div>
               )}

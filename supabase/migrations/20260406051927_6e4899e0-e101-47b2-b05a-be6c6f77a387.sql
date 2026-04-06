@@ -1,0 +1,1 @@
+ALTER TABLE public.cbm_estimates ADD COLUMN mc_manual_layout boolean NOT NULL DEFAULT false;
