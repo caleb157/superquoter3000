@@ -173,7 +173,8 @@ const ProductCosting = () => {
 
   // Step 4: MC calcs with type-specific cost lookup
   const includeMc = cbm?.include_mc ?? true;
-  const mcResult = calc.calcMCPacking({
+  const mcManualLayout = cbm?.mc_manual_layout ?? false;
+  const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
     mc_type: mcType,
     mc_max_width: cbm?.mc_max_width || 25,
@@ -189,6 +190,21 @@ const ProductCosting = () => {
     ic_depth: icDims.ic_depth,
     ic_height: icDims.ic_height,
   });
+
+  // When manual layout override is on, use stored layout values and recompute dims/volume
+  const mcResult = (() => {
+    if (!mcManualLayout || !includeMc) return autoMcResult;
+    const along_w = cbm?.mc_ics_along_w || autoMcResult.mc_ics_along_w;
+    const along_d = cbm?.mc_ics_along_d || autoMcResult.mc_ics_along_d;
+    const along_h = cbm?.mc_ics_along_h || autoMcResult.mc_ics_along_h;
+    const buffer = cbm?.mc_buffer_inch || 1;
+    const mc_width = icDims.ic_width * along_w + buffer;
+    const mc_depth = icDims.ic_depth * along_d + buffer;
+    const mc_height = icDims.ic_height * along_h + buffer;
+    const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
+    const products_per_mc = along_w * along_d * along_h * productsPerIc;
+    return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
+  })();
 
   // MC cost estimate
   const mcBoxes = boxData.filter(b => b.box_type === mcType && b.cost_per_sq_in > 0);
