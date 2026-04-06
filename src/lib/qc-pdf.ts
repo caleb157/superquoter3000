@@ -73,9 +73,9 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const colWidths = { label: 45, content: 115, check: 20 };
-  const photoSize = 20; // mm per photo thumbnail
-  const photosPerRow = 5;
-  const photoGap = 2;
+  const photoSize = 45;
+  const photosPerRow = 2;
+  const photoGap = 3;
   let y = margin;
 
   // Pre-load all images
