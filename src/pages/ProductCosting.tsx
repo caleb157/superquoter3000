@@ -21,10 +21,10 @@ import { QCGuidesSection } from '@/components/QCGuidesSection'; // force reload
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
-const SectionHeader = ({ title, open, onToggle, badge }: { title: string; open: boolean; onToggle: () => void; badge?: string }) => (
-  <button onClick={onToggle} className="w-full flex items-center gap-2 py-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-left">
+const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
+  <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
-    <span className="text-sm font-semibold flex-1">{title}</span>
+    <span className={`text-sm font-semibold flex-1 ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
     {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
   </button>
 );
