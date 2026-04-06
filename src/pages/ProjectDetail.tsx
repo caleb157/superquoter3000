@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus } from 'lucide-react';
+import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus, Search, Trash2, Eye, EyeOff } from 'lucide-react';
 import { BulkPhotoUpload } from '@/components/BulkPhotoUpload';
 import { ProjectRfqTab } from '@/components/ProjectRfqTab';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
@@ -45,11 +46,40 @@ const ProjectDetail = () => {
   const [newAssemblyName, setNewAssemblyName] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
   const [showUploadParse, setShowUploadParse] = useState(false);
+  // New state for bulk select, search, filter, hide completed
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [hideCompleted, setHideCompleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'project-products-sort',
   });
+
+  const filteredProducts = useMemo(() => {
+    let list = products;
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.notes || '').toLowerCase().includes(q)
+      );
+    }
+    // Type filter
+    if (filterType !== 'all') {
+      list = list.filter(p => p.product_type_id === filterType);
+    }
+    // Hide completed
+    if (hideCompleted) {
+      list = list.filter(p => getStatusLevel(p) < 3);
+    }
+    return list;
+  }, [products, searchQuery, filterType, hideCompleted]);
 
   const sortedProducts = useMemo(() => {
     const getters: Record<string, (p: any) => string | number> = {
@@ -58,8 +88,58 @@ const ProjectDetail = () => {
       qty: (p) => p.quantity || 0,
       status: (p) => getStatusLevel(p),
     };
-    return sortItems(products, getters);
-  }, [products, sortColumn, sortDirection]);
+    return sortItems(filteredProducts, getters);
+  }, [filteredProducts, sortColumn, sortDirection]);
+
+  const allSelected = sortedProducts.length > 0 && sortedProducts.every(p => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedProducts.map(p => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} selected product${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      // Delete related data first
+      await Promise.all([
+        supabase.from('cogs_items').delete().in('product_id', ids),
+        supabase.from('non_unit_cogs').delete().in('product_id', ids),
+        supabase.from('overhead_items').delete().in('product_id', ids),
+        supabase.from('shipping_items').delete().in('product_id', ids),
+        supabase.from('cbm_estimates').delete().in('product_id', ids),
+        supabase.from('product_variants').delete().in('product_id', ids),
+      ]);
+      const { error } = await supabase.from('products').delete().in('id', ids);
+      if (error) throw error;
+      toast.success(`Deleted ${count} product${count > 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      fetchProducts();
+      fetchCostData();
+    } catch (err: any) {
+      toast.error(`Delete failed: ${err.message}`);
+    }
+    setDeleting(false);
+  };
+
+  const completedCount = useMemo(() => products.filter(p => getStatusLevel(p) === 3).length, [products]);
 
   const fetchProject = async () => {
     if (!id) return;
