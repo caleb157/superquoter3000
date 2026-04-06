@@ -49,6 +49,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <QuickAddTask />
             <span className="text-xs text-muted-foreground">{user?.email}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
               <LogOut className="h-3.5 w-3.5" />
