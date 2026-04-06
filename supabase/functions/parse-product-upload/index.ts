@@ -1,3 +1,5 @@
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -59,19 +61,128 @@ COMPONENTS: If the product has distinct shippable parts (e.g., a table with a de
 DIMENSIONS: If dimensions are in cm, convert to inches (÷ 2.54). If in mm, convert to inches (÷ 25.4).
 For furniture: width = side-to-side, depth = front-to-back, height = floor-to-top.`;
 
+// --- Structured DKT intake parser ---
+
+function parseDktIntake(workbook: XLSX.WorkBook, fileName: string): any[] {
+  const skuSheet = workbook.Sheets["SKU_Data"];
+  if (!skuSheet) return [];
+
+  const rows: any[][] = XLSX.utils.sheet_to_json(skuSheet, { header: 1, defval: null });
+  const products: any[] = [];
+  let currentCollection = "";
+
+  // Find header row (skip it), then process data rows
+  let headerFound = false;
+  for (const row of rows) {
+    // Skip completely empty rows
+    if (!row || row.every((c: any) => c === null || c === undefined || c === "")) continue;
+
+    // Skip the header row (first non-empty row)
+    if (!headerFound) {
+      headerFound = true;
+      continue;
+    }
+
+    // Detect group header rows: column A has a value but B–S are all empty
+    const bToS = row.slice(1, 19);
+    const allEmpty = bToS.every((c: any) => c === null || c === undefined || c === "");
+    if (row[0] && allEmpty) {
+      currentCollection = String(row[0]).trim();
+      continue;
+    }
+
+    // Skip rows with no name
+    if (!row[1]) continue;
+
+    const num = (v: any) => (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) ? Number(v) : null;
+    const str = (v: any) => (v !== null && v !== undefined && v !== "") ? String(v).trim() : null;
+    const bool = (v: any) => {
+      if (v === true || v === 1) return true;
+      if (v === false || v === 0) return false;
+      const s = String(v).toLowerCase().trim();
+      return s === "yes" || s === "true" || s === "1";
+    };
+
+    const product: any = {
+      name: str(row[1]),
+      collection: str(row[0]) || currentCollection || null,
+      quantity: num(row[2]),
+      width_inch: num(row[3]),
+      depth_inch: num(row[4]),
+      height_inch: num(row[5]),
+      weight_kg: num(row[6]),
+      product_type: str(row[7]),
+      finishing_difficulty: str(row[8]),
+      percent_wood: num(row[9]),
+      target_price_usd: num(row[10]),
+      ic_type: str(row[11]),
+      products_per_ic: num(row[12]),
+      ic_width: num(row[13]),
+      ic_depth: num(row[14]),
+      ic_height: num(row[15]),
+      include_mc: row[16] !== null && row[16] !== undefined ? bool(row[16]) : null,
+      piece_type: str(row[17]),
+      sourced_externally: row[18] !== null && row[18] !== undefined ? bool(row[18]) : false,
+      hardware_detected: [],
+      confidence: "high",
+      source_file: fileName,
+      cogs_items: [],
+    };
+
+    products.push(product);
+  }
+
+  // Parse COGS_Detail sheet if present
+  const cogsSheet = workbook.Sheets["COGS_Detail"];
+  if (cogsSheet && products.length > 0) {
+    const cogsRows: any[][] = XLSX.utils.sheet_to_json(cogsSheet, { header: 1, defval: null });
+    let cogsHeaderFound = false;
+
+    // Build a map of product name → product for matching
+    const productMap = new Map<string, any>();
+    for (const p of products) {
+      if (p.name) productMap.set(p.name.toLowerCase(), p);
+    }
+
+    for (const row of cogsRows) {
+      if (!row || row.every((c: any) => c === null || c === undefined || c === "")) continue;
+      if (!cogsHeaderFound) {
+        cogsHeaderFound = true;
+        continue;
+      }
+
+      const skuName = row[0] !== null && row[0] !== undefined ? String(row[0]).trim().toLowerCase() : null;
+      if (!skuName) continue;
+
+      const matchedProduct = productMap.get(skuName);
+      if (!matchedProduct) continue;
+
+      const num = (v: any) => (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) ? Number(v) : null;
+      const str = (v: any) => (v !== null && v !== undefined && v !== "") ? String(v).trim() : null;
+
+      matchedProduct.cogs_items.push({
+        cogs_type: str(row[2]),
+        component_name: str(row[3]),
+        include: str(row[4]) || "Yes",
+        units: str(row[5]) || "pc",
+        components_per_product: num(row[6]),
+        unit_cost_inr: num(row[7]),
+        waste_factor: num(row[8]),
+      });
+    }
+  }
+
+  return products;
+}
+
+// --- Main handler ---
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { files } = await req.json();
     if (!files || !Array.isArray(files) || files.length === 0) {
       return new Response(JSON.stringify({ error: "No files provided" }), {
@@ -85,10 +196,36 @@ Deno.serve(async (req) => {
 
     for (const file of files) {
       try {
+        // Check for structured DKT intake Excel file
+        if (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+            file.name?.endsWith(".xlsx")) {
+          try {
+            const binaryData = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+            const workbook = XLSX.read(binaryData, { type: "array" });
+
+            if (workbook.SheetNames.includes("SKU_Data")) {
+              const parsed = parseDktIntake(workbook, file.name);
+              if (parsed.length > 0) {
+                allProducts.push(...parsed);
+                continue;
+              }
+            }
+          } catch (xlsxErr: any) {
+            console.error("XLSX parse attempt failed, falling back to AI:", xlsxErr.message);
+          }
+        }
+
+        // --- AI parsing fallback ---
+        if (!ANTHROPIC_API_KEY) {
+          return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         const messages: any[] = [];
 
         if (file.type?.startsWith("image/")) {
-          // Image file — use Anthropic vision
           messages.push({
             role: "user",
             content: [
@@ -103,7 +240,6 @@ Deno.serve(async (req) => {
             ],
           });
         } else if (file.pages && Array.isArray(file.pages) && file.pages.length > 0) {
-          // Multi-page PDF sent as page images
           const content: any[] = [];
           for (const page of file.pages) {
             content.push({
@@ -117,7 +253,6 @@ Deno.serve(async (req) => {
           });
           messages.push({ role: "user", content });
         } else if (file.type === "application/pdf") {
-          // PDF sent as document
           messages.push({
             role: "user",
             content: [
@@ -132,7 +267,6 @@ Deno.serve(async (req) => {
             ],
           });
         } else {
-          // Spreadsheet data sent as text
           const userContent = `Extract product information from this spreadsheet data:\n\n${file.data}\n\nParse each row as a product if it appears to contain product data. Ignore header rows, summary rows, and empty rows. Determine what hardware each product would need based on its type and description. Estimate finishing difficulty and percent wood.`;
           messages.push({ role: "user", content: userContent });
         }
