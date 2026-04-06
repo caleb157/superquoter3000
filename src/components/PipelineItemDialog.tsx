@@ -23,8 +23,8 @@ interface Props {
 }
 
 export function PipelineItemDialog({ open, onOpenChange, item, onSaved, defaultCustomerId, defaultProjectId }: Props) {
-  const [customers, setCustomers] = useState<Tables<'customers'>[]>([]);
-  const [projects, setProjects] = useState<Tables<'projects'>[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string; company: string | null }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({

@@ -75,19 +75,19 @@ export function PipelineTable({ items, customers, onEdit, onRefresh }: Props) {
       <Table>
         <TableHeader>
           <TableRow>
-            <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="name" label="Item Name" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="who" label="Who" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
+            <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="name" label="Item Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="who" label="Who" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
             <TableHead className="w-10 text-center">Design</TableHead>
             <TableHead className="w-10 text-center">Photo</TableHead>
-            <SortableHeader column="rfq_date" label="RFQ Date" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="initial_quote_date" label="Quote Date" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="days_to_quote" label="Days→Quote" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="sample_request_date" label="Sample Req" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="initial_sample_date" label="Initial Sample" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
-            <SortableHeader column="final_sample_date" label="Final Sample" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
+            <SortableHeader column="rfq_date" label="RFQ Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="initial_quote_date" label="Quote Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="days_to_quote" label="Days→Quote" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="sample_request_date" label="Sample Req" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="initial_sample_date" label="Initial Sample" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+            <SortableHeader column="final_sample_date" label="Final Sample" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
             <TableHead>Stage</TableHead>
-            <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onToggle={toggleSort} />
+            <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
           </TableRow>
         </TableHeader>
         <TableBody>
