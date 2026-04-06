@@ -120,7 +120,14 @@ const ProjectDetail = () => {
         const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
         return sum + c.unit_cost;
       }, 0);
-      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty);
+      const autoTransportRate = (gs as any)?.auto_transport_cost_per_cbm || 500;
+      const nucWithLiveTransport = pNuc.map((i: any) => {
+        if (i.name === 'Auto Transport' && unit_cbm > 0) {
+          return { include: i.include || 'Yes', total_quantity: +(unit_cbm * qty).toFixed(4), cost_each_inr: autoTransportRate };
+        }
+        return { include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr };
+      });
+      const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(nucWithLiveTransport, qty);
       const ohItems = pOh.map((item: any) => ({ include: item.include, labor_type: item.labor_type, man_hours_per_unit: item.man_hours_per_unit || 0, hourly_rate: calc.avgRateByDesignation(employees, item.labor_type) }));
       const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
       const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
