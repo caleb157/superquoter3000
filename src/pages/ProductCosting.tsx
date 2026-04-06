@@ -1077,7 +1077,7 @@ const ProductCosting = () => {
         {/* Section D: Non-Unit COGS */}
         <Collapsible open={sections.nonUnitCogs} onOpenChange={() => toggle('nonUnitCogs')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="D. Non-Unit COGS" open={sections.nonUnitCogs} onToggle={() => {}} badge={`${fmt.inr(nonUnitCogsPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="D. Non-Unit COGS" open={sections.nonUnitCogs} onToggle={() => {}} badge={`${fmt.inr(nonUnitCogsPerUnit)}/unit`} done={product.cogs_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
@@ -1206,7 +1206,7 @@ const ProductCosting = () => {
         {/* Section F: Indirect Overhead */}
         <Collapsible open={sections.indirectOh} onOpenChange={() => toggle('indirectOh')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="F. Indirect Overhead" open={sections.indirectOh} onToggle={() => {}} badge={`${fmt.inr(indirectOhPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="F. Indirect Overhead" open={sections.indirectOh} onToggle={() => {}} badge={`${fmt.inr(indirectOhPerUnit)}/unit`} done={product.overhead_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 grid grid-cols-3 gap-4 text-xs">
