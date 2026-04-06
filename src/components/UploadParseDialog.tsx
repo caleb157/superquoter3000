@@ -50,6 +50,15 @@ interface ParsedProduct {
   sourceFileData?: string;
   sourceFileType?: string;
   _expanded?: boolean;
+  // Structured intake fields
+  cogs_rows?: any[];
+  sourced_externally?: boolean;
+  ic_type?: string | null;
+  products_per_ic?: number | null;
+  ic_width?: number | null;
+  ic_depth?: number | null;
+  ic_height?: number | null;
+  include_mc?: boolean | null;
 }
 
 interface UploadParseDialogProps {
