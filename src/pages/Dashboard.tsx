@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
+import { DashboardTaskWidget } from '@/components/DashboardTaskWidget';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -233,6 +234,8 @@ const Dashboard = () => {
             <div className="text-xs text-muted-foreground">Pipeline Value (USD)</div>
           </CardContent></Card>
         </div>
+
+        <DashboardTaskWidget />
 
         {/* Header */}
         <div className="flex items-center gap-3">

@@ -5,11 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { STATUS_OPTIONS } from '@/lib/pipeline-helpers';
+import { PipelineTaskList } from '@/components/PipelineTaskList';
+import { PipelineActivityFeed } from '@/components/PipelineActivityFeed';
 
 type PipelineItem = Tables<'pipeline_items'>;
 
@@ -246,6 +249,16 @@ export function PipelineItemDialog({ open, onOpenChange, item, onSaved, defaultC
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>
+
+        {/* Tasks & Activity — only shown when editing existing item */}
+        {item && (
+          <>
+            <Separator className="my-4" />
+            <PipelineTaskList pipelineItemId={item.id} pipelineItemName={item.name} />
+            <Separator className="my-4" />
+            <PipelineActivityFeed pipelineItemId={item.id} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QuickAddTask } from '@/components/QuickAddTask';
+import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
@@ -47,6 +49,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <QuickAddTask />
             <span className="text-xs text-muted-foreground">{user?.email}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
               <LogOut className="h-3.5 w-3.5" />
@@ -54,6 +57,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </div>
       </header>
+
+      <TaskOverdueBanner />
 
       <main className="p-4">
         {children}

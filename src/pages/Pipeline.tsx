@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, LayoutGrid, Table as TableIcon, BarChart3 } from 'lucide-react';
+import { Plus, Search, LayoutGrid, Table as TableIcon, BarChart3, ListTodo } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PipelineTable } from '@/components/PipelineTable';
 import { PipelineKanban } from '@/components/PipelineKanban';
 import { PipelineMetrics } from '@/components/PipelineMetrics';
 import { PipelineItemDialog } from '@/components/PipelineItemDialog';
 import { PipelineImport } from '@/components/PipelineImport';
+import { PipelineGlobalTasks } from '@/components/PipelineGlobalTasks';
 import { daysBetween, getStage, type PipelineItem } from '@/lib/pipeline-helpers';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -165,6 +166,7 @@ export default function Pipeline() {
           <TabsList>
             <TabsTrigger value="table" className="text-xs gap-1"><TableIcon className="h-3.5 w-3.5" /> Table</TabsTrigger>
             <TabsTrigger value="kanban" className="text-xs gap-1"><LayoutGrid className="h-3.5 w-3.5" /> Kanban</TabsTrigger>
+            <TabsTrigger value="tasks" className="text-xs gap-1"><ListTodo className="h-3.5 w-3.5" /> Tasks</TabsTrigger>
             <TabsTrigger value="metrics" className="text-xs gap-1"><BarChart3 className="h-3.5 w-3.5" /> Metrics</TabsTrigger>
           </TabsList>
           <TabsContent value="table" className="mt-3">
@@ -172,6 +174,12 @@ export default function Pipeline() {
           </TabsContent>
           <TabsContent value="kanban" className="mt-3">
             <PipelineKanban items={filtered} customers={customerMap} onEdit={handleEdit} />
+          </TabsContent>
+          <TabsContent value="tasks" className="mt-3">
+            <PipelineGlobalTasks items={items} customers={customerMap} onOpenItem={(itemId) => {
+              const item = items.find(i => i.id === itemId);
+              if (item) handleEdit(item);
+            }} />
           </TabsContent>
           <TabsContent value="metrics" className="mt-3">
             <PipelineMetrics items={items} customers={customerMap} />

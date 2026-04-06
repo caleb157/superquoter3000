@@ -574,6 +574,41 @@ export type Database = {
           },
         ]
       }
+      pipeline_activity: {
+        Row: {
+          action: string
+          actor: string | null
+          created_at: string
+          description: string
+          id: string
+          pipeline_item_id: string
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          pipeline_item_id: string
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          pipeline_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_activity_pipeline_item_id_fkey"
+            columns: ["pipeline_item_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_items: {
         Row: {
           created_at: string
@@ -660,6 +695,59 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          id: string
+          pipeline_item_id: string
+          priority: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          pipeline_item_id: string
+          priority?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          pipeline_item_id?: string
+          priority?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_tasks_pipeline_item_id_fkey"
+            columns: ["pipeline_item_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_items"
             referencedColumns: ["id"]
           },
         ]
