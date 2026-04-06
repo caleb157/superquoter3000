@@ -425,7 +425,42 @@ const ProjectDetail = () => {
       switch (type) {
         case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
         case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
-        case 'quote': await generateCustomerQuotePDF(ctx); toast.success('Customer quote generated'); break;
+        case 'quote': {
+          const result = await generateCustomerQuotePDF(ctx);
+          // Save snapshot to quote_snapshots table
+          const productsSnapshot = ctx.products.map(p => ({
+            name: p.name, sku: p.sku, quantity: p.quantity,
+            unit_price: ctx.quoteCurrency === 'INR' ? p.unit_cost_inr * (1 + p.markup_percent) : p.unit_price_usd,
+            total: ctx.quoteCurrency === 'INR' ? p.unit_cost_inr * (1 + p.markup_percent) * p.quantity : p.unit_price_usd * p.quantity,
+            unit_cbm: p.unit_cbm, total_cbm: p.total_cbm, weight_kg: p.weight_kg,
+            photo_url: p.photo_url,
+          }));
+          const shareToken = crypto.randomUUID();
+          const { error: snapError } = await (supabase as any).from('quote_snapshots').insert({
+            project_id: id,
+            quote_number: result.quoteNumber,
+            currency: result.currency,
+            valid_until: result.validUntil,
+            status: 'draft',
+            share_token: shareToken,
+            entity_id: ctx.entity?.id || null,
+            notes: ctx.quoteNotes || null,
+            products: productsSnapshot,
+            totals: {
+              sku_count: ctx.aggregates.skuCount,
+              total_qty: ctx.aggregates.totalQty,
+              total_cbm: ctx.aggregates.totalCbm,
+              grand_total: result.grandTotal,
+            },
+          });
+          if (snapError) {
+            console.error('Failed to save quote snapshot:', snapError);
+            toast.warning('PDF downloaded but quote record failed to save');
+          } else {
+            toast.success('Customer quote generated & saved');
+          }
+          break;
+        }
       }
     } catch (err: any) { toast.error(`Export failed: ${err.message}`); }
     setExporting(null);
