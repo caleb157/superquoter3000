@@ -1091,7 +1091,9 @@ const ProductCosting = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {nonUnitCogs.map(item => (
+                {nonUnitCogs.map(item => {
+                  const isAutoTransport = item.name === 'Auto Transport';
+                  return (
                   <TableRow key={item.id}>
                     <TableCell>
                       <Select value={item.include || 'Yes'} onValueChange={v => {
@@ -1105,15 +1107,34 @@ const ProductCosting = () => {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell><Input className="h-6 text-xs border-transparent" defaultValue={item.name || ''}
-                      onBlur={e => { setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, name: e.target.value } : i)); (supabase as any).from('non_unit_cogs').update({ name: e.target.value }).eq('id', item.id); }} /></TableCell>
-                    <TableCell className="text-right"><Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.total_quantity || 0}
-                      onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, total_quantity: v } : i)); (supabase as any).from('non_unit_cogs').update({ total_quantity: v }).eq('id', item.id); }} /></TableCell>
-                    <TableCell className="text-right"><Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
-                      onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i)); (supabase as any).from('non_unit_cogs').update({ cost_each_inr: v }).eq('id', item.id); }} /></TableCell>
+                    <TableCell>
+                      {isAutoTransport ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">Auto Transport <span className="text-[9px] bg-muted px-1 rounded">auto</span></span>
+                      ) : (
+                        <Input className="h-6 text-xs border-transparent" defaultValue={item.name || ''}
+                          onBlur={e => { setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, name: e.target.value } : i)); (supabase as any).from('non_unit_cogs').update({ name: e.target.value }).eq('id', item.id); }} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isAutoTransport ? (
+                        <span className="text-xs text-muted-foreground">{(item.total_quantity || 0).toFixed(4)}</span>
+                      ) : (
+                        <Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.total_quantity || 0}
+                          onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, total_quantity: v } : i)); (supabase as any).from('non_unit_cogs').update({ total_quantity: v }).eq('id', item.id); }} />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isAutoTransport ? (
+                        <span className="text-xs text-muted-foreground">{item.cost_each_inr || 0}</span>
+                      ) : (
+                        <Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
+                          onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i)); (supabase as any).from('non_unit_cogs').update({ cost_each_inr: v }).eq('id', item.id); }} />
+                      )}
+                    </TableCell>
                     <TableCell className="text-right calc-field">{qty > 0 ? fmt.inr((item.total_quantity * item.cost_each_inr) / qty) : '—'}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
             <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px] gap-1"
