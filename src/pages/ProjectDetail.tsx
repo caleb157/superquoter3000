@@ -426,6 +426,24 @@ const ProjectDetail = () => {
         case 'excel': exportToExcel(ctx); toast.success('Excel exported'); break;
         case 'pdf': downloadSummaryPDF(ctx); toast.success('Summary PDF downloaded'); break;
         case 'quote': {
+          // Generate sequential quote number
+          const prefix = ctx.entity?.entity_type === 'India' ? 'PV' : 'DKT';
+          const year = new Date().getFullYear();
+          const { data: lastQuote } = await (supabase as any)
+            .from('quote_snapshots')
+            .select('quote_number')
+            .like('quote_number', `${prefix}-${year}-%`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          let nextSeq = 1;
+          if (lastQuote?.quote_number) {
+            const parts = lastQuote.quote_number.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1], 10);
+            if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+          }
+          const quoteNumber = `${prefix}-${year}-${String(nextSeq).padStart(3, '0')}`;
+          ctx.quoteNumber = quoteNumber;
           const result = await generateCustomerQuotePDF(ctx);
           // Save snapshot to quote_snapshots table
           const productsSnapshot = ctx.products.map(p => ({
