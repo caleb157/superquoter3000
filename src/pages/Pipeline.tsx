@@ -12,6 +12,7 @@ import { PipelineKanban } from '@/components/PipelineKanban';
 import { PipelineMetrics } from '@/components/PipelineMetrics';
 import { PipelineItemDialog } from '@/components/PipelineItemDialog';
 import { PipelineImport } from '@/components/PipelineImport';
+import { PipelineGlobalTasks } from '@/components/PipelineGlobalTasks';
 import { daysBetween, getStage, type PipelineItem } from '@/lib/pipeline-helpers';
 import type { Tables } from '@/integrations/supabase/types';
 
