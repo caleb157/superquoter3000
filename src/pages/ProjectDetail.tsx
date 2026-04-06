@@ -26,6 +26,7 @@ import * as calc from '@/lib/calculations';
 import { exportToExcel, downloadSummaryPDF, generateCustomerQuotePDF, type ExportProduct, type ExportAggregates, type ExportContext } from '@/lib/exports';
 import ProjectSummary from './ProjectSummary';
 import ProjectSettingsTab from './ProjectSettingsTab';
+import { ProjectPipelineTab } from '@/components/ProjectPipelineTab';
 
 const STATUS_OPTIONS = ['draft', 'costing', 'quoted', 'po_confirmed', 'archived'];
 
