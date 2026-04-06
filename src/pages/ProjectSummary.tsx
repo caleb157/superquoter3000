@@ -91,9 +91,14 @@ function computeProductRow(p: any, allCogs: any[], allNuc: any[], allOh: any[], 
       return sum + c.unit_cost;
     }, 0);
 
-  const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
-    pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty
-  );
+  const autoTransportRate = (gs as any)?.auto_transport_cost_per_cbm || 500;
+  const nucWithLiveTransport = pNuc.map((i: any) => {
+    if (i.name === 'Auto Transport' && unit_cbm > 0) {
+      return { include: i.include || 'Yes', total_quantity: +(unit_cbm * qty).toFixed(4), cost_each_inr: autoTransportRate };
+    }
+    return { include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr };
+  });
+  const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(nucWithLiveTransport, qty);
 
   const ohItems = pOh.map((item: any) => ({
     include: item.include, labor_type: item.labor_type,
