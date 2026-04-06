@@ -822,8 +822,6 @@ const ProjectDetail = () => {
                 )}
               </div>
              )}
-              </div>
-             )}
 
             {/* Assemblies */}
             {assemblies.length > 0 && (
