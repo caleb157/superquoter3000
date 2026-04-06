@@ -657,47 +657,47 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
                           className={`border-t cursor-pointer hover:bg-muted/30 ${p.confidence === 'low' ? 'border-l-2 border-l-red-400' : p.confidence === 'medium' ? 'border-l-2 border-l-yellow-400' : ''}`}
                           onClick={() => toggleExpanded(i)}
                         >
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                             <Checkbox checked={p.selected} onCheckedChange={v => updateParsed(i, 'selected', !!v)} />
                           </td>
-                          <td className="p-1.5">
-                            <div className="flex items-center gap-1">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-1.5">
                               {fileIcon(p.source_file)}
-                              <span className="truncate max-w-[80px]" title={p.source_file}>{p.source_file}</span>
+                              <span className="truncate max-w-[90px] text-xs" title={p.source_file}>{p.source_file}</span>
                             </div>
                             {p.sourceFileData && (
-                              <label className="flex items-center gap-1 text-[9px] text-muted-foreground mt-0.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                              <label className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 cursor-pointer" onClick={e => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={p.useAsPhoto}
                                   onChange={e => updateParsed(i, 'useAsPhoto', e.target.checked)}
-                                  className="h-2.5 w-2.5"
+                                  className="h-3 w-3"
                                 />
                                 Use as photo
                               </label>
                             )}
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs" value={p.name} onChange={e => updateParsed(i, 'name', e.target.value)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm" value={p.name} onChange={e => updateParsed(i, 'name', e.target.value)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs" value={p.sku || ''} onChange={e => updateParsed(i, 'sku', e.target.value)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm" value={p.sku || ''} onChange={e => updateParsed(i, 'sku', e.target.value)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs text-right w-12" type="number" value={p.width_inch ?? ''} onChange={e => updateParsed(i, 'width_inch', e.target.value ? Number(e.target.value) : null)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm text-right w-16" type="number" value={p.width_inch ?? ''} onChange={e => updateParsed(i, 'width_inch', e.target.value ? Number(e.target.value) : null)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs text-right w-12" type="number" value={p.depth_inch ?? ''} onChange={e => updateParsed(i, 'depth_inch', e.target.value ? Number(e.target.value) : null)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm text-right w-16" type="number" value={p.depth_inch ?? ''} onChange={e => updateParsed(i, 'depth_inch', e.target.value ? Number(e.target.value) : null)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs text-right w-12" type="number" value={p.height_inch ?? ''} onChange={e => updateParsed(i, 'height_inch', e.target.value ? Number(e.target.value) : null)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm text-right w-16" type="number" value={p.height_inch ?? ''} onChange={e => updateParsed(i, 'height_inch', e.target.value ? Number(e.target.value) : null)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs text-right w-12" type="number" value={p.quantity ?? ''} onChange={e => updateParsed(i, 'quantity', e.target.value ? parseInt(e.target.value) : null)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm text-right w-16" type="number" value={p.quantity ?? ''} onChange={e => updateParsed(i, 'quantity', e.target.value ? parseInt(e.target.value) : null)} />
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                             <Select value={p.product_type || ''} onValueChange={v => updateParsed(i, 'product_type', v)}>
-                              <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
                               <SelectContent>
                                 {productTypes.map(pt => (
                                   <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
@@ -705,24 +705,24 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="p-1.5">
-                            <span className="text-[10px]">{p.finishing_difficulty || '—'}</span>
+                          <td className="px-3 py-2">
+                            <span className="text-sm">{p.finishing_difficulty || '—'}</span>
                           </td>
-                          <td className="p-1.5" onClick={e => e.stopPropagation()}>
-                            <Input className="h-6 text-xs text-right w-14" type="number" value={p.target_price_usd ?? ''} onChange={e => updateParsed(i, 'target_price_usd', e.target.value ? Number(e.target.value) : null)} />
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <Input className="h-8 text-sm text-right w-20" type="number" value={p.target_price_usd ?? ''} onChange={e => updateParsed(i, 'target_price_usd', e.target.value ? Number(e.target.value) : null)} />
                           </td>
-                          <td className="p-1.5">
+                          <td className="px-3 py-2">
                             {p.hardware_detected.length > 0 ? (
-                              <div className="flex items-center gap-1">
-                                <Wrench className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-[10px]">{p.hardware_detected.length} items</span>
-                                <ChevronDown className={`h-3 w-3 transition-transform ${p._expanded ? '' : '-rotate-90'}`} />
+                              <div className="flex items-center gap-1.5">
+                                <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs">{p.hardware_detected.length} items</span>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${p._expanded ? '' : '-rotate-90'}`} />
                               </div>
                             ) : (
-                              <span className="text-muted-foreground text-[9px]">None</span>
+                              <span className="text-muted-foreground text-xs">None</span>
                             )}
                           </td>
-                          <td className="p-1.5 text-center">
+                          <td className="px-3 py-2 text-center">
                             {confidenceBadge(p.confidence)}
                           </td>
                         </tr>
