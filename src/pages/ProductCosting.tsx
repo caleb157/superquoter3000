@@ -857,24 +857,50 @@ const ProductCosting = () => {
               )}
 
               {includeMc && (
-                <div className="grid grid-cols-6 gap-2">
-                  <div><label className="text-[10px] text-muted-foreground">Layout (W×D×H)</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_w}×{mcResult.mc_ics_along_d}×{mcResult.mc_ics_along_h}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={mcManualLayout} onCheckedChange={(v) => updateCbm('mc_manual_layout', !!v)} id="mc-manual" />
+                    <label htmlFor="mc-manual" className="text-[10px] text-muted-foreground cursor-pointer">Manual layout override</label>
                   </div>
-                  <div><label className="text-[10px] text-muted-foreground">Products/MC</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.products_per_mc}</span>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div><label className="text-[10px] text-muted-foreground">ICs along W</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_w} onBlur={e => updateCbm('mc_ics_along_w', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_w}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">ICs along D</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_d} onBlur={e => updateCbm('mc_ics_along_d', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_d}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">ICs along H</label>
+                      {mcManualLayout ? (
+                        <Input className="h-7 text-xs" type="number" min={1} defaultValue={mcResult.mc_ics_along_h} onBlur={e => updateCbm('mc_ics_along_h', Math.max(1, Number(e.target.value) || 1))} />
+                      ) : (
+                        <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.mc_ics_along_h}</span>
+                      )}
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">Products/MC</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{mcResult.products_per_mc}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">MC Dims</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">MC Volume</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(mcResult.mc_volume_cbm)}</span>
+                    </div>
                   </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Dims</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Volume</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(mcResult.mc_volume_cbm)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">MC Cost</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
-                  </div>
-                  <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
-                    <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div><label className="text-[10px] text-muted-foreground">MC Cost</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
+                    </div>
+                    <div><label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                    </div>
                   </div>
                 </div>
               )}
