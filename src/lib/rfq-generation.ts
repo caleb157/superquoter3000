@@ -30,26 +30,23 @@ export async function generateRfqNumber(): Promise<string> {
 
 // ---------- Fetch project context ----------
 async function fetchProjectContext(projectId: string) {
-  const [productsRes, cbmRes, cogsRes, settingsRes, projectRes, chemRes] = await Promise.all([
-    supabase.from('products').select('*').eq('project_id', projectId).order('sort_order'),
-    supabase.from('cbm_estimates').select('*'),
-    supabase.from('cogs_items').select('*'),
+  const productsRes = await supabase.from('products').select('*').eq('project_id', projectId).order('sort_order');
+  const products = (productsRes.data || []).filter((p: any) => !p.is_component);
+  const productIds = products.map((p: any) => p.id);
+
+  const [cbmRes, cogsRes, settingsRes, projectRes, chemRes] = await Promise.all([
+    supabase.from('cbm_estimates').select('*').in('product_id', productIds),
+    supabase.from('cogs_items').select('*').in('product_id', productIds),
     supabase.from('project_settings').select('*').eq('project_id', projectId).maybeSingle(),
     supabase.from('projects').select('name, customer_name, customer_logo_url').eq('id', projectId).single(),
     supabase.from('chemical_prices').select('*'),
   ]);
 
-  const products = (productsRes.data || []).filter((p: any) => !p.is_component);
-  const allCbm = cbmRes.data || [];
-  const allCogs = cogsRes.data || [];
+  const cbm = cbmRes.data || [];
+  const cogs = cogsRes.data || [];
   const settings = settingsRes.data as any;
   const project = projectRes.data as any;
   const chemPrices = chemRes.data || [];
-
-  // Filter CBM/COGS to this project's products
-  const productIds = products.map((p: any) => p.id);
-  const cbm = allCbm.filter((c: any) => productIds.includes(c.product_id));
-  const cogs = allCogs.filter((c: any) => productIds.includes(c.product_id));
 
   const discount = settings?.rfq_discount_percent ?? 0.10;
 
@@ -250,23 +247,23 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
   // Fetch additional data needed for full cost summary
   const productIds = products.map((p: any) => p.id);
   const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
-    supabase.from('overhead_items').select('*'),
-    supabase.from('non_unit_cogs').select('*'),
-    supabase.from('shipping_items').select('*'),
+    supabase.from('overhead_items').select('*').in('product_id', productIds),
+    supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
+    supabase.from('shipping_items').select('*').in('product_id', productIds),
     supabase.from('shipping_types').select('*'),
     supabase.from('labor_employees').select('*'),
     supabase.from('global_settings').select('*').limit(1).single(),
-    supabase.from('cbm_estimates').select('*'),
+    supabase.from('cbm_estimates').select('*').in('product_id', productIds),
     supabase.from('product_types').select('*'),
   ]);
 
-  const allOh = (ohRes.data || []).filter((o: any) => productIds.includes(o.product_id));
-  const allNu = (nuRes.data || []).filter((n: any) => productIds.includes(n.product_id));
-  const allShipItems = (shipItemsRes.data || []).filter((s: any) => productIds.includes(s.product_id));
+  const allOh = ohRes.data || [];
+  const allNu = nuRes.data || [];
+  const allShipItems = shipItemsRes.data || [];
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
   const gs = gsRes.data as any;
-  const allCbm = (cbmRes.data || []).filter((c: any) => productIds.includes(c.product_id));
+  const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
 
   const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
