@@ -417,6 +417,21 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
 
         // COGS: use structured cogs_rows if present, otherwise build defaults
         if (p.cogs_rows && p.cogs_rows.length > 0) {
+          // Always include a Raw Piece row at the top if the intake sheet didn't have one
+          const hasRawPiece = p.cogs_rows.some((cr: any) => (cr.cogs_type || '').toLowerCase().includes('raw piece'));
+          const rawPieceRow = hasRawPiece ? [] : [{
+            product_id: prod.id,
+            cogs_type: 'Raw Piece',
+            component_name: 'Raw Piece 1',
+            include: 'Yes',
+            units: 'cft',
+            components_per_product: 0,
+            unit_cost_inr: 0,
+            waste_factor: 0.1,
+            is_auto_calculated: false,
+            sort_order: 0,
+          }];
+          const offset = rawPieceRow.length;
           const structuredCogs = p.cogs_rows.map((cr: any, idx: number) => ({
             product_id: prod.id,
             cogs_type: cr.cogs_type || 'Raw Piece',
@@ -427,9 +442,9 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
             unit_cost_inr: cr.unit_cost_inr ?? 0,
             waste_factor: cr.waste_factor ?? 0,
             is_auto_calculated: false,
-            sort_order: idx,
+            sort_order: idx + offset,
           }));
-          await supabase.from('cogs_items').insert(structuredCogs as any);
+          await supabase.from('cogs_items').insert([...rawPieceRow, ...structuredCogs] as any);
         } else {
           // Build hardware COGS from AI detection
           const hardwareCogs: any[] = [];
