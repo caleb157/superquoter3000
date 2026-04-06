@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, LayoutGrid, Table as TableIcon, BarChart3 } from 'lucide-react';
+import { Plus, Search, LayoutGrid, Table as TableIcon, BarChart3, ListTodo } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PipelineTable } from '@/components/PipelineTable';
 import { PipelineKanban } from '@/components/PipelineKanban';
