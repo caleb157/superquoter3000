@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -14,6 +14,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
+    { to: '/qc', label: 'QC', icon: ClipboardCheck, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
