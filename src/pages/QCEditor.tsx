@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronUp,
-  Copy, FileDown, Upload, X, Pencil, Circle, ArrowRight, Type, Undo, Redo,
+  ArrowLeft, Plus, Trash2, GripVertical,
+  Copy, FileDown, Upload, X, Circle, ArrowRight, Type, Undo, Redo,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQCPdf } from '@/lib/qc-pdf';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 
 const QCEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +37,7 @@ const QCEditor = () => {
       .select('*, qc_rows(*)')
       .eq('guide_id', id)
       .order('sort_order');
-    
+
     const sorted = (secs || []).map(s => ({
       ...s,
       qc_rows: ((s.qc_rows || []) as any[]).sort((a: any, b: any) => a.sort_order - b.sort_order),
@@ -69,7 +70,6 @@ const QCEditor = () => {
   const addSection = async (afterIndex: number) => {
     if (!id) return;
     const newOrder = afterIndex + 1;
-    // Shift existing
     for (const s of sections.filter(s => s.sort_order >= newOrder)) {
       await supabase.from('qc_sections').update({ sort_order: s.sort_order + 1 }).eq('id', s.id);
     }
@@ -77,13 +77,13 @@ const QCEditor = () => {
       guide_id: id, name: 'New Section', sort_order: newOrder,
     }).select().single();
     if (data) {
-      // Add one default row
       await supabase.from('qc_rows').insert({ section_id: data.id, label: 'New row', sort_order: 0 });
     }
     loadGuide();
   };
 
   const deleteSection = async (sectionId: string) => {
+    await supabase.from('qc_rows').delete().eq('section_id', sectionId);
     await supabase.from('qc_sections').delete().eq('id', sectionId);
     setSections(prev => prev.filter(s => s.id !== sectionId));
   };
@@ -98,26 +98,6 @@ const QCEditor = () => {
       section_id: newSec.id, label: r.label, text_content: r.text_content, photo_urls: r.photo_urls, sort_order: i,
     }));
     if (rows.length) await supabase.from('qc_rows').insert(rows);
-    loadGuide();
-  };
-
-  const moveSectionUp = async (index: number) => {
-    if (index === 0) return;
-    const a = sections[index], b = sections[index - 1];
-    await Promise.all([
-      supabase.from('qc_sections').update({ sort_order: b.sort_order }).eq('id', a.id),
-      supabase.from('qc_sections').update({ sort_order: a.sort_order }).eq('id', b.id),
-    ]);
-    loadGuide();
-  };
-
-  const moveSectionDown = async (index: number) => {
-    if (index >= sections.length - 1) return;
-    const a = sections[index], b = sections[index + 1];
-    await Promise.all([
-      supabase.from('qc_sections').update({ sort_order: b.sort_order }).eq('id', a.id),
-      supabase.from('qc_sections').update({ sort_order: a.sort_order }).eq('id', b.id),
-    ]);
     loadGuide();
   };
 
@@ -139,38 +119,12 @@ const QCEditor = () => {
     })));
   };
 
-  const moveRowUp = async (sectionId: string, rowIndex: number) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (!section || rowIndex === 0) return;
-    const rows = section.qc_rows;
-    const a = rows[rowIndex], b = rows[rowIndex - 1];
-    await Promise.all([
-      supabase.from('qc_rows').update({ sort_order: b.sort_order }).eq('id', a.id),
-      supabase.from('qc_rows').update({ sort_order: a.sort_order }).eq('id', b.id),
-    ]);
-    loadGuide();
-  };
-
-  const moveRowDown = async (sectionId: string, rowIndex: number) => {
-    const section = sections.find(s => s.id === sectionId);
-    if (!section || rowIndex >= section.qc_rows.length - 1) return;
-    const rows = section.qc_rows;
-    const a = rows[rowIndex], b = rows[rowIndex + 1];
-    await Promise.all([
-      supabase.from('qc_rows').update({ sort_order: b.sort_order }).eq('id', a.id),
-      supabase.from('qc_rows').update({ sort_order: a.sort_order }).eq('id', b.id),
-    ]);
-    loadGuide();
-  };
-
   // Photo upload
   const uploadPhotos = async (rowId: string, files: FileList) => {
     const row = sections.flatMap(s => s.qc_rows).find((r: any) => r.id === rowId);
     if (!row) return;
-
     const existingPhotos = (row.photo_urls || []) as string[];
     const newPhotos = [...existingPhotos];
-
     for (const file of Array.from(files)) {
       const ext = file.name.split('.').pop();
       const path = `${id}/${rowId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
@@ -179,7 +133,6 @@ const QCEditor = () => {
       const { data: urlData } = supabase.storage.from('qc-photos').getPublicUrl(path);
       newPhotos.push(urlData.publicUrl);
     }
-
     await saveRow(rowId, { photo_urls: newPhotos });
     toast.success('Photos uploaded');
   };
@@ -209,6 +162,72 @@ const QCEditor = () => {
     const doc = await generateQCPdf(pdfData);
     doc.save(`${guide.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     toast.success('PDF exported');
+  };
+
+  // ---- Drag & Drop ----
+  const onDragEnd = async (result: DropResult) => {
+    const { source, destination, type } = result;
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    if (type === 'SECTION') {
+      const reordered = Array.from(sections);
+      const [moved] = reordered.splice(source.index, 1);
+      reordered.splice(destination.index, 0, moved);
+      // Update sort_order
+      const updated = reordered.map((s, i) => ({ ...s, sort_order: i }));
+      setSections(updated);
+      // Persist
+      await Promise.all(updated.map(s =>
+        supabase.from('qc_sections').update({ sort_order: s.sort_order }).eq('id', s.id)
+      ));
+      return;
+    }
+
+    if (type === 'ROW') {
+      const sourceSectionId = source.droppableId;
+      const destSectionId = destination.droppableId;
+
+      if (sourceSectionId === destSectionId) {
+        // Reorder within same section
+        const section = sections.find(s => s.id === sourceSectionId);
+        if (!section) return;
+        const rows = Array.from(section.qc_rows);
+        const [moved] = rows.splice(source.index, 1);
+        rows.splice(destination.index, 0, moved);
+        const updatedRows = rows.map((r: any, i: number) => ({ ...r, sort_order: i }));
+        setSections(prev => prev.map(s => s.id === sourceSectionId ? { ...s, qc_rows: updatedRows } : s));
+        await Promise.all(updatedRows.map((r: any) =>
+          supabase.from('qc_rows').update({ sort_order: r.sort_order }).eq('id', r.id)
+        ));
+      } else {
+        // Move row between sections
+        const srcSection = sections.find(s => s.id === sourceSectionId);
+        const dstSection = sections.find(s => s.id === destSectionId);
+        if (!srcSection || !dstSection) return;
+
+        const srcRows = Array.from(srcSection.qc_rows);
+        const dstRows = Array.from(dstSection.qc_rows);
+        const [moved] = srcRows.splice(source.index, 1);
+        dstRows.splice(destination.index, 0, moved);
+
+        const updatedSrc = srcRows.map((r: any, i: number) => ({ ...r, sort_order: i }));
+        const updatedDst = dstRows.map((r: any, i: number) => ({ ...r, sort_order: i }));
+
+        setSections(prev => prev.map(s => {
+          if (s.id === sourceSectionId) return { ...s, qc_rows: updatedSrc };
+          if (s.id === destSectionId) return { ...s, qc_rows: updatedDst };
+          return s;
+        }));
+
+        // Update section_id for moved row + all sort orders
+        await supabase.from('qc_rows').update({ section_id: destSectionId }).eq('id', (moved as any).id);
+        await Promise.all([
+          ...updatedSrc.map((r: any) => supabase.from('qc_rows').update({ sort_order: r.sort_order }).eq('id', r.id)),
+          ...updatedDst.map((r: any) => supabase.from('qc_rows').update({ sort_order: r.sort_order }).eq('id', r.id)),
+        ]);
+      }
+    }
   };
 
   if (loading) return <AppLayout><div className="p-8 text-center text-muted-foreground">Loading...</div></AppLayout>;
@@ -250,131 +269,158 @@ const QCEditor = () => {
           </div>
         </div>
 
-        {/* Sections */}
-        {sections.map((section, si) => (
-          <div key={section.id} className="border rounded-lg overflow-hidden">
-            {/* Section header */}
-            <div className="bg-muted/50 px-3 py-2 flex items-center gap-2">
-              <div className="flex gap-0.5">
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSectionUp(si)} disabled={si === 0}>
-                  <ChevronUp className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveSectionDown(si)} disabled={si === sections.length - 1}>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <Input
-                className="h-7 text-sm font-semibold border-none bg-transparent px-1 focus-visible:ring-1"
-                value={section.name}
-                onChange={e => setSections(prev => prev.map(s => s.id === section.id ? { ...s, name: e.target.value } : s))}
-                onBlur={() => saveSection(section.id, { name: section.name })}
-              />
-              <div className="ml-auto flex gap-1">
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => duplicateSection(section)} title="Duplicate section">
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteSection(section.id)} title="Delete section">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Rows */}
-            <div className="divide-y">
-              {(section.qc_rows || []).map((row: any, ri: number) => (
-                <div key={row.id} className={`flex gap-2 p-2 items-start ${selectedRow === row.id ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/30'}`}>
-                  {/* Reorder */}
-                  <div className="flex flex-col gap-0.5 pt-1">
-                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => moveRowUp(section.id, ri)} disabled={ri === 0}>
-                      <ChevronUp className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => moveRowDown(section.id, ri)} disabled={ri === section.qc_rows.length - 1}>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  {/* Label */}
-                  <div className="w-48 shrink-0">
-                    <Input
-                      className="h-7 text-xs font-medium"
-                      value={row.label}
-                      onChange={e => setSections(prev => prev.map(s => ({
-                        ...s,
-                        qc_rows: s.qc_rows.map((r: any) => r.id === row.id ? { ...r, label: e.target.value } : r),
-                      })))}
-                      onBlur={() => saveRow(row.id, { label: row.label })}
-                    />
-                  </div>
-
-                  {/* Content + Photos */}
-                  <div className="flex-1 space-y-1" onClick={() => setSelectedRow(row.id)}>
-                    <Textarea
-                      className="min-h-[28px] text-xs resize-none"
-                      rows={1}
-                      placeholder="Notes / specs..."
-                      value={row.text_content || ''}
-                      onChange={e => setSections(prev => prev.map(s => ({
-                        ...s,
-                        qc_rows: s.qc_rows.map((r: any) => r.id === row.id ? { ...r, text_content: e.target.value } : r),
-                      })))}
-                      onBlur={() => saveRow(row.id, { text_content: row.text_content })}
-                    />
-                    {/* Photo grid */}
-                    {((row.photo_urls || []) as string[]).length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {((row.photo_urls || []) as string[]).map((url: string, pi: number) => (
-                          <div key={pi} className="relative group">
-                            <img
-                              src={url}
-                              alt=""
-                              className="h-16 w-16 object-cover rounded border cursor-pointer"
-                              onClick={() => setAnnotatingPhoto({ rowId: row.id, photoIndex: pi, url })}
-                            />
-                            <button
-                              className="absolute -top-1 -right-1 bg-destructive text-white rounded-full h-4 w-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); removePhoto(row.id, pi); }}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
+        {/* Drag & Drop Sections */}
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="sections" type="SECTION">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-4">
+                {sections.map((section, si) => (
+                  <Draggable key={section.id} draggableId={section.id} index={si}>
+                    {(dragProvided, dragSnapshot) => (
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        className={`border rounded-lg overflow-hidden ${dragSnapshot.isDragging ? 'shadow-lg ring-2 ring-primary/30' : ''}`}
+                      >
+                        {/* Section header */}
+                        <div className="bg-muted/50 px-3 py-2 flex items-center gap-2">
+                          <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
                           </div>
-                        ))}
+                          <Input
+                            className="h-7 text-sm font-semibold border-none bg-transparent px-1 focus-visible:ring-1"
+                            value={section.name}
+                            onChange={e => setSections(prev => prev.map(s => s.id === section.id ? { ...s, name: e.target.value } : s))}
+                            onBlur={() => saveSection(section.id, { name: section.name })}
+                          />
+                          <div className="ml-auto flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => duplicateSection(section)} title="Duplicate section">
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteSection(section.id)} title="Delete section">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Rows — droppable */}
+                        <Droppable droppableId={section.id} type="ROW">
+                          {(rowProvided, rowSnapshot) => (
+                            <div
+                              ref={rowProvided.innerRef}
+                              {...rowProvided.droppableProps}
+                              className={`divide-y min-h-[32px] ${rowSnapshot.isDraggingOver ? 'bg-primary/5' : ''}`}
+                            >
+                              {(section.qc_rows || []).map((row: any, ri: number) => (
+                                <Draggable key={row.id} draggableId={row.id} index={ri}>
+                                  {(rowDragProvided, rowDragSnapshot) => (
+                                    <div
+                                      ref={rowDragProvided.innerRef}
+                                      {...rowDragProvided.draggableProps}
+                                      className={`flex gap-2 p-2 items-start ${
+                                        rowDragSnapshot.isDragging ? 'shadow-md bg-background ring-1 ring-primary/20' : ''
+                                      } ${selectedRow === row.id ? 'bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/30'}`}
+                                    >
+                                      {/* Drag handle */}
+                                      <div
+                                        {...rowDragProvided.dragHandleProps}
+                                        className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted mt-0.5"
+                                      >
+                                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                                      </div>
+
+                                      {/* Label */}
+                                      <div className="w-48 shrink-0">
+                                        <Input
+                                          className="h-7 text-xs font-medium"
+                                          value={row.label}
+                                          onChange={e => setSections(prev => prev.map(s => ({
+                                            ...s,
+                                            qc_rows: s.qc_rows.map((r: any) => r.id === row.id ? { ...r, label: e.target.value } : r),
+                                          })))}
+                                          onBlur={() => saveRow(row.id, { label: row.label })}
+                                        />
+                                      </div>
+
+                                      {/* Content + Photos */}
+                                      <div className="flex-1 space-y-1" onClick={() => setSelectedRow(row.id)}>
+                                        <Textarea
+                                          className="min-h-[28px] text-xs resize-none"
+                                          rows={1}
+                                          placeholder="Notes / specs..."
+                                          value={row.text_content || ''}
+                                          onChange={e => setSections(prev => prev.map(s => ({
+                                            ...s,
+                                            qc_rows: s.qc_rows.map((r: any) => r.id === row.id ? { ...r, text_content: e.target.value } : r),
+                                          })))}
+                                          onBlur={() => saveRow(row.id, { text_content: row.text_content })}
+                                        />
+                                        {((row.photo_urls || []) as string[]).length > 0 && (
+                                          <div className="flex flex-wrap gap-1">
+                                            {((row.photo_urls || []) as string[]).map((url: string, pi: number) => (
+                                              <div key={pi} className="relative group">
+                                                <img
+                                                  src={url}
+                                                  alt=""
+                                                  className="h-16 w-16 object-cover rounded border cursor-pointer"
+                                                  onClick={() => setAnnotatingPhoto({ rowId: row.id, photoIndex: pi, url })}
+                                                />
+                                                <button
+                                                  className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full h-4 w-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                  onClick={(e) => { e.stopPropagation(); removePhoto(row.id, pi); }}
+                                                >
+                                                  <X className="h-2.5 w-2.5" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <label className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary cursor-pointer">
+                                          <Upload className="h-3 w-3" />
+                                          <span>Add photos</span>
+                                          <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={e => { if (e.target.files?.length) uploadPhotos(row.id, e.target.files); }}
+                                          />
+                                        </label>
+                                      </div>
+
+                                      {/* Checkbox preview */}
+                                      <div className="w-8 flex justify-center pt-1">
+                                        <div className="h-4 w-4 border-2 border-muted-foreground/40 rounded-sm" />
+                                      </div>
+
+                                      {/* Delete row */}
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/60 hover:text-destructive" onClick={() => deleteRow(row.id)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {rowProvided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+
+                        {/* Add row */}
+                        <div className="px-3 py-1.5 border-t">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addRow(section.id)}>
+                            <Plus className="h-3 w-3 mr-1" /> Add Row
+                          </Button>
+                        </div>
                       </div>
                     )}
-                    {/* Upload button */}
-                    <label className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary cursor-pointer">
-                      <Upload className="h-3 w-3" />
-                      <span>Add photos</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={e => { if (e.target.files?.length) uploadPhotos(row.id, e.target.files); }}
-                      />
-                    </label>
-                  </div>
-
-                  {/* Checkbox preview */}
-                  <div className="w-8 flex justify-center pt-1">
-                    <div className="h-4 w-4 border-2 border-muted-foreground/40 rounded-sm" />
-                  </div>
-
-                  {/* Delete row */}
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/60 hover:text-destructive" onClick={() => deleteRow(row.id)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            {/* Add row */}
-            <div className="px-3 py-1.5 border-t">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => addRow(section.id)}>
-                <Plus className="h-3 w-3 mr-1" /> Add Row
-              </Button>
-            </div>
-          </div>
-        ))}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
 
         {/* Add section */}
         <Button variant="outline" size="sm" onClick={() => addSection(sections.length)}>
@@ -527,7 +573,6 @@ const AnnotationDialog = ({ photoUrl, onClose, onSave }: { photoUrl: string; onC
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Convert canvas to blob and upload
     canvas.toBlob(async (blob) => {
       if (!blob) return;
       const path = `annotated/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
