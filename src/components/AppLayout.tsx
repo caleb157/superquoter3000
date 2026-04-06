@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QuickAddTask } from '@/components/QuickAddTask';
+import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
