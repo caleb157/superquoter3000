@@ -73,9 +73,9 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const colWidths = { label: 45, content: 115, check: 20 };
-  const photoSize = 20; // mm per photo thumbnail
-  const photosPerRow = 5;
-  const photoGap = 2;
+  const photoSize = 45;
+  const photosPerRow = 2;
+  const photoGap = 3;
   let y = margin;
 
   // Pre-load all images
@@ -187,16 +187,22 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
   }
 
   // Signature lines
-  if (y > 250) {
+  if (y > 240) {
     doc.addPage();
     y = margin;
   }
   y += 10;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Inspected by: _________________________  Date: _______________', margin, y);
-  y += 10;
-  doc.text('Approved by: _________________________  Date: _______________', margin, y);
+  doc.text('Inspected by:', margin, y);
+  doc.line(margin + 28, y, margin + 88, y);
+  doc.text('Date:', margin + 95, y);
+  doc.line(margin + 108, y, margin + 148, y);
+  y += 12;
+  doc.text('Approved by:', margin, y);
+  doc.line(margin + 28, y, margin + 88, y);
+  doc.text('Date:', margin + 95, y);
+  doc.line(margin + 108, y, margin + 148, y);
 
   return doc;
 }
