@@ -257,6 +257,16 @@ export function PipelineItemDialog({ open, onOpenChange, item, onSaved, defaultC
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>
+
+        {/* Tasks & Activity — only shown when editing existing item */}
+        {item && (
+          <>
+            <Separator className="my-4" />
+            <PipelineTaskList pipelineItemId={item.id} pipelineItemName={item.name} />
+            <Separator className="my-4" />
+            <PipelineActivityFeed pipelineItemId={item.id} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
