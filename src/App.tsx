@@ -85,6 +85,16 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/quote/:token" element={<CustomerQuote />} />
+            <Route path="/qc" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <QCList />
+              </ProtectedRoute>
+            } />
+            <Route path="/qc/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <QCEditor />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

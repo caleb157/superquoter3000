@@ -14,6 +14,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
+    { to: '/qc', label: 'QC', icon: ClipboardCheck, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
