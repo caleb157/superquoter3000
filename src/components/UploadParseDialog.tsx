@@ -626,27 +626,27 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            <p className="text-xs text-muted-foreground mb-2">
+            <p className="text-sm text-muted-foreground mb-3">
               Found {parsedProducts.length} products · Review and edit before importing · Click a row to see hardware details
             </p>
             <ScrollArea className="flex-1 border rounded-md">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50 sticky top-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 sticky top-0 z-10">
                     <tr>
-                      <th className="p-1.5 text-left w-8">✓</th>
-                      <th className="p-1.5 text-left">Source</th>
-                      <th className="p-1.5 text-left min-w-[140px]">Name</th>
-                      <th className="p-1.5 text-left w-20">SKU</th>
-                      <th className="p-1.5 text-right w-14">W</th>
-                      <th className="p-1.5 text-right w-14">D</th>
-                      <th className="p-1.5 text-right w-14">H</th>
-                      <th className="p-1.5 text-right w-14">Qty</th>
-                      <th className="p-1.5 text-left w-28">Type</th>
-                      <th className="p-1.5 text-left w-20">Difficulty</th>
-                      <th className="p-1.5 text-right w-16">Target $</th>
-                      <th className="p-1.5 text-left w-32">Hardware</th>
-                      <th className="p-1.5 text-center w-16">Conf.</th>
+                      <th className="px-3 py-2.5 text-left w-10">✓</th>
+                      <th className="px-3 py-2.5 text-left min-w-[100px]">Source</th>
+                      <th className="px-3 py-2.5 text-left min-w-[180px]">Name</th>
+                      <th className="px-3 py-2.5 text-left w-24">SKU</th>
+                      <th className="px-3 py-2.5 text-right w-16">W</th>
+                      <th className="px-3 py-2.5 text-right w-16">D</th>
+                      <th className="px-3 py-2.5 text-right w-16">H</th>
+                      <th className="px-3 py-2.5 text-right w-16">Qty</th>
+                      <th className="px-3 py-2.5 text-left min-w-[140px]">Type</th>
+                      <th className="px-3 py-2.5 text-left w-24">Difficulty</th>
+                      <th className="px-3 py-2.5 text-right w-20">Target $</th>
+                      <th className="px-3 py-2.5 text-left w-32">Hardware</th>
+                      <th className="px-3 py-2.5 text-center w-16">Conf.</th>
                     </tr>
                   </thead>
                   <tbody>
