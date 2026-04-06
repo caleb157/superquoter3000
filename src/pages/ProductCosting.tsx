@@ -379,7 +379,7 @@ const ProductCosting = () => {
     const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
 
     overheadItems.forEach(item => {
-      if (!item.is_auto_estimated) return;
+      if (!item.is_auto_estimated || item.include === 'No') return;
       if (item.labor_type === 'Finishing' && finishingMh > 0) {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
       } else if (item.labor_type === 'Packaging' && packagingMh > 0) {
