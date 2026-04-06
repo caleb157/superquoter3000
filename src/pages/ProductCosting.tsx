@@ -692,28 +692,39 @@ const ProductCosting = () => {
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
                     if (checked) {
-                      // Add a COGS item for domestic freight
-                      const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
-                      const { data } = await (supabase as any).from('cogs_items').insert({
-                        product_id: id,
-                        cogs_type: 'Subcontracting',
-                        component_name: 'Domestic Freight (External Sourcing)',
-                        units: 'CBM',
-                        components_per_product: prePackCbm,
-                        unit_cost_inr: transportCost,
-                        waste_factor: 0,
-                        is_auto_calculated: true,
-                        include: 'Yes',
-                        sort_order: cogsItems.length,
-                      }).select().single();
-                      if (data) setCogsItems(prev => [...prev, data]);
-                    } else {
-                      // Remove the domestic freight COGS item
-                      const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)');
-                      if (freightItem) {
-                        await (supabase as any).from('cogs_items').delete().eq('id', freightItem.id);
-                        setCogsItems(prev => prev.filter(i => i.id !== freightItem.id));
+                      // Check if freight row already exists before inserting
+                      const existing = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
+                      if (!existing) {
+                        const { data: dbExisting } = await (supabase as any).from('cogs_items')
+                          .select('*').eq('product_id', id)
+                          .eq('component_name', 'Domestic Freight (External Sourcing)')
+                          .eq('is_auto_calculated', true).limit(1);
+                        if (dbExisting && dbExisting.length > 0) {
+                          setCogsItems(prev => [...prev, dbExisting[0]]);
+                        } else {
+                          const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
+                          const { data } = await (supabase as any).from('cogs_items').insert({
+                            product_id: id,
+                            cogs_type: 'Subcontracting',
+                            component_name: 'Domestic Freight (External Sourcing)',
+                            units: 'CBM',
+                            components_per_product: prePackCbm,
+                            unit_cost_inr: transportCost,
+                            waste_factor: 0,
+                            is_auto_calculated: true,
+                            include: 'Yes',
+                            sort_order: cogsItems.length,
+                          }).select().single();
+                          if (data) setCogsItems(prev => [...prev, data]);
+                        }
                       }
+                    } else {
+                      // Remove ALL domestic freight COGS items (handles duplicates)
+                      const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
+                      for (const fi of freightItems) {
+                        await (supabase as any).from('cogs_items').delete().eq('id', fi.id);
+                      }
+                      setCogsItems(prev => prev.filter(i => i.component_name !== 'Domestic Freight (External Sourcing)'));
                     }
                   }}
                 />
