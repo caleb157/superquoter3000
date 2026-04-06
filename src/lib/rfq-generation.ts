@@ -247,23 +247,23 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
   // Fetch additional data needed for full cost summary
   const productIds = products.map((p: any) => p.id);
   const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
-    supabase.from('overhead_items').select('*'),
-    supabase.from('non_unit_cogs').select('*'),
-    supabase.from('shipping_items').select('*'),
+    supabase.from('overhead_items').select('*').in('product_id', productIds),
+    supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
+    supabase.from('shipping_items').select('*').in('product_id', productIds),
     supabase.from('shipping_types').select('*'),
     supabase.from('labor_employees').select('*'),
     supabase.from('global_settings').select('*').limit(1).single(),
-    supabase.from('cbm_estimates').select('*'),
+    supabase.from('cbm_estimates').select('*').in('product_id', productIds),
     supabase.from('product_types').select('*'),
   ]);
 
-  const allOh = (ohRes.data || []).filter((o: any) => productIds.includes(o.product_id));
-  const allNu = (nuRes.data || []).filter((n: any) => productIds.includes(n.product_id));
-  const allShipItems = (shipItemsRes.data || []).filter((s: any) => productIds.includes(s.product_id));
+  const allOh = ohRes.data || [];
+  const allNu = nuRes.data || [];
+  const allShipItems = shipItemsRes.data || [];
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
   const gs = gsRes.data as any;
-  const allCbm = (cbmRes.data || []).filter((c: any) => productIds.includes(c.product_id));
+  const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
 
   const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
