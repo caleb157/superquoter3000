@@ -17,12 +17,69 @@ interface QCGuideData {
   sections: QCSection[];
 }
 
+// Fetch image as base64 data URL
+async function fetchImageAsBase64(url: string): Promise<{ dataUrl: string; format: string } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // Detect format from mime type
+        const mime = blob.type || 'image/jpeg';
+        const format = mime.includes('png') ? 'PNG' : 'JPEG';
+        resolve({ dataUrl, format });
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Pre-load all images in parallel
+async function preloadImages(sections: QCSection[]): Promise<Map<string, { dataUrl: string; format: string }>> {
+  const cache = new Map<string, { dataUrl: string; format: string }>();
+  const urls = new Set<string>();
+
+  for (const section of sections) {
+    for (const row of section.rows) {
+      for (const photo of row.photo_urls || []) {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        if (url) urls.add(url);
+      }
+    }
+  }
+
+  const results = await Promise.all(
+    Array.from(urls).map(async (url) => {
+      const result = await fetchImageAsBase64(url);
+      return { url, result };
+    })
+  );
+
+  for (const { url, result } of results) {
+    if (result) cache.set(url, result);
+  }
+
+  return cache;
+}
+
 export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const colWidths = { label: 45, content: 115, check: 20 };
+  const photoSize = 20; // mm per photo thumbnail
+  const photosPerRow = 5;
+  const photoGap = 2;
   let y = margin;
+
+  // Pre-load all images
+  const imageCache = await preloadImages(guide.sections);
 
   // Title
   doc.setFontSize(16);
@@ -36,13 +93,12 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
   y += 8;
 
   for (const section of guide.sections) {
-    // Check space for section header
     if (y > 270) {
       doc.addPage();
       y = margin;
     }
 
-    // Section header — full width
+    // Section header
     doc.setFillColor(230, 230, 230);
     doc.rect(margin, y, pageWidth - margin * 2, 7, 'F');
     doc.setFontSize(10);
@@ -51,15 +107,23 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
     y += 9;
 
     for (const row of section.rows) {
-      const photos = (row.photo_urls || []) as string[];
-      const hasPhotos = photos.length > 0;
+      const photos = (row.photo_urls || []) as any[];
+      const resolvedPhotos: { dataUrl: string; format: string }[] = [];
+      for (const photo of photos) {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        if (url && imageCache.has(url)) {
+          resolvedPhotos.push(imageCache.get(url)!);
+        }
+      }
+
       const textLines = row.text_content ? doc.splitTextToSize(row.text_content, colWidths.content - 4) : [];
-      
-      // Calculate row height
-      const photoRows = Math.ceil(photos.length / 3);
-      const photoHeight = hasPhotos ? photoRows * 22 : 0;
       const textHeight = textLines.length * 4;
-      const rowHeight = Math.max(8, photoHeight + textHeight + 4);
+
+      // Photo grid dimensions
+      const photoGridRows = Math.ceil(resolvedPhotos.length / photosPerRow);
+      const photoHeight = resolvedPhotos.length > 0 ? photoGridRows * (photoSize + photoGap) + 2 : 0;
+
+      const rowHeight = Math.max(8, textHeight + photoHeight + 4);
 
       if (y + rowHeight > 280) {
         doc.addPage();
@@ -84,33 +148,34 @@ export async function generateQCPdf(guide: QCGuideData): Promise<jsPDF> {
         doc.text(textLines, margin + colWidths.label + 2, y + 5);
       }
 
-      // Photos — load and embed
-      if (hasPhotos) {
+      // Content column — photos
+      if (resolvedPhotos.length > 0) {
         let px = margin + colWidths.label + 2;
         let py = y + textHeight + 2;
-        for (let i = 0; i < photos.length && i < 6; i++) {
+        for (let i = 0; i < resolvedPhotos.length; i++) {
           try {
-            // For photos that are URLs, we'll try to embed them
-            const url = typeof photos[i] === 'string' ? photos[i] : (photos[i] as any)?.url;
-            if (url) {
-              // jsPDF addImage from URL requires base64 — skip for now, show placeholder
-              doc.setFontSize(6);
-              doc.setTextColor(100, 100, 100);
-              doc.text(`[Photo ${i + 1}]`, px, py + 10);
-              doc.setTextColor(0, 0, 0);
-            }
+            doc.addImage(
+              resolvedPhotos[i].dataUrl,
+              resolvedPhotos[i].format,
+              px, py,
+              photoSize, photoSize
+            );
           } catch {
-            // skip
+            // If image fails to embed, show placeholder
+            doc.setFontSize(6);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`[Photo ${i + 1}]`, px + 2, py + 10);
+            doc.setTextColor(0, 0, 0);
           }
-          px += 36;
-          if ((i + 1) % 3 === 0) {
+          px += photoSize + photoGap;
+          if ((i + 1) % photosPerRow === 0) {
             px = margin + colWidths.label + 2;
-            py += 22;
+            py += photoSize + photoGap;
           }
         }
       }
 
-      // Checkbox column — draw empty checkbox
+      // Checkbox column
       const checkX = margin + colWidths.label + colWidths.content + (colWidths.check / 2) - 3;
       const checkY = y + (rowHeight / 2) - 3;
       doc.rect(checkX, checkY, 6, 6);
