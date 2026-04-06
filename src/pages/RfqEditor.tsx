@@ -63,8 +63,7 @@ const RfqEditor = () => {
   };
 
   const roundTarget = (estCost: number, discountDecimal: number) => {
-    const discountPercent = discountDecimal * 100;
-    return Math.round((estCost * (1 - discountPercent / 100)) / 10) * 10;
+    return Math.round((estCost * (1 - discountDecimal)) / 10) * 10;
   };
 
   const updateItem = (itemId: string, field: string, value: any) => {
