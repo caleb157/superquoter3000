@@ -1,53 +1,36 @@
 
-## QC Guides Module — Implementation Plan
+# Pipeline Module — Product Development Tracker
 
-### Phase 1: Database Schema
-Create three new tables:
-- **`qc_guides`** — linked to product_id, stores title, status (draft/final), created/updated timestamps
-- **`qc_sections`** — linked to guide_id, stores section name, sort_order
-- **`qc_rows`** — linked to section_id, stores label, text_content, photo_urls (jsonb array with annotation data), sort_order
+## Phase 1: Database
+- Create `pipeline_items` table with all fields (customer_id, project_id, name, who, design_done, photo_done, rfq_date, initial_quote_date, sample dates, status, is_foak, etc.)
+- RLS: admin/team full access, guests can view items linked to their projects
 
-RLS: Admin/team can CRUD all. Guests cannot access QC data.
+## Phase 2: Pipeline List Page
+- Add `/pipeline` route and "Pipeline" nav link between Projects and Customers
+- **6 stat cards** at top: Active Items, Needs Design, Needs Quote, Awaiting Sample, Overdue Follow-up, Avg Days to Quote
+- **Table view** (default): sortable columns — Customer, Item Name, Who, Design ✓, Photo ✓, RFQ Date, Quote Date, Days-to-Quote, Sample Request, Initial/Final Sample, Days-to-Sample, Status. Inline date editing. Filter by customer, who, status.
+- **Kanban view** (tab toggle): 6 columns derived from field values — Design Needed, Awaiting Quote, Quoted/Awaiting Sample Request, Sample in Progress, Follow-up Needed, Done. Drag-and-drop cards between columns.
 
-Storage bucket: `qc-photos` (public read for PDF rendering).
+## Phase 3: Add/Edit Dialog
+- Full form with all pipeline item fields
+- Customer dropdown, "Link to Project" searchable dropdown
+- Status, FOAK toggle, date pickers, notes
 
-### Phase 2: Navigation & List Page
-- Add "QC" nav item in AppLayout
-- Create `/qc` route → QCList page showing all guides with SKU, dates, status
-- Create `/qc/:id` route → QCEditor page
+## Phase 4: Integration with Existing Pages
+- **Project Detail**: Add Pipeline tab showing linked items, allow adding new ones
+- **Product Costing**: Show pipeline status badge in header if linked
 
-### Phase 3: QC Editor
-- Section-based editor with drag-to-reorder sections and rows
-- Default sections/rows auto-generated on new guide creation
-- Pre-fill from product record (dimensions, wood type, IC box size, finishing)
-- Photo upload per row (multiple photos, compact grid display)
-- Add/remove/duplicate/rename sections and rows
-- Status toggle (Draft ↔ Final)
+## Phase 5: Metrics Tab
+- Avg days-to-quote by quarter (bar chart)
+- Avg days-to-initial-sample, days-to-final-sample by quarter
+- Breakdown by "who" (CQ vs PH)
+- Filter by customer and year, exclude FOAK
 
-### Phase 4: Photo Annotation
-- Canvas-based annotation overlay on uploaded photos
-- Tools: red circle, arrow, text label, undo/redo
-- Save annotations as data overlay on the photo
+## Phase 6: XLSX Import
+- "Import from tracker" button accepting the Quote Response and Sample Tracker format
+- Map columns to pipeline_items fields
+- Auto-match customer from first word of Project Name
+- Preview before import
 
-### Phase 5: PDF Export
-- Three-column layout (label | photos+content | checkbox)
-- Section headers as full-width bold rows
-- Signature lines at bottom
-- Compact layout optimized for printing
-
-### Phase 6: Product Page Integration
-- Add "QC Guides" tab on ProductCosting page
-- Show list of guides for that SKU
-- Quick-create new guide from product context
-
-### Files to create/modify:
-- Migration SQL (tables + RLS + storage)
-- `src/pages/QCList.tsx`
-- `src/pages/QCEditor.tsx`
-- `src/components/QCSection.tsx`
-- `src/components/QCRow.tsx`
-- `src/components/QCPhotoAnnotator.tsx`
-- `src/lib/qc-pdf.ts`
-- `src/components/AppLayout.tsx` (add nav item)
-- `src/App.tsx` (add routes)
-- `src/pages/ProductCosting.tsx` (add QC tab)
+## Implementation order
+1 → 2 → 3 → 4 → 5 → 6 (each phase builds on the previous)
