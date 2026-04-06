@@ -642,55 +642,94 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="products">
-            {/* Add product buttons */}
-            <div className="flex items-center justify-between mb-2">
-              <div />
-              <div className="flex items-center gap-2">
-                <BulkPhotoUpload products={products} onPhotosUploaded={fetchProducts}>
-                  <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
-                    <ImagePlus className="h-3 w-3" /> Bulk Photos
-                  </Button>
-                </BulkPhotoUpload>
-                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
-                  <Upload className="h-3 w-3" /> Upload & Parse
-                </Button>
-                <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
-                      <Package className="h-3 w-3" /> Create Assembly
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
-                      <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5 h-7 text-xs">
-                      <Plus className="h-3 w-3" /> Add Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
-                      <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
-                        <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
-                        <SelectContent>
-                          {productTypes.map(pt => (
-                            <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button onClick={addProduct} className="w-full">Create Product</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+            {/* Toolbar: search, filter, actions */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  className="h-8 pl-8 text-sm"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
               </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {productTypes.map(pt => (
+                    <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant={hideCompleted ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setHideCompleted(!hideCompleted)}
+              >
+                {hideCompleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {hideCompleted ? `Showing incomplete (${completedCount} hidden)` : 'Hide completed'}
+              </Button>
+              <div className="flex-1" />
+              {someSelected && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={handleBulkDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Delete {selectedIds.size}
+                </Button>
+              )}
+              <BulkPhotoUpload products={products} onPhotosUploaded={fetchProducts}>
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                  <ImagePlus className="h-3.5 w-3.5" /> Bulk Photos
+                </Button>
+              </BulkPhotoUpload>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => setShowUploadParse(true)}>
+                <Upload className="h-3.5 w-3.5" /> Upload & Parse
+              </Button>
+              <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                    <Package className="h-3.5 w-3.5" /> Create Assembly
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
+                    <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5 h-8 text-xs">
+                    <Plus className="h-3.5 w-3.5" /> Add Product
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
+                    <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
+                      <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
+                      <SelectContent>
+                        {productTypes.map(pt => (
+                          <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addProduct} className="w-full">Create Product</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <UploadParseDialog
@@ -701,7 +740,11 @@ const ProjectDetail = () => {
               onProductsCreated={fetchProducts}
             />
 
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 && products.length > 0 ? (
+              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">
+                {hideCompleted ? 'All products are completed. Toggle "Hide completed" to show them.' : 'No products match your search or filter.'}
+              </CardContent></Card>
+            ) : products.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">
                 <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
                 <p>No products yet. Add your first product to start costing.</p>
@@ -711,6 +754,13 @@ const ProjectDetail = () => {
                 <Table className="dense-table">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                       <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                       <TableHead>Dims (in)</TableHead>
@@ -723,8 +773,14 @@ const ProjectDetail = () => {
                   </TableHeader>
                   <TableBody>
                     {sortedProducts.map(p => (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50"
+                      <TableRow key={p.id} className={`cursor-pointer hover:bg-accent/50 ${selectedIds.has(p.id) ? 'bg-primary/5' : ''}`}
                         onClick={() => navigate(`/product/${p.id}`)}>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(p.id)}
+                            onCheckedChange={() => toggleSelect(p.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
                         <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
@@ -748,7 +804,7 @@ const ProjectDetail = () => {
                 {/* Aggregate footer */}
                 {Object.keys(costData).length > 0 && (
                   <div className="border-t bg-muted/30 px-3 py-2 flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono">
-                    <span><strong>{sortedProducts.length}</strong> products</span>
+                    <span><strong>{sortedProducts.length}</strong>{sortedProducts.length !== products.length ? ` of ${products.length}` : ''} products</span>
                     <span>Qty: <strong>{fmt.qty(sortedProducts.reduce((s, p) => s + (p.quantity || 0), 0))}</strong></span>
                     <span>CBM: <strong>{sortedProducts.reduce((s, p) => s + ((costData[p.id]?.unit_cbm || 0) * (p.quantity || 0)), 0).toFixed(2)}</strong></span>
                     {(() => {
@@ -764,6 +820,8 @@ const ProjectDetail = () => {
                     <span>Revenue: <strong>{fmt.usd(sortedProducts.reduce((s, p) => s + ((costData[p.id]?.price_usd || 0) * (p.quantity || 0)), 0))}</strong></span>
                   </div>
                 )}
+              </div>
+             )}
               </div>
              )}
 
