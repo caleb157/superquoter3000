@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { ProductVariants } from '@/components/ProductVariants';
+import { QCGuidesSection } from '@/components/QCGuidesSection';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
