@@ -1150,7 +1150,7 @@ const ProductCosting = () => {
         {/* Section E: Direct Overhead */}
         <Collapsible open={sections.overhead} onOpenChange={() => toggle('overhead')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
