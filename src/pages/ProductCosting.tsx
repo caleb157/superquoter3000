@@ -1206,7 +1206,7 @@ const ProductCosting = () => {
         {/* Section F: Indirect Overhead */}
         <Collapsible open={sections.indirectOh} onOpenChange={() => toggle('indirectOh')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="F. Indirect Overhead" open={sections.indirectOh} onToggle={() => {}} badge={`${fmt.inr(indirectOhPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="F. Indirect Overhead" open={sections.indirectOh} onToggle={() => {}} badge={`${fmt.inr(indirectOhPerUnit)}/unit`} done={product.overhead_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 grid grid-cols-3 gap-4 text-xs">
