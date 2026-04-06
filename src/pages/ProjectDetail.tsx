@@ -443,7 +443,7 @@ const ProjectDetail = () => {
             valid_until: result.validUntil,
             status: 'draft',
             share_token: shareToken,
-            entity_id: ctx.entity?.id || null,
+            entity_id: (ctx.entity as any)?.id || null,
             notes: ctx.quoteNotes || null,
             products: productsSnapshot,
             totals: {
