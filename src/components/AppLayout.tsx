@@ -58,6 +58,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </header>
 
+      <TaskOverdueBanner />
+
       <main className="p-4">
         {children}
       </main>
