@@ -235,6 +235,8 @@ const Dashboard = () => {
           </CardContent></Card>
         </div>
 
+        <DashboardTaskWidget />
+
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
