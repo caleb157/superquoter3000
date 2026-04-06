@@ -386,6 +386,7 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           finishing_difficulty: p.finishing_difficulty || 'Medium',
           percent_wood: p.percent_wood || 1,
           is_component: p.is_component || false,
+          sourced_externally: p.sourced_externally || false,
           notes: [
             p.material_guess ? `Material: ${p.material_guess}` : '',
             p.construction_notes ? `Construction: ${p.construction_notes}` : '',
@@ -414,50 +415,66 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           } catch (e) { console.error('Photo upload failed:', e); }
         }
 
-        // Build hardware COGS from AI detection
-        const hardwareCogs: any[] = [];
-        const hardware = p.hardware_detected || [];
-        hardware.forEach((hw, idx) => {
-          const matchedPrice = hwPrices.find(hp =>
-            hp.name.toLowerCase().includes(hw.item.toLowerCase()) ||
-            hw.item.toLowerCase().includes(hp.name.toLowerCase())
-          );
-          hardwareCogs.push({
+        // COGS: use structured cogs_rows if present, otherwise build defaults
+        if (p.cogs_rows && p.cogs_rows.length > 0) {
+          const structuredCogs = p.cogs_rows.map((cr: any, idx: number) => ({
             product_id: prod.id,
-            cogs_type: 'Hardware',
-            component_name: hw.item + (hw.notes ? ` (${hw.notes})` : ''),
-            components_per_product: hw.quantity_per_product || 1,
-            unit_cost_inr: matchedPrice?.unit_cost_inr || 0,
-            units: matchedPrice?.units || 'pc',
-            waste_factor: 0.05,
-            is_auto_calculated: !!matchedPrice,
-            vendor_name: matchedPrice ? `Auto: ${matchedPrice.name}` : null,
-            sort_order: 10 + idx,
+            cogs_type: cr.cogs_type || 'Raw Piece',
+            component_name: cr.component_name || null,
+            include: cr.include ?? 'Yes',
+            units: cr.units || 'pc',
+            components_per_product: cr.components_per_product ?? 0,
+            unit_cost_inr: cr.unit_cost_inr ?? 0,
+            waste_factor: cr.waste_factor ?? 0,
+            is_auto_calculated: false,
+            sort_order: idx,
+          }));
+          await supabase.from('cogs_items').insert(structuredCogs as any);
+        } else {
+          // Build hardware COGS from AI detection
+          const hardwareCogs: any[] = [];
+          const hardware = p.hardware_detected || [];
+          hardware.forEach((hw, idx) => {
+            const matchedPrice = hwPrices.find(hp =>
+              hp.name.toLowerCase().includes(hw.item.toLowerCase()) ||
+              hw.item.toLowerCase().includes(hp.name.toLowerCase())
+            );
+            hardwareCogs.push({
+              product_id: prod.id,
+              cogs_type: 'Hardware',
+              component_name: hw.item + (hw.notes ? ` (${hw.notes})` : ''),
+              components_per_product: hw.quantity_per_product || 1,
+              unit_cost_inr: matchedPrice?.unit_cost_inr || 0,
+              units: matchedPrice?.units || 'pc',
+              waste_factor: 0.05,
+              is_auto_calculated: !!matchedPrice,
+              vendor_name: matchedPrice ? `Auto: ${matchedPrice.name}` : null,
+              sort_order: 10 + idx,
+            });
           });
-        });
 
-        // If no hardware detected, add default placeholder rows
-        const hwRows = hardwareCogs.length > 0 ? hardwareCogs : [
-          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-          { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-        ];
+          const hwRows = hardwareCogs.length > 0 ? hardwareCogs : [
+            { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
+            { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
+          ];
 
-        const defaultCogs = [
-          { product_id: prod.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
-          { product_id: prod.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
-          { product_id: prod.id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 1', sort_order: 2 },
-          { product_id: prod.id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 2', sort_order: 3 },
-          { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, sort_order: 4 },
-          { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, sort_order: 5 },
-          { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, sort_order: 6 },
-          { product_id: prod.id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
-          { product_id: prod.id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
-          { product_id: prod.id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-          ...hwRows,
-          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
-          { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
-        ];
-        await supabase.from('cogs_items').insert(defaultCogs as any);
+          const defaultCogs = [
+            { product_id: prod.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
+            { product_id: prod.id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
+            { product_id: prod.id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 1', sort_order: 2 },
+            { product_id: prod.id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 2', sort_order: 3 },
+            { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, sort_order: 4 },
+            { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, sort_order: 5 },
+            { product_id: prod.id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, sort_order: 6 },
+            { product_id: prod.id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
+            { product_id: prod.id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
+            { product_id: prod.id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
+            ...hwRows,
+            { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
+            { product_id: prod.id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
+          ];
+          await supabase.from('cogs_items').insert(defaultCogs as any);
+        }
 
         const defaultOverhead = [
           { product_id: prod.id, labor_type: 'Manufacturing', sort_order: 0 },
@@ -469,7 +486,17 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
           { product_id: prod.id, labor_type: 'Market', sort_order: 6 },
         ];
         await supabase.from('overhead_items').insert(defaultOverhead as any);
-        await supabase.from('cbm_estimates').insert({ product_id: prod.id } as any);
+
+        // CBM estimates — include IC/MC data from structured intake if present
+        const cbmData: any = { product_id: prod.id };
+        if (p.ic_type) cbmData.ic_type = p.ic_type;
+        if (p.products_per_ic != null) cbmData.products_per_ic = p.products_per_ic;
+        if (p.ic_width != null) cbmData.ic_width = p.ic_width;
+        if (p.ic_depth != null) cbmData.ic_depth = p.ic_depth;
+        if (p.ic_height != null) cbmData.ic_height = p.ic_height;
+        if (p.include_mc != null) cbmData.include_mc = p.include_mc;
+        await supabase.from('cbm_estimates').insert(cbmData as any);
+
         await supabase.from('non_unit_cogs').insert({
           product_id: prod.id, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
         } as any);
