@@ -222,8 +222,9 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
         let imageDataMap: { data: string; type: string } | undefined;
 
         if (f.name.match(/\.(xlsx|xls)$/i)) {
-          const text = await xlsxToText(f);
-          filePayload = { data: text, type: 'text/csv', name: f.name };
+          // Send raw base64 so edge function can parse XLSX structure
+          const b64 = await fileToBase64(f);
+          filePayload = { data: b64, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', name: f.name };
         } else if (f.name.match(/\.pdf$/i)) {
           if (f.size > LARGE_PDF_THRESHOLD) {
             // Large PDF: convert pages to images client-side
