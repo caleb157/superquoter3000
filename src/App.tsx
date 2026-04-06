@@ -44,6 +44,11 @@ const App = () => (
                 <Settings />
               </ProtectedRoute>
             } />
+            <Route path="/pipeline" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Pipeline />
+              </ProtectedRoute>
+            } />
             <Route path="/customers" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Customers />
