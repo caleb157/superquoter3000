@@ -1077,7 +1077,7 @@ const ProductCosting = () => {
         {/* Section D: Non-Unit COGS */}
         <Collapsible open={sections.nonUnitCogs} onOpenChange={() => toggle('nonUnitCogs')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="D. Non-Unit COGS" open={sections.nonUnitCogs} onToggle={() => {}} badge={`${fmt.inr(nonUnitCogsPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="D. Non-Unit COGS" open={sections.nonUnitCogs} onToggle={() => {}} badge={`${fmt.inr(nonUnitCogsPerUnit)}/unit`} done={product.cogs_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
