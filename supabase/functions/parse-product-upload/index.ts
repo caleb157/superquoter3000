@@ -69,7 +69,7 @@ function parseDktIntake(workbook: XLSX.WorkBook, fileName: string): any[] {
       if (!cogsMap[skuName]) cogsMap[skuName] = [];
       cogsMap[skuName].push({
         cogs_type: row[2],
-        component_name: row[3],
+        component_name: row[3] ?? (row[2] === "Raw Piece" ? "Raw Piece" : null),
         include: row[4] ?? "Yes",
         units: row[5],
         components_per_product: row[6] ?? 0,
