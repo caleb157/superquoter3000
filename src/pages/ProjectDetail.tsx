@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus } from 'lucide-react';
+import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus, Search, Trash2, Eye, EyeOff } from 'lucide-react';
 import { BulkPhotoUpload } from '@/components/BulkPhotoUpload';
 import { ProjectRfqTab } from '@/components/ProjectRfqTab';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
@@ -45,11 +46,40 @@ const ProjectDetail = () => {
   const [newAssemblyName, setNewAssemblyName] = useState('');
   const [exporting, setExporting] = useState<string | null>(null);
   const [showUploadParse, setShowUploadParse] = useState(false);
+  // New state for bulk select, search, filter, hide completed
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [hideCompleted, setHideCompleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'project-products-sort',
   });
+
+  const filteredProducts = useMemo(() => {
+    let list = products;
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.notes || '').toLowerCase().includes(q)
+      );
+    }
+    // Type filter
+    if (filterType !== 'all') {
+      list = list.filter(p => p.product_type_id === filterType);
+    }
+    // Hide completed
+    if (hideCompleted) {
+      list = list.filter(p => getStatusLevel(p) < 3);
+    }
+    return list;
+  }, [products, searchQuery, filterType, hideCompleted]);
 
   const sortedProducts = useMemo(() => {
     const getters: Record<string, (p: any) => string | number> = {
@@ -58,8 +88,58 @@ const ProjectDetail = () => {
       qty: (p) => p.quantity || 0,
       status: (p) => getStatusLevel(p),
     };
-    return sortItems(products, getters);
-  }, [products, sortColumn, sortDirection]);
+    return sortItems(filteredProducts, getters);
+  }, [filteredProducts, sortColumn, sortDirection]);
+
+  const allSelected = sortedProducts.length > 0 && sortedProducts.every(p => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedProducts.map(p => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} selected product${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      // Delete related data first
+      await Promise.all([
+        supabase.from('cogs_items').delete().in('product_id', ids),
+        supabase.from('non_unit_cogs').delete().in('product_id', ids),
+        supabase.from('overhead_items').delete().in('product_id', ids),
+        supabase.from('shipping_items').delete().in('product_id', ids),
+        supabase.from('cbm_estimates').delete().in('product_id', ids),
+        supabase.from('product_variants').delete().in('product_id', ids),
+      ]);
+      const { error } = await supabase.from('products').delete().in('id', ids);
+      if (error) throw error;
+      toast.success(`Deleted ${count} product${count > 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      fetchProducts();
+      fetchCostData();
+    } catch (err: any) {
+      toast.error(`Delete failed: ${err.message}`);
+    }
+    setDeleting(false);
+  };
+
+  const completedCount = useMemo(() => products.filter(p => getStatusLevel(p) === 3).length, [products]);
 
   const fetchProject = async () => {
     if (!id) return;
@@ -562,55 +642,94 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="products">
-            {/* Add product buttons */}
-            <div className="flex items-center justify-between mb-2">
-              <div />
-              <div className="flex items-center gap-2">
-                <BulkPhotoUpload products={products} onPhotosUploaded={fetchProducts}>
-                  <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
-                    <ImagePlus className="h-3 w-3" /> Bulk Photos
-                  </Button>
-                </BulkPhotoUpload>
-                <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowUploadParse(true)}>
-                  <Upload className="h-3 w-3" /> Upload & Parse
-                </Button>
-                <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
-                      <Package className="h-3 w-3" /> Create Assembly
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
-                      <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5 h-7 text-xs">
-                      <Plus className="h-3 w-3" /> Add Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
-                    <div className="space-y-3">
-                      <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
-                      <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
-                        <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
-                        <SelectContent>
-                          {productTypes.map(pt => (
-                            <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button onClick={addProduct} className="w-full">Create Product</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+            {/* Toolbar: search, filter, actions */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  className="h-8 pl-8 text-sm"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
               </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {productTypes.map(pt => (
+                    <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant={hideCompleted ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setHideCompleted(!hideCompleted)}
+              >
+                {hideCompleted ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {hideCompleted ? `Showing incomplete (${completedCount} hidden)` : 'Hide completed'}
+              </Button>
+              <div className="flex-1" />
+              {someSelected && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={handleBulkDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Delete {selectedIds.size}
+                </Button>
+              )}
+              <BulkPhotoUpload products={products} onPhotosUploaded={fetchProducts}>
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                  <ImagePlus className="h-3.5 w-3.5" /> Bulk Photos
+                </Button>
+              </BulkPhotoUpload>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => setShowUploadParse(true)}>
+                <Upload className="h-3.5 w-3.5" /> Upload & Parse
+              </Button>
+              <Dialog open={showAddAssembly} onOpenChange={setShowAddAssembly}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
+                    <Package className="h-3.5 w-3.5" /> Create Assembly
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Create Assembly</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Assembly name (e.g. Dining Table Set)" value={newAssemblyName} onChange={e => setNewAssemblyName(e.target.value)} autoFocus />
+                    <Button onClick={addAssembly} className="w-full">Create Assembly</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5 h-8 text-xs">
+                    <Plus className="h-3.5 w-3.5" /> Add Product
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add Product</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Product name" value={newProductName} onChange={e => setNewProductName(e.target.value)} autoFocus />
+                    <Select value={newProductTypeId} onValueChange={setNewProductTypeId}>
+                      <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
+                      <SelectContent>
+                        {productTypes.map(pt => (
+                          <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addProduct} className="w-full">Create Product</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <UploadParseDialog
@@ -621,7 +740,11 @@ const ProjectDetail = () => {
               onProductsCreated={fetchProducts}
             />
 
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 && products.length > 0 ? (
+              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">
+                {hideCompleted ? 'All products are completed. Toggle "Hide completed" to show them.' : 'No products match your search or filter.'}
+              </CardContent></Card>
+            ) : products.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">
                 <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
                 <p>No products yet. Add your first product to start costing.</p>
@@ -631,6 +754,13 @@ const ProjectDetail = () => {
                 <Table className="dense-table">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                       <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                       <TableHead>Dims (in)</TableHead>
@@ -643,8 +773,14 @@ const ProjectDetail = () => {
                   </TableHeader>
                   <TableBody>
                     {sortedProducts.map(p => (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50"
+                      <TableRow key={p.id} className={`cursor-pointer hover:bg-accent/50 ${selectedIds.has(p.id) ? 'bg-primary/5' : ''}`}
                         onClick={() => navigate(`/product/${p.id}`)}>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(p.id)}
+                            onCheckedChange={() => toggleSelect(p.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="text-muted-foreground">{p.sku || '—'}</TableCell>
                         <TableCell>{fmt.dim(p.width_inch, p.depth_inch, p.height_inch)}</TableCell>
@@ -668,7 +804,7 @@ const ProjectDetail = () => {
                 {/* Aggregate footer */}
                 {Object.keys(costData).length > 0 && (
                   <div className="border-t bg-muted/30 px-3 py-2 flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono">
-                    <span><strong>{sortedProducts.length}</strong> products</span>
+                    <span><strong>{sortedProducts.length}</strong>{sortedProducts.length !== products.length ? ` of ${products.length}` : ''} products</span>
                     <span>Qty: <strong>{fmt.qty(sortedProducts.reduce((s, p) => s + (p.quantity || 0), 0))}</strong></span>
                     <span>CBM: <strong>{sortedProducts.reduce((s, p) => s + ((costData[p.id]?.unit_cbm || 0) * (p.quantity || 0)), 0).toFixed(2)}</strong></span>
                     {(() => {
