@@ -952,7 +952,7 @@ const ProductCosting = () => {
         {/* Section C: COGS */}
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} /></div>
+            <div><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="overflow-auto">
