@@ -308,6 +308,15 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
               sourceFileData: imageDataMap?.data,
               sourceFileType: imageDataMap?.type,
               _expanded: false,
+              // Structured intake fields
+              cogs_rows: p.cogs_rows || undefined,
+              sourced_externally: p.sourced_externally || false,
+              ic_type: p.ic_type || null,
+              products_per_ic: p.products_per_ic || null,
+              ic_width: p.ic_width || null,
+              ic_depth: p.ic_depth || null,
+              ic_height: p.ic_height || null,
+              include_mc: p.include_mc ?? null,
             };
           });
           allProducts.push(...products);
