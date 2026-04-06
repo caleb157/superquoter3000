@@ -383,16 +383,17 @@ const ProductCosting = () => {
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length]);
 
-  // Step 7b: Auto-populate "Auto Transport" non-unit COGS based on finalUnitCbm * qty * rate
+  // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
     if (!dataLoaded || !globalSettings || !product || finalUnitCbm <= 0) return;
     const autoTransportRate = (globalSettings as any).auto_transport_cost_per_cbm || 500;
     const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
     if (!transportItem) return;
-    const newCost = finalUnitCbm * qty * autoTransportRate;
-    if (Math.abs((transportItem.cost_each_inr || 0) - newCost) < 0.01) return;
-    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, cost_each_inr: newCost } : i));
-    (supabase as any).from('non_unit_cogs').update({ cost_each_inr: newCost }).eq('id', transportItem.id);
+    const totalCbm = +(finalUnitCbm * qty).toFixed(4);
+    if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
+        Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
+    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, total_quantity: totalCbm, cost_each_inr: autoTransportRate } : i));
+    (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id);
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
