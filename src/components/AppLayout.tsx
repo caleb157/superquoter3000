@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Settings, Search, LogOut, Package, ShoppingCart, FileText, Users, ClipboardList, ClipboardCheck, GitBranch } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, ClipboardCheck, GitBranch, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QuickAddTask } from '@/components/QuickAddTask';
 import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
@@ -9,17 +11,19 @@ import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
     { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
-    { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/qc', label: 'QC', icon: ClipboardCheck, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
+
+  const visibleItems = navItems.filter(n => n.show);
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,11 +32,12 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="flex h-12 items-center px-4 gap-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-sm tracking-tight">
             <Package className="h-5 w-5 text-primary" />
-            <span>DKT Costing</span>
+            <span className="hidden sm:inline">DKT Costing</span>
           </Link>
 
-          <nav className="flex items-center gap-1 ml-6">
-            {navItems.filter(n => n.show).map(item => (
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-1 ml-6">
+            {visibleItems.map(item => (
               <Link key={item.to} to={item.to}>
                 <Button
                   variant={location.pathname === item.to ? 'secondary' : 'ghost'}
@@ -50,10 +55,39 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
           <div className="ml-auto flex items-center gap-2">
             <QuickAddTask />
-            <span className="text-xs text-muted-foreground">{user?.email}</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
               <LogOut className="h-3.5 w-3.5" />
             </Button>
+
+            {/* Mobile hamburger */}
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-56 p-4">
+                <nav className="flex flex-col gap-1 mt-4">
+                  {visibleItems.map(item => (
+                    <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}>
+                      <Button
+                        variant={location.pathname === item.to ? 'secondary' : 'ghost'}
+                        className={cn('w-full justify-start gap-2 h-9 text-sm',
+                          location.pathname === item.to && 'bg-secondary'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
+                </nav>
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
