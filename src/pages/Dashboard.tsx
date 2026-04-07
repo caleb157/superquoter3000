@@ -213,10 +213,41 @@ const Dashboard = () => {
     fetchAll();
   };
 
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    let list = projects.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Sort
+    list = [...list].sort((a, b) => {
+      let va: any, vb: any;
+      const aggA = projectAggregates[a.id];
+      const aggB = projectAggregates[b.id];
+      switch (sortField) {
+        case 'name': va = a.name.toLowerCase(); vb = b.name.toLowerCase(); break;
+        case 'customer': va = (a.customer_name || '').toLowerCase(); vb = (b.customer_name || '').toLowerCase(); break;
+        case 'status': va = a.status; vb = b.status; break;
+        case 'skus': va = aggA?.skuCount || 0; vb = aggB?.skuCount || 0; break;
+        case 'cbm': va = aggA?.totalCbm || 0; vb = aggB?.totalCbm || 0; break;
+        case 'cost': va = aggA?.totalCostUsd || 0; vb = aggB?.totalCostUsd || 0; break;
+        case 'revenue': va = aggA?.totalRevenueUsd || 0; vb = aggB?.totalRevenueUsd || 0; break;
+        case 'profit': va = aggA?.totalProfitUsd || 0; vb = aggB?.totalProfitUsd || 0; break;
+        case 'quote_deadline': va = quoteDeadlineMap[a.id] || '9999'; vb = quoteDeadlineMap[b.id] || '9999'; break;
+        default: va = a.updated_at; vb = b.updated_at; break;
+      }
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [projects, search, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
+
+  const toggleSort = (field: string) => {
+    if (sortField === field) setSortAsc(!sortAsc);
+    else { setSortField(field); setSortAsc(true); }
+  };
 
   // Pipeline value = sum of all revenue for active projects
   const pipelineValue = useMemo(() => {
