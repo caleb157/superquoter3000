@@ -33,7 +33,10 @@ const Dashboard = () => {
   const [cbmData, setCbmData] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [pipelineItems, setPipelineItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<string>('updated_at');
+  const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
