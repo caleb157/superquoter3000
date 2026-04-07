@@ -56,7 +56,7 @@ const Dashboard = () => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
   const fetchAll = async () => {
-    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes] = await Promise.all([
+    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes, piRes] = await Promise.all([
       supabase.from('projects').select('*').order('updated_at', { ascending: false }),
       supabase.from('products').select('*'),
       supabase.from('cbm_estimates').select('product_id, final_unit_cbm, total_cbm'),
@@ -64,6 +64,7 @@ const Dashboard = () => {
       (supabase as any).from('customers').select('*').order('name'),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
+      supabase.from('pipeline_items').select('project_id, rfq_date, initial_quote_date, status'),
     ]);
     if (projRes.data) setProjects(projRes.data);
     if (prodRes.data) setProducts(prodRes.data);
