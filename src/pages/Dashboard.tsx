@@ -71,6 +71,7 @@ const Dashboard = () => {
     if (cbmRes.data) setCbmData(cbmRes.data);
     if (gsRes.data) setGlobalSettings(gsRes.data);
     if (custRes.data) setCustomers(custRes.data);
+    if (piRes.data) setPipelineItems(piRes.data);
     if (empRes.data) setEmployees(empRes.data);
     if (stRes.data) setShippingTypes(stRes.data);
 
