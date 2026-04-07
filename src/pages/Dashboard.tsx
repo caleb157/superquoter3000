@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
@@ -33,7 +34,10 @@ const Dashboard = () => {
   const [cbmData, setCbmData] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [pipelineItems, setPipelineItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<string>('updated_at');
+  const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -53,7 +57,7 @@ const Dashboard = () => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
   const fetchAll = async () => {
-    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes] = await Promise.all([
+    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes, piRes] = await Promise.all([
       supabase.from('projects').select('*').order('updated_at', { ascending: false }),
       supabase.from('products').select('*'),
       supabase.from('cbm_estimates').select('product_id, final_unit_cbm, total_cbm'),
@@ -61,12 +65,14 @@ const Dashboard = () => {
       (supabase as any).from('customers').select('*').order('name'),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
+      supabase.from('pipeline_items').select('project_id, rfq_date, initial_quote_date, status'),
     ]);
     if (projRes.data) setProjects(projRes.data);
     if (prodRes.data) setProducts(prodRes.data);
     if (cbmRes.data) setCbmData(cbmRes.data);
     if (gsRes.data) setGlobalSettings(gsRes.data);
     if (custRes.data) setCustomers(custRes.data);
+    if (piRes.data) setPipelineItems(piRes.data);
     if (empRes.data) setEmployees(empRes.data);
     if (stRes.data) setShippingTypes(stRes.data);
 
@@ -97,6 +103,20 @@ const Dashboard = () => {
     return m;
   }, [cbmData]);
   const customerMap = useMemo(() => Object.fromEntries(customers.map((c: any) => [c.id, c])), [customers]);
+
+  // Earliest pending RFQ date per project (items awaiting quote)
+  const quoteDeadlineMap = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    pipelineItems.forEach((pi: any) => {
+      if (!pi.project_id || pi.status === 'done' || pi.status === 'cancelled') return;
+      if (pi.rfq_date && !pi.initial_quote_date) {
+        if (!m[pi.project_id] || pi.rfq_date < m[pi.project_id]!) {
+          m[pi.project_id] = pi.rfq_date;
+        }
+      }
+    });
+    return m;
+  }, [pipelineItems]);
 
   // Compute per-project aggregates with full cost calculations
   const projectAggregates = useMemo(() => {
@@ -194,10 +214,41 @@ const Dashboard = () => {
     fetchAll();
   };
 
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    let list = projects.filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Sort
+    list = [...list].sort((a, b) => {
+      let va: any, vb: any;
+      const aggA = projectAggregates[a.id];
+      const aggB = projectAggregates[b.id];
+      switch (sortField) {
+        case 'name': va = a.name.toLowerCase(); vb = b.name.toLowerCase(); break;
+        case 'customer': va = (a.customer_name || '').toLowerCase(); vb = (b.customer_name || '').toLowerCase(); break;
+        case 'status': va = a.status; vb = b.status; break;
+        case 'skus': va = aggA?.skuCount || 0; vb = aggB?.skuCount || 0; break;
+        case 'cbm': va = aggA?.totalCbm || 0; vb = aggB?.totalCbm || 0; break;
+        case 'cost': va = aggA?.totalCostUsd || 0; vb = aggB?.totalCostUsd || 0; break;
+        case 'revenue': va = aggA?.totalRevenueUsd || 0; vb = aggB?.totalRevenueUsd || 0; break;
+        case 'profit': va = aggA?.totalProfitUsd || 0; vb = aggB?.totalProfitUsd || 0; break;
+        case 'quote_deadline': va = quoteDeadlineMap[a.id] || '9999'; vb = quoteDeadlineMap[b.id] || '9999'; break;
+        default: va = a.updated_at; vb = b.updated_at; break;
+      }
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [projects, search, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
+
+  const toggleSort = (field: string) => {
+    if (sortField === field) setSortAsc(!sortAsc);
+    else { setSortField(field); setSortAsc(true); }
+  };
 
   // Pipeline value = sum of all revenue for active projects
   const pipelineValue = useMemo(() => {
@@ -326,25 +377,44 @@ const Dashboard = () => {
             <p>No projects yet. Create your first one!</p>
           </CardContent></Card>
         ) : (
-          <div className="border rounded-md overflow-auto">
+           <div className="border rounded-md overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  <th className="text-left py-2 px-3 font-medium text-xs">Project</th>
-                  <th className="text-left py-2 px-3 font-medium text-xs">Customer</th>
-                  <th className="text-left py-2 px-3 font-medium text-xs">Status</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">SKUs</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Total CBM</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Cost (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Revenue (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Profit (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Updated</th>
+                  {[
+                    { key: 'name', label: 'Project', align: 'left' },
+                    { key: 'customer', label: 'Customer', align: 'left' },
+                    { key: 'status', label: 'Status', align: 'left' },
+                    { key: 'quote_deadline', label: 'Quote Deadline', align: 'left' },
+                    { key: 'skus', label: 'SKUs', align: 'right' },
+                    { key: 'cbm', label: 'Total CBM', align: 'right' },
+                    { key: 'cost', label: 'Cost (USD)', align: 'right' },
+                    { key: 'revenue', label: 'Revenue (USD)', align: 'right' },
+                    { key: 'profit', label: 'Profit (USD)', align: 'right' },
+                    { key: 'updated_at', label: 'Updated', align: 'right' },
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      className={cn(
+                        'py-2 px-3 font-medium text-xs cursor-pointer hover:text-foreground select-none',
+                        col.align === 'right' ? 'text-right' : 'text-left'
+                      )}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.key && <ArrowUpDown className="h-3 w-3" />}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(p => {
                   const agg = projectAggregates[p.id] || { skuCount: 0, totalCbm: 0, totalCostUsd: 0, totalRevenueUsd: 0, totalProfitUsd: 0 };
                   const custName = p.customer_id ? customerMap[p.customer_id]?.name : p.customer_name;
+                  const deadline = quoteDeadlineMap[p.id];
+                  const deadlineDays = deadline ? Math.floor((new Date(deadline).getTime() - Date.now()) / 86400000) : null;
                   return (
                     <tr key={p.id} className="border-b hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => navigate(`/project/${p.id}`)}>
                       <td className="py-2.5 px-3 font-medium">{p.name}</td>
@@ -353,6 +423,17 @@ const Dashboard = () => {
                         <Badge className={STATUS_COLORS[p.status] || ''} variant="secondary">
                           {p.status.replace('_', ' ')}
                         </Badge>
+                      </td>
+                      <td className="py-2.5 px-3 text-xs">
+                        {deadline ? (
+                          <span className={cn(
+                            'font-medium',
+                            deadlineDays !== null && deadlineDays < 0 ? 'text-destructive' :
+                            deadlineDays !== null && deadlineDays <= 3 ? 'text-amber-600' : 'text-muted-foreground'
+                          )}>
+                            {new Date(deadline).toLocaleDateString()}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td className="py-2.5 px-3 text-right">{agg.skuCount || '—'}</td>
                       <td className="py-2.5 px-3 text-right text-xs">{agg.totalCbm > 0 ? fmt.cbm(agg.totalCbm) : '—'}</td>
