@@ -377,25 +377,44 @@ const Dashboard = () => {
             <p>No projects yet. Create your first one!</p>
           </CardContent></Card>
         ) : (
-          <div className="border rounded-md overflow-auto">
+           <div className="border rounded-md overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  <th className="text-left py-2 px-3 font-medium text-xs">Project</th>
-                  <th className="text-left py-2 px-3 font-medium text-xs">Customer</th>
-                  <th className="text-left py-2 px-3 font-medium text-xs">Status</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">SKUs</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Total CBM</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Cost (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Revenue (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Profit (USD)</th>
-                  <th className="text-right py-2 px-3 font-medium text-xs">Updated</th>
+                  {[
+                    { key: 'name', label: 'Project', align: 'left' },
+                    { key: 'customer', label: 'Customer', align: 'left' },
+                    { key: 'status', label: 'Status', align: 'left' },
+                    { key: 'quote_deadline', label: 'Quote Deadline', align: 'left' },
+                    { key: 'skus', label: 'SKUs', align: 'right' },
+                    { key: 'cbm', label: 'Total CBM', align: 'right' },
+                    { key: 'cost', label: 'Cost (USD)', align: 'right' },
+                    { key: 'revenue', label: 'Revenue (USD)', align: 'right' },
+                    { key: 'profit', label: 'Profit (USD)', align: 'right' },
+                    { key: 'updated_at', label: 'Updated', align: 'right' },
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      className={cn(
+                        'py-2 px-3 font-medium text-xs cursor-pointer hover:text-foreground select-none',
+                        col.align === 'right' ? 'text-right' : 'text-left'
+                      )}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.key && <ArrowUpDown className="h-3 w-3" />}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(p => {
                   const agg = projectAggregates[p.id] || { skuCount: 0, totalCbm: 0, totalCostUsd: 0, totalRevenueUsd: 0, totalProfitUsd: 0 };
                   const custName = p.customer_id ? customerMap[p.customer_id]?.name : p.customer_name;
+                  const deadline = quoteDeadlineMap[p.id];
+                  const deadlineDays = deadline ? Math.floor((new Date(deadline).getTime() - Date.now()) / 86400000) : null;
                   return (
                     <tr key={p.id} className="border-b hover:bg-accent/50 transition-colors cursor-pointer" onClick={() => navigate(`/project/${p.id}`)}>
                       <td className="py-2.5 px-3 font-medium">{p.name}</td>
@@ -404,6 +423,17 @@ const Dashboard = () => {
                         <Badge className={STATUS_COLORS[p.status] || ''} variant="secondary">
                           {p.status.replace('_', ' ')}
                         </Badge>
+                      </td>
+                      <td className="py-2.5 px-3 text-xs">
+                        {deadline ? (
+                          <span className={cn(
+                            'font-medium',
+                            deadlineDays !== null && deadlineDays < 0 ? 'text-destructive' :
+                            deadlineDays !== null && deadlineDays <= 3 ? 'text-amber-600' : 'text-muted-foreground'
+                          )}>
+                            {new Date(deadline).toLocaleDateString()}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td className="py-2.5 px-3 text-right">{agg.skuCount || '—'}</td>
                       <td className="py-2.5 px-3 text-right text-xs">{agg.totalCbm > 0 ? fmt.cbm(agg.totalCbm) : '—'}</td>
