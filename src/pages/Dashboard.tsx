@@ -103,6 +103,20 @@ const Dashboard = () => {
   }, [cbmData]);
   const customerMap = useMemo(() => Object.fromEntries(customers.map((c: any) => [c.id, c])), [customers]);
 
+  // Earliest pending RFQ date per project (items awaiting quote)
+  const quoteDeadlineMap = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    pipelineItems.forEach((pi: any) => {
+      if (!pi.project_id || pi.status === 'done' || pi.status === 'cancelled') return;
+      if (pi.rfq_date && !pi.initial_quote_date) {
+        if (!m[pi.project_id] || pi.rfq_date < m[pi.project_id]!) {
+          m[pi.project_id] = pi.rfq_date;
+        }
+      }
+    });
+    return m;
+  }, [pipelineItems]);
+
   // Compute per-project aggregates with full cost calculations
   const projectAggregates = useMemo(() => {
     const map: Record<string, { skuCount: number; totalCbm: number; totalCostUsd: number; totalRevenueUsd: number; totalProfitUsd: number }> = {};
