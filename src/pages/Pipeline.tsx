@@ -173,7 +173,7 @@ export default function Pipeline() {
             <PipelineTable items={filtered} customers={customerMap} onEdit={handleEdit} onRefresh={fetchData} />
           </TabsContent>
           <TabsContent value="kanban" className="mt-3">
-            <PipelineKanban items={filtered} customers={customerMap} onEdit={handleEdit} />
+            <PipelineKanban items={filtered} customers={customerMap} onEdit={handleEdit} onRefresh={fetchData} />
           </TabsContent>
           <TabsContent value="tasks" className="mt-3">
             <PipelineGlobalTasks items={items} customers={customerMap} onOpenItem={(itemId) => {
