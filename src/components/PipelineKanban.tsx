@@ -77,7 +77,7 @@ export function PipelineKanban({ items, customers, onEdit, onRefresh }: Props) {
       }
     }
 
-    const { error } = await supabase.from('pipeline_items').update(patch).eq('id', draggableId);
+    const { error } = await supabase.from('pipeline_items').update(patch as any).eq('id', draggableId);
     if (error) {
       toast.error('Failed to move item');
     } else {

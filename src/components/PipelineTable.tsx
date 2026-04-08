@@ -36,7 +36,7 @@ export function PipelineTable({ items, customers, onEdit, onRefresh }: Props) {
   const sorted = useMemo(() => sortItems(items, getters), [items, sortItems]);
 
   const handleDateChange = async (id: string, field: string, value: string) => {
-    const { error } = await supabase.from('pipeline_items').update({ [field]: value || null }).eq('id', id);
+    const { error } = await supabase.from('pipeline_items').update({ [field]: value || null } as any).eq('id', id);
     if (error) toast.error(error.message);
     else onRefresh();
     setEditingDate(null);
