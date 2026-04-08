@@ -54,6 +54,7 @@ const ProductCosting = () => {
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [pipelineItem, setPipelineItem] = useState<any>(null);
 
   // Section open state
   const [sections, setSections] = useState({
