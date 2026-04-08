@@ -128,6 +128,9 @@ const ProductCosting = () => {
       if (prodRes.data?.project_id) {
         const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', prodRes.data.project_id).maybeSingle();
         if (ps) setProjectSettings(ps);
+        // Fetch pipeline item linked to this product's name + project
+        const { data: piData } = await supabase.from('pipeline_items').select('*').eq('project_id', prodRes.data.project_id).ilike('name', prodRes.data.name).limit(1);
+        if (piData && piData.length > 0) setPipelineItem(piData[0]);
       }
 
       setDataLoaded(true);
