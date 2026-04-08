@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { getStage, daysBetween, STAGE_LABELS, STAGE_COLORS } from '@/lib/pipeline-helpers';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
