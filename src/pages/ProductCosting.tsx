@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { getStage, daysBetween, STAGE_LABELS, STAGE_COLORS } from '@/lib/pipeline-helpers';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -53,6 +54,7 @@ const ProductCosting = () => {
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [pipelineItem, setPipelineItem] = useState<any>(null);
 
   // Section open state
   const [sections, setSections] = useState({
@@ -126,6 +128,9 @@ const ProductCosting = () => {
       if (prodRes.data?.project_id) {
         const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', prodRes.data.project_id).maybeSingle();
         if (ps) setProjectSettings(ps);
+        // Fetch pipeline item linked to this product's name + project
+        const { data: piData } = await supabase.from('pipeline_items').select('*').eq('project_id', prodRes.data.project_id).ilike('name', prodRes.data.name).limit(1);
+        if (piData && piData.length > 0) setPipelineItem(piData[0]);
       }
 
       setDataLoaded(true);
@@ -562,7 +567,26 @@ const ProductCosting = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-base font-bold truncate">{product.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold truncate">{product.name}</h1>
+              {pipelineItem && (() => {
+                const stage = getStage(pipelineItem);
+                const daysToQuote = daysBetween(pipelineItem.rfq_date, pipelineItem.initial_quote_date);
+                return (
+                  <>
+                    <Badge variant="secondary" className={`text-[10px] h-5 ${STAGE_COLORS[stage]}`}>
+                      {STAGE_LABELS[stage]}
+                    </Badge>
+                    {daysToQuote !== null && (
+                      <span className="text-[10px] text-muted-foreground">{daysToQuote}d to quote</span>
+                    )}
+                    {stage === 'needs_quote' && pipelineItem.rfq_date && (
+                      <span className="text-[10px] text-muted-foreground">RFQ {pipelineItem.rfq_date}</span>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <Link to={`/project/${product.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
               <Link to={`/project/${product.project_id}?tab=summary`} className="hover:text-foreground hover:underline">View Summary</Link>
