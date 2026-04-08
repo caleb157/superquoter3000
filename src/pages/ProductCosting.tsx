@@ -567,7 +567,26 @@ const ProductCosting = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-base font-bold truncate">{product.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold truncate">{product.name}</h1>
+              {pipelineItem && (() => {
+                const stage = getStage(pipelineItem);
+                const daysToQuote = daysBetween(pipelineItem.rfq_date, pipelineItem.initial_quote_date);
+                return (
+                  <>
+                    <Badge variant="secondary" className={`text-[10px] h-5 ${STAGE_COLORS[stage]}`}>
+                      {STAGE_LABELS[stage]}
+                    </Badge>
+                    {daysToQuote !== null && (
+                      <span className="text-[10px] text-muted-foreground">{daysToQuote}d to quote</span>
+                    )}
+                    {stage === 'needs_quote' && pipelineItem.rfq_date && (
+                      <span className="text-[10px] text-muted-foreground">RFQ {pipelineItem.rfq_date}</span>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <Link to={`/project/${product.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
               <Link to={`/project/${product.project_id}?tab=summary`} className="hover:text-foreground hover:underline">View Summary</Link>
