@@ -225,12 +225,19 @@ const ProjectDetail = () => {
     setCostData(map);
   };
 
+  const fetchQuoteDeadline = async () => {
+    if (!id) return;
+    const { data } = await supabase.from('pipeline_items').select('rfq_date').eq('project_id', id).not('rfq_date', 'is', null).is('initial_quote_date', null).neq('status', 'done').neq('status', 'cancelled').order('rfq_date').limit(1);
+    setQuoteDeadline(data?.[0]?.rfq_date ?? null);
+  };
+
   useEffect(() => {
     fetchProject();
     fetchProducts();
     fetchAssemblies();
     fetchProductTypes();
     fetchCostData();
+    fetchQuoteDeadline();
   }, [id]);
 
   const addAssembly = async () => {
