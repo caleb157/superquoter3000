@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus, Search, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, ArrowLeft, Package, Download, FileText, FileSpreadsheet, Loader2, Upload, ImagePlus, Search, Trash2, Eye, EyeOff, Clock } from 'lucide-react';
 import { BulkPhotoUpload } from '@/components/BulkPhotoUpload';
 import { ProjectRfqTab } from '@/components/ProjectRfqTab';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
