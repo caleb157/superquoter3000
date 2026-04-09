@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -39,6 +40,7 @@ const Dashboard = () => {
   const [sortField, setSortField] = useState<string>('updated_at');
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterCustomerId, setFilterCustomerId] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -219,6 +221,9 @@ const Dashboard = () => {
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.customer_name || '').toLowerCase().includes(search.toLowerCase())
     );
+    if (filterCustomerId !== 'all') {
+      list = list.filter(p => p.customer_id === filterCustomerId);
+    }
 
     // Sort
     list = [...list].sort((a, b) => {
@@ -243,7 +248,7 @@ const Dashboard = () => {
     });
 
     return list;
-  }, [projects, search, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
+  }, [projects, search, filterCustomerId, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
@@ -299,6 +304,18 @@ const Dashboard = () => {
               className="pl-9 h-9"
             />
           </div>
+          <Select value={filterCustomerId} onValueChange={setFilterCustomerId}>
+            <SelectTrigger className="w-48 h-9 text-sm">
+              <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              <SelectValue placeholder="All customers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All customers</SelectItem>
+              {customers.map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
