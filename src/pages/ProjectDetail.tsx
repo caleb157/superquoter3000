@@ -53,6 +53,7 @@ const ProjectDetail = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [hideCompleted, setHideCompleted] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [quoteDeadline, setQuoteDeadline] = useState<string | null>(null);
 
   const activeTab = searchParams.get('tab') || 'products';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
