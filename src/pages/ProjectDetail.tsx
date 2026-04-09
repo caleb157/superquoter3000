@@ -623,6 +623,15 @@ const ProjectDetail = () => {
               ))}
             </SelectContent>
           </Select>
+          {quoteDeadline && (() => {
+            const days = Math.floor((new Date(quoteDeadline).getTime() - Date.now()) / 86400000);
+            return (
+              <Badge variant="outline" className={`gap-1 text-xs font-medium ${days < 0 ? 'border-destructive text-destructive' : days <= 3 ? 'border-amber-500 text-amber-600' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+                <Clock className="h-3 w-3" />
+                Quote {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'due today' : `due in ${days}d`}
+              </Badge>
+            );
+          })()}
         </div>
 
         {/* Customer info */}
