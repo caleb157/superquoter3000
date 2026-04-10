@@ -41,6 +41,7 @@ const Dashboard = () => {
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCustomerId, setFilterCustomerId] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -224,6 +225,9 @@ const Dashboard = () => {
     if (filterCustomerId !== 'all') {
       list = list.filter(p => p.customer_id === filterCustomerId);
     }
+    if (filterStatus !== 'all') {
+      list = list.filter(p => p.status === filterStatus);
+    }
 
     // Sort
     list = [...list].sort((a, b) => {
@@ -248,7 +252,7 @@ const Dashboard = () => {
     });
 
     return list;
-  }, [projects, search, filterCustomerId, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
+  }, [projects, search, filterCustomerId, filterStatus, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
@@ -314,6 +318,20 @@ const Dashboard = () => {
               {customers.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-40 h-9 text-sm">
+              <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="costing">Costing</SelectItem>
+              <SelectItem value="quoted">Quoted</SelectItem>
+              <SelectItem value="po_confirmed">PO Confirmed</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
