@@ -252,7 +252,7 @@ const Dashboard = () => {
     });
 
     return list;
-  }, [projects, search, filterCustomerId, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
+  }, [projects, search, filterCustomerId, filterStatus, sortField, sortAsc, projectAggregates, quoteDeadlineMap]);
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
