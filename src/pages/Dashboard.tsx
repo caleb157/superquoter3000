@@ -225,6 +225,9 @@ const Dashboard = () => {
     if (filterCustomerId !== 'all') {
       list = list.filter(p => p.customer_id === filterCustomerId);
     }
+    if (filterStatus !== 'all') {
+      list = list.filter(p => p.status === filterStatus);
+    }
 
     // Sort
     list = [...list].sort((a, b) => {
