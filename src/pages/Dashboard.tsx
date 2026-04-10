@@ -41,6 +41,7 @@ const Dashboard = () => {
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCustomerId, setFilterCustomerId] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
