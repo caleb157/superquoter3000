@@ -20,20 +20,22 @@ interface Props {
   onRefresh: () => void;
 }
 
-/** Subtle row background based on pipeline stage */
+/** Vivid row background based on pipeline stage */
 function rowBg(stage: PipelineStage): string {
   switch (stage) {
     case 'needs_design':
+      return 'bg-red-100/80 hover:bg-red-200/80 dark:bg-red-900/30 dark:hover:bg-red-900/50';
     case 'needs_photo':
-      return ''; // no highlight — still early
+      return 'bg-orange-100/80 hover:bg-orange-200/80 dark:bg-orange-900/30 dark:hover:bg-orange-900/50';
     case 'needs_quote':
-      return 'bg-blue-50 dark:bg-blue-950/20'; // costing / quoting
+      return 'bg-blue-200/70 hover:bg-blue-300/70 dark:bg-blue-900/40 dark:hover:bg-blue-900/60'; // costing / quoting
     case 'needs_sample':
     case 'sample_in_progress':
+      return 'bg-amber-200/70 hover:bg-amber-300/70 dark:bg-amber-900/40 dark:hover:bg-amber-900/60'; // sampling
     case 'needs_followup':
-      return 'bg-amber-50 dark:bg-amber-950/20'; // sampling
+      return 'bg-rose-200/70 hover:bg-rose-300/70 dark:bg-rose-900/40 dark:hover:bg-rose-900/60';
     case 'done':
-      return 'bg-emerald-50 dark:bg-emerald-950/20'; // done
+      return 'bg-emerald-200/70 hover:bg-emerald-300/70 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60'; // done
   }
 }
 
