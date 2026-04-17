@@ -201,8 +201,7 @@ export function PipelineTable({ items, customers, onEdit, onRefresh }: Props) {
                   key={item.id}
                   className={cn(
                     'cursor-pointer transition-colors',
-                    isSelected ? 'bg-primary/10' : rowBg(stage),
-                    !isSelected && 'hover:bg-muted/50',
+                    isSelected ? 'bg-primary/10 hover:bg-primary/15' : rowBg(stage),
                   )}
                   onClick={() => onEdit(item)}
                 >
