@@ -17,7 +17,7 @@ const Login = () => {
   const { user, isAdminOrTeam } = useAuth();
 
   if (user) {
-    return <Navigate to={isAdminOrTeam ? '/' : '/quote'} replace />;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
