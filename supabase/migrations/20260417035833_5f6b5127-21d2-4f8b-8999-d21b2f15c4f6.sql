@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS public.qc_rows CASCADE;
+DROP TABLE IF EXISTS public.qc_sections CASCADE;
+DROP TABLE IF EXISTS public.qc_guides CASCADE;
