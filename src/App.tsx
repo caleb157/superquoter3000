@@ -18,8 +18,6 @@ import Quotes from "./pages/Quotes";
 import RfqList from "./pages/RfqList";
 import RfqEditor from "./pages/RfqEditor";
 import RfqVendorView from "./pages/RfqVendorView";
-import QCList from "./pages/QCList";
-import QCEditor from "./pages/QCEditor";
 import Pipeline from "./pages/Pipeline";
 import NotFound from "./pages/NotFound";
 
@@ -91,16 +89,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/quote/:token" element={<CustomerQuote />} />
-            <Route path="/qc" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <QCList />
-              </ProtectedRoute>
-            } />
-            <Route path="/qc/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <QCEditor />
-              </ProtectedRoute>
-            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
