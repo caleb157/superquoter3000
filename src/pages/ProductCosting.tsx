@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { ProductVariants } from '@/components/ProductVariants';
-import { QCGuidesSection } from '@/components/QCGuidesSection'; // force reload
+
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
@@ -1430,9 +1430,6 @@ const ProductCosting = () => {
                 markupPercent={markupPercent}
                 exchangeRate={exchangeRate}
               />
-
-              {/* QC Guides */}
-              <QCGuidesSection productId={id!} productName={product.name} />
 
               {/* Completion checklist */}
               <div className="flex items-center gap-4 border-t pt-3">
