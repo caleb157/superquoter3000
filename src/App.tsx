@@ -66,11 +66,7 @@ const App = () => (
                 <Products />
               </ProtectedRoute>
             } />
-            <Route path="/project/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <ProjectRedirect />
-              </ProtectedRoute>
-            } />
+            <Route path="/project/:id" element={<ProjectRedirect />} />
             <Route path="/product/:id" element={
               <ProtectedRoute requireAdminOrTeam>
                 <ProductDetail />

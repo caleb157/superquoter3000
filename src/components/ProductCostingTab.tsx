@@ -123,11 +123,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
 
-      // Fetch project settings if product has a project_id
-      if (prodRes.data?.project_id) {
-        const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', prodRes.data.project_id).maybeSingle();
-        if (ps) setProjectSettings(ps);
-      }
+      // Phase 7: inquiry-level settings TBD — using global settings only for now.
 
       setDataLoaded(true);
     };

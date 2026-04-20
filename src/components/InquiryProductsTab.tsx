@@ -120,7 +120,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     }));
     const { error } = await (supabase as any).from('quote_snapshots').insert({
       customer_rfq_id: inquiryId,
-      project_id: null,
       quote_number: 'Q-' + Date.now(),
       status: 'draft',
       share_token: crypto.randomUUID(),
