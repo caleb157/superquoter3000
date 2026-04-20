@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, GitBranch, Menu } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, GitBranch, Menu, Users, Inbox, Package2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QuickAddTask } from '@/components/QuickAddTask';
 import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
@@ -15,10 +15,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const navItems = [
     { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
+    { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
+    { to: '/inquiries', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
+    { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
