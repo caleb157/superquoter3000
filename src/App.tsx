@@ -10,7 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
-import ProjectDetail from "./pages/ProjectDetail";
+import ProjectRedirect from "./pages/ProjectRedirect";
 import ProductCosting from "./pages/ProductCosting";
 import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
@@ -62,7 +62,7 @@ const App = () => (
             } />
             <Route path="/project/:id" element={
               <ProtectedRoute requireAdminOrTeam>
-                <ProjectDetail />
+                <ProjectRedirect />
               </ProtectedRoute>
             } />
             <Route path="/product/:id" element={

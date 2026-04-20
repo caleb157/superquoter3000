@@ -1282,6 +1282,7 @@ export type Database = {
         Row: {
           created_at: string
           customer_rfq_id: string | null
+          finishes_used: string | null
           id: string
           notes: string | null
           requested_date: string
@@ -1291,10 +1292,12 @@ export type Database = {
           status: string
           title: string | null
           updated_at: string
+          vendors_used: string | null
         }
         Insert: {
           created_at?: string
           customer_rfq_id?: string | null
+          finishes_used?: string | null
           id?: string
           notes?: string | null
           requested_date?: string
@@ -1304,10 +1307,12 @@ export type Database = {
           status?: string
           title?: string | null
           updated_at?: string
+          vendors_used?: string | null
         }
         Update: {
           created_at?: string
           customer_rfq_id?: string | null
+          finishes_used?: string | null
           id?: string
           notes?: string | null
           requested_date?: string
@@ -1317,6 +1322,7 @@ export type Database = {
           status?: string
           title?: string | null
           updated_at?: string
+          vendors_used?: string | null
         }
         Relationships: [
           {
