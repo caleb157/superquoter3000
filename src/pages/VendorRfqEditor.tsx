@@ -504,4 +504,4 @@ const VendorRfqEditor = () => {
   );
 };
 
-export default RfqEditor;
+export default VendorRfqEditor;
