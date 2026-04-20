@@ -23,14 +23,14 @@ const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
 const Quotes = () => {
   const [snapshots, setSnapshots] = useState<any[]>([]);
-  const [projects, setProjects] = useState<Record<string, string>>({});
+  const [inquiries, setInquiries] = useState<Record<string, { rfq_number: string; title: string | null }>>({});
   const [entities, setEntities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selectionsSnap, setSelectionsSnap] = useState<any | null>(null);
 
   // Filters
   const [search, setSearch] = useState('');
-  const [filterProject, setFilterProject] = useState('all');
+  const [filterInquiry, setFilterInquiry] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterEntity, setFilterEntity] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -42,17 +42,17 @@ const Quotes = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [snapRes, projRes, entRes] = await Promise.all([
+    const [snapRes, inqRes, entRes] = await Promise.all([
       (supabase as any).from('quote_snapshots').select('*').order('created_at', { ascending: false }),
-      supabase.from('projects').select('id, name'),
+      (supabase as any).from('customer_rfqs').select('id, rfq_number, title'),
       (supabase as any).from('company_entities').select('id, name'),
     ]);
 
     setSnapshots(snapRes.data || []);
 
-    const projMap: Record<string, string> = {};
-    (projRes.data || []).forEach((p: any) => { projMap[p.id] = p.name; });
-    setProjects(projMap);
+    const inqMap: Record<string, { rfq_number: string; title: string | null }> = {};
+    (inqRes.data || []).forEach((i: any) => { inqMap[i.id] = { rfq_number: i.rfq_number, title: i.title }; });
+    setInquiries(inqMap);
 
     const entMap: Record<string, string> = {};
     (entRes.data || []).forEach((e: any) => { entMap[e.id] = e.name; });
@@ -84,16 +84,21 @@ const Quotes = () => {
     toast.success(`Quote marked as ${newStatus}`);
   };
 
+  const inquiryLabel = (id: string | null | undefined) => {
+    if (!id) return '';
+    const i = inquiries[id];
+    return i ? `${i.rfq_number} — ${i.title || 'Untitled'}` : '';
+  };
+
   const filtered = useMemo(() => {
     let result = snapshots.filter(snap => {
-      // Search by quote number or project name
       if (search) {
         const s = search.toLowerCase();
-        const projName = (snap.project_id ? projects[snap.project_id] : '') || '';
+        const inqName = inquiryLabel(snap.customer_rfq_id);
         const quoteNum = snap.quote_number || '';
-        if (!quoteNum.toLowerCase().includes(s) && !projName.toLowerCase().includes(s)) return false;
+        if (!quoteNum.toLowerCase().includes(s) && !inqName.toLowerCase().includes(s)) return false;
       }
-      if (filterProject !== 'all' && snap.project_id !== filterProject) return false;
+      if (filterInquiry !== 'all' && snap.customer_rfq_id !== filterInquiry) return false;
       if (filterStatus !== 'all' && (snap.status || 'draft') !== filterStatus) return false;
       if (filterEntity !== 'all' && snap.entity_id !== filterEntity) return false;
       if (dateFrom) {
@@ -111,7 +116,7 @@ const Quotes = () => {
 
     const getters: Record<string, (s: any) => string | number> = {
       quote_number: (s) => (s.quote_number || '').toLowerCase(),
-      project: (s) => (projects[s.project_id] || '').toLowerCase(),
+      inquiry: (s) => inquiryLabel(s.customer_rfq_id).toLowerCase(),
       entity: (s) => (entities[s.entity_id] || '').toLowerCase(),
       date: (s) => new Date(s.created_at).getTime(),
       valid_until: (s) => s.valid_until ? new Date(s.valid_until).getTime() : 0,
@@ -123,23 +128,23 @@ const Quotes = () => {
     };
 
     return sortItems(result, getters);
-  }, [snapshots, search, filterProject, filterStatus, filterEntity, dateFrom, dateTo, projects, entities, sortColumn, sortDirection]);
+  }, [snapshots, search, filterInquiry, filterStatus, filterEntity, dateFrom, dateTo, inquiries, entities, sortColumn, sortDirection]);
 
-  const projectList = useMemo(() => {
-    const ids = new Set(snapshots.map(s => s.project_id).filter(Boolean));
-    return Array.from(ids).map(id => ({ id, name: projects[id] || 'Unknown' })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [snapshots, projects]);
+  const inquiryList = useMemo(() => {
+    const ids = new Set(snapshots.map(s => s.customer_rfq_id).filter(Boolean));
+    return Array.from(ids).map(id => ({ id: id as string, name: inquiryLabel(id) || 'Unknown' })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [snapshots, inquiries]);
 
   const entityList = useMemo(() => {
     const ids = new Set(snapshots.map(s => s.entity_id).filter(Boolean));
     return Array.from(ids).map(id => ({ id, name: entities[id] || 'Unknown' })).sort((a, b) => a.name.localeCompare(b.name));
   }, [snapshots, entities]);
 
-  const hasActiveFilters = search || filterProject !== 'all' || filterStatus !== 'all' || filterEntity !== 'all' || dateFrom || dateTo;
+  const hasActiveFilters = search || filterInquiry !== 'all' || filterStatus !== 'all' || filterEntity !== 'all' || dateFrom || dateTo;
 
   const clearFilters = () => {
     setSearch('');
-    setFilterProject('all');
+    setFilterInquiry('all');
     setFilterStatus('all');
     setFilterEntity('all');
     setDateFrom(undefined);
@@ -161,18 +166,18 @@ const Quotes = () => {
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search quote # or project..."
+              placeholder="Search quote # or inquiry..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 h-9 text-xs"
             />
           </div>
 
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Projects" /></SelectTrigger>
+          <Select value={filterInquiry} onValueChange={setFilterInquiry}>
+            <SelectTrigger className="w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
-              {projectList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              <SelectItem value="all">All Inquiries</SelectItem>
+              {inquiryList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
 
@@ -232,7 +237,7 @@ const Quotes = () => {
             ) : filtered.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
                 {snapshots.length === 0
-                  ? 'No quotes generated yet. Generate one from a project\'s Settings tab.'
+                  ? 'No quotes generated yet. Generate one from an inquiry\'s products tab.'
                   : 'No quotes match the current filters.'}
               </div>
             ) : (
@@ -240,7 +245,7 @@ const Quotes = () => {
                 <TableHeader>
                   <TableRow>
                     <SortableHeader column="quote_number" label="Quote #" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="project" label="Project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader column="entity" label="Entity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader column="date" label="Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader column="valid_until" label="Valid Until" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
@@ -265,9 +270,9 @@ const Quotes = () => {
                       <TableRow key={snap.id}>
                         <TableCell className="text-xs font-mono font-medium">{snap.quote_number || '—'}</TableCell>
                         <TableCell className="text-xs">
-                          {snap.project_id ? (
-                            <Link to={`/project/${snap.project_id}`} className="text-primary hover:underline">
-                              {projects[snap.project_id] || 'Project'}
+                          {snap.customer_rfq_id ? (
+                            <Link to={`/inquiry/${snap.customer_rfq_id}`} className="text-primary hover:underline">
+                              {inquiryLabel(snap.customer_rfq_id) || 'Inquiry'}
                             </Link>
                           ) : '—'}
                         </TableCell>
@@ -354,7 +359,7 @@ const Quotes = () => {
             <DialogHeader>
               <DialogTitle>Customer Selections</DialogTitle>
               <DialogDescription>
-                {selectionsSnap?.quote_number || 'Quote'} — {projects[selectionsSnap?.project_id] || 'Project'}
+                {selectionsSnap?.quote_number || 'Quote'} — {inquiryLabel(selectionsSnap?.customer_rfq_id) || 'Inquiry'}
               </DialogDescription>
             </DialogHeader>
             {selectionsSnap?.customer_selections ? (
