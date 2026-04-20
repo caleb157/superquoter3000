@@ -558,7 +558,7 @@ const ProductCosting = () => {
       <div className="max-w-5xl mx-auto space-y-2">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/project/${product.project_id}`)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
@@ -566,8 +566,7 @@ const ProductCosting = () => {
               <h1 className="text-base font-bold truncate">{product.name}</h1>
             </div>
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <Link to={`/project/${product.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
-              <Link to={`/project/${product.project_id}?tab=summary`} className="hover:text-foreground hover:underline">View Summary</Link>
+              <Link to={product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
             </div>
           </div>
           <span className="text-xs text-muted-foreground">

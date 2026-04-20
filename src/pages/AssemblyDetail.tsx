@@ -191,14 +191,14 @@ const AssemblyDetail = () => {
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/project/${assembly.project_id}`)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(assembly.project_id ? `/project/${assembly.project_id}` : '/inquiries')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Package className="h-5 w-5 text-primary" />
           <div className="flex-1">
             <h1 className="text-base font-bold truncate">{assembly.name}</h1>
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <Link to={`/project/${assembly.project_id}`} className="hover:text-foreground hover:underline">← Back to Project</Link>
+              <Link to={assembly.project_id ? `/project/${assembly.project_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
               <span>Assembly • {components.length} components • {assemblyCost.num_cartons} cartons</span>
             </div>
           </div>
