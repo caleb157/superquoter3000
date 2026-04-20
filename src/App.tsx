@@ -21,6 +21,7 @@ import VendorRfqPublicView from "./pages/VendorRfqPublicView";
 import InquiriesList from "./pages/InquiriesList";
 import InquiryDetail from "./pages/InquiryDetail";
 import SamplesList from "./pages/SamplesList";
+import Tasks from "./pages/Tasks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -95,6 +96,9 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/quote/:token" element={<CustomerQuote />} />
+            <Route path="/tasks" element={
+              <ProtectedRoute requireAdminOrTeam><Tasks /></ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
