@@ -54,8 +54,8 @@ export default function InquiryDetail() {
       setCustomer(c);
     }
     const [pRes, allPRes, qRes, rfsRes] = await Promise.all([
-      supabase.from('projects').select('*').eq('customer_rfq_id' as any, id),
-      supabase.from('projects').select('id, name, customer_id, customer_rfq_id, status').order('updated_at', { ascending: false }).limit(200),
+      (supabase as any).from('projects').select('*').eq('customer_rfq_id', id),
+      (supabase as any).from('projects').select('id, name, customer_id, customer_rfq_id, status, updated_at').order('updated_at', { ascending: false }).limit(200),
       (supabase as any).from('quote_snapshots').select('id, quote_number, status, created_at, project_id, totals'),
       (supabase as any).from('rfs').select('*').eq('customer_rfq_id', id).order('requested_date', { ascending: false }),
     ]);
@@ -86,7 +86,7 @@ export default function InquiryDetail() {
 
   const linkProject = async () => {
     if (!linkProjectId) return;
-    const { error } = await supabase.from('projects').update({ customer_rfq_id: id, customer_id: inquiry.customer_id } as any).eq('id', linkProjectId);
+    const { error } = await (supabase as any).from('projects').update({ customer_rfq_id: id, customer_id: inquiry.customer_id }).eq('id', linkProjectId);
     if (error) { toast.error(error.message); return; }
     toast.success('Project linked');
     setShowLink(false);
@@ -96,14 +96,14 @@ export default function InquiryDetail() {
 
   const createProject = async () => {
     if (!newProjectName.trim()) return;
-    const { data, error } = await supabase.from('projects').insert({
+    const { data, error } = await (supabase as any).from('projects').insert({
       name: newProjectName.trim(),
       customer_id: inquiry.customer_id,
       customer_name: customer?.name || null,
       customer_email: customer?.email || null,
       customer_rfq_id: id,
       status: 'costing',
-    } as any).select().single();
+    }).select().single();
     if (error) { toast.error(error.message); return; }
     toast.success('Project created');
     setShowNewProject(false);
