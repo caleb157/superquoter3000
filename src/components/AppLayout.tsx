@@ -19,7 +19,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/inquiries', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
-    { to: '/rfqs', label: 'RFQs', icon: ClipboardList, show: isAdminOrTeam },
+    { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },

@@ -29,7 +29,7 @@ const RFQ_TYPE_CATEGORY: Record<string, string> = {
   boxes: 'boxes', chemicals: 'chemicals', hardware: 'hardware', raw_pieces: 'raw_pieces',
 };
 
-const RfqEditor = () => {
+const VendorRfqEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [rfq, setRfq] = useState<any>(null);
@@ -43,11 +43,11 @@ const RfqEditor = () => {
   const fetchRfq = async () => {
     if (!id) return;
     const [rfqRes, itemsRes, vendorsRes] = await Promise.all([
-      (supabase as any).from('rfqs').select('*').eq('id', id).single(),
-      (supabase as any).from('rfq_line_items').select('*').eq('rfq_id', id).order('sort_order'),
+      (supabase as any).from('vendor_rfqs').select('*').eq('id', id).single(),
+      (supabase as any).from('vendor_rfq_line_items').select('*').eq('vendor_rfq_id', id).order('sort_order'),
       (supabase as any).from('vendors').select('*').order('name'),
     ]);
-    if (rfqRes.error) { toast.error('RFQ not found'); navigate('/rfqs'); return; }
+    if (rfqRes.error) { toast.error('Vendor RFQ not found'); navigate('/vendor-rfqs'); return; }
     setRfq(rfqRes.data);
     setItems(itemsRes.data || []);
     setVendors(vendorsRes.data || []);
@@ -86,7 +86,7 @@ const RfqEditor = () => {
 
   const addItem = () => {
     setItems(prev => [...prev, {
-      id: `new-${Date.now()}`, rfq_id: id, item_name: '', description: '', dimensions: '',
+      id: `new-${Date.now()}`, vendor_rfq_id: id, item_name: '', description: '', dimensions: '',
       quantity: 0, units: 'pc', estimated_cost: null, target_price: null, vendor_price: null,
       notes: '', sort_order: prev.length, _isNew: true,
     }]);
@@ -98,7 +98,7 @@ const RfqEditor = () => {
     if (!id || !rfq) return;
     setSaving(true);
     try {
-      const { error: rfqErr } = await (supabase as any).from('rfqs').update({
+      const { error: rfqErr } = await (supabase as any).from('vendor_rfqs').update({
         title: rfq.title, vendor_name: rfq.vendor_name, vendor_email: rfq.vendor_email,
         vendor_phone: rfq.vendor_phone, vendor_address: rfq.vendor_address,
         discount_percent: rfq.discount_percent, notes: rfq.notes,
@@ -108,22 +108,22 @@ const RfqEditor = () => {
       if (rfqErr) throw rfqErr;
 
       const existingIds = items.filter(i => !i._isNew).map(i => i.id);
-      await (supabase as any).from('rfq_line_items').delete().eq('rfq_id', id).not('id', 'in', `(${existingIds.join(',')})`);
+      await (supabase as any).from('vendor_rfq_line_items').delete().eq('vendor_rfq_id', id).not('id', 'in', `(${existingIds.join(',')})`);
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const row = {
-          rfq_id: id, product_id: item.product_id || null, product_name: item.product_name || null,
+          vendor_rfq_id: id, product_id: item.product_id || null, product_name: item.product_name || null,
           product_photo_url: item.product_photo_url || null, item_name: item.item_name || 'Item',
           description: item.description || null, dimensions: item.dimensions || null,
           quantity: item.quantity || 0, units: item.units || 'pc',
           estimated_cost: item.estimated_cost || null, target_price: item.target_price || null,
           vendor_price: item.vendor_price || null, notes: item.notes || null, sort_order: i,
         };
-        if (item._isNew) await (supabase as any).from('rfq_line_items').insert(row);
-        else await (supabase as any).from('rfq_line_items').update(row).eq('id', item.id);
+        if (item._isNew) await (supabase as any).from('vendor_rfq_line_items').insert(row);
+        else await (supabase as any).from('vendor_rfq_line_items').update(row).eq('id', item.id);
       }
-      toast.success('RFQ saved');
+      toast.success('Vendor RFQ saved');
       fetchRfq();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save');
@@ -132,14 +132,14 @@ const RfqEditor = () => {
 
   const markAsSent = async () => {
     if (!id) return;
-    await (supabase as any).from('rfqs').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id);
+    await (supabase as any).from('vendor_rfqs').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id);
     updateRfqField('status', 'sent');
     toast.success('Marked as sent');
   };
 
   const copyShareLink = () => {
     if (!rfq?.share_token) return;
-    navigator.clipboard.writeText(`${window.location.origin}/rfq/view/${rfq.share_token}`);
+    navigator.clipboard.writeText(`${window.location.origin}/vendor-rfq/view/${rfq.share_token}`);
     toast.success('Share link copied');
   };
 
@@ -153,7 +153,7 @@ const RfqEditor = () => {
       const w = window.open(url, '_blank');
       if (w) w.onload = () => URL.revokeObjectURL(url);
     } catch (err) {
-      toast.error('Failed to load RFQ PDF');
+      toast.error('Failed to load Vendor RFQ PDF');
     }
   };
 
@@ -504,4 +504,4 @@ const RfqEditor = () => {
   );
 };
 
-export default RfqEditor;
+export default VendorRfqEditor;

@@ -21,7 +21,7 @@ interface RfqLineItem {
 export async function generateRfqNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const { count } = await (supabase as any)
-    .from('rfqs')
+    .from('vendor_rfqs')
     .select('id', { count: 'exact', head: true })
     .like('rfq_number', `RFQ-${year}-%`);
   const seq = ((count || 0) + 1).toString().padStart(3, '0');
@@ -398,7 +398,7 @@ export async function createRfq(
   const rfqNumber = await generateRfqNumber();
 
   const { data: rfq, error: rfqErr } = await (supabase as any)
-    .from('rfqs')
+    .from('vendor_rfqs')
     .insert({
       project_id: projectId,
       rfq_number: rfqNumber,
@@ -411,14 +411,14 @@ export async function createRfq(
     .select('id')
     .single();
 
-  if (rfqErr || !rfq) return { rfqId: null, error: rfqErr?.message || 'Failed to create RFQ' };
+  if (rfqErr || !rfq) return { rfqId: null, error: rfqErr?.message || 'Failed to create Vendor RFQ' };
 
   if (lineItems.length > 0) {
     const rows = lineItems.map(item => ({
-      rfq_id: rfq.id,
+      vendor_rfq_id: rfq.id,
       ...item,
     }));
-    const { error: itemErr } = await (supabase as any).from('rfq_line_items').insert(rows);
+    const { error: itemErr } = await (supabase as any).from('vendor_rfq_line_items').insert(rows);
     if (itemErr) return { rfqId: rfq.id, error: itemErr.message };
   }
 
