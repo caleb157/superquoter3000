@@ -69,8 +69,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
       if (!id) return;
       const { error } = await (supabase as any).from('products').update(updates).eq('id', id);
       if (error) toast.error('Save failed: ' + error.message);
+      else onProductUpdated?.();
     }, 500);
-  }, [id]);
+  }, [id, onProductUpdated]);
 
   const updateProduct = (field: string, value: any) => {
     setProduct((p: any) => ({ ...p, [field]: value }));
