@@ -117,7 +117,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs">{f.label}</Label>
                 {saving[f.key] === 'saving' && <span className="text-[10px] text-muted-foreground">Saving…</span>}
-                {saving[f.key] === 'saved' && <span className="text-[10px] text-emerald-600">Saved</span>}
+                {saving[f.key] === 'saved' && <span className="text-[10px] text-primary">Saved</span>}
               </div>
               <Textarea
                 defaultValue={product[f.key] ?? ''}
