@@ -369,36 +369,107 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_rfqs: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          notes: string | null
+          priority: string
+          received_date: string
+          requirements: string | null
+          rfq_number: string
+          status: string
+          target_completion_date: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          received_date?: string
+          requirements?: string | null
+          rfq_number?: string
+          status?: string
+          target_completion_date?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          received_date?: string
+          requirements?: string | null
+          rfq_number?: string
+          status?: string
+          target_completion_date?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_rfqs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           company: string | null
           created_at: string | null
           email: string | null
           id: string
+          last_contacted_at: string | null
+          lead_score: number
+          lead_status: string
+          linkedin_url: string | null
           logo_url: string | null
           name: string
           notes: string | null
           phone: string | null
+          source: string | null
         }
         Insert: {
           company?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          last_contacted_at?: string | null
+          lead_score?: number
+          lead_status?: string
+          linkedin_url?: string | null
           logo_url?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
         }
         Update: {
           company?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
+          last_contacted_at?: string | null
+          lead_score?: number
+          lead_status?: string
+          linkedin_url?: string | null
           logo_url?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
         }
         Relationships: []
       }
@@ -1147,6 +1218,7 @@ export type Database = {
           customer_id: string | null
           customer_logo_url: string | null
           customer_name: string | null
+          customer_rfq_id: string | null
           id: string
           name: string
           rfq_discount_percent: number | null
@@ -1160,6 +1232,7 @@ export type Database = {
           customer_id?: string | null
           customer_logo_url?: string | null
           customer_name?: string | null
+          customer_rfq_id?: string | null
           id?: string
           name: string
           rfq_discount_percent?: number | null
@@ -1173,6 +1246,7 @@ export type Database = {
           customer_id?: string | null
           customer_logo_url?: string | null
           customer_name?: string | null
+          customer_rfq_id?: string | null
           id?: string
           name?: string
           rfq_discount_percent?: number | null
@@ -1185,6 +1259,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
             referencedColumns: ["id"]
           },
         ]
@@ -1413,6 +1494,128 @@ export type Database = {
           },
         ]
       }
+      rfs: {
+        Row: {
+          created_at: string
+          customer_rfq_id: string | null
+          id: string
+          notes: string | null
+          requested_date: string
+          required_by_date: string | null
+          requirements: string | null
+          rfs_number: string
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_rfq_id?: string | null
+          id?: string
+          notes?: string | null
+          requested_date?: string
+          required_by_date?: string | null
+          requirements?: string | null
+          rfs_number?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_rfq_id?: string | null
+          id?: string
+          notes?: string | null
+          requested_date?: string
+          required_by_date?: string | null
+          requirements?: string | null
+          rfs_number?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfs_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      samples: {
+        Row: {
+          created_at: string
+          dimensions_inch: string | null
+          feedback: string | null
+          final_ready_date: string | null
+          finish: string | null
+          id: string
+          initial_ready_date: string | null
+          notes: string | null
+          photo_urls: Json
+          requested_date: string | null
+          rfs_id: string | null
+          status: string
+          updated_at: string
+          vendor_id: string | null
+          vendor_name: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          dimensions_inch?: string | null
+          feedback?: string | null
+          final_ready_date?: string | null
+          finish?: string | null
+          id?: string
+          initial_ready_date?: string | null
+          notes?: string | null
+          photo_urls?: Json
+          requested_date?: string | null
+          rfs_id?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string | null
+          vendor_name?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          dimensions_inch?: string | null
+          feedback?: string | null
+          final_ready_date?: string | null
+          finish?: string | null
+          id?: string
+          initial_ready_date?: string | null
+          notes?: string | null
+          photo_urls?: Json
+          requested_date?: string | null
+          rfs_id?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string | null
+          vendor_name?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "samples_rfs_id_fkey"
+            columns: ["rfs_id"]
+            isOneToOne: false
+            referencedRelation: "rfs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "samples_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipping_items: {
         Row: {
           created_at: string | null
@@ -1553,6 +1756,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_crfq_number: { Args: never; Returns: string }
+      generate_rfs_number: { Args: never; Returns: string }
       get_entity_for_guest: {
         Args: { _entity_id: string }
         Returns: {
