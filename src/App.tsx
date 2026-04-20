@@ -19,6 +19,9 @@ import RfqList from "./pages/RfqList";
 import RfqEditor from "./pages/RfqEditor";
 import RfqVendorView from "./pages/RfqVendorView";
 import Pipeline from "./pages/Pipeline";
+import InquiriesList from "./pages/InquiriesList";
+import InquiryDetail from "./pages/InquiryDetail";
+import SamplesList from "./pages/SamplesList";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +54,15 @@ const App = () => (
               <ProtectedRoute requireAdminOrTeam>
                 <Customers />
               </ProtectedRoute>
+            } />
+            <Route path="/inquiries" element={
+              <ProtectedRoute requireAdminOrTeam><InquiriesList /></ProtectedRoute>
+            } />
+            <Route path="/inquiry/:id" element={
+              <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
+            } />
+            <Route path="/samples" element={
+              <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
             } />
             <Route path="/products" element={
               <ProtectedRoute requireAdminOrTeam>
