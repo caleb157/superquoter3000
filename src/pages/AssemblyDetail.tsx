@@ -20,10 +20,9 @@ const AssemblyDetail = () => {
 
   const [assembly, setAssembly] = useState<any>(null);
   const [components, setComponents] = useState<any[]>([]);
-  const [projectProducts, setProjectProducts] = useState<any[]>([]);
+  const [inquiryProducts, setInquiryProducts] = useState<any[]>([]);
   const [componentCostData, setComponentCostData] = useState<Record<string, any>>({});
   const [globalSettings, setGlobalSettings] = useState<any>(null);
-  const [projectSettings, setProjectSettings] = useState<any>(null);
   const [showAddComponent, setShowAddComponent] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
 
@@ -56,13 +55,11 @@ const AssemblyDetail = () => {
       if (compRes.data) setComponents(compRes.data);
       if (gsRes.data) setGlobalSettings(gsRes.data);
 
-      // Fetch project products for add-component dialog
-      const { data: prods } = await (supabase as any).from('products').select('*').eq('project_id', asmData.project_id).order('name');
-      if (prods) setProjectProducts(prods);
+      // Fetch inquiry products for add-component dialog
+      const { data: prods } = await (supabase as any).from('products').select('*').eq('customer_rfq_id', asmData.customer_rfq_id).order('name');
+      if (prods) setInquiryProducts(prods);
 
-      // Fetch project settings
-      const { data: ps } = await (supabase as any).from('project_settings').select('*').eq('project_id', asmData.project_id).maybeSingle();
-      if (ps) setProjectSettings(ps);
+      // Phase 7: inquiry-level settings TBD — using global settings only.
 
       // Fetch cost data for each component product
       if (compRes.data && compRes.data.length > 0) {
@@ -80,8 +77,7 @@ const AssemblyDetail = () => {
         const employees = empRes.data || [];
         const shTypes = stRes.data || [];
         const gs = gsRes.data;
-        const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override)
-          ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
+        const exchangeRate = gs?.exchange_rate || 90;
 
         const costMap: Record<string, any> = {};
         productIds.forEach((pid: string) => {
@@ -106,7 +102,7 @@ const AssemblyDetail = () => {
           const shipItem = pShip[0];
           const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
           const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit, final_unit_cbm: unit_cbm, weight_kg: prod.weight_kg || 0 }) : 0;
-          const markupPercent = (ps?.apply_uniform_markup && ps.default_markup_override != null) ? ps.default_markup_override : (prod.markup_percent || 0.2);
+          const markupPercent = prod.markup_percent || 0.2;
           const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
 
           costMap[pid] = {
@@ -125,8 +121,7 @@ const AssemblyDetail = () => {
     fetchAll();
   }, [id, refetchKey]);
 
-  const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
-    ? projectSettings.exchange_rate_override : (globalSettings?.exchange_rate || 90);
+  const exchangeRate = globalSettings?.exchange_rate || 90;
   const markupPercent = assembly?.markup_percent || 0.2;
 
   // Assembly cost calculation
@@ -182,23 +177,23 @@ const AssemblyDetail = () => {
 
   if (!assembly) return <AppLayout><div className="text-center py-12 text-muted-foreground">Loading assembly...</div></AppLayout>;
 
-  // Available products = project products not already in this assembly
+  // Available products = inquiry products not already in this assembly
   const usedProductIds = new Set(components.map(c => c.product_id));
-  const availableProducts = projectProducts.filter(p => !usedProductIds.has(p.id));
+  const availableProducts = inquiryProducts.filter(p => !usedProductIds.has(p.id));
 
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(assembly.project_id ? `/project/${assembly.project_id}` : '/inquiries')}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(assembly.customer_rfq_id ? `/inquiry/${assembly.customer_rfq_id}` : '/inquiries')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Package className="h-5 w-5 text-primary" />
           <div className="flex-1">
             <h1 className="text-base font-bold truncate">{assembly.name}</h1>
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <Link to={assembly.project_id ? `/project/${assembly.project_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
+              <Link to={assembly.customer_rfq_id ? `/inquiry/${assembly.customer_rfq_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
               <span>Assembly • {components.length} components • {assemblyCost.num_cartons} cartons</span>
             </div>
           </div>
@@ -310,7 +305,7 @@ const AssemblyDetail = () => {
 
           {components.length === 0 ? (
             <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">
-              No components yet. Add products from this project as components.
+              No components yet. Add products from this inquiry as components.
             </CardContent></Card>
           ) : (
             <div className="border rounded-md overflow-auto">

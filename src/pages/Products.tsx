@@ -19,7 +19,7 @@ import { useTableSort } from '@/hooks/use-table-sort';
 const Products = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
@@ -28,13 +28,13 @@ const Products = () => {
   const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterProject, setFilterProject] = useState('all');
+  const [filterInquiry, setFilterInquiry] = useState('all');
   const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showUploadParse, setShowUploadParse] = useState(false);
-  const [uploadProjectId, setUploadProjectId] = useState('');
-  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [uploadInquiryId, setUploadInquiryId] = useState('');
+  const [showInquiryPicker, setShowInquiryPicker] = useState(false);
 
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'products-sort',
@@ -42,9 +42,9 @@ const Products = () => {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [prodRes, projRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes, psRes] = await Promise.all([
+      const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('projects').select('*'),
+        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
@@ -55,7 +55,6 @@ const Products = () => {
         supabase.from('shipping_types').select('*'),
         supabase.from('non_unit_cogs').select('*'),
         supabase.from('shipping_items').select('*'),
-        supabase.from('project_settings').select('*'),
       ]);
       const prods = prodRes.data || [];
       const gs = gsRes.data;
@@ -66,10 +65,9 @@ const Products = () => {
       const allCogs = cogsRes.data || [];
       const allOh = ohRes.data || [];
       const allCbm = cbmRes.data || [];
-      const allPs = psRes.data || [];
 
       setProducts(prods);
-      if (projRes.data) setProjects(projRes.data);
+      if (inqRes.data) setInquiries(inqRes.data);
       if (custRes.data) setCustomers(custRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
 
@@ -85,11 +83,7 @@ const Products = () => {
       allOh.forEach((o: any) => { if (o.product_id) { if (!ohM[o.product_id]) ohM[o.product_id] = []; ohM[o.product_id].push(o); } });
       setOhMap(ohM);
 
-      // Build per-project settings map
-      const psMap: Record<string, any> = {};
-      allPs.forEach((s: any) => { psMap[s.project_id] = s; });
-
-      // Compute cost/price per product
+      // Compute cost/price per product (Phase 7: inquiry-level settings TBD — using global settings only)
       const cMap: Record<string, { cost_usd: number; price_usd: number }> = {};
       prods.forEach((p: any) => {
         const cbmEst = cbm[p.id];
@@ -97,10 +91,9 @@ const Products = () => {
         const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
         const pOh = ohM[p.id] || [];
         const pShip = allShip.filter((c: any) => c.product_id === p.id);
-        const ps = psMap[p.project_id];
         const qty = p.quantity || 100;
         const unit_cbm = cbmEst?.final_unit_cbm || 0;
-        const exchangeRate = (ps && !ps.use_global_exchange_rate && ps.exchange_rate_override) ? ps.exchange_rate_override : (gs?.exchange_rate || 90);
+        const exchangeRate = gs?.exchange_rate || 90;
 
         const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
           const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
@@ -122,7 +115,7 @@ const Products = () => {
         const shipItem = pShip[0];
         const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
         const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG', final_unit_cbm: unit_cbm, weight_kg: p.weight_kg || 0 }) : 0;
-        const markupPercent = (ps?.apply_uniform_markup && ps.default_markup_override != null) ? ps.default_markup_override : (p.markup_percent || 0.2);
+        const markupPercent = p.markup_percent || 0.2;
         const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
         cMap[p.id] = { cost_usd: summary.product_cost_per_unit_usd, price_usd: summary.unit_price_usd };
       });
@@ -133,7 +126,7 @@ const Products = () => {
     fetchAll();
   }, []);
 
-  const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
+  const inquiryMap = Object.fromEntries(inquiries.map(p => [p.id, p]));
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c]));
 
   const hasReview = (productId: string) => {
@@ -148,11 +141,11 @@ const Products = () => {
         const s = search.toLowerCase();
         if (!(p.name?.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s))) return false;
       }
-      if (filterProject !== 'all' && p.project_id !== filterProject) return false;
+      if (filterInquiry !== 'all' && p.customer_rfq_id !== filterInquiry) return false;
       if (filterType !== 'all' && p.product_type_id !== filterType) return false;
       if (filterCustomer !== 'all') {
-        const proj = projectMap[p.project_id];
-        if (!proj || proj.customer_id !== filterCustomer) return false;
+        const inq = inquiryMap[p.customer_rfq_id];
+        if (!inq || inq.customer_id !== filterCustomer) return false;
       }
       if (filterStatus !== 'all') {
         const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
@@ -170,11 +163,14 @@ const Products = () => {
     const getters: Record<string, (p: any) => string | number> = {
       product: (p) => (p.name || '').toLowerCase(),
       sku: (p) => (p.sku || '').toLowerCase(),
-      project: (p) => (projectMap[p.project_id]?.name || '').toLowerCase(),
+      inquiry: (p) => {
+        const i = inquiryMap[p.customer_rfq_id];
+        return ((i?.rfq_number || '') + ' ' + (i?.title || '')).toLowerCase();
+      },
       customer: (p) => {
-        const proj = projectMap[p.project_id];
-        const cust = proj?.customer_id ? customerMap[proj.customer_id] : null;
-        return (cust?.name || proj?.customer_name || '').toLowerCase();
+        const inq = inquiryMap[p.customer_rfq_id];
+        const cust = inq?.customer_id ? customerMap[inq.customer_id] : null;
+        return (cust?.name || '').toLowerCase();
       },
       qty: (p) => p.quantity || 0,
       unit_cbm: (p) => cbmMap[p.id]?.final_unit_cbm || 0,
@@ -185,42 +181,42 @@ const Products = () => {
 
     result = sortItems(result, getters);
     return result;
-  }, [products, search, filterProject, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, projectMap, customerMap, cbmMap, costDataMap]);
+  }, [products, search, filterInquiry, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, inquiryMap, customerMap, cbmMap, costDataMap]);
 
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold">All Products</h1>
-          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowProjectPicker(true)}>
+          <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowInquiryPicker(true)}>
             <Upload className="h-3 w-3" /> Upload & Parse
           </Button>
         </div>
 
-        <Dialog open={showProjectPicker} onOpenChange={setShowProjectPicker}>
+        <Dialog open={showInquiryPicker} onOpenChange={setShowInquiryPicker}>
           <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Select Project</DialogTitle></DialogHeader>
-            <p className="text-xs text-muted-foreground">Choose which project to add parsed products to:</p>
-            <Select value={uploadProjectId} onValueChange={setUploadProjectId}>
-              <SelectTrigger><SelectValue placeholder="Select a project..." /></SelectTrigger>
+            <DialogHeader><DialogTitle>Select Inquiry</DialogTitle></DialogHeader>
+            <p className="text-xs text-muted-foreground">Choose which inquiry to add parsed products to:</p>
+            <Select value={uploadInquiryId} onValueChange={setUploadInquiryId}>
+              <SelectTrigger><SelectValue placeholder="Select an inquiry..." /></SelectTrigger>
               <SelectContent>
-                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {inquiries.map(p => <SelectItem key={p.id} value={p.id}>{p.rfq_number} — {p.title || 'Untitled'}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button disabled={!uploadProjectId} onClick={() => { setShowProjectPicker(false); setShowUploadParse(true); }}>
+            <Button disabled={!uploadInquiryId} onClick={() => { setShowInquiryPicker(false); setShowUploadParse(true); }}>
               Continue
             </Button>
           </DialogContent>
         </Dialog>
 
-        {uploadProjectId && (
+        {uploadInquiryId && (
           <UploadParseDialog
             open={showUploadParse}
             onOpenChange={setShowUploadParse}
-            projectId={uploadProjectId}
+            inquiryId={uploadInquiryId}
             productTypes={productTypes}
             onProductsCreated={() => {
-              setUploadProjectId('');
+              setUploadInquiryId('');
               supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
             }}
           />
@@ -231,11 +227,11 @@ const Products = () => {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search by name or SKU..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
           </div>
-          <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Projects" /></SelectTrigger>
+          <Select value={filterInquiry} onValueChange={setFilterInquiry}>
+            <SelectTrigger className="w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
-              {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              <SelectItem value="all">All Inquiries</SelectItem>
+              {inquiries.map(p => <SelectItem key={p.id} value={p.id}>{p.rfq_number} — {p.title || 'Untitled'}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterCustomer} onValueChange={setFilterCustomer}>
@@ -274,7 +270,7 @@ const Products = () => {
                   <TableHead className="w-10"></TableHead>
                   <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                   <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                  <SortableHeader column="project" label="Project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                   <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                   <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                   <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
@@ -285,8 +281,8 @@ const Products = () => {
               </TableHeader>
               <TableBody>
                 {filtered.map(p => {
-                  const proj = projectMap[p.project_id];
-                  const cust = proj?.customer_id ? customerMap[proj.customer_id] : null;
+                  const inq = inquiryMap[p.customer_rfq_id];
+                  const cust = inq?.customer_id ? customerMap[inq.customer_id] : null;
                   const cbm = cbmMap[p.id];
                   const review = hasReview(p.id);
                   return (
@@ -300,11 +296,11 @@ const Products = () => {
                       <TableCell className="font-medium text-sm">{p.name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{p.sku || '—'}</TableCell>
                       <TableCell>
-                        <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (proj) navigate(`/project/${proj.id}`); }}>
-                          {proj?.name || '—'}
+                        <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (inq) navigate(`/inquiry/${inq.id}`); }}>
+                          {inq ? `${inq.rfq_number} — ${inq.title || 'Untitled'}` : '—'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs">{cust?.name || proj?.customer_name || '—'}</TableCell>
+                      <TableCell className="text-xs">{cust?.name || '—'}</TableCell>
                       <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
                       <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
                       <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>

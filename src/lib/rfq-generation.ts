@@ -1,4 +1,4 @@
-// RFQ Generation Logic — aggregates project data into RFQ line items
+// RFQ Generation Logic — aggregates inquiry data into RFQ line items
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 
@@ -28,38 +28,51 @@ export async function generateRfqNumber(): Promise<string> {
   return `RFQ-${year}-${seq}`;
 }
 
-// ---------- Fetch project context ----------
-async function fetchProjectContext(projectId: string) {
-  const productsRes = await supabase.from('products').select('*').eq('project_id', projectId).order('sort_order');
+// ---------- Fetch inquiry context ----------
+async function fetchInquiryContext(inquiryId: string) {
+  const productsRes = await supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
   const products = (productsRes.data || []).filter((p: any) => !p.is_component);
   const productIds = products.map((p: any) => p.id);
 
-  const [cbmRes, cogsRes, settingsRes, projectRes, chemRes] = await Promise.all([
-    supabase.from('cbm_estimates').select('*').in('product_id', productIds),
-    supabase.from('cogs_items').select('*').in('product_id', productIds),
-    supabase.from('project_settings').select('*').eq('project_id', projectId).maybeSingle(),
-    supabase.from('projects').select('name, customer_name, customer_logo_url').eq('id', projectId).single(),
+  const [cbmRes, cogsRes, inquiryRes, chemRes] = await Promise.all([
+    productIds.length
+      ? supabase.from('cbm_estimates').select('*').in('product_id', productIds)
+      : Promise.resolve({ data: [] as any[] }),
+    productIds.length
+      ? supabase.from('cogs_items').select('*').in('product_id', productIds)
+      : Promise.resolve({ data: [] as any[] }),
+    (supabase as any)
+      .from('customer_rfqs')
+      .select('id, title, rfq_number, customer:customers(id, name, company)')
+      .eq('id', inquiryId)
+      .single(),
     supabase.from('chemical_prices').select('*'),
   ]);
 
   const cbm = cbmRes.data || [];
   const cogs = cogsRes.data || [];
-  const settings = settingsRes.data as any;
-  const project = projectRes.data as any;
+  const inquiry = inquiryRes.data as any;
+  const customer = inquiry?.customer || null;
   const chemPrices = chemRes.data || [];
 
-  const discount = settings?.rfq_discount_percent ?? 0.10;
+  // Phase 7: inquiry-level settings TBD — for now use a sensible default discount.
+  const discount = 0.10;
+  // Phase 7: inquiry-level settings TBD — no per-inquiry logo override yet.
+  const project = {
+    name: inquiry?.title || inquiry?.rfq_number || 'Inquiry',
+    customer_name: customer?.name || customer?.company || null,
+    customer_logo_url: null as string | null,
+  };
 
-  return { products, cbm, cogs, settings, project, chemPrices, discount };
+  return { products, cbm, cogs, settings: null as any, project, chemPrices, discount };
 }
 
 // ---------- Box RFQ ----------
-export async function generateBoxRfq(projectId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cbm, project, discount } = await fetchProjectContext(projectId);
+export async function generateBoxRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cbm, project, discount } = await fetchInquiryContext(inquiryId);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
-  // Group boxes by type + dimensions
   const boxGroups: Record<string, {
     boxType: string; dims: string; quantity: number; estCost: number;
     products: { name: string; qty: number; perBox: number; photoUrl?: string }[];
@@ -71,14 +84,12 @@ export async function generateBoxRfq(projectId: string): Promise<{ title: string
     if (!c) continue;
     const qty = p.quantity || 0;
 
-    // IC Box
     if (c.ic_width && c.ic_depth && c.ic_height) {
       const icType = c.ic_type || '5 ply';
       const perIc = c.products_per_ic || 1;
       const icQty = Math.ceil(qty / perIc);
       const dims = `${Number(c.ic_width).toFixed(1)} × ${Number(c.ic_depth).toFixed(1)} × ${Number(c.ic_height).toFixed(1)}`;
       const key = `IC|${icType}|${dims}`;
-
       if (!boxGroups[key]) {
         boxGroups[key] = { boxType: `${icType} IC Box`, dims: `${dims} inches`, quantity: 0, estCost: c.ic_cost_estimate || 0, products: [], width: c.ic_width, depth: c.ic_depth, height: c.ic_height };
       }
@@ -86,14 +97,12 @@ export async function generateBoxRfq(projectId: string): Promise<{ title: string
       boxGroups[key].products.push({ name: p.name, qty: icQty, perBox: perIc, photoUrl: p.photo_url });
     }
 
-    // MC Box
     if (c.include_mc && c.mc_width && c.mc_depth && c.mc_height) {
       const mcType = c.mc_type || '7 ply';
       const perMc = c.products_per_mc || 1;
       const mcQty = Math.ceil(qty / perMc);
       const dims = `${Number(c.mc_width).toFixed(1)} × ${Number(c.mc_depth).toFixed(1)} × ${Number(c.mc_height).toFixed(1)}`;
       const key = `MC|${mcType}|${dims}`;
-
       if (!boxGroups[key]) {
         boxGroups[key] = { boxType: `${mcType} MC Box`, dims: `${dims} inches`, quantity: 0, estCost: c.mc_cost_estimate || 0, products: [], width: c.mc_width, depth: c.mc_depth, height: c.mc_height };
       }
@@ -119,8 +128,8 @@ export async function generateBoxRfq(projectId: string): Promise<{ title: string
     });
   }
 
-  // Logo printing line if project has customer logo
-  if (project?.customer_logo_url) {
+  // Phase 7: inquiry-level settings TBD — no inquiry logo override yet, so skip the logo line.
+  if (project.customer_logo_url) {
     items.push({
       item_name: 'Logo Print Setup',
       description: `Customer logo printing on IC boxes — ${project.customer_name || 'Customer'}`,
@@ -131,19 +140,16 @@ export async function generateBoxRfq(projectId: string): Promise<{ title: string
     });
   }
 
-  return { title: `Box RFQ — ${project?.name || 'Project'}`, items, discount };
+  return { title: `Box RFQ — ${project.name}`, items, discount };
 }
 
 // ---------- Chemical RFQ ----------
-export async function generateChemicalRfq(projectId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, chemPrices, discount } = await fetchProjectContext(projectId);
+export async function generateChemicalRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, chemPrices, discount } = await fetchInquiryContext(inquiryId);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
-  // Find finishing chemical COGS items
   const chemCogs = cogs.filter((c: any) => c.cogs_type === 'Finishing Materials' && c.include === 'Yes');
-
-  // Group by component_name
   const chemGroups: Record<string, {
     name: string; totalQty: number; unitCost: number;
     breakdown: { productName: string; perUnit: number; qty: number; total: number }[];
@@ -152,14 +158,12 @@ export async function generateChemicalRfq(projectId: string): Promise<{ title: s
   for (const item of chemCogs) {
     const product = products.find((p: any) => p.id === item.product_id);
     if (!product) continue;
-
     const name = item.component_name || 'Chemical';
     const perUnit = item.components_per_product || 0;
     const pQty = product.quantity || 0;
     const total = perUnit * pQty;
 
     if (!chemGroups[name]) {
-      // Try to find price from chemical_prices table
       const chemPrice = chemPrices.find((cp: any) => cp.name.toLowerCase() === name.toLowerCase());
       chemGroups[name] = { name, totalQty: 0, unitCost: chemPrice?.price_per_litre_inr || item.unit_cost_inr || 0, breakdown: [] };
     }
@@ -171,7 +175,7 @@ export async function generateChemicalRfq(projectId: string): Promise<{ title: s
     const notes = g.breakdown.map(b => `${b.productName}: ${b.perUnit}L × ${b.qty} = ${b.total.toFixed(1)}L`).join('\n');
     items.push({
       item_name: g.name,
-      description: `Total finishing chemical requirement for ${project?.name || 'project'}`,
+      description: `Total finishing chemical requirement for ${project.name}`,
       quantity: +g.totalQty.toFixed(2),
       units: 'L',
       estimated_cost: g.unitCost,
@@ -181,27 +185,25 @@ export async function generateChemicalRfq(projectId: string): Promise<{ title: s
     });
   }
 
-  return { title: `Chemical RFQ — ${project?.name || 'Project'}`, items, discount };
+  return { title: `Chemical RFQ — ${project.name}`, items, discount };
 }
 
 // ---------- Hardware RFQ ----------
-export async function generateHardwareRfq(projectId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount } = await fetchProjectContext(projectId);
+export async function generateHardwareRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
-  // Filter out empty/placeholder hardware rows and zero-quantity items
-  const hwCogs = cogs.filter((c: any) => 
-    c.cogs_type === 'Hardware' && 
+  const hwCogs = cogs.filter((c: any) =>
+    c.cogs_type === 'Hardware' &&
     c.include === 'Yes' &&
-    c.component_name && 
+    c.component_name &&
     c.component_name.trim() !== '' &&
     !c.component_name.match(/^Hardware \d+$/i) &&
     !c.component_name.match(/^Accessory \d+$/i) &&
     (c.components_per_product || 0) > 0
   );
 
-  // Group by component_name
   const hwGroups: Record<string, {
     name: string; units: string; totalQty: number; unitCost: number;
     breakdown: { productName: string; perUnit: number; qty: number; total: number }[];
@@ -210,7 +212,6 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
   for (const item of hwCogs) {
     const product = products.find((p: any) => p.id === item.product_id);
     if (!product) continue;
-
     const name = item.component_name;
     const perUnit = item.components_per_product || 0;
     const pQty = product.quantity || 0;
@@ -237,23 +238,23 @@ export async function generateHardwareRfq(projectId: string): Promise<{ title: s
     });
   }
 
-  return { title: `Hardware RFQ — ${project?.name || 'Project'}`, items, discount };
+  return { title: `Hardware RFQ — ${project.name}`, items, discount };
 }
 
 // ---------- Raw Piece RFQ ----------
-export async function generateRawPieceRfq(projectId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, settings, project, discount } = await fetchProjectContext(projectId);
+export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId);
 
-  // Fetch additional data needed for full cost summary
   const productIds = products.map((p: any) => p.id);
+  const empty = { data: [] as any[] };
   const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
-    supabase.from('overhead_items').select('*').in('product_id', productIds),
-    supabase.from('non_unit_cogs').select('*').in('product_id', productIds),
-    supabase.from('shipping_items').select('*').in('product_id', productIds),
+    productIds.length ? supabase.from('overhead_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
+    productIds.length ? supabase.from('non_unit_cogs').select('*').in('product_id', productIds) : Promise.resolve(empty),
+    productIds.length ? supabase.from('shipping_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
     supabase.from('shipping_types').select('*'),
     supabase.from('labor_employees').select('*'),
     supabase.from('global_settings').select('*').limit(1).single(),
-    supabase.from('cbm_estimates').select('*').in('product_id', productIds),
+    productIds.length ? supabase.from('cbm_estimates').select('*').in('product_id', productIds) : Promise.resolve(empty),
     supabase.from('product_types').select('*'),
   ]);
 
@@ -266,9 +267,8 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
 
-  const exchangeRate = (settings && !settings.use_global_exchange_rate && settings.exchange_rate_override)
-    ? settings.exchange_rate_override
-    : (gs?.exchange_rate || 90);
+  // Phase 7: inquiry-level settings TBD — use global exchange rate.
+  const exchangeRate = gs?.exchange_rate || 90;
 
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
@@ -277,7 +277,6 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
     if (rawCogsRows.length === 0) continue;
 
-    // Compute full product cost to derive Raw Piece Budget Left
     const productCogs = cogs.filter((c: any) => c.product_id === p.id && c.include !== 'No');
     const cogsPerUnit = productCogs.reduce((sum: number, item: any) => {
       const c = calc.calcCogsItemCost({
@@ -296,7 +295,6 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
 
     const productOh = allOh.filter((o: any) => o.product_id === p.id);
 
-    // Auto-estimate Finishing & Packaging OH (mirrors costing page logic)
     const productType = productTypes.find((pt: any) => pt.id === p.product_type_id);
     const w = p.width_inch || 0;
     const d = p.depth_inch || 0;
@@ -314,7 +312,6 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;
-      // Apply auto-estimation for items flagged as auto-estimated
       if (item.is_auto_estimated) {
         if (item.labor_type === 'Finishing' && finishingMh > 0) mh = parseFloat(finishingMh.toFixed(4));
         else if (item.labor_type === 'Packaging' && packagingMh > 0) mh = parseFloat(packagingMh.toFixed(4));
@@ -330,8 +327,6 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
-    // cbmRow and finalUnitCbm already declared above
-
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
     const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
     const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
@@ -339,25 +334,19 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
       final_unit_cbm: finalUnitCbm, weight_kg: p.weight_kg || 0,
     }) : 0;
 
-    const markupPercent = (settings && settings.apply_uniform_markup && settings.default_markup_override != null)
-      ? settings.default_markup_override
-      : (p.markup_percent || 0.2);
+    // Phase 7: inquiry-level settings TBD — use the product's own markup.
+    const markupPercent = p.markup_percent || 0.2;
 
     const summary = calc.calcProductCostSummary(
       cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
       shippingPerUnit, markupPercent, exchangeRate, qty
     );
 
-    // Raw Piece Budget Left = maxTotalCostInr - product_cost_per_unit_inr
     const targetUsd = p.target_price_usd || 0;
     const maxTotalCostInr = targetUsd > 0 ? (targetUsd / (1 + markupPercent)) * exchangeRate : 0;
     const rawPieceBudgetLeft = targetUsd > 0 ? maxTotalCostInr - summary.product_cost_per_unit_inr : 0;
 
-    // Est. Cost = Raw Piece Budget Left (in ₹), blank if zero or negative
     const estCost = rawPieceBudgetLeft > 0 ? +rawPieceBudgetLeft.toFixed(2) : undefined;
-
-    // Target = ROUND((budgetLeft × (1 − discountPercent/100)) / 10) × 10
-    // discount is stored as decimal (0.10 = 10%), so discountPercent = discount * 100
     const discountPercent = discount * 100;
     const targetPrice = (estCost && estCost > 0)
       ? Math.round((rawPieceBudgetLeft * (1 - discountPercent / 100)) / 10) * 10
@@ -383,12 +372,12 @@ export async function generateRawPieceRfq(projectId: string): Promise<{ title: s
     });
   }
 
-  return { title: `Raw Piece RFQ — ${project?.name || 'Project'}`, items, discount };
+  return { title: `Raw Piece RFQ — ${project.name}`, items, discount };
 }
 
 // ---------- Create RFQ in database ----------
 export async function createRfq(
-  projectId: string,
+  inquiryId: string,
   rfqType: string,
   title: string,
   lineItems: RfqLineItem[],
@@ -400,7 +389,7 @@ export async function createRfq(
   const { data: rfq, error: rfqErr } = await (supabase as any)
     .from('vendor_rfqs')
     .insert({
-      project_id: projectId,
+      customer_rfq_id: inquiryId,
       rfq_number: rfqNumber,
       rfq_type: rfqType,
       title,

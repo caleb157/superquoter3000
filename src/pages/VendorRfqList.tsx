@@ -31,31 +31,51 @@ const VendorRfqList = () => {
   const navigate = useNavigate();
   const [rfqs, setRfqs] = useState<any[]>([]);
   const [lineItems, setLineItems] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
   const fetchAll = async () => {
-    const [rfqRes, itemRes, projRes] = await Promise.all([
+    const [rfqRes, itemRes, inqRes, custRes] = await Promise.all([
       (supabase as any).from('vendor_rfqs').select('*').order('created_at', { ascending: false }),
       (supabase as any).from('vendor_rfq_line_items').select('vendor_rfq_id, quantity, estimated_cost, target_price'),
-      supabase.from('projects').select('id, name, customer_name'),
+      (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
+      (supabase as any).from('customers').select('id, name'),
     ]);
     setRfqs(rfqRes.data || []);
     setLineItems(itemRes.data || []);
-    setProjects(projRes.data || []);
+    setInquiries(inqRes.data || []);
+    setCustomers(custRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const projectMap = useMemo(() => {
+  const inquiryMap = useMemo(() => {
     const m: Record<string, any> = {};
-    projects.forEach(p => { m[p.id] = p; });
+    inquiries.forEach(p => { m[p.id] = p; });
     return m;
-  }, [projects]);
+  }, [inquiries]);
+
+  const customerMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    customers.forEach(c => { m[c.id] = c; });
+    return m;
+  }, [customers]);
+
+  const inquiryLabel = (id: string | null | undefined) => {
+    if (!id) return '';
+    const i = inquiryMap[id];
+    return i ? `${i.rfq_number} — ${i.title || 'Untitled'}` : '';
+  };
+  const customerName = (inquiryId: string | null | undefined) => {
+    const inq = inquiryId ? inquiryMap[inquiryId] : null;
+    const c = inq?.customer_id ? customerMap[inq.customer_id] : null;
+    return c?.name || '';
+  };
 
   const itemAgg = useMemo(() => {
     const m: Record<string, { count: number; estTotal: number }> = {};
@@ -71,32 +91,31 @@ const VendorRfqList = () => {
     return rfqs.filter((r: any) => {
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (typeFilter !== 'all' && r.rfq_type !== typeFilter) return false;
-      const proj = projectMap[r.project_id];
       const searchLower = search.toLowerCase();
       if (search && !(
         (r.rfq_number || '').toLowerCase().includes(searchLower) ||
         (r.title || '').toLowerCase().includes(searchLower) ||
         (r.vendor_name || '').toLowerCase().includes(searchLower) ||
-        (proj?.name || '').toLowerCase().includes(searchLower) ||
-        (proj?.customer_name || '').toLowerCase().includes(searchLower)
+        inquiryLabel(r.customer_rfq_id).toLowerCase().includes(searchLower) ||
+        customerName(r.customer_rfq_id).toLowerCase().includes(searchLower)
       )) return false;
       return true;
     });
-  }, [rfqs, search, statusFilter, typeFilter, projectMap]);
+  }, [rfqs, search, statusFilter, typeFilter, inquiryMap, customerMap]);
 
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort({ storageKey: 'rfq-list' });
 
   const sortedRfqs = useMemo(() => sortItems(filtered, {
     rfq_number: (r: any) => r.rfq_number || '',
     rfq_type: (r: any) => r.rfq_type,
-    project: (r: any) => projectMap[r.project_id]?.name || '',
-    customer: (r: any) => projectMap[r.project_id]?.customer_name || '',
+    inquiry: (r: any) => inquiryLabel(r.customer_rfq_id),
+    customer: (r: any) => customerName(r.customer_rfq_id),
     vendor: (r: any) => r.vendor_name || '',
     items: (r: any) => itemAgg[r.id]?.count || 0,
     est_total: (r: any) => itemAgg[r.id]?.estTotal || 0,
     status: (r: any) => r.status,
     created_at: (r: any) => r.created_at,
-  }), [filtered, sortItems, projectMap, itemAgg]);
+  }), [filtered, sortItems, inquiryMap, customerMap, itemAgg]);
 
   const deleteRfq = async (rfqId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -137,7 +156,7 @@ const VendorRfqList = () => {
         ) : sortedRfqs.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
-            <p>No Vendor RFQs yet. Generate one from a project.</p>
+            <p>No Vendor RFQs yet. Generate one from an inquiry.</p>
           </CardContent></Card>
         ) : (
           <Card>
@@ -147,7 +166,7 @@ const VendorRfqList = () => {
                   <TableRow>
                     <SortableHeader label="Vendor RFQ #" column="rfq_number" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader label="Type" column="rfq_type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader label="Project" column="project" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                    <SortableHeader label="Inquiry" column="inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader label="Customer" column="customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader label="Vendor" column="vendor" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                     <SortableHeader label="Items" column="items" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
@@ -159,14 +178,13 @@ const VendorRfqList = () => {
                 </TableHeader>
                 <TableBody>
                   {sortedRfqs.map((r: any) => {
-                    const proj = projectMap[r.project_id];
                     const agg = itemAgg[r.id] || { count: 0, estTotal: 0 };
                     return (
                       <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/vendor-rfq/${r.id}`)}>
                         <TableCell className="text-xs font-medium">{r.rfq_number || '—'}</TableCell>
                         <TableCell className="text-xs">{TYPE_LABELS[r.rfq_type] || r.rfq_type}</TableCell>
-                        <TableCell className="text-xs">{proj?.name || '—'}</TableCell>
-                        <TableCell className="text-xs">{proj?.customer_name || '—'}</TableCell>
+                        <TableCell className="text-xs">{inquiryLabel(r.customer_rfq_id) || '—'}</TableCell>
+                        <TableCell className="text-xs">{customerName(r.customer_rfq_id) || '—'}</TableCell>
                         <TableCell className="text-xs">{r.vendor_name || '—'}</TableCell>
                         <TableCell className="text-xs text-right">{agg.count}</TableCell>
                         <TableCell className="text-xs text-right">{agg.estTotal > 0 ? fmt.inr(agg.estTotal) : '—'}</TableCell>

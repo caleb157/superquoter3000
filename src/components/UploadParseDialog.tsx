@@ -64,7 +64,7 @@ interface ParsedProduct {
 interface UploadParseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projectId: string;
+  inquiryId: string;
   productTypes: { id: string; name: string }[];
   onProductsCreated: () => void;
 }
@@ -76,7 +76,7 @@ type FileEntry = {
   error?: string;
 };
 
-export function UploadParseDialog({ open, onOpenChange, projectId, productTypes, onProductsCreated }: UploadParseDialogProps) {
+export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes, onProductsCreated }: UploadParseDialogProps) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parseProgress, setParseProgress] = useState('');
@@ -373,7 +373,7 @@ export function UploadParseDialog({ open, onOpenChange, projectId, productTypes,
         );
 
         const { data: prod, error } = await supabase.from('products').insert({
-          project_id: projectId,
+          customer_rfq_id: inquiryId,
           name: p.name || 'Unnamed Product',
           sku: p.sku || null,
           width_inch: p.width_inch,
