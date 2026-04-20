@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import * as calc from '@/lib/calculations';
+import { DashboardTaskWidget } from '@/components/DashboardTaskWidget';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -268,7 +269,8 @@ const Dashboard = () => {
           </CardContent></Card>
         </div>
 
-        {/* Task widget and weighted pipeline will be rebuilt in Phases 3 + 6 */}
+        <DashboardTaskWidget />
+        {/* Weighted pipeline will be rebuilt in Phase 6 */}
 
         {/* Header */}
         <div className="flex items-center gap-3">

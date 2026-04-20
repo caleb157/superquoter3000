@@ -3,8 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu, Users, Inbox, Package2 } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu, Users, Inbox, Package2, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
@@ -19,6 +20,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
@@ -53,6 +55,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <GlobalTaskQuickAdd />
             <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
               <LogOut className="h-3.5 w-3.5" />
