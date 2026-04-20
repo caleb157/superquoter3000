@@ -26,13 +26,13 @@ Deno.serve(async (req) => {
 
   // Fetch RFQ by share_token
   const { data: rfq, error: rfqErr } = await supabase
-    .from("rfqs")
+    .from("vendor_rfqs")
     .select("*")
     .eq("share_token", token)
     .single();
 
   if (rfqErr || !rfq) {
-    return new Response(JSON.stringify({ error: "RFQ not found" }), {
+    return new Response(JSON.stringify({ error: "Vendor RFQ not found" }), {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -40,9 +40,9 @@ Deno.serve(async (req) => {
 
   // Fetch line items
   const { data: items } = await supabase
-    .from("rfq_line_items")
+    .from("vendor_rfq_line_items")
     .select("*")
-    .eq("rfq_id", rfq.id)
+    .eq("vendor_rfq_id", rfq.id)
     .order("sort_order");
 
   // Fetch project info

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download, Package, FileText } from 'lucide-react';
 
-const RfqVendorView = () => {
+const VendorRfqPublicView = () => {
   const { token } = useParams<{ token: string }>();
   const [rfq, setRfq] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -39,12 +39,12 @@ const RfqVendorView = () => {
       const w = window.open(url, '_blank');
       if (w) w.onload = () => URL.revokeObjectURL(url);
     } catch {
-      console.error('Failed to load RFQ PDF');
+      console.error('Failed to load Vendor RFQ PDF');
     }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!rfq) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">RFQ not found.</div>;
+  if (!rfq) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Vendor RFQ not found.</div>;
 
   const total = items.reduce((s, item) => s + (item.target_price || 0) * (item.quantity || 0), 0);
 
@@ -58,7 +58,7 @@ const RfqVendorView = () => {
               <Package className="h-5 w-5 text-primary" />
               <span className="font-bold text-sm">DKT Costing</span>
             </div>
-            <h1 className="text-xl font-bold">{rfq.title || 'Request for Quotation'}</h1>
+            <h1 className="text-xl font-bold">{rfq.title || 'Vendor Request for Quotation'}</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
               <span>{rfq.rfq_number}</span>
               {rfq.response_due && <span>Due: {new Date(rfq.response_due).toLocaleDateString()}</span>}
@@ -138,4 +138,4 @@ const RfqVendorView = () => {
   );
 };
 
-export default RfqVendorView;
+export default VendorRfqPublicView;

@@ -15,9 +15,9 @@ import ProductCosting from "./pages/ProductCosting";
 import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
-import RfqList from "./pages/RfqList";
-import RfqEditor from "./pages/RfqEditor";
-import RfqVendorView from "./pages/RfqVendorView";
+import VendorRfqList from "./pages/VendorRfqList";
+import VendorRfqEditor from "./pages/VendorRfqEditor";
+import VendorRfqPublicView from "./pages/VendorRfqPublicView";
 import Pipeline from "./pages/Pipeline";
 import InquiriesList from "./pages/InquiriesList";
 import InquiryDetail from "./pages/InquiryDetail";
@@ -84,17 +84,17 @@ const App = () => (
                 <AssemblyDetail />
               </ProtectedRoute>
             } />
-            <Route path="/rfqs" element={
+            <Route path="/vendor-rfqs" element={
               <ProtectedRoute requireAdminOrTeam>
-                <RfqList />
+                <VendorRfqList />
               </ProtectedRoute>
             } />
-            <Route path="/rfq/:id" element={
+            <Route path="/vendor-rfq/:id" element={
               <ProtectedRoute requireAdminOrTeam>
-                <RfqEditor />
+                <VendorRfqEditor />
               </ProtectedRoute>
             } />
-            <Route path="/rfq/view/:token" element={<RfqVendorView />} />
+            <Route path="/vendor-rfq/view/:token" element={<VendorRfqPublicView />} />
             <Route path="/quotes" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Quotes />
