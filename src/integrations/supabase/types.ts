@@ -1345,155 +1345,6 @@ export type Database = {
           },
         ]
       }
-      rfq_line_items: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          dimensions: string | null
-          estimated_cost: number | null
-          id: string
-          item_name: string
-          notes: string | null
-          product_id: string | null
-          product_name: string | null
-          product_photo_url: string | null
-          quantity: number
-          rfq_id: string
-          sort_order: number | null
-          target_price: number | null
-          units: string | null
-          vendor_price: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          dimensions?: string | null
-          estimated_cost?: number | null
-          id?: string
-          item_name: string
-          notes?: string | null
-          product_id?: string | null
-          product_name?: string | null
-          product_photo_url?: string | null
-          quantity?: number
-          rfq_id: string
-          sort_order?: number | null
-          target_price?: number | null
-          units?: string | null
-          vendor_price?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          dimensions?: string | null
-          estimated_cost?: number | null
-          id?: string
-          item_name?: string
-          notes?: string | null
-          product_id?: string | null
-          product_name?: string | null
-          product_photo_url?: string | null
-          quantity?: number
-          rfq_id?: string
-          sort_order?: number | null
-          target_price?: number | null
-          units?: string | null
-          vendor_price?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rfq_line_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rfq_line_items_rfq_id_fkey"
-            columns: ["rfq_id"]
-            isOneToOne: false
-            referencedRelation: "rfqs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rfqs: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          delivery_deadline: string | null
-          discount_percent: number | null
-          id: string
-          notes: string | null
-          payment_terms: string | null
-          project_id: string | null
-          response_due: string | null
-          rfq_number: string | null
-          rfq_type: string
-          sent_at: string | null
-          share_token: string | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-          vendor_address: string | null
-          vendor_email: string | null
-          vendor_name: string | null
-          vendor_phone: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          delivery_deadline?: string | null
-          discount_percent?: number | null
-          id?: string
-          notes?: string | null
-          payment_terms?: string | null
-          project_id?: string | null
-          response_due?: string | null
-          rfq_number?: string | null
-          rfq_type: string
-          sent_at?: string | null
-          share_token?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-          vendor_address?: string | null
-          vendor_email?: string | null
-          vendor_name?: string | null
-          vendor_phone?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          delivery_deadline?: string | null
-          discount_percent?: number | null
-          id?: string
-          notes?: string | null
-          payment_terms?: string | null
-          project_id?: string | null
-          response_due?: string | null
-          rfq_number?: string | null
-          rfq_type?: string
-          sent_at?: string | null
-          share_token?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-          vendor_address?: string | null
-          vendor_email?: string | null
-          vendor_name?: string | null
-          vendor_phone?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rfqs_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       rfs: {
         Row: {
           created_at: string
@@ -1697,6 +1548,155 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_rfq_line_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          dimensions: string | null
+          estimated_cost: number | null
+          id: string
+          item_name: string
+          notes: string | null
+          product_id: string | null
+          product_name: string | null
+          product_photo_url: string | null
+          quantity: number
+          sort_order: number | null
+          target_price: number | null
+          units: string | null
+          vendor_price: number | null
+          vendor_rfq_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          dimensions?: string | null
+          estimated_cost?: number | null
+          id?: string
+          item_name: string
+          notes?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_photo_url?: string | null
+          quantity?: number
+          sort_order?: number | null
+          target_price?: number | null
+          units?: string | null
+          vendor_price?: number | null
+          vendor_rfq_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          dimensions?: string | null
+          estimated_cost?: number | null
+          id?: string
+          item_name?: string
+          notes?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_photo_url?: string | null
+          quantity?: number
+          sort_order?: number | null
+          target_price?: number | null
+          units?: string | null
+          vendor_price?: number | null
+          vendor_rfq_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfq_line_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfq_line_items_rfq_id_fkey"
+            columns: ["vendor_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_rfqs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          delivery_deadline: string | null
+          discount_percent: number | null
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          project_id: string | null
+          response_due: string | null
+          rfq_number: string | null
+          rfq_type: string
+          sent_at: string | null
+          share_token: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          vendor_address: string | null
+          vendor_email: string | null
+          vendor_name: string | null
+          vendor_phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          delivery_deadline?: string | null
+          discount_percent?: number | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string | null
+          response_due?: string | null
+          rfq_number?: string | null
+          rfq_type: string
+          sent_at?: string | null
+          share_token?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          vendor_address?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          delivery_deadline?: string | null
+          discount_percent?: number | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string | null
+          response_due?: string | null
+          rfq_number?: string | null
+          rfq_type?: string
+          sent_at?: string | null
+          share_token?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          vendor_address?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
+          vendor_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfqs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address: string | null
@@ -1803,7 +1803,7 @@ export type Database = {
         }[]
         SetofOptions: {
           from: "*"
-          to: "rfqs"
+          to: "vendor_rfqs"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -1822,15 +1822,15 @@ export type Database = {
           product_name: string | null
           product_photo_url: string | null
           quantity: number
-          rfq_id: string
           sort_order: number | null
           target_price: number | null
           units: string | null
           vendor_price: number | null
+          vendor_rfq_id: string
         }[]
         SetofOptions: {
           from: "*"
-          to: "rfq_line_items"
+          to: "vendor_rfq_line_items"
           isOneToOne: false
           isSetofReturn: true
         }
