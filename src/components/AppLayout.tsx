@@ -13,9 +13,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
-    { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
+    { to: '/', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
-    { to: '/inquiries', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
