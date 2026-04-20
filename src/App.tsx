@@ -49,9 +49,6 @@ const App = () => (
                 <Customers />
               </ProtectedRoute>
             } />
-            <Route path="/inquiries" element={
-              <ProtectedRoute requireAdminOrTeam><InquiriesList /></ProtectedRoute>
-            } />
             <Route path="/inquiry/:id" element={
               <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
             } />
