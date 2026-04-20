@@ -39,6 +39,11 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route path="/inquiries" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             <Route path="/settings" element={
               <ProtectedRoute requireAdmin>
                 <Settings />
