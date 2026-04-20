@@ -23,18 +23,16 @@ const STATUS_TABS = [
   { value: 'churned', label: 'Churned' },
 ];
 
-const PROJECT_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  costing: 'bg-amber-100 text-amber-700',
-  quoted: 'bg-blue-100 text-blue-700',
-  po_confirmed: 'bg-emerald-100 text-emerald-700',
-  archived: 'bg-gray-200 text-gray-500',
+const INQUIRY_STATUS_COLORS: Record<string, string> = {
+  active: 'bg-blue-100 text-blue-700',
+  paused: 'bg-amber-100 text-amber-700',
+  cancelled: 'bg-gray-200 text-gray-600',
+  po: 'bg-emerald-100 text-emerald-700',
 };
 
 const Customers = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -48,26 +46,24 @@ const Customers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
   const fetchAll = async () => {
-    const [custRes, projRes, inqRes] = await Promise.all([
+    const [custRes, inqRes] = await Promise.all([
       (supabase as any).from('customers').select('*').order('name'),
-      supabase.from('projects').select('id, name, status, customer_id, customer_name, updated_at').order('updated_at', { ascending: false }),
       (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id, status, received_date').order('received_date', { ascending: false }),
     ]);
     setCustomers(custRes.data || []);
-    setProjects(projRes.data || []);
     setInquiries(inqRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const projectsByCustomer = useMemo(() => {
+  const inquiriesByCustomer = useMemo(() => {
     const map: Record<string, any[]> = {};
-    projects.forEach(p => {
-      if (p.customer_id) (map[p.customer_id] ||= []).push(p);
+    inquiries.forEach(i => {
+      if (i.customer_id) (map[i.customer_id] ||= []).push(i);
     });
     return map;
-  }, [projects]);
+  }, [inquiries]);
 
   const inquiriesByCustomer = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -114,7 +110,6 @@ const Customers = () => {
 
   // Detail view
   if (selectedCustomer) {
-    const custProjects = projectsByCustomer[selectedCustomer.id] || [];
     const custInquiries = inquiriesByCustomer[selectedCustomer.id] || [];
     return (
       <AppLayout>
@@ -164,7 +159,7 @@ const Customers = () => {
                     <TableRow key={i.id} className="cursor-pointer" onClick={() => navigate(`/inquiry/${i.id}`)}>
                       <TableCell className="font-mono text-xs">{i.rfq_number}</TableCell>
                       <TableCell className="text-sm">{i.title || '—'}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px] capitalize">{i.status}</Badge></TableCell>
+                      <TableCell><Badge className={INQUIRY_STATUS_COLORS[i.status] || ''} variant="secondary">{i.status}</Badge></TableCell>
                       <TableCell className="text-xs text-right text-muted-foreground">
                         {new Date(i.received_date).toLocaleDateString()}
                       </TableCell>
@@ -175,31 +170,6 @@ const Customers = () => {
             </CardContent></Card>
           )}
 
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-6">
-            Projects ({custProjects.length})
-          </h2>
-          {custProjects.length === 0 ? (
-            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No projects yet.</CardContent></Card>
-          ) : (
-            <Card><CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead className="text-xs">Project</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs text-right">Updated</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {custProjects.map((p: any) => (
-                    <TableRow key={p.id} className="cursor-pointer" onClick={() => navigate(`/project/${p.id}`)}>
-                      <TableCell className="font-medium text-sm">{p.name}</TableCell>
-                      <TableCell><Badge className={PROJECT_STATUS_COLORS[p.status] || ''} variant="secondary">{p.status.replace('_', ' ')}</Badge></TableCell>
-                      <TableCell className="text-xs text-right text-muted-foreground">{new Date(p.updated_at).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent></Card>
-          )}
         </div>
       </AppLayout>
     );
@@ -279,7 +249,6 @@ const Customers = () => {
                     <TableHead className="text-xs">Email</TableHead>
                     <TableHead className="text-xs">Source</TableHead>
                     <TableHead className="text-xs text-right">Inquiries</TableHead>
-                    <TableHead className="text-xs text-right">Projects</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -291,7 +260,6 @@ const Customers = () => {
                       <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
                       <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
-                      <TableCell className="text-xs text-right">{(projectsByCustomer[c.id] || []).length}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
