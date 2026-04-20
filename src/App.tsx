@@ -18,7 +18,6 @@ import Quotes from "./pages/Quotes";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
-import InquiriesList from "./pages/InquiriesList";
 import InquiryDetail from "./pages/InquiryDetail";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
@@ -49,9 +48,6 @@ const App = () => (
               <ProtectedRoute requireAdminOrTeam>
                 <Customers />
               </ProtectedRoute>
-            } />
-            <Route path="/inquiries" element={
-              <ProtectedRoute requireAdminOrTeam><InquiriesList /></ProtectedRoute>
             } />
             <Route path="/inquiry/:id" element={
               <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu, Users, Inbox, Package2, CheckSquare } from 'lucide-react';
+import { Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu, Users, Inbox, Package2, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
 
@@ -13,9 +13,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
-    { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
+    { to: '/', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
-    { to: '/inquiries', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
