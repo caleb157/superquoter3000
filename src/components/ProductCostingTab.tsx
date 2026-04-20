@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,8 +32,9 @@ const AutoCell = ({ children, isAuto }: { children: React.ReactNode; isAuto?: bo
   <span className={isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}>{children}</span>
 );
 
-const ProductCosting = () => {
-  const { id } = useParams<{ id: string }>();
+type Props = { productId: string; onProductUpdated?: () => void };
+
+export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const navigate = useNavigate();
 
   // Data state
@@ -69,8 +69,9 @@ const ProductCosting = () => {
       if (!id) return;
       const { error } = await (supabase as any).from('products').update(updates).eq('id', id);
       if (error) toast.error('Save failed: ' + error.message);
+      else onProductUpdated?.();
     }, 500);
-  }, [id]);
+  }, [id, onProductUpdated]);
 
   const updateProduct = (field: string, value: any) => {
     setProduct((p: any) => ({ ...p, [field]: value }));
@@ -551,29 +552,10 @@ const ProductCosting = () => {
     }
   };
 
-  if (!product) return <AppLayout><div className="text-center py-12 text-muted-foreground">Loading product...</div></AppLayout>;
+  if (!product) return <div className="text-center py-12 text-muted-foreground">Loading product...</div>;
 
   return (
-    <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-2">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold truncate">{product.name}</h1>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <Link to={product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
-            </div>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            Cost: {fmt.usd(summary.product_cost_per_unit_usd)} | Price: {fmt.usd(summary.unit_price_usd)}
-          </span>
-        </div>
-
+    <div className="space-y-2">
         {/* Project-level override banner */}
         {projectSettings && (
           (() => {
@@ -1429,9 +1411,7 @@ const ProductCosting = () => {
             </div>
           </CollapsibleContent>
         </Collapsible>
-      </div>
-    </AppLayout>
+    </div>
   );
-};
+}
 
-export default ProductCosting;
