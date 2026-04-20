@@ -95,7 +95,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleSetStage = async (track: StageTrack, stage: string | null) => {
     const ids = Array.from(selected);
     const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
-    const { error } = await supabase.from('products').update({ [col]: stage }).in('id', ids);
+    const { error } = await (supabase as any).from('products').update({ [col]: stage }).in('id', ids);
     if (error) { toast.error(error.message); return; }
     toast.success(`Updated ${ids.length} product${ids.length === 1 ? '' : 's'}`);
     setRefresh(r => r + 1);
@@ -105,7 +105,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleSetSinglePill = async (productId: string, track: StageTrack, stage: string | null) => {
     const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, [col]: stage } : p));
-    const { error } = await supabase.from('products').update({ [col]: stage }).eq('id', productId);
+    const { error } = await (supabase as any).from('products').update({ [col]: stage }).eq('id', productId);
     if (error) { toast.error(error.message); setRefresh(r => r + 1); return; }
     onChange();
   };
