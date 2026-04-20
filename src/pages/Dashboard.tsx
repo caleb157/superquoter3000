@@ -4,7 +4,6 @@ import { ArrowUpDown, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
-import { DashboardTaskWidget } from '@/components/DashboardTaskWidget';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +34,6 @@ const Dashboard = () => {
   const [cbmData, setCbmData] = useState<any[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
-  const [pipelineItems, setPipelineItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<string>('updated_at');
   const [sortAsc, setSortAsc] = useState(false);
@@ -60,7 +58,7 @@ const Dashboard = () => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
   const fetchAll = async () => {
-    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes, piRes] = await Promise.all([
+    const [projRes, prodRes, cbmRes, gsRes, custRes, empRes, stRes] = await Promise.all([
       supabase.from('projects').select('*').order('updated_at', { ascending: false }),
       supabase.from('products').select('*'),
       supabase.from('cbm_estimates').select('product_id, final_unit_cbm, total_cbm'),
@@ -68,14 +66,12 @@ const Dashboard = () => {
       (supabase as any).from('customers').select('*').order('name'),
       supabase.from('labor_employees').select('*'),
       supabase.from('shipping_types').select('*'),
-      supabase.from('pipeline_items').select('project_id, rfq_date, initial_quote_date, status'),
     ]);
     if (projRes.data) setProjects(projRes.data);
     if (prodRes.data) setProducts(prodRes.data);
     if (cbmRes.data) setCbmData(cbmRes.data);
     if (gsRes.data) setGlobalSettings(gsRes.data);
     if (custRes.data) setCustomers(custRes.data);
-    if (piRes.data) setPipelineItems(piRes.data);
     if (empRes.data) setEmployees(empRes.data);
     if (stRes.data) setShippingTypes(stRes.data);
 
@@ -107,19 +103,7 @@ const Dashboard = () => {
   }, [cbmData]);
   const customerMap = useMemo(() => Object.fromEntries(customers.map((c: any) => [c.id, c])), [customers]);
 
-  // Earliest pending RFQ date per project (items awaiting quote)
-  const quoteDeadlineMap = useMemo(() => {
-    const m: Record<string, string | null> = {};
-    pipelineItems.forEach((pi: any) => {
-      if (!pi.project_id || pi.status === 'done' || pi.status === 'cancelled') return;
-      if (pi.rfq_date && !pi.initial_quote_date) {
-        if (!m[pi.project_id] || pi.rfq_date < m[pi.project_id]!) {
-          m[pi.project_id] = pi.rfq_date;
-        }
-      }
-    });
-    return m;
-  }, [pipelineItems]);
+  const quoteDeadlineMap = useMemo(() => ({} as Record<string, string | null>), []);
 
   // Compute per-project aggregates with full cost calculations
   const projectAggregates = useMemo(() => {
@@ -259,13 +243,6 @@ const Dashboard = () => {
     else { setSortField(field); setSortAsc(true); }
   };
 
-  // Pipeline value = sum of all revenue for active projects
-  const pipelineValue = useMemo(() => {
-    return projects
-      .filter(p => ['costing', 'quoted'].includes(p.status))
-      .reduce((sum, p) => sum + (projectAggregates[p.id]?.totalRevenueUsd || 0), 0);
-  }, [projects, projectAggregates]);
-
   const stats = {
     total: projects.length,
     active: projects.filter(p => ['costing', 'quoted'].includes(p.status)).length,
@@ -276,7 +253,7 @@ const Dashboard = () => {
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Card><CardContent className="pt-4 pb-3">
             <div className="text-2xl font-bold">{stats.total}</div>
             <div className="text-xs text-muted-foreground">Total Projects</div>
@@ -289,13 +266,9 @@ const Dashboard = () => {
             <div className="text-2xl font-bold text-emerald-600">{stats.confirmed}</div>
             <div className="text-xs text-muted-foreground">PO Confirmed</div>
           </CardContent></Card>
-          <Card><CardContent className="pt-4 pb-3">
-            <div className="text-2xl font-bold text-primary">{pipelineValue > 0 ? fmt.usd(pipelineValue) : '—'}</div>
-            <div className="text-xs text-muted-foreground">Pipeline Value (USD)</div>
-          </CardContent></Card>
         </div>
 
-        <DashboardTaskWidget />
+        {/* Task widget and weighted pipeline will be rebuilt in Phases 3 + 6 */}
 
         {/* Header */}
         <div className="flex items-center gap-3">

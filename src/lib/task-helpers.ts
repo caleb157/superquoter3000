@@ -1,8 +1,4 @@
-import { format, isToday, isTomorrow, isPast, isThisWeek, startOfDay } from 'date-fns';
-import type { Tables } from '@/integrations/supabase/types';
-
-export type PipelineTask = Tables<'pipeline_tasks'>;
-export type PipelineActivity = Tables<'pipeline_activity'>;
+import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 
 export function formatDueDate(dateStr: string | null): { text: string; isOverdue: boolean } {
   if (!dateStr) return { text: 'No date', isOverdue: false };
@@ -18,7 +14,7 @@ export function formatDueDate(dateStr: string | null): { text: string; isOverdue
 }
 
 export function priorityColor(p: string): string {
-  if (p === 'high') return 'bg-red-500';
+  if (p === 'high' || p === 'urgent') return 'bg-red-500';
   if (p === 'low') return 'bg-muted-foreground/30';
   return 'bg-amber-400';
 }
