@@ -683,13 +683,13 @@ export type Database = {
       product_assemblies: {
         Row: {
           created_at: string | null
+          customer_rfq_id: string | null
           id: string
           markup_percent: number | null
           moq: number | null
           name: string
           notes: string | null
           photo_url: string | null
-          project_id: string
           quantity: number
           sku: string | null
           target_price_usd: number | null
@@ -697,13 +697,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          customer_rfq_id?: string | null
           id?: string
           markup_percent?: number | null
           moq?: number | null
           name: string
           notes?: string | null
           photo_url?: string | null
-          project_id: string
           quantity?: number
           sku?: string | null
           target_price_usd?: number | null
@@ -711,13 +711,13 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          customer_rfq_id?: string | null
           id?: string
           markup_percent?: number | null
           moq?: number | null
           name?: string
           notes?: string | null
           photo_url?: string | null
-          project_id?: string
           quantity?: number
           sku?: string | null
           target_price_usd?: number | null
@@ -725,10 +725,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "product_assemblies_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "product_assemblies_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "customer_rfqs"
             referencedColumns: ["id"]
           },
         ]
@@ -868,7 +868,6 @@ export type Database = {
           percent_wood: number | null
           photo_url: string | null
           product_type_id: string | null
-          project_id: string | null
           quantity: number
           quote_stage: string | null
           revenue_done: boolean | null
@@ -904,7 +903,6 @@ export type Database = {
           percent_wood?: number | null
           photo_url?: string | null
           product_type_id?: string | null
-          project_id?: string | null
           quantity?: number
           quote_stage?: string | null
           revenue_done?: boolean | null
@@ -940,7 +938,6 @@ export type Database = {
           percent_wood?: number | null
           photo_url?: string | null
           product_type_id?: string | null
-          project_id?: string | null
           quantity?: number
           quote_stage?: string | null
           revenue_done?: boolean | null
@@ -967,13 +964,6 @@ export type Database = {
             columns: ["product_type_id"]
             isOneToOne: false
             referencedRelation: "product_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1005,194 +995,6 @@ export type Database = {
         }
         Relationships: []
       }
-      project_invitations: {
-        Row: {
-          accepted: boolean | null
-          created_at: string | null
-          email: string
-          id: string
-          project_id: string | null
-          role: string | null
-          token: string | null
-        }
-        Insert: {
-          accepted?: boolean | null
-          created_at?: string | null
-          email: string
-          id?: string
-          project_id?: string | null
-          role?: string | null
-          token?: string | null
-        }
-        Update: {
-          accepted?: boolean | null
-          created_at?: string | null
-          email?: string
-          id?: string
-          project_id?: string | null
-          role?: string | null
-          token?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_invitations_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_settings: {
-        Row: {
-          apply_uniform_markup: boolean | null
-          created_at: string | null
-          customer_logo_url: string | null
-          default_markup_override: number | null
-          exchange_rate_override: number | null
-          id: string
-          project_id: string
-          quote_currency: string | null
-          quote_notes: string | null
-          quote_title: string | null
-          quote_validity_days: number | null
-          quoting_entity_id: string | null
-          rfq_discount_percent: number | null
-          shipping_type_override: string | null
-          show_cbm_on_quote: boolean | null
-          show_dimensions_on_quote: boolean | null
-          show_photos_on_quote: boolean | null
-          show_sku_on_quote: boolean | null
-          show_weight_on_quote: boolean | null
-          updated_at: string | null
-          use_global_exchange_rate: boolean | null
-          use_global_shipping: boolean | null
-        }
-        Insert: {
-          apply_uniform_markup?: boolean | null
-          created_at?: string | null
-          customer_logo_url?: string | null
-          default_markup_override?: number | null
-          exchange_rate_override?: number | null
-          id?: string
-          project_id: string
-          quote_currency?: string | null
-          quote_notes?: string | null
-          quote_title?: string | null
-          quote_validity_days?: number | null
-          quoting_entity_id?: string | null
-          rfq_discount_percent?: number | null
-          shipping_type_override?: string | null
-          show_cbm_on_quote?: boolean | null
-          show_dimensions_on_quote?: boolean | null
-          show_photos_on_quote?: boolean | null
-          show_sku_on_quote?: boolean | null
-          show_weight_on_quote?: boolean | null
-          updated_at?: string | null
-          use_global_exchange_rate?: boolean | null
-          use_global_shipping?: boolean | null
-        }
-        Update: {
-          apply_uniform_markup?: boolean | null
-          created_at?: string | null
-          customer_logo_url?: string | null
-          default_markup_override?: number | null
-          exchange_rate_override?: number | null
-          id?: string
-          project_id?: string
-          quote_currency?: string | null
-          quote_notes?: string | null
-          quote_title?: string | null
-          quote_validity_days?: number | null
-          quoting_entity_id?: string | null
-          rfq_discount_percent?: number | null
-          shipping_type_override?: string | null
-          show_cbm_on_quote?: boolean | null
-          show_dimensions_on_quote?: boolean | null
-          show_photos_on_quote?: boolean | null
-          show_sku_on_quote?: boolean | null
-          show_weight_on_quote?: boolean | null
-          updated_at?: string | null
-          use_global_exchange_rate?: boolean | null
-          use_global_shipping?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_settings_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: true
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_settings_quoting_entity_id_fkey"
-            columns: ["quoting_entity_id"]
-            isOneToOne: false
-            referencedRelation: "company_entities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      projects: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          customer_email: string | null
-          customer_id: string | null
-          customer_logo_url: string | null
-          customer_name: string | null
-          customer_rfq_id: string | null
-          id: string
-          name: string
-          rfq_discount_percent: number | null
-          status: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          customer_email?: string | null
-          customer_id?: string | null
-          customer_logo_url?: string | null
-          customer_name?: string | null
-          customer_rfq_id?: string | null
-          id?: string
-          name: string
-          rfq_discount_percent?: number | null
-          status?: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          customer_email?: string | null
-          customer_id?: string | null
-          customer_logo_url?: string | null
-          customer_name?: string | null
-          customer_rfq_id?: string | null
-          id?: string
-          name?: string
-          rfq_discount_percent?: number | null
-          status?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "projects_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "projects_customer_rfq_id_fkey"
-            columns: ["customer_rfq_id"]
-            isOneToOne: false
-            referencedRelation: "customer_rfqs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       quote_snapshots: {
         Row: {
           approved_at: string | null
@@ -1205,7 +1007,6 @@ export type Database = {
           id: string
           notes: string | null
           products: Json | null
-          project_id: string | null
           quote_number: string | null
           sent_at: string | null
           share_token: string | null
@@ -1225,7 +1026,6 @@ export type Database = {
           id?: string
           notes?: string | null
           products?: Json | null
-          project_id?: string | null
           quote_number?: string | null
           sent_at?: string | null
           share_token?: string | null
@@ -1245,7 +1045,6 @@ export type Database = {
           id?: string
           notes?: string | null
           products?: Json | null
-          project_id?: string | null
           quote_number?: string | null
           sent_at?: string | null
           share_token?: string | null
@@ -1267,13 +1066,6 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "company_entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quote_snapshots_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1643,12 +1435,12 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          customer_rfq_id: string | null
           delivery_deadline: string | null
           discount_percent: number | null
           id: string
           notes: string | null
           payment_terms: string | null
-          project_id: string | null
           response_due: string | null
           rfq_number: string | null
           rfq_type: string
@@ -1665,12 +1457,12 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          customer_rfq_id?: string | null
           delivery_deadline?: string | null
           discount_percent?: number | null
           id?: string
           notes?: string | null
           payment_terms?: string | null
-          project_id?: string | null
           response_due?: string | null
           rfq_number?: string | null
           rfq_type: string
@@ -1687,12 +1479,12 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          customer_rfq_id?: string | null
           delivery_deadline?: string | null
           discount_percent?: number | null
           id?: string
           notes?: string | null
           payment_terms?: string | null
-          project_id?: string | null
           response_due?: string | null
           rfq_number?: string | null
           rfq_type?: string
@@ -1708,10 +1500,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "rfqs_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "vendor_rfqs_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "customer_rfqs"
             referencedColumns: ["id"]
           },
         ]
@@ -1801,12 +1593,12 @@ export type Database = {
         Returns: {
           created_at: string | null
           created_by: string | null
+          customer_rfq_id: string | null
           delivery_deadline: string | null
           discount_percent: number | null
           id: string
           notes: string | null
           payment_terms: string | null
-          project_id: string | null
           response_due: string | null
           rfq_number: string | null
           rfq_type: string
@@ -1862,10 +1654,6 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_team: { Args: { _user_id: string }; Returns: boolean }
-      is_guest_for_project: {
-        Args: { _project_id: string; _user_id: string }
-        Returns: boolean
-      }
     }
     Enums: {
       app_role: "admin" | "team" | "guest"
