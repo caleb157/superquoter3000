@@ -3,10 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, GitBranch, Menu, Users, Inbox, Package2 } from 'lucide-react';
+import { LayoutDashboard, Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu, Users, Inbox, Package2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { QuickAddTask } from '@/components/QuickAddTask';
-import { TaskOverdueBanner } from '@/components/TaskOverdueBanner';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
@@ -17,7 +15,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/', label: 'Projects', icon: LayoutDashboard, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/inquiries', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
-    { to: '/pipeline', label: 'Pipeline', icon: GitBranch, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
@@ -56,7 +53,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
-            <QuickAddTask />
             <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut}>
               <LogOut className="h-3.5 w-3.5" />
@@ -93,8 +89,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </div>
       </header>
-
-      <TaskOverdueBanner />
 
       <main className="p-4">
         {children}

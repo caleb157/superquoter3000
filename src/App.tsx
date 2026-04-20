@@ -18,7 +18,6 @@ import Quotes from "./pages/Quotes";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
-import Pipeline from "./pages/Pipeline";
 import InquiriesList from "./pages/InquiriesList";
 import InquiryDetail from "./pages/InquiryDetail";
 import SamplesList from "./pages/SamplesList";
@@ -43,11 +42,6 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute requireAdmin>
                 <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/pipeline" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Pipeline />
               </ProtectedRoute>
             } />
             <Route path="/customers" element={
