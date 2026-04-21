@@ -2,12 +2,12 @@
 
 export const fmt = {
   inr: (v: number | null | undefined) => {
-    if (v == null || isNaN(v)) return '₹0.00';
-    return `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (v == null || isNaN(v)) return '₹0.000';
+    return `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`;
   },
   usd: (v: number | null | undefined) => {
-    if (v == null || isNaN(v)) return '$0.00';
-    return `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (v == null || isNaN(v)) return '$0.000';
+    return `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`;
   },
   pct: (v: number | null | undefined) => {
     if (v == null || isNaN(v)) return '0.0%';
