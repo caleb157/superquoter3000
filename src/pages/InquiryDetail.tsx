@@ -255,6 +255,7 @@ export default function InquiryDetail() {
           </TabsContent>
 
           <TabsContent value="tasks" className="mt-3 space-y-3">
+            <div className="flex justify-end">
               <Button size="sm" className="gap-1.5" onClick={() => setTaskDialogOpen(true)}>
                 <Plus className="h-3.5 w-3.5" /> Add Task
               </Button>
