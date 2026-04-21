@@ -126,16 +126,16 @@ export default function CustomerDetail() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-5">
+      <div className="max-w-5xl mx-auto space-y-4">
         <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate('/customers')}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Customers
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
 
         {/* Header */}
         <div className="flex items-start gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">
                 {customer.name || customer.company || 'Customer'}
               </h1>
               <LeadStatusBadge status={customer.lead_status} />
@@ -143,11 +143,11 @@ export default function CustomerDetail() {
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-              {customer.company && customer.company !== customer.name && <span>{customer.company}</span>}
-              {customer.email && <a href={`mailto:${customer.email}`} className="hover:text-foreground">{customer.email}</a>}
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs sm:text-sm text-muted-foreground">
+              {customer.company && customer.company !== customer.name && <span className="truncate max-w-full">{customer.company}</span>}
+              {customer.email && <a href={`mailto:${customer.email}`} className="hover:text-foreground truncate max-w-full">{customer.email}</a>}
               {customer.phone && <span>{customer.phone}</span>}
-              {customer.source && <span>· Source: {customer.source}</span>}
+              {customer.source && <span>· {customer.source}</span>}
               {customer.linkedin_url && (
                 <a href={customer.linkedin_url} target="_blank" rel="noreferrer" className="hover:text-foreground">LinkedIn</a>
               )}
@@ -156,24 +156,24 @@ export default function CustomerDetail() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatCard icon={<FileText className="h-4 w-4" />} label="Total Inquiries" value={totalInquiries} sub="Excludes cancelled" />
-          <StatCard icon={<ListTodo className="h-4 w-4" />} label="Open Tasks" value={openTaskCount} sub="Direct to customer" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          <StatCard icon={<FileText className="h-4 w-4" />} label="Inquiries" value={totalInquiries} sub="Excl. cancelled" />
+          <StatCard icon={<ListTodo className="h-4 w-4" />} label="Open Tasks" value={openTaskCount} />
           <StatCard
             icon={<Clock className="h-4 w-4" />}
-            label="Last Contacted"
+            label="Last contact"
             value={customer.last_contacted_at ? formatDistanceToNow(new Date(customer.last_contacted_at), { addSuffix: true }) : '—'}
           />
         </div>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="inquiries" className="text-xs gap-1.5">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="inquiries" className="text-xs gap-1.5 flex-1 sm:flex-initial">
               Inquiries
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{inquiries.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
+            <TabsTrigger value="tasks" className="text-xs flex-1 sm:flex-initial">Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="inquiries" className="mt-3">
@@ -187,43 +187,65 @@ export default function CustomerDetail() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs w-[120px]">#</TableHead>
-                        <TableHead className="text-xs">Title</TableHead>
-                        <TableHead className="text-xs w-[100px]">Status</TableHead>
-                        <TableHead className="text-xs text-right w-[90px]">Products</TableHead>
-                        <TableHead className="text-xs text-right w-[120px]">Updated</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {inquiries.map(i => (
-                        <TableRow
-                          key={i.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/inquiry/${i.id}`)}
-                        >
-                          <TableCell className="font-mono text-xs">{i.rfq_number}</TableCell>
-                          <TableCell className="text-sm">
-                            {i.title || <span className="italic text-muted-foreground">Untitled</span>}
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium capitalize',
-                              INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
-                          </TableCell>
-                          <TableCell className="text-xs text-right tabular-nums">{productCounts[i.id] ?? 0}</TableCell>
-                          <TableCell className="text-xs text-right text-muted-foreground">
-                            {formatDistanceToNow(new Date(i.updated_at), { addSuffix: true })}
-                          </TableCell>
+              <>
+                <Card className="hidden md:block">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-[120px]">#</TableHead>
+                          <TableHead className="text-xs">Title</TableHead>
+                          <TableHead className="text-xs w-[100px]">Status</TableHead>
+                          <TableHead className="text-xs text-right w-[90px]">Products</TableHead>
+                          <TableHead className="text-xs text-right w-[120px]">Updated</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {inquiries.map(i => (
+                          <TableRow
+                            key={i.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => navigate(`/inquiry/${i.id}`)}
+                          >
+                            <TableCell className="font-mono text-xs">{i.rfq_number}</TableCell>
+                            <TableCell className="text-sm">
+                              {i.title || <span className="italic text-muted-foreground">Untitled</span>}
+                            </TableCell>
+                            <TableCell>
+                              <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium capitalize',
+                                INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                            </TableCell>
+                            <TableCell className="text-xs text-right tabular-nums">{productCounts[i.id] ?? 0}</TableCell>
+                            <TableCell className="text-xs text-right text-muted-foreground">
+                              {formatDistanceToNow(new Date(i.updated_at), { addSuffix: true })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+                <div className="md:hidden space-y-2">
+                  {inquiries.map(i => (
+                    <Card key={i.id} className="cursor-pointer active:bg-accent/50" onClick={() => navigate(`/inquiry/${i.id}`)}>
+                      <CardContent className="p-3 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-[11px] text-muted-foreground">{i.rfq_number}</div>
+                            <div className="text-sm font-medium truncate">{i.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
+                          </div>
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium capitalize shrink-0',
+                            INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>{productCounts[i.id] ?? 0} product{(productCounts[i.id] ?? 0) === 1 ? '' : 's'}</span>
+                          <span>{formatDistanceToNow(new Date(i.updated_at), { addSuffix: true })}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             )}
             {inquiries.length > 0 && (
               <div className="mt-3 flex justify-end">

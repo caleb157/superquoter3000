@@ -56,15 +56,24 @@ export default function Tasks() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Tasks</h1>
           <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> New Task
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
           </Button>
         </div>
 
         <Card>
           <CardContent className="pt-4 space-y-3">
-            <div className="flex flex-wrap gap-2 items-center">
+            {/* Status tabs always on top */}
+            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+              <TabsList className="h-9 w-full sm:w-auto">
+                <TabsTrigger value="open" className="text-xs flex-1 sm:flex-initial">Open</TabsTrigger>
+                <TabsTrigger value="done" className="text-xs flex-1 sm:flex-initial">Done</TabsTrigger>
+                <TabsTrigger value="all" className="text-xs flex-1 sm:flex-initial">All</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
               <Select value={filterInquiry} onValueChange={setFilterInquiry}>
-                <SelectTrigger className="h-9 text-sm w-56"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm lg:w-56"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All inquiries</SelectItem>
                   {inquiries.map(i => (
@@ -74,7 +83,7 @@ export default function Tasks() {
               </Select>
 
               <Select value={filterProduct} onValueChange={setFilterProduct} disabled={filterInquiry === 'all'}>
-                <SelectTrigger className="h-9 text-sm w-48"><SelectValue placeholder="All products" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm lg:w-48"><SelectValue placeholder="All products" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All products</SelectItem>
                   {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -82,7 +91,7 @@ export default function Tasks() {
               </Select>
 
               <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                <SelectTrigger className="h-9 text-sm w-36"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All assignees</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -91,7 +100,7 @@ export default function Tasks() {
               </Select>
 
               <Select value={filterDue} onValueChange={(v) => setFilterDue(v as DueWindow)}>
-                <SelectTrigger className="h-9 text-sm w-36"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All dates</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
@@ -101,21 +110,13 @@ export default function Tasks() {
               </Select>
 
               <Select value={sort} onValueChange={(v) => setSort(v as any)}>
-                <SelectTrigger className="h-9 text-sm w-36"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="due_date">Due date</SelectItem>
                   <SelectItem value="priority">Priority</SelectItem>
                   <SelectItem value="created_at">Newest</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)} className="ml-auto">
-                <TabsList className="h-9">
-                  <TabsTrigger value="open" className="text-xs">Open</TabsTrigger>
-                  <TabsTrigger value="done" className="text-xs">Done</TabsTrigger>
-                  <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                </TabsList>
-              </Tabs>
             </div>
 
             <TaskList
