@@ -1058,16 +1058,28 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                 </TableBody>
               </Table>
             </div>
-            <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px] gap-1"
-              onClick={async () => {
-                const { data } = await (supabase as any).from('cogs_items').insert({
-                  product_id: id, cogs_type: 'Raw Piece', component_name: 'New Item',
-                  sort_order: cogsItems.length,
-                }).select().single();
-                if (data) setCogsItems([...cogsItems, data]);
-              }}>
-              <Plus className="h-3 w-3" /> Add Row
-            </Button>
+            <div className="flex gap-1 mt-1">
+              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1"
+                onClick={async () => {
+                  const { data } = await (supabase as any).from('cogs_items').insert({
+                    product_id: id, cogs_type: 'Raw Piece', component_name: 'New Item',
+                    sort_order: cogsItems.length,
+                  }).select().single();
+                  if (data) setCogsItems([...cogsItems, data]);
+                }}>
+                <Plus className="h-3 w-3" /> Add Row
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1"
+                onClick={async () => {
+                  const { data } = await (supabase as any).from('cogs_items').insert({
+                    product_id: id, cogs_type: 'Hardware', component_name: '',
+                    units: 'pc', sort_order: cogsItems.length,
+                  }).select().single();
+                  if (data) setCogsItems([...cogsItems, data]);
+                }}>
+                <Plus className="h-3 w-3" /> Add Hardware
+              </Button>
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
