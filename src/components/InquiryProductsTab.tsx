@@ -80,6 +80,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
 
   useEffect(() => {
