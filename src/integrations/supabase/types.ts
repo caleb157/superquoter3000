@@ -1643,6 +1643,27 @@ export type Database = {
       }
     }
     Functions: {
+      admin_list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
+      admin_remove_user_role: {
+        Args: { _target_user_id: string }
+        Returns: undefined
+      }
+      admin_set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
       generate_crfq_number: { Args: never; Returns: string }
       generate_rfs_number: { Args: never; Returns: string }
       get_company_entities_safe: {
