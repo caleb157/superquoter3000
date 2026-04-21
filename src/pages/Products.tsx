@@ -426,7 +426,7 @@ const Products = () => {
           </>
         )}
       </div>
-      <MobileFab onClick={() => setShowInquiryPicker(true)} label="Upload products" icon={Upload} />
+      
     </AppLayout>
   );
 };
