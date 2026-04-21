@@ -66,6 +66,7 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedWoodId('');
     setDialogOpen(true);
   };
 
@@ -78,7 +79,28 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
       notes: v.notes || '',
       attrs: Object.entries(v.attributes || {}).map(([key, value]) => ({ key, value: String(value) })),
     });
+    // Match wood by name attribute if present
+    const woodName = (v.attributes || {})['Wood'] || (v.attributes || {})['wood'];
+    const matched = woodName ? woods.find(w => w.wood_type.toLowerCase() === String(woodName).toLowerCase()) : null;
+    setSelectedWoodId(matched?.id ?? '');
     setDialogOpen(true);
+  };
+
+  const applyWoodSelection = (woodId: string) => {
+    setSelectedWoodId(woodId);
+    const wood = woods.find(w => w.id === woodId);
+    if (!wood) return;
+    const factor = baseWoodPrice > 0 ? Number((Number(wood.price_per_cft_inr) / baseWoodPrice).toFixed(3)) : 1;
+    setForm(f => {
+      // upsert "Wood" attribute
+      const others = f.attrs.filter(a => a.key.toLowerCase() !== 'wood');
+      return {
+        ...f,
+        wood_price_factor: factor,
+        attrs: [{ key: 'Wood', value: wood.wood_type }, ...others],
+        variant_name: f.variant_name.trim() || wood.wood_type,
+      };
+    });
   };
 
   const handlePhotoUpload = async (file: File) => {
