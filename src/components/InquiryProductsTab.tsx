@@ -206,15 +206,25 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setCopyOpen(true)}>
+            <Copy className="h-4 w-4" /> Copy from existing
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" /> Upload & parse
           </Button>
         </div>
       </div>
+
+      <CopyProductsDialog
+        open={copyOpen}
+        onOpenChange={setCopyOpen}
+        targetInquiryId={inquiryId}
+        onCopied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
 
       <UploadParseDialog
         open={uploadOpen}
