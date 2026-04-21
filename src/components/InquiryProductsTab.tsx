@@ -144,12 +144,18 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       id: p.id, name: p.name,
       target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
     }));
+    const { data: inq } = await supabase
+      .from('customer_rfqs').select('customer_id, customers:customer_id(id, name, company, email)')
+      .eq('id', inquiryId).maybeSingle();
+    const c: any = (inq as any)?.customers ?? null;
+    const customerData = c ? { id: c.id, name: c.name, company: c.company, email: c.email } : null;
     const { error } = await (supabase as any).from('quote_snapshots').insert({
       customer_rfq_id: inquiryId,
       quote_number: 'Q-' + Date.now(),
       status: 'draft',
       share_token: crypto.randomUUID(),
       products: productsJson,
+      customer: customerData,
       totals: { sku_count: selectedProducts.length, total_qty: totalQty, grand_total: grandTotal },
     });
     if (error) { toast.error(error.message); return; }
