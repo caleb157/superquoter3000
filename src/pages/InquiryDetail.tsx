@@ -133,7 +133,7 @@ export default function InquiryDetail() {
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
         <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate('/inquiries')}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Inquiries
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
 
         {/* Header */}
@@ -210,14 +210,16 @@ export default function InquiryDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <TabsList>
-            <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-            <TabsTrigger value="quotes" className="text-xs">Quotes</TabsTrigger>
-            <TabsTrigger value="samples" className="text-xs">Samples</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
-            <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-max">
+              <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
+              <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
+              <TabsTrigger value="quotes" className="text-xs">Quotes</TabsTrigger>
+              <TabsTrigger value="samples" className="text-xs">Samples</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
+              <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="summary" className="mt-3 space-y-3">
             <Card>
