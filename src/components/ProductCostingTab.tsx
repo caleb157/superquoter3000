@@ -1124,12 +1124,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
             <Table className="dense-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Include</TableHead>
-                  <TableHead>Labor Type</TableHead>
-                  <TableHead className="w-20 text-right">MH/Unit</TableHead>
-                  <TableHead className="w-20 text-right">Total MH</TableHead>
-                  <TableHead className="w-20 text-right">Rate (₹/hr)</TableHead>
-                  <TableHead className="w-20 text-right">Unit Cost</TableHead>
+                  <TableHead className="w-14">Include</TableHead>
+                  <TableHead className="w-32">Labor Type</TableHead>
+                  <TableHead className="w-28 text-right">MH/Unit</TableHead>
+                  <TableHead className="w-28 text-right">Total MH</TableHead>
+                  <TableHead className="w-28 text-right">Rate (₹/hr)</TableHead>
+                  <TableHead className="w-28 text-right">Unit Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1152,7 +1152,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                         {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-16 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                        <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                           value={item.man_hours_per_unit ?? 0}
                           onChange={e => {
                             const v = Number(e.target.value);
