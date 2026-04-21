@@ -93,7 +93,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return products.filter(p => {
       if (q && !p.name.toLowerCase().includes(q)) return false;
       if (filter === 'needs_design') return p.design_stage === 'need_design';
-      if (filter === 'in_costing') return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote';
+      if (filter === 'in_costing') {
+        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+        const done = flags.filter(Boolean).length;
+        // In costing = any quoting stage, OR partial costing progress (started but not all 5 done)
+        return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote' || (done > 0 && done < 5);
+      }
       if (filter === 'sampling') return p.sample_stage === 'sampling';
       // Raw stage matches (from dashboard stage-pill links)
       if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
