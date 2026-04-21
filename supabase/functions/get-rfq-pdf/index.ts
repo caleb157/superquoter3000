@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const h = (s: any) => String(s ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -137,23 +144,23 @@ Deno.serve(async (req) => {
 </head>
 <body>
   <div class="print-bar">
-    <span>${rfq.rfq_number || 'RFQ'} — ${rfq.title || ''}</span>
+    <span>${h(rfq.rfq_number || 'RFQ')} — ${h(rfq.title || '')}</span>
     <button onclick="window.print()">⌘P Print / Save as PDF</button>
   </div>
   <div class="print-spacer"></div>
   <div class="header">
     <div class="header-left">
-      <h1>${entity?.name || 'Company'}</h1>
-      <p>${entity?.legal_name || ''}</p>
-      <p>${[entity?.address_line1, entity?.city, entity?.state, entity?.postal_code, entity?.country].filter(Boolean).join(', ')}</p>
-      ${entity?.phone ? `<p>Phone: ${entity.phone}</p>` : ''}
-      ${entity?.email ? `<p>Email: ${entity.email}</p>` : ''}
+      <h1>${h(entity?.name || 'Company')}</h1>
+      <p>${h(entity?.legal_name || '')}</p>
+      <p>${h([entity?.address_line1, entity?.city, entity?.state, entity?.postal_code, entity?.country].filter(Boolean).join(', '))}</p>
+      ${entity?.phone ? `<p>Phone: ${h(entity.phone)}</p>` : ''}
+      ${entity?.email ? `<p>Email: ${h(entity.email)}</p>` : ''}
     </div>
     <div class="header-right">
       <h2>REQUEST FOR QUOTATION</h2>
-      <p><strong>${rfq.rfq_number || ''}</strong></p>
-      <p>Date: ${new Date(rfq.created_at).toLocaleDateString()}</p>
-      ${rfq.response_due ? `<p>Response Due: ${new Date(rfq.response_due).toLocaleDateString()}</p>` : ''}
+      <p><strong>${h(rfq.rfq_number || '')}</strong></p>
+      <p>Date: ${h(new Date(rfq.created_at).toLocaleDateString())}</p>
+      ${rfq.response_due ? `<p>Response Due: ${h(new Date(rfq.response_due).toLocaleDateString())}</p>` : ''}
     </div>
   </div>
 
@@ -161,10 +168,10 @@ Deno.serve(async (req) => {
     ${rfq.vendor_name ? `
     <div class="meta-section">
       <h3>To</h3>
-      <p><strong>${rfq.vendor_name}</strong></p>
-      ${rfq.vendor_address ? `<p>${rfq.vendor_address}</p>` : ''}
-      ${rfq.vendor_email ? `<p>${rfq.vendor_email}</p>` : ''}
-      ${rfq.vendor_phone ? `<p>${rfq.vendor_phone}</p>` : ''}
+      <p><strong>${h(rfq.vendor_name)}</strong></p>
+      ${rfq.vendor_address ? `<p>${h(rfq.vendor_address)}</p>` : ''}
+      ${rfq.vendor_email ? `<p>${h(rfq.vendor_email)}</p>` : ''}
+      ${rfq.vendor_phone ? `<p>${h(rfq.vendor_phone)}</p>` : ''}
     </div>
     ` : ''}
   </div>
@@ -186,11 +193,11 @@ Deno.serve(async (req) => {
       ${lineItems.map((item: any, i: number) => `
       <tr>
         <td>${i + 1}</td>
-        <td class="font-medium">${item.item_name || ''}</td>
-        <td>${item.description || ''}</td>
-        <td>${item.dimensions || ''}</td>
-        <td class="text-right">${item.quantity || 0}</td>
-        <td>${item.units || ''}</td>
+        <td class="font-medium">${h(item.item_name || '')}</td>
+        <td>${h(item.description || '')}</td>
+        <td>${h(item.dimensions || '')}</td>
+        <td class="text-right">${h(item.quantity || 0)}</td>
+        <td>${h(item.units || '')}</td>
         <td class="text-right">${item.target_price != null ? `₹${Number(item.target_price).toFixed(2)}` : '—'}</td>
         <td class="text-right font-medium">${item.target_price != null ? `₹${(item.target_price * item.quantity).toFixed(2)}` : '—'}</td>
       </tr>
@@ -204,17 +211,18 @@ Deno.serve(async (req) => {
 
   ${rfq.notes || rfq.delivery_deadline || rfq.payment_terms ? `
   <div class="notes">
-    ${rfq.notes ? `<h3>Notes / Instructions</h3><p>${rfq.notes}</p>` : ''}
-    ${rfq.delivery_deadline ? `<p><strong>Delivery Deadline:</strong> ${rfq.delivery_deadline}</p>` : ''}
-    ${rfq.payment_terms ? `<p><strong>Payment Terms:</strong> ${rfq.payment_terms}</p>` : ''}
+    ${rfq.notes ? `<h3>Notes / Instructions</h3><p>${h(rfq.notes)}</p>` : ''}
+    ${rfq.delivery_deadline ? `<p><strong>Delivery Deadline:</strong> ${h(rfq.delivery_deadline)}</p>` : ''}
+    ${rfq.payment_terms ? `<p><strong>Payment Terms:</strong> ${h(rfq.payment_terms)}</p>` : ''}
   </div>
   ` : ''}
 
   <div class="footer">
-    ${rfq.response_due ? `<p>Please respond by <strong>${new Date(rfq.response_due).toLocaleDateString()}</strong></p>` : ''}
-    ${entity?.email ? `<p>Please send your quotation to: <strong>${entity.email}</strong></p>` : ''}
-    <p style="margin-top:10px">${entity?.name || ''} ${entity?.gst_number ? `| GST: ${entity.gst_number}` : ''} ${entity?.ein_number ? `| EIN: ${entity.ein_number}` : ''}</p>
+    ${rfq.response_due ? `<p>Please respond by <strong>${h(new Date(rfq.response_due).toLocaleDateString())}</strong></p>` : ''}
+    ${entity?.email ? `<p>Please send your quotation to: <strong>${h(entity.email)}</strong></p>` : ''}
+    <p style="margin-top:10px">${h(entity?.name || '')} ${entity?.gst_number ? `| GST: ${h(entity.gst_number)}` : ''} ${entity?.ein_number ? `| EIN: ${h(entity.ein_number)}` : ''}</p>
   </div>
+
 </body>
 </html>`;
 
