@@ -50,6 +50,7 @@ export default function InquiryDetail() {
 
   // Settings draft
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
+  const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
   const tabParam = searchParams.get('tab') as TabKey | null;
   const stageParam = searchParams.get('stage');
@@ -70,11 +71,15 @@ export default function InquiryDetail() {
 
   const fetchInquiry = async () => {
     if (!id) return;
-    const { data: inq } = await (supabase as any).from('customer_rfqs').select('*').eq('id', id).maybeSingle();
-    setInquiry(inq);
-    setSettingsDraft(inq);
-    if (inq?.customer_id) {
-      const { data: c } = await (supabase as any).from('customers').select('*').eq('id', inq.customer_id).maybeSingle();
+    const [inqRes, stRes] = await Promise.all([
+      (supabase as any).from('customer_rfqs').select('*').eq('id', id).maybeSingle(),
+      (supabase as any).from('shipping_types').select('id, name').order('name'),
+    ]);
+    setInquiry(inqRes.data);
+    setSettingsDraft(inqRes.data);
+    setShippingTypes(stRes.data || []);
+    if (inqRes.data?.customer_id) {
+      const { data: c } = await (supabase as any).from('customers').select('*').eq('id', inqRes.data.customer_id).maybeSingle();
       setCustomer(c);
     }
     setLoading(false);
@@ -105,6 +110,11 @@ export default function InquiryDetail() {
       target_completion_date: settingsDraft.target_completion_date || null,
       requirements: settingsDraft.requirements?.trim() || null,
       notes: settingsDraft.notes?.trim() || null,
+      exchange_rate_override: settingsDraft.exchange_rate_override === '' || settingsDraft.exchange_rate_override == null
+        ? null : Number(settingsDraft.exchange_rate_override),
+      markup_percent_override: settingsDraft.markup_percent_override === '' || settingsDraft.markup_percent_override == null
+        ? null : Number(settingsDraft.markup_percent_override),
+      shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
