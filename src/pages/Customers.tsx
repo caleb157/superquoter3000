@@ -10,16 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, FileText } from 'lucide-react';
+import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, FileText, LayoutGrid, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { CustomerImportDialog } from '@/components/CustomerImportDialog';
-import { LeadStatusBadge } from '@/components/LeadStatusBadge';
+import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER, type LeadStatus } from '@/components/LeadStatusBadge';
+import { CustomersKanban } from '@/components/CustomersKanban';
+import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 
 
 const STATUS_TABS = [
   { value: 'all', label: 'All' },
   { value: 'lead', label: 'Leads' },
-  { value: 'active', label: 'Active' },
+  { value: 'active', label: 'Live Inquiry' },
+  { value: 'won', label: 'Won' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'churned', label: 'Churned' },
 ];
