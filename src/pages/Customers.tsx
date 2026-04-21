@@ -10,16 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, FileText } from 'lucide-react';
+import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, FileText, LayoutGrid, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { CustomerImportDialog } from '@/components/CustomerImportDialog';
-import { LeadStatusBadge } from '@/components/LeadStatusBadge';
+import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER, type LeadStatus } from '@/components/LeadStatusBadge';
+import { CustomersKanban } from '@/components/CustomersKanban';
+import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 
 
 const STATUS_TABS = [
   { value: 'all', label: 'All' },
   { value: 'lead', label: 'Leads' },
-  { value: 'active', label: 'Active' },
+  { value: 'active', label: 'Live Inquiry' },
+  { value: 'won', label: 'Won' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'churned', label: 'Churned' },
 ];
@@ -40,6 +43,7 @@ const Customers = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [view, setView] = useState<'list' | 'kanban'>('list');
   const [form, setForm] = useState({
     name: '', email: '', company: '', phone: '',
     linkedin_url: '', source: '', lead_status: 'lead',
@@ -67,10 +71,22 @@ const Customers = () => {
   }, [inquiries]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, inactive: 0, churned: 0 };
+    const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, won: 0, inactive: 0, churned: 0 };
     customers.forEach((cu: any) => { c[cu.lead_status || 'lead'] = (c[cu.lead_status || 'lead'] || 0) + 1; });
     return c;
   }, [customers]);
+
+  const updateStatus = async (customerId: string, next: LeadStatus) => {
+    // Optimistic
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, lead_status: next } : c));
+    const { error } = await (supabase as any).from('customers').update({ lead_status: next }).eq('id', customerId);
+    if (error) {
+      toast.error(error.message);
+      fetchAll();
+    } else {
+      toast.success(`Marked as ${LEAD_STATUS_LABELS[next]}`);
+    }
+  };
 
   const filtered = customers.filter((c: any) => {
     if (statusFilter !== 'all' && (c.lead_status || 'lead') !== statusFilter) return false;
@@ -128,10 +144,9 @@ const Customers = () => {
                     <Select value={form.lead_status} onValueChange={(v) => setForm(f => ({ ...f, lead_status: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="churned">Churned</SelectItem>
+                        {LEAD_STATUS_ORDER.map(s => (
+                          <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -142,24 +157,49 @@ const Customers = () => {
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+        <CustomerMetricsCard customers={customers as any} />
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+          </div>
+          <div className="flex border rounded-md overflow-hidden">
+            <Button
+              variant={view === 'list' ? 'secondary' : 'ghost'}
+              size="sm" className="h-9 rounded-none gap-1.5"
+              onClick={() => setView('list')}
+            ><List className="h-4 w-4" /> <span className="hidden sm:inline">List</span></Button>
+            <Button
+              variant={view === 'kanban' ? 'secondary' : 'ghost'}
+              size="sm" className="h-9 rounded-none gap-1.5"
+              onClick={() => setView('kanban')}
+            ><LayoutGrid className="h-4 w-4" /> <span className="hidden sm:inline">Kanban</span></Button>
+          </div>
         </div>
 
-        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-          <TabsList className="w-full sm:w-auto overflow-x-auto flex justify-start">
-            {STATUS_TABS.map(t => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5 shrink-0">
-                {t.label}
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{counts[t.value] ?? 0}</Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        {view === 'list' && (
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList className="w-full sm:w-auto overflow-x-auto flex justify-start">
+              {STATUS_TABS.map(t => (
+                <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5 shrink-0">
+                  {t.label}
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{counts[t.value] ?? 0}</Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        ) : view === 'kanban' ? (
+          <CustomersKanban
+            customers={customers as any}
+            inquiriesByCustomer={inquiriesByCustomer}
+            onStatusChange={updateStatus}
+            onOpenCustomer={(id) => navigate(`/customers/${id}`)}
+          />
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
@@ -173,7 +213,7 @@ const Customers = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Name</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs w-[160px]">Status</TableHead>
                       <TableHead className="text-xs">Company</TableHead>
                       <TableHead className="text-xs">Email</TableHead>
                       <TableHead className="text-xs">Source</TableHead>
@@ -182,13 +222,29 @@ const Customers = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c: any) => (
-                      <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
-                        <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                        <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
-                        <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+                      <TableRow key={c.id} className="hover:bg-muted/40">
+                        <TableCell className="font-medium text-sm">
+                          <button className="hover:underline text-left" onClick={() => navigate(`/customers/${c.id}`)}>
+                            {c.name}
+                          </button>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={c.lead_status || 'lead'}
+                            onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
+                          >
+                            <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {LEAD_STATUS_ORDER.map(s => (
+                                <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.company || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.email || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.source || '—'}</TableCell>
+                        <TableCell className="text-xs text-right cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -200,18 +256,28 @@ const Customers = () => {
               {filtered.map((c: any) => {
                 const inqCount = (inquiriesByCustomer[c.id] || []).length;
                 return (
-                  <Card key={c.id} className="active:bg-accent/50 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
-                    <CardContent className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
+                  <Card key={c.id} className="active:bg-accent/50">
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.name}</div>
                           {c.company && <div className="text-xs text-muted-foreground truncate">{c.company}</div>}
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="truncate flex-1 min-w-0">{c.email || c.source || '—'}</span>
-                        <span className="shrink-0 ml-2"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={c.lead_status || 'lead'}
+                          onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
+                        >
+                          <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {LEAD_STATUS_ORDER.map(s => (
+                              <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="shrink-0 text-xs text-muted-foreground"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
                       </div>
                     </CardContent>
                   </Card>
