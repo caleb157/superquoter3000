@@ -302,6 +302,51 @@ export default function InquiryDetail() {
               </CardContent>
             </Card>
             <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Costing overrides</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Optional. Leave blank to use global defaults / per-product values.</p>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Exchange rate (INR per USD)</Label>
+                  <Input
+                    type="number" step="0.01" placeholder="Global default"
+                    value={settingsDraft?.exchange_rate_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, exchange_rate_override: e.target.value })}
+                    className="h-9 mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Uniform markup % (overrides per product)</Label>
+                  <Input
+                    type="number" step="0.1" placeholder="Per-product default"
+                    value={settingsDraft?.markup_percent_override == null || settingsDraft?.markup_percent_override === '' ? '' : Number(settingsDraft.markup_percent_override) * 100}
+                    onChange={e => setSettingsDraft({
+                      ...settingsDraft,
+                      markup_percent_override: e.target.value === '' ? null : Number(e.target.value) / 100,
+                    })}
+                    className="h-9 mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Shipping type override</Label>
+                  <Select
+                    value={settingsDraft?.shipping_type_id_override ?? '__none__'}
+                    onValueChange={v => setSettingsDraft({ ...settingsDraft, shipping_type_id_override: v === '__none__' ? null : v })}
+                  >
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Per-product default" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Use per-product —</SelectItem>
+                      {shippingTypes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-3">
+                  <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save overrides</Button>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry history</CardTitle></CardHeader>
               <CardContent><InquiryActivityFeed inquiryId={id!} limit={50} /></CardContent>
             </Card>
