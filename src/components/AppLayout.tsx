@@ -25,11 +25,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
-    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
-    { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
-    { to: '/team', label: 'Team', icon: Shield, show: isAdmin },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
@@ -133,31 +130,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </Link>
             ))}
 
-            {visibleItems.find(v => v.to === '/analytics') && (
-              <Link to="/analytics">
-                <Button
-                  variant={isActive('/analytics') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn('h-8 text-xs gap-1.5', isActive('/analytics') && 'bg-secondary')}
-                >
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  Analytics
-                </Button>
-              </Link>
-            )}
-            {visibleItems.find(v => v.to === '/team') && (
-              <Link to="/team">
-                <Button
-                  variant={isActive('/team') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn('h-8 text-xs gap-1.5', isActive('/team') && 'bg-secondary')}
-                >
-                  <Shield className="h-3.5 w-3.5" />
-                  Team
-                </Button>
-              </Link>
-            )}
-
             {/* Spacer pushes settings to the far right */}
             <div className="flex-1" />
 
@@ -183,9 +155,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="ml-auto flex items-center gap-1">
             <GlobalTaskQuickAdd />
             <ThemeToggle />
-            <span className="text-xs text-muted-foreground hidden lg:inline truncate max-w-[160px]">
-              {user?.email}
-            </span>
             <Button
               variant="ghost"
               size="icon"
