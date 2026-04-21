@@ -298,6 +298,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </button>
         </div>
       </nav>
+
+      {/* Global mobile FAB — always opens New Task, contextual to route */}
+      <MobileTaskFab />
     </div>
   );
 };
