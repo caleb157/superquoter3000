@@ -144,10 +144,9 @@ const Customers = () => {
                     <Select value={form.lead_status} onValueChange={(v) => setForm(f => ({ ...f, lead_status: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="churned">Churned</SelectItem>
+                        {LEAD_STATUS_ORDER.map(s => (
+                          <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
