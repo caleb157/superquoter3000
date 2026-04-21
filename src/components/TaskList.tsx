@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDueDate, priorityColor } from '@/lib/task-helpers';
 import { TaskDialog } from '@/components/TaskDialog';
+import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
 import type { TaskWithRefs, DueWindow } from '@/lib/task-types';
 import { PRIORITY_RANK } from '@/lib/task-types';
 
@@ -129,8 +130,8 @@ export function TaskList({
         {filteredSorted.map(t => {
           const due = formatDueDate(t.due_date);
           const overdueOpen = due.isOverdue && t.status === 'open';
-          return (
-            <li key={t.id} className={cn('flex items-center gap-2 py-2 px-1 group flex-wrap sm:flex-nowrap', 'hover:bg-muted/50 rounded-sm')}>
+          const rowInner = (
+            <div className={cn('flex items-center gap-2 py-2 px-1 group flex-wrap sm:flex-nowrap', 'hover:bg-muted/50 rounded-sm')}>
               <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} />
               <span className={cn('h-2 w-2 rounded-full shrink-0', priorityColor(t.priority))} />
               <button
@@ -172,6 +173,14 @@ export function TaskList({
                   onClick={() => setEditId(t.id)}
                 ><Pencil className="h-3 w-3" /></Button>
               )}
+            </div>
+          );
+
+          return (
+            <li key={t.id}>
+              <SwipeableTaskRow done={t.status === 'done'} onToggle={() => toggleStatus(t)}>
+                {rowInner}
+              </SwipeableTaskRow>
             </li>
           );
         })}
