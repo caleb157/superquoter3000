@@ -53,6 +53,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [inquiryOverrides, setInquiryOverrides] = useState<{ exchange_rate_override: number | null; markup_percent_override: number | null; shipping_type_id_override: string | null } | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [recalcTick, setRecalcTick] = useState(0);
+  const [recalcing, setRecalcing] = useState(false);
 
   // Section open state
   const [sections, setSections] = useState({
