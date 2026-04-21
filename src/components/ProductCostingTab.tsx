@@ -366,7 +366,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w]);
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
