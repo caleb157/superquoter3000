@@ -1084,6 +1084,13 @@ export type Database = {
             referencedRelation: "company_entities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "quote_snapshots_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rfs: {
@@ -1580,11 +1587,84 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      company_entities_safe: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          email: string | null
+          entity_type: string | null
+          id: string | null
+          legal_name: string | null
+          logo_url: string | null
+          name: string | null
+          phone: string | null
+          postal_code: string | null
+          state: string | null
+          website: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          entity_type?: string | null
+          id?: string | null
+          legal_name?: string | null
+          logo_url?: string | null
+          name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          state?: string | null
+          website?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          entity_type?: string | null
+          id?: string | null
+          legal_name?: string | null
+          logo_url?: string | null
+          name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          state?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_crfq_number: { Args: never; Returns: string }
       generate_rfs_number: { Args: never; Returns: string }
+      get_company_entities_safe: {
+        Args: never
+        Returns: {
+          address_line1: string
+          address_line2: string
+          city: string
+          country: string
+          created_at: string
+          email: string
+          entity_type: string
+          id: string
+          legal_name: string
+          logo_url: string
+          name: string
+          phone: string
+          postal_code: string
+          state: string
+          website: string
+        }[]
+      }
       get_entity_for_guest: {
         Args: { _entity_id: string }
         Returns: {
