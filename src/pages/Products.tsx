@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 import { AppLayout } from '@/components/AppLayout';
@@ -9,15 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Upload } from 'lucide-react';
+import { Search, Upload, X } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { SortableHeader } from '@/components/SortableHeader';
 import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 
 const Products = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -36,6 +38,18 @@ const Products = () => {
   const [uploadInquiryId, setUploadInquiryId] = useState('');
   const [showInquiryPicker, setShowInquiryPicker] = useState(false);
 
+  const stageParam = searchParams.get('stage') as StageBucket | null;
+  const inquiryStatusMap = useMemo(
+    () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
+    [inquiries],
+  );
+
+  const clearStageFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('stage');
+    setSearchParams(next, { replace: true });
+  };
+
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'products-sort',
   });
@@ -44,7 +58,7 @@ const Products = () => {
     const fetchAll = async () => {
       const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
+        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
@@ -157,6 +171,10 @@ const Products = () => {
           case 'needs_review': if (!hasReview(p.id)) return false; break;
         }
       }
+      if (stageParam) {
+        const inqStatus = p.customer_rfq_id ? inquiryStatusMap[p.customer_rfq_id] : null;
+        if (furthestStageBucket(p, inqStatus) !== stageParam) return false;
+      }
       return true;
     });
 
@@ -181,7 +199,7 @@ const Products = () => {
 
     result = sortItems(result, getters);
     return result;
-  }, [products, search, filterInquiry, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, inquiryMap, customerMap, cbmMap, costDataMap]);
+  }, [products, search, filterInquiry, filterType, filterCustomer, filterStatus, stageParam, inquiryStatusMap, sortColumn, sortDirection, inquiryMap, customerMap, cbmMap, costDataMap]);
 
   return (
     <AppLayout>
@@ -220,6 +238,19 @@ const Products = () => {
               supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
             }}
           />
+        )}
+
+        {stageParam && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtered by stage:</span>
+            <button
+              onClick={clearStageFilter}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
+            >
+              {STAGE_BUCKET_LABELS[stageParam] ?? stageParam}
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         )}
 
         <div className="flex items-center gap-3 flex-wrap">

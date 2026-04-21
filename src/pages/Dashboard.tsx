@@ -20,6 +20,15 @@ import { Search, FileText, Package2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import {
+  furthestStageBucket,
+  productWeight,
+  STAGE_BUCKET_LABELS,
+  STAGE_BUCKET_ORDER,
+  STAGE_BUCKET_COLOR,
+  type StageBucket,
+} from '@/lib/pipeline-weights';
+import { fmt } from '@/lib/formatters';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
@@ -39,6 +48,7 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+  target_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -76,7 +86,7 @@ const Dashboard = () => {
       const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd'),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
@@ -99,10 +109,44 @@ const Dashboard = () => {
   }, [products]);
 
   // Stats
+  const inquiryStatusById = useMemo(
+    () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
+    [inquiries],
+  );
   const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
+
+  // Pipeline value (sum of qty × target_price × stage weight, excluding cancelled inquiries)
+  const pipelineValueUsd = useMemo(() => {
+    let total = 0;
+    for (const p of products) {
+      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+      if (inqStatus === 'cancelled') continue;
+      const w = productWeight(p, inqStatus);
+      if (w === 0) continue;
+      const qty = p.quantity ?? 0;
+      const price = Number(p.target_price_usd ?? 0);
+      total += qty * price * w;
+    }
+    return total;
+  }, [products, inquiryStatusById]);
+
+  // Products by furthest stage bucket (excludes cancelled inquiries)
+  const productsByStageBucket = useMemo(() => {
+    const counts: Record<StageBucket, number> = {
+      not_started: 0, need_design: 0, designed: 0,
+      quoting: 0, ready_for_quote: 0, quoted: 0,
+      sampling: 0, sample_sent: 0, po: 0,
+    };
+    for (const p of products) {
+      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+      if (inqStatus === 'cancelled') continue;
+      counts[furthestStageBucket(p, inqStatus)] += 1;
+    }
+    return counts;
+  }, [products, inquiryStatusById]);
 
   // Filter + sort
   const visibleInquiries = useMemo(() => {
@@ -195,6 +239,50 @@ const Dashboard = () => {
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
+          </div>
+
+          {/* Pipeline value + Products by stage */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <Card className="lg:col-span-1">
+              <CardContent className="pt-4 pb-3">
+                <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
+                <div className="text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                  Σ (qty × target price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-muted-foreground">Products by Stage</div>
+                  <div className="text-[11px] text-muted-foreground">Click a stage to filter products</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {STAGE_BUCKET_ORDER.map(b => {
+                    const count = productsByStageBucket[b];
+                    if (count === 0) return null;
+                    return (
+                      <button
+                        key={b}
+                        onClick={() => navigate(`/products?stage=${b}`)}
+                        className={cn(
+                          'flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:opacity-80 transition',
+                          STAGE_BUCKET_COLOR[b],
+                        )}
+                      >
+                        <span className="text-sm font-bold tabular-nums">{count}</span>
+                        <span className="text-[11px] font-medium">{STAGE_BUCKET_LABELS[b]}</span>
+                      </button>
+                    );
+                  })}
+                  {STAGE_BUCKET_ORDER.every(b => productsByStageBucket[b] === 0) && (
+                    <div className="text-xs text-muted-foreground italic py-1">No products yet.</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Filter bar */}

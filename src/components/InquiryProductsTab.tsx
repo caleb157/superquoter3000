@@ -48,11 +48,13 @@ const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
 };
 
 function costingBadge(p: Product): { label: string; cls: string } {
-  if (p.target_price_usd && Number(p.target_price_usd) > 0) {
+  const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+  const done = flags.filter(Boolean).length;
+  if (done === 5) {
     return { label: 'Priced', cls: 'bg-emerald-100 text-emerald-700' };
   }
-  if (p.cogs_done || p.cbm_done || p.overhead_done || p.shipping_done) {
-    return { label: 'In Progress', cls: 'bg-amber-100 text-amber-700' };
+  if (done > 0) {
+    return { label: `In Progress (${done}/5)`, cls: 'bg-amber-100 text-amber-700' };
   }
   return { label: 'Empty', cls: 'bg-muted text-muted-foreground' };
 }
