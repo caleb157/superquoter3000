@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 import { AppLayout } from '@/components/AppLayout';
@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Upload } from 'lucide-react';
+import { Search, Upload, X } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { SortableHeader } from '@/components/SortableHeader';
 import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 
 const Products = () => {
   const navigate = useNavigate();
