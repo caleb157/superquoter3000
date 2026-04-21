@@ -39,6 +39,20 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
 
+type WoodPrice = { id: string; wood_type: string; price_per_cft_inr: number };
+
+export function ProductVariantsTab({ productId }: { productId: string }) {
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [uploading, setUploading] = useState(false);
+  const [woods, setWoods] = useState<WoodPrice[]>([]);
+  const [selectedWoodId, setSelectedWoodId] = useState<string>('');
+
+  // Cheapest wood = baseline (factor 1.0)
+  const baseWoodPrice = woods.length ? Math.min(...woods.map(w => Number(w.price_per_cft_inr) || 0).filter(p => p > 0)) : 0;
+
   const fetchVariants = async () => {
     const { data } = await supabase
       .from('product_variants')
@@ -49,6 +63,12 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
   };
 
   useEffect(() => { fetchVariants(); }, [productId]);
+
+  useEffect(() => {
+    supabase.from('wood_prices').select('id, wood_type, price_per_cft_inr').order('price_per_cft_inr').then(({ data }) => {
+      if (data) setWoods(data as any);
+    });
+  }, []);
 
   const openAdd = () => {
     setEditingId(null);
