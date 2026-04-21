@@ -53,6 +53,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [inquiryOverrides, setInquiryOverrides] = useState<{ exchange_rate_override: number | null; markup_percent_override: number | null; shipping_type_id_override: string | null } | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [recalcTick, setRecalcTick] = useState(0);
+  const [recalcing, setRecalcing] = useState(false);
 
   // Section open state
   const [sections, setSections] = useState({
@@ -89,6 +91,46 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
     setCbm((c: any) => ({ ...c, [field]: value }));
     saveCbm({ [field]: value });
   };
+
+  // Recalculate all auto-managed costs (finishing, packaging, overhead, transport, freight)
+  const recalculateAllAutoCosts = useCallback(async () => {
+    if (!id || recalcing) return;
+    setRecalcing(true);
+    try {
+      // Reset auto flags on rows we manage so the effects will rewrite them
+      const autoCogsNames = ['color', 'stain', 'sealer', 'lacquer', 'ic box', 'inner carton', 'mc box', 'master carton', 'outer carton', 'domestic freight'];
+      const cogsToReset = cogsItems.filter(i => {
+        const n = (i.component_name || '').toLowerCase();
+        return autoCogsNames.some(k => n.includes(k));
+      });
+      const ohToReset = overheadItems.filter(i => i.labor_type === 'Finishing' || i.labor_type === 'Packaging');
+
+      await Promise.all([
+        ...cogsToReset.map(i =>
+          (supabase as any).from('cogs_items').update({ is_auto_calculated: true }).eq('id', i.id)
+        ),
+        ...ohToReset.map(i =>
+          (supabase as any).from('overhead_items').update({ is_auto_estimated: true }).eq('id', i.id)
+        ),
+      ]);
+
+      setCogsItems(prev => prev.map(i =>
+        cogsToReset.some(c => c.id === i.id) ? { ...i, is_auto_calculated: true } : i
+      ));
+      setOverheadItems(prev => prev.map(i =>
+        ohToReset.some(o => o.id === i.id) ? { ...i, is_auto_estimated: true } : i
+      ));
+
+      // Force all auto-calc effects to re-run
+      setRecalcTick(t => t + 1);
+      toast.success('Recalculated auto costs');
+    } catch (e: any) {
+      toast.error('Recalc failed: ' + (e?.message || 'unknown error'));
+    } finally {
+      setTimeout(() => setRecalcing(false), 600);
+    }
+  }, [id, cogsItems, overheadItems, recalcing]);
+
 
   // Fetch all data
   useEffect(() => {
@@ -320,7 +362,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length, recalcTick]);
 
   // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
   useEffect(() => {
@@ -366,7 +408,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length]);
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length, recalcTick]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
@@ -402,7 +444,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length, productTypes.length, overheadItems.length]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
@@ -415,7 +457,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
     setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, total_quantity: totalCbm, cost_each_inr: autoTransportRate } : i));
     (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id);
-  }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length]);
+  }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length, recalcTick]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
   const freightCreatingRef = useRef(false);
@@ -460,7 +502,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
     setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
     (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
-  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length]);
+  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
     include: item.include,
@@ -559,7 +601,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
 
   return (
     <div className="space-y-2">
-        {/* Phase 7: inquiry-level settings TBD */}
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={recalculateAllAutoCosts} disabled={recalcing}>
+            {recalcing ? 'Recalculating…' : 'Recalculate all auto costs'}
+          </Button>
+        </div>
 
         {/* Section A: Product Info */}
         <Collapsible open={sections.info} onOpenChange={() => toggle('info')}>
