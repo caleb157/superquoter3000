@@ -20,6 +20,15 @@ import { Search, FileText, Package2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import {
+  furthestStageBucket,
+  productWeight,
+  STAGE_BUCKET_LABELS,
+  STAGE_BUCKET_ORDER,
+  STAGE_BUCKET_COLOR,
+  type StageBucket,
+} from '@/lib/pipeline-weights';
+import { fmt } from '@/lib/formatters';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
@@ -39,6 +48,7 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+  target_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -76,7 +86,7 @@ const Dashboard = () => {
       const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd'),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
