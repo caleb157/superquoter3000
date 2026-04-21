@@ -199,7 +199,7 @@ const Products = () => {
 
     result = sortItems(result, getters);
     return result;
-  }, [products, search, filterInquiry, filterType, filterCustomer, filterStatus, sortColumn, sortDirection, inquiryMap, customerMap, cbmMap, costDataMap]);
+  }, [products, search, filterInquiry, filterType, filterCustomer, filterStatus, stageParam, inquiryStatusMap, sortColumn, sortDirection, inquiryMap, customerMap, cbmMap, costDataMap]);
 
   return (
     <AppLayout>
@@ -238,6 +238,19 @@ const Products = () => {
               supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
             }}
           />
+        )}
+
+        {stageParam && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtered by stage:</span>
+            <button
+              onClick={clearStageFilter}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
+            >
+              {STAGE_BUCKET_LABELS[stageParam] ?? stageParam}
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         )}
 
         <div className="flex items-center gap-3 flex-wrap">
