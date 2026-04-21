@@ -237,7 +237,7 @@ export default function SamplesList() {
         inquiryOptions={inquiries}
         onCreated={fetchAll}
       />
-      <MobileFab onClick={() => setShowNew(true)} label="New sample batch" />
+      
     </AppLayout>
   );
 }
