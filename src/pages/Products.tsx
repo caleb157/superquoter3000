@@ -28,6 +28,8 @@ function costingBadge(p: { cbm_done?: boolean; cogs_done?: boolean; overhead_don
 import { useTableSort } from '@/hooks/use-table-sort';
 import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { MobileFab } from '@/components/MobileFab';
+import { Upload as UploadIcon } from 'lucide-react';
 
 const Products = () => {
   const navigate = useNavigate();
