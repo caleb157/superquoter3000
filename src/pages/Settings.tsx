@@ -1,17 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
+import TeamManagementContent from '@/components/TeamManagementContent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 
 // Generic editable table component
 function EditableTable<T extends { id: string }>({
@@ -26,7 +26,7 @@ function EditableTable<T extends { id: string }>({
 }) {
   const addRow = async () => {
     const client = supabase as any;
-    const { data: newRow, error } = await client.from(tableName).insert(defaultRow).select().single();
+    const { error } = await client.from(tableName).insert(defaultRow).select().single();
     if (error) { toast.error(error.message); return; }
     fetchData();
     toast.success('Row added');
@@ -194,7 +194,6 @@ function GeneralSettings() {
         </div>
       ))}
 
-      {/* Default Shipping Type dropdown */}
       <div className="flex items-center gap-3">
         <label className="text-xs font-medium w-52 shrink-0">Default Shipping Type</label>
         <Select value={settings.default_shipping_type || ''} onValueChange={v => update('default_shipping_type', v)}>
@@ -215,7 +214,49 @@ function GeneralSettings() {
   );
 }
 
+type SectionId =
+  | 'general' | 'entities' | 'team'
+  | 'vendors' | 'customers' | 'employees'
+  | 'product-types' | 'wood' | 'chemicals' | 'hardware'
+  | 'shipping' | 'box-data';
+
+const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
+  {
+    label: 'General',
+    items: [
+      { id: 'general', label: 'General' },
+      { id: 'entities', label: 'Company entities' },
+      { id: 'team', label: 'Team' },
+    ],
+  },
+  {
+    label: 'Suppliers',
+    items: [
+      { id: 'vendors', label: 'Vendors' },
+      { id: 'customers', label: 'Customers' },
+      { id: 'employees', label: 'Employees' },
+    ],
+  },
+  {
+    label: 'Products',
+    items: [
+      { id: 'product-types', label: 'Product types' },
+      { id: 'wood', label: 'Wood prices' },
+      { id: 'chemicals', label: 'Chemicals' },
+      { id: 'hardware', label: 'Hardware' },
+    ],
+  },
+  {
+    label: 'Logistics',
+    items: [
+      { id: 'shipping', label: 'Shipping' },
+      { id: 'box-data', label: 'Box data' },
+    ],
+  },
+];
+
 const Settings = () => {
+  const [section, setSection] = useState<SectionId>('general');
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [boxData, setBoxData] = useState<any[]>([]);
@@ -240,167 +281,195 @@ const Settings = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const renderSection = () => {
+    switch (section) {
+      case 'general': return <GeneralSettings />;
+      case 'entities': return <CompanyEntitiesSettings />;
+      case 'team': return <TeamManagementContent />;
+      case 'customers':
+        return (
+          <EditableTable
+            tableName="customers"
+            data={customers} setData={setCustomers}
+            fetchData={() => (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data))}
+            defaultRow={{ name: 'New Customer' } as any}
+            columns={[
+              { key: 'name', label: 'Name', width: '160px' },
+              { key: 'company', label: 'Company', width: '150px' },
+              { key: 'email', label: 'Email', width: '180px' },
+              { key: 'phone', label: 'Phone', width: '120px' },
+              { key: 'notes', label: 'Notes' },
+            ]}
+          />
+        );
+      case 'vendors':
+        return (
+          <EditableTable
+            tableName="vendors"
+            data={vendors} setData={setVendors}
+            fetchData={() => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data))}
+            defaultRow={{ name: 'New Vendor', category: 'general' } as any}
+            columns={[
+              { key: 'name', label: 'Name', width: '160px' },
+              { key: 'email', label: 'Email', width: '160px' },
+              { key: 'phone', label: 'Phone', width: '120px' },
+              { key: 'address', label: 'Address', width: '200px' },
+              { key: 'category', label: 'Category', width: '120px' },
+              { key: 'notes', label: 'Notes', width: '150px' },
+            ]}
+          />
+        );
+      case 'shipping':
+        return (
+          <EditableTable
+            tableName="shipping_types"
+            data={shippingTypes} setData={setShippingTypes}
+            fetchData={() => supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data))}
+            defaultRow={{ name: 'New Shipping', cost_inr: 0, per_unit: 'CBM' }}
+            columns={[
+              { key: 'name', label: 'Name', width: '200px' },
+              { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '120px' },
+              { key: 'per_unit', label: 'Per Unit', width: '100px' },
+            ]}
+          />
+        );
+      case 'product-types':
+        return (
+          <EditableTable
+            tableName="product_types"
+            data={productTypes} setData={setProductTypes}
+            fetchData={() => supabase.from('product_types').select('*').order('name').then(({ data }) => data && setProductTypes(data))}
+            defaultRow={{ name: 'New Type', contractor_base_rate_per_ri: 0, ic_addition_per_side_inch: 0.5, finishing_color_per_100ri: 0, finishing_sealer_per_100ri: 0, finishing_lacquer_per_100ri: 0, packaging_mh_per_cbm: 10.8 }}
+            columns={[
+              { key: 'name', label: 'Name', width: '160px' },
+              { key: 'contractor_base_rate_per_ri', label: 'Rate/RI', type: 'number', width: '80px' },
+              { key: 'ic_addition_per_side_inch', label: 'IC Add/Side', type: 'number', width: '90px' },
+              { key: 'finishing_color_per_100ri', label: 'Color/100RI', type: 'number', width: '90px' },
+              { key: 'finishing_sealer_per_100ri', label: 'Sealer/100RI', type: 'number', width: '90px' },
+              { key: 'finishing_lacquer_per_100ri', label: 'Lacquer/100RI', type: 'number', width: '100px' },
+              { key: 'packaging_mh_per_cbm', label: 'Pkg MH/CBM', type: 'number', width: '100px' },
+            ]}
+          />
+        );
+      case 'box-data':
+        return (
+          <EditableTable
+            tableName="box_data"
+            data={boxData} setData={setBoxData}
+            fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
+            defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0 }}
+            columns={[
+              { key: 'box_type', label: 'Type', width: '150px' },
+              { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
+              { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
+              { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
+              { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
+              { key: 'date_quoted', label: 'Date', width: '100px' },
+              { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
+              { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
+            ]}
+          />
+        );
+      case 'employees':
+        return (
+          <EditableTable
+            tableName="labor_employees"
+            data={employees} setData={setEmployees}
+            fetchData={() => supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data))}
+            defaultRow={{ name: 'New Employee', hourly_rate_inr: 0, designations: [] }}
+            columns={[
+              { key: 'name', label: 'Name', width: '150px' },
+              { key: 'hourly_rate_inr', label: 'Rate (₹/hr)', type: 'number', width: '100px' },
+              { key: 'designations', label: 'Designations', type: 'tags' },
+            ]}
+          />
+        );
+      case 'chemicals':
+        return (
+          <EditableTable
+            tableName="chemical_prices"
+            data={chemicals} setData={setChemicals}
+            fetchData={() => supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data))}
+            defaultRow={{ name: 'New Chemical', price_per_litre_inr: 0, category: 'Color' }}
+            columns={[
+              { key: 'name', label: 'Name', width: '200px' },
+              { key: 'price_per_litre_inr', label: 'Price/L (₹)', type: 'number', width: '110px' },
+              { key: 'category', label: 'Category', width: '120px' },
+            ]}
+          />
+        );
+      case 'hardware':
+        return (
+          <EditableTable
+            tableName="hardware_prices"
+            data={hardware} setData={setHardware}
+            fetchData={() => supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data))}
+            defaultRow={{ name: 'New Hardware', unit_cost_inr: 0, units: 'pc' }}
+            columns={[
+              { key: 'name', label: 'Name', width: '200px' },
+              { key: 'unit_cost_inr', label: 'Cost (₹)', type: 'number', width: '110px' },
+              { key: 'units', label: 'Units', width: '80px' },
+            ]}
+          />
+        );
+      case 'wood':
+        return (
+          <EditableTable
+            tableName="wood_prices"
+            data={woodPrices} setData={setWoodPrices}
+            fetchData={() => supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data))}
+            defaultRow={{ wood_type: 'New Wood', price_per_cft_inr: 0 }}
+            columns={[
+              { key: 'wood_type', label: 'Wood Type', width: '200px' },
+              { key: 'price_per_cft_inr', label: 'Price/CFT (₹)', type: 'number', width: '120px' },
+            ]}
+          />
+        );
+    }
+  };
+
+  const activeLabel = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === section)?.label ?? '';
+
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-lg font-bold mb-4">Global Settings</h1>
-        <Tabs defaultValue="general">
-          <TabsList className="mb-4 flex-wrap h-auto gap-1">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="entities">Company Entities</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="vendors">Vendors</TabsTrigger>
-            <TabsTrigger value="shipping">Shipping</TabsTrigger>
-            <TabsTrigger value="product-types">Product Types</TabsTrigger>
-            <TabsTrigger value="box-data">Box Data</TabsTrigger>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="chemicals">Chemicals</TabsTrigger>
-            <TabsTrigger value="hardware">Hardware</TabsTrigger>
-            <TabsTrigger value="wood">Wood Prices</TabsTrigger>
-          </TabsList>
+      <div className="flex gap-6 -mt-2">
+        {/* Sidebar */}
+        <aside className="w-[180px] shrink-0 border-r border-border bg-card min-h-[calc(100vh-8rem)]">
+          <div className="px-3 py-4">
+            <h1 className="text-base font-bold mb-4 px-2">Settings</h1>
+            <nav className="space-y-4">
+              {NAV_GROUPS.map(group => (
+                <div key={group.label}>
+                  <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.label}
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.items.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => setSection(item.id)}
+                        className={cn(
+                          'w-full text-left px-2 py-1.5 rounded text-xs transition-colors',
+                          section === item.id
+                            ? 'bg-accent text-accent-foreground font-medium'
+                            : 'text-foreground/80 hover:bg-accent/50'
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </div>
+        </aside>
 
-          <TabsContent value="general"><GeneralSettings /></TabsContent>
-          <TabsContent value="entities"><CompanyEntitiesSettings /></TabsContent>
-
-          <TabsContent value="customers">
-            <EditableTable
-              tableName="customers"
-              data={customers} setData={setCustomers}
-              fetchData={() => (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data))}
-              defaultRow={{ name: 'New Customer' } as any}
-              columns={[
-                { key: 'name', label: 'Name', width: '160px' },
-                { key: 'company', label: 'Company', width: '150px' },
-                { key: 'email', label: 'Email', width: '180px' },
-                { key: 'phone', label: 'Phone', width: '120px' },
-                { key: 'notes', label: 'Notes' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="vendors">
-            <EditableTable
-              tableName="vendors"
-              data={vendors} setData={setVendors}
-              fetchData={() => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data))}
-              defaultRow={{ name: 'New Vendor', category: 'general' } as any}
-              columns={[
-                { key: 'name', label: 'Name', width: '160px' },
-                { key: 'email', label: 'Email', width: '160px' },
-                { key: 'phone', label: 'Phone', width: '120px' },
-                { key: 'address', label: 'Address', width: '200px' },
-                { key: 'category', label: 'Category', width: '120px' },
-                { key: 'notes', label: 'Notes', width: '150px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="shipping">
-            <EditableTable
-              tableName="shipping_types"
-              data={shippingTypes} setData={setShippingTypes}
-              fetchData={() => supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data))}
-              defaultRow={{ name: 'New Shipping', cost_inr: 0, per_unit: 'CBM' }}
-              columns={[
-                { key: 'name', label: 'Name', width: '200px' },
-                { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '120px' },
-                { key: 'per_unit', label: 'Per Unit', width: '100px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="product-types">
-            <EditableTable
-              tableName="product_types"
-              data={productTypes} setData={setProductTypes}
-              fetchData={() => supabase.from('product_types').select('*').order('name').then(({ data }) => data && setProductTypes(data))}
-              defaultRow={{ name: 'New Type', contractor_base_rate_per_ri: 0, ic_addition_per_side_inch: 0.5, finishing_color_per_100ri: 0, finishing_sealer_per_100ri: 0, finishing_lacquer_per_100ri: 0, packaging_mh_per_cbm: 10.8 }}
-              columns={[
-                { key: 'name', label: 'Name', width: '160px' },
-                { key: 'contractor_base_rate_per_ri', label: 'Rate/RI', type: 'number', width: '80px' },
-                { key: 'ic_addition_per_side_inch', label: 'IC Add/Side', type: 'number', width: '90px' },
-                { key: 'finishing_color_per_100ri', label: 'Color/100RI', type: 'number', width: '90px' },
-                { key: 'finishing_sealer_per_100ri', label: 'Sealer/100RI', type: 'number', width: '90px' },
-                { key: 'finishing_lacquer_per_100ri', label: 'Lacquer/100RI', type: 'number', width: '100px' },
-                { key: 'packaging_mh_per_cbm', label: 'Pkg MH/CBM', type: 'number', width: '100px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="box-data">
-            <EditableTable
-              tableName="box_data"
-              data={boxData} setData={setBoxData}
-              fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
-              defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0 }}
-              columns={[
-                { key: 'box_type', label: 'Type', width: '150px' },
-                { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
-                { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
-                { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
-                { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
-                { key: 'date_quoted', label: 'Date', width: '100px' },
-                { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
-                { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="employees">
-            <EditableTable
-              tableName="labor_employees"
-              data={employees} setData={setEmployees}
-              fetchData={() => supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data))}
-              defaultRow={{ name: 'New Employee', hourly_rate_inr: 0, designations: [] }}
-              columns={[
-                { key: 'name', label: 'Name', width: '150px' },
-                { key: 'hourly_rate_inr', label: 'Rate (₹/hr)', type: 'number', width: '100px' },
-                { key: 'designations', label: 'Designations', type: 'tags' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="chemicals">
-            <EditableTable
-              tableName="chemical_prices"
-              data={chemicals} setData={setChemicals}
-              fetchData={() => supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data))}
-              defaultRow={{ name: 'New Chemical', price_per_litre_inr: 0, category: 'Color' }}
-              columns={[
-                { key: 'name', label: 'Name', width: '200px' },
-                { key: 'price_per_litre_inr', label: 'Price/L (₹)', type: 'number', width: '110px' },
-                { key: 'category', label: 'Category', width: '120px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="hardware">
-            <EditableTable
-              tableName="hardware_prices"
-              data={hardware} setData={setHardware}
-              fetchData={() => supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data))}
-              defaultRow={{ name: 'New Hardware', unit_cost_inr: 0, units: 'pc' }}
-              columns={[
-                { key: 'name', label: 'Name', width: '200px' },
-                { key: 'unit_cost_inr', label: 'Cost (₹)', type: 'number', width: '110px' },
-                { key: 'units', label: 'Units', width: '80px' },
-              ]}
-            />
-          </TabsContent>
-
-          <TabsContent value="wood">
-            <EditableTable
-              tableName="wood_prices"
-              data={woodPrices} setData={setWoodPrices}
-              fetchData={() => supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data))}
-              defaultRow={{ wood_type: 'New Wood', price_per_cft_inr: 0 }}
-              columns={[
-                { key: 'wood_type', label: 'Wood Type', width: '200px' },
-                { key: 'price_per_cft_inr', label: 'Price/CFT (₹)', type: 'number', width: '120px' },
-              ]}
-            />
-          </TabsContent>
-        </Tabs>
+        {/* Main */}
+        <main className="flex-1 min-w-0 py-2">
+          <h2 className="text-base font-semibold mb-4">{activeLabel}</h2>
+          {renderSection()}
+        </main>
       </div>
     </AppLayout>
   );
