@@ -158,8 +158,8 @@ const ProductDetail = () => {
     const shipType = overrideShipType || (shippingTypesData || []).find((s: any) => s.id === shipItem?.shipping_type_id);
     const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
       cost_inr: shipType.cost_inr,
-      per_unit: shipType.per_unit,
-      final_unit_cbm: 0, // Will be calculated from CBM data
+      per_unit: (shipType.per_unit as 'CBM' | 'KG') || 'CBM',
+      final_unit_cbm: 0,
       weight_kg: productData.weight_kg || 0,
     }) : 0;
 
