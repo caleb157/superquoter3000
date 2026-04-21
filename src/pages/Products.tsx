@@ -349,14 +349,10 @@ const Products = () => {
                       <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
                       <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
                       <TableCell className="text-center">
-                        <ProductStatusIndicator
-                          cbm_done={p.cbm_done}
-                          cogs_done={p.cogs_done}
-                          overhead_done={p.overhead_done}
-                          shipping_done={p.shipping_done}
-                          revenue_done={p.revenue_done}
-                          hasReview={review}
-                        />
+                        {(() => {
+                          const cb = costingBadge(p, review);
+                          return <Badge className={cb.cls} variant="secondary">{cb.label}</Badge>;
+                        })()}
                       </TableCell>
                       <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
