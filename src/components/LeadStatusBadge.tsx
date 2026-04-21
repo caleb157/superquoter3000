@@ -12,7 +12,7 @@ export const LEAD_STATUS_COLORS: Record<string, string> = {
 export const LEAD_STATUS_LABELS: Record<string, string> = {
   lead: 'Lead',
   active: 'Live Inquiry',
-  won: 'Won',
+  won: 'Active',
   inactive: 'Inactive',
   churned: 'Churned',
 };

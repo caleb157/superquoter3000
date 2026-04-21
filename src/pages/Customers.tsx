@@ -22,7 +22,7 @@ const STATUS_TABS = [
   { value: 'all', label: 'All' },
   { value: 'lead', label: 'Leads' },
   { value: 'active', label: 'Live Inquiry' },
-  { value: 'won', label: 'Won' },
+  { value: 'won', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'churned', label: 'Churned' },
 ];
