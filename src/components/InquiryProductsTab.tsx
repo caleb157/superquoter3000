@@ -202,7 +202,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
+        <div className="ml-auto">
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
+            <Upload className="h-4 w-4" /> Upload & parse
+          </Button>
+        </div>
       </div>
+
+      <UploadParseDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        inquiryId={inquiryId}
+        productTypes={productTypes}
+        onProductsCreated={() => { setRefresh(r => r + 1); onChange(); }}
+      />
 
       <BulkStageActions
         selectedIds={Array.from(selected)}
