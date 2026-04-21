@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,12 +32,19 @@ const emptyForm = {
   attrs: [] as AttrPair[],
 };
 
+type WoodPrice = { id: string; wood_type: string; price_per_cft_inr: number };
+
 export function ProductVariantsTab({ productId }: { productId: string }) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
+  const [woods, setWoods] = useState<WoodPrice[]>([]);
+  const [selectedWoodId, setSelectedWoodId] = useState<string>('');
+
+  // Cheapest wood = baseline (factor 1.0)
+  const baseWoodPrice = woods.length ? Math.min(...woods.map(w => Number(w.price_per_cft_inr) || 0).filter(p => p > 0)) : 0;
 
   const fetchVariants = async () => {
     const { data } = await supabase
@@ -49,9 +57,16 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
 
   useEffect(() => { fetchVariants(); }, [productId]);
 
+  useEffect(() => {
+    supabase.from('wood_prices').select('id, wood_type, price_per_cft_inr').order('price_per_cft_inr').then(({ data }) => {
+      if (data) setWoods(data as any);
+    });
+  }, []);
+
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedWoodId('');
     setDialogOpen(true);
   };
 
@@ -64,7 +79,28 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
       notes: v.notes || '',
       attrs: Object.entries(v.attributes || {}).map(([key, value]) => ({ key, value: String(value) })),
     });
+    // Match wood by name attribute if present
+    const woodName = (v.attributes || {})['Wood'] || (v.attributes || {})['wood'];
+    const matched = woodName ? woods.find(w => w.wood_type.toLowerCase() === String(woodName).toLowerCase()) : null;
+    setSelectedWoodId(matched?.id ?? '');
     setDialogOpen(true);
+  };
+
+  const applyWoodSelection = (woodId: string) => {
+    setSelectedWoodId(woodId);
+    const wood = woods.find(w => w.id === woodId);
+    if (!wood) return;
+    const factor = baseWoodPrice > 0 ? Number((Number(wood.price_per_cft_inr) / baseWoodPrice).toFixed(3)) : 1;
+    setForm(f => {
+      // upsert "Wood" attribute
+      const others = f.attrs.filter(a => a.key.toLowerCase() !== 'wood');
+      return {
+        ...f,
+        wood_price_factor: factor,
+        attrs: [{ key: 'Wood', value: wood.wood_type }, ...others],
+        variant_name: f.variant_name.trim() || wood.wood_type,
+      };
+    });
   };
 
   const handlePhotoUpload = async (file: File) => {
@@ -220,14 +256,34 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
               </div>
             </div>
 
+            <div className="rounded-md border bg-muted/30 p-2.5 space-y-2">
+              <label className="text-xs font-medium">Wood (from price database)</label>
+              <Select value={selectedWoodId || undefined} onValueChange={applyWoodSelection}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={woods.length ? 'Select a wood…' : 'No woods configured in Settings'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {woods.map(w => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.wood_type} — ₹{Number(w.price_per_cft_inr).toLocaleString()}/cft
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Selecting a wood sets the price factor automatically (cheapest wood = 1.0×).
+                {baseWoodPrice > 0 && <> Base: ₹{baseWoodPrice.toLocaleString()}/cft.</>}
+              </p>
+            </div>
+
             <div>
               <label className="text-xs text-muted-foreground">Wood price factor (multiplier on raw piece cost)</label>
               <Input
                 className="h-9" type="number" step="0.01"
                 value={form.wood_price_factor}
-                onChange={e => setForm(f => ({ ...f, wood_price_factor: Number(e.target.value) }))}
+                onChange={e => { setSelectedWoodId(''); setForm(f => ({ ...f, wood_price_factor: Number(e.target.value) })); }}
               />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Use 1 if pricing is the same as the master product.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Auto-filled from wood selection. Edit to override.</p>
             </div>
 
             <div>
