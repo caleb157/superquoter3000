@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
 import ProjectRedirect from "./pages/ProjectRedirect";
 import ProductDetail from "./pages/ProductDetail";
 import AssemblyDetail from "./pages/AssemblyDetail";
@@ -53,6 +54,11 @@ const App = () => (
             <Route path="/customers" element={
               <ProtectedRoute requireAdminOrTeam>
                 <Customers />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers/:id" element={
+              <ProtectedRoute requireAdminOrTeam>
+                <CustomerDetail />
               </ProtectedRoute>
             } />
             <Route path="/inquiry/:id" element={

@@ -245,7 +245,7 @@ const Customers = () => {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c: any) => (
-                    <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedCustomer(c)}>
+                    <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                       <TableCell className="font-medium text-sm">{c.name}</TableCell>
                       <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>

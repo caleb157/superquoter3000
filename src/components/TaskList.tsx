@@ -16,6 +16,8 @@ type TaskListProps = {
   inquiryId?: string;
   productId?: string;
   customerId?: string;
+  /** When set, fetches tasks where customer_id = X OR inquiry_id IN (inquiries of customer X). */
+  customerIdIncludingInquiries?: string;
   assignee?: string;
   status?: 'open' | 'done' | 'all';
   dueWindow?: DueWindow;
@@ -28,7 +30,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
-  inquiryId, productId, customerId, assignee,
+  inquiryId, productId, customerId, customerIdIncludingInquiries, assignee,
   status = 'open', dueWindow = 'all', sort = 'due_date',
   showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false,
 }: TaskListProps) {
@@ -40,12 +42,32 @@ export function TaskList({
   useEffect(() => {
     (async () => {
       setLoading(true);
+
+      // Special path: tasks anchored to customer OR to any of their inquiries.
+      let inquiryIdsForCustomer: string[] | null = null;
+      if (customerIdIncludingInquiries) {
+        const { data: inqs } = await supabase
+          .from('customer_rfqs')
+          .select('id')
+          .eq('customer_id', customerIdIncludingInquiries);
+        inquiryIdsForCustomer = (inqs ?? []).map((r: any) => r.id);
+      }
+
       let q = supabase.from('tasks').select(
         '*, inquiry:customer_rfqs(id, rfq_number, title), customer:customers(id, name), product:products(id, name)'
       );
       if (inquiryId) q = q.eq('inquiry_id', inquiryId);
       if (productId) q = q.eq('product_id', productId);
       if (customerId) q = q.eq('customer_id', customerId);
+      if (customerIdIncludingInquiries) {
+        if (inquiryIdsForCustomer && inquiryIdsForCustomer.length > 0) {
+          q = q.or(
+            `customer_id.eq.${customerIdIncludingInquiries},inquiry_id.in.(${inquiryIdsForCustomer.join(',')})`
+          );
+        } else {
+          q = q.eq('customer_id', customerIdIncludingInquiries);
+        }
+      }
       if (assignee && assignee !== 'all') {
         if (assignee === 'unassigned') q = q.is('assignee', null);
         else q = q.eq('assignee', assignee);
@@ -56,7 +78,7 @@ export function TaskList({
       setTasks((data as any) ?? []);
       setLoading(false);
     })();
-  }, [inquiryId, productId, customerId, assignee, status, refreshKey, internalRefresh]);
+  }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, status, refreshKey, internalRefresh]);
 
   const filteredSorted = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);

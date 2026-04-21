@@ -13,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
-import { NewSampleBatchDialog } from '@/components/NewSampleBatchDialog';
+import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 type Product = {
@@ -265,10 +265,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         </CardContent></Card>
       )}
 
-      <NewSampleBatchDialog
+      <GenerateSampleBatchDialog
         open={batchOpen} onOpenChange={setBatchOpen}
         inquiryId={inquiryId}
-        selectedProducts={selectedProducts.map(p => ({ id: p.id, name: p.name, sample_stage: p.sample_stage }))}
+        preSelectedProductIds={selectedProducts.map(p => p.id)}
         onCreated={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
       />
     </div>
