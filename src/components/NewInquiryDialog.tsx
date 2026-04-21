@@ -117,6 +117,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
