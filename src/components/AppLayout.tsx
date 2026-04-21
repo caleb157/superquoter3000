@@ -54,7 +54,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       >
         <div className="flex h-12 items-center px-3 sm:px-4 gap-2 sm:gap-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-sm tracking-tight shrink-0">
-            <img src={dktLogo} alt="DKT" className="h-7 w-7 dark:invert" />
+            <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
+              <img src={dktLogo} alt="DKT" className="h-6 w-6 object-contain" />
+            </span>
             <span className="hidden sm:inline">DKT Costing</span>
           </Link>
 
@@ -104,7 +106,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </SheetTrigger>
               <SheetContent side="right" className="w-72 p-4 flex flex-col">
                 <div className="flex items-center gap-2 mb-4 mt-2">
-                  <img src={dktLogo} alt="DKT" className="h-7 w-7 dark:invert" />
+                  <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
+                    <img src={dktLogo} alt="DKT" className="h-6 w-6 object-contain" />
+                  </span>
                   <span className="font-bold">DKT Costing</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
