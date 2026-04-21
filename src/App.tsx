@@ -23,6 +23,7 @@ import InquiryDetail from "./pages/InquiryDetail";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
+import TeamManagement from "./pages/TeamManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,9 @@ const App = () => (
             } />
             <Route path="/analytics" element={
               <ProtectedRoute requireAdminOrTeam><Analytics /></ProtectedRoute>
+            } />
+            <Route path="/team" element={
+              <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
