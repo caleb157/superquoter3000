@@ -80,8 +80,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 ml-4 overflow-x-auto">
-            {visibleItems.map(item => (
+          <nav className="hidden md:flex items-center gap-1 ml-4 flex-1 min-w-0 overflow-x-auto">
+            {primaryDesktop.slice(0, 3).map(item => (
               <Link key={item.to} to={item.to}>
                 <Button
                   variant={isActive(item.to) ? 'secondary' : 'ghost'}
@@ -93,6 +93,86 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Button>
               </Link>
             ))}
+
+            {logsItems.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={logsActive ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className={cn('h-8 text-xs gap-1.5 group', logsActive && 'bg-secondary')}
+                  >
+                    <ScrollText className="h-3.5 w-3.5" />
+                    Logs
+                    <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  {logsItems.map(item => (
+                    <DropdownMenuItem key={item.to} asChild>
+                      <Link to={item.to} className="cursor-pointer gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {primaryDesktop.slice(3).map(item => (
+              <Link key={item.to} to={item.to}>
+                <Button
+                  variant={isActive(item.to) ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive(item.to) && 'bg-secondary')}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+
+            {visibleItems.find(v => v.to === '/analytics') && (
+              <Link to="/analytics">
+                <Button
+                  variant={isActive('/analytics') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive('/analytics') && 'bg-secondary')}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Analytics
+                </Button>
+              </Link>
+            )}
+            {visibleItems.find(v => v.to === '/team') && (
+              <Link to="/team">
+                <Button
+                  variant={isActive('/team') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive('/team') && 'bg-secondary')}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Team
+                </Button>
+              </Link>
+            )}
+
+            {/* Spacer pushes settings to the far right */}
+            <div className="flex-1" />
+
+            {showSettings && (
+              <Link to="/settings" className="hidden md:inline-flex">
+                <Button
+                  variant={isActive('/settings') ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={cn('h-8 w-8', isActive('/settings') && 'bg-secondary')}
+                  aria-label="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
           </nav>
 
           {/* Mobile current-page label */}
