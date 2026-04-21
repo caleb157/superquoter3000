@@ -561,7 +561,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
         </DialogHeader>
 
         {!showReview ? (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto pr-1 -mr-1">
             {/* Drop zone */}
             <div
               className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
