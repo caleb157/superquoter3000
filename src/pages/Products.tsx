@@ -264,42 +264,44 @@ const Products = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="space-y-2">
+          <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search by name or SKU..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
           </div>
-          <Select value={filterInquiry} onValueChange={setFilterInquiry}>
-            <SelectTrigger className="w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Inquiries</SelectItem>
-              {inquiries.map(p => <SelectItem key={p.id} value={p.id}>{p.rfq_number} — {p.title || 'Untitled'}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterCustomer} onValueChange={setFilterCustomer}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Customers" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Customers</SelectItem>
-              {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {productTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="complete">Complete</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="not_started">Not Started</SelectItem>
-              <SelectItem value="needs_review">Needs Review</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 lg:flex lg:flex-wrap gap-2">
+            <Select value={filterInquiry} onValueChange={setFilterInquiry}>
+              <SelectTrigger className="lg:w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Inquiries</SelectItem>
+                {inquiries.map(p => <SelectItem key={p.id} value={p.id}>{p.rfq_number} — {p.title || 'Untitled'}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterCustomer} onValueChange={setFilterCustomer}>
+              <SelectTrigger className="lg:w-40 h-9 text-xs"><SelectValue placeholder="All Customers" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Customers</SelectItem>
+                {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="lg:w-40 h-9 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {productTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="lg:w-40 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="complete">Complete</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="not_started">Not Started</SelectItem>
+                <SelectItem value="needs_review">Needs Review</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {loading ? (
