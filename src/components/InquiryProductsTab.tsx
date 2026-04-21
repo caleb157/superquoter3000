@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Upload, X } from 'lucide-react';
+import { Plus, Search, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ import { BulkStageActions } from '@/components/BulkStageActions';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
+import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -77,6 +78,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [batchOpen, setBatchOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
 
   useEffect(() => {
@@ -202,7 +204,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
+            <Plus className="h-4 w-4" /> Add products
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" /> Upload & parse
           </Button>
@@ -215,6 +220,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         inquiryId={inquiryId}
         productTypes={productTypes}
         onProductsCreated={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <QuickAddProductsDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        inquiryId={inquiryId}
+        onCreated={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
       <BulkStageActions
