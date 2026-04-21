@@ -93,6 +93,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       if (filter === 'needs_design') return p.design_stage === 'need_design';
       if (filter === 'in_costing') return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote';
       if (filter === 'sampling') return p.sample_stage === 'sampling';
+      // Raw stage matches (from dashboard stage-pill links)
+      if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
+      if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
+      if (filter === 'sample_sent') return p.sample_stage === 'sample_sent';
       return true;
     });
   }, [products, search, filter]);
