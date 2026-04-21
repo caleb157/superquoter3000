@@ -4,8 +4,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu,
-  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import {
+  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu, ChevronDown,
+  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal, ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -21,16 +24,32 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
-    { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
-    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/team', label: 'Team', icon: Shield, show: isAdmin },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
   const visibleItems = navItems.filter(n => n.show);
+
+  // Desktop primary nav order: Inquiries, Customers, Products, Logs (dropdown), Tasks
+  const primaryDesktop: Array<{ to: string; label: string; icon: typeof Inbox }> = [
+    { to: '/', label: 'Inquiries', icon: Inbox },
+    { to: '/customers', label: 'Customers', icon: Users },
+    { to: '/products', label: 'Products', icon: ShoppingCart },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+  ].filter(i => visibleItems.find(v => v.to === i.to));
+
+  const logsItems = [
+    { to: '/quotes', label: 'Quotes', icon: FileText },
+    { to: '/samples', label: 'Samples', icon: Package2 },
+  ].filter(i => visibleItems.find(v => v.to === i.to));
+
+  const logsActive = logsItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
+  const showSettings = !!visibleItems.find(v => v.to === '/settings');
 
   // Bottom-nav primary set on mobile (4 most-used + More)
   const bottomNav = [
