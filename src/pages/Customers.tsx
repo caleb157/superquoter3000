@@ -104,19 +104,15 @@ const Customers = () => {
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <h1 className="text-lg font-bold">Customers</h1>
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
-          </div>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowImport(true)}>
-              <Upload className="h-4 w-4" /> Import CSV
+              <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Import CSV</span>
             </Button>
             <Dialog open={showCreate} onOpenChange={(v) => { setShowCreate(v); if (!v) resetForm(); }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> Add Customer</Button>
+                <Button size="sm" className="gap-1.5"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Customer</span><span className="sm:hidden">Add</span></Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
@@ -145,10 +141,15 @@ const Customers = () => {
           </div>
         </div>
 
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+        </div>
+
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-          <TabsList>
+          <TabsList className="w-full sm:w-auto overflow-x-auto flex justify-start">
             {STATUS_TABS.map(t => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5">
+              <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5 shrink-0">
                 {t.label}
                 <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{counts[t.value] ?? 0}</Badge>
               </TabsTrigger>
@@ -164,34 +165,59 @@ const Customers = () => {
             <p>No customers match this filter.</p>
           </CardContent></Card>
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Name</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs">Company</TableHead>
-                    <TableHead className="text-xs">Email</TableHead>
-                    <TableHead className="text-xs">Source</TableHead>
-                    <TableHead className="text-xs text-right">Inquiries</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((c: any) => (
-                    <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
-                      <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                      <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
-                      <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+          <>
+            <Card className="hidden md:block">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Name</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Company</TableHead>
+                      <TableHead className="text-xs">Email</TableHead>
+                      <TableHead className="text-xs">Source</TableHead>
+                      <TableHead className="text-xs text-right">Inquiries</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((c: any) => (
+                      <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
+                        <TableCell className="font-medium text-sm">{c.name}</TableCell>
+                        <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
+                        <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <div className="md:hidden space-y-2">
+              {filtered.map((c: any) => {
+                const inqCount = (inquiriesByCustomer[c.id] || []).length;
+                return (
+                  <Card key={c.id} className="active:bg-accent/50 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
+                    <CardContent className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{c.name}</div>
+                          {c.company && <div className="text-xs text-muted-foreground truncate">{c.company}</div>}
+                        </div>
+                        <LeadStatusBadge status={c.lead_status} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="truncate flex-1 min-w-0">{c.email || c.source || '—'}</span>
+                        <span className="shrink-0 ml-2"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
