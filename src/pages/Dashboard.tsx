@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { fmt } from '@/lib/formatters';
-import * as calc from '@/lib/calculations';
-import { DashboardTaskWidget } from '@/components/DashboardTaskWidget';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
-  productWeight,
-  furthestStageBucket,
-  STAGE_BUCKET_ORDER,
-  STAGE_BUCKET_LABELS,
-  STAGE_BUCKET_COLOR,
-  type StageBucket,
-} from '@/lib/pipeline-weights';
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Search, FileText, Package2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
+import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
@@ -24,279 +28,334 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700',
 };
 
+type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
+type SortKey = 'updated' | 'created' | 'product_count' | 'customer';
+
+type Inquiry = {
+  id: string; rfq_number: string; title: string | null; status: string;
+  customer_id: string | null; updated_at: string; created_at: string;
+};
+type Customer = { id: string; name: string | null; company: string | null };
+type Product = {
+  id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
+  design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+};
+
+const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
+  { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700' },
+  { key: 'designed',    label: 'designed', cls: 'bg-emerald-100 text-emerald-700' },
+];
+const QUOTE_PILLS: { key: string; label: string; cls: string }[] = [
+  { key: 'quoting',         label: 'quoting', cls: 'bg-amber-100 text-amber-700' },
+  { key: 'ready_for_quote', label: 'ready',   cls: 'bg-blue-100 text-blue-700' },
+  { key: 'quoted',          label: 'quoted',  cls: 'bg-purple-100 text-purple-700' },
+];
+const SAMPLE_PILLS: { key: string; label: string; cls: string }[] = [
+  { key: 'sampling',    label: 'sampling', cls: 'bg-amber-100 text-amber-700' },
+  { key: 'sample_sent', label: 'sent',     cls: 'bg-emerald-100 text-emerald-700' },
+];
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [inquiries, setInquiries] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [cbmData, setCbmData] = useState<any[]>([]);
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
-  const [allCogs, setAllCogs] = useState<any[]>([]);
-  const [allNuc, setAllNuc] = useState<any[]>([]);
-  const [allOh, setAllOh] = useState<any[]>([]);
-  const [allShip, setAllShip] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [shippingTypes, setShippingTypes] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
+  const [sortKey, setSortKey] = useState<SortKey>('updated');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
+  const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [inq, prod, cust, cbm, gs, cogs, nuc, oh, ship, emp, st] = await Promise.all([
+      setLoading(true);
+      const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
-        supabase.from('products').select('*'),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('cbm_estimates').select('product_id, final_unit_cbm, total_cbm'),
-        supabase.from('global_settings').select('*').limit(1).maybeSingle(),
-        supabase.from('cogs_items').select('*'),
-        supabase.from('non_unit_cogs').select('*'),
-        supabase.from('overhead_items').select('*'),
-        supabase.from('shipping_items').select('*'),
-        supabase.from('labor_employees').select('*'),
-        supabase.from('shipping_types').select('*'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
       ]);
-      setInquiries(inq.data || []);
-      setProducts(prod.data || []);
-      setCustomers(cust.data || []);
-      setCbmData(cbm.data || []);
-      setGlobalSettings(gs.data);
-      setAllCogs(cogs.data || []);
-      setAllNuc(nuc.data || []);
-      setAllOh(oh.data || []);
-      setAllShip(ship.data || []);
-      setEmployees(emp.data || []);
-      setShippingTypes(st.data || []);
+      setInquiries((inq.data ?? []) as Inquiry[]);
+      setCustomers((cust.data ?? []) as Customer[]);
+      setProducts((prod.data ?? []) as Product[]);
       setLoading(false);
     })();
-  }, []);
+  }, [refreshKey]);
 
-  const exchangeRate = globalSettings?.exchange_rate || 90;
-  const cbmMap = useMemo(() => {
-    const m: Record<string, any> = {};
-    cbmData.forEach(c => { if (c.product_id) m[c.product_id] = c; });
-    return m;
-  }, [cbmData]);
   const customerMap = useMemo(
     () => Object.fromEntries(customers.map(c => [c.id, c])),
     [customers],
   );
-  const inquiryMap = useMemo(
-    () => Object.fromEntries(inquiries.map(i => [i.id, i])),
-    [inquiries],
-  );
-
-  // Per-product FOB cost (USD total)
-  const productFob = useMemo(() => {
-    const map: Record<string, { unit_cost_usd: number; total_cost_usd: number }> = {};
-    if (!globalSettings) return map;
-    products.forEach(prod => {
-      try {
-        const cbmEst = cbmMap[prod.id];
-        const unitCbm = cbmEst?.final_unit_cbm || 0;
-        const qty = prod.quantity || 100;
-
-        const pCogs = allCogs.filter(c => c.product_id === prod.id);
-        const pNuc = allNuc.filter(c => c.product_id === prod.id);
-        const pOh = allOh.filter(c => c.product_id === prod.id);
-        const pShip = allShip.filter(c => c.product_id === prod.id);
-
-        const cogsPerUnit = pCogs
-          .filter(i => i.include !== 'No')
-          .reduce(
-            (sum, item) =>
-              sum +
-              calc.calcCogsItemCost({
-                include: item.include,
-                components_per_product: item.components_per_product || 0,
-                unit_cost_inr: item.unit_cost_inr || 0,
-                waste_factor: item.waste_factor || 0,
-              }).unit_cost,
-            0,
-          );
-
-        const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
-          pNuc.map(i => ({
-            include: i.include,
-            total_quantity: i.total_quantity,
-            cost_each_inr: i.cost_each_inr,
-          })),
-          qty,
-        );
-
-        const ohItems = pOh.map(item => ({
-          include: item.include,
-          labor_type: item.labor_type,
-          man_hours_per_unit: item.man_hours_per_unit || 0,
-          hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
-        }));
-        const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-        const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-        const indirectOhPerMh = calc.calcIndirectOhPerManHour(globalSettings);
-        const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-
-        const shipItem = pShip[0];
-        const shipType = shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
-        const shippingPerUnit = shipType
-          ? calc.calcShippingPerUnit({
-              cost_inr: shipType.cost_inr,
-              per_unit: shipType.per_unit as 'CBM' | 'KG',
-              final_unit_cbm: unitCbm,
-              weight_kg: prod.weight_kg || 0,
-            })
-          : 0;
-
-        const markupPercent = prod.markup_percent || 0.2;
-        const summary = calc.calcProductCostSummary(
-          cogsPerUnit,
-          nonUnitCogsPerUnit,
-          directOhPerUnit,
-          indirectOhPerUnit,
-          shippingPerUnit,
-          markupPercent,
-          exchangeRate,
-          qty,
-        );
-        const unit = summary.product_cost_per_unit_usd || 0;
-        map[prod.id] = { unit_cost_usd: unit, total_cost_usd: unit * qty };
-      } catch {
-        map[prod.id] = { unit_cost_usd: 0, total_cost_usd: 0 };
-      }
-    });
-    return map;
-  }, [products, cbmMap, allCogs, allNuc, allOh, allShip, employees, shippingTypes, globalSettings, exchangeRate]);
-
-  // Stats
-  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
-  const poInquiries = inquiries.filter(i => i.status === 'po').length;
-  const activeProducts = products.filter(
-    p => p.design_stage || p.quote_stage || p.sample_stage,
-  ).length;
-  const weightedPipeline = products.reduce((sum, p) => {
-    const fob = productFob[p.id]?.total_cost_usd || 0;
-    const inq = inquiryMap[p.customer_rfq_id];
-    return sum + fob * productWeight(p, inq?.status);
-  }, 0);
-
-  // Portfolio by stage
-  const stageCounts = useMemo(() => {
-    const counts = {} as Record<StageBucket, number>;
-    STAGE_BUCKET_ORDER.forEach(b => (counts[b] = 0));
-    products.forEach(p => {
-      const inq = inquiryMap[p.customer_rfq_id];
-      counts[furthestStageBucket(p, inq?.status)]++;
-    });
-    return counts;
-  }, [products, inquiryMap]);
-  const maxStageCount = Math.max(1, ...Object.values(stageCounts));
-
-  // Product counts per inquiry
   const productsByInquiry = useMemo(() => {
-    const m: Record<string, number> = {};
+    const m: Record<string, Product[]> = {};
     products.forEach(p => {
-      if (p.customer_rfq_id) m[p.customer_rfq_id] = (m[p.customer_rfq_id] || 0) + 1;
+      if (!p.customer_rfq_id) return;
+      (m[p.customer_rfq_id] ||= []).push(p);
     });
     return m;
   }, [products]);
 
-  const recentInquiries = useMemo(
-    () => inquiries.filter(i => i.status !== 'cancelled').slice(0, 8),
-    [inquiries],
-  );
+  // Stats
+  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
+  const poInquiries = inquiries.filter(i => i.status === 'po').length;
+  const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
+  const totalProducts = products.length;
+
+  // Filter + sort
+  const visibleInquiries = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = inquiries.filter(i => {
+      if (statusFilter === 'not_cancelled' && i.status === 'cancelled') return false;
+      if (statusFilter !== 'all' && statusFilter !== 'not_cancelled' && i.status !== statusFilter) return false;
+      if (!q) return true;
+      const cust = i.customer_id ? customerMap[i.customer_id] : null;
+      const custName = (cust?.name || cust?.company || '').toLowerCase();
+      return (
+        i.rfq_number.toLowerCase().includes(q) ||
+        (i.title ?? '').toLowerCase().includes(q) ||
+        custName.includes(q)
+      );
+    });
+
+    list = [...list].sort((a, b) => {
+      switch (sortKey) {
+        case 'created':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'product_count':
+          return (productsByInquiry[b.id]?.length ?? 0) - (productsByInquiry[a.id]?.length ?? 0);
+        case 'customer': {
+          const an = (customerMap[a.customer_id ?? '']?.name || '').toLowerCase();
+          const bn = (customerMap[b.customer_id ?? '']?.name || '').toLowerCase();
+          return an.localeCompare(bn);
+        }
+        case 'updated':
+        default:
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      }
+    });
+    return list;
+  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortKey]);
+
+  const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
+    const counts: Record<string, number> = {};
+    if (!prods) return counts;
+    const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
+    for (const p of prods) {
+      const v = (p as any)[col];
+      if (v) counts[v] = (counts[v] ?? 0) + 1;
+    }
+    return counts;
+  };
+
+  const renderStageCell = (
+    prods: Product[] | undefined,
+    inquiryId: string,
+    pills: { key: string; label: string; cls: string }[],
+    track: 'design' | 'quote' | 'sample',
+  ) => {
+    const counts = stageCounts(prods, track);
+    const visible = pills.filter(p => (counts[p.key] ?? 0) > 0);
+    if (visible.length === 0) return <span className="text-muted-foreground/60">—</span>;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map(p => (
+          <button
+            key={p.key}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/inquiry/${inquiryId}?tab=products&stage=${p.key}`);
+            }}
+            className={cn(
+              'px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums hover:opacity-80',
+              p.cls,
+            )}
+          >
+            {counts[p.key]} {p.label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const isAllStagesEmpty = (prods: Product[] | undefined) => {
+    if (!prods || prods.length === 0) return true;
+    return !prods.some(p => p.design_stage || p.quote_stage || p.sample_stage);
+  };
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto space-y-4">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Active Inquiries" value={activeInquiries} />
-          <StatCard label="Active Products" value={activeProducts} />
-          <StatCard label="PO Inquiries" value={poInquiries} />
-          <StatCard label="Weighted Pipeline" value={fmt.usd(weightedPipeline)} />
-        </div>
+      <TooltipProvider>
+        <div className="max-w-7xl mx-auto space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="Active Inquiries" value={activeInquiries} />
+            <StatCard label="Total Products" value={totalProducts} />
+            <StatCard label="Active Products" value={activeProducts} />
+            <StatCard label="PO Inquiries" value={poInquiries} />
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Portfolio by Stage</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              {STAGE_BUCKET_ORDER.map(bucket => {
-                const count = stageCounts[bucket];
-                const pct = (count / maxStageCount) * 100;
-                return (
-                  <button
-                    key={bucket}
-                    onClick={() => navigate(`/inquiries?stage_bucket=${bucket}`)}
-                    className="flex items-center gap-2 w-full text-left hover:bg-muted/50 px-1 py-0.5 rounded transition"
-                  >
-                    <div className="w-32 text-xs text-muted-foreground shrink-0">
-                      {STAGE_BUCKET_LABELS[bucket]}
-                    </div>
-                    <div className="flex-1 h-4 bg-muted/40 rounded overflow-hidden">
-                      <div
-                        className={cn('h-full rounded', STAGE_BUCKET_COLOR[bucket])}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="w-8 text-xs font-medium tabular-nums text-right">{count}</div>
-                  </button>
-                );
-              })}
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px] max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by # · title · customer"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="not_cancelled">All (no cancelled)</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="po">PO</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+              <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="updated">Sort: Updated</SelectItem>
+                <SelectItem value="created">Sort: Created</SelectItem>
+                <SelectItem value="product_count">Sort: Product Count</SelectItem>
+                <SelectItem value="customer">Sort: Customer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
+              ) : visibleInquiries.length === 0 ? (
+                inquiries.length === 0 ? (
+                  <div className="p-12 text-center space-y-3">
+                    <div className="text-sm text-muted-foreground">No inquiries yet.</div>
+                    <Button size="sm" onClick={() => navigate('/customers')}>+ New Inquiry</Button>
+                  </div>
+                ) : (
+                  <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
+                )
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs w-[120px]">#</TableHead>
+                      <TableHead className="text-xs">Customer</TableHead>
+                      <TableHead className="text-xs">Title</TableHead>
+                      <TableHead className="text-xs w-[88px]">Status</TableHead>
+                      <TableHead className="text-xs w-[70px] text-right">Products</TableHead>
+                      <TableHead className="text-xs">Design</TableHead>
+                      <TableHead className="text-xs">Quote</TableHead>
+                      <TableHead className="text-xs">Sample</TableHead>
+                      <TableHead className="text-xs w-[100px]">Updated</TableHead>
+                      <TableHead className="text-xs text-right w-[150px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleInquiries.map(inq => {
+                      const prods = productsByInquiry[inq.id];
+                      const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
+                      const noProducts = !prods || prods.length === 0;
+                      const stagesEmpty = isAllStagesEmpty(prods);
+
+                      const goToInquiry = () => navigate(`/inquiry/${inq.id}`);
+
+                      return (
+                        <TableRow
+                          key={inq.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={goToInquiry}
+                        >
+                          <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
+                          <TableCell className="text-sm truncate max-w-[180px]">
+                            {cust?.name || cust?.company || '—'}
+                          </TableCell>
+                          <TableCell className="text-sm truncate max-w-[260px]">
+                            {inq.title || <span className="text-muted-foreground italic">Untitled</span>}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-medium capitalize',
+                              INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
+                            )}>{inq.status}</span>
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums">
+                            {prods?.length ?? 0}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, DESIGN_PILLS, 'design')}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, QUOTE_PILLS, 'quote')}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                              <ActionButton
+                                disabled={noProducts}
+                                tooltip={noProducts ? 'No products' : 'Generate quote'}
+                                icon={<FileText className="h-3 w-3" />}
+                                label="Quote"
+                                onClick={() => setQuoteDialog({ id: inq.id, rfq: inq.rfq_number })}
+                              />
+                              <ActionButton
+                                disabled={noProducts}
+                                tooltip={noProducts ? 'No products' : 'Generate sample batch'}
+                                icon={<Package2 className="h-3 w-3" />}
+                                label="Sample"
+                                onClick={() => setSampleDialog({ id: inq.id, rfq: inq.rfq_number })}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-
-          <DashboardTaskWidget />
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Inquiries</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-4 text-sm text-muted-foreground">Loading…</div>
-            ) : recentInquiries.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground">No inquiries yet.</div>
-            ) : (
-              <div className="divide-y">
-                {recentInquiries.map(inq => {
-                  const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
-                  return (
-                    <Link
-                      key={inq.id}
-                      to={`/inquiry/${inq.id}`}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition text-sm"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">
-                          <span className="text-muted-foreground mr-2">{inq.rfq_number}</span>
-                          {inq.title || 'Untitled'}
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {cust?.name || cust?.company || '—'}
-                        </div>
-                      </div>
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded text-[11px] font-medium',
-                          INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                        )}
-                      >
-                        {inq.status}
-                      </span>
-                      <div className="text-xs text-muted-foreground tabular-nums w-16 text-right">
-                        {productsByInquiry[inq.id] || 0} prod
-                      </div>
-                      <div className="text-xs text-muted-foreground w-24 text-right hidden sm:block">
-                        {formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        {quoteDialog && (
+          <GenerateQuoteDialog
+            open={!!quoteDialog}
+            onOpenChange={(o) => !o && setQuoteDialog(null)}
+            inquiryId={quoteDialog.id}
+            inquiryNumber={quoteDialog.rfq}
+            onCreated={() => setRefreshKey(k => k + 1)}
+          />
+        )}
+        {sampleDialog && (
+          <GenerateSampleBatchDialog
+            open={!!sampleDialog}
+            onOpenChange={(o) => !o && setSampleDialog(null)}
+            inquiryId={sampleDialog.id}
+            inquiryNumber={sampleDialog.rfq}
+            onCreated={() => setRefreshKey(k => k + 1)}
+          />
+        )}
+      </TooltipProvider>
     </AppLayout>
   );
 };
@@ -309,6 +368,31 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
         <div className="text-xs text-muted-foreground">{label}</div>
       </CardContent>
     </Card>
+  );
+}
+
+function ActionButton({
+  disabled, tooltip, icon, label, onClick,
+}: {
+  disabled?: boolean; tooltip: string; icon: React.ReactNode; label: string; onClick: () => void;
+}) {
+  const btn = (
+    <Button
+      size="sm" variant="outline"
+      className="h-7 px-2 text-xs gap-1"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {icon}{label}
+    </Button>
+  );
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {disabled ? <span tabIndex={0}>{btn}</span> : btn}
+      </TooltipTrigger>
+      <TooltipContent><span className="text-xs">{tooltip}</span></TooltipContent>
+    </Tooltip>
   );
 }
 
