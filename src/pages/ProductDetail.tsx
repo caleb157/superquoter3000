@@ -11,6 +11,8 @@ import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductTasksTab } from '@/components/ProductTasksTab';
 import { ProductVariantsTab } from '@/components/ProductVariantsTab';
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
+import { Input } from '@/components/ui/input';
+import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 type ProductHeader = {
