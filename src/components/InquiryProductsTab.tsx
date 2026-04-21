@@ -71,22 +71,28 @@ type Props = {
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productTypes, setProductTypes] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
-        .eq('customer_rfq_id', inquiryId)
-        .order('updated_at', { ascending: false });
-      setProducts(data ?? []);
+      const [prodRes, typesRes] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
+          .eq('customer_rfq_id', inquiryId)
+          .order('updated_at', { ascending: false }),
+        supabase.from('product_types').select('*'),
+      ]);
+      setProducts(prodRes.data ?? []);
+      setProductTypes(typesRes.data ?? []);
     })();
   }, [inquiryId, refresh]);
 
