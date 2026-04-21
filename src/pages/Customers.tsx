@@ -193,6 +193,13 @@ const Customers = () => {
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        ) : view === 'kanban' ? (
+          <CustomersKanban
+            customers={customers as any}
+            inquiriesByCustomer={inquiriesByCustomer}
+            onStatusChange={updateStatus}
+            onOpenCustomer={(id) => navigate(`/customers/${id}`)}
+          />
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
@@ -206,7 +213,7 @@ const Customers = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Name</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs w-[160px]">Status</TableHead>
                       <TableHead className="text-xs">Company</TableHead>
                       <TableHead className="text-xs">Email</TableHead>
                       <TableHead className="text-xs">Source</TableHead>
@@ -215,13 +222,29 @@ const Customers = () => {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((c: any) => (
-                      <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
-                        <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                        <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
-                        <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+                      <TableRow key={c.id} className="hover:bg-muted/40">
+                        <TableCell className="font-medium text-sm">
+                          <button className="hover:underline text-left" onClick={() => navigate(`/customers/${c.id}`)}>
+                            {c.name}
+                          </button>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={c.lead_status || 'lead'}
+                            onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
+                          >
+                            <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {LEAD_STATUS_ORDER.map(s => (
+                                <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.company || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.email || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.source || '—'}</TableCell>
+                        <TableCell className="text-xs text-right cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -233,18 +256,28 @@ const Customers = () => {
               {filtered.map((c: any) => {
                 const inqCount = (inquiriesByCustomer[c.id] || []).length;
                 return (
-                  <Card key={c.id} className="active:bg-accent/50 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
-                    <CardContent className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
+                  <Card key={c.id} className="active:bg-accent/50">
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.name}</div>
                           {c.company && <div className="text-xs text-muted-foreground truncate">{c.company}</div>}
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="truncate flex-1 min-w-0">{c.email || c.source || '—'}</span>
-                        <span className="shrink-0 ml-2"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={c.lead_status || 'lead'}
+                          onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
+                        >
+                          <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {LEAD_STATUS_ORDER.map(s => (
+                              <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="shrink-0 text-xs text-muted-foreground"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
                       </div>
                     </CardContent>
                   </Card>
