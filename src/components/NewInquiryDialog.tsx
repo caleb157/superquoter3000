@@ -11,7 +11,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Copy } from 'lucide-react';
+import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 
 type Customer = { id: string; name: string; company: string | null };
 
