@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Plus, Package2, ChevronDown, ChevronRight } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
-import { MobileFab } from '@/components/MobileFab';
+
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-700',
@@ -237,7 +237,7 @@ export default function SamplesList() {
         inquiryOptions={inquiries}
         onCreated={fetchAll}
       />
-      <MobileFab onClick={() => setShowNew(true)} label="New sample batch" />
+      
     </AppLayout>
   );
 }

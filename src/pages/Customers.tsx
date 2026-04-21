@@ -14,7 +14,7 @@ import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, File
 import { toast } from 'sonner';
 import { CustomerImportDialog } from '@/components/CustomerImportDialog';
 import { LeadStatusBadge } from '@/components/LeadStatusBadge';
-import { MobileFab } from '@/components/MobileFab';
+
 
 const STATUS_TABS = [
   { value: 'all', label: 'All' },
@@ -223,7 +223,7 @@ const Customers = () => {
       </div>
 
       <CustomerImportDialog open={showImport} onOpenChange={setShowImport} onImported={fetchAll} />
-      <MobileFab onClick={() => setShowCreate(true)} label="Add customer" />
+      
     </AppLayout>
   );
 };

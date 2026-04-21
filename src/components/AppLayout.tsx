@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
+import { MobileTaskFab } from '@/components/MobileTaskFab';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hqLogo from '@/assets/dkt-logo.png';
 
@@ -298,6 +299,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </button>
         </div>
       </nav>
+
+      {/* Global mobile FAB — always opens New Task, contextual to route */}
+      <MobileTaskFab />
     </div>
   );
 };
