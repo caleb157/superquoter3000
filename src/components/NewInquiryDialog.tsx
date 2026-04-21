@@ -11,7 +11,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Copy } from 'lucide-react';
+import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 
 type Customer = { id: string; name: string; company: string | null };
 
@@ -31,6 +32,8 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   const [priority, setPriority] = useState('normal');
   const [requirements, setRequirements] = useState('');
   const [saving, setSaving] = useState(false);
+  const [copyAfterCreate, setCopyAfterCreate] = useState(false);
+  const [createdInquiryId, setCreatedInquiryId] = useState<string | null>(null);
 
   // Inline new-customer panel
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -104,11 +107,17 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Inquiry ${data.rfq_number} created`);
-    onOpenChange(false);
-    onCreated?.(data.id);
+    if (copyAfterCreate) {
+      // Keep inquiry id, open copy dialog. Navigate after copy completes.
+      setCreatedInquiryId(data.id);
+    } else {
+      onOpenChange(false);
+      onCreated?.(data.id);
+    }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
@@ -212,6 +221,16 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
                 rows={3}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-dashed p-2.5 hover:bg-muted/40">
+              <input
+                type="checkbox"
+                checked={copyAfterCreate}
+                onChange={e => setCopyAfterCreate(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Copy products from an existing inquiry after creating</span>
+            </label>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button size="sm" onClick={create} disabled={saving || !customerId}>
@@ -222,5 +241,21 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         )}
       </DialogContent>
     </Dialog>
+
+    {createdInquiryId && (
+      <CopyProductsDialog
+        open={!!createdInquiryId}
+        onOpenChange={(v) => {
+          if (!v) {
+            const id = createdInquiryId;
+            setCreatedInquiryId(null);
+            onOpenChange(false);
+            onCreated?.(id);
+          }
+        }}
+        targetInquiryId={createdInquiryId}
+      />
+    )}
+    </>
   );
 }

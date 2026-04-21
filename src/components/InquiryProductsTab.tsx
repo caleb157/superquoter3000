@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialo
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
+import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -79,6 +80,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
 
   useEffect(() => {
@@ -204,15 +206,25 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setCopyOpen(true)}>
+            <Copy className="h-4 w-4" /> Copy from existing
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" /> Upload & parse
           </Button>
         </div>
       </div>
+
+      <CopyProductsDialog
+        open={copyOpen}
+        onOpenChange={setCopyOpen}
+        targetInquiryId={inquiryId}
+        onCopied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
 
       <UploadParseDialog
         open={uploadOpen}
