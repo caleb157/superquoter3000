@@ -220,6 +220,16 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
                 rows={3}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-dashed p-2.5 hover:bg-muted/40">
+              <input
+                type="checkbox"
+                checked={copyAfterCreate}
+                onChange={e => setCopyAfterCreate(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>Copy products from an existing inquiry after creating</span>
+            </label>
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button size="sm" onClick={create} disabled={saving || !customerId}>
@@ -230,5 +240,21 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         )}
       </DialogContent>
     </Dialog>
+
+    {createdInquiryId && (
+      <CopyProductsDialog
+        open={!!createdInquiryId}
+        onOpenChange={(v) => {
+          if (!v) {
+            const id = createdInquiryId;
+            setCreatedInquiryId(null);
+            onOpenChange(false);
+            onCreated?.(id);
+          }
+        }}
+        targetInquiryId={createdInquiryId}
+      />
+    )}
+    </>
   );
 }
