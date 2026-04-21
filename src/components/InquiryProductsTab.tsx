@@ -11,7 +11,7 @@ import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
+import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
 import { NewSampleBatchDialog } from '@/components/NewSampleBatchDialog';
 
@@ -226,9 +226,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                         {p.name}
                       </button>
                     </TableCell>
-                    <TableCell><ProductStagePills product={{ design_stage: p.design_stage, quote_stage: null, sample_stage: null }} onChange={(t, s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
-                    <TableCell><ProductStagePills product={{ design_stage: null, quote_stage: p.quote_stage, sample_stage: null }} onChange={(t, s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
-                    <TableCell><ProductStagePills product={{ design_stage: null, quote_stage: null, sample_stage: p.sample_stage }} onChange={(t, s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
+                    <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
+                    <TableCell><SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
+                    <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
