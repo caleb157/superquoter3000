@@ -16,11 +16,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, FileText, Package2 } from 'lucide-react';
+import { Search, FileText, Package2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import {
   furthestStageBucket,
   productWeight,
