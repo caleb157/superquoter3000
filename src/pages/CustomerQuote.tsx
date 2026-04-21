@@ -49,10 +49,20 @@ interface QuoteData {
     email?: string;
     website?: string;
   } | null;
-  project: {
-    name: string;
+  // Pre-refactor quotes serialized a `project` object. Newer quotes serialize a `customer` object.
+  project?: {
+    name?: string;
     customer_name?: string;
     customer_email?: string;
+  } | null;
+  customer?: {
+    id?: string;
+    name?: string;
+    company?: string | null;
+    email?: string | null;
+  } | null;
+  inquiry?: {
+    title?: string | null;
   } | null;
 }
 
@@ -105,8 +115,12 @@ const CustomerQuote = () => {
         });
         setSelections(initSelections);
 
-        if (quoteData.project?.customer_name) setCustomerName(quoteData.project.customer_name);
-        if (quoteData.project?.customer_email) setCustomerEmail(quoteData.project.customer_email);
+        const legacyProject = quoteData.project ?? {};
+        const cust = quoteData.customer ?? legacyProject;
+        const cName = (cust as any).name ?? (cust as any).customer_name ?? null;
+        const cEmail = (cust as any).email ?? (cust as any).customer_email ?? null;
+        if (cName) setCustomerName(cName);
+        if (cEmail) setCustomerEmail(cEmail);
         if (quoteData.snapshot.status === 'approved') setConfirmed(true);
       } catch (err: any) {
         setError(err.message);
@@ -265,7 +279,11 @@ const CustomerQuote = () => {
     );
   }
 
-  const { snapshot, entity, project } = data;
+  const { snapshot, entity } = data;
+  const legacyProject: any = data.project ?? {};
+  const customerObj: any = data.customer ?? legacyProject;
+  const displayCustomerName = customerObj?.name ?? customerObj?.customer_name ?? null;
+  const displayTitle = snapshot.quote_number || data.inquiry?.title || legacyProject.name || 'Quote';
   const isExpired = snapshot.valid_until && new Date(snapshot.valid_until) < new Date();
 
   return (
@@ -327,11 +345,11 @@ const CustomerQuote = () => {
         {/* Title Section */}
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {snapshot.quote_number ? 'Quotation' : project?.name || 'Quote'}
+            {snapshot.quote_number ? 'Quotation' : displayTitle}
           </h2>
-          {project?.customer_name && (
+          {displayCustomerName && (
             <p className="text-base text-muted-foreground mt-1">
-              Prepared for <span className="font-medium text-foreground">{project.customer_name}</span>
+              Prepared for <span className="font-medium text-foreground">{displayCustomerName}</span>
             </p>
           )}
           {snapshot.notes && (
