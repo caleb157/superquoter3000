@@ -30,7 +30,7 @@ const STATUS_COLOR: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
-const VALID_TABS = ['summary', 'products', 'tasks', 'quotes', 'samples', 'settings'] as const;
+const VALID_TABS = ['products', 'tasks', 'quotes', 'samples', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 export default function InquiryDetail() {
@@ -54,7 +54,7 @@ export default function InquiryDetail() {
 
   const tabParam = searchParams.get('tab') as TabKey | null;
   const stageParam = searchParams.get('stage');
-  const activeTab: TabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'summary';
+  const activeTab: TabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'products';
   const setActiveTab = (t: TabKey) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', t);
@@ -199,12 +199,12 @@ export default function InquiryDetail() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
           <TabsList>
-            <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
             <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="quotes" className="text-xs">Quotes</TabsTrigger>
             <TabsTrigger value="samples" className="text-xs">Samples</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
+            <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
           </TabsList>
 
           <TabsContent value="summary" className="mt-3 space-y-3">
