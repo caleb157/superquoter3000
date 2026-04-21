@@ -130,16 +130,16 @@ export function TaskList({
           const due = formatDueDate(t.due_date);
           const overdueOpen = due.isOverdue && t.status === 'open';
           return (
-            <li key={t.id} className={cn('flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm')}>
+            <li key={t.id} className={cn('flex items-center gap-2 py-2 px-1 group flex-wrap sm:flex-nowrap', 'hover:bg-muted/50 rounded-sm')}>
               <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} />
               <span className={cn('h-2 w-2 rounded-full shrink-0', priorityColor(t.priority))} />
               <button
                 onClick={() => setEditId(t.id)}
-                className={cn('text-sm text-left flex-1 truncate', t.status === 'done' && 'line-through text-muted-foreground')}
+                className={cn('text-sm text-left flex-1 min-w-0 truncate', t.status === 'done' && 'line-through text-muted-foreground')}
               >{t.title}</button>
 
               {showAnchorLinks && !compact && (
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="hidden sm:flex items-center gap-1 shrink-0">
                   {t.inquiry && (
                     <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()}>
                       <Badge variant="secondary" className="text-[10px] h-5">{t.inquiry.rfq_number}</Badge>
@@ -162,13 +162,13 @@ export function TaskList({
               )}>{due.text}</span>
 
               {!compact && t.assignee && (
-                <span className="text-[11px] text-muted-foreground w-8 text-right shrink-0">{t.assignee}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{t.assignee}</span>
               )}
 
               {!compact && (
                 <Button
                   variant="ghost" size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 hidden sm:inline-flex"
                   onClick={() => setEditId(t.id)}
                 ><Pencil className="h-3 w-3" /></Button>
               )}
