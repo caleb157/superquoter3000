@@ -37,6 +37,30 @@ const ProductDetail = () => {
 
   const [product, setProduct] = useState<ProductHeader | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftSku, setDraftSku] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
+  const startEdit = () => {
+    if (!product) return;
+    setDraftName(product.name);
+    setDraftSku(product.sku ?? '');
+    setEditing(true);
+  };
+  const saveName = async () => {
+    if (!product) return;
+    const name = draftName.trim();
+    if (!name) { toast.error('Name is required'); return; }
+    setSavingName(true);
+    const sku = draftSku.trim() || null;
+    const { error } = await (supabase as any).from('products').update({ name, sku }).eq('id', product.id);
+    setSavingName(false);
+    if (error) { toast.error(error.message); return; }
+    setProduct({ ...product, name, sku });
+    setEditing(false);
+    toast.success('Product updated');
+  };
 
   const fetchProduct = useCallback(async () => {
     if (!id) return;
