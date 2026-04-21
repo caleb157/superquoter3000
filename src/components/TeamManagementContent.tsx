@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Shield, UserX } from 'lucide-react';
+import { UserX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -24,7 +24,7 @@ const ROLE_COLORS: Record<string, string> = {
   guest: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
-export default function TeamManagementContent({ showHeader = true }: { showHeader?: boolean }) {
+export default function TeamManagementContent() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,11 +33,7 @@ export default function TeamManagementContent({ showHeader = true }: { showHeade
   const fetchUsers = async () => {
     setLoading(true);
     const { data, error } = await (supabase as any).rpc('admin_list_users');
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+    if (error) { toast.error(error.message); setLoading(false); return; }
     setRows((data || []) as Row[]);
     setLoading(false);
   };
@@ -46,10 +42,7 @@ export default function TeamManagementContent({ showHeader = true }: { showHeade
 
   const setRole = async (userId: string, role: string) => {
     setUpdatingId(userId);
-    const { error } = await (supabase as any).rpc('admin_set_user_role', {
-      _target_user_id: userId,
-      _role: role,
-    });
+    const { error } = await (supabase as any).rpc('admin_set_user_role', { _target_user_id: userId, _role: role });
     setUpdatingId(null);
     if (error) { toast.error(error.message); return; }
     toast.success('Role updated');
@@ -59,9 +52,7 @@ export default function TeamManagementContent({ showHeader = true }: { showHeade
   const removeRole = async (userId: string) => {
     if (!confirm('Remove all roles from this user? They will lose access.')) return;
     setUpdatingId(userId);
-    const { error } = await (supabase as any).rpc('admin_remove_user_role', {
-      _target_user_id: userId,
-    });
+    const { error } = await (supabase as any).rpc('admin_remove_user_role', { _target_user_id: userId });
     setUpdatingId(null);
     if (error) { toast.error(error.message); return; }
     toast.success('Roles removed');
@@ -69,20 +60,10 @@ export default function TeamManagementContent({ showHeader = true }: { showHeade
   };
 
   return (
-    <div className="space-y-4">
-      {showHeader && (
-        <>
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold">Team Management</h2>
-            <Badge variant="secondary" className="ml-2 text-[10px]">Admin only</Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Assign roles to users. <b>Admin</b> = full access incl. settings & team. <b>Team</b> = full app access. <b>Guest</b> = restricted.
-          </p>
-        </>
-      )}
-
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Assign roles to users. <b>Admin</b> = full access incl. settings & team. <b>Team</b> = full app access. <b>Guest</b> = restricted.
+      </p>
       {loading ? (
         <div className="text-center py-12 text-muted-foreground text-sm">Loading users…</div>
       ) : (
@@ -111,9 +92,7 @@ export default function TeamManagementContent({ showHeader = true }: { showHeade
                       <TableCell className="text-xs text-muted-foreground">{r.display_name || '—'}</TableCell>
                       <TableCell>
                         {currentRole ? (
-                          <Badge variant="outline" className={`text-[10px] ${ROLE_COLORS[currentRole] || ''}`}>
-                            {currentRole}
-                          </Badge>
+                          <Badge variant="outline" className={`text-[10px] ${ROLE_COLORS[currentRole] || ''}`}>{currentRole}</Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">no role</span>
                         )}

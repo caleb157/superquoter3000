@@ -145,6 +145,18 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Button>
               </Link>
             )}
+            {visibleItems.find(v => v.to === '/team') && (
+              <Link to="/team">
+                <Button
+                  variant={isActive('/team') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive('/team') && 'bg-secondary')}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Team
+                </Button>
+              </Link>
+            )}
 
             {/* Spacer pushes settings to the far right */}
             <div className="flex-1" />
@@ -171,6 +183,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="ml-auto flex items-center gap-1">
             <GlobalTaskQuickAdd />
             <ThemeToggle />
+            <span className="text-xs text-muted-foreground hidden lg:inline truncate max-w-[160px]">
+              {user?.email}
+            </span>
             <Button
               variant="ghost"
               size="icon"
@@ -196,7 +211,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   <span className="font-bold">Product HQ</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
-                  {visibleItems.filter(i => i.to !== '/team').map(item => (
+                  {visibleItems.map(item => (
                     <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}>
                       <Button
                         variant={isActive(item.to) ? 'secondary' : 'ghost'}
