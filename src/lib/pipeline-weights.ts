@@ -70,13 +70,13 @@ export const STAGE_BUCKET_ORDER: StageBucket[] = [
 ];
 
 export const STAGE_BUCKET_COLOR: Record<StageBucket, string> = {
-  not_started: 'bg-muted',
-  need_design: 'bg-amber-200',
-  designed: 'bg-blue-200',
-  quoting: 'bg-amber-200',
-  ready_for_quote: 'bg-blue-200',
-  quoted: 'bg-purple-200',
-  sampling: 'bg-amber-200',
-  sample_sent: 'bg-blue-200',
-  po: 'bg-emerald-300',
+  not_started: 'bg-muted text-muted-foreground',
+  need_design: 'bg-amber-200 text-amber-950 dark:bg-amber-400/90 dark:text-amber-950',
+  designed: 'bg-blue-200 text-blue-950 dark:bg-blue-400/90 dark:text-blue-950',
+  quoting: 'bg-amber-200 text-amber-950 dark:bg-amber-400/90 dark:text-amber-950',
+  ready_for_quote: 'bg-blue-200 text-blue-950 dark:bg-blue-400/90 dark:text-blue-950',
+  quoted: 'bg-purple-200 text-purple-950 dark:bg-purple-400/90 dark:text-purple-950',
+  sampling: 'bg-amber-200 text-amber-950 dark:bg-amber-400/90 dark:text-amber-950',
+  sample_sent: 'bg-blue-200 text-blue-950 dark:bg-blue-400/90 dark:text-blue-950',
+  po: 'bg-emerald-300 text-emerald-950 dark:bg-emerald-400/90 dark:text-emerald-950',
 };
