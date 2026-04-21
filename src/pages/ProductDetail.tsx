@@ -109,8 +109,41 @@ const ProductDetail = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold truncate">{product.name}</h1>
-            {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
+            {editing ? (
+              <div className="flex flex-col sm:flex-row gap-1.5 sm:items-center">
+                <Input
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="Product name"
+                  className="h-8 text-sm font-semibold"
+                  autoFocus
+                />
+                <Input
+                  value={draftSku}
+                  onChange={(e) => setDraftSku(e.target.value)}
+                  placeholder="SKU (optional)"
+                  className="h-8 text-xs sm:max-w-[180px]"
+                />
+                <div className="flex gap-1">
+                  <Button size="icon" variant="default" className="h-8 w-8" onClick={saveName} disabled={savingName}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(false)} disabled={savingName}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 group">
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-lg font-bold truncate">{product.name}</h1>
+                  {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100" onClick={startEdit}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             <ProductStagePills product={product} onChange={handleStageChange} />
