@@ -21,7 +21,7 @@ import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
-import { MobileFab } from '@/components/MobileFab';
+
 import {
   furthestStageBucket,
   productWeight,
