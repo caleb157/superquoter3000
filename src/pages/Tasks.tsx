@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
+import { MobileFab } from '@/components/MobileFab';
 import type { DueWindow } from '@/lib/task-types';
 
 export default function Tasks() {
@@ -133,6 +134,7 @@ export default function Tasks() {
 
         <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => setRefreshKey(k => k + 1)} />
       </div>
+      <MobileFab onClick={() => setDialogOpen(true)} label="New task" />
     </AppLayout>
   );
 }
