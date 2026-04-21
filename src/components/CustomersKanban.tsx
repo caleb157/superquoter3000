@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building2, FileText, Clock } from 'lucide-react';
+import { Building2, FileText } from 'lucide-react';
 import { LEAD_STATUS_ORDER, LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, type LeadStatus } from '@/components/LeadStatusBadge';
 import { cn } from '@/lib/utils';
 
