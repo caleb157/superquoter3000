@@ -78,6 +78,7 @@ const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
@@ -235,6 +236,13 @@ const Dashboard = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold">Dashboard</h1>
+            <Button size="sm" className="gap-1.5 h-8" onClick={() => setShowNewInquiry(true)}>
+              <Plus className="h-3.5 w-3.5" /> New Inquiry
+            </Button>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
@@ -242,6 +250,12 @@ const Dashboard = () => {
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
           </div>
+
+          <NewInquiryDialog
+            open={showNewInquiry}
+            onOpenChange={setShowNewInquiry}
+            onCreated={(inq) => navigate(`/inquiry/${inq.id}?tab=products`)}
+          />
 
           {/* Pipeline value + Products by stage */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
