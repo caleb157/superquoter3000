@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode, type TouchEvent } from 'react';
 import { Check, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -54,9 +55,15 @@ export function SwipeableTaskRow({ done, onToggle, children }: Props) {
       // Animate off, fire toggle, then snap back.
       setAnimating(true);
       setDx(dx > 0 ? MAX : -MAX);
+      const wasDone = done;
       setTimeout(() => {
         onToggle();
         setDx(0);
+        // Undo toast — one-tap revert for accidental swipes.
+        toast(wasDone ? 'Task reopened' : 'Task completed', {
+          action: { label: 'Undo', onClick: () => onToggle() },
+          duration: 4000,
+        });
         // remove animation flag after snap-back tick
         setTimeout(() => setAnimating(false), 180);
       }, 120);
