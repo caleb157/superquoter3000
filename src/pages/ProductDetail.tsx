@@ -14,6 +14,8 @@ import { ProductStagePills, type StageTrack } from '@/components/ProductStagePil
 import { Input } from '@/components/ui/input';
 import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { fmt } from '@/lib/formatters';
+import * as calc from '@/lib/calculations';
 
 type ProductHeader = {
   id: string;
@@ -23,6 +25,8 @@ type ProductHeader = {
   design_stage: string | null;
   quote_stage: string | null;
   sample_stage: string | null;
+  quantity: number;
+  markup_percent: number | null;
 };
 
 const VALID_TABS = ['summary', 'costing', 'variants', 'sample-log', 'tasks'] as const;
@@ -41,6 +45,15 @@ const ProductDetail = () => {
   const [draftName, setDraftName] = useState('');
   const [draftSku, setDraftSku] = useState('');
   const [savingName, setSavingName] = useState(false);
+  
+  // Costing summary state
+  const [costingSummary, setCostingSummary] = useState<{
+    unitPriceInr: number;
+    unitPriceUsd: number;
+    unitCostInr: number;
+    unitCostUsd: number;
+    exchangeRate: number;
+  } | null>(null);
 
   const startEdit = () => {
     if (!product) return;
@@ -66,7 +79,7 @@ const ProductDetail = () => {
     if (!id) return;
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage')
+      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent')
       .eq('id', id)
       .maybeSingle();
     if (error) toast.error(error.message);
@@ -74,7 +87,99 @@ const ProductDetail = () => {
     setLoading(false);
   }, [id]);
 
+  // Fetch costing summary data
+  const fetchCostingSummary = useCallback(async () => {
+    if (!id) return;
+    
+    // Fetch all data needed for costing calculations
+    const [
+      { data: productData },
+      { data: cogsItemsData },
+      { data: nonUnitCogsData },
+      { data: overheadItemsData },
+      { data: shippingItemsData },
+      { data: shippingTypesData },
+      { data: employeesData },
+      { data: globalSettingsData },
+      { data: inquiryData },
+    ] = await Promise.all([
+      supabase.from('products').select('*').eq('id', id).maybeSingle(),
+      supabase.from('cogs_items').select('*').eq('product_id', id),
+      supabase.from('non_unit_cogs').select('*').eq('product_id', id),
+      supabase.from('overhead_items').select('*').eq('product_id', id),
+      supabase.from('shipping_items').select('*').eq('product_id', id),
+      supabase.from('shipping_types').select('*'),
+      supabase.from('labor_employees').select('*'),
+      supabase.from('global_settings').select('*').maybeSingle(),
+      supabase.from('customer_rfqs').select('exchange_rate_override, markup_percent_override, shipping_type_id_override').eq('id', (await supabase.from('products').select('customer_rfq_id').eq('id', id).maybeSingle()).data?.customer_rfq_id).maybeSingle(),
+    ]);
+
+    if (!productData || !globalSettingsData) return;
+
+    const qty = productData.quantity || 100;
+    const exchangeRate = inquiryData?.exchange_rate_override ?? globalSettingsData.exchange_rate ?? 90;
+    const markupPercent = inquiryData?.markup_percent_override ?? productData.markup_percent ?? 0.2;
+
+    // Calculate COGS per unit
+    const cogsPerUnit = (cogsItemsData || []).reduce((sum: number, item: any) => {
+      if (item.include === 'No') return sum;
+      const c = calc.calcCogsItemCost({
+        include: item.include,
+        components_per_product: item.components_per_product || 0,
+        unit_cost_inr: item.unit_cost_inr || 0,
+        waste_factor: item.waste_factor || 0,
+      });
+      return sum + c.unit_cost;
+    }, 0);
+
+    // Calculate non-unit COGS per unit
+    const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
+      (nonUnitCogsData || []).map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })),
+      qty
+    );
+
+    // Calculate overhead
+    const ohItems = (overheadItemsData || []).map((item: any) => ({
+      include: item.include,
+      labor_type: item.labor_type,
+      man_hours_per_unit: item.man_hours_per_unit || 0,
+      hourly_rate: calc.avgRateByDesignation(employeesData || [], item.labor_type),
+    }));
+    const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
+    const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
+    const indirectOhPerMh = calc.calcIndirectOhPerManHour(globalSettingsData);
+    const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
+
+    // Calculate shipping
+    const shipItem = (shippingItemsData || [])[0];
+    const overrideShipType = inquiryData?.shipping_type_id_override
+      ? (shippingTypesData || []).find((s: any) => s.id === inquiryData.shipping_type_id_override)
+      : null;
+    const shipType = overrideShipType || (shippingTypesData || []).find((s: any) => s.id === shipItem?.shipping_type_id);
+    const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
+      cost_inr: shipType.cost_inr,
+      per_unit: (shipType.per_unit as 'CBM' | 'KG') || 'CBM',
+      final_unit_cbm: 0,
+      weight_kg: productData.weight_kg || 0,
+    }) : 0;
+
+    // Calculate summary
+    const summary = calc.calcProductCostSummary(
+      cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+      shippingPerUnit, markupPercent, exchangeRate, qty
+    );
+
+    setCostingSummary({
+      unitPriceInr: summary.unit_price_inr,
+      unitPriceUsd: summary.unit_price_usd,
+      unitCostInr: summary.product_cost_per_unit_inr,
+      unitCostUsd: summary.product_cost_per_unit_usd,
+      exchangeRate,
+    });
+  }, [id]);
+
   useEffect(() => { fetchProduct(); }, [fetchProduct]);
+  useEffect(() => { fetchCostingSummary(); }, [fetchCostingSummary]);
 
   const handleStageChange = async (track: StageTrack, stage: string | null) => {
     if (!product) return;
@@ -145,6 +250,24 @@ const ProductDetail = () => {
               </div>
             )}
           </div>
+          
+          {/* Price/Cost Summary */}
+          {costingSummary && (
+            <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-muted/50 rounded-md">
+              <div className="text-xs">
+                <span className="text-muted-foreground block text-[10px]">Unit Cost</span>
+                <span className="font-mono font-semibold">{fmt.inr(costingSummary.unitCostInr)}</span>
+                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitCostUsd)})</span>
+              </div>
+              <div className="w-px h-6 bg-border" />
+              <div className="text-xs">
+                <span className="text-muted-foreground block text-[10px]">Unit Price</span>
+                <span className="font-mono font-semibold text-primary">{fmt.inr(costingSummary.unitPriceInr)}</span>
+                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitPriceUsd)})</span>
+              </div>
+            </div>
+          )}
+          
           <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             <ProductStagePills product={product} onChange={handleStageChange} />
           </div>
