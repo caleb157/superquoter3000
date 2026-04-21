@@ -320,7 +320,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length]);
 
   // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
   useEffect(() => {
