@@ -14,6 +14,8 @@ import { ProductStagePills, type StageTrack } from '@/components/ProductStagePil
 import { Input } from '@/components/ui/input';
 import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { fmt } from '@/lib/formatters';
+import * as calc from '@/lib/calculations';
 
 type ProductHeader = {
   id: string;
@@ -23,6 +25,8 @@ type ProductHeader = {
   design_stage: string | null;
   quote_stage: string | null;
   sample_stage: string | null;
+  quantity: number;
+  markup_percent: number | null;
 };
 
 const VALID_TABS = ['summary', 'costing', 'variants', 'sample-log', 'tasks'] as const;
