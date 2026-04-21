@@ -76,6 +76,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [productTypes, setProductTypes] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
+      if (data) setProductTypes(data);
+    });
+  }, []);
 
   useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
