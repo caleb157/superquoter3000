@@ -157,21 +157,39 @@ const Customers = () => {
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+        <CustomerMetricsCard customers={customers as any} />
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+          </div>
+          <div className="flex border rounded-md overflow-hidden">
+            <Button
+              variant={view === 'list' ? 'secondary' : 'ghost'}
+              size="sm" className="h-9 rounded-none gap-1.5"
+              onClick={() => setView('list')}
+            ><List className="h-4 w-4" /> <span className="hidden sm:inline">List</span></Button>
+            <Button
+              variant={view === 'kanban' ? 'secondary' : 'ghost'}
+              size="sm" className="h-9 rounded-none gap-1.5"
+              onClick={() => setView('kanban')}
+            ><LayoutGrid className="h-4 w-4" /> <span className="hidden sm:inline">Kanban</span></Button>
+          </div>
         </div>
 
-        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-          <TabsList className="w-full sm:w-auto overflow-x-auto flex justify-start">
-            {STATUS_TABS.map(t => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5 shrink-0">
-                {t.label}
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{counts[t.value] ?? 0}</Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        {view === 'list' && (
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList className="w-full sm:w-auto overflow-x-auto flex justify-start">
+              {STATUS_TABS.map(t => (
+                <TabsTrigger key={t.value} value={t.value} className="text-xs gap-1.5 shrink-0">
+                  {t.label}
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{counts[t.value] ?? 0}</Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
