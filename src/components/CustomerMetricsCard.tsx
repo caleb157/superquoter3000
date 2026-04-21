@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, Trophy, TrendingDown, Users } from 'lucide-react';
+import { Clock, Trophy, TrendingDown, Users, Zap } from 'lucide-react';
 
 type Customer = { id: string; lead_status: string; created_at: string | null };
 
@@ -8,17 +8,12 @@ interface Props {
   customers: Customer[];
 }
 
-/**
- * Cycle time = days from customer created_at → today,
- * for customers that reached a terminal state (won / churned / inactive).
- * It's an approximation since we don't track per-status timestamps yet.
- */
 export function CustomerMetricsCard({ customers }: Props) {
   const stats = useMemo(() => {
     const terminal = customers.filter(c =>
       ['won', 'churned', 'inactive'].includes(c.lead_status) && c.created_at
     );
-    const wonCustomers = customers.filter(c => c.lead_status === 'won' && c.created_at);
+    const activeCustomers = customers.filter(c => c.lead_status === 'won' && c.created_at);
     const lostCustomers = customers.filter(c => ['churned', 'inactive'].includes(c.lead_status) && c.created_at);
 
     const daysFor = (list: Customer[]) => {
@@ -31,15 +26,15 @@ export function CustomerMetricsCard({ customers }: Props) {
     };
 
     const totalLeads = customers.length;
-    const wonCount = wonCustomers.length;
-    const conversionRate = totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0;
+    const activeCount = activeCustomers.length;
+    const conversionRate = totalLeads > 0 ? Math.round((activeCount / totalLeads) * 100) : 0;
 
     return {
       avgCycle: daysFor(terminal),
-      avgWonCycle: daysFor(wonCustomers),
+      avgActiveCycle: daysFor(activeCustomers),
       avgLostCycle: daysFor(lostCustomers),
       totalLeads,
-      wonCount,
+      activeCount,
       conversionRate,
     };
   }, [customers]);
@@ -65,19 +60,19 @@ export function CustomerMetricsCard({ customers }: Props) {
             <Users className="h-4 w-4" />,
             'Total Customers',
             String(stats.totalLeads),
-            `${stats.wonCount} won`
+            `${stats.activeCount} active`
           )}
           {tile(
-            <Trophy className="h-4 w-4 text-emerald-600" />,
+            <Zap className="h-4 w-4 text-emerald-600" />,
             'Conversion',
             `${stats.conversionRate}%`,
-            'leads → won'
+            'leads → active'
           )}
           {tile(
             <Clock className="h-4 w-4 text-blue-600" />,
-            'Avg cycle (won)',
-            stats.avgWonCycle != null ? `${stats.avgWonCycle}d` : '—',
-            'lead → won'
+            'Avg cycle (active)',
+            stats.avgActiveCycle != null ? `${stats.avgActiveCycle}d` : '—',
+            'lead → active'
           )}
           {tile(
             <TrendingDown className="h-4 w-4 text-amber-600" />,
