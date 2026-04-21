@@ -152,23 +152,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleGenerateQuote = async () => {
     const selectedProducts = products.filter(p => selected.has(p.id));
     if (selectedProducts.length === 0) return;
-    const totalQty = 0; const grandTotal = 0;
-    const productsJson = selectedProducts.map(p => ({
-      id: p.id, name: p.name,
-      target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
-    }));
-    const { data: inq } = await supabase
-      .from('customer_rfqs').select('customer_id, customers:customer_id(id, name, company, email)')
-      .eq('id', inquiryId).maybeSingle();
-    const c: any = (inq as any)?.customers ?? null;
-    const customerData = c ? { id: c.id, name: c.name, company: c.company, email: c.email } : null;
+    const productsJson = selectedProducts.map(p => {
+      const unit = Number(p.target_price_usd ?? 0);
+      return {
+        id: p.id,
+        name: p.name,
+        target_price_usd: p.target_price_usd,
+        markup_percent: p.markup_percent,
+        quantity: 0,
+        unit_price_usd: unit,
+        total: 0,
+      };
+    });
+    const totalQty = productsJson.reduce((sum, product) => sum + Number(product.quantity ?? 0), 0);
+    const grandTotal = productsJson.reduce((sum, product) => sum + Number(product.total ?? 0), 0);
     const { error } = await (supabase as any).from('quote_snapshots').insert({
       customer_rfq_id: inquiryId,
       quote_number: 'Q-' + Date.now(),
       status: 'draft',
       share_token: crypto.randomUUID(),
       products: productsJson,
-      customer: customerData,
       totals: { sku_count: selectedProducts.length, total_qty: totalQty, grand_total: grandTotal },
     });
     if (error) { toast.error(error.message); return; }
