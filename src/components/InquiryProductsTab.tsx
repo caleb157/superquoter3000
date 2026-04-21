@@ -24,7 +24,12 @@ type Product = {
   sample_stage_was?: string | null;
 };
 
-type FilterKey = 'all' | 'needs_design' | 'in_costing' | 'sampling';
+type FilterKey =
+  | 'all' | 'needs_design' | 'in_costing' | 'sampling'
+  // raw stage filters (from dashboard stage-pill links)
+  | 'need_design' | 'designed'
+  | 'quoting' | 'ready_for_quote' | 'quoted'
+  | 'sample_sent';
 
 const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -32,6 +37,15 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'in_costing', label: 'In Costing' },
   { key: 'sampling', label: 'Sampling' },
 ];
+
+const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
+  need_design: 'Need design',
+  designed: 'Designed',
+  quoting: 'Quoting',
+  ready_for_quote: 'Ready for quote',
+  quoted: 'Quoted',
+  sample_sent: 'Sample sent',
+};
 
 function costingBadge(p: Product): { label: string; cls: string } {
   if (p.target_price_usd && Number(p.target_price_usd) > 0) {
@@ -79,6 +93,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       if (filter === 'needs_design') return p.design_stage === 'need_design';
       if (filter === 'in_costing') return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote';
       if (filter === 'sampling') return p.sample_stage === 'sampling';
+      // Raw stage matches (from dashboard stage-pill links)
+      if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
+      if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
+      if (filter === 'sample_sent') return p.sample_stage === 'sample_sent';
       return true;
     });
   }, [products, search, filter]);
@@ -150,6 +168,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               onClick={() => { setFilter(c.key); onFilterChange(c.key); }}
             >{c.label}</Button>
           ))}
+          {RAW_STAGE_LABELS[filter] && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20"
+              onClick={() => { setFilter('all'); onFilterChange('all'); }}
+            >
+              {RAW_STAGE_LABELS[filter]} <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
 

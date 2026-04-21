@@ -52,13 +52,21 @@ export default function InquiryDetail() {
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
 
   const tabParam = searchParams.get('tab') as TabKey | null;
+  const stageParam = searchParams.get('stage');
   const activeTab: TabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'summary';
   const setActiveTab = (t: TabKey) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', t);
+    if (t !== 'products') { next.delete('stage'); setProductFilter('all'); }
     setSearchParams(next, { replace: true });
-    if (t !== 'products') setProductFilter('all');
   };
+
+  // Apply ?stage=<key> on mount / when it changes (only when on products tab)
+  useEffect(() => {
+    if (activeTab === 'products' && stageParam) {
+      setProductFilter(stageParam as ProductFilterKey);
+    }
+  }, [activeTab, stageParam]);
 
   const fetchInquiry = async () => {
     if (!id) return;
