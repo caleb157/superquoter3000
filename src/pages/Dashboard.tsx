@@ -82,6 +82,7 @@ const Dashboard = () => {
 
   const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
+  const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   useEffect(() => {
     (async () => {
