@@ -307,77 +307,121 @@ const Products = () => {
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : (
-          <div className="border rounded-md overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                  <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                  <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                  <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                  <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                  <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                  <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                  <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                  <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
-                  <TableHead className="text-xs w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(p => {
-                  const inq = inquiryMap[p.customer_rfq_id];
-                  const cust = inq?.customer_id ? customerMap[inq.customer_id] : null;
-                  const cbm = cbmMap[p.id];
-                  const review = hasReview(p.id);
-                  return (
-                    <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
-                      <TableCell>
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={p.photo_url || ''} />
-                          <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">{p.name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{p.sku || '—'}</TableCell>
-                      <TableCell>
-                        <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (inq) navigate(`/inquiry/${inq.id}`); }}>
-                          {inq ? `${inq.rfq_number} — ${inq.title || 'Untitled'}` : '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs">{cust?.name || '—'}</TableCell>
-                      <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
-                      <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
-                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
-                      <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
-                      <TableCell className="text-center">
-                        {(() => {
-                          const cb = costingBadge(p, review);
-                          return <Badge className={cb.cls} variant="secondary">{cb.label}</Badge>;
-                        })()}
-                      </TableCell>
-                      <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                        <ConfirmDeleteButton
-                          itemLabel={`product "${p.name}"`}
-                          iconOnly
-                          onConfirm={async () => {
-                            const { error } = await supabase.from('products').delete().eq('id', p.id);
-                            if (error) throw error;
-                            setProducts(prev => prev.filter(x => x.id !== p.id));
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filtered.length === 0 && (
+          <>
+            <div className="hidden md:block border rounded-md overflow-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                    <TableHead className="w-10"></TableHead>
+                    <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                    <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                    <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                    <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
+                    <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
+                    <TableHead className="text-xs w-10"></TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(p => {
+                    const inq = inquiryMap[p.customer_rfq_id];
+                    const cust = inq?.customer_id ? customerMap[inq.customer_id] : null;
+                    const cbm = cbmMap[p.id];
+                    const review = hasReview(p.id);
+                    return (
+                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                        <TableCell>
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={p.photo_url || ''} />
+                            <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{p.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{p.sku || '—'}</TableCell>
+                        <TableCell>
+                          <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (inq) navigate(`/inquiry/${inq.id}`); }}>
+                            {inq ? `${inq.rfq_number} — ${inq.title || 'Untitled'}` : '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs">{cust?.name || '—'}</TableCell>
+                        <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
+                        <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
+                        <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
+                        <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const cb = costingBadge(p, review);
+                            return <Badge className={cb.cls} variant="secondary">{cb.label}</Badge>;
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                          <ConfirmDeleteButton
+                            itemLabel={`product "${p.name}"`}
+                            iconOnly
+                            onConfirm={async () => {
+                              const { error } = await supabase.from('products').delete().eq('id', p.id);
+                              if (error) throw error;
+                              setProducts(prev => prev.filter(x => x.id !== p.id));
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-2">
+              {filtered.length === 0 && (
+                <Card><div className="py-8 text-center text-sm text-muted-foreground">No products found.</div></Card>
+              )}
+              {filtered.map(p => {
+                const inq = inquiryMap[p.customer_rfq_id];
+                const cust = inq?.customer_id ? customerMap[inq.customer_id] : null;
+                const cbm = cbmMap[p.id];
+                const review = hasReview(p.id);
+                const cb = costingBadge(p, review);
+                return (
+                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                    <div className="p-3 flex gap-3">
+                      <Avatar className="h-12 w-12 shrink-0">
+                        <AvatarImage src={p.photo_url || ''} />
+                        <AvatarFallback className="text-[11px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-sm truncate">{p.name}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {p.sku ? `${p.sku} · ` : ''}{inq ? inq.rfq_number : '—'}{cust ? ` · ${cust.name}` : ''}
+                            </div>
+                          </div>
+                          <Badge className={cb.cls + ' shrink-0 text-[10px]'} variant="secondary">{cb.label}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                          <span>Qty {fmt.qty(p.quantity)}</span>
+                          <span>{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) + ' CBM' : '—'}</span>
+                          <span className="font-medium text-foreground">
+                            {costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </AppLayout>
