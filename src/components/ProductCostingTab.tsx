@@ -51,7 +51,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
-  const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Section open state
