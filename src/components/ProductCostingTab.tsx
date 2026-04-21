@@ -51,7 +51,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
-  const [projectSettings, setProjectSettings] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Section open state
@@ -504,13 +503,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
     qty
   );
 
-  // Step 12: Cost summary — apply project-level overrides
-  const exchangeRate = (projectSettings && !projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
-    ? projectSettings.exchange_rate_override
-    : (globalSettings?.exchange_rate || 90);
-  const markupPercent = (projectSettings && projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
-    ? projectSettings.default_markup_override
-    : (product?.markup_percent || 0.2);
+  // Step 12: Cost summary — Phase 7: inquiry-level settings TBD
+  const exchangeRate = globalSettings?.exchange_rate || 90;
+  const markupPercent = product?.markup_percent || 0.2;
   const summary = calc.calcProductCostSummary(
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty
@@ -552,25 +547,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
 
   return (
     <div className="space-y-2">
-        {/* Project-level override banner */}
-        {projectSettings && (
-          (() => {
-            const overrides: string[] = [];
-            if (!projectSettings.use_global_exchange_rate && projectSettings.exchange_rate_override)
-              overrides.push(`Custom exchange rate (₹${projectSettings.exchange_rate_override}/USD)`);
-            if (projectSettings.apply_uniform_markup && projectSettings.default_markup_override != null)
-              overrides.push(`Uniform markup of ${(projectSettings.default_markup_override * 100).toFixed(0)}%`);
-            if (!projectSettings.use_global_shipping && projectSettings.shipping_type_override)
-              overrides.push(`Custom shipping: ${projectSettings.shipping_type_override}`);
-            if (overrides.length === 0) return null;
-            return (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
-                <span>⚙️</span>
-                <span>{overrides.join(' · ')}</span>
-              </div>
-            );
-          })()
-        )}
+        {/* Phase 7: inquiry-level settings TBD */}
 
         {/* Section A: Product Info */}
         <Collapsible open={sections.info} onOpenChange={() => toggle('info')}>
