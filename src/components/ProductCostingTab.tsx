@@ -1000,7 +1000,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">
-                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-20 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                             value={item.components_per_product ?? 0}
                             onChange={e => {
                               const v = Number(e.target.value);
@@ -1009,7 +1009,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                             onBlur={e => updateCogsItem(item.id, 'components_per_product', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-18 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                             value={item.unit_cost_inr ?? 0}
                             onChange={e => {
                               const v = Number(e.target.value);
@@ -1018,7 +1018,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                             onBlur={e => updateCogsItem(item.id, 'unit_cost_inr', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-12" type="number"
+                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-14" type="number"
                             defaultValue={(item.waste_factor || 0) * 100}
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
