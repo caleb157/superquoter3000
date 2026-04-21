@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 
-const ACCEPTED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.xls'];
+const ACCEPTED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.xls', '.csv'];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_FILES = 10;
 const LARGE_PDF_THRESHOLD = 5 * 1024 * 1024; // 5MB
@@ -574,7 +574,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                 Drop product images, spec sheets, or spreadsheets here — or click to browse
               </p>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Accepted: JPG, PNG, PDF, XLSX, XLS · Max 20MB per file · Up to 10 files
+                Accepted: JPG, PNG, PDF, XLSX, XLS, CSV · Max 20MB per file · Up to 10 files
               </p>
               <input
                 ref={fileInputRef}
@@ -585,6 +585,19 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                 onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
               />
             </div>
+
+            <div className="text-xs text-muted-foreground text-center">
+              For best results with spreadsheets,{' '}
+              <a
+                href="/product-import-template.csv"
+                download
+                onClick={e => e.stopPropagation()}
+                className="text-primary underline hover:no-underline"
+              >
+                download the import template
+              </a>
+              . Required column: <code className="px-1 bg-muted rounded">name</code>. Optional:{' '}
+              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, sourced_externally, collection, notes</code>.
 
             {/* File list */}
             {files.length > 0 && (
