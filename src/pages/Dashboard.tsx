@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { Plus } from 'lucide-react';
 import {
   furthestStageBucket,
   productWeight,
