@@ -20,6 +20,7 @@ import { Search, FileText, Package2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import {
   furthestStageBucket,
   productWeight,
@@ -345,7 +346,7 @@ const Dashboard = () => {
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
                       <TableHead className="text-xs w-[100px]">Updated</TableHead>
-                      <TableHead className="text-xs text-right w-[150px]">Actions</TableHead>
+                      <TableHead className="text-xs text-right w-[190px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -412,6 +413,16 @@ const Dashboard = () => {
                                 icon={<Package2 className="h-3 w-3" />}
                                 label="Sample"
                                 onClick={() => setSampleDialog({ id: inq.id, rfq: inq.rfq_number })}
+                              />
+                              <ConfirmDeleteButton
+                                itemLabel={`inquiry ${inq.rfq_number}`}
+                                description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
+                                iconOnly
+                                onConfirm={async () => {
+                                  const { error } = await supabase.from('customer_rfqs').delete().eq('id', inq.id);
+                                  if (error) throw error;
+                                  setRefreshKey(k => k + 1);
+                                }}
                               />
                             </div>
                           </TableCell>

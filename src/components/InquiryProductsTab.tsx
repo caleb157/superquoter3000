@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
 import { NewSampleBatchDialog } from '@/components/NewSampleBatchDialog';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -244,6 +245,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=costing`)}>Costing</Button>
                         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=sample-log`)}>Sample Log</Button>
+                        <ConfirmDeleteButton
+                          itemLabel={`product "${p.name}"`}
+                          iconOnly
+                          onConfirm={async () => {
+                            const { error } = await supabase.from('products').delete().eq('id', p.id);
+                            if (error) throw error;
+                            setRefresh(r => r + 1);
+                            onChange();
+                          }}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
