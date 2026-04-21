@@ -343,7 +343,7 @@ const Dashboard = () => {
                 inquiries.length === 0 ? (
                   <div className="p-12 text-center space-y-3">
                     <div className="text-sm text-muted-foreground">No inquiries yet.</div>
-                    <Button size="sm" onClick={() => navigate('/customers')}>+ New Inquiry</Button>
+                    <Button size="sm" onClick={() => setShowNewInquiry(true)}>+ New Inquiry</Button>
                   </div>
                 ) : (
                   <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
