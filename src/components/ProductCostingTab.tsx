@@ -51,6 +51,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
+  const [inquiryOverrides, setInquiryOverrides] = useState<{ exchange_rate_override: number | null; markup_percent_override: number | null; shipping_type_id_override: string | null } | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Section open state
@@ -122,7 +123,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
 
-      // Phase 7: inquiry-level settings TBD — using global settings only for now.
+      // Fetch inquiry-level overrides if this product belongs to an inquiry
+      if (prodRes.data?.customer_rfq_id) {
+        const { data: inqData } = await (supabase as any)
+          .from('customer_rfqs')
+          .select('exchange_rate_override, markup_percent_override, shipping_type_id_override')
+          .eq('id', prodRes.data.customer_rfq_id)
+          .maybeSingle();
+        if (inqData) setInquiryOverrides(inqData);
+      }
 
       setDataLoaded(true);
     };
