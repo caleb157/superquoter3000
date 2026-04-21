@@ -598,6 +598,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
               </a>
               . Required column: <code className="px-1 bg-muted rounded">name</code>. Optional:{' '}
               <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, sourced_externally, collection, notes</code>.
+            </div>
 
             {/* File list */}
             {files.length > 0 && (
