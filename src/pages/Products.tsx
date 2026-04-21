@@ -16,6 +16,7 @@ import { SortableHeader } from '@/components/SortableHeader';
 import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -308,6 +309,7 @@ const Products = () => {
                   <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                   <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
                   <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
+                  <TableHead className="text-xs w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -346,12 +348,23 @@ const Products = () => {
                           hasReview={review}
                         />
                       </TableCell>
+                      <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                        <ConfirmDeleteButton
+                          itemLabel={`product "${p.name}"`}
+                          iconOnly
+                          onConfirm={async () => {
+                            const { error } = await supabase.from('products').delete().eq('id', p.id);
+                            if (error) throw error;
+                            setProducts(prev => prev.filter(x => x.id !== p.id));
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No products found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

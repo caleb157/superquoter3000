@@ -21,6 +21,7 @@ import { InquirySamplesTab } from '@/components/InquirySamplesTab';
 import { InquiryActivityFeed } from '@/components/InquiryActivityFeed';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 const STATUS_OPTIONS = ['active', 'paused', 'cancelled', 'po'];
 const STATUS_COLOR: Record<string, string> = {
@@ -172,18 +173,29 @@ export default function InquiryDetail() {
             )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className={cn('gap-1.5 capitalize', statusKnown && STATUS_COLOR[inquiry.status])}>
-                {inquiry.status} <ChevronDown className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {STATUS_OPTIONS.map(s => (
-                <DropdownMenuItem key={s} className="capitalize" onClick={() => updateField({ status: s })}>{s}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('gap-1.5 capitalize', statusKnown && STATUS_COLOR[inquiry.status])}>
+                  {inquiry.status} <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {STATUS_OPTIONS.map(s => (
+                  <DropdownMenuItem key={s} className="capitalize" onClick={() => updateField({ status: s })}>{s}</DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <ConfirmDeleteButton
+              itemLabel={`inquiry ${inquiry.rfq_number}`}
+              description={`This permanently removes inquiry ${inquiry.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
+              onConfirm={async () => {
+                const { error } = await (supabase as any).from('customer_rfqs').delete().eq('id', id);
+                if (error) throw error;
+                navigate('/');
+              }}
+            />
+          </div>
         </div>
 
         {/* Status cards */}
