@@ -43,6 +43,7 @@ const Customers = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [view, setView] = useState<'list' | 'kanban'>('list');
   const [form, setForm] = useState({
     name: '', email: '', company: '', phone: '',
     linkedin_url: '', source: '', lead_status: 'lead',
