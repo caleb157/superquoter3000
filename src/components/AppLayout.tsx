@@ -145,18 +145,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Button>
               </Link>
             )}
-            {visibleItems.find(v => v.to === '/team') && (
-              <Link to="/team">
-                <Button
-                  variant={isActive('/team') ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn('h-8 text-xs gap-1.5', isActive('/team') && 'bg-secondary')}
-                >
-                  <Shield className="h-3.5 w-3.5" />
-                  Team
-                </Button>
-              </Link>
-            )}
 
             {/* Spacer pushes settings to the far right */}
             <div className="flex-1" />
