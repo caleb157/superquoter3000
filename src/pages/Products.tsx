@@ -13,7 +13,17 @@ import { Search, Upload, X } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { SortableHeader } from '@/components/SortableHeader';
-import { ProductStatusIndicator, getStatusLevel } from '@/components/ProductStatusIndicator';
+import { getStatusLevel } from '@/components/ProductStatusIndicator';
+import { Badge } from '@/components/ui/badge';
+
+function costingBadge(p: { cbm_done?: boolean; cogs_done?: boolean; overhead_done?: boolean; shipping_done?: boolean; revenue_done?: boolean }, hasReview: boolean): { label: string; cls: string } {
+  const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+  const done = flags.filter(Boolean).length;
+  if (hasReview) return { label: 'Needs Review', cls: 'bg-red-100 text-red-700' };
+  if (done === 5) return { label: 'Priced', cls: 'bg-emerald-100 text-emerald-700' };
+  if (done > 0) return { label: `In Progress (${done}/5)`, cls: 'bg-amber-100 text-amber-700' };
+  return { label: 'Empty', cls: 'bg-muted text-muted-foreground' };
+}
 import { useTableSort } from '@/hooks/use-table-sort';
 import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
@@ -339,14 +349,10 @@ const Products = () => {
                       <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
                       <TableCell className="text-right text-xs">{costDataMap[p.id]?.price_usd ? fmt.usd(costDataMap[p.id].price_usd) : '—'}</TableCell>
                       <TableCell className="text-center">
-                        <ProductStatusIndicator
-                          cbm_done={p.cbm_done}
-                          cogs_done={p.cogs_done}
-                          overhead_done={p.overhead_done}
-                          shipping_done={p.shipping_done}
-                          revenue_done={p.revenue_done}
-                          hasReview={review}
-                        />
+                        {(() => {
+                          const cb = costingBadge(p, review);
+                          return <Badge className={cb.cls} variant="secondary">{cb.label}</Badge>;
+                        })()}
                       </TableCell>
                       <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
