@@ -24,7 +24,12 @@ type Product = {
   sample_stage_was?: string | null;
 };
 
-type FilterKey = 'all' | 'needs_design' | 'in_costing' | 'sampling';
+type FilterKey =
+  | 'all' | 'needs_design' | 'in_costing' | 'sampling'
+  // raw stage filters (from dashboard stage-pill links)
+  | 'need_design' | 'designed'
+  | 'quoting' | 'ready_for_quote' | 'quoted'
+  | 'sample_sent';
 
 const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -32,6 +37,15 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'in_costing', label: 'In Costing' },
   { key: 'sampling', label: 'Sampling' },
 ];
+
+const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
+  need_design: 'Need design',
+  designed: 'Designed',
+  quoting: 'Quoting',
+  ready_for_quote: 'Ready for quote',
+  quoted: 'Quoted',
+  sample_sent: 'Sample sent',
+};
 
 function costingBadge(p: Product): { label: string; cls: string } {
   if (p.target_price_usd && Number(p.target_price_usd) > 0) {
