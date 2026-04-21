@@ -250,6 +250,24 @@ const ProductDetail = () => {
               </div>
             )}
           </div>
+          
+          {/* Price/Cost Summary */}
+          {costingSummary && (
+            <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-muted/50 rounded-md">
+              <div className="text-xs">
+                <span className="text-muted-foreground block text-[10px]">Unit Cost</span>
+                <span className="font-mono font-semibold">{fmt.inr(costingSummary.unitCostInr)}</span>
+                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitCostUsd)})</span>
+              </div>
+              <div className="w-px h-6 bg-border" />
+              <div className="text-xs">
+                <span className="text-muted-foreground block text-[10px]">Unit Price</span>
+                <span className="font-mono font-semibold text-primary">{fmt.inr(costingSummary.unitPriceInr)}</span>
+                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitPriceUsd)})</span>
+              </div>
+            </div>
+          )}
+          
           <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             <ProductStagePills product={product} onChange={handleStageChange} />
           </div>
