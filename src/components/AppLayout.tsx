@@ -4,12 +4,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  Settings, LogOut, Package, ShoppingCart, FileText, ClipboardList, Menu,
+  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu,
   Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import dktLogo from '@/assets/dkt-logo.png';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
@@ -53,7 +54,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       >
         <div className="flex h-12 items-center px-3 sm:px-4 gap-2 sm:gap-4">
           <Link to="/" className="flex items-center gap-2 font-bold text-sm tracking-tight shrink-0">
-            <Package className="h-5 w-5 text-primary" />
+            <img src={dktLogo} alt="DKT" className="h-7 w-7 dark:invert" />
             <span className="hidden sm:inline">DKT Costing</span>
           </Link>
 
@@ -103,7 +104,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </SheetTrigger>
               <SheetContent side="right" className="w-72 p-4 flex flex-col">
                 <div className="flex items-center gap-2 mb-4 mt-2">
-                  <Package className="h-5 w-5 text-primary" />
+                  <img src={dktLogo} alt="DKT" className="h-7 w-7 dark:invert" />
                   <span className="font-bold">DKT Costing</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
