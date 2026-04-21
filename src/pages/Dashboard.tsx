@@ -6,7 +6,6 @@ import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -16,13 +15,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, FileText, Package2 } from 'lucide-react';
+import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
-import { Plus } from 'lucide-react';
 import {
   furthestStageBucket,
   productWeight,
@@ -34,10 +32,10 @@ import {
 import { fmt } from '@/lib/formatters';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700',
-  paused: 'bg-amber-100 text-amber-700',
-  cancelled: 'bg-gray-200 text-gray-600',
-  po: 'bg-emerald-100 text-emerald-700',
+  active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+  paused: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  cancelled: 'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
+  po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
 };
 
 type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
@@ -55,17 +53,17 @@ type Product = {
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700' },
-  { key: 'designed',    label: 'designed', cls: 'bg-emerald-100 text-emerald-700' },
+  { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  { key: 'designed',    label: 'designed', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
 ];
 const QUOTE_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'quoting',         label: 'quoting', cls: 'bg-amber-100 text-amber-700' },
-  { key: 'ready_for_quote', label: 'ready',   cls: 'bg-blue-100 text-blue-700' },
-  { key: 'quoted',          label: 'quoted',  cls: 'bg-purple-100 text-purple-700' },
+  { key: 'quoting',         label: 'quoting', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  { key: 'ready_for_quote', label: 'ready',   cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
+  { key: 'quoted',          label: 'quoted',  cls: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' },
 ];
 const SAMPLE_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'sampling',    label: 'sampling', cls: 'bg-amber-100 text-amber-700' },
-  { key: 'sample_sent', label: 'sent',     cls: 'bg-emerald-100 text-emerald-700' },
+  { key: 'sampling',    label: 'sampling', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  { key: 'sample_sent', label: 'sent',     cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
 ];
 
 const Dashboard = () => {
@@ -112,7 +110,6 @@ const Dashboard = () => {
     return m;
   }, [products]);
 
-  // Stats
   const inquiryStatusById = useMemo(
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
     [inquiries],
@@ -122,7 +119,6 @@ const Dashboard = () => {
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
-  // Pipeline value (sum of qty × target_price × stage weight, excluding cancelled inquiries)
   const pipelineValueUsd = useMemo(() => {
     let total = 0;
     for (const p of products) {
@@ -137,7 +133,6 @@ const Dashboard = () => {
     return total;
   }, [products, inquiryStatusById]);
 
-  // Products by furthest stage bucket (excludes cancelled inquiries)
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
       not_started: 0, need_design: 0, designed: 0,
@@ -152,7 +147,6 @@ const Dashboard = () => {
     return counts;
   }, [products, inquiryStatusById]);
 
-  // Filter + sort
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = inquiries.filter(i => {
@@ -228,6 +222,30 @@ const Dashboard = () => {
     );
   };
 
+  const renderStagePillsRow = (prods: Product[] | undefined, inquiryId: string) => {
+    const all: { count: number; label: string; cls: string; key: string }[] = [];
+    [...DESIGN_PILLS, ...QUOTE_PILLS, ...SAMPLE_PILLS].forEach(p => {
+      let track: 'design' | 'quote' | 'sample' = 'design';
+      if (QUOTE_PILLS.find(x => x.key === p.key)) track = 'quote';
+      else if (SAMPLE_PILLS.find(x => x.key === p.key)) track = 'sample';
+      const c = stageCounts(prods, track)[p.key] ?? 0;
+      if (c > 0) all.push({ count: c, label: p.label, cls: p.cls, key: `${track}-${p.key}` });
+    });
+    if (all.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {all.map(p => (
+          <span
+            key={p.key}
+            className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums', p.cls)}
+          >
+            {p.count} {p.label}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   const isAllStagesEmpty = (prods: Product[] | undefined) => {
     if (!prods || prods.length === 0) return true;
     return !prods.some(p => p.design_stage || p.quote_stage || p.sample_stage);
@@ -236,22 +254,22 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <TooltipProvider>
-        <div className="max-w-7xl mx-auto space-y-4">
+        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
           </div>
 
-          {/* Pipeline value + Products by stage */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* Pipeline + stage buckets */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-3">
             <Card className="lg:col-span-1">
               <CardContent className="pt-4 pb-3">
                 <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
-                <div className="text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
-                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                <div className="text-xl sm:text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug hidden sm:block">
                   Σ (qty × target price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
                 </div>
               </CardContent>
@@ -261,9 +279,9 @@ const Dashboard = () => {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs text-muted-foreground">Products by Stage</div>
-                  <div className="text-[11px] text-muted-foreground">Click a stage to filter products</div>
+                  <div className="text-[11px] text-muted-foreground hidden sm:block">Tap to filter</div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {STAGE_BUCKET_ORDER.map(b => {
                     const count = productsByStageBucket[b];
                     if (count === 0) return null;
@@ -272,7 +290,7 @@ const Dashboard = () => {
                         key={b}
                         onClick={() => navigate(`/products?stage=${b}`)}
                         className={cn(
-                          'flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:opacity-80 transition',
+                          'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md hover:opacity-80 transition',
                           STAGE_BUCKET_COLOR[b],
                         )}
                       >
@@ -289,19 +307,19 @@ const Dashboard = () => {
             </Card>
           </div>
 
-          {/* Filter bar */}
+          {/* Filter bar — wraps cleanly on mobile */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[220px] max-w-md">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by # · title · customer"
+                placeholder="Search # · title · customer"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9 h-9"
               />
             </div>
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="not_cancelled">All (no cancelled)</SelectItem>
                 <SelectItem value="all">All</SelectItem>
@@ -312,7 +330,7 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
             <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[170px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="updated">Sort: Updated</SelectItem>
                 <SelectItem value="created">Sort: Created</SelectItem>
@@ -321,12 +339,93 @@ const Dashboard = () => {
               </SelectContent>
             </Select>
             <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
-              <Plus className="h-4 w-4" /> New Inquiry
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
             </Button>
           </div>
 
-          {/* Table */}
-          <Card>
+          {/* Mobile: card list */}
+          <div className="md:hidden space-y-2">
+            {loading ? (
+              <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
+            ) : visibleInquiries.length === 0 ? (
+              <Card><CardContent className="py-10 text-sm text-muted-foreground text-center">
+                {inquiries.length === 0 ? 'No inquiries yet.' : 'No matches.'}
+              </CardContent></Card>
+            ) : (
+              visibleInquiries.map(inq => {
+                const prods = productsByInquiry[inq.id];
+                const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
+                const noProducts = !prods || prods.length === 0;
+                return (
+                  <Card
+                    key={inq.id}
+                    className="active:scale-[0.99] transition-transform"
+                    onClick={() => navigate(`/inquiry/${inq.id}`)}
+                  >
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[11px] text-muted-foreground">{inq.rfq_number}</span>
+                            <span className={cn(
+                              'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                              INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
+                            )}>{inq.status}</span>
+                          </div>
+                          <div className="font-semibold text-sm leading-tight mt-1 truncate">
+                            {inq.title || <span className="text-muted-foreground italic font-normal">Untitled</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {cust?.name || cust?.company || 'No customer'}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                      </div>
+
+                      {!isAllStagesEmpty(prods) && renderStagePillsRow(prods, inq.id)}
+
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
+                        <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
+                      </div>
+
+                      <div className="flex gap-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                        <Button
+                          size="sm" variant="outline"
+                          className="h-8 text-xs gap-1 flex-1"
+                          disabled={noProducts}
+                          onClick={() => setQuoteDialog({ id: inq.id, rfq: inq.rfq_number })}
+                        >
+                          <FileText className="h-3 w-3" /> Quote
+                        </Button>
+                        <Button
+                          size="sm" variant="outline"
+                          className="h-8 text-xs gap-1 flex-1"
+                          disabled={noProducts}
+                          onClick={() => setSampleDialog({ id: inq.id, rfq: inq.rfq_number })}
+                        >
+                          <Package2 className="h-3 w-3" /> Sample
+                        </Button>
+                        <ConfirmDeleteButton
+                          itemLabel={`inquiry ${inq.rfq_number}`}
+                          description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks.`}
+                          iconOnly
+                          onConfirm={async () => {
+                            const { error } = await supabase.from('customer_rfqs').delete().eq('id', inq.id);
+                            if (error) throw error;
+                            setRefreshKey(k => k + 1);
+                          }}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop: table */}
+          <Card className="hidden md:block">
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
@@ -476,9 +575,9 @@ const Dashboard = () => {
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <Card>
-      <CardContent className="pt-4 pb-3">
-        <div className="text-2xl font-bold tabular-nums">{value}</div>
-        <div className="text-xs text-muted-foreground">{label}</div>
+      <CardContent className="pt-3 pb-2.5 sm:pt-4 sm:pb-3">
+        <div className="text-xl sm:text-2xl font-bold tabular-nums">{value}</div>
+        <div className="text-[11px] sm:text-xs text-muted-foreground">{label}</div>
       </CardContent>
     </Card>
   );

@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -30,91 +31,93 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/inquiries" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute requireAdmin>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/customers" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Customers />
-              </ProtectedRoute>
-            } />
-            <Route path="/customers/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <CustomerDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/inquiry/:id" element={
-              <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
-            } />
-            <Route path="/samples" element={
-              <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
-            } />
-            <Route path="/products" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Products />
-              </ProtectedRoute>
-            } />
-            <Route path="/project/:id" element={<ProjectRedirect />} />
-            <Route path="/product/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <ProductDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/assembly/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <AssemblyDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/vendor-rfqs" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <VendorRfqList />
-              </ProtectedRoute>
-            } />
-            <Route path="/vendor-rfq/:id" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <VendorRfqEditor />
-              </ProtectedRoute>
-            } />
-            <Route path="/vendor-rfq/view/:token" element={<VendorRfqPublicView />} />
-            <Route path="/quotes" element={
-              <ProtectedRoute requireAdminOrTeam>
-                <Quotes />
-              </ProtectedRoute>
-            } />
-            <Route path="/quote/:token" element={<CustomerQuote />} />
-            <Route path="/tasks" element={
-              <ProtectedRoute requireAdminOrTeam><Tasks /></ProtectedRoute>
-            } />
-            <Route path="/analytics" element={
-              <ProtectedRoute requireAdminOrTeam><Analytics /></ProtectedRoute>
-            } />
-            <Route path="/team" element={
-              <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/inquiries" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute requireAdmin>
+                  <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/customers" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <Customers />
+                </ProtectedRoute>
+              } />
+              <Route path="/customers/:id" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <CustomerDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/inquiry/:id" element={
+                <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
+              } />
+              <Route path="/samples" element={
+                <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
+              } />
+              <Route path="/products" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <Products />
+                </ProtectedRoute>
+              } />
+              <Route path="/project/:id" element={<ProjectRedirect />} />
+              <Route path="/product/:id" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <ProductDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/assembly/:id" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <AssemblyDetail />
+                </ProtectedRoute>
+              } />
+              <Route path="/vendor-rfqs" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <VendorRfqList />
+                </ProtectedRoute>
+              } />
+              <Route path="/vendor-rfq/:id" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <VendorRfqEditor />
+                </ProtectedRoute>
+              } />
+              <Route path="/vendor-rfq/view/:token" element={<VendorRfqPublicView />} />
+              <Route path="/quotes" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <Quotes />
+                </ProtectedRoute>
+              } />
+              <Route path="/quote/:token" element={<CustomerQuote />} />
+              <Route path="/tasks" element={
+                <ProtectedRoute requireAdminOrTeam><Tasks /></ProtectedRoute>
+              } />
+              <Route path="/analytics" element={
+                <ProtectedRoute requireAdminOrTeam><Analytics /></ProtectedRoute>
+              } />
+              <Route path="/team" element={
+                <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
