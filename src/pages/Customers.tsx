@@ -223,7 +223,7 @@ const Customers = () => {
       </div>
 
       <CustomerImportDialog open={showImport} onOpenChange={setShowImport} onImported={fetchAll} />
-      <MobileFab onClick={() => setShowCreate(true)} label="Add customer" />
+      
     </AppLayout>
   );
 };
