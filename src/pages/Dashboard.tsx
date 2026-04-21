@@ -320,6 +320,9 @@ const Dashboard = () => {
                 <SelectItem value="customer">Sort: Customer</SelectItem>
               </SelectContent>
             </Select>
+            <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
+              <Plus className="h-4 w-4" /> New Inquiry
+            </Button>
           </div>
 
           {/* Table */}
