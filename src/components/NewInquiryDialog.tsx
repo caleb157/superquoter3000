@@ -1,42 +1,50 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Plus, ArrowLeft } from 'lucide-react';
 
 type Customer = { id: string; name: string; company: string | null };
 
-type Props = {
+const ADD_NEW = '__add_new__';
+
+interface Props {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  defaultCustomerId?: string | null;
-  onCreated?: (inquiry: { id: string; rfq_number: string }) => void;
-};
+  onOpenChange: (v: boolean) => void;
+  onCreated?: (inquiryId: string) => void;
+  defaultCustomerId?: string;
+}
 
-const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
-
-export function NewInquiryDialog({ open, onOpenChange, defaultCustomerId, onCreated }: Props) {
+export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustomerId }: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerId, setCustomerId] = useState<string>(defaultCustomerId || '');
+  const [customerId, setCustomerId] = useState<string>('');
   const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState<typeof PRIORITIES[number]>('normal');
+  const [priority, setPriority] = useState('normal');
   const [requirements, setRequirements] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Inline new-customer panel
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCust, setNewCust] = useState({ name: '', company: '', email: '', phone: '' });
+  const [creatingCust, setCreatingCust] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setCustomerId(defaultCustomerId || '');
     setTitle('');
     setPriority('normal');
     setRequirements('');
+    setShowNewCustomer(false);
+    setNewCust({ name: '', company: '', email: '', phone: '' });
+    setCustomerId(defaultCustomerId ?? '');
     (async () => {
       const { data } = await supabase
         .from('customers')
@@ -46,87 +54,172 @@ export function NewInquiryDialog({ open, onOpenChange, defaultCustomerId, onCrea
     })();
   }, [open, defaultCustomerId]);
 
-  const handleCreate = async () => {
-    if (!customerId) { toast.error('Pick a customer'); return; }
-    setBusy(true);
-    try {
-      const { data, error } = await (supabase as any)
-        .from('customer_rfqs')
-        .insert({
-          customer_id: customerId,
-          title: title.trim() || null,
-          priority,
-          requirements: requirements.trim() || null,
-          status: 'active',
-        })
-        .select('id, rfq_number')
-        .single();
-      if (error) throw error;
-      toast.success(`Created ${data.rfq_number}`);
-      onCreated?.(data);
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to create inquiry');
-    } finally {
-      setBusy(false);
+  const handleCustomerChange = (v: string) => {
+    if (v === ADD_NEW) {
+      setShowNewCustomer(true);
+      return;
     }
+    setCustomerId(v);
+  };
+
+  const createCustomer = async () => {
+    if (!newCust.name.trim()) {
+      toast.error('Customer name is required');
+      return;
+    }
+    setCreatingCust(true);
+    const { data, error } = await (supabase as any)
+      .from('customers')
+      .insert({
+        name: newCust.name.trim(),
+        company: newCust.company.trim() || null,
+        email: newCust.email.trim() || null,
+        phone: newCust.phone.trim() || null,
+        lead_status: 'active',
+      })
+      .select('id, name, company')
+      .single();
+    setCreatingCust(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Customer "${data.name}" added`);
+    setCustomers(prev => [...prev, data as Customer].sort((a, b) => a.name.localeCompare(b.name)));
+    setCustomerId(data.id);
+    setShowNewCustomer(false);
+    setNewCust({ name: '', company: '', email: '', phone: '' });
+  };
+
+  const create = async () => {
+    if (!customerId) { toast.error('Please select a customer'); return; }
+    setSaving(true);
+    const { data, error } = await supabase
+      .from('customer_rfqs')
+      .insert({
+        customer_id: customerId,
+        title: title.trim() || null,
+        priority,
+        requirements: requirements.trim() || null,
+      })
+      .select('id, rfq_number')
+      .single();
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Inquiry ${data.rfq_number} created`);
+    onOpenChange(false);
+    onCreated?.(data.id);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>New Inquiry</DialogTitle>
-          <DialogDescription>Create a new customer inquiry. You can add products right after.</DialogDescription>
+          <DialogTitle>{showNewCustomer ? 'Add Customer' : 'New Inquiry'}</DialogTitle>
+          <DialogDescription>
+            {showNewCustomer
+              ? 'New customer will be saved and selected for this inquiry.'
+              : 'Create a new customer inquiry. You can add products right after.'}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Customer *</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="Select a customer..." /></SelectTrigger>
-              <SelectContent>
-                {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}{c.company ? ` · ${c.company}` : ''}
+
+        {showNewCustomer ? (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Name *</Label>
+              <Input
+                value={newCust.name}
+                onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
+                placeholder="Jane Doe"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Company</Label>
+              <Input
+                value={newCust.company}
+                onChange={e => setNewCust(c => ({ ...c, company: e.target.value }))}
+                placeholder="Acme Inc."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input
+                  value={newCust.email}
+                  onChange={e => setNewCust(c => ({ ...c, email: e.target.value }))}
+                  placeholder="jane@acme.com"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Phone</Label>
+                <Input
+                  value={newCust.phone}
+                  onChange={e => setNewCust(c => ({ ...c, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowNewCustomer(false)} className="gap-1.5">
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
+              </Button>
+              <Button size="sm" onClick={createCustomer} disabled={creatingCust || !newCust.name.trim()}>
+                {creatingCust ? 'Saving…' : 'Save customer'}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Customer *</Label>
+              <Select value={customerId} onValueChange={handleCustomerChange}>
+                <SelectTrigger><SelectValue placeholder="Select a customer..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ADD_NEW} className="text-primary font-medium">
+                    <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> Add new customer…</span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}{c.company ? ` — ${c.company}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. Q2 dining set inquiry"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Requirements / Notes</Label>
+              <Textarea
+                value={requirements}
+                onChange={e => setRequirements(e.target.value)}
+                placeholder="Optional"
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button size="sm" onClick={create} disabled={saving || !customerId}>
+                {saving ? 'Creating…' : 'Create inquiry'}
+              </Button>
+            </DialogFooter>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Title</Label>
-            <Input
-              className="h-9"
-              placeholder="e.g. Q2 dining set inquiry"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Priority</Label>
-            <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
-              <SelectTrigger className="h-9 capitalize"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Requirements / notes</Label>
-            <Textarea
-              rows={3}
-              placeholder="Optional — paste customer requirements, target dates, etc."
-              value={requirements}
-              onChange={e => setRequirements(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={busy || !customerId}>
-            {busy ? 'Creating…' : 'Create inquiry'}
-          </Button>
-        </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

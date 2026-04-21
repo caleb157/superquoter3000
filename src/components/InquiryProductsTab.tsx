@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, X, Upload } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,6 @@ import { ProductStagePills, SingleStagePill, type StageTrack } from '@/component
 import { BulkStageActions } from '@/components/BulkStageActions';
 import { NewSampleBatchDialog } from '@/components/NewSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
-import { UploadParseDialog } from '@/components/UploadParseDialog';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -71,28 +70,22 @@ type Props = {
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [productTypes, setProductTypes] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
   useEffect(() => {
     (async () => {
-      const [prodRes, typesRes] = await Promise.all([
-        supabase
-          .from('products')
-          .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
-          .eq('customer_rfq_id', inquiryId)
-          .order('updated_at', { ascending: false }),
-        supabase.from('product_types').select('*'),
-      ]);
-      setProducts(prodRes.data ?? []);
-      setProductTypes(typesRes.data ?? []);
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
+        .eq('customer_rfq_id', inquiryId)
+        .order('updated_at', { ascending: false });
+      setProducts(data ?? []);
     })();
   }, [inquiryId, refresh]);
 
@@ -194,18 +187,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs ml-auto" onClick={() => setUploadOpen(true)}>
-          <Upload className="h-3 w-3" /> Upload & Parse
-        </Button>
       </div>
-
-      <UploadParseDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        inquiryId={inquiryId}
-        productTypes={productTypes}
-        onProductsCreated={() => { setRefresh(r => r + 1); onChange(); }}
-      />
 
       <BulkStageActions
         selectedIds={Array.from(selected)}
