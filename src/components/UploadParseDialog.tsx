@@ -552,7 +552,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
