@@ -74,28 +74,32 @@ const ProductDetail = () => {
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-3">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
           <Button
-            variant="ghost" size="icon" className="h-8 w-8"
+            variant="ghost" size="icon" className="h-8 w-8 shrink-0"
             onClick={() => navigate(product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate">{product.name}</h1>
-            {product.sku && <div className="text-xs text-muted-foreground">SKU: {product.sku}</div>}
+            <h1 className="text-base sm:text-lg font-bold truncate">{product.name}</h1>
+            {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
           </div>
-          <ProductStagePills product={product} onChange={handleStageChange} />
+          <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+            <ProductStagePills product={product} onChange={handleStageChange} />
+          </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
-            <TabsTrigger value="costing"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Costing</TabsTrigger>
-            <TabsTrigger value="sample-log"><Package2 className="h-3.5 w-3.5 mr-1.5" />Sample Log</TabsTrigger>
-            <TabsTrigger value="tasks"><ListChecks className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
-          </TabsList>
+          <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
+            <TabsList className="w-max">
+              <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
+              <TabsTrigger value="costing"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Costing</TabsTrigger>
+              <TabsTrigger value="sample-log"><Package2 className="h-3.5 w-3.5 mr-1.5" />Sample Log</TabsTrigger>
+              <TabsTrigger value="tasks"><ListChecks className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="summary">
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}

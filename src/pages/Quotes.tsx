@@ -162,8 +162,8 @@ const Quotes = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 flex-wrap mb-4">
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
+        <div className="grid grid-cols-2 lg:flex lg:items-center gap-2 lg:gap-3 lg:flex-wrap mb-4">
+          <div className="relative col-span-2 lg:flex-1 lg:min-w-[180px] lg:max-w-xs">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search quote # or inquiry..."
@@ -174,7 +174,7 @@ const Quotes = () => {
           </div>
 
           <Select value={filterInquiry} onValueChange={setFilterInquiry}>
-            <SelectTrigger className="w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
+            <SelectTrigger className="lg:w-48 h-9 text-xs"><SelectValue placeholder="All Inquiries" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Inquiries</SelectItem>
               {inquiryList.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -182,7 +182,7 @@ const Quotes = () => {
           </Select>
 
           <Select value={filterEntity} onValueChange={setFilterEntity}>
-            <SelectTrigger className="w-40 h-9 text-xs"><SelectValue placeholder="All Entities" /></SelectTrigger>
+            <SelectTrigger className="lg:w-40 h-9 text-xs"><SelectValue placeholder="All Entities" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Entities</SelectItem>
               {entityList.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -190,7 +190,7 @@ const Quotes = () => {
           </Select>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectTrigger className="lg:w-36 h-9 text-xs"><SelectValue placeholder="All Statuses" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
@@ -199,7 +199,7 @@ const Quotes = () => {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 min-w-[120px] justify-start", !dateFrom && "text-muted-foreground")}>
+              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 lg:min-w-[120px] justify-start", !dateFrom && "text-muted-foreground")}>
                 <CalendarIcon className="h-3.5 w-3.5" />
                 {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'From date'}
               </Button>
@@ -211,7 +211,7 @@ const Quotes = () => {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 min-w-[120px] justify-start", !dateTo && "text-muted-foreground")}>
+              <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1.5 lg:min-w-[120px] justify-start", !dateTo && "text-muted-foreground")}>
                 <CalendarIcon className="h-3.5 w-3.5" />
                 {dateTo ? format(dateTo, 'MMM d, yyyy') : 'To date'}
               </Button>
@@ -222,136 +222,216 @@ const Quotes = () => {
           </Popover>
 
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={clearFilters}>
+            <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 col-span-2 lg:col-span-1" onClick={clearFilters}>
               <X className="h-3.5 w-3.5" /> Clear
             </Button>
           )}
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="py-12 flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                {snapshots.length === 0
-                  ? 'No quotes generated yet. Generate one from an inquiry\'s products tab.'
-                  : 'No quotes match the current filters.'}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableHeader column="quote_number" label="Quote #" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="entity" label="Entity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="date" label="Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="valid_until" label="Valid Until" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <SortableHeader column="skus" label="SKUs" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                    <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                    <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                    <SortableHeader column="total" label="Total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                    <TableHead className="text-xs">Currency</TableHead>
-                    <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                    <TableHead className="text-xs">Viewed</TableHead>
-                    <TableHead className="text-xs">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((snap: any) => {
-                    const totals = (snap.totals || {}) as any;
-                    const sym = snap.currency === 'INR' ? '₹' : '$';
-                    const viewedAt = snap.viewed_at ? new Date(snap.viewed_at).toLocaleDateString() : '—';
-                    const approvedAt = snap.approved_at ? new Date(snap.approved_at).toLocaleDateString() : null;
+        {loading ? (
+          <Card><CardContent className="py-12 flex justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </CardContent></Card>
+        ) : filtered.length === 0 ? (
+          <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
+            {snapshots.length === 0
+              ? 'No quotes generated yet. Generate one from an inquiry\'s products tab.'
+              : 'No quotes match the current filters.'}
+          </CardContent></Card>
+        ) : (
+          <>
+            {/* Desktop table */}
+            <Card className="hidden md:block">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader column="quote_number" label="Quote #" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="entity" label="Entity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="date" label="Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="valid_until" label="Valid Until" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="skus" label="SKUs" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                      <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                      <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                      <SortableHeader column="total" label="Total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                      <TableHead className="text-xs">Currency</TableHead>
+                      <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <TableHead className="text-xs">Viewed</TableHead>
+                      <TableHead className="text-xs">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((snap: any) => {
+                      const totals = (snap.totals || {}) as any;
+                      const sym = snap.currency === 'INR' ? '₹' : '$';
+                      const viewedAt = snap.viewed_at ? new Date(snap.viewed_at).toLocaleDateString() : '—';
+                      const approvedAt = snap.approved_at ? new Date(snap.approved_at).toLocaleDateString() : null;
 
-                    return (
-                      <TableRow key={snap.id}>
-                        <TableCell className="text-xs font-mono font-medium">{snap.quote_number || '—'}</TableCell>
-                        <TableCell className="text-xs">
-                          {snap.customer_rfq_id ? (
-                            <Link to={`/inquiry/${snap.customer_rfq_id}`} className="text-primary hover:underline">
+                      return (
+                        <TableRow key={snap.id}>
+                          <TableCell className="text-xs font-mono font-medium">{snap.quote_number || '—'}</TableCell>
+                          <TableCell className="text-xs">
+                            {snap.customer_rfq_id ? (
+                              <Link to={`/inquiry/${snap.customer_rfq_id}`} className="text-primary hover:underline">
+                                {inquiryLabel(snap.customer_rfq_id) || 'Inquiry'}
+                              </Link>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {snap.entity_id ? entities[snap.entity_id] || '—' : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs">{new Date(snap.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell className="text-xs">
+                            {snap.valid_until ? new Date(snap.valid_until).toLocaleDateString() : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-right">{totals.sku_count ?? '—'}</TableCell>
+                          <TableCell className="text-xs text-right">{totals.total_qty?.toLocaleString() ?? '—'}</TableCell>
+                          <TableCell className="text-xs text-right">{totals.total_cbm != null ? Number(totals.total_cbm).toFixed(2) : '—'}</TableCell>
+                          <TableCell className="text-xs text-right font-medium">
+                            {totals.grand_total != null
+                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
+                          <TableCell>
+                            <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
+                              <SelectTrigger className="h-7 w-24 text-[10px] p-1">
+                                <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
+                                  {snap.status || 'draft'}
+                                </Badge>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STATUS_OPTIONS.map(s => (
+                                  <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {approvedAt && (
+                              <p className="text-[9px] text-muted-foreground mt-0.5">Approved {approvedAt}</p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{viewedAt}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {snap.share_token && (
+                                <>
+                                  <Button
+                                    variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                    onClick={() => {
+                                      const url = `${window.location.origin}/quote/${snap.share_token}`;
+                                      navigator.clipboard.writeText(url);
+                                      toast.success('Share link copied!');
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" /> Link
+                                  </Button>
+                                  <Button
+                                    variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                    asChild
+                                  >
+                                    <Link to={`/quote/${snap.share_token}`} target="_blank">
+                                      <ExternalLink className="h-3 w-3" /> Preview
+                                    </Link>
+                                  </Button>
+                                </>
+                              )}
+                              {snap.customer_selections && (
+                                <Button
+                                  variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                  onClick={() => setSelectionsSnap(snap)}
+                                >
+                                  <Eye className="h-3 w-3" /> Selections
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {filtered.map((snap: any) => {
+                const totals = (snap.totals || {}) as any;
+                const sym = snap.currency === 'INR' ? '₹' : '$';
+                return (
+                  <Card key={snap.id}>
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-mono font-medium truncate">{snap.quote_number || '—'}</div>
+                          {snap.customer_rfq_id && (
+                            <Link to={`/inquiry/${snap.customer_rfq_id}`} className="text-xs text-primary hover:underline block truncate">
                               {inquiryLabel(snap.customer_rfq_id) || 'Inquiry'}
                             </Link>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {snap.entity_id ? entities[snap.entity_id] || '—' : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs">{new Date(snap.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-xs">
-                          {snap.valid_until ? new Date(snap.valid_until).toLocaleDateString() : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-right">{totals.sku_count ?? '—'}</TableCell>
-                        <TableCell className="text-xs text-right">{totals.total_qty?.toLocaleString() ?? '—'}</TableCell>
-                        <TableCell className="text-xs text-right">{totals.total_cbm != null ? Number(totals.total_cbm).toFixed(2) : '—'}</TableCell>
-                        <TableCell className="text-xs text-right font-medium">
-                          {totals.grand_total != null
-                            ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
-                        <TableCell>
-                          <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
-                            <SelectTrigger className="h-7 w-24 text-[10px] p-1">
-                              <Badge variant={statusVariant(snap.status) as any} className="text-[10px]">
-                                {snap.status || 'draft'}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATUS_OPTIONS.map(s => (
-                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {approvedAt && (
-                            <p className="text-[9px] text-muted-foreground mt-0.5">Approved {approvedAt}</p>
                           )}
-                        </TableCell>
-                        <TableCell className="text-xs">{viewedAt}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {snap.share_token && (
-                              <>
-                                <Button
-                                  variant="ghost" size="sm" className="text-xs h-7 gap-1"
-                                  onClick={() => {
-                                    const url = `${window.location.origin}/quote/${snap.share_token}`;
-                                    navigator.clipboard.writeText(url);
-                                    toast.success('Share link copied!');
-                                  }}
-                                >
-                                  <Copy className="h-3 w-3" /> Link
-                                </Button>
-                                <Button
-                                  variant="ghost" size="sm" className="text-xs h-7 gap-1"
-                                  asChild
-                                >
-                                  <Link to={`/quote/${snap.share_token}`} target="_blank">
-                                    <ExternalLink className="h-3 w-3" /> Preview
-                                  </Link>
-                                </Button>
-                              </>
-                            )}
-                            {snap.customer_selections && (
-                              <Button
-                                variant="ghost" size="sm" className="text-xs h-7 gap-1"
-                                onClick={() => setSelectionsSnap(snap)}
-                              >
-                                <Eye className="h-3 w-3" /> Selections
-                              </Button>
-                            )}
+                          {snap.entity_id && (
+                            <div className="text-[10px] text-muted-foreground truncate">{entities[snap.entity_id]}</div>
+                          )}
+                        </div>
+                        <Badge variant={statusVariant(snap.status) as any} className="text-[10px] shrink-0">
+                          {snap.status || 'draft'}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <div className="text-muted-foreground">Total</div>
+                          <div className="font-medium">
+                            {totals.grand_total != null
+                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                              : '—'}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Qty</div>
+                          <div className="font-medium">{totals.total_qty?.toLocaleString() ?? '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Date</div>
+                          <div className="font-medium">{new Date(snap.created_at).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 pt-1 border-t flex-wrap">
+                        {snap.share_token && (
+                          <>
+                            <Button
+                              variant="ghost" size="sm" className="text-[11px] h-7 gap-1"
+                              onClick={() => {
+                                const url = `${window.location.origin}/quote/${snap.share_token}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success('Share link copied!');
+                              }}
+                            >
+                              <Copy className="h-3 w-3" /> Link
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-[11px] h-7 gap-1" asChild>
+                              <Link to={`/quote/${snap.share_token}`} target="_blank">
+                                <ExternalLink className="h-3 w-3" /> Open
+                              </Link>
+                            </Button>
+                          </>
+                        )}
+                        {snap.customer_selections && (
+                          <Button
+                            variant="ghost" size="sm" className="text-[11px] h-7 gap-1"
+                            onClick={() => setSelectionsSnap(snap)}
+                          >
+                            <Eye className="h-3 w-3" /> Selections
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Customer Selections Dialog */}
         <Dialog open={!!selectionsSnap} onOpenChange={(open) => !open && setSelectionsSnap(null)}>

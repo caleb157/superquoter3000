@@ -132,15 +132,15 @@ const Analytics = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Stage Durations</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="h-8">Track</TableHead>
-                      <TableHead className="h-8">Stage</TableHead>
-                      <TableHead className="h-8 text-right">Avg</TableHead>
-                      <TableHead className="h-8 text-right">P50</TableHead>
-                      <TableHead className="h-8 text-right">Count</TableHead>
+                      <TableHead className="h-8 text-xs">Track</TableHead>
+                      <TableHead className="h-8 text-xs">Stage</TableHead>
+                      <TableHead className="h-8 text-xs text-right">Avg</TableHead>
+                      <TableHead className="h-8 text-xs text-right">P50</TableHead>
+                      <TableHead className="h-8 text-xs text-right">Count</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -154,15 +154,15 @@ const Analytics = () => {
                         const p50 = info.durations.length ? median(info.durations) : null;
                         return (
                           <TableRow key={`${track}-${stage}`}>
-                            <TableCell className="py-2 capitalize">{track}</TableCell>
-                            <TableCell className="py-2">{STAGE_LABEL[stage] ?? stage}</TableCell>
-                            <TableCell className="py-2 text-right tabular-nums">
+                            <TableCell className="py-2 text-xs capitalize">{track}</TableCell>
+                            <TableCell className="py-2 text-xs">{STAGE_LABEL[stage] ?? stage}</TableCell>
+                            <TableCell className="py-2 text-xs text-right tabular-nums whitespace-nowrap">
                               {fmtDays(avg)}
                             </TableCell>
-                            <TableCell className="py-2 text-right tabular-nums">
+                            <TableCell className="py-2 text-xs text-right tabular-nums whitespace-nowrap">
                               {fmtDays(p50)}
                             </TableCell>
-                            <TableCell className="py-2 text-right tabular-nums">
+                            <TableCell className="py-2 text-xs text-right tabular-nums">
                               {info.count}
                             </TableCell>
                           </TableRow>
@@ -178,13 +178,13 @@ const Analytics = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Current Stage Counts</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="h-8">Track</TableHead>
-                      <TableHead className="h-8">Stage</TableHead>
-                      <TableHead className="h-8 text-right">Products</TableHead>
+                      <TableHead className="h-8 text-xs">Track</TableHead>
+                      <TableHead className="h-8 text-xs">Stage</TableHead>
+                      <TableHead className="h-8 text-xs text-right">Products</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -192,9 +192,9 @@ const Analytics = () => {
                       const stages = Object.entries(currentCounts[track] || {});
                       return stages.map(([stage, count]) => (
                         <TableRow key={`${track}-${stage}`}>
-                          <TableCell className="py-2 capitalize">{track}</TableCell>
-                          <TableCell className="py-2">{STAGE_LABEL[stage] ?? stage}</TableCell>
-                          <TableCell className="py-2 text-right tabular-nums">{count}</TableCell>
+                          <TableCell className="py-2 text-xs capitalize">{track}</TableCell>
+                          <TableCell className="py-2 text-xs">{STAGE_LABEL[stage] ?? stage}</TableCell>
+                          <TableCell className="py-2 text-xs text-right tabular-nums">{count}</TableCell>
                         </TableRow>
                       ));
                     })}
@@ -207,7 +207,7 @@ const Analytics = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Inquiry Timing</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 pt-2">
+              <CardContent className="grid grid-cols-2 lg:grid-cols-1 gap-4 pt-2">
                 <div>
                   <div className="text-2xl font-bold tabular-nums">
                     {avgInquiryAge != null ? `${avgInquiryAge.toFixed(1)}` : '—'}
