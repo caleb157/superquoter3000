@@ -134,7 +134,7 @@ export default function Tasks() {
 
         <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => setRefreshKey(k => k + 1)} />
       </div>
-      <MobileFab onClick={() => setDialogOpen(true)} label="New task" />
+      
     </AppLayout>
   );
 }
