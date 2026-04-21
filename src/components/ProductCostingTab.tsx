@@ -927,15 +927,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
               <Table className="dense-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">Include</TableHead>
-                    <TableHead className="w-28">Type</TableHead>
-                    <TableHead>Component</TableHead>
-                    <TableHead className="w-20">Vendor</TableHead>
+                    <TableHead className="w-14">Include</TableHead>
+                    <TableHead className="w-24">Type</TableHead>
+                    <TableHead className="w-48">Component</TableHead>
+                    <TableHead className="w-24">Vendor</TableHead>
                     <TableHead className="w-12">Units</TableHead>
-                    <TableHead className="w-24 text-right">Qty/Prod</TableHead>
-                    <TableHead className="w-20 text-right">Cost (₹)</TableHead>
-                    <TableHead className="w-14 text-right">Waste%</TableHead>
-                    <TableHead className="w-20 text-right">Unit Cost</TableHead>
+                    <TableHead className="w-28 text-right">Qty/Prod</TableHead>
+                    <TableHead className="w-28 text-right">Cost (₹)</TableHead>
+                    <TableHead className="w-16 text-right">Waste%</TableHead>
+                    <TableHead className="w-28 text-right">Unit Cost</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -965,30 +965,59 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                         </TableCell>
                         <TableCell>
                           {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
-                            <Select
-                              value={item.component_name || ''}
-                              onValueChange={(v) => {
-                                const hwItem = hardwarePrices.find(hp => hp.name === v);
-                                const updates: any = { component_name: v };
-                                if (hwItem) {
-                                  updates.unit_cost_inr = hwItem.unit_cost_inr;
-                                  updates.units = hwItem.units || 'pc';
-                                }
-                                setCogsItems(items => items.map(i => i.id === item.id ? { ...i, ...updates } : i));
-                                Object.entries(updates).forEach(([k, val]) => updateCogsItem(item.id, k, val));
-                              }}
-                            >
-                              <SelectTrigger className="h-6 text-xs border-transparent hover:border-input">
-                                <SelectValue placeholder="Select hardware..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {hardwarePrices.map(hp => (
-                                  <SelectItem key={hp.id} value={hp.name}>
-                                    {hp.name} — {fmt.inr(hp.unit_cost_inr)}/{hp.units || 'pc'}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select
+                                value={hardwarePrices.some(hp => hp.name === item.component_name) ? (item.component_name || '') : '__custom__'}
+                                onValueChange={(v) => {
+                                  if (v === '__custom__') {
+                                    setCogsItems(items => items.map(i => i.id === item.id ? { ...i, component_name: '' } : i));
+                                    updateCogsItem(item.id, 'component_name', '');
+                                    return;
+                                  }
+                                  const hwItem = hardwarePrices.find(hp => hp.name === v);
+                                  const updates: any = { component_name: v };
+                                  if (hwItem) {
+                                    updates.unit_cost_inr = hwItem.unit_cost_inr;
+                                    updates.units = hwItem.units || 'pc';
+                                  }
+                                  setCogsItems(items => items.map(i => i.id === item.id ? { ...i, ...updates } : i));
+                                  Object.entries(updates).forEach(([k, val]) => updateCogsItem(item.id, k, val));
+                                }}
+                              >
+                                <SelectTrigger className="h-6 text-xs border-transparent hover:border-input w-32 shrink-0">
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {hardwarePrices.map(hp => (
+                                    <SelectItem key={hp.id} value={hp.name}>
+                                      {hp.name} — {fmt.inr(hp.unit_cost_inr)}/{hp.units || 'pc'}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="__custom__">+ Custom name…</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {!hardwarePrices.some(hp => hp.name === item.component_name) && (
+                                <Input className="h-6 text-xs border-transparent hover:border-input flex-1"
+                                  placeholder="Custom name"
+                                  defaultValue={item.component_name || ''}
+                                  onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
+                              )}
+                              {item.component_name && (item.unit_cost_inr || 0) > 0 && !hardwarePrices.some(hp => hp.name === item.component_name) && (
+                                <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Save to hardware library"
+                                  onClick={async () => {
+                                    const { data, error } = await (supabase as any).from('hardware_prices').insert({
+                                      name: item.component_name,
+                                      unit_cost_inr: item.unit_cost_inr,
+                                      units: item.units || 'pc',
+                                    }).select().single();
+                                    if (error) { toast.error('Save failed: ' + error.message); return; }
+                                    if (data) setHardwarePrices(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+                                    toast.success('Saved to hardware library');
+                                  }}>
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           ) : (
                             <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}
                               onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
@@ -1000,7 +1029,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">
-                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-20 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                             value={item.components_per_product ?? 0}
                             onChange={e => {
                               const v = Number(e.target.value);
@@ -1009,7 +1038,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                             onBlur={e => updateCogsItem(item.id, 'components_per_product', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-18 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                          <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                             value={item.unit_cost_inr ?? 0}
                             onChange={e => {
                               const v = Number(e.target.value);
@@ -1018,7 +1047,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                             onBlur={e => updateCogsItem(item.id, 'unit_cost_inr', Number(e.target.value))} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-12" type="number"
+                          <Input className="h-6 text-xs text-right border-transparent hover:border-input w-14" type="number"
                             defaultValue={(item.waste_factor || 0) * 100}
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
@@ -1029,16 +1058,28 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                 </TableBody>
               </Table>
             </div>
-            <Button size="sm" variant="outline" className="mt-1 h-6 text-[10px] gap-1"
-              onClick={async () => {
-                const { data } = await (supabase as any).from('cogs_items').insert({
-                  product_id: id, cogs_type: 'Raw Piece', component_name: 'New Item',
-                  sort_order: cogsItems.length,
-                }).select().single();
-                if (data) setCogsItems([...cogsItems, data]);
-              }}>
-              <Plus className="h-3 w-3" /> Add Row
-            </Button>
+            <div className="flex gap-1 mt-1">
+              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1"
+                onClick={async () => {
+                  const { data } = await (supabase as any).from('cogs_items').insert({
+                    product_id: id, cogs_type: 'Raw Piece', component_name: 'New Item',
+                    sort_order: cogsItems.length,
+                  }).select().single();
+                  if (data) setCogsItems([...cogsItems, data]);
+                }}>
+                <Plus className="h-3 w-3" /> Add Row
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1"
+                onClick={async () => {
+                  const { data } = await (supabase as any).from('cogs_items').insert({
+                    product_id: id, cogs_type: 'Hardware', component_name: '',
+                    units: 'pc', sort_order: cogsItems.length,
+                  }).select().single();
+                  if (data) setCogsItems([...cogsItems, data]);
+                }}>
+                <Plus className="h-3 w-3" /> Add Hardware
+              </Button>
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
@@ -1124,12 +1165,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
             <Table className="dense-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Include</TableHead>
-                  <TableHead>Labor Type</TableHead>
-                  <TableHead className="w-20 text-right">MH/Unit</TableHead>
-                  <TableHead className="w-20 text-right">Total MH</TableHead>
-                  <TableHead className="w-20 text-right">Rate (₹/hr)</TableHead>
-                  <TableHead className="w-20 text-right">Unit Cost</TableHead>
+                  <TableHead className="w-14">Include</TableHead>
+                  <TableHead className="w-32">Labor Type</TableHead>
+                  <TableHead className="w-28 text-right">MH/Unit</TableHead>
+                  <TableHead className="w-28 text-right">Total MH</TableHead>
+                  <TableHead className="w-28 text-right">Rate (₹/hr)</TableHead>
+                  <TableHead className="w-28 text-right">Unit Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1152,7 +1193,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
                         {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-16 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number"
+                        <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
                           value={item.man_hours_per_unit ?? 0}
                           onChange={e => {
                             const v = Number(e.target.value);
