@@ -320,7 +320,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length]);
 
   // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
   useEffect(() => {
@@ -366,7 +366,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w]);
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
@@ -402,7 +402,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length, productTypes.length, overheadItems.length]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
