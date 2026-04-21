@@ -107,8 +107,13 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Inquiry ${data.rfq_number} created`);
-    onOpenChange(false);
-    onCreated?.(data.id);
+    if (copyAfterCreate) {
+      // Keep inquiry id, open copy dialog. Navigate after copy completes.
+      setCreatedInquiryId(data.id);
+    } else {
+      onOpenChange(false);
+      onCreated?.(data.id);
+    }
   };
 
   return (
