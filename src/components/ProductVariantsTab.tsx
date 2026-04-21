@@ -32,13 +32,6 @@ const emptyForm = {
   attrs: [] as AttrPair[],
 };
 
-export function ProductVariantsTab({ productId }: { productId: string }) {
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [uploading, setUploading] = useState(false);
-
 type WoodPrice = { id: string; wood_type: string; price_per_cft_inr: number };
 
 export function ProductVariantsTab({ productId }: { productId: string }) {
