@@ -18,6 +18,7 @@ import { InquiryStatusCards } from '@/components/InquiryStatusCards';
 import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryProductsTab';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
 import { InquirySamplesTab } from '@/components/InquirySamplesTab';
+import { InquiryAssembliesTab } from '@/components/InquiryAssembliesTab';
 import { InquiryActivityFeed } from '@/components/InquiryActivityFeed';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -31,7 +32,7 @@ const STATUS_COLOR: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
-const VALID_TABS = ['products', 'tasks', 'quotes', 'samples', 'settings', 'summary'] as const;
+const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 export default function InquiryDetail() {
@@ -213,6 +214,7 @@ export default function InquiryDetail() {
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             <TabsList className="inline-flex w-max">
               <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
+              <TabsTrigger value="assemblies" className="text-xs">Assemblies</TabsTrigger>
               <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
               <TabsTrigger value="quotes" className="text-xs">Quotes</TabsTrigger>
               <TabsTrigger value="samples" className="text-xs">Samples</TabsTrigger>
