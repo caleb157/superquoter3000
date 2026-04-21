@@ -256,14 +256,34 @@ export function ProductVariantsTab({ productId }: { productId: string }) {
               </div>
             </div>
 
+            <div className="rounded-md border bg-muted/30 p-2.5 space-y-2">
+              <label className="text-xs font-medium">Wood (from price database)</label>
+              <Select value={selectedWoodId || undefined} onValueChange={applyWoodSelection}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={woods.length ? 'Select a wood…' : 'No woods configured in Settings'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {woods.map(w => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.wood_type} — ₹{Number(w.price_per_cft_inr).toLocaleString()}/cft
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Selecting a wood sets the price factor automatically (cheapest wood = 1.0×).
+                {baseWoodPrice > 0 && <> Base: ₹{baseWoodPrice.toLocaleString()}/cft.</>}
+              </p>
+            </div>
+
             <div>
               <label className="text-xs text-muted-foreground">Wood price factor (multiplier on raw piece cost)</label>
               <Input
                 className="h-9" type="number" step="0.01"
                 value={form.wood_price_factor}
-                onChange={e => setForm(f => ({ ...f, wood_price_factor: Number(e.target.value) }))}
+                onChange={e => { setSelectedWoodId(''); setForm(f => ({ ...f, wood_price_factor: Number(e.target.value) })); }}
               />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Use 1 if pricing is the same as the master product.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Auto-filled from wood selection. Edit to override.</p>
             </div>
 
             <div>
