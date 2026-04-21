@@ -193,11 +193,11 @@ Deno.serve(async (req) => {
       ${lineItems.map((item: any, i: number) => `
       <tr>
         <td>${i + 1}</td>
-        <td class="font-medium">${item.item_name || ''}</td>
-        <td>${item.description || ''}</td>
-        <td>${item.dimensions || ''}</td>
-        <td class="text-right">${item.quantity || 0}</td>
-        <td>${item.units || ''}</td>
+        <td class="font-medium">${h(item.item_name || '')}</td>
+        <td>${h(item.description || '')}</td>
+        <td>${h(item.dimensions || '')}</td>
+        <td class="text-right">${h(item.quantity || 0)}</td>
+        <td>${h(item.units || '')}</td>
         <td class="text-right">${item.target_price != null ? `₹${Number(item.target_price).toFixed(2)}` : '—'}</td>
         <td class="text-right font-medium">${item.target_price != null ? `₹${(item.target_price * item.quantity).toFixed(2)}` : '—'}</td>
       </tr>
@@ -211,17 +211,18 @@ Deno.serve(async (req) => {
 
   ${rfq.notes || rfq.delivery_deadline || rfq.payment_terms ? `
   <div class="notes">
-    ${rfq.notes ? `<h3>Notes / Instructions</h3><p>${rfq.notes}</p>` : ''}
-    ${rfq.delivery_deadline ? `<p><strong>Delivery Deadline:</strong> ${rfq.delivery_deadline}</p>` : ''}
-    ${rfq.payment_terms ? `<p><strong>Payment Terms:</strong> ${rfq.payment_terms}</p>` : ''}
+    ${rfq.notes ? `<h3>Notes / Instructions</h3><p>${h(rfq.notes)}</p>` : ''}
+    ${rfq.delivery_deadline ? `<p><strong>Delivery Deadline:</strong> ${h(rfq.delivery_deadline)}</p>` : ''}
+    ${rfq.payment_terms ? `<p><strong>Payment Terms:</strong> ${h(rfq.payment_terms)}</p>` : ''}
   </div>
   ` : ''}
 
   <div class="footer">
-    ${rfq.response_due ? `<p>Please respond by <strong>${new Date(rfq.response_due).toLocaleDateString()}</strong></p>` : ''}
-    ${entity?.email ? `<p>Please send your quotation to: <strong>${entity.email}</strong></p>` : ''}
-    <p style="margin-top:10px">${entity?.name || ''} ${entity?.gst_number ? `| GST: ${entity.gst_number}` : ''} ${entity?.ein_number ? `| EIN: ${entity.ein_number}` : ''}</p>
+    ${rfq.response_due ? `<p>Please respond by <strong>${h(new Date(rfq.response_due).toLocaleDateString())}</strong></p>` : ''}
+    ${entity?.email ? `<p>Please send your quotation to: <strong>${h(entity.email)}</strong></p>` : ''}
+    <p style="margin-top:10px">${h(entity?.name || '')} ${entity?.gst_number ? `| GST: ${h(entity.gst_number)}` : ''} ${entity?.ein_number ? `| EIN: ${h(entity.ein_number)}` : ''}</p>
   </div>
+
 </body>
 </html>`;
 
