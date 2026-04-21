@@ -462,7 +462,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
         Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
     setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
     (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
-  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length]);
+  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
     include: item.include,
