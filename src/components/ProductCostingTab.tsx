@@ -601,7 +601,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
 
   return (
     <div className="space-y-2">
-        {/* Phase 7: inquiry-level settings TBD */}
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={recalculateAllAutoCosts} disabled={recalcing}>
+            {recalcing ? 'Recalculating…' : 'Recalculate all auto costs'}
+          </Button>
+        </div>
 
         {/* Section A: Product Info */}
         <Collapsible open={sections.info} onOpenChange={() => toggle('info')}>
