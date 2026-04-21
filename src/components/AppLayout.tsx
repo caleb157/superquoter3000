@@ -4,8 +4,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu,
-  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import {
+  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu, ChevronDown,
+  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal, ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -21,16 +24,32 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: ClipboardList, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
-    { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
-    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/team', label: 'Team', icon: Shield, show: isAdmin },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
   const visibleItems = navItems.filter(n => n.show);
+
+  // Desktop primary nav order: Inquiries, Customers, Products, Logs (dropdown), Tasks
+  const primaryDesktop: Array<{ to: string; label: string; icon: typeof Inbox }> = [
+    { to: '/', label: 'Inquiries', icon: Inbox },
+    { to: '/customers', label: 'Customers', icon: Users },
+    { to: '/products', label: 'Products', icon: ShoppingCart },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+  ].filter(i => visibleItems.find(v => v.to === i.to));
+
+  const logsItems = [
+    { to: '/quotes', label: 'Quotes', icon: FileText },
+    { to: '/samples', label: 'Samples', icon: Package2 },
+  ].filter(i => visibleItems.find(v => v.to === i.to));
+
+  const logsActive = logsItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
+  const showSettings = !!visibleItems.find(v => v.to === '/settings');
 
   // Bottom-nav primary set on mobile (4 most-used + More)
   const bottomNav = [
@@ -61,8 +80,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 ml-4 overflow-x-auto">
-            {visibleItems.map(item => (
+          <nav className="hidden md:flex items-center gap-1 ml-4 flex-1 min-w-0 overflow-x-auto">
+            {primaryDesktop.slice(0, 3).map(item => (
               <Link key={item.to} to={item.to}>
                 <Button
                   variant={isActive(item.to) ? 'secondary' : 'ghost'}
@@ -74,6 +93,86 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Button>
               </Link>
             ))}
+
+            {logsItems.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={logsActive ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className={cn('h-8 text-xs gap-1.5 group', logsActive && 'bg-secondary')}
+                  >
+                    <ScrollText className="h-3.5 w-3.5" />
+                    Logs
+                    <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  {logsItems.map(item => (
+                    <DropdownMenuItem key={item.to} asChild>
+                      <Link to={item.to} className="cursor-pointer gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {primaryDesktop.slice(3).map(item => (
+              <Link key={item.to} to={item.to}>
+                <Button
+                  variant={isActive(item.to) ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive(item.to) && 'bg-secondary')}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+
+            {visibleItems.find(v => v.to === '/analytics') && (
+              <Link to="/analytics">
+                <Button
+                  variant={isActive('/analytics') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive('/analytics') && 'bg-secondary')}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Analytics
+                </Button>
+              </Link>
+            )}
+            {visibleItems.find(v => v.to === '/team') && (
+              <Link to="/team">
+                <Button
+                  variant={isActive('/team') ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn('h-8 text-xs gap-1.5', isActive('/team') && 'bg-secondary')}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Team
+                </Button>
+              </Link>
+            )}
+
+            {/* Spacer pushes settings to the far right */}
+            <div className="flex-1" />
+
+            {showSettings && (
+              <Link to="/settings" className="hidden md:inline-flex">
+                <Button
+                  variant={isActive('/settings') ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={cn('h-8 w-8', isActive('/settings') && 'bg-secondary')}
+                  aria-label="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
           </nav>
 
           {/* Mobile current-page label */}
