@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, Layers } from 'lucide-react';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductTasksTab } from '@/components/ProductTasksTab';
+import { ProductVariantsTab } from '@/components/ProductVariantsTab';
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
 import { toast } from 'sonner';
 
@@ -22,7 +23,7 @@ type ProductHeader = {
   sample_stage: string | null;
 };
 
-const VALID_TABS = ['summary', 'costing', 'sample-log', 'tasks'] as const;
+const VALID_TABS = ['summary', 'costing', 'variants', 'sample-log', 'tasks'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 const ProductDetail = () => {
@@ -96,6 +97,7 @@ const ProductDetail = () => {
             <TabsList className="w-max">
               <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
               <TabsTrigger value="costing"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Costing</TabsTrigger>
+              <TabsTrigger value="variants"><Layers className="h-3.5 w-3.5 mr-1.5" />Variants</TabsTrigger>
               <TabsTrigger value="sample-log"><Package2 className="h-3.5 w-3.5 mr-1.5" />Sample Log</TabsTrigger>
               <TabsTrigger value="tasks"><ListChecks className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
             </TabsList>
@@ -106,6 +108,9 @@ const ProductDetail = () => {
           </TabsContent>
           <TabsContent value="costing">
             {activeTab === 'costing' && <ProductCostingTab productId={product.id} onProductUpdated={fetchProduct} />}
+          </TabsContent>
+          <TabsContent value="variants">
+            {activeTab === 'variants' && <ProductVariantsTab productId={product.id} />}
           </TabsContent>
           <TabsContent value="sample-log">
             {activeTab === 'sample-log' && <ProductSampleLogTab productId={product.id} />}
