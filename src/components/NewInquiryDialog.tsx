@@ -32,6 +32,8 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   const [priority, setPriority] = useState('normal');
   const [requirements, setRequirements] = useState('');
   const [saving, setSaving] = useState(false);
+  const [copyAfterCreate, setCopyAfterCreate] = useState(false);
+  const [createdInquiryId, setCreatedInquiryId] = useState<string | null>(null);
 
   // Inline new-customer panel
   const [showNewCustomer, setShowNewCustomer] = useState(false);
