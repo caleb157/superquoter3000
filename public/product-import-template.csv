@@ -1,0 +1,5 @@
+name,sku,width_inch,depth_inch,height_inch,weight_kg,quantity,moq,target_price_usd,product_type,finishing_difficulty,percent_wood,is_component,sourced_externally,collection,notes
+Barley Twist Side Table - Oak,BT-OAK-01,23.5,23.5,21.75,12,75,50,89,Wood Side/End Table,Hard,1,No,No,Olive Ateliers,Oak with hand-turned barley twist legs
+Barley Twist Side Table - Mango,BT-MNG-01,23.5,23.5,21.75,11,75,50,79,Wood Side/End Table,Hard,1,No,No,Olive Ateliers,Mango wood version
+Round Bench - Oak,RB-OAK-01,42,16,18,18,40,30,145,Wood Stool,Medium,1,No,No,Olive Ateliers,
+Cabinet Small - Mango,CAB-MNG-S,28,14,32,22,25,20,210,Wood Small,Medium,0.9,No,No,Olive Ateliers,Two doors with iron hardware

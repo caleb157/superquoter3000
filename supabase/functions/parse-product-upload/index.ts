@@ -38,86 +38,144 @@ Return ONLY a valid JSON object (no markdown, no backticks, no explanation) with
   ]
 }
 
-HARDWARE DETECTION — Look carefully for and estimate:
-- **Drawers:** Count drawers visible. Each drawer needs 1 pair of drawer slides.
-- **Doors/Cabinets:** Count doors. Each door needs 1 pair of hinges.
-- **Pulls/Knobs:** Count visible handles, pulls, or knobs on drawers and doors.
-- **Shelves:** Count visible or likely shelves. Each adjustable shelf needs 4 shelf pins.
-- **Legs:** If the piece has legs that sit on a floor, estimate rubber leg caps needed (typically 4).
-- **Grommets:** If it's a desk or table with cable management holes, note grommets.
-- **Wall mounting:** If the piece looks like it would be wall-mounted, note a wall mounting kit.
-
-Even if you can't see the hardware directly, INFER what would be needed based on the type of furniture.
-
-COMPONENTS: If the product has distinct shippable parts, identify them as components.
-
 DIMENSIONS: If dimensions are in cm, convert to inches (÷ 2.54). If in mm, convert to inches (÷ 25.4).
 For furniture: width = side-to-side, depth = front-to-back, height = floor-to-top.`;
 
-function parseDktIntake(workbook: XLSX.WorkBook, fileName: string): any[] {
-  const skuSheet = workbook.Sheets["SKU_Data"];
-  if (!skuSheet) return [];
+// Normalize header text to a comparable key
+function normHeader(h: any): string {
+  return String(h ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
 
-  const skuRows: any[][] = XLSX.utils.sheet_to_json(skuSheet, { header: 1, defval: null });
+const HEADER_ALIASES: Record<string, string> = {
+  // name
+  name: "name", product_name: "name", sku_name: "name", item: "name", item_name: "name", title: "name", description: "name",
+  // sku
+  sku: "sku", sku_code: "sku", code: "sku", model: "sku", model_number: "sku",
+  // dims
+  width_in: "width_inch", width_inch: "width_inch", width: "width_inch", w: "width_inch", w_in: "width_inch",
+  depth_in: "depth_inch", depth_inch: "depth_inch", depth: "depth_inch", d: "depth_inch", d_in: "depth_inch", length: "depth_inch", l: "depth_inch",
+  height_in: "height_inch", height_inch: "height_inch", height: "height_inch", h: "height_inch", h_in: "height_inch",
+  weight_kg: "weight_kg", weight: "weight_kg", weight_kgs: "weight_kg", wt_kg: "weight_kg",
+  // qty / moq / price
+  qty: "quantity", quantity: "quantity", order_qty: "quantity", units: "quantity",
+  moq: "moq", min_order: "moq", min_order_qty: "moq",
+  target_price: "target_price_usd", target_price_usd: "target_price_usd", price: "target_price_usd", price_usd: "target_price_usd", target_usd: "target_price_usd",
+  // type / category
+  product_type: "product_type", type: "product_type", category: "product_type", piece_type: "product_type",
+  finishing_difficulty: "finishing_difficulty", difficulty: "finishing_difficulty", finish_difficulty: "finishing_difficulty",
+  percent_wood: "percent_wood", wood_percent: "percent_wood", wood_pct: "percent_wood", wood_fraction: "percent_wood",
+  is_component: "is_component", component: "is_component",
+  sourced_externally: "sourced_externally", external: "sourced_externally", outsourced: "sourced_externally",
+  // notes
+  notes: "notes", note: "notes", remarks: "notes", description_notes: "notes", comments: "notes",
+  // collection (kept as note prefix)
+  collection: "collection",
+};
 
-  // Build COGS lookup from COGS_Detail sheet
-  const cogsMap: Record<string, any[]> = {};
-  if (workbook.SheetNames.includes("COGS_Detail")) {
-    const cogsRows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets["COGS_Detail"], { header: 1, defval: null });
-    for (const row of cogsRows.slice(2)) {
-      const skuName = row[0];
-      if (!skuName || !row[2]) continue;
-      if (!cogsMap[skuName]) cogsMap[skuName] = [];
-      cogsMap[skuName].push({
-        cogs_type: row[2],
-        component_name: row[3] ?? (row[2] === "Raw Piece" ? "Raw Piece" : null),
-        include: row[4] ?? "Yes",
-        units: row[5],
-        components_per_product: row[6] ?? 0,
-        unit_cost_inr: row[7] ?? 0,
-        waste_factor: row[8] ?? 0,
-      });
+function toNum(v: any): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(/[, $]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+function toBool(v: any): boolean {
+  if (v === true) return true;
+  if (v === false || v === null || v === undefined) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "yes" || s === "y" || s === "true" || s === "1" || s === "x";
+}
+
+// Generic header-based parser — works on any sheet whose first non-empty row
+// has at least a "name"/"product_name" column.
+function parseSheetByHeaders(rows: any[][], fileName: string, sheetName: string): any[] {
+  // Find header row: first row that contains a recognizable name column
+  let headerRowIdx = -1;
+  let headerMap: Record<number, string> = {};
+  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+    const map: Record<number, string> = {};
+    let hasName = false;
+    rows[i].forEach((cell, idx) => {
+      const key = HEADER_ALIASES[normHeader(cell)];
+      if (key) {
+        map[idx] = key;
+        if (key === "name") hasName = true;
+      }
+    });
+    if (hasName) {
+      headerRowIdx = i;
+      headerMap = map;
+      break;
     }
   }
+  if (headerRowIdx === -1) return [];
 
-  // Parse SKU rows — skip first 2 header rows
   const products: any[] = [];
-  for (const row of skuRows.slice(2)) {
-    const name = row[1];
-    // Skip group headers: name missing or all data cols (B–T i.e. indices 2–19) empty
-    if (!name || (!row[2] && !row[3] && !row[4])) continue;
+  for (let r = headerRowIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every((c) => c === null || c === undefined || c === "")) continue;
 
-    const num = (v: any) => (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) ? Number(v) : null;
+    const obj: any = {
+      name: null, sku: null, width_inch: null, depth_inch: null, height_inch: null,
+      weight_kg: null, quantity: null, moq: null, product_type: null,
+      finishing_difficulty: "Medium", percent_wood: 1, target_price_usd: null,
+      is_component: false, sourced_externally: false, notes: null,
+      hardware_detected: [], confidence: "high", source_file: fileName,
+    };
+    let collection: string | null = null;
 
-    products.push({
-      name,
-      sku: null,
-      width_inch: num(row[3]),
-      depth_inch: num(row[4]),
-      height_inch: num(row[5]),
-      weight_kg: num(row[6]),
-      quantity: num(row[2]),
-      product_type: row[7] ?? null,
-      finishing_difficulty: row[8] ?? "Medium",
-      percent_wood: num(row[9]) ?? 1,
-      target_price_usd: num(row[10]),
-      is_component: row[17] === "component",
-      sourced_externally: row[18] === "Yes" || row[18] === true,
-      notes: row[19] ?? null,
-      hardware_detected: [],
-      cogs_rows: cogsMap[name] || [],
-      confidence: "high",
-      source_file: fileName,
-      ic_type: row[11] ?? null,
-      products_per_ic: num(row[12]),
-      ic_width: num(row[13]),
-      ic_depth: num(row[14]),
-      ic_height: num(row[15]),
-      include_mc: row[16] === "Yes" || row[16] === true,
-    });
+    for (const [idxStr, key] of Object.entries(headerMap)) {
+      const idx = Number(idxStr);
+      const val = row[idx];
+      if (val === null || val === undefined || val === "") continue;
+      switch (key) {
+        case "name": obj.name = String(val).trim(); break;
+        case "sku": obj.sku = String(val).trim(); break;
+        case "width_inch": obj.width_inch = toNum(val); break;
+        case "depth_inch": obj.depth_inch = toNum(val); break;
+        case "height_inch": obj.height_inch = toNum(val); break;
+        case "weight_kg": obj.weight_kg = toNum(val); break;
+        case "quantity": obj.quantity = toNum(val); break;
+        case "moq": obj.moq = toNum(val); break;
+        case "target_price_usd": obj.target_price_usd = toNum(val); break;
+        case "product_type": obj.product_type = String(val).trim(); break;
+        case "finishing_difficulty": obj.finishing_difficulty = String(val).trim(); break;
+        case "percent_wood": {
+          const n = toNum(val); if (n !== null) obj.percent_wood = n > 1 ? n / 100 : n; break;
+        }
+        case "is_component": obj.is_component = toBool(val); break;
+        case "sourced_externally": obj.sourced_externally = toBool(val); break;
+        case "notes": obj.notes = String(val).trim(); break;
+        case "collection": collection = String(val).trim(); break;
+      }
+    }
+
+    // Skip rows missing a usable name
+    if (!obj.name) continue;
+    // Skip metadata/banner rows
+    if (obj.name.length > 120 && !obj.width_inch && !obj.height_inch) continue;
+
+    if (collection) {
+      obj.notes = obj.notes ? `[${collection}] ${obj.notes}` : `[${collection}]`;
+    }
+    products.push(obj);
   }
-
   return products;
+}
+
+function parseWorkbook(workbook: XLSX.WorkBook, fileName: string): any[] {
+  const all: any[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    if (/^(cogs|metadata|notes|instructions|template)/i.test(sheetName)) continue;
+    const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
+    const parsed = parseSheetByHeaders(rows, fileName, sheetName);
+    if (parsed.length > 0) all.push(...parsed);
+  }
+  return all;
+}
+
+function parseCsv(text: string, fileName: string): any[] {
+  const wb = XLSX.read(text, { type: "string" });
+  return parseWorkbook(wb, fileName);
 }
 
 Deno.serve(async (req) => {
@@ -125,7 +183,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Auth check — require valid JWT and admin/team role before invoking paid AI
+  // Auth check — verify JWT and admin/team role before invoking paid AI
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -137,13 +195,13 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } }
   );
-  const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(authHeader.replace("Bearer ", ""));
-  if (claimsErr || !claimsData?.claims) {
+  const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
+  if (userErr || !userData?.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const { data: isAllowed } = await supabaseAuth.rpc("is_admin_or_team", { _user_id: claimsData.claims.sub });
+  const { data: isAllowed } = await supabaseAuth.rpc("is_admin_or_team", { _user_id: userData.user.id });
   if (!isAllowed) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -154,8 +212,7 @@ Deno.serve(async (req) => {
     const { files } = await req.json();
     if (!files || !Array.isArray(files) || files.length === 0) {
       return new Response(JSON.stringify({ error: "No files provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -164,40 +221,52 @@ Deno.serve(async (req) => {
 
     for (const file of files) {
       try {
-        // Try structured DKT intake parse first for Excel files
-        if (file.name?.toLowerCase().endsWith(".xlsx") || file.name?.toLowerCase().endsWith(".xls")) {
+        const lowerName = (file.name || "").toLowerCase();
+
+        // Excel files: try header-based parser first across all sheets
+        if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
           try {
             const binaryData = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
             const workbook = XLSX.read(binaryData, { type: "array" });
-
-            if (workbook.SheetNames.includes("SKU_Data")) {
-              const parsed = parseDktIntake(workbook, file.name);
-              if (parsed.length > 0) {
-                allProducts.push(...parsed);
-                continue; // skip AI call for this file
-              }
+            const parsed = parseWorkbook(workbook, file.name);
+            if (parsed.length > 0) {
+              allProducts.push(...parsed);
+              continue;
             }
           } catch (xlsxErr: any) {
-            console.error("XLSX structured parse failed, falling back to AI:", xlsxErr.message);
+            console.error("XLSX parse failed, falling back to AI:", xlsxErr.message);
+          }
+        }
+
+        // CSV files: try header-based parser first
+        if (lowerName.endsWith(".csv")) {
+          try {
+            const csvText = typeof file.data === "string" && !/^[A-Za-z0-9+/=]+$/.test(file.data.slice(0, 200))
+              ? file.data
+              : new TextDecoder().decode(Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0)));
+            const parsed = parseCsv(csvText, file.name);
+            if (parsed.length > 0) {
+              allProducts.push(...parsed);
+              continue;
+            }
+          } catch (csvErr: any) {
+            console.error("CSV parse failed, falling back to AI:", csvErr.message);
           }
         }
 
         // --- AI parsing fallback ---
         if (!ANTHROPIC_API_KEY) {
-          return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          errors.push(`Could not parse ${file.name} and AI fallback not configured`);
+          continue;
         }
 
         const messages: any[] = [];
-
         if (file.type?.startsWith("image/")) {
           messages.push({
             role: "user",
             content: [
               { type: "image", source: { type: "base64", media_type: file.type, data: file.data } },
-              { type: "text", text: "Extract product information from this image. Look for dimensions, product names, SKUs, materials. Analyze the product to determine what hardware it would need. Estimate finishing difficulty and percent wood." },
+              { type: "text", text: "Extract product information from this image." },
             ],
           });
         } else if (file.pages && Array.isArray(file.pages) && file.pages.length > 0) {
@@ -205,18 +274,18 @@ Deno.serve(async (req) => {
           for (const page of file.pages) {
             content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: page.data } });
           }
-          content.push({ type: "text", text: `Extract all product information from these ${file.pages.length} page images of a PDF document (${file.name}).` });
+          content.push({ type: "text", text: `Extract product information from these ${file.pages.length} page images of ${file.name}.` });
           messages.push({ role: "user", content });
         } else if (file.type === "application/pdf") {
           messages.push({
             role: "user",
             content: [
               { type: "document", source: { type: "base64", media_type: "application/pdf", data: file.data } },
-              { type: "text", text: `Extract all product information from this PDF document (${file.name}).` },
+              { type: "text", text: `Extract product information from ${file.name}.` },
             ],
           });
         } else {
-          messages.push({ role: "user", content: `Extract product information from this spreadsheet data:\n\n${file.data}\n\nParse each row as a product if it appears to contain product data.` });
+          messages.push({ role: "user", content: `Extract product information from this spreadsheet data:\n\n${file.data}` });
         }
 
         const response = await fetch(ANTHROPIC_URL, {
@@ -232,12 +301,7 @@ Deno.serve(async (req) => {
         if (!response.ok) {
           const errText = await response.text();
           console.error("Anthropic API error:", response.status, errText);
-          errors.push(response.status === 429
-            ? `Rate limited while parsing ${file.name}. Please try again later.`
-            : response.status === 402
-            ? `Credits exhausted while parsing ${file.name}. Please add funds.`
-            : `AI error for ${file.name}: status ${response.status}`);
-          allProducts.push({ name: `Error parsing ${file.name}`, notes: `API status ${response.status}`, confidence: "low", source_file: file.name, hardware_detected: [] });
+          errors.push(`AI error for ${file.name}: status ${response.status}`);
           continue;
         }
 
@@ -246,15 +310,14 @@ Deno.serve(async (req) => {
         try {
           const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
           if (parsed.products) {
-            allProducts.push(...parsed.products.map((p: any) => ({ ...p, source_file: file.name, hardware_detected: p.hardware_detected || p.hardware_guess || [] })));
+            allProducts.push(...parsed.products.map((p: any) => ({ ...p, source_file: file.name, hardware_detected: p.hardware_detected || [] })));
           }
         } catch {
-          allProducts.push({ name: `Unparsed from ${file.name}`, notes: "AI could not extract structured data.", confidence: "low", source_file: file.name, hardware_detected: [] });
+          errors.push(`AI could not extract structured data from ${file.name}`);
         }
       } catch (fileErr: any) {
         console.error("Error processing file:", file.name, fileErr);
         errors.push(`Error processing ${file.name}: ${fileErr.message}`);
-        allProducts.push({ name: `Error: ${file.name}`, notes: fileErr.message, confidence: "low", source_file: file.name, hardware_detected: [] });
       }
     }
 
@@ -264,8 +327,7 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error("parse-product-upload error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
