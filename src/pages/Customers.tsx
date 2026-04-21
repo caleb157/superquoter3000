@@ -71,10 +71,22 @@ const Customers = () => {
   }, [inquiries]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, inactive: 0, churned: 0 };
+    const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, won: 0, inactive: 0, churned: 0 };
     customers.forEach((cu: any) => { c[cu.lead_status || 'lead'] = (c[cu.lead_status || 'lead'] || 0) + 1; });
     return c;
   }, [customers]);
+
+  const updateStatus = async (customerId: string, next: LeadStatus) => {
+    // Optimistic
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, lead_status: next } : c));
+    const { error } = await (supabase as any).from('customers').update({ lead_status: next }).eq('id', customerId);
+    if (error) {
+      toast.error(error.message);
+      fetchAll();
+    } else {
+      toast.success(`Marked as ${LEAD_STATUS_LABELS[next]}`);
+    }
+  };
 
   const filtered = customers.filter((c: any) => {
     if (statusFilter !== 'all' && (c.lead_status || 'lead') !== statusFilter) return false;
