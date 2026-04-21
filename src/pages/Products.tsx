@@ -58,7 +58,7 @@ const Products = () => {
     const fetchAll = async () => {
       const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
+        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
@@ -170,6 +170,10 @@ const Products = () => {
           case 'not_started': if (done !== 0) return false; break;
           case 'needs_review': if (!hasReview(p.id)) return false; break;
         }
+      }
+      if (stageParam) {
+        const inqStatus = p.customer_rfq_id ? inquiryStatusMap[p.customer_rfq_id] : null;
+        if (furthestStageBucket(p, inqStatus) !== stageParam) return false;
       }
       return true;
     });
