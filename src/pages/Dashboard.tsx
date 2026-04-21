@@ -16,11 +16,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, FileText, Package2 } from 'lucide-react';
+import { Search, FileText, Package2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import {
   furthestStageBucket,
   productWeight,
@@ -77,6 +78,7 @@ const Dashboard = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
@@ -234,6 +236,13 @@ const Dashboard = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold">Dashboard</h1>
+            <Button size="sm" className="gap-1.5 h-8" onClick={() => setShowNewInquiry(true)}>
+              <Plus className="h-3.5 w-3.5" /> New Inquiry
+            </Button>
+          </div>
+
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
@@ -241,6 +250,12 @@ const Dashboard = () => {
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
           </div>
+
+          <NewInquiryDialog
+            open={showNewInquiry}
+            onOpenChange={setShowNewInquiry}
+            onCreated={(inq) => navigate(`/inquiry/${inq.id}?tab=products`)}
+          />
 
           {/* Pipeline value + Products by stage */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -328,7 +343,7 @@ const Dashboard = () => {
                 inquiries.length === 0 ? (
                   <div className="p-12 text-center space-y-3">
                     <div className="text-sm text-muted-foreground">No inquiries yet.</div>
-                    <Button size="sm" onClick={() => navigate('/customers')}>+ New Inquiry</Button>
+                    <Button size="sm" onClick={() => setShowNewInquiry(true)}>+ New Inquiry</Button>
                   </div>
                 ) : (
                   <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
