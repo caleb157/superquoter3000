@@ -168,6 +168,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               onClick={() => { setFilter(c.key); onFilterChange(c.key); }}
             >{c.label}</Button>
           ))}
+          {RAW_STAGE_LABELS[filter] && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20"
+              onClick={() => { setFilter('all'); onFilterChange('all'); }}
+            >
+              {RAW_STAGE_LABELS[filter]} <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
 
