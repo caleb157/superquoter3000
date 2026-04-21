@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 type Product = {
@@ -16,14 +17,18 @@ type Product = {
   sample_stage: string | null;
 };
 
+type InquiryOption = { id: string; rfq_number: string; title: string | null };
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inquiryId: string;
+  /** Skip product selection when both inquiryId AND preSelectedProductIds are provided. */
+  inquiryId?: string;
   inquiryNumber?: string;
+  preSelectedProductIds?: string[];
+  /** When provided (and inquiryId is not), step 0 lets the user pick an inquiry first. */
+  inquiryOptions?: InquiryOption[];
   onCreated: () => void;
-  /** Optional: pre-selected products from a parent screen. If provided, skips the selection step. */
-  preselectedProducts?: { id: string; name: string; sample_stage?: string | null }[];
 };
 
 const SAMPLE_STAGE_LABEL: Record<string, { label: string; cls: string }> = {
@@ -31,11 +36,20 @@ const SAMPLE_STAGE_LABEL: Record<string, { label: string; cls: string }> = {
   sample_sent: { label: 'sent', cls: 'bg-emerald-100 text-emerald-700' },
 };
 
+type Step = 'pick_inquiry' | 'select' | 'details';
+
 export function GenerateSampleBatchDialog({
-  open, onOpenChange, inquiryId, inquiryNumber, onCreated, preselectedProducts,
+  open, onOpenChange, inquiryId: propInquiryId, inquiryNumber, preSelectedProductIds, inquiryOptions, onCreated,
 }: Props) {
-  const skipSelect = !!preselectedProducts && preselectedProducts.length > 0;
-  const [step, setStep] = useState<'select' | 'details'>(skipSelect ? 'details' : 'select');
+  const initialStep: Step = (() => {
+    if (propInquiryId && preSelectedProductIds && preSelectedProductIds.length > 0) return 'details';
+    if (propInquiryId) return 'select';
+    if (inquiryOptions && inquiryOptions.length > 0) return 'pick_inquiry';
+    return 'select';
+  })();
+
+  const [step, setStep] = useState<Step>(initialStep);
+  const [activeInquiryId, setActiveInquiryId] = useState<string>(propInquiryId ?? '');
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -46,25 +60,28 @@ export function GenerateSampleBatchDialog({
   const [vendors, setVendors] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Reset state on open
   useEffect(() => {
     if (!open) return;
-    setStep(skipSelect ? 'details' : 'select');
+    setStep(initialStep);
+    setActiveInquiryId(propInquiryId ?? '');
     setTitle(''); setRequiredBy(''); setNotes(''); setFinishes(''); setVendors('');
-    if (skipSelect) {
-      setProducts(preselectedProducts!.map(p => ({ id: p.id, name: p.name, quantity: null, sample_stage: p.sample_stage ?? null })));
-      setSelected(new Set(preselectedProducts!.map(p => p.id)));
-      return;
-    }
-    setSelected(new Set());
+    setSelected(new Set(preSelectedProductIds ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Load products when we know the inquiry (and not pre-selected-only flow)
+  useEffect(() => {
+    if (!open || !activeInquiryId) { setProducts([]); return; }
     (async () => {
       const { data } = await supabase
         .from('products')
         .select('id, name, quantity, sample_stage')
-        .eq('customer_rfq_id', inquiryId)
+        .eq('customer_rfq_id', activeInquiryId)
         .order('name');
       setProducts((data ?? []) as Product[]);
     })();
-  }, [open, inquiryId, skipSelect, preselectedProducts]);
+  }, [open, activeInquiryId]);
 
   const allSelected = products.length > 0 && products.every(p => selected.has(p.id));
   const toggleAll = (v: boolean) => setSelected(v ? new Set(products.map(p => p.id)) : new Set());
@@ -74,14 +91,21 @@ export function GenerateSampleBatchDialog({
     setSelected(next);
   };
 
-  const chosen = products.filter(p => selected.has(p.id));
+  // The chosen products (preserve pre-selected ids that aren't in `products` yet)
+  const chosen: { id: string; name: string; sample_stage: string | null }[] = (() => {
+    if (preSelectedProductIds && preSelectedProductIds.length > 0 && products.length === 0) {
+      return preSelectedProductIds.map(id => ({ id, name: id, sample_stage: null }));
+    }
+    return products.filter(p => selected.has(p.id));
+  })();
 
   const submit = async () => {
+    if (!activeInquiryId) { toast.error('Select an inquiry first'); return; }
     if (chosen.length === 0) { toast.error('No products selected'); return; }
     setSaving(true);
     const today = new Date().toISOString().slice(0, 10);
     const { data: rfs, error: rfsErr } = await (supabase as any).from('rfs').insert({
-      customer_rfq_id: inquiryId,
+      customer_rfq_id: activeInquiryId,
       title: title.trim() || null,
       required_by_date: requiredBy || null,
       notes: notes.trim() || null,
@@ -113,6 +137,13 @@ export function GenerateSampleBatchDialog({
   const preview = chosen.slice(0, 3).map(p => p.name).join(', ');
   const more = chosen.length > 3 ? ` and ${chosen.length - 3} more` : '';
 
+  // Step labels for header
+  const stepLabel = (() => {
+    if (step === 'pick_inquiry') return 'Step 1 of 3 · Select inquiry';
+    if (step === 'select') return inquiryOptions ? 'Step 2 of 3 · Select products' : 'Step 1 of 2 · Select products';
+    return inquiryOptions ? 'Step 3 of 3 · Batch details' : 'Step 2 of 2 · Batch details';
+  })();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -120,12 +151,30 @@ export function GenerateSampleBatchDialog({
           <DialogTitle>
             Generate Sample Batch{inquiryNumber ? ` — ${inquiryNumber}` : ''}
           </DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            {step === 'select' ? 'Step 1 of 2 · Select products' : 'Step 2 of 2 · Batch details'}
-          </p>
+          <p className="text-xs text-muted-foreground">{stepLabel}</p>
         </DialogHeader>
 
-        {step === 'select' ? (
+        {step === 'pick_inquiry' && (
+          <>
+            <div className="space-y-2">
+              <Label className="text-xs">Inquiry</Label>
+              <Select value={activeInquiryId} onValueChange={setActiveInquiryId}>
+                <SelectTrigger><SelectValue placeholder="Pick an inquiry…" /></SelectTrigger>
+                <SelectContent>
+                  {(inquiryOptions ?? []).map(i => (
+                    <SelectItem key={i.id} value={i.id}>{i.rfq_number} — {i.title || 'Untitled'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button onClick={() => setStep('select')} disabled={!activeInquiryId}>Next →</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'select' && (
           <>
             <div className="space-y-1 max-h-[50vh] overflow-y-auto">
               {products.length === 0 ? (
@@ -153,12 +202,17 @@ export function GenerateSampleBatchDialog({
             <DialogFooter className="flex items-center justify-between sm:justify-between">
               <span className="text-xs text-muted-foreground">{selected.size} selected</span>
               <div className="flex gap-2">
+                {inquiryOptions && (
+                  <Button variant="ghost" onClick={() => setStep('pick_inquiry')}>← Back</Button>
+                )}
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button onClick={() => setStep('details')} disabled={selected.size === 0}>Next →</Button>
               </div>
             </DialogFooter>
           </>
-        ) : (
+        )}
+
+        {step === 'details' && (
           <>
             <div className="space-y-3">
               <div className="rounded-md bg-muted/40 p-3 text-xs">
@@ -187,7 +241,8 @@ export function GenerateSampleBatchDialog({
               </div>
             </div>
             <DialogFooter>
-              {!skipSelect && (
+              {/* Show Back only if not the pre-selected-skip case */}
+              {!(preSelectedProductIds && preSelectedProductIds.length > 0) && (
                 <Button variant="ghost" onClick={() => setStep('select')}>← Back</Button>
               )}
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

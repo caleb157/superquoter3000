@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Package2, ChevronDown, ChevronRight } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
-import { NewRfsDialog } from '@/components/NewRfsDialog';
+import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-700',
@@ -67,7 +67,7 @@ export default function SamplesList() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold flex items-center gap-2"><Package2 className="h-5 w-5" /> Samples</h1>
           <Button size="sm" className="ml-auto gap-1.5" onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4" /> New RFS
+            <Plus className="h-4 w-4" /> New Batch
           </Button>
         </div>
 
@@ -153,7 +153,12 @@ export default function SamplesList() {
         )}
       </div>
 
-      <NewRfsDialog open={showNew} onOpenChange={setShowNew} inquiries={inquiries} onCreated={fetchAll} />
+      <GenerateSampleBatchDialog
+        open={showNew}
+        onOpenChange={setShowNew}
+        inquiryOptions={inquiries}
+        onCreated={fetchAll}
+      />
     </AppLayout>
   );
 }

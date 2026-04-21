@@ -43,7 +43,7 @@ const Customers = () => {
     name: '', email: '', company: '', phone: '',
     linkedin_url: '', source: '', lead_status: 'lead',
   });
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  
 
   const fetchAll = async () => {
     const [custRes, inqRes] = await Promise.all([
@@ -100,72 +100,6 @@ const Customers = () => {
     fetchAll();
   };
 
-  // Detail view
-  if (selectedCustomer) {
-    const custInquiries = inquiriesByCustomer[selectedCustomer.id] || [];
-    return (
-      <AppLayout>
-        <div className="max-w-5xl mx-auto space-y-4">
-          <Button variant="ghost" size="sm" className="gap-1.5 mb-2" onClick={() => setSelectedCustomer(null)}>
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to Customers
-          </Button>
-
-          <div className="flex items-start gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="h-6 w-6 text-primary" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold">{selectedCustomer.name}</h1>
-                <LeadStatusBadge status={selectedCustomer.lead_status} />
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-                {selectedCustomer.company && <span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{selectedCustomer.company}</span>}
-                {selectedCustomer.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{selectedCustomer.email}</span>}
-                {selectedCustomer.linkedin_url && (
-                  <a href={selectedCustomer.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-foreground">
-                    <Linkedin className="h-3.5 w-3.5" />LinkedIn
-                  </a>
-                )}
-                {selectedCustomer.source && <span>Source: {selectedCustomer.source}</span>}
-              </div>
-            </div>
-          </div>
-
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-6 flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5" /> Inquiries ({custInquiries.length})
-          </h2>
-          {custInquiries.length === 0 ? (
-            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No inquiries yet.</CardContent></Card>
-          ) : (
-            <Card><CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead className="text-xs">CRFQ</TableHead>
-                  <TableHead className="text-xs">Title</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs text-right">Received</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {custInquiries.map((i: any) => (
-                    <TableRow key={i.id} className="cursor-pointer" onClick={() => navigate(`/inquiry/${i.id}`)}>
-                      <TableCell className="font-mono text-xs">{i.rfq_number}</TableCell>
-                      <TableCell className="text-sm">{i.title || '—'}</TableCell>
-                      <TableCell><Badge className={INQUIRY_STATUS_COLORS[i.status] || ''} variant="secondary">{i.status}</Badge></TableCell>
-                      <TableCell className="text-xs text-right text-muted-foreground">
-                        {new Date(i.received_date).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent></Card>
-          )}
-
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
@@ -245,7 +179,7 @@ const Customers = () => {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c: any) => (
-                    <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedCustomer(c)}>
+                    <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                       <TableCell className="font-medium text-sm">{c.name}</TableCell>
                       <TableCell><LeadStatusBadge status={c.lead_status} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{c.company || '—'}</TableCell>
