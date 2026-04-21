@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
+import { MobileTaskFab } from '@/components/MobileTaskFab';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hqLogo from '@/assets/dkt-logo.png';
 
