@@ -109,10 +109,44 @@ const Dashboard = () => {
   }, [products]);
 
   // Stats
+  const inquiryStatusById = useMemo(
+    () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
+    [inquiries],
+  );
   const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
+
+  // Pipeline value (sum of qty × target_price × stage weight, excluding cancelled inquiries)
+  const pipelineValueUsd = useMemo(() => {
+    let total = 0;
+    for (const p of products) {
+      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+      if (inqStatus === 'cancelled') continue;
+      const w = productWeight(p, inqStatus);
+      if (w === 0) continue;
+      const qty = p.quantity ?? 0;
+      const price = Number(p.target_price_usd ?? 0);
+      total += qty * price * w;
+    }
+    return total;
+  }, [products, inquiryStatusById]);
+
+  // Products by furthest stage bucket (excludes cancelled inquiries)
+  const productsByStageBucket = useMemo(() => {
+    const counts: Record<StageBucket, number> = {
+      not_started: 0, need_design: 0, designed: 0,
+      quoting: 0, ready_for_quote: 0, quoted: 0,
+      sampling: 0, sample_sent: 0, po: 0,
+    };
+    for (const p of products) {
+      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+      if (inqStatus === 'cancelled') continue;
+      counts[furthestStageBucket(p, inqStatus)] += 1;
+    }
+    return counts;
+  }, [products, inquiryStatusById]);
 
   // Filter + sort
   const visibleInquiries = useMemo(() => {
