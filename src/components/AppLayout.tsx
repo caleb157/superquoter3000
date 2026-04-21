@@ -196,7 +196,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   <span className="font-bold">Product HQ</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
-                  {visibleItems.map(item => (
+                  {visibleItems.filter(i => i.to !== '/team').map(item => (
                     <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}>
                       <Button
                         variant={isActive(item.to) ? 'secondary' : 'ghost'}
