@@ -144,23 +144,23 @@ Deno.serve(async (req) => {
 </head>
 <body>
   <div class="print-bar">
-    <span>${rfq.rfq_number || 'RFQ'} — ${rfq.title || ''}</span>
+    <span>${h(rfq.rfq_number || 'RFQ')} — ${h(rfq.title || '')}</span>
     <button onclick="window.print()">⌘P Print / Save as PDF</button>
   </div>
   <div class="print-spacer"></div>
   <div class="header">
     <div class="header-left">
-      <h1>${entity?.name || 'Company'}</h1>
-      <p>${entity?.legal_name || ''}</p>
-      <p>${[entity?.address_line1, entity?.city, entity?.state, entity?.postal_code, entity?.country].filter(Boolean).join(', ')}</p>
-      ${entity?.phone ? `<p>Phone: ${entity.phone}</p>` : ''}
-      ${entity?.email ? `<p>Email: ${entity.email}</p>` : ''}
+      <h1>${h(entity?.name || 'Company')}</h1>
+      <p>${h(entity?.legal_name || '')}</p>
+      <p>${h([entity?.address_line1, entity?.city, entity?.state, entity?.postal_code, entity?.country].filter(Boolean).join(', '))}</p>
+      ${entity?.phone ? `<p>Phone: ${h(entity.phone)}</p>` : ''}
+      ${entity?.email ? `<p>Email: ${h(entity.email)}</p>` : ''}
     </div>
     <div class="header-right">
       <h2>REQUEST FOR QUOTATION</h2>
-      <p><strong>${rfq.rfq_number || ''}</strong></p>
-      <p>Date: ${new Date(rfq.created_at).toLocaleDateString()}</p>
-      ${rfq.response_due ? `<p>Response Due: ${new Date(rfq.response_due).toLocaleDateString()}</p>` : ''}
+      <p><strong>${h(rfq.rfq_number || '')}</strong></p>
+      <p>Date: ${h(new Date(rfq.created_at).toLocaleDateString())}</p>
+      ${rfq.response_due ? `<p>Response Due: ${h(new Date(rfq.response_due).toLocaleDateString())}</p>` : ''}
     </div>
   </div>
 
@@ -168,10 +168,10 @@ Deno.serve(async (req) => {
     ${rfq.vendor_name ? `
     <div class="meta-section">
       <h3>To</h3>
-      <p><strong>${rfq.vendor_name}</strong></p>
-      ${rfq.vendor_address ? `<p>${rfq.vendor_address}</p>` : ''}
-      ${rfq.vendor_email ? `<p>${rfq.vendor_email}</p>` : ''}
-      ${rfq.vendor_phone ? `<p>${rfq.vendor_phone}</p>` : ''}
+      <p><strong>${h(rfq.vendor_name)}</strong></p>
+      ${rfq.vendor_address ? `<p>${h(rfq.vendor_address)}</p>` : ''}
+      ${rfq.vendor_email ? `<p>${h(rfq.vendor_email)}</p>` : ''}
+      ${rfq.vendor_phone ? `<p>${h(rfq.vendor_phone)}</p>` : ''}
     </div>
     ` : ''}
   </div>
