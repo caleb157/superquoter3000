@@ -569,7 +569,7 @@ const Dashboard = () => {
           }}
         />
       </TooltipProvider>
-      <MobileFab onClick={() => setShowNewInquiry(true)} label="New inquiry" />
+      
     </AppLayout>
   );
 };
