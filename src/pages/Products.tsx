@@ -19,6 +19,7 @@ import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/li
 
 const Products = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -36,6 +37,18 @@ const Products = () => {
   const [showUploadParse, setShowUploadParse] = useState(false);
   const [uploadInquiryId, setUploadInquiryId] = useState('');
   const [showInquiryPicker, setShowInquiryPicker] = useState(false);
+
+  const stageParam = searchParams.get('stage') as StageBucket | null;
+  const inquiryStatusMap = useMemo(
+    () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
+    [inquiries],
+  );
+
+  const clearStageFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('stage');
+    setSearchParams(next, { replace: true });
+  };
 
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'products-sort',
