@@ -65,14 +65,6 @@ const Customers = () => {
     return map;
   }, [inquiries]);
 
-  const inquiriesByCustomer = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    inquiries.forEach(i => {
-      if (i.customer_id) (map[i.customer_id] ||= []).push(i);
-    });
-    return map;
-  }, [inquiries]);
-
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, inactive: 0, churned: 0 };
     customers.forEach((cu: any) => { c[cu.lead_status || 'lead'] = (c[cu.lead_status || 'lead'] || 0) + 1; });
