@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, X } from 'lucide-react';
+import { Search, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { ProductStagePills, SingleStagePill, type StageTrack } from '@/component
 import { BulkStageActions } from '@/components/BulkStageActions';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { UploadParseDialog } from '@/components/UploadParseDialog';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
