@@ -1,11 +1,11 @@
 {
-  "name": "DKT Quotes",
-  "short_name": "DKT",
-  "description": "Furniture costing & inquiry workspace for Desert Kingdom Traders.",
+  "name": "Product HQ",
+  "short_name": "Product HQ",
+  "description": "Product development, costing & inquiry workspace.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1d4ed8",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
   "orientation": "portrait-primary",
   "icons": [
     {

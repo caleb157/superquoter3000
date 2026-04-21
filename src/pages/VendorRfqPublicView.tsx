@@ -56,7 +56,7 @@ const VendorRfqPublicView = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Package className="h-5 w-5 text-primary" />
-              <span className="font-bold text-sm">DKT Costing</span>
+              <span className="font-bold text-sm">Product HQ</span>
             </div>
             <h1 className="text-xl font-bold">{rfq.title || 'Vendor Request for Quotation'}</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">

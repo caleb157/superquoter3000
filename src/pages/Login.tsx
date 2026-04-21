@@ -52,7 +52,7 @@ const Login = () => {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
             <Package className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-xl">DKT Costing</CardTitle>
+          <CardTitle className="text-xl">Product HQ</CardTitle>
           <CardDescription>
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
           </CardDescription>
