@@ -158,9 +158,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="ml-auto flex items-center gap-1">
             <GlobalTaskQuickAdd />
             <ThemeToggle />
-            <span className="text-xs text-muted-foreground hidden lg:inline truncate max-w-[160px]">
-              {user?.email}
-            </span>
             <Button
               variant="ghost"
               size="icon"
