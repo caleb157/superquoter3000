@@ -194,7 +194,18 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs ml-auto" onClick={() => setUploadOpen(true)}>
+          <Upload className="h-3 w-3" /> Upload & Parse
+        </Button>
       </div>
+
+      <UploadParseDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        inquiryId={inquiryId}
+        productTypes={productTypes}
+        onProductsCreated={() => { setRefresh(r => r + 1); onChange(); }}
+      />
 
       <BulkStageActions
         selectedIds={Array.from(selected)}
