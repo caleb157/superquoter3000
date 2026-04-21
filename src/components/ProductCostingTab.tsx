@@ -92,6 +92,46 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
     saveCbm({ [field]: value });
   };
 
+  // Recalculate all auto-managed costs (finishing, packaging, overhead, transport, freight)
+  const recalculateAllAutoCosts = useCallback(async () => {
+    if (!id || recalcing) return;
+    setRecalcing(true);
+    try {
+      // Reset auto flags on rows we manage so the effects will rewrite them
+      const autoCogsNames = ['color', 'stain', 'sealer', 'lacquer', 'ic box', 'inner carton', 'mc box', 'master carton', 'outer carton', 'domestic freight'];
+      const cogsToReset = cogsItems.filter(i => {
+        const n = (i.component_name || '').toLowerCase();
+        return autoCogsNames.some(k => n.includes(k));
+      });
+      const ohToReset = overheadItems.filter(i => i.labor_type === 'Finishing' || i.labor_type === 'Packaging');
+
+      await Promise.all([
+        ...cogsToReset.map(i =>
+          (supabase as any).from('cogs_items').update({ is_auto_calculated: true }).eq('id', i.id)
+        ),
+        ...ohToReset.map(i =>
+          (supabase as any).from('overhead_items').update({ is_auto_estimated: true }).eq('id', i.id)
+        ),
+      ]);
+
+      setCogsItems(prev => prev.map(i =>
+        cogsToReset.some(c => c.id === i.id) ? { ...i, is_auto_calculated: true } : i
+      ));
+      setOverheadItems(prev => prev.map(i =>
+        ohToReset.some(o => o.id === i.id) ? { ...i, is_auto_estimated: true } : i
+      ));
+
+      // Force all auto-calc effects to re-run
+      setRecalcTick(t => t + 1);
+      toast.success('Recalculated auto costs');
+    } catch (e: any) {
+      toast.error('Recalc failed: ' + (e?.message || 'unknown error'));
+    } finally {
+      setTimeout(() => setRecalcing(false), 600);
+    }
+  }, [id, cogsItems, overheadItems, recalcing]);
+
+
   // Fetch all data
   useEffect(() => {
     if (!id) return;
