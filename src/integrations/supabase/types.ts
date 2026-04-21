@@ -374,12 +374,15 @@ export type Database = {
           assigned_to: string | null
           created_at: string
           customer_id: string | null
+          exchange_rate_override: number | null
           id: string
+          markup_percent_override: number | null
           notes: string | null
           priority: string
           received_date: string
           requirements: string | null
           rfq_number: string
+          shipping_type_id_override: string | null
           status: string
           target_completion_date: string | null
           title: string | null
@@ -389,12 +392,15 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           customer_id?: string | null
+          exchange_rate_override?: number | null
           id?: string
+          markup_percent_override?: number | null
           notes?: string | null
           priority?: string
           received_date?: string
           requirements?: string | null
           rfq_number?: string
+          shipping_type_id_override?: string | null
           status?: string
           target_completion_date?: string | null
           title?: string | null
@@ -404,12 +410,15 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           customer_id?: string | null
+          exchange_rate_override?: number | null
           id?: string
+          markup_percent_override?: number | null
           notes?: string | null
           priority?: string
           received_date?: string
           requirements?: string | null
           rfq_number?: string
+          shipping_type_id_override?: string | null
           status?: string
           target_completion_date?: string | null
           title?: string | null
@@ -421,6 +430,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_rfqs_shipping_type_id_override_fkey"
+            columns: ["shipping_type_id_override"]
+            isOneToOne: false
+            referencedRelation: "shipping_types"
             referencedColumns: ["id"]
           },
         ]
