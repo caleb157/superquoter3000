@@ -45,6 +45,15 @@ const ProductDetail = () => {
   const [draftName, setDraftName] = useState('');
   const [draftSku, setDraftSku] = useState('');
   const [savingName, setSavingName] = useState(false);
+  
+  // Costing summary state
+  const [costingSummary, setCostingSummary] = useState<{
+    unitPriceInr: number;
+    unitPriceUsd: number;
+    unitCostInr: number;
+    unitCostUsd: number;
+    exchangeRate: number;
+  } | null>(null);
 
   const startEdit = () => {
     if (!product) return;
