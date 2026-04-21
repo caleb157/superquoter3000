@@ -473,9 +473,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
   const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
   const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
-  // Step 10: Shipping
+  // Step 10: Shipping (inquiry override > product's shipping_item)
   const shipItem = shippingItems[0];
-  const shipType = shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
+  const overrideShipType = inquiryOverrides?.shipping_type_id_override
+    ? shippingTypes.find(s => s.id === inquiryOverrides.shipping_type_id_override)
+    : null;
+  const shipType = overrideShipType || shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
   const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
     cost_inr: shipType.cost_inr,
     per_unit: shipType.per_unit,
@@ -512,9 +515,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
     qty
   );
 
-  // Step 12: Cost summary — Phase 7: inquiry-level settings TBD
-  const exchangeRate = globalSettings?.exchange_rate || 90;
-  const markupPercent = product?.markup_percent || 0.2;
+  // Step 12: Cost summary — apply inquiry-level overrides if present
+  const exchangeRate = inquiryOverrides?.exchange_rate_override ?? globalSettings?.exchange_rate ?? 90;
+  const markupPercent = inquiryOverrides?.markup_percent_override ?? product?.markup_percent ?? 0.2;
   const summary = calc.calcProductCostSummary(
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty
