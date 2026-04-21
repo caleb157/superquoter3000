@@ -825,6 +825,7 @@ export type Database = {
       }
       product_variants: {
         Row: {
+          attributes: Json
           created_at: string | null
           id: string
           notes: string | null
@@ -834,6 +835,7 @@ export type Database = {
           wood_price_factor: number | null
         }
         Insert: {
+          attributes?: Json
           created_at?: string | null
           id?: string
           notes?: string | null
@@ -843,6 +845,7 @@ export type Database = {
           wood_price_factor?: number | null
         }
         Update: {
+          attributes?: Json
           created_at?: string | null
           id?: string
           notes?: string | null
