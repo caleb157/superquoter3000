@@ -247,26 +247,22 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
   const handleSave = async () => {
     setSaving(true);
     let finalVendorId = vendorId || null;
-    let finalVendorName = vendorOverride.trim() || null;
+    const overrideName = vendorOverride.trim();
 
-    if (!finalVendorId && finalVendorName) {
-      const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
+    if (!finalVendorId && overrideName) {
+      const existing = vendors.find(v => v.name.toLowerCase() === overrideName.toLowerCase());
       if (existing) {
         finalVendorId = existing.id;
-        finalVendorName = existing.name;
       } else {
         const { data: newVendor, error: vErr } = await supabase
           .from('vendors')
-          .insert({ name: finalVendorName, category: 'sampling' })
+          .insert({ name: overrideName, category: 'sampling' })
           .select('id, name')
           .single();
         if (vErr) { setSaving(false); toast.error('Could not create vendor: ' + vErr.message); return; }
         finalVendorId = newVendor!.id;
-        finalVendorName = newVendor!.name;
         setVendors(prev => [...prev, { id: newVendor!.id, name: newVendor!.name }].sort((a, b) => a.name.localeCompare(b.name)));
       }
-    } else if (finalVendorId) {
-      finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
     }
 
     // Look up product's customer_rfq_id so the sample shows up in the inquiry tab and global list
@@ -279,7 +275,6 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     const payload: any = {
       product_id: productId,
       vendor_id: finalVendorId,
-      vendor_name: finalVendorName,
       status,
       requested_date: requestedDate || null,
       required_by_date: requiredBy || null,
