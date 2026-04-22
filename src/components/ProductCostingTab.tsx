@@ -60,7 +60,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
-  const [inquiryOverrides, setInquiryOverrides] = useState<{ exchange_rate_override: number | null; markup_percent_override: number | null; shipping_type_id_override: string | null } | null>(null);
+  const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
