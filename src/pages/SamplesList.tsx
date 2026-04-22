@@ -15,9 +15,20 @@ import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialo
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-700',
   in_progress: 'bg-amber-100 text-amber-700',
+  paused: 'bg-blue-100 text-blue-700',
   completed: 'bg-emerald-100 text-emerald-700',
+  done: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-700',
 };
+
+const STATUS_FILTERS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
 
 const SAMPLE_STATUS_COLOR: Record<string, string> = {
   requested: 'bg-gray-100 text-gray-700',
