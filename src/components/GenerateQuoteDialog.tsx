@@ -143,7 +143,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
           <DialogTitle>Generate Quote{inquiryNumber ? ` — ${inquiryNumber}` : ''}</DialogTitle>
           <p className="text-xs text-muted-foreground">Select products and quote details</p>

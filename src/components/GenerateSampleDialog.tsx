@@ -158,7 +158,7 @@ export function GenerateSampleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
           <DialogTitle>
             Generate {titleNoun}{inquiryNumber ? ` — ${inquiryNumber}` : ''}
