@@ -81,13 +81,20 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                       {q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {q.share_token && (
-                        <Button asChild size="sm" variant="ghost" className="h-7">
-                          <a href={`/quote/${q.share_token}`} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
-                      )}
+                      <div className="inline-flex items-center gap-1 justify-end">
+                        {q.share_token && (
+                          <Button asChild size="sm" variant="ghost" className="h-7">
+                            <a href={`/quote/${q.share_token}`} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </Button>
+                        )}
+                        <ConfirmDeleteButton
+                          itemLabel={`quote ${q.quote_number ?? q.id.slice(0, 8)}`}
+                          description={`This permanently removes quote ${q.quote_number ?? q.id.slice(0, 8)} from the database. This cannot be undone.`}
+                          onConfirm={() => deleteQuote(q.id)}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
