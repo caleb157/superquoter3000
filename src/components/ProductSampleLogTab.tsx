@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, X, Upload } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Plus, Pencil, Trash2, X, Upload, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -244,12 +246,35 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
 
   const handleSave = async () => {
     setSaving(true);
-    const selectedVendor = vendors.find(v => v.id === vendorId);
+    let finalVendorId = vendorId || null;
+    let finalVendorName = vendorOverride.trim() || null;
+
+    // If user typed a name that doesn't match an existing vendor, create one
+    if (!finalVendorId && finalVendorName) {
+      const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
+      if (existing) {
+        finalVendorId = existing.id;
+        finalVendorName = existing.name;
+      } else {
+        const { data: newVendor, error: vErr } = await supabase
+          .from('vendors')
+          .insert({ name: finalVendorName, category: 'sampling' })
+          .select('id, name')
+          .single();
+        if (vErr) { setSaving(false); toast.error('Could not create vendor: ' + vErr.message); return; }
+        finalVendorId = newVendor!.id;
+        finalVendorName = newVendor!.name;
+        setVendors(prev => [...prev, { id: newVendor!.id, name: newVendor!.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    } else if (finalVendorId) {
+      finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
+    }
+
     const payload: any = {
       product_id: productId,
       rfs_id: null,
-      vendor_id: vendorId || null,
-      vendor_name: vendorOverride.trim() || selectedVendor?.name || null,
+      vendor_id: finalVendorId,
+      vendor_name: finalVendorName,
       status,
       requested_date: requestedDate || null,
       initial_ready_date: initialReady || null,
@@ -279,21 +304,17 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit sample' : 'Add sample'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Vendor</Label>
-              <Select value={vendorId || 'none'} onValueChange={(v) => setVendorId(v === 'none' ? '' : v)}>
-                <SelectTrigger className="h-9 text-sm mt-1"><SelectValue placeholder="Select…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— None —</SelectItem>
-                  {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Vendor name override</Label>
-              <Input className="h-9 text-sm mt-1" value={vendorOverride} onChange={e => setVendorOverride(e.target.value)} placeholder="Free-text" />
-            </div>
+          <div>
+            <Label className="text-xs">Vendor</Label>
+            <VendorCombobox
+              vendors={vendors}
+              vendorId={vendorId}
+              vendorName={vendorOverride}
+              onChange={(id, name) => { setVendorId(id); setVendorOverride(name); }}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Pick an existing vendor, or type a new name to create one on save.
+            </p>
           </div>
 
           <div>
@@ -372,5 +393,97 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============= Vendor combobox (search + create) =============
+
+function VendorCombobox({
+  vendors, vendorId, vendorName, onChange,
+}: {
+  vendors: Vendor[];
+  vendorId: string;
+  vendorName: string;
+  onChange: (id: string, name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selected = vendors.find(v => v.id === vendorId);
+  const display = selected?.name || vendorName || '';
+  const trimmed = query.trim();
+  const exactMatch = trimmed
+    ? vendors.find(v => v.name.toLowerCase() === trimmed.toLowerCase())
+    : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full h-9 mt-1 justify-between text-sm font-normal"
+        >
+          <span className={cn('truncate', !display && 'text-muted-foreground')}>
+            {display || 'Select or type a vendor…'}
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search or type a new vendor…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {trimmed ? (
+                <button
+                  type="button"
+                  className="w-full text-left text-sm px-2 py-1.5 hover:bg-accent rounded"
+                  onClick={() => { onChange('', trimmed); setOpen(false); setQuery(''); }}
+                >
+                  + Create "{trimmed}"
+                </button>
+              ) : (
+                <span className="text-sm text-muted-foreground">No vendors yet.</span>
+              )}
+            </CommandEmpty>
+            <CommandGroup>
+              {(vendorId || vendorName) && (
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => { onChange('', ''); setOpen(false); setQuery(''); }}
+                >
+                  <X className="mr-2 h-3.5 w-3.5" /> Clear vendor
+                </CommandItem>
+              )}
+              {vendors.map(v => (
+                <CommandItem
+                  key={v.id}
+                  value={v.name}
+                  onSelect={() => { onChange(v.id, v.name); setOpen(false); setQuery(''); }}
+                >
+                  <Check className={cn('mr-2 h-3.5 w-3.5', vendorId === v.id ? 'opacity-100' : 'opacity-0')} />
+                  {v.name}
+                </CommandItem>
+              ))}
+              {trimmed && !exactMatch && (
+                <CommandItem
+                  value={`__create__${trimmed}`}
+                  onSelect={() => { onChange('', trimmed); setOpen(false); setQuery(''); }}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Create "{trimmed}"
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
