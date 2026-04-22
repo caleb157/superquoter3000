@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, Layers } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks } from 'lucide-react';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
