@@ -428,23 +428,7 @@ const Dashboard = () => {
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
-                      <div className="flex gap-1.5 pt-1" onClick={e => e.stopPropagation()}>
-                        <Button
-                          size="sm" variant="outline"
-                          className="h-8 text-xs gap-1 flex-1"
-                          disabled={noProducts}
-                          onClick={() => setQuoteDialog({ id: inq.id, rfq: inq.rfq_number })}
-                        >
-                          <FileText className="h-3 w-3" /> Quote
-                        </Button>
-                        <Button
-                          size="sm" variant="outline"
-                          className="h-8 text-xs gap-1 flex-1"
-                          disabled={noProducts}
-                          onClick={() => setSampleDialog({ id: inq.id, rfq: inq.rfq_number })}
-                        >
-                          <Package2 className="h-3 w-3" /> Sample
-                        </Button>
+                      <div className="flex justify-end pt-1" onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
                           itemLabel={`inquiry ${inq.rfq_number}`}
                           description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks.`}
@@ -544,20 +528,6 @@ const Dashboard = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                              <ActionButton
-                                disabled={noProducts}
-                                tooltip={noProducts ? 'No products' : 'Generate quote'}
-                                icon={<FileText className="h-3 w-3" />}
-                                label="Quote"
-                                onClick={() => setQuoteDialog({ id: inq.id, rfq: inq.rfq_number })}
-                              />
-                              <ActionButton
-                                disabled={noProducts}
-                                tooltip={noProducts ? 'No products' : 'Generate sample batch'}
-                                icon={<Package2 className="h-3 w-3" />}
-                                label="Sample"
-                                onClick={() => setSampleDialog({ id: inq.id, rfq: inq.rfq_number })}
-                              />
                               <ConfirmDeleteButton
                                 itemLabel={`inquiry ${inq.rfq_number}`}
                                 description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
