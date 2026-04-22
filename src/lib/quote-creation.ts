@@ -1,12 +1,22 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export type QuoteProductInput = {
+  // Source product (variants ride on the same id, with a different display_name + variant_id)
   id: string;
   name: string;
   sku?: string | null;
   quantity?: number | null;
+  // If provided, this is the unit price the quote should use, in the *display* currency
+  // (USD or INR depending on `currency`). Lets the user override calculated price.
+  unit_price_override?: number | null;
+  // Fallback (legacy) — USD-only target price, gets converted if currency is INR.
   target_price_usd?: number | null;
   markup_percent?: number | null;
+  // Optional: render this label/photo instead of the product's defaults (used for variants)
+  display_name?: string | null;
+  display_photo_url?: string | null;
+  variant_id?: string | null;
+  variant_name?: string | null;
 };
 
 export type CreateQuoteParams = {
@@ -38,7 +48,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
 
-  const productIds = selectedProducts.map(p => p.id);
+  // Dedupe product IDs since variants reuse the same product_id
+  const productIds = Array.from(new Set(selectedProducts.map(p => p.id)));
 
   // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields), global settings
   const [productsRes, cbmRes, inquiryRes, entityRes, gsRes] = await Promise.all([
@@ -79,21 +90,23 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const isInr = (currency || 'USD') === 'INR';
   const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
 
-  // Build line items from DB (single source of truth) merged with caller overrides for qty/price.
+  // Build line items from DB (single source of truth) merged with caller overrides.
   const productsJson = selectedProducts.map(sel => {
     const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
     const qty = Number(sel.quantity ?? db.quantity ?? 0);
-    const unitUsd = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
-    const unit = toDisplay(unitUsd);
+    // Prefer caller-supplied display-currency price; otherwise convert legacy USD target.
+    const unit = sel.unit_price_override != null
+      ? Number(sel.unit_price_override)
+      : toDisplay(Number(sel.target_price_usd ?? db.target_price_usd ?? 0));
     let unitCbm = cbmMap.get(sel.id) ?? 0;
     if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
       unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
     }
     return {
       product_id: sel.id,
-      name: db.name ?? sel.name,
+      name: sel.display_name?.trim() || db.name || sel.name,
       sku: db.sku ?? sel.sku ?? null,
-      photo_url: db.photo_url ?? null,
+      photo_url: sel.display_photo_url ?? db.photo_url ?? null,
       quantity: qty,
       unit_price_usd: unit, // value is in display currency (USD or INR)
       total: unit * qty,
@@ -103,6 +116,9 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       height_inch: db.height_inch ?? null,
       weight_kg: db.weight_kg ?? null,
       moq: db.moq ?? null,
+      // Variant metadata (optional)
+      variant_id: sel.variant_id ?? null,
+      variant_name: sel.variant_name ?? null,
     };
   });
 
@@ -161,4 +177,52 @@ export function defaultValidUntil(daysFromNow = 30): string {
   const d = new Date();
   d.setDate(d.getDate() + daysFromNow);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Updates an existing quote_snapshot's product line items (name, quantity, unit price)
+ * and recomputes totals. Used by the "Edit prices" action on the Quotes page.
+ */
+export async function updateQuoteLineItems(
+  snapshotId: string,
+  products: Array<{
+    product_id?: string | null;
+    name: string;
+    sku?: string | null;
+    photo_url?: string | null;
+    quantity: number;
+    unit_price_usd: number; // in display currency
+    unit_cbm?: number | null;
+    width_inch?: number | null;
+    depth_inch?: number | null;
+    height_inch?: number | null;
+    weight_kg?: number | null;
+    moq?: number | null;
+    variant_id?: string | null;
+    variant_name?: string | null;
+  }>,
+): Promise<{ error?: string }> {
+  const productsJson = products.map(p => ({
+    ...p,
+    total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
+  }));
+  const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
+  const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
+  const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
+
+  const { error } = await (supabase as any)
+    .from('quote_snapshots')
+    .update({
+      products: productsJson,
+      totals: {
+        sku_count: productsJson.length,
+        total_qty: totalQty,
+        grand_total: grandTotal,
+        total_cbm: totalCbm,
+      },
+    })
+    .eq('id', snapshotId);
+
+  if (error) return { error: error.message };
+  return {};
 }

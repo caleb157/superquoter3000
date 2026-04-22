@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { createQuoteSnapshot, defaultValidUntil } from '@/lib/quote-creation';
+import { createQuoteSnapshot, defaultValidUntil, type QuoteProductInput } from '@/lib/quote-creation';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
+import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 
 type Product = {
   id: string;
@@ -48,6 +49,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [saving, setSaving] = useState(false);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
   const [hwOpen, setHwOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -87,19 +90,28 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     const chosen = products.filter(p => selected.has(p.id));
     if (chosen.length === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
+    setReviewOpen(true);
+  };
+
+  const handleReviewConfirm = async (lines: QuoteProductInput[]) => {
+    setPendingLines(lines);
     setSaving(true);
-    const plan = await getHardwareSyncPlan(chosen.map(p => p.id));
+    const productIds = Array.from(new Set(lines.map(l => l.id)));
+    const plan = await getHardwareSyncPlan(productIds);
     if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-      await finalizeQuote([]);
+      await finalizeQuote([], lines);
       return;
     }
     setHwPlan(plan);
+    setReviewOpen(false);
     setHwOpen(true);
     setSaving(false);
   };
 
-  const finalizeQuote = async (resolved: Array<HardwareConflict & { resolution: ConflictResolution }>) => {
-    const chosen = products.filter(p => selected.has(p.id));
+  const finalizeQuote = async (
+    resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
+    lines?: QuoteProductInput[],
+  ) => {
     setSaving(true);
     if (hwPlan) {
       const sync = await applyHardwareSync(hwPlan.newItems, resolved);
@@ -108,9 +120,12 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         toast.success(`Hardware library: +${sync.added} added, ${sync.updated} updated`);
       }
     }
+    const linesToUse = lines ?? pendingLines ?? products.filter(p => selected.has(p.id)).map(p => ({
+      id: p.id, name: p.name, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+    } as QuoteProductInput));
     const result = await createQuoteSnapshot({
       inquiryId,
-      selectedProducts: chosen,
+      selectedProducts: linesToUse,
       entityId,
       validUntil,
       currency,
@@ -118,6 +133,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setSaving(false);
     setHwOpen(false);
     setHwPlan(null);
+    setReviewOpen(false);
+    setPendingLines(null);
     if (result.error) { toast.error(result.error); return; }
     toast.success(`Quote draft created${inquiryNumber ? ' for ' + inquiryNumber : ''}`);
     onCreated();
@@ -188,16 +205,26 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={submit} disabled={selected.size === 0 || saving || !entityId}>
-              {saving ? 'Creating…' : 'Create Quote Draft'}
+              {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
+      <QuotePriceReviewDialog
+        open={reviewOpen}
+        onOpenChange={(o) => { if (!o) { setReviewOpen(false); setSaving(false); } }}
+        selectedProducts={products.filter(p => selected.has(p.id)).map(p => ({
+          id: p.id, name: p.name, quantity: p.quantity, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+        }))}
+        currency={currency}
+        onConfirm={handleReviewConfirm}
+        saving={saving}
+      />
       <HardwareSyncDialog
         open={hwOpen}
         plan={hwPlan}
-        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); }}
-        onConfirm={(resolved) => finalizeQuote(resolved)}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); setPendingLines(null); }}
+        onConfirm={(resolved) => finalizeQuote(resolved, pendingLines || undefined)}
       />
     </Dialog>
   );
