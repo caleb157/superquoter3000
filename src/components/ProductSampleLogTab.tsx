@@ -202,10 +202,10 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       setVendors((v as any) ?? []);
 
       if (isEdit && sampleId) {
-        const { data } = await (supabase as any).from('samples').select('*').eq('id', sampleId).maybeSingle();
+        const { data } = await (supabase as any).from('samples').select('*, vendor:vendors(name)').eq('id', sampleId).maybeSingle();
         if (data) {
           setVendorId(data.vendor_id ?? '');
-          setVendorOverride(data.vendor_name ?? '');
+          setVendorOverride(data.vendor?.name ?? '');
           setStatus(data.status ?? 'pending');
           setRequestedDate(data.requested_date ?? '');
           setRequiredBy(data.required_by_date ?? '');
