@@ -32,9 +32,17 @@ const AutoCell = ({ children, isAuto }: { children: React.ReactNode; isAuto?: bo
   <span className={isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}>{children}</span>
 );
 
-type Props = { productId: string; onProductUpdated?: () => void };
+export type ProductCostingSummary = {
+  unitPriceInr: number;
+  unitPriceUsd: number;
+  unitCostInr: number;
+  unitCostUsd: number;
+  exchangeRate: number;
+};
 
-export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
+type Props = { productId: string; onProductUpdated?: () => void; onSummaryChange?: (s: ProductCostingSummary) => void };
+
+export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryChange }: Props) {
   const navigate = useNavigate();
 
   // Data state
