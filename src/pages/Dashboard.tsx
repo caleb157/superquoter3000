@@ -19,8 +19,6 @@ import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
-import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
-import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -80,8 +78,6 @@ const Dashboard = () => {
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
-  const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
@@ -129,6 +125,24 @@ const Dashboard = () => {
     });
     return m;
   }, [products]);
+
+  // Live FOB total per inquiry: Σ (qty × unit_cost_usd) over its products.
+  // Recomputes whenever pricing or product list changes.
+  const fobByInquiry = useMemo(() => {
+    const m: Record<string, { total: number; missing: number }> = {};
+    for (const p of products) {
+      if (!p.customer_rfq_id) continue;
+      const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
+      const qty = p.quantity ?? 0;
+      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
+      if (cost === 0 || qty === 0) {
+        entry.missing += 1;
+      } else {
+        entry.total += qty * cost;
+      }
+    }
+    return m;
+  }, [products, productPricing]);
 
   const inquiryStatusById = useMemo(
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
@@ -207,11 +221,12 @@ const Dashboard = () => {
         status: (i) => i.status,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
+        order_value: (i) => fobByInquiry[i.id]?.total ?? 0,
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, fobByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -436,6 +451,13 @@ const Dashboard = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                         <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
+                        <span className="tabular-nums">
+                          <FobValue
+                            entry={fobByInquiry[inq.id]}
+                            productCount={prods?.length ?? 0}
+                            compact
+                          />
+                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
@@ -485,7 +507,8 @@ const Dashboard = () => {
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
                       <SortableHeader column="updated" label="Updated" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[100px]" />
-                      <TableHead className="text-xs text-right w-[190px]">Actions</TableHead>
+                      <SortableHeader column="order_value" label="Order Value" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[110px] text-right" />
+                      <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -541,6 +564,12 @@ const Dashboard = () => {
                           <TableCell className="text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}
                           </TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">
+                            <FobValue
+                              entry={fobByInquiry[inq.id]}
+                              productCount={prods?.length ?? 0}
+                            />
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                               <ConfirmDeleteButton
@@ -565,24 +594,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {quoteDialog && (
-          <GenerateQuoteDialog
-            open={!!quoteDialog}
-            onOpenChange={(o) => !o && setQuoteDialog(null)}
-            inquiryId={quoteDialog.id}
-            inquiryNumber={quoteDialog.rfq}
-            onCreated={() => setRefreshKey(k => k + 1)}
-          />
-        )}
-        {sampleDialog && (
-          <GenerateSampleDialog
-            open={!!sampleDialog}
-            onOpenChange={(o) => !o && setSampleDialog(null)}
-            inquiryId={sampleDialog.id}
-            inquiryNumber={sampleDialog.rfq}
-            onCreated={() => setRefreshKey(k => k + 1)}
-          />
-        )}
         <NewInquiryDialog
           open={showNewInquiry}
           onOpenChange={setShowNewInquiry}
@@ -608,27 +619,43 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function ActionButton({
-  disabled, tooltip, icon, label, onClick,
+function FobValue({
+  entry, productCount, compact = false,
 }: {
-  disabled?: boolean; tooltip: string; icon: React.ReactNode; label: string; onClick: () => void;
+  entry: { total: number; missing: number } | undefined;
+  productCount: number;
+  compact?: boolean;
 }) {
-  const btn = (
-    <Button
-      size="sm" variant="outline"
-      className="h-7 px-2 text-xs gap-1"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {icon}{label}
-    </Button>
+  if (!productCount) {
+    return <span className="text-muted-foreground/60">—</span>;
+  }
+  const total = entry?.total ?? 0;
+  const missing = entry?.missing ?? 0;
+  const allMissing = total === 0 && missing > 0;
+
+  const valueLabel = allMissing ? '—' : fmt.usd(total);
+  const tooltipText = allMissing
+    ? 'No costed products yet'
+    : missing > 0
+      ? `${missing} product${missing === 1 ? '' : 's'} not yet costed — value is partial`
+      : `Σ qty × FOB cost across ${productCount} product${productCount === 1 ? '' : 's'}`;
+
+  const inner = (
+    <span className={cn(
+      'inline-flex items-baseline gap-1',
+      allMissing && 'text-muted-foreground/70',
+    )}>
+      <span className={compact ? 'font-medium text-foreground' : 'font-semibold'}>{valueLabel}</span>
+      {missing > 0 && !allMissing && (
+        <span className="text-[10px] text-warning">·{missing}?</span>
+      )}
+    </span>
   );
+
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        {disabled ? <span tabIndex={0}>{btn}</span> : btn}
-      </TooltipTrigger>
-      <TooltipContent><span className="text-xs">{tooltip}</span></TooltipContent>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent><span className="text-xs">{tooltipText}</span></TooltipContent>
     </Tooltip>
   );
 }
