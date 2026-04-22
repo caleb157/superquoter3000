@@ -248,7 +248,7 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
 
   const productIds = products.map((p: any) => p.id);
   const empty = { data: [] as any[] };
-  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes] = await Promise.all([
+  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes, inqRes] = await Promise.all([
     productIds.length ? supabase.from('overhead_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
     productIds.length ? supabase.from('non_unit_cogs').select('*').in('product_id', productIds) : Promise.resolve(empty),
     productIds.length ? supabase.from('shipping_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
@@ -257,6 +257,7 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     supabase.from('global_settings').select('*').limit(1).single(),
     productIds.length ? supabase.from('cbm_estimates').select('*').in('product_id', productIds) : Promise.resolve(empty),
     supabase.from('product_types').select('*'),
+    (supabase as any).from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
   ]);
 
   const allOh = ohRes.data || [];
@@ -264,11 +265,11 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
   const allShipItems = shipItemsRes.data || [];
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
-  const gs = gsRes.data as any;
+  const inq = (inqRes as any).data || null;
+  const gs = mergeSettingsWithInquiry(gsRes.data as any, inq);
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
 
-  // Phase 7: inquiry-level settings TBD — use global exchange rate.
   const exchangeRate = gs?.exchange_rate || 90;
 
   const items: RfqLineItem[] = [];
