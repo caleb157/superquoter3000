@@ -29,6 +29,7 @@ type SavedPatch = {
   id: string;
   products: any[];
   totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number };
+  payment_terms?: string | null;
 };
 
 type Props = {
