@@ -225,6 +225,10 @@ function WrappingSettings() {
     const { error } = await supabase.from('global_settings').update({ [field]: value } as any).eq('id', settings.id);
     if (error) { toast.error(error.message); return; }
     setSettings({ ...settings, [field]: value });
+    if (field === 'mc_height_buffer_inch') {
+      const { clearProductDefaultsCache } = await import('@/lib/product-defaults');
+      clearProductDefaultsCache();
+    }
   };
   if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
   const fields = [
