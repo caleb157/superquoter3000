@@ -4,10 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
-export type ProductUnitPriceMap = Record<string, { unit_price_usd: number; unit_price_inr: number; exchange_rate: number }>;
+export type ProductPriceCostMap = Record<string, {
+  unit_cost_usd: number;     // FOB cost, no markup (used by Dashboard pipeline)
+  unit_price_usd: number;    // cost + markup (used by quotes)
+  unit_price_inr: number;
+  exchange_rate: number;
+}>;
 
-export async function computeProductUnitPrices(productIds: string[]): Promise<ProductUnitPriceMap> {
-  const out: ProductUnitPriceMap = {};
+// Back-compat alias for older imports
+export type ProductUnitPriceMap = ProductPriceCostMap;
+
+export async function computeProductPriceAndCost(productIds: string[]): Promise<ProductPriceCostMap> {
+  const out: ProductPriceCostMap = {};
   if (productIds.length === 0) return out;
 
   const empty = { data: [] as any[] } as any;
@@ -126,6 +134,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
     );
 
     out[p.id] = {
+      unit_cost_usd: summary.product_cost_per_unit_usd,
       unit_price_usd: summary.unit_price_usd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
@@ -134,3 +143,6 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
 
   return out;
 }
+
+// Back-compat alias for older imports
+export const computeProductUnitPrices = computeProductPriceAndCost;

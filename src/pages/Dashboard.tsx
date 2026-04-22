@@ -33,7 +33,7 @@ import {
   type StageBucket,
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
-import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
@@ -52,7 +52,6 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  target_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -84,7 +83,8 @@ const Dashboard = () => {
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
-  const [unitPrices, setUnitPrices] = useState<ProductUnitPriceMap>({});
+  const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
+  const [showPipelineDebug, setShowPipelineDebug] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -92,20 +92,20 @@ const Dashboard = () => {
       const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
       const prodList = (prod.data ?? []) as Product[];
       setProducts(prodList);
       setLoading(false);
-      // Compute current unit prices for weighted pipeline value (async, non-blocking for UI)
+      // Compute current FOB cost + unit price for weighted pipeline (async, non-blocking)
       try {
         const ids = prodList.map(p => p.id);
-        const prices = await computeProductUnitPrices(ids);
-        setUnitPrices(prices);
+        const pricing = await computeProductPriceAndCost(ids);
+        setProductPricing(pricing);
       } catch (e) {
-        console.error('Failed to compute unit prices', e);
+        console.error('Failed to compute product pricing', e);
       }
     })();
   }, [refreshKey]);
@@ -132,21 +132,33 @@ const Dashboard = () => {
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
-  const pipelineValueUsd = useMemo(() => {
+  const pipelineDetail = useMemo(() => {
     let total = 0;
+    let counted = 0;
+    let skippedNoCost = 0;
+    let skippedNoQty = 0;
+    const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number }> = [];
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
       if (inqStatus === 'cancelled') continue;
       const w = productWeight(p, inqStatus);
       if (w === 0) continue;
       const qty = p.quantity ?? 0;
-      // Use the live computed unit price; fall back to target only if costing has no result yet.
-      const computed = unitPrices[p.id]?.unit_price_usd ?? 0;
-      const price = computed > 0 ? computed : Number(p.target_price_usd ?? 0);
-      total += qty * price * w;
+      if (qty === 0) { skippedNoQty += 1; continue; }
+      // Use live-computed FOB cost. Do NOT fall back to target_price_usd — that's revenue, not cost,
+      // and mixing the two inflates the metric. If costing isn't done, skip.
+      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
+      if (cost === 0) { skippedNoCost += 1; continue; }
+      const value = qty * cost * w;
+      total += value;
+      counted += 1;
+      contributors.push({ name: p.name, qty, cost, weight: w, value });
     }
-    return total;
-  }, [products, inquiryStatusById, unitPrices]);
+    contributors.sort((a, b) => b.value - a.value);
+    return { total, counted, skippedNoCost, skippedNoQty, top: contributors.slice(0, 5) };
+  }, [products, inquiryStatusById, productPricing]);
+
+  const pipelineValueUsd = pipelineDetail.total;
 
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
@@ -283,8 +295,31 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
                 <div className="text-xl sm:text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
                 <div className="text-[11px] text-muted-foreground mt-2 leading-snug hidden sm:block">
-                  Σ (qty × unit price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
+                  Σ (qty × FOB cost × stage weight). Only products with completed costing counted.
+                  Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPipelineDebug(v => !v)}
+                  className="text-[10px] text-muted-foreground/70 hover:text-foreground mt-1.5 underline-offset-2 hover:underline"
+                >
+                  {showPipelineDebug ? 'hide debug' : 'debug'}
+                </button>
+                {showPipelineDebug && (
+                  <div className="text-[10px] text-muted-foreground mt-1.5 space-y-0.5 leading-snug">
+                    <div>Counted: <span className="tabular-nums text-foreground">{pipelineDetail.counted}</span> · skipped no costing: <span className="tabular-nums">{pipelineDetail.skippedNoCost}</span> · skipped qty=0: <span className="tabular-nums">{pipelineDetail.skippedNoQty}</span></div>
+                    {pipelineDetail.top.length > 0 && (
+                      <div className="pt-1">
+                        <div className="font-medium text-foreground/80">Top contributors:</div>
+                        {pipelineDetail.top.map((c, i) => (
+                          <div key={i} className="truncate">
+                            • {c.name}: {c.qty} × {fmt.usd(c.cost)} × {Math.round(c.weight * 100)}% = <span className="tabular-nums text-foreground">{fmt.usd(c.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
