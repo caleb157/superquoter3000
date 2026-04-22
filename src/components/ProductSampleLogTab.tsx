@@ -395,3 +395,95 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     </Dialog>
   );
 }
+
+// ============= Vendor combobox (search + create) =============
+
+function VendorCombobox({
+  vendors, vendorId, vendorName, onChange,
+}: {
+  vendors: Vendor[];
+  vendorId: string;
+  vendorName: string;
+  onChange: (id: string, name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const selected = vendors.find(v => v.id === vendorId);
+  const display = selected?.name || vendorName || '';
+  const trimmed = query.trim();
+  const exactMatch = trimmed
+    ? vendors.find(v => v.name.toLowerCase() === trimmed.toLowerCase())
+    : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full h-9 mt-1 justify-between text-sm font-normal"
+        >
+          <span className={cn('truncate', !display && 'text-muted-foreground')}>
+            {display || 'Select or type a vendor…'}
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search or type a new vendor…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {trimmed ? (
+                <button
+                  type="button"
+                  className="w-full text-left text-sm px-2 py-1.5 hover:bg-accent rounded"
+                  onClick={() => { onChange('', trimmed); setOpen(false); setQuery(''); }}
+                >
+                  + Create "{trimmed}"
+                </button>
+              ) : (
+                <span className="text-sm text-muted-foreground">No vendors yet.</span>
+              )}
+            </CommandEmpty>
+            <CommandGroup>
+              {(vendorId || vendorName) && (
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => { onChange('', ''); setOpen(false); setQuery(''); }}
+                >
+                  <X className="mr-2 h-3.5 w-3.5" /> Clear vendor
+                </CommandItem>
+              )}
+              {vendors.map(v => (
+                <CommandItem
+                  key={v.id}
+                  value={v.name}
+                  onSelect={() => { onChange(v.id, v.name); setOpen(false); setQuery(''); }}
+                >
+                  <Check className={cn('mr-2 h-3.5 w-3.5', vendorId === v.id ? 'opacity-100' : 'opacity-0')} />
+                  {v.name}
+                </CommandItem>
+              ))}
+              {trimmed && !exactMatch && (
+                <CommandItem
+                  value={`__create__${trimmed}`}
+                  onSelect={() => { onChange('', trimmed); setOpen(false); setQuery(''); }}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Create "{trimmed}"
+                </CommandItem>
+              )}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
