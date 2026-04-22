@@ -63,7 +63,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .in('product_id', productIds),
     (supabase as any)
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, exchange_rate_override, customers(id, name, company, email, logo_url)')
+      .select('id, rfq_number, title, customer_id, exchange_rate_override, markup_percent_override, customers(id, name, company, email, logo_url)')
       .eq('id', inquiryId)
       .maybeSingle(),
     supabase
@@ -71,7 +71,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .select('id, name, legal_name, entity_type, logo_url, address_line1, address_line2, city, state, postal_code, country, email, phone, website, bank_name, bank_branch, account_name, account_number, ifsc_code, routing_number, swift_code, gst_number, ein_number')
       .eq('id', entityId)
       .maybeSingle(),
-    supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+    supabase.from('global_settings').select('*').limit(1).maybeSingle(),
   ]);
 
   if (productsRes.error) return { error: productsRes.error.message };
@@ -84,9 +84,12 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   });
 
   // Currency conversion: snapshot stores prices in the chosen display currency.
-  // (CustomerQuote / Quotes / PDF render values directly with the currency symbol.)
+  // Inquiry-level overrides (FX, markup) win over global settings.
   const inqRow: any = inquiryRes.data ?? {};
-  const fxRate = Number(inqRow.exchange_rate_override ?? gsRes.data?.exchange_rate ?? 90);
+  const { mergeSettingsWithInquiry } = await import('@/lib/inquiry-overrides');
+  const effective = mergeSettingsWithInquiry(gsRes.data as any, inqRow);
+  const fxRate = Number(effective?.exchange_rate ?? 90);
+  const inquiryMarkup: number | null = inqRow.markup_percent_override ?? null;
   const isInr = (currency || 'USD') === 'INR';
   const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
 
@@ -94,10 +97,17 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const productsJson = selectedProducts.map(sel => {
     const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
     const qty = Number(sel.quantity ?? db.quantity ?? 0);
-    // Prefer caller-supplied display-currency price; otherwise convert legacy USD target.
+    // Prefer caller-supplied display-currency price; otherwise convert legacy USD target,
+    // applying the inquiry-level markup override if the product had no explicit price.
+    const baseUsd = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
+    const productMarkup = Number(sel.markup_percent ?? db.markup_percent ?? 0);
+    const effectiveMarkup = inquiryMarkup != null ? Number(inquiryMarkup) : productMarkup;
+    // If the price was stored *before* markup, this gives us the marked-up price.
+    // (Most callers pass unit_price_override anyway, so this is the legacy-fallback path.)
+    const usdWithMarkup = effectiveMarkup && !sel.target_price_usd ? baseUsd * (1 + effectiveMarkup) : baseUsd;
     const unit = sel.unit_price_override != null
       ? Number(sel.unit_price_override)
-      : toDisplay(Number(sel.target_price_usd ?? db.target_price_usd ?? 0));
+      : toDisplay(usdWithMarkup);
     let unitCbm = cbmMap.get(sel.id) ?? 0;
     if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
       unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
