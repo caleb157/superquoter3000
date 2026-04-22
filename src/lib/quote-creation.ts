@@ -72,11 +72,19 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     if (c.product_id && c.final_unit_cbm) cbmMap.set(c.product_id, Number(c.final_unit_cbm));
   });
 
+  // Currency conversion: snapshot stores prices in the chosen display currency.
+  // (CustomerQuote / Quotes / PDF render values directly with the currency symbol.)
+  const inqRow: any = inquiryRes.data ?? {};
+  const fxRate = Number(inqRow.exchange_rate_override ?? gsRes.data?.exchange_rate ?? 90);
+  const isInr = (currency || 'USD') === 'INR';
+  const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
+
   // Build line items from DB (single source of truth) merged with caller overrides for qty/price.
   const productsJson = selectedProducts.map(sel => {
     const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
     const qty = Number(sel.quantity ?? db.quantity ?? 0);
-    const unit = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
+    const unitUsd = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
+    const unit = toDisplay(unitUsd);
     let unitCbm = cbmMap.get(sel.id) ?? 0;
     if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
       unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
@@ -87,7 +95,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       sku: db.sku ?? sel.sku ?? null,
       photo_url: db.photo_url ?? null,
       quantity: qty,
-      unit_price_usd: unit,
+      unit_price_usd: unit, // value is in display currency (USD or INR)
       total: unit * qty,
       unit_cbm: unitCbm,
       width_inch: db.width_inch ?? null,
