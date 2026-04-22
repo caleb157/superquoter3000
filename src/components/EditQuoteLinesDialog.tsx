@@ -213,6 +213,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           ))}
         </div>
 
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Payment terms</Label>
+          <Input
+            value={paymentTerms}
+            onChange={e => { setPaymentTerms(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            placeholder="e.g. 50% advance, 50% before shipment"
+            className="h-8 text-xs"
+            disabled={status === 'saving'}
+          />
+          <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
+        </div>
+
         {status === 'error' && errorMsg && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {errorMsg}
