@@ -18,6 +18,7 @@ import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { ProductVariants } from '@/components/ProductVariants';
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
+import { ResizableTableHead } from '@/components/ResizableTableHead';
 
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
@@ -1208,16 +1209,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <Table className="dense-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-14">Include</TableHead>
-                    <TableHead className="w-24">Type</TableHead>
-                    <TableHead className="w-40">Component</TableHead>
-                    <TableHead className="w-40">Vendor</TableHead>
-
-                    <TableHead className="w-12">Units</TableHead>
-                    <TableHead className="w-28 text-right">Qty/Prod</TableHead>
-                    <TableHead className="w-28 text-right">Cost (₹)</TableHead>
-                    <TableHead className="w-16 text-right">Waste%</TableHead>
-                    <TableHead className="w-28 text-right">Unit Cost</TableHead>
+                    <ResizableTableHead storageKey="cogs.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.type" defaultWidth={104} minWidth={70}>Type</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.component" defaultWidth={180} minWidth={100}>Component</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.vendor" defaultWidth={180} minWidth={80}>Vendor</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.units" defaultWidth={56} minWidth={40}>Units</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.qty" defaultWidth={112} minWidth={70} align="right">Qty/Prod</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.cost" defaultWidth={112} minWidth={70} align="right">Cost (₹)</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.waste" defaultWidth={68} minWidth={50} align="right">Waste%</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.unitcost" defaultWidth={112} minWidth={70} align="right">Unit Cost</ResizableTableHead>
                     <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
