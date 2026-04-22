@@ -111,14 +111,17 @@ const ProductDetail = () => {
       supabase.from('shipping_types').select('*'),
       supabase.from('labor_employees').select('*'),
       supabase.from('global_settings').select('*').maybeSingle(),
-      supabase.from('customer_rfqs').select('exchange_rate_override, markup_percent_override, shipping_type_id_override').eq('id', (await supabase.from('products').select('customer_rfq_id').eq('id', id).maybeSingle()).data?.customer_rfq_id).maybeSingle(),
+      supabase.from('customer_rfqs').select('*').eq('id', (await supabase.from('products').select('customer_rfq_id').eq('id', id).maybeSingle()).data?.customer_rfq_id).maybeSingle(),
     ]);
 
     if (!productData || !globalSettingsData) return;
 
+    const { mergeSettingsWithInquiry } = await import('@/lib/inquiry-overrides');
+    const settings = mergeSettingsWithInquiry(globalSettingsData as any, inquiryData as any);
+
     const qty = productData.quantity || 100;
-    const exchangeRate = inquiryData?.exchange_rate_override ?? globalSettingsData.exchange_rate ?? 90;
-    const markupPercent = inquiryData?.markup_percent_override ?? productData.markup_percent ?? 0.2;
+    const exchangeRate = settings.exchange_rate ?? 90;
+    const markupPercent = (inquiryData as any)?.markup_percent_override ?? productData.markup_percent ?? 0.2;
 
     // Calculate COGS per unit
     const cogsPerUnit = (cogsItemsData || []).reduce((sum: number, item: any) => {
