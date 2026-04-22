@@ -80,8 +80,6 @@ const Dashboard = () => {
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
-  const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
