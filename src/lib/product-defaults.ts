@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 const SETTINGS_TTL_MS = 60_000; // 1 minute is plenty for a single bulk-add session
 let cachedMcHBuffer: { value: number; at: number } | null = null;
 
-async function getCachedMcHeightBuffer(): Promise<number> {
+export async function getCachedMcHeightBuffer(): Promise<number> {
   const now = Date.now();
   if (cachedMcHBuffer && now - cachedMcHBuffer.at < SETTINGS_TTL_MS) {
     return cachedMcHBuffer.value;
