@@ -49,6 +49,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [saving, setSaving] = useState(false);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
   const [hwOpen, setHwOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
 
   useEffect(() => {
     if (!open) return;
