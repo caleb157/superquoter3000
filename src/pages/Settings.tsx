@@ -255,8 +255,23 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data'];
+
 const Settings = () => {
-  const [section, setSection] = useState<SectionId>('general');
+  const initialSection = (() => {
+    if (typeof window === 'undefined') return 'general';
+    const hash = window.location.hash.replace('#', '');
+    return (VALID_SECTIONS as string[]).includes(hash) ? (hash as SectionId) : 'general';
+  })();
+  const [section, setSection] = useState<SectionId>(initialSection);
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if ((VALID_SECTIONS as string[]).includes(h)) setSection(h as SectionId);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [boxData, setBoxData] = useState<any[]>([]);
