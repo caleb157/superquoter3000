@@ -120,6 +120,16 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search (⌘K)"
+              title="Search (⌘K)"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
             <GlobalTaskQuickAdd />
             <ThemeToggle />
             <Button
