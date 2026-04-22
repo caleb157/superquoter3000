@@ -92,7 +92,7 @@ const Dashboard = () => {
       const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
