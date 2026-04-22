@@ -118,4 +118,16 @@
   .status-review { @apply bg-amber-500; }
   .status-issue { @apply bg-red-500; }
   .status-pending { @apply bg-gray-300; }
+
+  /* Consistent focus ring for any interactive row action (links, buttons,
+     icon-only triggers) across light/dark + mobile/desktop. Uses semantic
+     tokens so it adapts to theme automatically. */
+  .row-action {
+    @apply outline-none rounded-md transition-shadow;
+    @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  .row-action-destructive {
+    @apply outline-none rounded-md transition-shadow;
+    @apply focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
 }

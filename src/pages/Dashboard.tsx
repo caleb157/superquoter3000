@@ -424,7 +424,7 @@ const Dashboard = () => {
                     tabIndex={0}
                     role="link"
                     aria-label={`Open inquiry ${inq.rfq_number}`}
-                    className="active:scale-[0.99] transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="row-action active:scale-[0.99] transition-transform"
                     onClick={() => navigate(`/inquiry/${inq.id}`)}
                   >
                     <CardContent className="p-3 space-y-2">
@@ -527,7 +527,7 @@ const Dashboard = () => {
                           tabIndex={0}
                           role="link"
                           aria-label={`Open inquiry ${inq.rfq_number}`}
-                          className="cursor-pointer hover:bg-muted/50 outline-none focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                          className="row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset"
                           onClick={goToInquiry}
                         >
                           <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
