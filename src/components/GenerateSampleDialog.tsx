@@ -106,21 +106,17 @@ export function GenerateSampleDialog({
     setSaving(true);
 
     let finalVendorId = vendorId || null;
-    let finalVendorName = vendorName.trim() || null;
-    if (!finalVendorId && finalVendorName) {
-      const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
+    const overrideName = vendorName.trim();
+    if (!finalVendorId && overrideName) {
+      const existing = vendors.find(v => v.name.toLowerCase() === overrideName.toLowerCase());
       if (existing) {
         finalVendorId = existing.id;
-        finalVendorName = existing.name;
       } else {
         const { data: nv, error: vErr } = await supabase
-          .from('vendors').insert({ name: finalVendorName, category: 'sampling' }).select('id, name').single();
+          .from('vendors').insert({ name: overrideName, category: 'sampling' }).select('id, name').single();
         if (vErr) { setSaving(false); toast.error('Could not create vendor: ' + vErr.message); return; }
         finalVendorId = nv!.id;
-        finalVendorName = nv!.name;
       }
-    } else if (finalVendorId) {
-      finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -128,7 +124,6 @@ export function GenerateSampleDialog({
       product_id: p.id,
       customer_rfq_id: activeInquiryId,
       vendor_id: finalVendorId,
-      vendor_name: finalVendorName,
       status: 'pending',
       requested_date: today,
       dimensions_inch: dimensions.trim() || null,
