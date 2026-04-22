@@ -46,6 +46,7 @@ export default function SamplesList() {
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const fetchAll = async () => {
     const [rfsRes, sampleRes, inqRes] = await Promise.all([
