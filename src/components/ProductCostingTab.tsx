@@ -1186,6 +1186,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <TableHead className="w-28 text-right">Cost (₹)</TableHead>
                     <TableHead className="w-16 text-right">Waste%</TableHead>
                     <TableHead className="w-28 text-right">Unit Cost</TableHead>
+                    <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
