@@ -1210,8 +1210,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <TableRow>
                     <TableHead className="w-14">Include</TableHead>
                     <TableHead className="w-24">Type</TableHead>
-                    <TableHead className="w-48">Component</TableHead>
-                    <TableHead className="w-24">Vendor</TableHead>
+                    <TableHead className="w-40">Component</TableHead>
+                    <TableHead className="w-40">Vendor</TableHead>
+
                     <TableHead className="w-12">Units</TableHead>
                     <TableHead className="w-28 text-right">Qty/Prod</TableHead>
                     <TableHead className="w-28 text-right">Cost (₹)</TableHead>
