@@ -31,6 +31,7 @@ import {
   type StageBucket,
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
+import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
