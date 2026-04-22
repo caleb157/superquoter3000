@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ProductStagePills } from '@/components/ProductStagePills';
 import { STAGE_LABEL } from '@/components/ProductStagePills';
+import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
