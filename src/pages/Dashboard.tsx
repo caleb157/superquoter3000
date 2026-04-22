@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/select';
 import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SortableHeader } from '@/components/SortableHeader';
+import { useTableSort } from '@/hooks/use-table-sort';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
