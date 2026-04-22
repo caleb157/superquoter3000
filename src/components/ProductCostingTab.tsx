@@ -528,7 +528,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }));
   const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
   const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-  const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
+  const indirectOhPerMh = effectiveSettings && globalSettings ? calc.calcIndirectOhPerManHour(effectiveSettings as any) : 0;
   const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
   // Step 10: Shipping (inquiry override > product's shipping_item)
