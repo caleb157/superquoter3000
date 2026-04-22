@@ -1211,8 +1211,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <TableRow>
                     <ResizableTableHead storageKey="cogs.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.type" defaultWidth={104} minWidth={70}>Type</ResizableTableHead>
-                    <ResizableTableHead storageKey="cogs.component" defaultWidth={180} minWidth={100}>Component</ResizableTableHead>
-                    <ResizableTableHead storageKey="cogs.vendor" defaultWidth={180} minWidth={80}>Vendor</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.component" defaultWidth={150} minWidth={90}>Component</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.vendor" defaultWidth={140} minWidth={70}>Vendor</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.units" defaultWidth={56} minWidth={40}>Units</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.qty" defaultWidth={112} minWidth={70} align="right">Qty/Prod</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.cost" defaultWidth={112} minWidth={70} align="right">Cost (₹)</ResizableTableHead>
