@@ -99,13 +99,13 @@ const Dashboard = () => {
       const prodList = (prod.data ?? []) as Product[];
       setProducts(prodList);
       setLoading(false);
-      // Compute current unit prices for weighted pipeline value (async, non-blocking for UI)
+      // Compute current FOB cost + unit price for weighted pipeline (async, non-blocking)
       try {
         const ids = prodList.map(p => p.id);
-        const prices = await computeProductUnitPrices(ids);
-        setUnitPrices(prices);
+        const pricing = await computeProductPriceAndCost(ids);
+        setProductPricing(pricing);
       } catch (e) {
-        console.error('Failed to compute unit prices', e);
+        console.error('Failed to compute product pricing', e);
       }
     })();
   }, [refreshKey]);
