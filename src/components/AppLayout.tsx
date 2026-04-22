@@ -25,6 +25,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
+    { to: '/vendors', label: 'Vendors', icon: Truck, show: isAdminOrTeam },
     { to: '/settings', label: 'Settings', icon: Settings, show: isAdmin },
   ];
 
