@@ -41,9 +41,13 @@ export function ConfirmDeleteButton({
   return (
     <>
       <span
+        className="inline-flex"
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          // Only intercept when the wrapper itself receives the event from a
+          // non-button trigger; the inner Button handles its own keys natively
+          // so its focus ring stays visible and consistent.
+          if (trigger && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             e.stopPropagation();
             setOpen(true);
@@ -55,7 +59,9 @@ export function ConfirmDeleteButton({
             variant={buttonVariant}
             size={buttonSize}
             aria-label={`Delete ${itemLabel}`}
-            className={className ?? (iconOnly ? 'h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1' : 'h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1')}
+            className={className ?? (iconOnly
+              ? 'row-action-destructive h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10'
+              : 'row-action-destructive h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10')}
           >
             <Trash2 className="h-3 w-3" />
             {!iconOnly && 'Delete'}
