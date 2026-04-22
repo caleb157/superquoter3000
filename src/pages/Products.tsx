@@ -71,7 +71,7 @@ const Products = () => {
     const fetchAll = async () => {
       const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
-        (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
+        (supabase as any).from('customer_rfqs').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
         supabase.from('cbm_estimates').select('*'),
