@@ -40,8 +40,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
 
   const productIds = selectedProducts.map(p => p.id);
 
-  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields)
-  const [productsRes, cbmRes, inquiryRes, entityRes] = await Promise.all([
+  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields), global settings
+  const [productsRes, cbmRes, inquiryRes, entityRes, gsRes] = await Promise.all([
     supabase
       .from('products')
       .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
@@ -50,9 +50,9 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .from('cbm_estimates')
       .select('product_id, final_unit_cbm')
       .in('product_id', productIds),
-    supabase
+    (supabase as any)
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, customers(id, name, company, email, logo_url)')
+      .select('id, rfq_number, title, customer_id, exchange_rate_override, customers(id, name, company, email, logo_url)')
       .eq('id', inquiryId)
       .maybeSingle(),
     supabase
@@ -60,6 +60,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .select('id, name, legal_name, entity_type, logo_url, address_line1, address_line2, city, state, postal_code, country, email, phone, website, bank_name, bank_branch, account_name, account_number, ifsc_code, routing_number, swift_code, gst_number, ein_number')
       .eq('id', entityId)
       .maybeSingle(),
+    supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
   ]);
 
   if (productsRes.error) return { error: productsRes.error.message };
