@@ -2,6 +2,7 @@
 // Used by Dashboard for the weighted pipeline value so we no longer rely on target_price_usd.
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
+import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 export type ProductUnitPriceMap = Record<string, { unit_price_usd: number; unit_price_inr: number; exchange_rate: number }>;
 
