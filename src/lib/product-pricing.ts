@@ -105,7 +105,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
     });
     const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
     const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-    const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+    const indirectOhPerMh = settings ? calc.calcIndirectOhPerManHour(settings) : 0;
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
