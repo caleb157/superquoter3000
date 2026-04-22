@@ -146,7 +146,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
       return true;
     });
-  }, [products, search, filter]);
+    return sortItems(base, {
+      name: (p) => (p.name || '').toLowerCase(),
+      price: (p) => priceMap[p.id]?.unit_price_usd ?? 0,
+      updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
+    });
+  }, [products, search, filter, sortItems, priceMap]);
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
