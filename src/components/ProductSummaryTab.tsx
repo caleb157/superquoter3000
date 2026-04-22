@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ProductStagePills } from '@/components/ProductStagePills';
 import { STAGE_LABEL } from '@/components/ProductStagePills';
+import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -96,6 +97,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
             <span className="text-muted-foreground text-xs">Stages:</span>
             <ProductStagePills product={product} onChange={() => {}} />
           </div>
+          <ProductVendorsPanel productId={product.id} />
           {product.updated_at && (
             <div className="text-xs text-muted-foreground">
               Updated {formatDistanceToNow(new Date(product.updated_at), { addSuffix: true })}

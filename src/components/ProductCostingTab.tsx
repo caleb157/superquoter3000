@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { ProductVariants } from '@/components/ProductVariants';
+import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
@@ -621,6 +622,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   return (
     <div className="space-y-2">
+        <ProductVendorsPanel productId={id} />
+
         <div className="flex justify-end">
           <Button size="sm" variant="outline" onClick={recalculateAllAutoCosts} disabled={recalcing}>
             {recalcing ? 'Recalculating…' : 'Recalculate all auto costs'}
