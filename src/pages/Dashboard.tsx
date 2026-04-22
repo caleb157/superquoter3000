@@ -647,7 +647,7 @@ function FobValue({
     )}>
       <span className={compact ? 'font-medium text-foreground' : 'font-semibold'}>{valueLabel}</span>
       {missing > 0 && !allMissing && (
-        <span className="text-[10px] text-amber-600 dark:text-amber-400">·{missing}?</span>
+        <span className="text-[10px] text-warning">·{missing}?</span>
       )}
     </span>
   );
