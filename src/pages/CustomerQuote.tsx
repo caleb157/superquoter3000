@@ -1,31 +1,66 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Ruler, Weight, Box, Mail, Phone, Globe, Cloud, CloudOff } from 'lucide-react';
+import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail, Phone, Globe, MapPin, Building2, Landmark } from 'lucide-react';
 
 interface QuoteProduct {
+  product_id?: string;
   name: string;
-  sku?: string;
+  sku?: string | null;
   quantity: number;
   unit_price_usd: number;
-  total_usd: number;
+  total?: number;
   unit_cbm: number;
-  product_id?: string;
-  photo_url?: string;
-  moq?: number;
-  width_inch?: number;
-  depth_inch?: number;
-  height_inch?: number;
-  weight_kg?: number;
-  variants?: Array<{ id: string; variant_name: string; photo_url?: string; wood_price_factor?: number }>;
+  photo_url?: string | null;
+  moq?: number | null;
+  width_inch?: number | null;
+  depth_inch?: number | null;
+  height_inch?: number | null;
+  weight_kg?: number | null;
+}
+
+interface EntitySnap {
+  id?: string;
+  name?: string;
+  legal_name?: string | null;
+  entity_type?: string | null;
+  logo_url?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  bank_name?: string | null;
+  bank_branch?: string | null;
+  account_name?: string | null;
+  account_number?: string | null;
+  ifsc_code?: string | null;
+  routing_number?: string | null;
+  swift_code?: string | null;
+  gst_number?: string | null;
+  ein_number?: string | null;
+}
+
+interface CustomerSnap {
+  id?: string;
+  name?: string;
+  company?: string | null;
+  email?: string | null;
+  logo_url?: string | null;
+}
+
+interface InquirySnap {
+  id?: string;
+  rfq_number?: string | null;
+  title?: string | null;
 }
 
 interface QuoteData {
@@ -33,49 +68,51 @@ interface QuoteData {
     id: string;
     quote_number: string;
     currency: string;
-    valid_until: string;
+    valid_until: string | null;
     status: string;
     products: QuoteProduct[];
     totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number };
     customer_selections?: any;
     approved_at?: string;
-    notes?: string;
+    notes?: string | null;
+    created_at?: string | null;
   };
-  entity: {
-    name: string;
-    legal_name?: string;
-    logo_url?: string;
-    phone?: string;
-    email?: string;
-    website?: string;
-  } | null;
-  // Pre-refactor quotes serialized a `project` object. Newer quotes serialize a `customer` object.
-  project?: {
-    name?: string;
-    customer_name?: string;
-    customer_email?: string;
-  } | null;
-  customer?: {
-    id?: string;
-    name?: string;
-    company?: string | null;
-    email?: string | null;
-  } | null;
-  inquiry?: {
-    title?: string | null;
-  } | null;
+  entity: EntitySnap | null;
+  customer: CustomerSnap | null;
+  inquiry: InquirySnap | null;
+  // Legacy field for pre-refactor quotes
+  project?: { name?: string; customer_name?: string; customer_email?: string } | null;
 }
 
 interface ProductSelection {
   quantity: number;
-  selectedVariant?: string;
 }
 
-const CONTAINERS = [
-  { name: '20ft', cbm: 33, icon: '📦' },
-  { name: '40ft', cbm: 67, icon: '🚛' },
-  { name: '40ft HC', cbm: 76, icon: '🚢' },
+type ContainerKey = '20ft' | '40ft' | '40fthc';
+const CONTAINERS: { key: ContainerKey; name: string; cbm: number }[] = [
+  { key: '20ft', name: '20ft Standard', cbm: 28 },
+  { key: '40ft', name: '40ft Standard', cbm: 56 },
+  { key: '40fthc', name: '40ft High Cube', cbm: 68 },
 ];
+
+function containerFill(totalCbm: number, containerCbm: number) {
+  if (totalCbm <= 0) return { containerCount: 0, fullContainers: 0, lastContainerPct: 0, totalPct: 0 };
+  const containerCount = Math.ceil(totalCbm / containerCbm);
+  const fullContainers = Math.floor(totalCbm / containerCbm);
+  const remainder = Math.max(0, totalCbm - fullContainers * containerCbm);
+  const lastContainerPct = remainder > 0 ? (remainder / containerCbm) * 100 : 100;
+  return {
+    containerCount,
+    fullContainers,
+    lastContainerPct,
+    totalPct: (totalCbm / (containerCount * containerCbm)) * 100,
+  };
+}
+
+function formatDate(iso?: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 const CustomerQuote = () => {
   const { token } = useParams<{ token: string }>();
@@ -88,11 +125,18 @@ const CustomerQuote = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadRef = useRef(true);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  // Force light theme on this customer-facing page regardless of app setting.
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadDark = root.classList.contains('dark');
+    if (hadDark) root.classList.remove('dark');
+    return () => { if (hadDark) root.classList.add('dark'); };
+  }, []);
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -108,17 +152,14 @@ const CustomerQuote = () => {
         const existing = quoteData.snapshot.customer_selections;
         const initSelections: Record<number, ProductSelection> = {};
         quoteData.snapshot.products.forEach((p, i) => {
-          initSelections[i] = {
-            quantity: existing?.products?.[i]?.quantity ?? p.quantity,
-            selectedVariant: existing?.products?.[i]?.selectedVariant,
-          };
+          initSelections[i] = { quantity: existing?.products?.[i]?.quantity ?? p.quantity };
         });
         setSelections(initSelections);
 
-        const legacyProject = quoteData.project ?? {};
-        const cust = quoteData.customer ?? legacyProject;
-        const cName = (cust as any).name ?? (cust as any).customer_name ?? null;
-        const cEmail = (cust as any).email ?? (cust as any).customer_email ?? null;
+        // Pre-fill from snapshot.customer (or legacy project) for the confirm dialog.
+        const cust: any = quoteData.customer ?? quoteData.project ?? {};
+        const cName = cust.name ?? cust.customer_name ?? null;
+        const cEmail = cust.email ?? cust.customer_email ?? null;
         if (cName) setCustomerName(cName);
         if (cEmail) setCustomerEmail(cEmail);
         if (quoteData.snapshot.status === 'approved') setConfirmed(true);
@@ -130,41 +171,28 @@ const CustomerQuote = () => {
     if (token) fetchQuote();
   }, [token, supabaseUrl]);
 
-  // Auto-save selections on change (debounced 1.5s)
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
     if (!token || !data || confirmed) return;
-    setSaveStatus('saving');
     try {
       const customerSelections = {
         products: data.snapshot.products.map((p, i) => ({
           name: p.name,
           sku: p.sku,
           quantity: currentSelections[i]?.quantity ?? p.quantity,
-          selectedVariant: currentSelections[i]?.selectedVariant,
           line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
         })),
         draft_saved_at: new Date().toISOString(),
       };
-      const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
+      await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customer_selections: customerSelections, confirmed: false }),
       });
-      if (res.ok) {
-        setSaveStatus('saved');
-      } else {
-        setSaveStatus('idle');
-      }
-    } catch {
-      setSaveStatus('idle');
-    }
+    } catch { /* ignore */ }
   }, [token, data, confirmed, supabaseUrl]);
 
   useEffect(() => {
-    if (initialLoadRef.current) {
-      initialLoadRef.current = false;
-      return;
-    }
+    if (initialLoadRef.current) { initialLoadRef.current = false; return; }
     if (confirmed || !data) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => autoSave(selections), 1500);
@@ -176,23 +204,13 @@ const CustomerQuote = () => {
       const current = prev[idx]?.quantity || 0;
       const moq = data?.snapshot.products[idx]?.moq || 1;
       const newQty = Math.max(moq, current + delta);
-      return { ...prev, [idx]: { ...prev[idx], quantity: newQty } };
+      return { ...prev, [idx]: { quantity: newQty } };
     });
   };
 
   const setQuantity = (idx: number, qty: number) => {
     const moq = data?.snapshot.products[idx]?.moq || 1;
-    setSelections(prev => ({
-      ...prev,
-      [idx]: { ...prev[idx], quantity: Math.max(moq, qty) },
-    }));
-  };
-
-  const setVariant = (idx: number, variantId: string) => {
-    setSelections(prev => ({
-      ...prev,
-      [idx]: { ...prev[idx], selectedVariant: variantId },
-    }));
+    setSelections(prev => ({ ...prev, [idx]: { quantity: Math.max(moq, qty) } }));
   };
 
   const summary = useMemo(() => {
@@ -218,12 +236,10 @@ const CustomerQuote = () => {
           name: p.name,
           sku: p.sku,
           quantity: selections[i]?.quantity ?? p.quantity,
-          selectedVariant: selections[i]?.selectedVariant,
           line_total: (p.unit_price_usd || 0) * (selections[i]?.quantity ?? p.quantity),
         })),
         summary: { ...summary, confirmed_at: new Date().toISOString() },
       };
-
       const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,7 +250,6 @@ const CustomerQuote = () => {
           confirmed: true,
         }),
       });
-
       if (!res.ok) throw new Error('Failed to submit');
       setConfirmed(true);
       setConfirmOpen(false);
@@ -245,471 +260,429 @@ const CustomerQuote = () => {
     setSubmitting(false);
   };
 
-  // Loading state
+  const handleDownloadPdf = () => {
+    if (!data) return;
+    const prevTitle = document.title;
+    const filename = `Quote ${data.snapshot.quote_number ?? ''} - ${customerName || data.customer?.name || 'Customer'}`.trim();
+    document.title = filename;
+    const restore = () => { document.title = prevTitle; window.removeEventListener('afterprint', restore); };
+    window.addEventListener('afterprint', restore);
+    window.print();
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse" />
-            <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary relative" />
-          </div>
-          <p className="text-sm text-muted-foreground font-medium tracking-wide">Loading your quote…</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-500" />
+          <p className="text-sm text-slate-500">Loading your quote…</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/40 px-4">
-        <Card className="max-w-md w-full shadow-xl border-destructive/20">
-          <CardContent className="pt-8 pb-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-            </div>
-            <h2 className="text-xl font-bold tracking-tight">Quote Not Found</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {error || 'This quote link may have expired or is invalid. Please contact us for assistance.'}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-lg p-8 text-center space-y-3 shadow-sm">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+            <AlertCircle className="h-7 w-7 text-red-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-900">Quote Not Found</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            {error || 'This quote link may have expired or is invalid. Please contact us for assistance.'}
+          </p>
+        </div>
       </div>
     );
   }
 
-  const { snapshot, entity } = data;
-  const legacyProject: any = data.project ?? {};
-  const customerObj: any = data.customer ?? legacyProject;
-  const displayCustomerName = customerObj?.name ?? customerObj?.customer_name ?? null;
-  const displayTitle = snapshot.quote_number || data.inquiry?.title || legacyProject.name || 'Quote';
-  const isExpired = snapshot.valid_until && new Date(snapshot.valid_until) < new Date();
+  const { snapshot, entity, customer, inquiry } = data;
+  const isExpired = snapshot.valid_until ? new Date(snapshot.valid_until) < new Date() : false;
+  const statusKey = isExpired ? 'expired' : (snapshot.status ?? 'draft');
+  const STATUS_PILL: Record<string, { label: string; cls: string }> = {
+    draft: { label: 'Draft', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+    sent: { label: 'Active', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    viewed: { label: 'Active', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    approved: { label: 'Approved', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    expired: { label: 'Expired', cls: 'bg-red-50 text-red-700 border-red-200' },
+  };
+  const pill = STATUS_PILL[statusKey] ?? STATUS_PILL.draft;
+
+  const addressLines = [
+    entity?.address_line1,
+    entity?.address_line2,
+    [entity?.city, entity?.state, entity?.postal_code].filter(Boolean).join(', '),
+    entity?.country,
+  ].filter(Boolean) as string[];
+
+  const isUS = (entity?.country ?? '').toLowerCase().includes('united states') || (entity?.country ?? '').toLowerCase() === 'usa' || (entity?.country ?? '').toLowerCase() === 'us';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-muted/30">
-      {/* Sticky Header */}
-      <header className="bg-background/80 backdrop-blur-lg border-b border-border/50 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              {entity?.logo_url ? (
-                <img src={entity.logo_url} alt={entity.name} className="h-9 w-auto object-contain" />
-              ) : (
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-              )}
-              {/* Full info on desktop, condensed on mobile */}
-              <div className="hidden sm:block">
-                <h1 className="text-base font-semibold tracking-tight">{entity?.name || 'Quote'}</h1>
-                <p className="text-xs text-muted-foreground">
-                  {snapshot.quote_number} · Valid until {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                </p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 print:bg-white">
+      {/* Print stylesheet — hide controls, force light, fit-to-page */}
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 14mm; }
+          html, body { background: #ffffff !important; }
+          .no-print { display: none !important; }
+          .print-block { display: block !important; }
+          .print-shadow-none { box-shadow: none !important; }
+          .print-border-light { border-color: #e2e8f0 !important; }
+          .print-sticky-static { position: static !important; }
+          .print-grid-1 { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0">
+
+        {/* ============ HEADER BAND ============ */}
+        <header className="bg-white border border-slate-200 rounded-t-lg p-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 print-shadow-none print-border-light">
+          <div className="flex items-start gap-4 min-w-0">
+            {entity?.logo_url ? (
+              <img src={entity.logo_url} alt={entity.name ?? ''} className="h-14 w-auto object-contain flex-shrink-0" />
+            ) : (
+              <div className="h-14 w-14 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-6 w-6 text-slate-400" />
               </div>
-              <div className="sm:hidden">
-                <p className="text-xs font-semibold">{snapshot.quote_number}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {snapshot.valid_until ? new Date(snapshot.valid_until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              {saveStatus === 'saving' && (
-                <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
-                  <Cloud className="h-3.5 w-3.5" /> Saving…
-                </span>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-slate-900 leading-tight truncate">{entity?.name || 'Quotation'}</h1>
+              {entity?.legal_name && entity.legal_name !== entity.name && (
+                <p className="text-sm text-slate-500 mt-0.5 truncate">{entity.legal_name}</p>
               )}
-              {saveStatus === 'saved' && (
-                <span className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-600">
-                  <Check className="h-3.5 w-3.5" /> Draft saved
-                </span>
-              )}
-              {isExpired && (
-                <Badge variant="destructive" className="font-medium text-[10px] sm:text-xs">Expired</Badge>
-              )}
-              {confirmed && (
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 font-medium gap-1 text-[10px] sm:text-xs">
-                  <Check className="h-3 w-3" /> Confirmed
-                </Badge>
-              )}
-              {!isExpired && !confirmed && (
-                <Badge variant="outline" className="font-medium text-primary border-primary/30 text-[10px] sm:text-xs">Active</Badge>
+              {entity?.entity_type && (
+                <p className="text-xs text-slate-400 mt-0.5 uppercase tracking-wide">{entity.entity_type}</p>
               )}
             </div>
           </div>
-        </div>
-      </header>
+          <div className="flex flex-col items-start sm:items-end gap-2 flex-shrink-0">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${pill.cls}`}>
+              {pill.label}
+            </span>
+            <div className="text-sm">
+              <div className="font-mono text-slate-900 font-semibold">{snapshot.quote_number ?? '—'}</div>
+              <div className="text-xs text-slate-500 mt-1">Issued: {formatDate(snapshot.created_at)}</div>
+              <div className={`text-xs mt-0.5 ${isExpired ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                Valid until: {formatDate(snapshot.valid_until)}
+                {isExpired && ' (expired)'}
+              </div>
+            </div>
+          </div>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Title Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {snapshot.quote_number ? 'Quotation' : displayTitle}
-          </h2>
-          {displayCustomerName && (
-            <p className="text-base text-muted-foreground mt-1">
-              Prepared for <span className="font-medium text-foreground">{displayCustomerName}</span>
-            </p>
-          )}
-          {snapshot.notes && (
-            <p className="text-sm text-muted-foreground mt-3 max-w-2xl leading-relaxed">{snapshot.notes}</p>
-          )}
-        </div>
-
-        {/* Confirmed Banner */}
-        {confirmed && (
-          <div className="mb-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 p-5 flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
-              <Check className="h-5 w-5 text-emerald-600" />
+        {/* ============ ENTITY INFO + BANK DETAILS ============ */}
+        {entity ? (
+          <section className="bg-white border-x border-b border-slate-200 p-6 grid grid-cols-1 md:grid-cols-2 gap-6 print-border-light print-grid-1">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" /> Contact &amp; Address
+              </h3>
+              <div className="space-y-1 text-sm text-slate-700">
+                {addressLines.map((l, i) => <div key={i}>{l}</div>)}
+                {entity.phone && (
+                  <div className="flex items-center gap-2 pt-1.5 text-slate-600">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" /> {entity.phone}
+                  </div>
+                )}
+                {entity.email && (
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <a href={`mailto:${entity.email}`} className="hover:underline">{entity.email}</a>
+                  </div>
+                )}
+                {entity.website && (
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Globe className="h-3.5 w-3.5 text-slate-400" />
+                    <a href={entity.website} target="_blank" rel="noopener noreferrer" className="hover:underline">{entity.website}</a>
+                  </div>
+                )}
+                {entity.gst_number && (
+                  <div className="text-xs text-slate-500 pt-1">GST: <span className="font-mono">{entity.gst_number}</span></div>
+                )}
+                {entity.ein_number && (
+                  <div className="text-xs text-slate-500">EIN: <span className="font-mono">{entity.ein_number}</span></div>
+                )}
+              </div>
             </div>
             <div>
-              <p className="font-semibold text-emerald-800 dark:text-emerald-200">Order Confirmed</p>
-              <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-0.5">
-                Thank you for your order! Our team will be in touch shortly with next steps.
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                <Landmark className="h-3.5 w-3.5" /> Banking Details
+              </h3>
+              {entity.bank_name || entity.account_number ? (
+                <dl className="grid grid-cols-[110px_1fr] gap-y-1.5 gap-x-3 text-sm text-slate-700">
+                  {entity.bank_name && (<><dt className="text-slate-500">Bank</dt><dd>{entity.bank_name}</dd></>)}
+                  {entity.bank_branch && (<><dt className="text-slate-500">Branch</dt><dd>{entity.bank_branch}</dd></>)}
+                  {entity.account_name && (<><dt className="text-slate-500">Account name</dt><dd>{entity.account_name}</dd></>)}
+                  {entity.account_number && (<><dt className="text-slate-500">Account #</dt><dd className="font-mono">{entity.account_number}</dd></>)}
+                  {!isUS && entity.ifsc_code && (<><dt className="text-slate-500">IFSC</dt><dd className="font-mono">{entity.ifsc_code}</dd></>)}
+                  {isUS && entity.routing_number && (<><dt className="text-slate-500">Routing #</dt><dd className="font-mono">{entity.routing_number}</dd></>)}
+                  {entity.swift_code && (<><dt className="text-slate-500">SWIFT</dt><dd className="font-mono">{entity.swift_code}</dd></>)}
+                </dl>
+              ) : (
+                <p className="text-sm text-slate-400 italic">Bank details available on request.</p>
+              )}
+            </div>
+          </section>
+        ) : (
+          <section className="bg-white border-x border-b border-slate-200 p-4 text-center text-sm text-slate-400">
+            No entity details
+          </section>
+        )}
+
+        {/* ============ CUSTOMER CARD ============ */}
+        <section className="bg-white border-x border-b border-slate-200 p-6 print-border-light">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Prepared for</h3>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-base font-semibold text-slate-900">
+                {customer?.name || data.project?.customer_name || 'Customer'}
+              </p>
+              {customer?.company && <p className="text-sm text-slate-600">{customer.company}</p>}
+              {customer?.email && (
+                <p className="text-sm text-slate-500 mt-0.5">
+                  <a href={`mailto:${customer.email}`} className="hover:underline">{customer.email}</a>
+                </p>
+              )}
+            </div>
+            {(inquiry?.rfq_number || inquiry?.title) && (
+              <div className="text-right">
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Reference</div>
+                {inquiry.rfq_number && <div className="text-sm font-mono text-slate-700">{inquiry.rfq_number}</div>}
+                {inquiry.title && <div className="text-sm text-slate-600">{inquiry.title}</div>}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ============ CONFIRMED BANNER ============ */}
+        {confirmed && (
+          <div className="bg-emerald-50 border-x border-b border-emerald-200 p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <Check className="h-4 w-4 text-emerald-700" />
+            </div>
+            <div>
+              <p className="font-semibold text-emerald-900 text-sm">Order Confirmed</p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Thank you for your order — our team will be in touch shortly with next steps.
               </p>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Product Cards */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Products ({snapshot.products.length})
-              </h3>
-            </div>
-
+        {/* ============ MAIN: PRODUCTS + SIDEBAR ============ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 print-grid-1">
+          {/* Products */}
+          <div className="lg:col-span-2 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+              Products ({snapshot.products.length})
+            </h3>
             {snapshot.products.map((product, idx) => {
-              const sel = selections[idx];
-              const qty = sel?.quantity ?? product.quantity;
+              const qty = selections[idx]?.quantity ?? product.quantity;
               const lineTotal = (product.unit_price_usd || 0) * qty;
-
               return (
-                <Card key={idx} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 border-border/60">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col sm:flex-row">
-                      {/* Product Photo - larger, prominent */}
-                      <div className="sm:w-48 h-48 sm:h-auto bg-muted/50 flex-shrink-0 overflow-hidden relative group">
-                        {product.photo_url ? (
-                          <img
-                            src={product.photo_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center min-h-[140px]">
-                            <div className="text-center space-y-2">
-                              <Package className="h-10 w-10 text-muted-foreground/25 mx-auto" />
-                              <span className="text-[10px] text-muted-foreground/40 font-medium">No image</span>
-                            </div>
+                <div key={idx} className="bg-white border border-slate-200 rounded-lg overflow-hidden print-shadow-none print-border-light">
+                  <div className="flex flex-col sm:flex-row">
+                    <div className="sm:w-40 h-40 sm:h-auto bg-slate-100 flex-shrink-0 overflow-hidden">
+                      {product.photo_url ? (
+                        <img src={product.photo_url} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center min-h-[140px]">
+                          <Package className="h-9 w-9 text-slate-300" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+                      <div>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="min-w-0">
+                            <h4 className="text-base font-semibold text-slate-900 leading-snug">{product.name}</h4>
+                            {product.sku && <p className="text-xs text-slate-500 font-mono mt-0.5">{product.sku}</p>}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-lg font-semibold text-slate-900 tabular-nums">
+                              {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                              {symbol}{(product.unit_price_usd || 0).toFixed(2)} / unit
+                            </p>
+                          </div>
+                        </div>
+                        {(product.width_inch || product.weight_kg || product.unit_cbm > 0) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
+                            {product.width_inch && <span>{product.width_inch}" × {product.depth_inch}" × {product.height_inch}"</span>}
+                            {product.weight_kg && <span>{product.weight_kg} kg</span>}
+                            {product.unit_cbm > 0 && <span>{product.unit_cbm.toFixed(4)} CBM</span>}
                           </div>
                         )}
                       </div>
-
-                      {/* Product Info */}
-                      <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
-                        <div>
-                          {/* Header row */}
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="min-w-0">
-                              <h3 className="text-lg font-semibold tracking-tight leading-tight">{product.name}</h3>
-                              {product.sku && (
-                                <p className="text-xs text-muted-foreground font-mono mt-0.5 bg-muted/50 inline-block px-1.5 py-0.5 rounded">
-                                  {product.sku}
-                                </p>
-                              )}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-xl font-bold tracking-tight">
-                                {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {symbol}{(product.unit_price_usd || 0).toFixed(2)} per unit
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Specs row */}
-                          {(product.width_inch || product.weight_kg || product.unit_cbm > 0) && (
-                            <div className="flex flex-wrap gap-3 mb-4">
-                              {product.width_inch && (
-                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
-                                  <Ruler className="h-3 w-3" />
-                                  {product.width_inch}" × {product.depth_inch}" × {product.height_inch}"
-                                </span>
-                              )}
-                              {product.weight_kg && (
-                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
-                                  <Weight className="h-3 w-3" />
-                                  {product.weight_kg} kg
-                                </span>
-                              )}
-                              {product.unit_cbm > 0 && (
-                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-full">
-                                  <Box className="h-3 w-3" />
-                                  {product.unit_cbm.toFixed(4)} CBM
-                                </span>
-                              )}
-                            </div>
-                          )}
+                      <div className="flex flex-wrap items-center gap-3 pt-3 mt-3 border-t border-slate-100">
+                        <Label className="text-xs text-slate-500 font-medium">Qty</Label>
+                        <div className="flex items-center border border-slate-200 rounded-md overflow-hidden no-print">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
+                            onClick={() => updateQuantity(idx, -10)} disabled={confirmed || isExpired}>
+                            <Minus className="h-3.5 w-3.5" />
+                          </Button>
+                          <Input className="h-8 w-20 text-center text-sm font-medium border-0 border-x border-slate-200 rounded-none focus-visible:ring-0"
+                            type="number" value={qty}
+                            onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
+                            disabled={confirmed || isExpired} min={product.moq || 1} />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
+                            onClick={() => updateQuantity(idx, 10)} disabled={confirmed || isExpired}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-
-                        {/* Controls */}
-                        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-border/40">
-                          {/* Quantity adjuster */}
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs text-muted-foreground font-medium">Qty</Label>
-                            <div className="flex items-center border rounded-lg overflow-hidden">
-                              <Button
-                                variant="ghost" size="icon"
-                                className="h-8 w-8 rounded-none hover:bg-muted"
-                                onClick={() => updateQuantity(idx, -10)}
-                                disabled={confirmed || !!isExpired}
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </Button>
-                              <Input
-                                className="h-8 w-20 text-center text-sm font-medium border-0 border-x rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                                type="number"
-                                value={qty}
-                                onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
-                                disabled={confirmed || !!isExpired}
-                                min={product.moq || 1}
-                              />
-                              <Button
-                                variant="ghost" size="icon"
-                                className="h-8 w-8 rounded-none hover:bg-muted"
-                                onClick={() => updateQuantity(idx, 10)}
-                                disabled={confirmed || !!isExpired}
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                            {product.moq && product.moq > 1 && (
-                              <span className="text-[10px] text-muted-foreground">MOQ: {product.moq}</span>
-                            )}
-                          </div>
-
-                          {/* Variant selector */}
-                          {product.variants && product.variants.length > 0 && (
-                            <Select
-                              value={sel?.selectedVariant || ''}
-                              onValueChange={v => setVariant(idx, v)}
-                              disabled={confirmed || !!isExpired}
-                            >
-                              <SelectTrigger className="h-8 text-xs w-44">
-                                <SelectValue placeholder="Select variant…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {product.variants.map(v => (
-                                  <SelectItem key={v.id} value={v.id} className="text-xs">{v.variant_name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
+                        <span className="hidden print:inline text-sm tabular-nums">{qty}</span>
+                        {product.moq && product.moq > 1 && (
+                          <span className="text-[11px] text-slate-400">MOQ: {product.moq}</span>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-5">
-            <Card className="sticky top-24 shadow-lg border-border/60">
-              <CardContent className="p-6 space-y-6">
-                {/* Order Summary */}
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                    Order Summary
-                  </h3>
+          <div className="space-y-4">
+            <div className="bg-white border border-slate-200 rounded-lg p-5 sticky top-6 print-sticky-static print-shadow-none print-border-light">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">Order Summary</h3>
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between"><span className="text-slate-500">Products</span><span className="font-medium text-slate-900 tabular-nums">{summary.totalItems}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Total quantity</span><span className="font-medium text-slate-900 tabular-nums">{summary.totalQty.toLocaleString()}</span></div>
+                {summary.totalCbm > 0 && (
+                  <div className="flex justify-between"><span className="text-slate-500">Total volume</span><span className="font-medium text-slate-900 tabular-nums">{summary.totalCbm.toFixed(2)} CBM</span></div>
+                )}
+                <div className="border-t border-slate-100 my-2" />
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-slate-900">Total</span>
+                  <span className="text-xl font-bold text-slate-900 tabular-nums">
+                    {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Container fill forecast */}
+              {summary.totalCbm > 0 && (
+                <div className="mt-5 pt-5 border-t border-slate-100">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                    <Ship className="h-3.5 w-3.5" /> Container Forecast
+                  </h4>
                   <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Products</span>
-                      <span className="font-medium">{summary.totalItems}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Quantity</span>
-                      <span className="font-medium">{summary.totalQty.toLocaleString()}</span>
-                    </div>
-                    {summary.totalCbm > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total Volume</span>
-                        <span className="font-medium">{summary.totalCbm.toFixed(2)} CBM</span>
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-sm font-medium">Total</span>
-                      <span className="text-2xl font-bold tracking-tight">
-                        {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
+                    {CONTAINERS.map(c => {
+                      const f = containerFill(summary.totalCbm, c.cbm);
+                      const slotsToShow = Math.min(f.containerCount, 4);
+                      const overflow = f.containerCount - slotsToShow;
+                      const headline = f.containerCount === 0
+                        ? '—'
+                        : f.containerCount === 1
+                          ? `${f.lastContainerPct.toFixed(0)}% of one ${c.name}`
+                          : f.fullContainers === f.containerCount
+                            ? `Fills ${f.fullContainers} × ${c.name}`
+                            : `${f.fullContainers} full + ${f.lastContainerPct.toFixed(0)}% of #${f.containerCount}`;
+                      return (
+                        <div key={c.key}>
+                          <div className="flex justify-between items-baseline text-xs mb-1.5">
+                            <span className="font-medium text-slate-700">{c.name}</span>
+                            <span className="tabular-nums text-slate-500">{f.containerCount} ctr</span>
+                          </div>
+                          <div className="flex gap-1 mb-1">
+                            {Array.from({ length: slotsToShow }).map((_, i) => {
+                              const isLast = i === slotsToShow - 1 && overflow === 0;
+                              const pct = isLast ? f.lastContainerPct : 100;
+                              const color = pct >= 100
+                                ? 'bg-emerald-500'
+                                : (isLast && pct < 40 ? 'bg-amber-500' : 'bg-blue-500');
+                              return (
+                                <div key={i} className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full ${color} transition-all`} style={{ width: `${Math.max(pct, 4)}%` }} />
+                                </div>
+                              );
+                            })}
+                            {overflow > 0 && (
+                              <span className="text-[10px] text-slate-500 self-center px-1">+{overflow} more</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 tabular-nums leading-tight">{headline} · {summary.totalCbm.toFixed(1)} / {c.cbm} CBM each</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+              )}
 
-                {/* Container Fill */}
-                {summary.totalCbm > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-                      <Ship className="h-4 w-4" /> Container Fill
-                    </h3>
-                    <div className="space-y-3">
-                      {CONTAINERS.map(c => {
-                        const fill = Math.min((summary.totalCbm / c.cbm) * 100, 100);
-                        const colorClass = fill > 95
-                          ? 'bg-red-500'
-                          : fill > 80
-                          ? 'bg-amber-500'
-                          : fill > 50
-                          ? 'bg-primary'
-                          : 'bg-primary/70';
-                        return (
-                          <div key={c.name} className="space-y-1.5">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground font-medium">{c.icon} {c.name}</span>
-                              <span className="font-semibold tabular-nums">{fill.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-700 ease-out ${colorClass}`}
-                                style={{ width: `${fill}%` }}
-                              />
-                            </div>
-                            <p className="text-[10px] text-muted-foreground tabular-nums">
-                              {summary.totalCbm.toFixed(1)} / {c.cbm} CBM
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Confirm Button */}
+              {/* Action buttons */}
+              <div className="mt-5 pt-5 border-t border-slate-100 space-y-2 no-print">
+                <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf}>
+                  <Download className="h-4 w-4" /> Download PDF
+                </Button>
                 {!confirmed && !isExpired && (
                   <Button
-                    className="w-full h-12 text-base font-semibold gap-2 shadow-md hover:shadow-lg transition-shadow"
+                    className="w-full h-11 text-sm font-semibold gap-2 bg-slate-900 text-white hover:bg-slate-800"
                     onClick={() => setConfirmOpen(true)}
                   >
-                    <Check className="h-5 w-5" /> Confirm Order
+                    <Check className="h-4 w-4" /> Confirm Order
                   </Button>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Entity Contact Card */}
-            {entity && (
-              <Card className="border-border/40">
-                <CardContent className="p-5 space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h4>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold">{entity.name}</p>
-                    {entity.legal_name && entity.legal_name !== entity.name && (
-                      <p className="text-xs text-muted-foreground">{entity.legal_name}</p>
-                    )}
-                    {entity.phone && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Phone className="h-3 w-3" /> {entity.phone}
-                      </p>
-                    )}
-                    {entity.email && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Mail className="h-3 w-3" />
-                        <a href={`mailto:${entity.email}`} className="hover:text-primary transition-colors">{entity.email}</a>
-                      </p>
-                    )}
-                    {entity.website && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Globe className="h-3 w-3" />
-                        <a href={entity.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{entity.website}</a>
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                {isExpired && (
+                  <p className="text-xs text-red-600 text-center font-medium">This quote has expired.</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* ============ FOOTER ============ */}
+        <footer className="mt-10 pt-6 border-t border-slate-200 text-center text-xs text-slate-500 space-y-1">
+          <p>All prices are subject to final confirmation.</p>
+          <p>{entity?.name ?? ''}{entity?.name && snapshot.quote_number ? ' · ' : ''}{snapshot.quote_number ?? ''}</p>
+        </footer>
       </div>
 
-      {/* Footer */}
-      <footer className="mt-16 border-t border-border/30 bg-muted/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
-          <p className="text-xs text-muted-foreground">
-            {entity?.name && `© ${new Date().getFullYear()} ${entity.name}. `}
-            All prices are subject to final confirmation.
-          </p>
-        </div>
-      </footer>
-
-      {/* Confirmation Dialog */}
+      {/* ============ CONFIRM DIALOG ============ */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">Confirm Your Order</DialogTitle>
-            <DialogDescription>Review your selections and provide your details to confirm.</DialogDescription>
+            <DialogTitle className="text-lg text-slate-900">Confirm Your Order</DialogTitle>
+            <DialogDescription className="text-slate-500">Review your selections and provide your details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-5">
-            {/* Order recap */}
-            <div className="bg-muted/40 rounded-xl p-4 space-y-2.5">
+          <div className="space-y-4">
+            <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
               {data.snapshot.products.map((p, i) => {
                 const qty = selections[i]?.quantity ?? p.quantity;
                 const lineTotal = (p.unit_price_usd || 0) * qty;
                 return (
-                  <div key={i} className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {p.photo_url && (
-                        <img src={p.photo_url} alt={p.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                      )}
-                      <span className="truncate">{p.name}</span>
-                      <span className="text-muted-foreground flex-shrink-0">× {qty}</span>
+                  <div key={i} className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="truncate text-slate-700">{p.name}</span>
+                      <span className="text-slate-400 flex-shrink-0">× {qty}</span>
                     </div>
-                    <span className="font-semibold flex-shrink-0 ml-3">
+                    <span className="font-semibold text-slate-900 tabular-nums">
                       {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 );
               })}
-              <Separator />
-              <div className="flex justify-between items-baseline font-bold text-base">
+              <div className="border-t border-slate-200 pt-2 mt-2 flex justify-between font-semibold">
                 <span>Total</span>
-                <span className="text-lg">
-                  {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="tabular-nums">{symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
-
-            {/* Customer details */}
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Your Name</Label>
-                <Input
-                  className="h-10"
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  placeholder="Full name"
-                />
+                <Label className="text-xs font-medium">Your name</Label>
+                <Input className="h-10" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Full name" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Email Address</Label>
-                <Input
-                  className="h-10"
-                  value={customerEmail}
-                  onChange={e => setCustomerEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  type="email"
-                />
+                <Label className="text-xs font-medium">Email</Label>
+                <Input className="h-10" type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} placeholder="email@example.com" />
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-            <Button onClick={handleConfirm} disabled={submitting || !customerName} className="gap-2">
+            <Button onClick={handleConfirm} disabled={submitting || !customerName} className="gap-2 bg-slate-900 text-white hover:bg-slate-800">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Confirm Order
             </Button>
