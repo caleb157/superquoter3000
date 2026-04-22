@@ -295,8 +295,31 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
                 <div className="text-xl sm:text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
                 <div className="text-[11px] text-muted-foreground mt-2 leading-snug hidden sm:block">
-                  Σ (qty × unit price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
+                  Σ (qty × FOB cost × stage weight). Only products with completed costing counted.
+                  Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPipelineDebug(v => !v)}
+                  className="text-[10px] text-muted-foreground/70 hover:text-foreground mt-1.5 underline-offset-2 hover:underline"
+                >
+                  {showPipelineDebug ? 'hide debug' : 'debug'}
+                </button>
+                {showPipelineDebug && (
+                  <div className="text-[10px] text-muted-foreground mt-1.5 space-y-0.5 leading-snug">
+                    <div>Counted: <span className="tabular-nums text-foreground">{pipelineDetail.counted}</span> · skipped no costing: <span className="tabular-nums">{pipelineDetail.skippedNoCost}</span> · skipped qty=0: <span className="tabular-nums">{pipelineDetail.skippedNoQty}</span></div>
+                    {pipelineDetail.top.length > 0 && (
+                      <div className="pt-1">
+                        <div className="font-medium text-foreground/80">Top contributors:</div>
+                        {pipelineDetail.top.map((c, i) => (
+                          <div key={i} className="truncate">
+                            • {c.name}: {c.qty} × {fmt.usd(c.cost)} × {Math.round(c.weight * 100)}% = <span className="tabular-nums text-foreground">{fmt.usd(c.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
