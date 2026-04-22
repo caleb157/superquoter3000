@@ -1,0 +1,301 @@
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, Check } from 'lucide-react';
+import { toast } from 'sonner';
+
+const COGS_TYPES = ['Finishing Materials', 'Hardware', 'Wood', 'Components', 'Packaging', 'Other'];
+const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
+
+type DraftRow = {
+  _key: string;
+  cogs_type: string;
+  component_name: string;
+  components_per_product: number;
+  unit_cost_inr: number;
+  units: string;
+  include: 'Yes' | 'No';
+};
+
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedProductIds: string[];
+  selectedProductNames: string[];
+  onApplied: () => void;
+};
+
+const newRow = (): DraftRow => ({
+  _key: `r-${Math.random().toString(36).slice(2, 9)}`,
+  cogs_type: 'Finishing Materials',
+  component_name: '',
+  components_per_product: 0,
+  unit_cost_inr: 0,
+  units: 'pc',
+  include: 'Yes',
+});
+
+export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds, selectedProductNames, onApplied }: Props) {
+  const [rows, setRows] = useState<DraftRow[]>([newRow()]);
+  const [saving, setSaving] = useState(false);
+  const [knownNames, setKnownNames] = useState<string[]>([]);
+
+  const productCount = selectedProductIds.length;
+
+  // Pull existing component names from the selected products to show as suggestions —
+  // makes "match by name" predictable.
+  useEffect(() => {
+    if (!open || selectedProductIds.length === 0) { setKnownNames([]); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('cogs_items')
+        .select('component_name')
+        .in('product_id', selectedProductIds);
+      const set = new Set<string>();
+      (data || []).forEach((r: any) => {
+        const n = (r.component_name || '').trim();
+        if (n) set.add(n);
+      });
+      setKnownNames(Array.from(set).sort());
+    })();
+  }, [open, selectedProductIds]);
+
+  useEffect(() => {
+    if (open) setRows([newRow()]);
+  }, [open]);
+
+  const addRow = () => setRows(prev => [...prev, newRow()]);
+  const removeRow = (key: string) => setRows(prev => prev.filter(r => r._key !== key));
+  const update = (key: string, patch: Partial<DraftRow>) =>
+    setRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+
+  const validRows = useMemo(
+    () => rows.filter(r => r.component_name.trim().length > 0),
+    [rows],
+  );
+
+  const handleApply = async () => {
+    if (productCount === 0) { toast.error('No products selected'); return; }
+    if (validRows.length === 0) { toast.error('Add at least one row with a name'); return; }
+
+    setSaving(true);
+
+    // Pull all existing cogs_items for selected products in one shot — used to match by lower-cased name.
+    const { data: existing, error: fetchErr } = await (supabase as any)
+      .from('cogs_items')
+      .select('id, product_id, component_name, sort_order')
+      .in('product_id', selectedProductIds);
+
+    if (fetchErr) {
+      toast.error('Failed to read existing rows: ' + fetchErr.message);
+      setSaving(false);
+      return;
+    }
+
+    const existingByProductByName = new Map<string, Map<string, { id: string; sort_order: number | null }>>();
+    const maxSortByProduct = new Map<string, number>();
+    (existing || []).forEach((row: any) => {
+      const pid = row.product_id;
+      if (!existingByProductByName.has(pid)) existingByProductByName.set(pid, new Map());
+      const nameKey = (row.component_name || '').trim().toLowerCase();
+      if (nameKey) existingByProductByName.get(pid)!.set(nameKey, { id: row.id, sort_order: row.sort_order ?? 0 });
+      const cur = maxSortByProduct.get(pid) ?? 0;
+      maxSortByProduct.set(pid, Math.max(cur, row.sort_order ?? 0));
+    });
+
+    const updates: Array<{ id: string; patch: any }> = [];
+    const inserts: any[] = [];
+
+    for (const pid of selectedProductIds) {
+      const productExisting = existingByProductByName.get(pid) ?? new Map();
+      let nextSort = (maxSortByProduct.get(pid) ?? 0) + 1;
+
+      for (const r of validRows) {
+        const nameKey = r.component_name.trim().toLowerCase();
+        const match = productExisting.get(nameKey);
+        const patch = {
+          cogs_type: r.cogs_type,
+          component_name: r.component_name.trim(),
+          components_per_product: Number(r.components_per_product) || 0,
+          unit_cost_inr: Number(r.unit_cost_inr) || 0,
+          units: r.units,
+          include: r.include,
+          // Bulk-edited rows are manual, not auto-calculated
+          is_auto_calculated: false,
+        };
+        if (match) {
+          updates.push({ id: match.id, patch });
+        } else {
+          inserts.push({ ...patch, product_id: pid, sort_order: nextSort });
+          nextSort += 1;
+        }
+      }
+    }
+
+    // Run updates + inserts in parallel batches
+    const updatePromises = updates.map(u =>
+      (supabase as any).from('cogs_items').update(u.patch).eq('id', u.id),
+    );
+    const insertPromise = inserts.length > 0
+      ? (supabase as any).from('cogs_items').insert(inserts)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise]);
+    const firstError = results.find((r: any) => r?.error)?.error;
+    setSaving(false);
+
+    if (firstError) {
+      toast.error('Apply failed: ' + firstError.message);
+      return;
+    }
+
+    toast.success(
+      `Applied ${validRows.length} row${validRows.length === 1 ? '' : 's'} to ${productCount} SKU${productCount === 1 ? '' : 's'} ` +
+      `(${updates.length} updated, ${inserts.length} added)`,
+    );
+    onApplied();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Bulk update costing rows</DialogTitle>
+          <DialogDescription>
+            Apply these COGS rows to {productCount} selected SKU{productCount === 1 ? '' : 's'}. Rows are matched by name
+            (case-insensitive) — existing rows are updated, new ones are added. Each SKU stays editable individually.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-md border bg-muted/30 px-3 py-2 max-h-20 overflow-y-auto">
+          <div className="text-[11px] text-muted-foreground mb-1">Applying to:</div>
+          <div className="flex flex-wrap gap-1">
+            {selectedProductNames.slice(0, 30).map((n, i) => (
+              <Badge key={i} variant="secondary" className="text-[10px]">{n}</Badge>
+            ))}
+            {selectedProductNames.length > 30 && (
+              <Badge variant="outline" className="text-[10px]">+{selectedProductNames.length - 30} more</Badge>
+            )}
+          </div>
+        </div>
+
+        {knownNames.length > 0 && (
+          <div className="text-[11px] text-muted-foreground">
+            <span className="font-medium">Existing names in these SKUs:</span>{' '}
+            {knownNames.slice(0, 12).map((n, i) => (
+              <button
+                key={n}
+                type="button"
+                className="inline-flex items-center gap-1 mr-1 rounded border px-1.5 py-0.5 hover:bg-accent text-foreground"
+                onClick={() => {
+                  // Drop the suggestion into the first empty row, or add a new one
+                  const empty = rows.find(r => !r.component_name.trim());
+                  if (empty) update(empty._key, { component_name: n });
+                  else setRows(prev => [...prev, { ...newRow(), component_name: n }]);
+                }}
+                title="Click to use this name"
+              >
+                {n}
+              </button>
+            ))}
+            {knownNames.length > 12 && <span>+{knownNames.length - 12} more</span>}
+          </div>
+        )}
+
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+            <div className="col-span-3">Type</div>
+            <div className="col-span-3">Component name</div>
+            <div className="col-span-2">Qty / unit</div>
+            <div className="col-span-1">Units</div>
+            <div className="col-span-2">Cost INR</div>
+            <div className="col-span-1 text-center">Incl.</div>
+          </div>
+          {rows.map(r => (
+            <div key={r._key} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2 bg-card">
+              <div className="col-span-3">
+                <Select value={r.cogs_type} onValueChange={(v) => update(r._key, { cogs_type: v })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COGS_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-3">
+                <Input
+                  value={r.component_name}
+                  onChange={e => update(r._key, { component_name: e.target.value })}
+                  placeholder="e.g. Walnut stain"
+                  className="h-8 text-xs"
+                  list={`bulk-name-suggest-${r._key}`}
+                />
+                <datalist id={`bulk-name-suggest-${r._key}`}>
+                  {knownNames.map(n => <option key={n} value={n} />)}
+                </datalist>
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="number" step="any" inputMode="decimal"
+                  value={r.components_per_product}
+                  onChange={e => update(r._key, { components_per_product: Number(e.target.value) })}
+                  className="h-8 text-xs text-right"
+                />
+              </div>
+              <div className="col-span-1">
+                <Select value={r.units} onValueChange={(v) => update(r._key, { units: v })}>
+                  <SelectTrigger className="h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Input
+                  type="number" step="any" inputMode="decimal"
+                  value={r.unit_cost_inr}
+                  onChange={e => update(r._key, { unit_cost_inr: Number(e.target.value) })}
+                  className="h-8 text-xs text-right"
+                />
+              </div>
+              <div className="col-span-1 flex items-center justify-center gap-1">
+                <Checkbox
+                  checked={r.include === 'Yes'}
+                  onCheckedChange={(v) => update(r._key, { include: v ? 'Yes' : 'No' })}
+                />
+                <Button
+                  type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                  onClick={() => removeRow(r._key)}
+                  disabled={rows.length === 1}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={addRow}>
+            <Plus className="h-3.5 w-3.5" /> Add row
+          </Button>
+        </div>
+
+        <DialogFooter className="flex items-center justify-between sm:justify-between gap-3">
+          <div className="text-xs text-muted-foreground">
+            {validRows.length} valid row{validRows.length === 1 ? '' : 's'} × {productCount} SKU{productCount === 1 ? '' : 's'} = {validRows.length * productCount} row write{validRows.length * productCount === 1 ? '' : 's'}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleApply} disabled={saving || validRows.length === 0 || productCount === 0} className="gap-1.5">
+              <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
