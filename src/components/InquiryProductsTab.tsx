@@ -98,6 +98,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [reviewSaving, setReviewSaving] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
+  const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
+    storageKey: `inquiry-products-sort:${inquiryId}`,
+  });
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
