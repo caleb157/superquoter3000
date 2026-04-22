@@ -150,7 +150,7 @@ const ProductDetail = () => {
     }));
     const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
     const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-    const indirectOhPerMh = calc.calcIndirectOhPerManHour(globalSettingsData);
+    const indirectOhPerMh = calc.calcIndirectOhPerManHour(settings as any);
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
     // Calculate shipping
