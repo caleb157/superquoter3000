@@ -1116,7 +1116,6 @@ export type Database = {
           status: string
           updated_at: string
           vendor_id: string | null
-          vendor_name: string | null
           weight_kg: number | null
         }
         Insert: {
@@ -1138,7 +1137,6 @@ export type Database = {
           status?: string
           updated_at?: string
           vendor_id?: string | null
-          vendor_name?: string | null
           weight_kg?: number | null
         }
         Update: {
@@ -1160,7 +1158,6 @@ export type Database = {
           status?: string
           updated_at?: string
           vendor_id?: string | null
-          vendor_name?: string | null
           weight_kg?: number | null
         }
         Relationships: [
