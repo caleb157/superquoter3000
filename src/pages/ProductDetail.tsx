@@ -277,11 +277,11 @@ const ProductDetail = () => {
         <Tabs value={activeTab} onValueChange={setTab}>
           <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
             <TabsList className="w-max">
-              <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
               <TabsTrigger value="costing"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Costing</TabsTrigger>
               <TabsTrigger value="variants"><Layers className="h-3.5 w-3.5 mr-1.5" />Variants</TabsTrigger>
               <TabsTrigger value="sample-log"><Package2 className="h-3.5 w-3.5 mr-1.5" />Sample Log</TabsTrigger>
               <TabsTrigger value="tasks"><ListChecks className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
+              <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
             </TabsList>
           </div>
 
