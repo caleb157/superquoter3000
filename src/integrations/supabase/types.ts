@@ -1020,10 +1020,13 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           currency: string | null
+          customer: Json | null
           customer_rfq_id: string | null
           customer_selections: Json | null
+          entity: Json | null
           entity_id: string | null
           id: string
+          inquiry: Json | null
           notes: string | null
           products: Json | null
           quote_number: string | null
@@ -1039,10 +1042,13 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           currency?: string | null
+          customer?: Json | null
           customer_rfq_id?: string | null
           customer_selections?: Json | null
+          entity?: Json | null
           entity_id?: string | null
           id?: string
+          inquiry?: Json | null
           notes?: string | null
           products?: Json | null
           quote_number?: string | null
@@ -1058,10 +1064,13 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           currency?: string | null
+          customer?: Json | null
           customer_rfq_id?: string | null
           customer_selections?: Json | null
+          entity?: Json | null
           entity_id?: string | null
           id?: string
+          inquiry?: Json | null
           notes?: string | null
           products?: Json | null
           quote_number?: string | null
