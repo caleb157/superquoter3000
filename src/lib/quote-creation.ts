@@ -63,7 +63,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .in('product_id', productIds),
     (supabase as any)
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, exchange_rate_override, customers(id, name, company, email, logo_url)')
+      .select('id, rfq_number, title, customer_id, exchange_rate_override, markup_percent_override, customers(id, name, company, email, logo_url)')
       .eq('id', inquiryId)
       .maybeSingle(),
     supabase
@@ -71,7 +71,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .select('id, name, legal_name, entity_type, logo_url, address_line1, address_line2, city, state, postal_code, country, email, phone, website, bank_name, bank_branch, account_name, account_number, ifsc_code, routing_number, swift_code, gst_number, ein_number')
       .eq('id', entityId)
       .maybeSingle(),
-    supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+    supabase.from('global_settings').select('*').limit(1).maybeSingle(),
   ]);
 
   if (productsRes.error) return { error: productsRes.error.message };
