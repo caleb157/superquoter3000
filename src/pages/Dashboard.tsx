@@ -139,11 +139,13 @@ const Dashboard = () => {
       const w = productWeight(p, inqStatus);
       if (w === 0) continue;
       const qty = p.quantity ?? 0;
-      const price = Number(p.target_price_usd ?? 0);
+      // Use the live computed unit price; fall back to target only if costing has no result yet.
+      const computed = unitPrices[p.id]?.unit_price_usd ?? 0;
+      const price = computed > 0 ? computed : Number(p.target_price_usd ?? 0);
       total += qty * price * w;
     }
     return total;
-  }, [products, inquiryStatusById]);
+  }, [products, inquiryStatusById, unitPrices]);
 
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
