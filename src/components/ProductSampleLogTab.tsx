@@ -304,21 +304,17 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{isEdit ? 'Edit sample' : 'Add sample'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Vendor</Label>
-              <Select value={vendorId || 'none'} onValueChange={(v) => setVendorId(v === 'none' ? '' : v)}>
-                <SelectTrigger className="h-9 text-sm mt-1"><SelectValue placeholder="Select…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— None —</SelectItem>
-                  {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Vendor name override</Label>
-              <Input className="h-9 text-sm mt-1" value={vendorOverride} onChange={e => setVendorOverride(e.target.value)} placeholder="Free-text" />
-            </div>
+          <div>
+            <Label className="text-xs">Vendor</Label>
+            <VendorCombobox
+              vendors={vendors}
+              vendorId={vendorId}
+              vendorName={vendorOverride}
+              onChange={(id, name) => { setVendorId(id); setVendorOverride(name); }}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Pick an existing vendor, or type a new name to create one on save.
+            </p>
           </div>
 
           <div>
