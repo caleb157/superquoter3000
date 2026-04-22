@@ -246,12 +246,35 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
 
   const handleSave = async () => {
     setSaving(true);
-    const selectedVendor = vendors.find(v => v.id === vendorId);
+    let finalVendorId = vendorId || null;
+    let finalVendorName = vendorOverride.trim() || null;
+
+    // If user typed a name that doesn't match an existing vendor, create one
+    if (!finalVendorId && finalVendorName) {
+      const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
+      if (existing) {
+        finalVendorId = existing.id;
+        finalVendorName = existing.name;
+      } else {
+        const { data: newVendor, error: vErr } = await supabase
+          .from('vendors')
+          .insert({ name: finalVendorName, category: 'sampling' })
+          .select('id, name')
+          .single();
+        if (vErr) { setSaving(false); toast.error('Could not create vendor: ' + vErr.message); return; }
+        finalVendorId = newVendor!.id;
+        finalVendorName = newVendor!.name;
+        setVendors(prev => [...prev, { id: newVendor!.id, name: newVendor!.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    } else if (finalVendorId) {
+      finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
+    }
+
     const payload: any = {
       product_id: productId,
       rfs_id: null,
-      vendor_id: vendorId || null,
-      vendor_name: vendorOverride.trim() || selectedVendor?.name || null,
+      vendor_id: finalVendorId,
+      vendor_name: finalVendorName,
       status,
       requested_date: requestedDate || null,
       initial_ready_date: initialReady || null,
