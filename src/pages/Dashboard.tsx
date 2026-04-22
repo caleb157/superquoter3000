@@ -226,7 +226,7 @@ const Dashboard = () => {
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, fobByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
