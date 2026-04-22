@@ -221,6 +221,7 @@ const Dashboard = () => {
         status: (i) => i.status,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
+        order_value: (i) => fobByInquiry[i.id]?.total ?? 0,
       };
       list = sortItems(list, getters);
     }
