@@ -64,6 +64,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const seeded = initial.map((l, i) => ({ ...l, _key: `line-${i}-${l.product_id || 'x'}` }));
     setLines(seeded);
     initialSerialRef.current = JSON.stringify(serializeLines(seeded));
+    const pt = (snapshot.payment_terms ?? '') as string;
+    setPaymentTerms(pt);
+    initialPaymentTermsRef.current = pt;
     setStatus('idle');
     setErrorMsg(null);
   }, [open, snapshot]);
