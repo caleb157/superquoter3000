@@ -116,11 +116,12 @@ export function GlobalSearch({ open, onOpenChange, onShowHelp }: Props) {
   ];
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Search inquiries, customers, products… (⌘K)"
         value={query}
         onValueChange={setQuery}
+        autoFocus
       />
       <CommandList>
         <CommandEmpty>
