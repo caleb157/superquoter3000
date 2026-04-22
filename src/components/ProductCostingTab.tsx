@@ -764,7 +764,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         if (dbExisting && dbExisting.length > 0) {
                           setCogsItems(prev => [...prev, dbExisting[0]]);
                         } else {
-                          const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
+                          const transportCost = effectiveSettings?.local_transport_cost_per_cbm || 3500;
                           const { data } = await (supabase as any).from('cogs_items').insert({
                             product_id: id,
                             cogs_type: 'Subcontracting',
