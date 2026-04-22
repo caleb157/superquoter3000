@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { ProductVariants } from '@/components/ProductVariants';
+import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
