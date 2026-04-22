@@ -480,7 +480,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-    const transportRate = globalSettings.local_transport_cost_per_cbm || 3500;
+    const transportRate = effectiveSettings.local_transport_cost_per_cbm || 3500;
     if (!freightItem) {
       if (freightCreatingRef.current) return;
       freightCreatingRef.current = true;
