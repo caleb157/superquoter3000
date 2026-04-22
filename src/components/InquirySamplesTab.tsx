@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 type Sample = {
   id: string;
   product_id: string | null;
-  vendor_name: string | null;
+  vendor: { name: string } | null;
   status: string;
   requested_date: string | null;
   completed_at: string | null;
