@@ -74,6 +74,17 @@ export default function SamplesList() {
     return i ? `${i.rfq_number}${i.title ? ` · ${i.title}` : ''}` : '—';
   };
 
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: rfsItems.length };
+    rfsItems.forEach(r => { c[r.status] = (c[r.status] || 0) + 1; });
+    return c;
+  }, [rfsItems]);
+
+  const filteredRfs = useMemo(
+    () => statusFilter === 'all' ? rfsItems : rfsItems.filter(r => r.status === statusFilter),
+    [rfsItems, statusFilter],
+  );
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
