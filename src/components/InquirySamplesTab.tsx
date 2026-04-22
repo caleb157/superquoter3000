@@ -121,7 +121,8 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
         })}
       </div>
 
-      <Card><CardContent className="p-0">
+      {/* Desktop table */}
+      <Card className="hidden md:block"><CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
             <TableHead className="text-xs">Product</TableHead>
@@ -163,10 +164,10 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
                 </TableCell>
                 <TableCell className="text-xs text-right tabular-nums">{timeToSample(s)}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(s.id)}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => remove(s.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </TableCell>
@@ -175,6 +176,55 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
           </TableBody>
         </Table>
       </CardContent></Card>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {filtered.map(s => (
+          <Card
+            key={s.id}
+            className="cursor-pointer active:bg-accent/50"
+            onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+          >
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-sm truncate">{s.product?.name ?? '—'}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {s.vendor?.name ?? 'No vendor'}
+                  </div>
+                </div>
+                <div onClick={e => e.stopPropagation()}>
+                  <Select value={s.status} onValueChange={(v) => setStatus(s.id, v)}>
+                    <SelectTrigger className="h-9 w-28 text-xs">
+                      <SelectValue>
+                        <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map(st => <SelectItem key={st} value={st} className="text-xs">{st}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                <span>
+                  {s.requested_date ? format(parseISO(s.requested_date), 'MMM d') : '—'}
+                  {s.completed_at && <span> → {format(parseISO(s.completed_at), 'MMM d')}</span>}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span>{timeToSample(s)}</span>
+                  <Button
+                    variant="ghost" size="icon" className="h-9 w-9 text-destructive -mr-2"
+                    onClick={(e) => { e.stopPropagation(); remove(s.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
