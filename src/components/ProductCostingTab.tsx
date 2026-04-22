@@ -1054,9 +1054,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             </Select>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-[260px]">
                           {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 min-w-[260px]">
                               <Select
                                 value={hardwarePrices.some(hp => hp.name === item.component_name) ? (item.component_name || '') : '__custom__'}
                                 onValueChange={(v) => {
@@ -1075,29 +1075,42 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                                   Object.entries(updates).forEach(([k, val]) => updateCogsItem(item.id, k, val));
                                 }}
                               >
-                                <SelectTrigger className="h-6 text-xs border-transparent hover:border-input w-32 shrink-0">
-                                  <SelectValue placeholder="Select..." />
+                                <SelectTrigger
+                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-[200px] [&>span]:truncate [&>span]:block [&>span]:text-left"
+                                  title={item.component_name || ''}
+                                >
+                                  <SelectValue placeholder="Select hardware…">
+                                    {item.component_name || ''}
+                                  </SelectValue>
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="max-w-[420px]">
                                   {hardwarePrices.map(hp => (
                                     <SelectItem key={hp.id} value={hp.name}>
-                                      {hp.name} — {fmt.inr(hp.unit_cost_inr)}/{hp.units || 'pc'}
+                                      <span className="font-medium">{hp.name}</span>
+                                      <span className="text-muted-foreground"> — {fmt.inr(hp.unit_cost_inr)}/{hp.units || 'pc'}</span>
                                     </SelectItem>
                                   ))}
                                   <SelectItem value="__custom__">+ Custom name…</SelectItem>
                                 </SelectContent>
                               </Select>
                               {!hardwarePrices.some(hp => hp.name === item.component_name) && (
-                                <Input className="h-6 text-xs border-transparent hover:border-input flex-1"
+                                <Input
+                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-[180px]"
                                   placeholder="Custom name"
                                   defaultValue={item.component_name || ''}
-                                  onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
+                                  title={item.component_name || ''}
+                                  onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)}
+                                />
                               )}
                               {/* Hardware library is synced automatically when a quote is generated. */}
                             </div>
                           ) : (
-                            <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}
-                              onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
+                            <Input
+                              className={`h-7 text-xs border-transparent hover:border-input min-w-[220px] ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`}
+                              defaultValue={item.component_name || ''}
+                              title={item.component_name || ''}
+                              onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)}
+                            />
                           )}
                         </TableCell>
                         <TableCell>
