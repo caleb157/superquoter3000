@@ -352,6 +352,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         preSelectedProductIds={selectedProducts.map(p => p.id)}
         onCreated={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
       />
+      <HardwareSyncDialog
+        open={hwOpen}
+        plan={hwPlan}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved); }}
+      />
     </div>
   );
 }
