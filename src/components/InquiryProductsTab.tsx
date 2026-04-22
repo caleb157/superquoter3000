@@ -118,13 +118,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      setProducts(data ?? []);
+      const list = data ?? [];
+      setProducts(list);
+      if (list.length > 0) {
+        const prices = await computeProductPriceAndCost(list.map(p => p.id));
+        setPriceMap(prices);
+      } else {
+        setPriceMap({});
+      }
     })();
   }, [inquiryId, refresh]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return products.filter(p => {
+    const base = products.filter(p => {
       if (q && !p.name.toLowerCase().includes(q)) return false;
       if (filter === 'needs_design') return p.design_stage === 'need_design';
       if (filter === 'in_costing') {
