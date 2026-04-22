@@ -135,6 +135,13 @@ export default function InquiryDetail() {
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
       quoting_entity_id: settingsDraft.quoting_entity_id || null,
       quoting_currency: settingsDraft.quoting_currency || null,
+      indirect_overhead_monthly_override: settingsDraft.indirect_overhead_monthly_override === '' || settingsDraft.indirect_overhead_monthly_override == null ? null : Number(settingsDraft.indirect_overhead_monthly_override),
+      available_hours_per_month_override: settingsDraft.available_hours_per_month_override === '' || settingsDraft.available_hours_per_month_override == null ? null : Number(settingsDraft.available_hours_per_month_override),
+      num_laborers_override: settingsDraft.num_laborers_override === '' || settingsDraft.num_laborers_override == null ? null : Number(settingsDraft.num_laborers_override),
+      packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
+      auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
+      local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
+      contractor_to_inhouse_decrease_override: settingsDraft.contractor_to_inhouse_decrease_override === '' || settingsDraft.contractor_to_inhouse_decrease_override == null ? null : Number(settingsDraft.contractor_to_inhouse_decrease_override),
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
