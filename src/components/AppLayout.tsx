@@ -228,6 +228,14 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Global mobile FAB — always opens New Task, contextual to route */}
       <MobileTaskFab />
+
+      {/* Global search + keyboard shortcuts */}
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onShowHelp={() => setHelpOpen(true)}
+      />
+      <KeyboardShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 };
