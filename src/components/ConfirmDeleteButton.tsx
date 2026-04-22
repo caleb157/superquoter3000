@@ -40,12 +40,22 @@ export function ConfirmDeleteButton({
 
   return (
     <>
-      <span onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
+      <span
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(true);
+          }
+        }}
+      >
         {trigger ?? (
           <Button
             variant={buttonVariant}
             size={buttonSize}
-            className={className ?? (iconOnly ? 'h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10' : 'h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10')}
+            aria-label={`Delete ${itemLabel}`}
+            className={className ?? (iconOnly ? 'h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1' : 'h-7 px-2 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1')}
           >
             <Trash2 className="h-3 w-3" />
             {!iconOnly && 'Delete'}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import {
   furthestStageBucket,
@@ -85,6 +86,12 @@ const Dashboard = () => {
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
   const [showPipelineDebug, setShowPipelineDebug] = useState(false);
+
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const desktopListRef = useRef<HTMLDivElement>(null);
+  useArrowKeyRowNav(mobileListRef);
+  useArrowKeyRowNav(desktopListRef);
+  useKeyboardShortcuts({ onNewItem: () => setShowNewInquiry(true) });
 
   useEffect(() => {
     (async () => {
@@ -383,7 +390,7 @@ const Dashboard = () => {
           </div>
 
           {/* Mobile: card list */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2" ref={mobileListRef}>
             {loading ? (
               <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
             ) : visibleInquiries.length === 0 ? (
@@ -398,7 +405,11 @@ const Dashboard = () => {
                 return (
                   <Card
                     key={inq.id}
-                    className="active:scale-[0.99] transition-transform"
+                    data-row-nav
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open inquiry ${inq.rfq_number}`}
+                    className="active:scale-[0.99] transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     onClick={() => navigate(`/inquiry/${inq.id}`)}
                   >
                     <CardContent className="p-3 space-y-2">
@@ -448,7 +459,7 @@ const Dashboard = () => {
           </div>
 
           {/* Desktop: table */}
-          <Card className="hidden md:block">
+          <Card className="hidden md:block" ref={desktopListRef as any}>
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
@@ -489,7 +500,11 @@ const Dashboard = () => {
                       return (
                         <TableRow
                           key={inq.id}
-                          className="cursor-pointer hover:bg-muted/50"
+                          data-row-nav
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Open inquiry ${inq.rfq_number}`}
+                          className="cursor-pointer hover:bg-muted/50 outline-none focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                           onClick={goToInquiry}
                         >
                           <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
