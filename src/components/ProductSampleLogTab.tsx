@@ -20,7 +20,7 @@ type Sample = {
   product_id: string | null;
   customer_rfq_id: string | null;
   vendor_id: string | null;
-  vendor_name: string | null;
+  vendor: { name: string } | null;
   status: string;
   requested_date: string | null;
   completed_at: string | null;
@@ -56,7 +56,7 @@ export function ProductSampleLogTab({ productId }: Props) {
     setLoading(true);
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*')
+      .select('*, vendor:vendors(name)')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
     setSamples(((data as any) ?? []).map((s: any) => ({ ...s, photo_urls: Array.isArray(s.photo_urls) ? s.photo_urls : [] })));
@@ -100,7 +100,7 @@ export function ProductSampleLogTab({ productId }: Props) {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{s.vendor_name || 'No vendor set'}</span>
+                      <span className="text-sm font-medium">{s.vendor?.name || 'No vendor set'}</span>
                       <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{s.status}</Badge>
                       {days !== null && (
                         <Badge variant="outline" className="text-[10px]">{days}d to sample</Badge>
@@ -202,10 +202,10 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       setVendors((v as any) ?? []);
 
       if (isEdit && sampleId) {
-        const { data } = await (supabase as any).from('samples').select('*').eq('id', sampleId).maybeSingle();
+        const { data } = await (supabase as any).from('samples').select('*, vendor:vendors(name)').eq('id', sampleId).maybeSingle();
         if (data) {
           setVendorId(data.vendor_id ?? '');
-          setVendorOverride(data.vendor_name ?? '');
+          setVendorOverride(data.vendor?.name ?? '');
           setStatus(data.status ?? 'pending');
           setRequestedDate(data.requested_date ?? '');
           setRequiredBy(data.required_by_date ?? '');
@@ -247,26 +247,22 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
   const handleSave = async () => {
     setSaving(true);
     let finalVendorId = vendorId || null;
-    let finalVendorName = vendorOverride.trim() || null;
+    const overrideName = vendorOverride.trim();
 
-    if (!finalVendorId && finalVendorName) {
-      const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
+    if (!finalVendorId && overrideName) {
+      const existing = vendors.find(v => v.name.toLowerCase() === overrideName.toLowerCase());
       if (existing) {
         finalVendorId = existing.id;
-        finalVendorName = existing.name;
       } else {
         const { data: newVendor, error: vErr } = await supabase
           .from('vendors')
-          .insert({ name: finalVendorName, category: 'sampling' })
+          .insert({ name: overrideName, category: 'sampling' })
           .select('id, name')
           .single();
         if (vErr) { setSaving(false); toast.error('Could not create vendor: ' + vErr.message); return; }
         finalVendorId = newVendor!.id;
-        finalVendorName = newVendor!.name;
         setVendors(prev => [...prev, { id: newVendor!.id, name: newVendor!.name }].sort((a, b) => a.name.localeCompare(b.name)));
       }
-    } else if (finalVendorId) {
-      finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
     }
 
     // Look up product's customer_rfq_id so the sample shows up in the inquiry tab and global list
@@ -279,7 +275,6 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     const payload: any = {
       product_id: productId,
       vendor_id: finalVendorId,
-      vendor_name: finalVendorName,
       status,
       requested_date: requestedDate || null,
       required_by_date: requiredBy || null,

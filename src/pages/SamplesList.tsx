@@ -20,7 +20,7 @@ type Sample = {
   product_id: string | null;
   customer_rfq_id: string | null;
   vendor_id: string | null;
-  vendor_name: string | null;
+  vendor: { name: string } | null;
   status: string;
   requested_date: string | null;
   completed_at: string | null;
@@ -66,7 +66,7 @@ export default function SamplesList() {
 
   const fetchAll = async () => {
     const [sampleRes, inqRes, custRes, prodRes] = await Promise.all([
-      (supabase as any).from('samples').select('*').order('created_at', { ascending: false }),
+      (supabase as any).from('samples').select('*, vendor:vendors(name)').order('created_at', { ascending: false }),
       supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
       supabase.from('customers').select('id, name, company'),
       supabase.from('products').select('id, name'),
@@ -92,7 +92,7 @@ export default function SamplesList() {
 
   // Metrics
   const pending = samples.filter(s => s.status === 'pending');
-  const pendingWithVendor = pending.filter(s => s.vendor_id || s.vendor_name).length;
+  const pendingWithVendor = pending.filter(s => s.vendor_id).length;
   const pendingWithoutVendor = pending.length - pendingWithVendor;
 
   const completedDays = samples
@@ -112,7 +112,7 @@ export default function SamplesList() {
         const product = s.product_id ? productById[s.product_id] : null;
         const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
         const productName = product?.name?.toLowerCase() ?? '';
-        const vendorName = (s.vendor_name ?? '').toLowerCase();
+        const vendorName = (s.vendor?.name ?? '').toLowerCase();
         const inqNumber = (inq?.rfq_number ?? '').toLowerCase();
         return productName.includes(q) || vendorName.includes(q) || inqNumber.includes(q);
       });
@@ -258,7 +258,7 @@ export default function SamplesList() {
                       <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
                       <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
                       <TableCell className="text-xs">{cust?.name ?? cust?.company ?? '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
                       </TableCell>

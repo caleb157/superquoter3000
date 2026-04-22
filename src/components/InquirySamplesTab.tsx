@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 type Sample = {
   id: string;
   product_id: string | null;
-  vendor_name: string | null;
+  vendor: { name: string } | null;
   status: string;
   requested_date: string | null;
   completed_at: string | null;
@@ -57,7 +57,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
   const fetchSamples = async () => {
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*, product:products(name)')
+      .select('*, product:products(name), vendor:vendors(name)')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setSamples((data ?? []) as Sample[]);
@@ -142,7 +142,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
                     </button>
                   ) : '—'}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
                 <TableCell>
                   <Select value={s.status} onValueChange={(v) => setStatus(s.id, v)}>
                     <SelectTrigger className="h-7 w-32 text-xs">
