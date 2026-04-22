@@ -86,7 +86,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
 
     const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType?.contractor_base_rate_per_ri || 0;
-    const decrease = gs?.contractor_to_inhouse_decrease || 0;
+    const decrease = settings?.contractor_to_inhouse_decrease || 0;
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
     const packagingMh = calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
 
