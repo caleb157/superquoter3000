@@ -159,8 +159,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   };
 
   const handleGenerateQuote = async () => {
-    const selectedProducts = products.filter(p => selected.has(p.id));
-    if (selectedProducts.length === 0) return;
+    const selectedProductsLocal = products.filter(p => selected.has(p.id));
+    if (selectedProductsLocal.length === 0) return;
     const [{ data: entities }, { data: inq }] = await Promise.all([
       supabase.from('company_entities').select('id, name').order('name'),
       (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
@@ -173,15 +173,28 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       ? entities.find(e => e.id === inq.quoting_entity_id)!
       : entities[0];
     const cur = (inq?.quoting_currency as 'USD' | 'INR') || 'USD';
-    const plan = await getHardwareSyncPlan(selectedProducts.map(p => p.id));
     setHwEntityId(preferredEntity.id);
     setHwEntityName(preferredEntity.name);
     setHwCurrency(cur);
+    // Open the price-review dialog first so the user can confirm/override prices
+    // and add variants as separate lines before we run hardware sync + create the snapshot.
+    setPendingLines(null);
+    setReviewOpen(true);
+  };
+
+  // Called when the user confirms the price-review dialog
+  const handleReviewConfirm = async (lines: QuoteProductInput[]) => {
+    setPendingLines(lines);
+    setReviewSaving(true);
+    const productIds = Array.from(new Set(lines.map(l => l.id)));
+    const plan = await getHardwareSyncPlan(productIds);
     if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-      await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur);
+      await finalizeQuote(hwEntityId, hwEntityName, plan, [], hwCurrency, lines);
       return;
     }
     setHwPlan(plan);
+    setReviewOpen(false);
+    setReviewSaving(false);
     setHwOpen(true);
   };
 
@@ -191,6 +204,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     plan: HardwareSyncPlan,
     resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
     currency: 'USD' | 'INR' = 'USD',
+    lines?: QuoteProductInput[],
   ) => {
     if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
       const sync = await applyHardwareSync(plan.newItems, resolved);
@@ -199,22 +213,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         toast.success(`Hardware library: +${sync.added} added, ${sync.updated} updated`);
       }
     }
-    const selectedProducts = products.filter(p => selected.has(p.id));
+    const linesToUse = lines ?? pendingLines ?? products
+      .filter(p => selected.has(p.id))
+      .map(p => ({ id: p.id, name: p.name, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent } as QuoteProductInput));
     const { createQuoteSnapshot, defaultValidUntil } = await import('@/lib/quote-creation');
     const result = await createQuoteSnapshot({
       inquiryId,
-      selectedProducts: selectedProducts.map(p => ({
-        id: p.id,
-        name: p.name,
-        target_price_usd: p.target_price_usd,
-        markup_percent: p.markup_percent,
-      })),
+      selectedProducts: linesToUse,
       entityId,
       validUntil: defaultValidUntil(),
       currency,
     });
     setHwOpen(false);
     setHwPlan(null);
+    setReviewOpen(false);
+    setReviewSaving(false);
+    setPendingLines(null);
     if (result.error) { toast.error(result.error); return; }
     toast.success(`Quote draft created with ${entityName} (${currency})`);
     setSelected(new Set());
