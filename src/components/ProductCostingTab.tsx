@@ -235,7 +235,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const productsPerIc = cbm?.products_per_ic || 1;
 
   // Step 4: MC calcs with type-specific cost lookup
-  const includeMc = cbm?.include_mc ?? true;
+  const packagingType: 'ic_only' | 'ic_mc' | 'corrugate_bubble' = product?.packaging_type || 'ic_mc';
+  const includeMc = packagingType === 'ic_mc';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
   const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
@@ -244,6 +245,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     mc_max_depth: cbm?.mc_max_depth || 25,
     mc_max_height: cbm?.mc_max_height || 25,
     mc_buffer_inch: cbm?.mc_buffer_inch || 1,
+    mc_height_buffer_inch: cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5,
     mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20,
     mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
     product_weight_kg: product?.weight_kg || 0,
@@ -260,10 +262,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const along_w = cbm?.mc_ics_along_w || autoMcResult.mc_ics_along_w;
     const along_d = cbm?.mc_ics_along_d || autoMcResult.mc_ics_along_d;
     const along_h = cbm?.mc_ics_along_h || autoMcResult.mc_ics_along_h;
-    const buffer = cbm?.mc_buffer_inch || 1;
-    const mc_width = icDims.ic_width * along_w + buffer;
-    const mc_depth = icDims.ic_depth * along_d + buffer;
-    const mc_height = icDims.ic_height * along_h + buffer;
+    const wd_buffer = cbm?.mc_buffer_inch || 1;
+    const h_buffer = cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5;
+    const mc_width = icDims.ic_width * along_w + wd_buffer;
+    const mc_depth = icDims.ic_depth * along_d + wd_buffer;
+    const mc_height = icDims.ic_height * along_h + h_buffer;
     const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
     const products_per_mc = along_w * along_d * along_h * productsPerIc;
     return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
@@ -276,7 +279,20 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     : 0;
   const mcCost = calc.calcICCostEstimate(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, avgMcCostPerSqIn);
 
-  const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
+  // Corrugate + Bubble Wrap packaging (alternative to IC/MC)
+  const wrappingResult = useMemo(() => calc.calcCorrugateBubblePackaging(
+    w, d, h, icAdd,
+    {
+      corrugate_kg_per_sq_in: globalSettings?.corrugate_kg_per_sq_in ?? 0.25,
+      bubble_kg_per_sq_in: globalSettings?.bubble_kg_per_sq_in ?? 0.20,
+      corrugate_price_per_kg: globalSettings?.corrugate_price_per_kg ?? 0,
+      bubble_price_per_kg: globalSettings?.bubble_price_per_kg ?? 0,
+    },
+  ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
+
+  const finalUnitCbm = packagingType === 'corrugate_bubble'
+    ? wrappingResult.final_unit_cbm
+    : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
   // Persist derived CBM values so summary/quotes always use current numbers
