@@ -49,6 +49,8 @@ type Props = { productId: string; onProductUpdated?: () => void; onSummaryChange
 
 export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryChange }: Props) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
 
   // Data state
   const [product, setProduct] = useState<any>(null);
