@@ -143,7 +143,7 @@ export function TaskList({
                 <div className="hidden sm:flex items-center gap-1 shrink-0">
                   {t.inquiry && (
                     <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()}>
-                      <Badge variant="secondary" className="text-[10px] h-5">{t.inquiry.rfq_number}</Badge>
+                      <Badge variant="secondary" className="text-[10px] h-5 max-w-[160px] truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
                     </Link>
                   )}
                   {t.product && (
