@@ -86,6 +86,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [hwOpen, setHwOpen] = useState(false);
   const [hwEntityId, setHwEntityId] = useState<string>('');
   const [hwEntityName, setHwEntityName] = useState<string>('');
+  const [hwCurrency, setHwCurrency] = useState<'USD' | 'INR'>('USD');
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
@@ -166,11 +167,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     const preferredEntity = inq?.quoting_entity_id && entities.find(e => e.id === inq.quoting_entity_id)
       ? entities.find(e => e.id === inq.quoting_entity_id)!
       : entities[0];
+    const cur = (inq?.quoting_currency as 'USD' | 'INR') || 'USD';
     const plan = await getHardwareSyncPlan(selectedProducts.map(p => p.id));
     setHwEntityId(preferredEntity.id);
     setHwEntityName(preferredEntity.name);
+    setHwCurrency(cur);
     if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-      await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], (inq?.quoting_currency as 'USD' | 'INR') || 'USD');
+      await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur);
       return;
     }
     setHwPlan(plan);
@@ -363,7 +366,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         open={hwOpen}
         plan={hwPlan}
         onCancel={() => { setHwOpen(false); setHwPlan(null); }}
-        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency); }}
       />
     </div>
   );
