@@ -168,6 +168,38 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (nucRes.data) setNonUnitCogs(nucRes.data);
       if (ohRes.data) setOverheadItems(ohRes.data);
       if (shipRes.data) setShippingItems(shipRes.data);
+
+      // Self-heal: seed default overhead rows if missing (legacy/copied products)
+      if (!ohRes.data || ohRes.data.length === 0) {
+        const defaultOverhead = [
+          { product_id: id, labor_type: 'Manufacturing', sort_order: 0 },
+          { product_id: id, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
+          { product_id: id, labor_type: 'Sanding', sort_order: 2 },
+          { product_id: id, labor_type: 'Finishing', is_auto_estimated: true, sort_order: 3 },
+          { product_id: id, labor_type: 'Assembly', sort_order: 4 },
+          { product_id: id, labor_type: 'Packaging', is_auto_estimated: true, sort_order: 5 },
+          { product_id: id, labor_type: 'Market', sort_order: 6 },
+        ];
+        const { data: newOh } = await (supabase as any).from('overhead_items').insert(defaultOverhead).select();
+        if (newOh) setOverheadItems(newOh);
+      }
+      // Self-heal: ensure a cbm_estimates row exists
+      if (!cbmRes.data) {
+        const { data: gs } = await (supabase as any).from('global_settings').select('mc_height_buffer_inch').limit(1).single();
+        const { data: newCbm } = await (supabase as any)
+          .from('cbm_estimates')
+          .insert({ product_id: id, mc_height_buffer_inch: gs?.mc_height_buffer_inch ?? 2.5 })
+          .select()
+          .single();
+        if (newCbm) setCbm(newCbm);
+      }
+      // Self-heal: ensure default Auto Transport non-unit COGS exists
+      if (!nucRes.data || nucRes.data.length === 0) {
+        const { data: newNuc } = await (supabase as any).from('non_unit_cogs').insert({
+          product_id: id, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
+        }).select();
+        if (newNuc) setNonUnitCogs(newNuc);
+      }
       if (stRes.data) setShippingTypes(stRes.data);
       if (empRes.data) setEmployees(empRes.data);
       if (gsRes.data) setGlobalSettings(gsRes.data);
