@@ -432,7 +432,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
     const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType.contractor_base_rate_per_ri || 0;
-    const decrease = globalSettings.contractor_to_inhouse_decrease || 0;
+    const decrease = effectiveSettings.contractor_to_inhouse_decrease || 0;
 
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
 
