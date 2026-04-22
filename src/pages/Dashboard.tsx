@@ -31,6 +31,7 @@ import {
   type StageBucket,
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
+import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
@@ -82,6 +83,8 @@ const Dashboard = () => {
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
+  const [unitPrices, setUnitPrices] = useState<ProductUnitPriceMap>({});
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -92,8 +95,17 @@ const Dashboard = () => {
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
-      setProducts((prod.data ?? []) as Product[]);
+      const prodList = (prod.data ?? []) as Product[];
+      setProducts(prodList);
       setLoading(false);
+      // Compute current unit prices for weighted pipeline value (async, non-blocking for UI)
+      try {
+        const ids = prodList.map(p => p.id);
+        const prices = await computeProductUnitPrices(ids);
+        setUnitPrices(prices);
+      } catch (e) {
+        console.error('Failed to compute unit prices', e);
+      }
     })();
   }, [refreshKey]);
 
@@ -127,11 +139,13 @@ const Dashboard = () => {
       const w = productWeight(p, inqStatus);
       if (w === 0) continue;
       const qty = p.quantity ?? 0;
-      const price = Number(p.target_price_usd ?? 0);
+      // Use the live computed unit price; fall back to target only if costing has no result yet.
+      const computed = unitPrices[p.id]?.unit_price_usd ?? 0;
+      const price = computed > 0 ? computed : Number(p.target_price_usd ?? 0);
       total += qty * price * w;
     }
     return total;
-  }, [products, inquiryStatusById]);
+  }, [products, inquiryStatusById, unitPrices]);
 
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
