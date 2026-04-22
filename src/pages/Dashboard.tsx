@@ -342,15 +342,6 @@ const Dashboard = () => {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[170px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="updated">Sort: Updated</SelectItem>
-                <SelectItem value="created">Sort: Created</SelectItem>
-                <SelectItem value="product_count">Sort: Product Count</SelectItem>
-                <SelectItem value="customer">Sort: Customer</SelectItem>
-              </SelectContent>
-            </Select>
             <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
               <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
             </Button>
