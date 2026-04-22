@@ -15,6 +15,7 @@ import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { ProductVariants } from '@/components/ProductVariants';
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 
@@ -60,7 +61,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
-  const [inquiryOverrides, setInquiryOverrides] = useState<{ exchange_rate_override: number | null; markup_percent_override: number | null; shipping_type_id_override: string | null } | null>(null);
+  const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
@@ -178,7 +179,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (prodRes.data?.customer_rfq_id) {
         const { data: inqData } = await (supabase as any)
           .from('customer_rfqs')
-          .select('exchange_rate_override, markup_percent_override, shipping_type_id_override')
+          .select('*')
           .eq('id', prodRes.data.customer_rfq_id)
           .maybeSingle();
         if (inqData) setInquiryOverrides(inqData);
@@ -190,6 +191,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }, [id]);
 
   // ===== DERIVED CALCULATIONS (Steps 1-12) =====
+  // Effective settings = global_settings merged with per-inquiry overrides (if any)
+  const effectiveSettings = useMemo(
+    () => mergeSettingsWithInquiry(globalSettings as any, inquiryOverrides as any),
+    [globalSettings, inquiryOverrides],
+  );
+
   const productType = productTypes.find(t => t.id === product?.product_type_id);
   const w = product?.width_inch || 0;
   const d = product?.depth_inch || 0;
@@ -425,7 +432,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
     const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType.contractor_base_rate_per_ri || 0;
-    const decrease = globalSettings.contractor_to_inhouse_decrease || 0;
+    const decrease = effectiveSettings.contractor_to_inhouse_decrease || 0;
 
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
 
@@ -458,7 +465,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
     if (!dataLoaded || !globalSettings || !product || finalUnitCbm <= 0) return;
-    const autoTransportRate = (globalSettings as any).auto_transport_cost_per_cbm || 500;
+    const autoTransportRate = (effectiveSettings as any).auto_transport_cost_per_cbm || 500;
     const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
     if (!transportItem) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
@@ -473,7 +480,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-    const transportRate = globalSettings.local_transport_cost_per_cbm || 3500;
+    const transportRate = effectiveSettings.local_transport_cost_per_cbm || 3500;
     if (!freightItem) {
       if (freightCreatingRef.current) return;
       freightCreatingRef.current = true;
@@ -521,7 +528,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }));
   const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
   const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-  const indirectOhPerMh = globalSettings ? calc.calcIndirectOhPerManHour(globalSettings) : 0;
+  const indirectOhPerMh = effectiveSettings && globalSettings ? calc.calcIndirectOhPerManHour(effectiveSettings as any) : 0;
   const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
   // Step 10: Shipping (inquiry override > product's shipping_item)
@@ -757,7 +764,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         if (dbExisting && dbExisting.length > 0) {
                           setCogsItems(prev => [...prev, dbExisting[0]]);
                         } else {
-                          const transportCost = globalSettings?.local_transport_cost_per_cbm || 3500;
+                          const transportCost = effectiveSettings?.local_transport_cost_per_cbm || 3500;
                           const { data } = await (supabase as any).from('cogs_items').insert({
                             product_id: id,
                             cogs_type: 'Subcontracting',
@@ -786,7 +793,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <div>
                   <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
                   {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
+                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(effectiveSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
                   )}
                 </div>
               </div>

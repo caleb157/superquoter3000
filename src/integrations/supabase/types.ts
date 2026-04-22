@@ -372,13 +372,20 @@ export type Database = {
       customer_rfqs: {
         Row: {
           assigned_to: string | null
+          auto_transport_cost_per_cbm_override: number | null
+          available_hours_per_month_override: number | null
+          contractor_to_inhouse_decrease_override: number | null
           created_at: string
           customer_id: string | null
           drive_url: string | null
           exchange_rate_override: number | null
           id: string
+          indirect_overhead_monthly_override: number | null
+          local_transport_cost_per_cbm_override: number | null
           markup_percent_override: number | null
           notes: string | null
+          num_laborers_override: number | null
+          packaging_cost_per_cbm_override: number | null
           priority: string
           quoting_currency: string | null
           quoting_entity_id: string | null
@@ -393,13 +400,20 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          auto_transport_cost_per_cbm_override?: number | null
+          available_hours_per_month_override?: number | null
+          contractor_to_inhouse_decrease_override?: number | null
           created_at?: string
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
+          indirect_overhead_monthly_override?: number | null
+          local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
+          num_laborers_override?: number | null
+          packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
           quoting_entity_id?: string | null
@@ -414,13 +428,20 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          auto_transport_cost_per_cbm_override?: number | null
+          available_hours_per_month_override?: number | null
+          contractor_to_inhouse_decrease_override?: number | null
           created_at?: string
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
+          indirect_overhead_monthly_override?: number | null
+          local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
+          num_laborers_override?: number | null
+          packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
           quoting_entity_id?: string | null

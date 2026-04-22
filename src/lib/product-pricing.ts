@@ -2,6 +2,7 @@
 // Used by Dashboard for the weighted pipeline value so we no longer rely on target_price_usd.
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
+import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 export type ProductUnitPriceMap = Record<string, { unit_price_usd: number; unit_price_inr: number; exchange_rate: number }>;
 
@@ -33,7 +34,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*').in('product_id', productIds),
     supabase.from('product_types').select('*'),
-    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override'),
+    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, available_hours_per_month_override, num_laborers_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, contractor_to_inhouse_decrease_override'),
   ]);
 
   const products = productsRes.data || [];
@@ -51,7 +52,8 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
 
   for (const p of products as any[]) {
     const inq = p.customer_rfq_id ? inquiryById[p.customer_rfq_id] : null;
-    const exchangeRate = inq?.exchange_rate_override ?? gs?.exchange_rate ?? 90;
+    const settings = mergeSettingsWithInquiry(gs, inq);
+    const exchangeRate = settings?.exchange_rate ?? 90;
     const markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
     const qty = p.quantity || 100;
 
@@ -84,7 +86,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
 
     const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType?.contractor_base_rate_per_ri || 0;
-    const decrease = gs?.contractor_to_inhouse_decrease || 0;
+    const decrease = settings?.contractor_to_inhouse_decrease || 0;
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri);
     const packagingMh = calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
 
@@ -103,7 +105,7 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
     });
     const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
     const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-    const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
+    const indirectOhPerMh = settings ? calc.calcIndirectOhPerManHour(settings) : 0;
     const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
