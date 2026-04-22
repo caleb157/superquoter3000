@@ -100,7 +100,7 @@ export function ProductSampleLogTab({ productId }: Props) {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{s.vendor_name || 'No vendor set'}</span>
+                      <span className="text-sm font-medium">{s.vendor?.name || 'No vendor set'}</span>
                       <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{s.status}</Badge>
                       {days !== null && (
                         <Badge variant="outline" className="text-[10px]">{days}d to sample</Badge>
