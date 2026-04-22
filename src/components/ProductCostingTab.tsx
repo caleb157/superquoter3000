@@ -793,7 +793,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <div>
                   <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
                   {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(globalSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
+                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(effectiveSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
                   )}
                 </div>
               </div>
