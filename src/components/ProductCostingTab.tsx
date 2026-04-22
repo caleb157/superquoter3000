@@ -573,6 +573,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     shippingPerUnit, markupPercent, exchangeRate, qty
   );
 
+  // Report summary up to parent (ProductDetail header)
+  useEffect(() => {
+    if (!onSummaryChange || !dataLoaded) return;
+    onSummaryChange({
+      unitPriceInr: summary.unit_price_inr,
+      unitPriceUsd: summary.unit_price_usd,
+      unitCostInr: summary.product_cost_per_unit_inr,
+      unitCostUsd: summary.product_cost_per_unit_usd,
+      exchangeRate,
+    });
+  }, [summary.unit_price_inr, summary.unit_price_usd, summary.product_cost_per_unit_inr, summary.product_cost_per_unit_usd, exchangeRate, dataLoaded]);
+
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
     // If user edits an auto-calculated field, mark it as manual
