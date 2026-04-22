@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/select';
 import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SortableHeader } from '@/components/SortableHeader';
+import { useTableSort } from '@/hooks/use-table-sort';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
@@ -41,7 +43,6 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
 };
 
 type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
-type SortKey = 'updated' | 'created' | 'product_count' | 'customer';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
@@ -76,7 +77,7 @@ const Dashboard = () => {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
-  const [sortKey, setSortKey] = useState<SortKey>('updated');
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
@@ -176,24 +177,22 @@ const Dashboard = () => {
       );
     });
 
-    list = [...list].sort((a, b) => {
-      switch (sortKey) {
-        case 'created':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'product_count':
-          return (productsByInquiry[b.id]?.length ?? 0) - (productsByInquiry[a.id]?.length ?? 0);
-        case 'customer': {
-          const an = (customerMap[a.customer_id ?? '']?.name || '').toLowerCase();
-          const bn = (customerMap[b.customer_id ?? '']?.name || '').toLowerCase();
-          return an.localeCompare(bn);
-        }
-        case 'updated':
-        default:
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      }
-    });
+    // Default ordering: most recently updated first when no explicit sort selected.
+    if (!sortColumn || !sortDirection) {
+      list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    } else {
+      const getters: Record<string, (i: Inquiry) => string | number> = {
+        rfq: (i) => i.rfq_number.toLowerCase(),
+        customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
+        title: (i) => (i.title ?? '').toLowerCase(),
+        status: (i) => i.status,
+        products: (i) => productsByInquiry[i.id]?.length ?? 0,
+        updated: (i) => new Date(i.updated_at).getTime(),
+      };
+      list = sortItems(list, getters);
+    }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortKey]);
+  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -343,15 +342,6 @@ const Dashboard = () => {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-              <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[170px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="updated">Sort: Updated</SelectItem>
-                <SelectItem value="created">Sort: Created</SelectItem>
-                <SelectItem value="product_count">Sort: Product Count</SelectItem>
-                <SelectItem value="customer">Sort: Customer</SelectItem>
-              </SelectContent>
-            </Select>
             <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
               <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
             </Button>
@@ -456,15 +446,15 @@ const Dashboard = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs w-[120px]">#</TableHead>
-                      <TableHead className="text-xs">Customer</TableHead>
-                      <TableHead className="text-xs">Title</TableHead>
-                      <TableHead className="text-xs w-[88px]">Status</TableHead>
-                      <TableHead className="text-xs w-[70px] text-right">Products</TableHead>
+                      <SortableHeader column="rfq" label="#" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[120px]" />
+                      <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
+                      <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs">Design</TableHead>
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
-                      <TableHead className="text-xs w-[100px]">Updated</TableHead>
+                      <SortableHeader column="updated" label="Updated" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[100px]" />
                       <TableHead className="text-xs text-right w-[190px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
