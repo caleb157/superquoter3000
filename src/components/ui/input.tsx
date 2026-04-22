@@ -3,12 +3,26 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Strip a leading 0 in displayed numeric values so empty/zero fields render as
- * blank instead of "0". A bare "0" → "", "0.7" stays "0.7", "10" stays "10".
- * Returns the input untouched when it isn't a numeric zero.
+ * Sanitize a value bound to a numeric input.
+ *  - Renders empty string for `0`, `"0"`, `null`, `undefined`, `NaN`, `Infinity`,
+ *    or any non-finite number, so the field looks blank instead of showing "0"
+ *    or "NaN".
+ *  - Leaves valid numeric strings (e.g. "0.7", "10", "-3.5") untouched.
  */
-function blankIfZero(v: unknown): unknown {
+function sanitizeNumericValue(v: unknown): unknown {
+  if (v === null || v === undefined) return "";
   if (v === 0 || v === "0") return "";
+  if (typeof v === "number" && !Number.isFinite(v)) return "";
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    if (trimmed === "" || trimmed.toLowerCase() === "nan") return "";
+    // Preserve in-progress input like "-", ".", "0.", etc. — only blank when
+    // the parsed value is a non-finite number (e.g. "NaN").
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) && trimmed !== "-" && trimmed !== "." && trimmed !== "-.") {
+      return "";
+    }
+  }
   return v;
 }
 
