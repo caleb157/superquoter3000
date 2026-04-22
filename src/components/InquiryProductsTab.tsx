@@ -343,7 +343,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           No products in this inquiry yet.
         </CardContent></Card>
       ) : (
-        <Card><CardContent className="p-0">
+        <>
+          {/* Desktop table */}
+          <Card className="hidden md:block"><CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -403,7 +405,63 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               })}
             </TableBody>
           </Table>
-        </CardContent></Card>
+          </CardContent></Card>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2">
+            {filtered.map(p => {
+              const cb = costingBadge(p);
+              const isSelected = selected.has(p.id);
+              return (
+                <Card
+                  key={p.id}
+                  className={cn(
+                    'cursor-pointer active:bg-accent/50 transition-colors',
+                    isSelected && 'ring-2 ring-primary',
+                  )}
+                  onClick={() => navigate(`/product/${p.id}`)}
+                >
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div onClick={e => e.stopPropagation()} className="pt-0.5">
+                        <Checkbox checked={isSelected} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm truncate">{p.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
+                        </div>
+                      </div>
+                      <Badge className={cn(cb.cls, 'text-[10px] shrink-0')} variant="secondary">{cb.label}</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} />
+                      <SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} />
+                      <SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} />
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t text-[11px]">
+                      <span className="font-mono tabular-nums font-medium">
+                        {priceMap[p.id]?.unit_price_usd ? fmt.usd(priceMap[p.id].unit_price_usd) : '—'}
+                      </span>
+                      <div onClick={e => e.stopPropagation()}>
+                        <ConfirmDeleteButton
+                          itemLabel={`product "${p.name}"`}
+                          iconOnly
+                          onConfirm={async () => {
+                            const { error } = await supabase.from('products').delete().eq('id', p.id);
+                            if (error) throw error;
+                            setRefresh(r => r + 1);
+                            onChange();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <GenerateSampleDialog
