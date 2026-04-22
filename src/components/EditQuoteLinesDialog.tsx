@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
 
@@ -25,53 +25,119 @@ type SnapshotLine = {
   variant_name?: string | null;
 };
 
+type SavedPatch = {
+  id: string;
+  products: any[];
+  totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number };
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   snapshot: any | null;
-  onSaved: () => void;
+  // onSaved receives an optimistic patch so the parent can merge it into local state
+  // immediately, without waiting on a refetch.
+  onSaved: (patch: SavedPatch) => void;
 };
+
+type Status = 'idle' | 'saving' | 'saved' | 'error';
 
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const initialSerialRef = useRef<string>('');
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currency: 'USD' | 'INR' = snapshot?.currency === 'INR' ? 'INR' : 'USD';
   const sym = currency === 'INR' ? '₹' : '$';
-  const fmtMoney = (n: number) => `${sym}${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtMoney = (n: number) =>
+    `${sym}${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  // Load lines + reset transient state whenever the dialog opens for a new snapshot.
   useEffect(() => {
     if (!open || !snapshot) return;
     const initial: SnapshotLine[] = (snapshot.products || []) as SnapshotLine[];
-    setLines(initial.map((l, i) => ({ ...l, _key: `line-${i}-${l.product_id || 'x'}` })));
+    const seeded = initial.map((l, i) => ({ ...l, _key: `line-${i}-${l.product_id || 'x'}` }));
+    setLines(seeded);
+    initialSerialRef.current = JSON.stringify(serializeLines(seeded));
+    setStatus('idle');
+    setErrorMsg(null);
   }, [open, snapshot]);
+
+  // Cancel a pending auto-close if the user reopens or unmounts.
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   const totals = useMemo(() => {
     const qty = lines.reduce((s, l) => s + Number(l.quantity || 0), 0);
     const grand = lines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unit_price_usd || 0), 0);
-    return { qty, grand };
+    const cbm = lines.reduce((s, l) => s + Number(l.unit_cbm || 0) * Number(l.quantity || 0), 0);
+    return { qty, grand, cbm, sku: lines.length };
   }, [lines]);
+
+  const dirty = useMemo(
+    () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current,
+    [lines],
+  );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
     setLines(prev => prev.map(l => l._key === key ? { ...l, ...patch } : l));
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
   };
 
-  const removeLine = (key: string) => setLines(prev => prev.filter(l => l._key !== key));
+  const removeLine = (key: string) => {
+    setLines(prev => prev.filter(l => l._key !== key));
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
+  };
 
   const handleSave = async () => {
-    if (!snapshot) return;
-    setSaving(true);
+    if (!snapshot || !dirty || status === 'saving') return;
+    setStatus('saving');
+    setErrorMsg(null);
+
     const payload = lines.map(({ _key, ...rest }) => rest);
-    const { error } = await updateQuoteLineItems(snapshot.id, payload);
-    setSaving(false);
-    if (error) { toast.error(error); return; }
+    const result = await updateQuoteLineItems(snapshot.id, payload);
+
+    if (result.error) {
+      setStatus('error');
+      setErrorMsg(result.error);
+      toast.error(`Save failed: ${result.error}`);
+      return;
+    }
+
+    // Re-baseline so further edits are detected as dirty again.
+    initialSerialRef.current = JSON.stringify(serializeLines(lines));
+    setStatus('saved');
     toast.success('Quote updated');
-    onSaved();
-    onOpenChange(false);
+
+    // Push the optimistic patch up so the Quotes list reflects new totals immediately.
+    onSaved({
+      id: snapshot.id,
+      products: result.products ?? payload,
+      totals: result.totals ?? {
+        sku_count: payload.length,
+        total_qty: totals.qty,
+        grand_total: totals.grand,
+        total_cbm: totals.cbm,
+      },
+    });
+
+    closeTimerRef.current = setTimeout(() => onOpenChange(false), 700);
   };
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next && status === 'saving') return; // block close while in-flight
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    onOpenChange(next);
+  };
+
+  const saveLabel =
+    status === 'saving' ? 'Saving…' :
+    status === 'saved' ? 'Saved' :
+    dirty ? 'Save changes' : 'No changes';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Edit quote line items</DialogTitle>
@@ -92,6 +158,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                     value={line.name}
                     onChange={e => update(line._key, { name: e.target.value })}
                     className="h-8 text-xs"
+                    disabled={status === 'saving'}
                   />
                   {line.variant_name && (
                     <Badge variant="secondary" className="text-[10px] shrink-0">{line.variant_name}</Badge>
@@ -106,6 +173,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   value={line.quantity}
                   onChange={e => update(line._key, { quantity: Number(e.target.value) })}
                   className="h-8 text-xs text-right"
+                  disabled={status === 'saving'}
                 />
               </div>
               <div className="col-span-3">
@@ -116,6 +184,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   value={line.unit_price_usd}
                   onChange={e => update(line._key, { unit_price_usd: Number(e.target.value) })}
                   className="h-8 text-xs text-right"
+                  disabled={status === 'saving'}
                 />
               </div>
               <div className="col-span-2 flex items-center justify-end gap-2 pb-0.5">
@@ -126,6 +195,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
                   title="Remove line"
                   onClick={() => removeLine(line._key)}
+                  disabled={status === 'saving'}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -134,18 +204,48 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           ))}
         </div>
 
+        {status === 'error' && errorMsg && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {errorMsg}
+          </div>
+        )}
+
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-3">
           <div className="text-xs text-muted-foreground">
-            {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units · <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
+            {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
+            <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
+            {dirty && status === 'idle' && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[10px] font-medium">
+                Unsaved
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || lines.length === 0}>
-              {saving ? 'Saving…' : 'Save changes'}
+            <Button
+              variant="ghost"
+              onClick={() => handleOpenChange(false)}
+              disabled={status === 'saving'}
+            >
+              {status === 'saved' ? 'Close' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={status === 'saving' || status === 'saved' || !dirty || lines.length === 0}
+              className="gap-1.5 min-w-[130px]"
+            >
+              {status === 'saving' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {status === 'saved' && <Check className="h-3.5 w-3.5" />}
+              {saveLabel}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+// Strip the volatile `_key` before comparing so dirty-tracking only reflects real
+// data changes (not re-renders).
+function serializeLines(lines: Array<SnapshotLine & { _key: string }>) {
+  return lines.map(({ _key, ...rest }) => rest);
 }
