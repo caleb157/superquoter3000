@@ -462,7 +462,7 @@ const Settings = () => {
                     {group.items.map(item => (
                       <button
                         key={item.id}
-                        onClick={() => setSection(item.id)}
+                        onClick={() => { setSection(item.id); if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${item.id}`); }}
                         className={cn(
                           'w-full text-left px-2 py-1.5 rounded text-xs transition-colors',
                           section === item.id
