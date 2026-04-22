@@ -35,9 +35,9 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
     const renderedType = isNumber ? "text" : type;
     const renderedInputMode = isNumber ? (inputMode ?? "decimal") : inputMode;
 
-    const renderedValue = isNumber && value !== undefined ? blankIfZero(value) : value;
+    const renderedValue = isNumber && value !== undefined ? sanitizeNumericValue(value) : value;
     const renderedDefault =
-      isNumber && defaultValue !== undefined ? blankIfZero(defaultValue) : defaultValue;
+      isNumber && defaultValue !== undefined ? sanitizeNumericValue(defaultValue) : defaultValue;
 
     return (
       <input
