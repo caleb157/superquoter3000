@@ -7,8 +7,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import {
-  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu, ChevronDown,
-  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal, ScrollText,
+  Settings, LogOut, ShoppingCart, FileText, Menu,
+  Users, Inbox, Package2, CheckSquare, MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -33,20 +33,16 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const visibleItems = navItems.filter(n => n.show);
 
-  // Desktop primary nav order: Inquiries, Customers, Products, Logs (dropdown), Tasks
+  // Desktop primary nav: Inquiries, Customers, Products, Tasks, Quotes, Samples
   const primaryDesktop: Array<{ to: string; label: string; icon: typeof Inbox }> = [
     { to: '/', label: 'Inquiries', icon: Inbox },
     { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
-  ].filter(i => visibleItems.find(v => v.to === i.to));
-
-  const logsItems = [
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
   ].filter(i => visibleItems.find(v => v.to === i.to));
 
-  const logsActive = logsItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
   const showSettings = !!visibleItems.find(v => v.to === '/settings');
 
   // Bottom-nav primary set on mobile (4 most-used + More)
