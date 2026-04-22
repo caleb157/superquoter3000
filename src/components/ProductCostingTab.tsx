@@ -465,7 +465,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
     if (!dataLoaded || !globalSettings || !product || finalUnitCbm <= 0) return;
-    const autoTransportRate = (globalSettings as any).auto_transport_cost_per_cbm || 500;
+    const autoTransportRate = (effectiveSettings as any).auto_transport_cost_per_cbm || 500;
     const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
     if (!transportItem) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
