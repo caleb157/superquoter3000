@@ -367,6 +367,11 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
       // Use already-fetched hardware prices
       const hwPrices = hardwarePrices;
 
+      // Fetch global settings once to seed per-product packaging defaults
+      const { data: gsRow } = await supabase
+        .from('global_settings').select('mc_height_buffer_inch').limit(1).single();
+      const gsMcHBuffer = (gsRow as any)?.mc_height_buffer_inch ?? 2.5;
+
       for (const p of toImport) {
         const matchedType = productTypes.find(pt =>
           pt.name.toLowerCase() === (p.product_type || '').toLowerCase()
@@ -503,7 +508,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
         await supabase.from('overhead_items').insert(defaultOverhead as any);
 
         // CBM estimates — include IC/MC data from structured intake if present
-        const cbmData: any = { product_id: prod.id };
+        const cbmData: any = { product_id: prod.id, mc_height_buffer_inch: gsMcHBuffer };
         if (p.ic_type) cbmData.ic_type = p.ic_type;
         if (p.products_per_ic != null) cbmData.products_per_ic = p.products_per_ic;
         if (p.ic_width != null) cbmData.ic_width = p.ic_width;
