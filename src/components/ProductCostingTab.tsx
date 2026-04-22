@@ -1026,8 +1026,23 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                           </Select>
                         </TableCell>
                         <TableCell className="text-[10px] text-muted-foreground">
-                          {item.cogs_type}
-                          {isAuto && <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>}
+                          {isAuto ? (
+                            <>
+                              {item.cogs_type}
+                              <Badge variant="secondary" className="ml-1 text-[7px] h-3 px-1">auto</Badge>
+                            </>
+                          ) : (
+                            <Select value={item.cogs_type} onValueChange={v => updateCogsItem(item.id, 'cogs_type', v)}>
+                              <SelectTrigger className="h-6 text-[10px] w-32 border-transparent hover:border-input"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Raw Piece">Raw Piece</SelectItem>
+                                <SelectItem value="Hardware">Hardware</SelectItem>
+                                <SelectItem value="Accessories">Accessories</SelectItem>
+                                <SelectItem value="Subcontracting">Subcontracting</SelectItem>
+                                <SelectItem value="Finishing Materials">Finishing Materials</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </TableCell>
                         <TableCell>
                           {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
