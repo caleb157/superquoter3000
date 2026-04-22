@@ -36,8 +36,8 @@ const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = (searchParams.get('tab') || 'summary') as TabKey;
-  const activeTab: TabKey = (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'summary';
+  const tabParam = (searchParams.get('tab') || 'costing') as TabKey;
+  const activeTab: TabKey = (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'costing';
 
   const [product, setProduct] = useState<ProductHeader | null>(null);
   const [loading, setLoading] = useState(true);
