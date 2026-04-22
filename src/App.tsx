@@ -25,6 +25,7 @@ import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
 import TeamManagement from "./pages/TeamManagement";
+import Vendors from "./pages/Vendors";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
