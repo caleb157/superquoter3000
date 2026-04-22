@@ -12,7 +12,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { Copy, RefreshCw, Loader2, Search, CalendarIcon, X, ExternalLink, Eye } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, Search, CalendarIcon, X, ExternalLink, Eye, Pencil } from 'lucide-react';
+import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,7 @@ const Quotes = () => {
   const [entities, setEntities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selectionsSnap, setSelectionsSnap] = useState<any | null>(null);
+  const [editSnap, setEditSnap] = useState<any | null>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -336,6 +338,12 @@ const Quotes = () => {
                                   </Button>
                                 </>
                               )}
+                              <Button
+                                variant="ghost" size="sm" className="text-xs h-7 gap-1"
+                                onClick={() => setEditSnap(snap)}
+                              >
+                                <Pencil className="h-3 w-3" /> Edit
+                              </Button>
                               {snap.customer_selections && (
                                 <Button
                                   variant="ghost" size="sm" className="text-xs h-7 gap-1"
@@ -416,6 +424,12 @@ const Quotes = () => {
                             </Button>
                           </>
                         )}
+                        <Button
+                          variant="ghost" size="sm" className="text-[11px] h-7 gap-1"
+                          onClick={() => setEditSnap(snap)}
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </Button>
                         {snap.customer_selections && (
                           <Button
                             variant="ghost" size="sm" className="text-[11px] h-7 gap-1"
@@ -486,6 +500,13 @@ const Quotes = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        <EditQuoteLinesDialog
+          open={!!editSnap}
+          onOpenChange={(o) => !o && setEditSnap(null)}
+          snapshot={editSnap}
+          onSaved={fetchData}
+        />
       </div>
     </AppLayout>
   );
