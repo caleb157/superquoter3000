@@ -28,6 +28,14 @@ export function clearProductDefaultsCache() {
 }
 
 export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?: number }) {
+  // The DB trigger `trg_seed_product_defaults` now seeds 14 COGS + 7 overhead +
+  // CBM estimate + 1 non-unit COGS row automatically on product INSERT. This
+  // function is kept as a safety-net self-heal for legacy products that were
+  // created before the trigger existed (or any product that ended up with
+  // zero COGS rows for any reason).
+  const { count: cogsCount } = await (supabase as any)
+    .from('cogs_items').select('id', { count: 'exact', head: true }).eq('product_id', productId);
+
   const defaultCogs = [
     { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
     { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
@@ -57,13 +65,21 @@ export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?
 
   const mcHBuffer = opts?.mcHBuffer ?? (await getCachedMcHeightBuffer());
 
+  // Gate every insert on its existing row count so we never duplicate seeds —
+  // critical because the DB trigger may have already populated everything.
+  const [{ count: ohCount }, { count: cbmCount }, { count: nuCount }] = await Promise.all([
+    (supabase as any).from('overhead_items').select('id', { count: 'exact', head: true }).eq('product_id', productId),
+    (supabase as any).from('cbm_estimates').select('product_id', { count: 'exact', head: true }).eq('product_id', productId),
+    (supabase as any).from('non_unit_cogs').select('id', { count: 'exact', head: true }).eq('product_id', productId),
+  ]);
+
   await Promise.all([
-    (supabase as any).from('cogs_items').insert(defaultCogs),
-    (supabase as any).from('overhead_items').insert(defaultOverhead),
-    (supabase as any).from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: mcHBuffer }),
-    (supabase as any).from('non_unit_cogs').insert({
+    (cogsCount ?? 0) === 0 ? (supabase as any).from('cogs_items').insert(defaultCogs) : Promise.resolve(),
+    (ohCount ?? 0) === 0 ? (supabase as any).from('overhead_items').insert(defaultOverhead) : Promise.resolve(),
+    (cbmCount ?? 0) === 0 ? (supabase as any).from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: mcHBuffer }) : Promise.resolve(),
+    (nuCount ?? 0) === 0 ? (supabase as any).from('non_unit_cogs').insert({
       product_id: productId, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
-    }),
+    }) : Promise.resolve(),
   ]);
 }
 
