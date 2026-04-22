@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   if (req.method === "GET") {
-    // Fetch quote snapshot by share_token
     const { data: snapshot, error } = await supabase
       .from("quote_snapshots")
       .select("*")
@@ -39,92 +38,49 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch entity details if entity_id exists
-    let entity = null;
-    if (snapshot.entity_id) {
+    // Prefer frozen snapshot data. Fall back to live entity lookup for legacy quotes.
+    let entity = (snapshot as any).entity ?? null;
+    let customer = (snapshot as any).customer ?? null;
+    let inquiry = (snapshot as any).inquiry ?? null;
+
+    if (!entity && snapshot.entity_id) {
       const { data } = await supabase
         .from("company_entities")
-        .select("name, legal_name, entity_type, logo_url, address_line1, city, state, postal_code, country, phone, email, website, bank_name, bank_branch, account_name, account_number, routing_number, ifsc_code, swift_code")
+        .select("id, name, legal_name, entity_type, logo_url, address_line1, address_line2, city, state, postal_code, country, phone, email, website, bank_name, bank_branch, account_name, account_number, routing_number, ifsc_code, swift_code, gst_number, ein_number")
         .eq("id", snapshot.entity_id)
-        .single();
+        .maybeSingle();
       entity = data;
     }
 
-    // Fetch project info
-    let project = null;
-    if (snapshot.project_id) {
-      const { data } = await supabase
-        .from("projects")
-        .select("name, customer_name, customer_email")
-        .eq("id", snapshot.project_id)
-        .single();
-      project = data;
-
-      // Fetch product variants for each product
-      const { data: products } = await supabase
-        .from("products")
-        .select("id, name, sku, photo_url, width_inch, depth_inch, height_inch, weight_kg, moq, quantity")
-        .eq("project_id", snapshot.project_id);
-
-      if (products && products.length > 0) {
-        const productIds = products.map((p: any) => p.id);
-        const [variantsRes, cbmRes] = await Promise.all([
-          supabase
-            .from("product_variants")
-            .select("id, product_id, variant_name, photo_url, wood_price_factor")
-            .in("product_id", productIds),
-          supabase
-            .from("cbm_estimates")
-            .select("product_id, final_unit_cbm")
-            .in("product_id", productIds),
-        ]);
-        const variants = variantsRes.data || [];
-        const cbmEstimates = cbmRes.data || [];
-
-        // Attach variants + CBM to snapshot products
-        const snapshotProducts = (snapshot.products as any[]) || [];
-        for (const sp of snapshotProducts) {
-          // Assembly items are stored with their own photo_url and don't need DB matching
-          if (sp.is_assembly) continue;
-
-          const dbProduct = products.find((p: any) => p.name === sp.name || p.sku === sp.sku);
-          if (dbProduct) {
-            sp.product_id = dbProduct.id;
-            sp.photo_url = sp.photo_url || dbProduct.photo_url;
-            sp.moq = dbProduct.moq;
-            sp.width_inch = dbProduct.width_inch;
-            sp.depth_inch = dbProduct.depth_inch;
-            sp.height_inch = dbProduct.height_inch;
-            sp.weight_kg = dbProduct.weight_kg;
-            sp.variants = variants.filter((v: any) => v.product_id === dbProduct.id);
-            // Use latest CBM from cbm_estimates, fall back to snapshot value
-            const cbmEst = cbmEstimates.find((c: any) => c.product_id === dbProduct.id);
-            if (cbmEst?.final_unit_cbm && cbmEst.final_unit_cbm > 0) {
-              sp.unit_cbm = cbmEst.final_unit_cbm;
-            } else if ((!sp.unit_cbm || sp.unit_cbm === 0) && dbProduct.width_inch && dbProduct.depth_inch && dbProduct.height_inch) {
-              sp.unit_cbm = (dbProduct.width_inch * dbProduct.depth_inch * dbProduct.height_inch) / 61020;
-            }
-          }
-        }
-        snapshot.products = snapshotProducts;
+    // Legacy quotes: try to derive customer + inquiry from customer_rfq_id if missing.
+    if (!customer && snapshot.customer_rfq_id) {
+      const { data: inqRow } = await supabase
+        .from("customer_rfqs")
+        .select("id, rfq_number, title, customers(id, name, company, email, logo_url)")
+        .eq("id", snapshot.customer_rfq_id)
+        .maybeSingle();
+      if (inqRow) {
+        if (!inquiry) inquiry = { id: inqRow.id, rfq_number: inqRow.rfq_number, title: inqRow.title };
+        const c: any = (inqRow as any).customers;
+        if (c) customer = { id: c.id, name: c.name, company: c.company, email: c.email, logo_url: c.logo_url };
       }
     }
 
-    // Mark as viewed
+    // Mark as viewed (don't await to keep response fast).
     if (!snapshot.viewed_at) {
-      await supabase
+      supabase
         .from("quote_snapshots")
         .update({ viewed_at: new Date().toISOString() })
-        .eq("id", snapshot.id);
+        .eq("id", snapshot.id)
+        .then(() => {});
     }
 
-    return new Response(JSON.stringify({ snapshot, entity, project }), {
+    return new Response(JSON.stringify({ snapshot, entity, customer, inquiry }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   if (req.method === "POST") {
-    // Save customer selections
     const body = await req.json();
     const { customer_selections, customer_name, customer_email, confirmed } = body;
 
