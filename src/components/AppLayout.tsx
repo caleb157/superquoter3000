@@ -142,13 +142,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <LogOut className="h-3.5 w-3.5" />
             </Button>
 
-            {/* Mobile hamburger */}
+            {/* Mobile sheet (overflow nav) — trigger lives in bottom nav, but
+                we still keep the Sheet here so it can be controlled by the
+                "More" tab below. */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden" aria-label="Menu">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
               <SheetContent side="right" className="w-72 p-4 flex flex-col">
                 <div className="flex items-center gap-2 mb-4 mt-2">
                   <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
