@@ -26,67 +26,42 @@ export function ResizableTableHead({
     const n = v ? parseInt(v, 10) : NaN;
     return Number.isFinite(n) && n >= minWidth && n <= maxWidth ? n : defaultWidth;
   });
-  const dragging = useRef<{ startX: number; startW: number } | null>(null);
+  const widthRef = useRef(width);
+  widthRef.current = width;
+  const dragging = useRef<{ startX: number; startW: number; pointerId: number } | null>(null);
+  const handleRef = useRef<HTMLSpanElement | null>(null);
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLSpanElement>) => {
+    // Only react to primary button / touch / pen
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
-    dragging.current = { startX: e.clientX, startW: width };
+    e.stopPropagation();
+    dragging.current = { startX: e.clientX, startW: widthRef.current, pointerId: e.pointerId };
+    try { handleRef.current?.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  };
+  }, []);
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragging.current) return;
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLSpanElement>) => {
+    if (!dragging.current || dragging.current.pointerId !== e.pointerId) return;
     const next = Math.min(maxWidth, Math.max(minWidth, dragging.current.startW + (e.clientX - dragging.current.startX)));
     setWidth(next);
   }, [minWidth, maxWidth]);
 
-  const onMouseUp = useCallback(() => {
-    if (!dragging.current) return;
+  const endDrag = useCallback((e: React.PointerEvent<HTMLSpanElement>) => {
+    if (!dragging.current || dragging.current.pointerId !== e.pointerId) return;
+    try { handleRef.current?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     dragging.current = null;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    try { window.localStorage.setItem(`colw:${storageKey}`, String(width)); } catch { /* ignore */ }
-  }, [storageKey, width]);
+    try { window.localStorage.setItem(`colw:${storageKey}`, String(widthRef.current)); } catch { /* ignore */ }
+  }, [storageKey]);
 
-  useEffect(() => {
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [onMouseMove, onMouseUp]);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    if (!t) return;
-    dragging.current = { startX: t.clientX, startW: width };
-  };
-  const onTouchMove = useCallback((e: TouchEvent) => {
-    if (!dragging.current) return;
-    const t = e.touches[0];
-    if (!t) return;
-    e.preventDefault();
-    const next = Math.min(maxWidth, Math.max(minWidth, dragging.current.startW + (t.clientX - dragging.current.startX)));
-    setWidth(next);
-  }, [minWidth, maxWidth]);
-  const onTouchEnd = useCallback(() => {
-    if (!dragging.current) return;
-    dragging.current = null;
-    try { window.localStorage.setItem(`colw:${storageKey}`, String(width)); } catch { /* ignore */ }
-  }, [storageKey, width]);
-
-  useEffect(() => {
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    window.addEventListener('touchcancel', onTouchEnd);
-    return () => {
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [onTouchMove, onTouchEnd]);
+  // Safety: if drag was abandoned (e.g. focus loss), clean up on unmount
+  useEffect(() => () => {
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
 
   const isDragging = dragging.current !== null;
 
@@ -99,10 +74,13 @@ export function ResizableTableHead({
         {children}
       </span>
       <span
+        ref={handleRef}
         role="separator"
         aria-orientation="vertical"
-        onMouseDown={onMouseDown}
-        onTouchStart={onTouchStart}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         onDoubleClick={() => {
           setWidth(defaultWidth);
           try { window.localStorage.setItem(`colw:${storageKey}`, String(defaultWidth)); } catch { /* ignore */ }
@@ -110,7 +88,7 @@ export function ResizableTableHead({
         title="Drag to resize · double-click to reset"
         className={cn(
           // Wider hit target on touch, narrow visual on hover
-          "absolute top-0 right-0 h-full select-none touch-none cursor-col-resize z-10",
+          "absolute top-0 right-0 h-full select-none touch-none cursor-col-resize z-20",
           "w-3 sm:w-2",
           // Visible affordance: a thin vertical bar centered in the hit area
           "before:absolute before:top-1/2 before:right-0 before:-translate-y-1/2",
