@@ -20,6 +20,8 @@ import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
+import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
+import type { QuoteProductInput } from '@/lib/quote-creation';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
