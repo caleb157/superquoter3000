@@ -82,8 +82,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   }, [lines]);
 
   const dirty = useMemo(
-    () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current,
-    [lines],
+    () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
+      || paymentTerms !== initialPaymentTermsRef.current,
+    [lines, paymentTerms],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
