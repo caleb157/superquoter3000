@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import {
   furthestStageBucket,
