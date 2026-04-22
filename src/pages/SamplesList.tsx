@@ -95,6 +95,33 @@ export default function SamplesList() {
           </Button>
         </div>
 
+        {!loading && rfsItems.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {STATUS_FILTERS.map(f => {
+              const active = statusFilter === f.key;
+              const n = counts[f.key] ?? 0;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setStatusFilter(f.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition',
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-muted text-muted-foreground border-border',
+                  )}
+                >
+                  <span>{f.label}</span>
+                  <span className={cn(
+                    'rounded-full px-1.5 text-[10px] tabular-nums',
+                    active ? 'bg-primary-foreground/20' : 'bg-muted',
+                  )}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : rfsItems.length === 0 ? (
