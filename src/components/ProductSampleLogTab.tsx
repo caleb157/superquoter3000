@@ -12,19 +12,19 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Plus, Pencil, Trash2, X, Upload, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, differenceInDays, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 type Sample = {
   id: string;
   product_id: string | null;
-  rfs_id: string | null;
+  customer_rfq_id: string | null;
   vendor_id: string | null;
   vendor_name: string | null;
   status: string;
   requested_date: string | null;
-  initial_ready_date: string | null;
-  final_ready_date: string | null;
+  completed_at: string | null;
+  required_by_date: string | null;
   dimensions_inch: string | null;
   weight_kg: number | null;
   finish: string | null;
@@ -32,19 +32,15 @@ type Sample = {
   feedback: string | null;
   notes: string | null;
   created_at: string;
-  rfs?: { rfs_number: string; customer_rfq_id: string | null } | null;
 };
 
 type Vendor = { id: string; name: string };
 
-const STATUSES = ['requested', 'in_production', 'ready', 'received', 'approved', 'rejected'];
+const STATUSES = ['pending', 'completed', 'cancelled'] as const;
 const STATUS_COLOR: Record<string, string> = {
-  requested: 'bg-muted text-muted-foreground',
-  in_production: 'bg-amber-100 text-amber-800',
-  ready: 'bg-blue-100 text-blue-800',
-  received: 'bg-indigo-100 text-indigo-800',
-  approved: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-red-100 text-red-800',
+  pending: 'bg-amber-100 text-amber-800',
+  completed: 'bg-emerald-100 text-emerald-800',
+  cancelled: 'bg-red-100 text-red-800',
 };
 
 type Props = { productId: string };
@@ -58,9 +54,9 @@ export function ProductSampleLogTab({ productId }: Props) {
 
   const fetchSamples = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('samples')
-      .select('*, rfs:rfs(rfs_number, customer_rfq_id)')
+      .select('*')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
     setSamples(((data as any) ?? []).map((s: any) => ({ ...s, photo_urls: Array.isArray(s.photo_urls) ? s.photo_urls : [] })));
@@ -95,56 +91,61 @@ export function ProductSampleLogTab({ productId }: Props) {
         </CardContent></Card>
       ) : (
         <div className="space-y-2">
-          {samples.map(s => (
-            <Card key={s.id}>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{s.vendor_name || 'No vendor set'}</span>
-                    <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{s.status}</Badge>
-                    {s.rfs && (
-                      <Badge variant="outline" className="text-[10px]">Batch: {s.rfs.rfs_number}</Badge>
-                    )}
+          {samples.map(s => {
+            const days = (s.completed_at && s.requested_date)
+              ? differenceInDays(parseISO(s.completed_at), parseISO(s.requested_date))
+              : null;
+            return (
+              <Card key={s.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">{s.vendor_name || 'No vendor set'}</span>
+                      <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{s.status}</Badge>
+                      {days !== null && (
+                        <Badge variant="outline" className="text-[10px]">{days}d to sample</Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s.id)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s.id)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                    {s.requested_date && <span>Requested: {format(new Date(s.requested_date), 'MMM d, yyyy')}</span>}
+                    {s.completed_at && <span>Completed: {format(new Date(s.completed_at), 'MMM d, yyyy')}</span>}
+                    {s.required_by_date && <span>Required by: {format(new Date(s.required_by_date), 'MMM d, yyyy')}</span>}
                   </div>
-                </div>
 
-                <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                  {s.requested_date && <span>Requested: {format(new Date(s.requested_date), 'MMM d, yyyy')}</span>}
-                  {s.initial_ready_date && <span>Initial ready: {format(new Date(s.initial_ready_date), 'MMM d, yyyy')}</span>}
-                  {s.final_ready_date && <span>Final ready: {format(new Date(s.final_ready_date), 'MMM d, yyyy')}</span>}
-                </div>
+                  {(s.dimensions_inch || s.weight_kg || s.finish) && (
+                    <div className="text-xs flex flex-wrap gap-x-4 gap-y-1">
+                      {s.dimensions_inch && <span><span className="text-muted-foreground">Dims:</span> {s.dimensions_inch}</span>}
+                      {s.weight_kg != null && <span><span className="text-muted-foreground">Weight:</span> {s.weight_kg} kg</span>}
+                      {s.finish && <span><span className="text-muted-foreground">Finish:</span> {s.finish}</span>}
+                    </div>
+                  )}
 
-                {(s.dimensions_inch || s.weight_kg || s.finish) && (
-                  <div className="text-xs flex flex-wrap gap-x-4 gap-y-1">
-                    {s.dimensions_inch && <span><span className="text-muted-foreground">Dims:</span> {s.dimensions_inch}</span>}
-                    {s.weight_kg != null && <span><span className="text-muted-foreground">Weight:</span> {s.weight_kg} kg</span>}
-                    {s.finish && <span><span className="text-muted-foreground">Finish:</span> {s.finish}</span>}
-                  </div>
-                )}
+                  {s.photo_urls.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {s.photo_urls.map((url, i) => (
+                        <button key={i} onClick={() => setLightboxUrl(url)} className="block">
+                          <img src={url} alt={`Sample ${i + 1}`} className="h-16 w-16 object-cover rounded border hover:ring-2 hover:ring-primary transition" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-                {s.photo_urls.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {s.photo_urls.map((url, i) => (
-                      <button key={i} onClick={() => setLightboxUrl(url)} className="block">
-                        <img src={url} alt={`Sample ${i + 1}`} className="h-16 w-16 object-cover rounded border hover:ring-2 hover:ring-primary transition" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {s.feedback && (
-                  <div className="text-xs"><span className="text-muted-foreground">Feedback:</span> {s.feedback}</div>
-                )}
-                {s.notes && (
-                  <div className="text-xs"><span className="text-muted-foreground">Notes:</span> {s.notes}</div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {s.feedback && (
+                    <div className="text-xs"><span className="text-muted-foreground">Feedback:</span> {s.feedback}</div>
+                  )}
+                  {s.notes && (
+                    <div className="text-xs"><span className="text-muted-foreground">Notes:</span> {s.notes}</div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -182,10 +183,9 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [vendorId, setVendorId] = useState<string>('');
   const [vendorOverride, setVendorOverride] = useState('');
-  const [status, setStatus] = useState('requested');
+  const [status, setStatus] = useState<string>('pending');
   const [requestedDate, setRequestedDate] = useState('');
-  const [initialReady, setInitialReady] = useState('');
-  const [finalReady, setFinalReady] = useState('');
+  const [requiredBy, setRequiredBy] = useState('');
   const [dimensions, setDimensions] = useState('');
   const [weight, setWeight] = useState('');
   const [finish, setFinish] = useState('');
@@ -202,14 +202,13 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       setVendors((v as any) ?? []);
 
       if (isEdit && sampleId) {
-        const { data } = await supabase.from('samples').select('*').eq('id', sampleId).maybeSingle();
+        const { data } = await (supabase as any).from('samples').select('*').eq('id', sampleId).maybeSingle();
         if (data) {
           setVendorId(data.vendor_id ?? '');
           setVendorOverride(data.vendor_name ?? '');
-          setStatus(data.status ?? 'requested');
+          setStatus(data.status ?? 'pending');
           setRequestedDate(data.requested_date ?? '');
-          setInitialReady(data.initial_ready_date ?? '');
-          setFinalReady(data.final_ready_date ?? '');
+          setRequiredBy(data.required_by_date ?? '');
           setDimensions(data.dimensions_inch ?? '');
           setWeight(data.weight_kg != null ? String(data.weight_kg) : '');
           setFinish(data.finish ?? '');
@@ -218,8 +217,9 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
           setPhotoUrls(Array.isArray(data.photo_urls) ? (data.photo_urls as string[]) : []);
         }
       } else {
-        setVendorId(''); setVendorOverride(''); setStatus('requested');
-        setRequestedDate(''); setInitialReady(''); setFinalReady('');
+        setVendorId(''); setVendorOverride(''); setStatus('pending');
+        setRequestedDate(new Date().toISOString().slice(0, 10));
+        setRequiredBy('');
         setDimensions(''); setWeight(''); setFinish('');
         setFeedback(''); setNotes(''); setPhotoUrls([]);
       }
@@ -249,7 +249,6 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     let finalVendorId = vendorId || null;
     let finalVendorName = vendorOverride.trim() || null;
 
-    // If user typed a name that doesn't match an existing vendor, create one
     if (!finalVendorId && finalVendorName) {
       const existing = vendors.find(v => v.name.toLowerCase() === finalVendorName!.toLowerCase());
       if (existing) {
@@ -270,15 +269,20 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       finalVendorName = vendors.find(v => v.id === finalVendorId)?.name ?? finalVendorName;
     }
 
+    // Look up product's customer_rfq_id so the sample shows up in the inquiry tab and global list
+    let customerRfqId: string | null = null;
+    if (!isEdit) {
+      const { data: prod } = await supabase.from('products').select('customer_rfq_id').eq('id', productId).maybeSingle();
+      customerRfqId = prod?.customer_rfq_id ?? null;
+    }
+
     const payload: any = {
       product_id: productId,
-      rfs_id: null,
       vendor_id: finalVendorId,
       vendor_name: finalVendorName,
       status,
       requested_date: requestedDate || null,
-      initial_ready_date: initialReady || null,
-      final_ready_date: finalReady || null,
+      required_by_date: requiredBy || null,
       dimensions_inch: dimensions.trim() || null,
       weight_kg: weight ? Number(weight) : null,
       finish: finish.trim() || null,
@@ -286,11 +290,13 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       notes: notes.trim() || null,
       photo_urls: photoUrls,
     };
+    if (!isEdit) payload.customer_rfq_id = customerRfqId;
+
     let error;
     if (isEdit && sampleId) {
-      ({ error } = await supabase.from('samples').update(payload).eq('id', sampleId));
+      ({ error } = await (supabase as any).from('samples').update(payload).eq('id', sampleId));
     } else {
-      ({ error } = await supabase.from('samples').insert(payload));
+      ({ error } = await (supabase as any).from('samples').insert(payload));
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -327,18 +333,14 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
             </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">Requested</Label>
               <Input type="date" className="h-9 text-sm mt-1" value={requestedDate} onChange={e => setRequestedDate(e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs">Initial ready</Label>
-              <Input type="date" className="h-9 text-sm mt-1" value={initialReady} onChange={e => setInitialReady(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Final ready</Label>
-              <Input type="date" className="h-9 text-sm mt-1" value={finalReady} onChange={e => setFinalReady(e.target.value)} />
+              <Label className="text-xs">Required by</Label>
+              <Input type="date" className="h-9 text-sm mt-1" value={requiredBy} onChange={e => setRequiredBy(e.target.value)} />
             </div>
           </div>
 
@@ -408,7 +410,6 @@ function VendorCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-
   const selected = vendors.find(v => v.id === vendorId);
   const display = selected?.name || vendorName || '';
   const trimmed = query.trim();

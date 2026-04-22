@@ -18,7 +18,7 @@ import {
 import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
-import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 
@@ -551,7 +551,7 @@ const Dashboard = () => {
           />
         )}
         {sampleDialog && (
-          <GenerateSampleBatchDialog
+          <GenerateSampleDialog
             open={!!sampleDialog}
             onOpenChange={(o) => !o && setSampleDialog(null)}
             inquiryId={sampleDialog.id}

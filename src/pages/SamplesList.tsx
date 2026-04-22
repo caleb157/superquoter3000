@@ -1,89 +1,145 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Package2, ChevronDown, ChevronRight } from 'lucide-react';
-import { differenceInDays, parseISO } from 'date-fns';
-import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Plus, Package2, Search, Clock } from 'lucide-react';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { cn } from '@/lib/utils';
 
+type Sample = {
+  id: string;
+  product_id: string | null;
+  customer_rfq_id: string | null;
+  vendor_id: string | null;
+  vendor_name: string | null;
+  status: string;
+  requested_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
+type Inquiry = { id: string; rfq_number: string; title: string | null; customer_id: string | null; status: string };
+type Customer = { id: string; name: string; company: string | null };
+type Product = { id: string; name: string };
 
 const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  paused: 'bg-blue-100 text-blue-700',
+  pending: 'bg-amber-100 text-amber-700',
   completed: 'bg-emerald-100 text-emerald-700',
-  done: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-700',
 };
 
 const STATUS_FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
-  { key: 'in_progress', label: 'In progress' },
-  { key: 'paused', label: 'Paused' },
   { key: 'completed', label: 'Completed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-const SAMPLE_STATUS_COLOR: Record<string, string> = {
-  requested: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  ready: 'bg-blue-100 text-blue-700',
-  approved: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
-};
+type SortKey = 'newest' | 'oldest' | 'inquiry' | 'days';
+
+function daysToSample(s: Sample): number | null {
+  if (!s.completed_at || !s.requested_date) return null;
+  return differenceInDays(parseISO(s.completed_at), parseISO(s.requested_date));
+}
 
 export default function SamplesList() {
   const navigate = useNavigate();
-  const [rfsItems, setRfsItems] = useState<any[]>([]);
-  const [samples, setSamples] = useState<any[]>([]);
-  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('newest');
 
   const fetchAll = async () => {
-    const [rfsRes, sampleRes, inqRes] = await Promise.all([
-      (supabase as any).from('rfs').select('*').order('requested_date', { ascending: false }),
+    const [sampleRes, inqRes, custRes, prodRes] = await Promise.all([
       (supabase as any).from('samples').select('*').order('created_at', { ascending: false }),
-      (supabase as any).from('customer_rfqs').select('id, rfq_number, title'),
+      supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
+      supabase.from('customers').select('id, name, company'),
+      supabase.from('products').select('id, name'),
     ]);
-    setRfsItems(rfsRes.data || []);
-    setSamples(sampleRes.data || []);
-    setInquiries(inqRes.data || []);
+    setSamples((sampleRes.data || []) as Sample[]);
+    setInquiries((inqRes.data || []) as Inquiry[]);
+    setCustomers((custRes.data || []) as Customer[]);
+    setProducts((prodRes.data || []) as Product[]);
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const samplesByRfs = useMemo(() => {
-    const m: Record<string, any[]> = {};
-    samples.forEach(s => { (m[s.rfs_id] ||= []).push(s); });
-    return m;
-  }, [samples]);
-
-  const inquiryLabel = (id: string | null) => {
-    if (!id) return '—';
-    const i = inquiries.find(x => x.id === id);
-    return i ? `${i.rfq_number}${i.title ? ` · ${i.title}` : ''}` : '—';
-  };
+  const inquiryById = useMemo(() => Object.fromEntries(inquiries.map(i => [i.id, i])), [inquiries]);
+  const customerById = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
+  const productById = useMemo(() => Object.fromEntries(products.map(p => [p.id, p])), [products]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: rfsItems.length };
-    rfsItems.forEach(r => { c[r.status] = (c[r.status] || 0) + 1; });
+    const c: Record<string, number> = { all: samples.length };
+    samples.forEach(s => { c[s.status] = (c[s.status] || 0) + 1; });
     return c;
-  }, [rfsItems]);
+  }, [samples]);
 
-  const filteredRfs = useMemo(
-    () => statusFilter === 'all' ? rfsItems : rfsItems.filter(r => r.status === statusFilter),
-    [rfsItems, statusFilter],
+  // Metrics
+  const pending = samples.filter(s => s.status === 'pending');
+  const pendingWithVendor = pending.filter(s => s.vendor_id || s.vendor_name).length;
+  const pendingWithoutVendor = pending.length - pendingWithVendor;
+
+  const completedDays = samples
+    .filter(s => s.status === 'completed')
+    .map(daysToSample)
+    .filter((d): d is number => d !== null);
+  const avgDays = completedDays.length
+    ? completedDays.reduce((a, b) => a + b, 0) / completedDays.length
+    : null;
+
+  // Filter / search / sort
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = samples.filter(s => statusFilter === 'all' || s.status === statusFilter);
+    if (q) {
+      list = list.filter(s => {
+        const product = s.product_id ? productById[s.product_id] : null;
+        const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
+        const productName = product?.name?.toLowerCase() ?? '';
+        const vendorName = (s.vendor_name ?? '').toLowerCase();
+        const inqNumber = (inq?.rfq_number ?? '').toLowerCase();
+        return productName.includes(q) || vendorName.includes(q) || inqNumber.includes(q);
+      });
+    }
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      switch (sortKey) {
+        case 'newest': return b.created_at.localeCompare(a.created_at);
+        case 'oldest': return a.created_at.localeCompare(b.created_at);
+        case 'inquiry': {
+          const ai = a.customer_rfq_id ? inquiryById[a.customer_rfq_id]?.rfq_number ?? '' : '';
+          const bi = b.customer_rfq_id ? inquiryById[b.customer_rfq_id]?.rfq_number ?? '' : '';
+          return ai.localeCompare(bi);
+        }
+        case 'days': {
+          const ad = daysToSample(a) ?? Infinity;
+          const bd = daysToSample(b) ?? Infinity;
+          return bd - ad;
+        }
+      }
+    });
+    return sorted;
+  }, [samples, statusFilter, search, sortKey, inquiryById, productById]);
+
+  const activeInquiries = useMemo(
+    () => inquiries.filter(i => i.status !== 'cancelled').map(i => ({ id: i.id, rfq_number: i.rfq_number, title: i.title })),
+    [inquiries],
   );
 
   return (
@@ -92,11 +148,47 @@ export default function SamplesList() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold flex items-center gap-2"><Package2 className="h-5 w-5" /> Samples</h1>
           <Button size="sm" className="ml-auto gap-1.5" onClick={() => setShowNew(true)}>
-            <Plus className="h-4 w-4" /> New Batch
+            <Plus className="h-4 w-4" /> New Sample
           </Button>
         </div>
 
-        {!loading && rfsItems.length > 0 && (
+        {/* Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Samples Pending</div>
+              <div className="text-3xl font-bold tabular-nums mt-1">{pending.length}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {pendingWithVendor} with vendor · {pendingWithoutVendor} without
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Clock className="h-3 w-3" /> Avg Time-to-Sample
+              </div>
+              <div className="text-3xl font-bold tabular-nums mt-1">
+                {avgDays !== null ? `${avgDays.toFixed(1)} days` : '—'}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {completedDays.length} completed sample{completedDays.length === 1 ? '' : 's'}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search product, vendor, inquiry…"
+              className="h-9 pl-7 text-sm"
+            />
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {STATUS_FILTERS.map(f => {
               const active = statusFilter === f.key;
@@ -113,182 +205,87 @@ export default function SamplesList() {
                   )}
                 >
                   <span>{f.label}</span>
-                  <span className={cn(
-                    'rounded-full px-1.5 text-[10px] tabular-nums',
-                    active ? 'bg-primary-foreground/20' : 'bg-muted',
-                  )}>{n}</span>
+                  <span className={cn('rounded-full px-1.5 text-[10px] tabular-nums', active ? 'bg-primary-foreground/20' : 'bg-muted')}>{n}</span>
                 </button>
               );
             })}
           </div>
-        )}
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <SelectTrigger className="h-9 w-[140px] text-xs ml-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest" className="text-xs">Newest</SelectItem>
+              <SelectItem value="oldest" className="text-xs">Oldest</SelectItem>
+              <SelectItem value="inquiry" className="text-xs">Inquiry #</SelectItem>
+              <SelectItem value="days" className="text-xs">Days-to-sample</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
-        ) : rfsItems.length === 0 ? (
+        ) : visible.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <Package2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
-            <p>No sample requests yet. Create your first RFS to start tracking vendor samples.</p>
+            <p>No samples match these filters.</p>
           </CardContent></Card>
         ) : (
-          <>
-            {/* Desktop table */}
-            <Card className="hidden md:block"><CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead className="text-xs w-8"></TableHead>
-                  <TableHead className="text-xs">RFS</TableHead>
-                  <TableHead className="text-xs">Inquiry</TableHead>
-                  <TableHead className="text-xs">Title</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs text-right">Requested</TableHead>
-                  <TableHead className="text-xs text-right">Required by</TableHead>
-                  <TableHead className="text-xs text-right">Samples</TableHead>
-                  <TableHead className="text-xs text-right">Days</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {filteredRfs.map(r => {
-                    const list = samplesByRfs[r.id] || [];
-                    const days = differenceInDays(new Date(), parseISO(r.requested_date));
-                    const isOpen = expanded[r.id];
-                    return (
-                      <>
-                        <TableRow key={r.id} className="cursor-pointer hover:bg-muted/30"
-                          onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}>
-                          <TableCell>
-                            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{r.rfs_number}</TableCell>
-                          <TableCell className="text-xs">
-                            {r.customer_rfq_id ? (
-                              <button className="hover:underline" onClick={e => { e.stopPropagation(); navigate(`/inquiry/${r.customer_rfq_id}`); }}>
-                                {inquiryLabel(r.customer_rfq_id)}
-                              </button>
-                            ) : '—'}
-                          </TableCell>
-                          <TableCell className="text-sm">{r.title || '—'}</TableCell>
-                          <TableCell><Badge className={STATUS_COLOR[r.status] || ''} variant="secondary">{r.status.replace('_', ' ')}</Badge></TableCell>
-                          <TableCell className="text-xs text-right text-muted-foreground">{new Date(r.requested_date).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-xs text-right text-muted-foreground">{r.required_by_date ? new Date(r.required_by_date).toLocaleDateString() : '—'}</TableCell>
-                          <TableCell className="text-xs text-right">{list.length}</TableCell>
-                          <TableCell className={`text-xs text-right ${days > 14 ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>{days}</TableCell>
-                        </TableRow>
-                        {isOpen && (
-                          <TableRow>
-                            <TableCell colSpan={9} className="bg-muted/20 p-3">
-                              {list.length === 0 ? (
-                                <div className="text-xs text-muted-foreground text-center py-2">No vendor samples yet for this RFS.</div>
-                              ) : (
-                                <div className="space-y-1">
-                                  {list.map(s => (
-                                    <div key={s.id} className="flex items-center gap-3 text-xs bg-background rounded px-3 py-1.5">
-                                      <Badge className={SAMPLE_STATUS_COLOR[s.status] || ''} variant="secondary">{s.status.replace('_', ' ')}</Badge>
-                                      <span className="font-medium">{s.vendor_name || 'Unknown vendor'}</span>
-                                      {s.dimensions_inch && <span className="text-muted-foreground">{s.dimensions_inch}"</span>}
-                                      {s.finish && <span className="text-muted-foreground">{s.finish}</span>}
-                                      <span className="ml-auto text-muted-foreground">
-                                        {s.final_ready_date ? `Ready ${new Date(s.final_ready_date).toLocaleDateString()}`
-                                          : s.initial_ready_date ? `Initial ${new Date(s.initial_ready_date).toLocaleDateString()}`
-                                          : s.requested_date ? `Requested ${new Date(s.requested_date).toLocaleDateString()}` : ''}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent></Card>
-
-            {/* Mobile card list */}
-            <div className="md:hidden space-y-2">
-              {filteredRfs.map(r => {
-                const list = samplesByRfs[r.id] || [];
-                const days = differenceInDays(new Date(), parseISO(r.requested_date));
-                const isOpen = expanded[r.id];
-                return (
-                  <Card key={r.id}>
-                    <CardContent className="p-3 space-y-2">
-                      <button
-                        className="w-full text-left"
-                        onClick={() => setExpanded(e => ({ ...e, [r.id]: !e[r.id] }))}
-                      >
-                        <div className="flex items-start gap-2">
-                          {isOpen ? <ChevronDown className="h-3.5 w-3.5 mt-0.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-xs font-medium">{r.rfs_number}</span>
-                              <Badge className={STATUS_COLOR[r.status] || ''} variant="secondary">{r.status.replace('_', ' ')}</Badge>
-                            </div>
-                            {r.title && <div className="text-sm font-medium truncate mt-0.5">{r.title}</div>}
-                            {r.customer_rfq_id && (
-                              <button
-                                className="text-xs text-primary hover:underline truncate block max-w-full"
-                                onClick={e => { e.stopPropagation(); navigate(`/inquiry/${r.customer_rfq_id}`); }}
-                              >
-                                {inquiryLabel(r.customer_rfq_id)}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                      <div className="grid grid-cols-3 gap-2 text-[11px] pt-1 border-t">
-                        <div>
-                          <div className="text-muted-foreground">Samples</div>
-                          <div className="font-medium">{list.length}</div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground">Days</div>
-                          <div className={`font-medium ${days > 14 ? 'text-amber-600' : ''}`}>{days}</div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground">Required</div>
-                          <div className="font-medium">{r.required_by_date ? new Date(r.required_by_date).toLocaleDateString() : '—'}</div>
-                        </div>
-                      </div>
-                      {isOpen && list.length > 0 && (
-                        <div className="space-y-1 pt-1 border-t">
-                          {list.map(s => (
-                            <div key={s.id} className="text-[11px] bg-muted/30 rounded px-2 py-1.5 space-y-0.5">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className={SAMPLE_STATUS_COLOR[s.status] || ''} variant="secondary">{s.status.replace('_', ' ')}</Badge>
-                                <span className="font-medium truncate">{s.vendor_name || 'Unknown vendor'}</span>
-                              </div>
-                              {(s.dimensions_inch || s.finish) && (
-                                <div className="text-muted-foreground">
-                                  {s.dimensions_inch && <span>{s.dimensions_inch}"</span>}
-                                  {s.dimensions_inch && s.finish && <span> · </span>}
-                                  {s.finish && <span>{s.finish}</span>}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {isOpen && list.length === 0 && (
-                        <div className="text-[11px] text-muted-foreground text-center py-1">No vendor samples yet.</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </>
+          <Card><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead className="text-xs">Product</TableHead>
+                <TableHead className="text-xs">Inquiry</TableHead>
+                <TableHead className="text-xs">Customer</TableHead>
+                <TableHead className="text-xs">Vendor</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Requested</TableHead>
+                <TableHead className="text-xs">Completed</TableHead>
+                <TableHead className="text-xs text-right">Days</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {visible.map(s => {
+                  const product = s.product_id ? productById[s.product_id] : null;
+                  const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
+                  const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+                  const days = daysToSample(s);
+                  return (
+                    <TableRow
+                      key={s.id}
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                    >
+                      <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
+                      <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
+                      <TableCell className="text-xs">{cust?.name ?? cust?.company ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {s.requested_date ? format(parseISO(s.requested_date), 'MMM d, yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {s.completed_at ? format(parseISO(s.completed_at), 'MMM d, yyyy') : '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">
+                        {days !== null ? `${days}d` : (s.status === 'cancelled' ? '' : '—')}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
         )}
       </div>
 
-      <GenerateSampleBatchDialog
+      <GenerateSampleDialog
         open={showNew}
         onOpenChange={setShowNew}
-        inquiryOptions={inquiries}
+        inquiryOptions={activeInquiries}
         onCreated={fetchAll}
       />
-      
     </AppLayout>
   );
 }
