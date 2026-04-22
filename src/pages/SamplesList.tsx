@@ -207,7 +207,7 @@ export default function SamplesList() {
 
             {/* Mobile card list */}
             <div className="md:hidden space-y-2">
-              {rfsItems.map(r => {
+              {filteredRfs.map(r => {
                 const list = samplesByRfs[r.id] || [];
                 const days = differenceInDays(new Date(), parseISO(r.requested_date));
                 const isOpen = expanded[r.id];
