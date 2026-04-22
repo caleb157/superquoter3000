@@ -246,7 +246,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onClear={() => setSelected(new Set())}
         onSetStage={handleSetStage}
         onGenerateQuote={handleGenerateQuote}
-        onGenerateSampleBatch={() => setBatchOpen(true)}
+        onGenerateSamples={() => setBatchOpen(true)}
       />
 
       {filtered.length === 0 ? (
