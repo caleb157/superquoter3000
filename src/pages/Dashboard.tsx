@@ -87,6 +87,12 @@ const Dashboard = () => {
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
   const [showPipelineDebug, setShowPipelineDebug] = useState(false);
 
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const desktopListRef = useRef<HTMLDivElement>(null);
+  useArrowKeyRowNav(mobileListRef);
+  useArrowKeyRowNav(desktopListRef);
+  useKeyboardShortcuts({ onNewItem: () => setShowNewInquiry(true) });
+
   useEffect(() => {
     (async () => {
       setLoading(true);
