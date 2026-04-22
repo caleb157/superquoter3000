@@ -134,6 +134,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     );
 
     out[p.id] = {
+      unit_cost_usd: summary.product_cost_per_unit_usd,
       unit_price_usd: summary.unit_price_usd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
@@ -142,3 +143,6 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
 
   return out;
 }
+
+// Back-compat alias for older imports
+export const computeProductUnitPrices = computeProductPriceAndCost;
