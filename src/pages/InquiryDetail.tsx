@@ -55,6 +55,7 @@ export default function InquiryDetail() {
   // Settings draft
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
 
   const tabParam = searchParams.get('tab') as TabKey | null;
   const stageParam = searchParams.get('stage');
@@ -75,13 +76,15 @@ export default function InquiryDetail() {
 
   const fetchInquiry = async () => {
     if (!id) return;
-    const [inqRes, stRes] = await Promise.all([
+    const [inqRes, stRes, entRes] = await Promise.all([
       (supabase as any).from('customer_rfqs').select('*').eq('id', id).maybeSingle(),
       (supabase as any).from('shipping_types').select('id, name').order('name'),
+      (supabase as any).from('company_entities').select('id, name').order('name'),
     ]);
     setInquiry(inqRes.data);
     setSettingsDraft(inqRes.data);
     setShippingTypes(stRes.data || []);
+    setEntities(entRes.data || []);
     if (inqRes.data?.customer_id) {
       const { data: c } = await (supabase as any).from('customers').select('*').eq('id', inqRes.data.customer_id).maybeSingle();
       setCustomer(c);
@@ -130,6 +133,8 @@ export default function InquiryDetail() {
       markup_percent_override: settingsDraft.markup_percent_override === '' || settingsDraft.markup_percent_override == null
         ? null : Number(settingsDraft.markup_percent_override),
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
+      quoting_entity_id: settingsDraft.quoting_entity_id || null,
+      quoting_currency: settingsDraft.quoting_currency || null,
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
@@ -377,6 +382,32 @@ export default function InquiryDetail() {
                 <div className="md:col-span-2">
                   <Label className="text-xs">Notes</Label>
                   <Textarea rows={2} value={settingsDraft?.notes ?? ''} onChange={e => setSettingsDraft({ ...settingsDraft, notes: e.target.value })} className="text-sm mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Quoting entity</Label>
+                  <Select
+                    value={settingsDraft?.quoting_entity_id ?? '__none__'}
+                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_entity_id: v === '__none__' ? null : v })}
+                  >
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Pick at quote time" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Pick at quote time —</SelectItem>
+                      {entities.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Quoting currency</Label>
+                  <Select
+                    value={settingsDraft?.quoting_currency ?? 'USD'}
+                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_currency: v })}
+                  >
+                    <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="INR">INR (₹)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="md:col-span-2">
                   <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>

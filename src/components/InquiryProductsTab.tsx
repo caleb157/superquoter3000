@@ -86,6 +86,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [hwOpen, setHwOpen] = useState(false);
   const [hwEntityId, setHwEntityId] = useState<string>('');
   const [hwEntityName, setHwEntityName] = useState<string>('');
+  const [hwCurrency, setHwCurrency] = useState<'USD' | 'INR'>('USD');
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
@@ -155,17 +156,24 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleGenerateQuote = async () => {
     const selectedProducts = products.filter(p => selected.has(p.id));
     if (selectedProducts.length === 0) return;
-    const { data: entities } = await supabase.from('company_entities').select('id, name').order('name').limit(1);
-    const entityId = entities?.[0]?.id;
-    if (!entityId) {
+    const [{ data: entities }, { data: inq }] = await Promise.all([
+      supabase.from('company_entities').select('id, name').order('name'),
+      (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
+    ]);
+    if (!entities || entities.length === 0) {
       toast.error('Set up a Company Entity in Settings before generating quotes.');
       return;
     }
+    const preferredEntity = inq?.quoting_entity_id && entities.find(e => e.id === inq.quoting_entity_id)
+      ? entities.find(e => e.id === inq.quoting_entity_id)!
+      : entities[0];
+    const cur = (inq?.quoting_currency as 'USD' | 'INR') || 'USD';
     const plan = await getHardwareSyncPlan(selectedProducts.map(p => p.id));
-    setHwEntityId(entityId);
-    setHwEntityName(entities[0].name);
+    setHwEntityId(preferredEntity.id);
+    setHwEntityName(preferredEntity.name);
+    setHwCurrency(cur);
     if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-      await finalizeQuote(entityId, entities[0].name, plan, []);
+      await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur);
       return;
     }
     setHwPlan(plan);
@@ -177,6 +185,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     entityName: string,
     plan: HardwareSyncPlan,
     resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
+    currency: 'USD' | 'INR' = 'USD',
   ) => {
     if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
       const sync = await applyHardwareSync(plan.newItems, resolved);
@@ -197,11 +206,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       })),
       entityId,
       validUntil: defaultValidUntil(),
+      currency,
     });
     setHwOpen(false);
     setHwPlan(null);
     if (result.error) { toast.error(result.error); return; }
-    toast.success(`Quote draft created with ${entityName}`);
+    toast.success(`Quote draft created with ${entityName} (${currency})`);
     setSelected(new Set());
     onChange();
   };
@@ -356,7 +366,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         open={hwOpen}
         plan={hwPlan}
         onCancel={() => { setHwOpen(false); setHwPlan(null); }}
-        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency); }}
       />
     </div>
   );

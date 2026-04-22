@@ -14,6 +14,7 @@ export type CreateQuoteParams = {
   selectedProducts: QuoteProductInput[];
   entityId: string;
   validUntil: string; // YYYY-MM-DD
+  currency?: 'USD' | 'INR';
 };
 
 export type CreateQuoteResult = {
@@ -33,14 +34,14 @@ export type CreateQuoteResult = {
  * The snapshot is the source of truth for the customer-facing quote page.
  */
 export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<CreateQuoteResult> {
-  const { inquiryId, selectedProducts, entityId, validUntil } = params;
+  const { inquiryId, selectedProducts, entityId, validUntil, currency } = params;
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
 
   const productIds = selectedProducts.map(p => p.id);
 
-  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields)
-  const [productsRes, cbmRes, inquiryRes, entityRes] = await Promise.all([
+  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields), global settings
+  const [productsRes, cbmRes, inquiryRes, entityRes, gsRes] = await Promise.all([
     supabase
       .from('products')
       .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
@@ -49,9 +50,9 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .from('cbm_estimates')
       .select('product_id, final_unit_cbm')
       .in('product_id', productIds),
-    supabase
+    (supabase as any)
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, customers(id, name, company, email, logo_url)')
+      .select('id, rfq_number, title, customer_id, exchange_rate_override, customers(id, name, company, email, logo_url)')
       .eq('id', inquiryId)
       .maybeSingle(),
     supabase
@@ -59,6 +60,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       .select('id, name, legal_name, entity_type, logo_url, address_line1, address_line2, city, state, postal_code, country, email, phone, website, bank_name, bank_branch, account_name, account_number, ifsc_code, routing_number, swift_code, gst_number, ein_number')
       .eq('id', entityId)
       .maybeSingle(),
+    supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
   ]);
 
   if (productsRes.error) return { error: productsRes.error.message };
@@ -70,11 +72,19 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     if (c.product_id && c.final_unit_cbm) cbmMap.set(c.product_id, Number(c.final_unit_cbm));
   });
 
+  // Currency conversion: snapshot stores prices in the chosen display currency.
+  // (CustomerQuote / Quotes / PDF render values directly with the currency symbol.)
+  const inqRow: any = inquiryRes.data ?? {};
+  const fxRate = Number(inqRow.exchange_rate_override ?? gsRes.data?.exchange_rate ?? 90);
+  const isInr = (currency || 'USD') === 'INR';
+  const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
+
   // Build line items from DB (single source of truth) merged with caller overrides for qty/price.
   const productsJson = selectedProducts.map(sel => {
     const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
     const qty = Number(sel.quantity ?? db.quantity ?? 0);
-    const unit = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
+    const unitUsd = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
+    const unit = toDisplay(unitUsd);
     let unitCbm = cbmMap.get(sel.id) ?? 0;
     if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
       unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
@@ -85,7 +95,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       sku: db.sku ?? sel.sku ?? null,
       photo_url: db.photo_url ?? null,
       quantity: qty,
-      unit_price_usd: unit,
+      unit_price_usd: unit, // value is in display currency (USD or INR)
       total: unit * qty,
       unit_cbm: unitCbm,
       width_inch: db.width_inch ?? null,
@@ -131,6 +141,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     },
     entity_id: entityId,
     valid_until: validUntil,
+    currency: currency || 'USD',
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,
