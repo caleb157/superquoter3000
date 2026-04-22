@@ -191,6 +191,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }, [id]);
 
   // ===== DERIVED CALCULATIONS (Steps 1-12) =====
+  // Effective settings = global_settings merged with per-inquiry overrides (if any)
+  const effectiveSettings = useMemo(
+    () => mergeSettingsWithInquiry(globalSettings as any, inquiryOverrides as any),
+    [globalSettings, inquiryOverrides],
+  );
+
   const productType = productTypes.find(t => t.id === product?.product_type_id);
   const w = product?.width_inch || 0;
   const d = product?.depth_inch || 0;
