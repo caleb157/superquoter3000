@@ -205,16 +205,26 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={submit} disabled={selected.size === 0 || saving || !entityId}>
-              {saving ? 'Creating…' : 'Create Quote Draft'}
+              {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
+      <QuotePriceReviewDialog
+        open={reviewOpen}
+        onOpenChange={(o) => { if (!o) { setReviewOpen(false); setSaving(false); } }}
+        selectedProducts={products.filter(p => selected.has(p.id)).map(p => ({
+          id: p.id, name: p.name, quantity: p.quantity, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+        }))}
+        currency={currency}
+        onConfirm={handleReviewConfirm}
+        saving={saving}
+      />
       <HardwareSyncDialog
         open={hwOpen}
         plan={hwPlan}
-        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); }}
-        onConfirm={(resolved) => finalizeQuote(resolved)}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); setPendingLines(null); }}
+        onConfirm={(resolved) => finalizeQuote(resolved, pendingLines || undefined)}
       />
     </Dialog>
   );
