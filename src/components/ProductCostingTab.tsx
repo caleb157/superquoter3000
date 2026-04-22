@@ -1480,12 +1480,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
             <Table className="dense-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14">Include</TableHead>
-                  <TableHead className="w-32">Labor Type</TableHead>
-                  <TableHead className="w-28 text-right">MH/Unit</TableHead>
-                  <TableHead className="w-28 text-right">Total MH</TableHead>
-                  <TableHead className="w-28 text-right">Rate (₹/hr)</TableHead>
-                  <TableHead className="w-28 text-right">Unit Cost</TableHead>
+                  <ResizableTableHead storageKey="overhead.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
+                  <ResizableTableHead storageKey="overhead.labor" defaultWidth={128} minWidth={80}>Labor Type</ResizableTableHead>
+                  <ResizableTableHead storageKey="overhead.mhunit" defaultWidth={112} minWidth={70} align="right">MH/Unit</ResizableTableHead>
+                  <ResizableTableHead storageKey="overhead.totalmh" defaultWidth={112} minWidth={70} align="right">Total MH</ResizableTableHead>
+                  <ResizableTableHead storageKey="overhead.rate" defaultWidth={112} minWidth={70} align="right">Rate (₹/hr)</ResizableTableHead>
+                  <ResizableTableHead storageKey="overhead.unitcost" defaultWidth={112} minWidth={70} align="right">Unit Cost</ResizableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
