@@ -4,7 +4,30 @@
 // QuickAdd / other paths get the same starting structure.
 import { supabase } from '@/integrations/supabase/client';
 
-export async function seedProductDefaults(productId: string) {
+// Module-level cache for global settings used during seeding.
+// Avoids one extra DB round-trip per product when seeding many in a row
+// (e.g. QuickAdd adds 5 products → 1 fetch instead of 5).
+const SETTINGS_TTL_MS = 60_000; // 1 minute is plenty for a single bulk-add session
+let cachedMcHBuffer: { value: number; at: number } | null = null;
+
+export async function getCachedMcHeightBuffer(): Promise<number> {
+  const now = Date.now();
+  if (cachedMcHBuffer && now - cachedMcHBuffer.at < SETTINGS_TTL_MS) {
+    return cachedMcHBuffer.value;
+  }
+  const { data } = await (supabase as any)
+    .from('global_settings').select('mc_height_buffer_inch').limit(1).single();
+  const value = (data as any)?.mc_height_buffer_inch ?? 2.5;
+  cachedMcHBuffer = { value, at: now };
+  return value;
+}
+
+/** Clear the cached global settings (call after editing them in Settings). */
+export function clearProductDefaultsCache() {
+  cachedMcHBuffer = null;
+}
+
+export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?: number }) {
   const defaultCogs = [
     { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
     { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
@@ -32,10 +55,7 @@ export async function seedProductDefaults(productId: string) {
     { product_id: productId, labor_type: 'Market', sort_order: 6 },
   ];
 
-  // Seed mc_height_buffer_inch from current global default so admins can tune project-wide
-  const { data: gs } = await (supabase as any)
-    .from('global_settings').select('mc_height_buffer_inch').limit(1).single();
-  const mcHBuffer = gs?.mc_height_buffer_inch ?? 2.5;
+  const mcHBuffer = opts?.mcHBuffer ?? (await getCachedMcHeightBuffer());
 
   await Promise.all([
     (supabase as any).from('cogs_items').insert(defaultCogs),
@@ -48,5 +68,8 @@ export async function seedProductDefaults(productId: string) {
 }
 
 export async function seedProductDefaultsForMany(productIds: string[]) {
-  await Promise.all(productIds.map(seedProductDefaults));
+  // Fetch the global default once and pass it through, so even cold-cache
+  // bulk inserts only do a single global_settings round-trip.
+  const mcHBuffer = await getCachedMcHeightBuffer();
+  await Promise.all(productIds.map(id => seedProductDefaults(id, { mcHBuffer })));
 }
