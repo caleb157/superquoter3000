@@ -380,6 +380,8 @@ export type Database = {
           markup_percent_override: number | null
           notes: string | null
           priority: string
+          quoting_currency: string | null
+          quoting_entity_id: string | null
           received_date: string
           requirements: string | null
           rfq_number: string
@@ -399,6 +401,8 @@ export type Database = {
           markup_percent_override?: number | null
           notes?: string | null
           priority?: string
+          quoting_currency?: string | null
+          quoting_entity_id?: string | null
           received_date?: string
           requirements?: string | null
           rfq_number?: string
@@ -418,6 +422,8 @@ export type Database = {
           markup_percent_override?: number | null
           notes?: string | null
           priority?: string
+          quoting_currency?: string | null
+          quoting_entity_id?: string | null
           received_date?: string
           requirements?: string | null
           rfq_number?: string
@@ -433,6 +439,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_rfqs_quoting_entity_id_fkey"
+            columns: ["quoting_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_rfqs_quoting_entity_id_fkey"
+            columns: ["quoting_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
             referencedColumns: ["id"]
           },
           {
