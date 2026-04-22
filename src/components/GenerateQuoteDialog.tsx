@@ -175,6 +175,12 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           </div>
         </DialogFooter>
       </DialogContent>
+      <HardwareSyncDialog
+        open={hwOpen}
+        plan={hwPlan}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); }}
+        onConfirm={(resolved) => finalizeQuote(resolved)}
+      />
     </Dialog>
   );
 }
