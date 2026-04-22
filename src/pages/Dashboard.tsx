@@ -284,7 +284,7 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
                 <div className="text-xl sm:text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
                 <div className="text-[11px] text-muted-foreground mt-2 leading-snug hidden sm:block">
-                  Σ (qty × target price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
+                  Σ (qty × unit price × stage weight). Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
                 </div>
               </CardContent>
             </Card>
