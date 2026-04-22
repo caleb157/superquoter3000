@@ -258,7 +258,7 @@ export default function SamplesList() {
                       <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
                       <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
                       <TableCell className="text-xs">{cust?.name ?? cust?.company ?? '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
                       </TableCell>
