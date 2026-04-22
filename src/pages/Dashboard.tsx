@@ -19,8 +19,6 @@ import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
-import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
-import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -563,24 +561,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {quoteDialog && (
-          <GenerateQuoteDialog
-            open={!!quoteDialog}
-            onOpenChange={(o) => !o && setQuoteDialog(null)}
-            inquiryId={quoteDialog.id}
-            inquiryNumber={quoteDialog.rfq}
-            onCreated={() => setRefreshKey(k => k + 1)}
-          />
-        )}
-        {sampleDialog && (
-          <GenerateSampleDialog
-            open={!!sampleDialog}
-            onOpenChange={(o) => !o && setSampleDialog(null)}
-            inquiryId={sampleDialog.id}
-            inquiryNumber={sampleDialog.rfq}
-            onCreated={() => setRefreshKey(k => k + 1)}
-          />
-        )}
         <NewInquiryDialog
           open={showNewInquiry}
           onOpenChange={setShowNewInquiry}
