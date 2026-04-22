@@ -78,9 +78,9 @@ export function ProductVendorsPanel({ productId }: { productId: string }) {
           return r.vendor_id ? (
             <Link
               key={r.vendor_id}
-              to="/settings#vendors"
+              to="/vendors"
               className="inline-flex"
-              title={`Open ${r.vendor_name} in vendor settings`}
+              title={`Open ${r.vendor_name} in vendors`}
             >
               <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-accent">
                 {label}
