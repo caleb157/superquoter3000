@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
-  Settings, LogOut, ShoppingCart, FileText, Menu,
+  Settings, LogOut, ShoppingCart, FileText,
   Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
