@@ -509,9 +509,9 @@ const Quotes = () => {
             // Merge optimistic patch into local state so the row updates instantly,
             // then refetch in the background to pick up any server-side changes.
             setSnapshots(prev =>
-              prev.map(s => s.id === patch.id ? { ...s, products: patch.products, totals: patch.totals } : s),
+              prev.map(s => s.id === patch.id ? { ...s, products: patch.products, totals: patch.totals, ...(patch.payment_terms !== undefined ? { payment_terms: patch.payment_terms } : {}) } : s),
             );
-            setEditSnap(prev => prev && prev.id === patch.id ? { ...prev, products: patch.products, totals: patch.totals } : prev);
+            setEditSnap(prev => prev && prev.id === patch.id ? { ...prev, products: patch.products, totals: patch.totals, ...(patch.payment_terms !== undefined ? { payment_terms: patch.payment_terms } : {}) } : prev);
             fetchData();
           }}
         />

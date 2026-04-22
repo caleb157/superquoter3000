@@ -29,6 +29,7 @@ type SavedPatch = {
   id: string;
   products: any[];
   totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number };
+  payment_terms?: string | null;
 };
 
 type Props = {
@@ -44,9 +45,11 @@ type Status = 'idle' | 'saving' | 'saved' | 'error';
 
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
+  const [paymentTerms, setPaymentTerms] = useState<string>('');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const initialSerialRef = useRef<string>('');
+  const initialPaymentTermsRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currency: 'USD' | 'INR' = snapshot?.currency === 'INR' ? 'INR' : 'USD';
@@ -61,6 +64,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const seeded = initial.map((l, i) => ({ ...l, _key: `line-${i}-${l.product_id || 'x'}` }));
     setLines(seeded);
     initialSerialRef.current = JSON.stringify(serializeLines(seeded));
+    const pt = (snapshot.payment_terms ?? '') as string;
+    setPaymentTerms(pt);
+    initialPaymentTermsRef.current = pt;
     setStatus('idle');
     setErrorMsg(null);
   }, [open, snapshot]);
@@ -76,8 +82,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   }, [lines]);
 
   const dirty = useMemo(
-    () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current,
-    [lines],
+    () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
+      || paymentTerms !== initialPaymentTermsRef.current,
+    [lines, paymentTerms],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
@@ -96,7 +103,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     setErrorMsg(null);
 
     const payload = lines.map(({ _key, ...rest }) => rest);
-    const result = await updateQuoteLineItems(snapshot.id, payload);
+    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms });
 
     if (result.error) {
       setStatus('error');
@@ -107,6 +114,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
+    initialPaymentTermsRef.current = paymentTerms;
     setStatus('saved');
     toast.success('Quote updated');
 
@@ -120,6 +128,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         grand_total: totals.grand,
         total_cbm: totals.cbm,
       },
+      payment_terms: result.payment_terms ?? (paymentTerms.trim() || null),
     });
 
     closeTimerRef.current = setTimeout(() => onOpenChange(false), 700);
@@ -202,6 +211,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Payment terms</Label>
+          <Input
+            value={paymentTerms}
+            onChange={e => { setPaymentTerms(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            placeholder="e.g. 50% advance, 50% before shipment"
+            className="h-8 text-xs"
+            disabled={status === 'saving'}
+          />
+          <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
         </div>
 
         {status === 'error' && errorMsg && (

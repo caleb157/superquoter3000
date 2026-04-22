@@ -75,6 +75,7 @@ interface QuoteData {
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
+    payment_terms?: string | null;
     created_at?: string | null;
   };
   entity: EntitySnap | null;
@@ -370,6 +371,13 @@ const CustomerQuote = () => {
             </div>
           </div>
         </header>
+
+        {snapshot.payment_terms && (
+          <section className="bg-amber-50 border-x border-b border-amber-200 px-6 py-3 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-1 print-border-light">
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 shrink-0">Payment Terms</span>
+            <span className="whitespace-pre-wrap">{snapshot.payment_terms}</span>
+          </section>
+        )}
 
         {/* ============ ENTITY INFO + BANK DETAILS ============ */}
         {entity ? (
