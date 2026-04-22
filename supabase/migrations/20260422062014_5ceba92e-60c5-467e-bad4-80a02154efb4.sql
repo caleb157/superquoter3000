@@ -1,0 +1,1 @@
+ALTER TABLE public.customer_rfqs ADD COLUMN IF NOT EXISTS drive_url text;

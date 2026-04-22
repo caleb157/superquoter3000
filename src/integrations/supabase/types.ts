@@ -374,6 +374,7 @@ export type Database = {
           assigned_to: string | null
           created_at: string
           customer_id: string | null
+          drive_url: string | null
           exchange_rate_override: number | null
           id: string
           markup_percent_override: number | null
@@ -392,6 +393,7 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           customer_id?: string | null
+          drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
           markup_percent_override?: number | null
@@ -410,6 +412,7 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string
           customer_id?: string | null
+          drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
           markup_percent_override?: number | null
