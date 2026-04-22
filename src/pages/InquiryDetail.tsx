@@ -383,6 +383,32 @@ export default function InquiryDetail() {
                   <Label className="text-xs">Notes</Label>
                   <Textarea rows={2} value={settingsDraft?.notes ?? ''} onChange={e => setSettingsDraft({ ...settingsDraft, notes: e.target.value })} className="text-sm mt-1" />
                 </div>
+                <div>
+                  <Label className="text-xs">Quoting entity</Label>
+                  <Select
+                    value={settingsDraft?.quoting_entity_id ?? '__none__'}
+                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_entity_id: v === '__none__' ? null : v })}
+                  >
+                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Pick at quote time" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Pick at quote time —</SelectItem>
+                      {entities.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Quoting currency</Label>
+                  <Select
+                    value={settingsDraft?.quoting_currency ?? 'USD'}
+                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_currency: v })}
+                  >
+                    <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="INR">INR (₹)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="md:col-span-2">
                   <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
                 </div>
