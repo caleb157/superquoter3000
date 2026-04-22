@@ -104,6 +104,17 @@ export default function InquiryDetail() {
     toast.success('Title updated');
   };
 
+  const saveDriveUrl = async () => {
+    const v = driveDraft.trim();
+    if (v && !/^https?:\/\//i.test(v)) {
+      toast.error('Enter a valid URL starting with http(s)://');
+      return;
+    }
+    await updateField({ drive_url: v || null });
+    setEditingDrive(false);
+    toast.success(v ? 'Drive link saved' : 'Drive link removed');
+  };
+
   const saveSettings = async () => {
     if (!settingsDraft) return;
     const patch = {
