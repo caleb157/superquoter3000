@@ -110,6 +110,9 @@ const App = () => (
               <Route path="/analytics" element={
                 <ProtectedRoute requireAdminOrTeam><Analytics /></ProtectedRoute>
               } />
+              <Route path="/vendors" element={
+                <ProtectedRoute requireAdminOrTeam><Vendors /></ProtectedRoute>
+              } />
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
               } />
