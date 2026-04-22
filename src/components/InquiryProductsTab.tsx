@@ -23,6 +23,10 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { fmt } from '@/lib/formatters';
+import { SortableHeader } from '@/components/SortableHeader';
+import { useTableSort } from '@/hooks/use-table-sort';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
