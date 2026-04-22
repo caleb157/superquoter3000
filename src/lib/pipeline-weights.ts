@@ -27,7 +27,6 @@ export type StageBucket =
   | 'ready_for_quote'
   | 'quoted'
   | 'sampling'
-  | 'sample_sent'
   | 'po';
 
 export function furthestStageBucket(
@@ -35,7 +34,6 @@ export function furthestStageBucket(
   inquiryStatus?: string | null,
 ): StageBucket {
   if (inquiryStatus === 'po') return 'po';
-  if (p.sample_stage === 'sample_sent') return 'sample_sent';
   if (p.sample_stage === 'sampling') return 'sampling';
   if (p.quote_stage === 'quoted') return 'quoted';
   if (p.quote_stage === 'ready_for_quote') return 'ready_for_quote';
@@ -53,7 +51,6 @@ export const STAGE_BUCKET_LABELS: Record<StageBucket, string> = {
   ready_for_quote: 'Ready for Quote',
   quoted: 'Quoted',
   sampling: 'Sampling',
-  sample_sent: 'Sample Sent',
   po: 'PO',
 };
 
@@ -65,7 +62,6 @@ export const STAGE_BUCKET_ORDER: StageBucket[] = [
   'ready_for_quote',
   'quoted',
   'sampling',
-  'sample_sent',
   'po',
 ];
 
@@ -77,6 +73,5 @@ export const STAGE_BUCKET_COLOR: Record<StageBucket, string> = {
   ready_for_quote: 'bg-blue-200 text-blue-950 dark:bg-blue-400/90 dark:text-blue-950',
   quoted: 'bg-purple-200 text-purple-950 dark:bg-purple-400/90 dark:text-purple-950',
   sampling: 'bg-amber-200 text-amber-950 dark:bg-amber-400/90 dark:text-amber-950',
-  sample_sent: 'bg-blue-200 text-blue-950 dark:bg-blue-400/90 dark:text-blue-950',
   po: 'bg-emerald-300 text-emerald-950 dark:bg-emerald-400/90 dark:text-emerald-950',
 };
