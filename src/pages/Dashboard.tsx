@@ -360,7 +360,7 @@ const Dashboard = () => {
                         key={b}
                         onClick={() => navigate(`/products?stage=${b}`)}
                         className={cn(
-                          'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md hover:opacity-80 transition',
+                          'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md hover:opacity-80 transition min-h-[44px] sm:min-h-0',
                           STAGE_BUCKET_COLOR[b],
                         )}
                       >
