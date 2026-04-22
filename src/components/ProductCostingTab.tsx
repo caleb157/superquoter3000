@@ -1086,21 +1086,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                                   defaultValue={item.component_name || ''}
                                   onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)} />
                               )}
-                              {item.component_name && (item.unit_cost_inr || 0) > 0 && !hardwarePrices.some(hp => hp.name === item.component_name) && (
-                                <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" title="Save to hardware library"
-                                  onClick={async () => {
-                                    const { data, error } = await (supabase as any).from('hardware_prices').insert({
-                                      name: item.component_name,
-                                      unit_cost_inr: item.unit_cost_inr,
-                                      units: item.units || 'pc',
-                                    }).select().single();
-                                    if (error) { toast.error('Save failed: ' + error.message); return; }
-                                    if (data) setHardwarePrices(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-                                    toast.success('Saved to hardware library');
-                                  }}>
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              )}
+                              {/* Hardware library is synced automatically when a quote is generated. */}
                             </div>
                           ) : (
                             <Input className={`h-6 text-xs border-transparent hover:border-input ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} defaultValue={item.component_name || ''}

@@ -18,6 +18,8 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
+import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
+import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -80,6 +82,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
+  const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
+  const [hwOpen, setHwOpen] = useState(false);
+  const [hwEntityId, setHwEntityId] = useState<string>('');
+  const [hwEntityName, setHwEntityName] = useState<string>('');
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
@@ -149,13 +155,37 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleGenerateQuote = async () => {
     const selectedProducts = products.filter(p => selected.has(p.id));
     if (selectedProducts.length === 0) return;
-    // Pick the first available company entity as default; the inquiry-detail dialog has a richer picker.
     const { data: entities } = await supabase.from('company_entities').select('id, name').order('name').limit(1);
     const entityId = entities?.[0]?.id;
     if (!entityId) {
       toast.error('Set up a Company Entity in Settings before generating quotes.');
       return;
     }
+    const plan = await getHardwareSyncPlan(selectedProducts.map(p => p.id));
+    setHwEntityId(entityId);
+    setHwEntityName(entities[0].name);
+    if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
+      await finalizeQuote(entityId, entities[0].name, plan, []);
+      return;
+    }
+    setHwPlan(plan);
+    setHwOpen(true);
+  };
+
+  const finalizeQuote = async (
+    entityId: string,
+    entityName: string,
+    plan: HardwareSyncPlan,
+    resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
+  ) => {
+    if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
+      const sync = await applyHardwareSync(plan.newItems, resolved);
+      if (sync.error) { toast.error('Hardware sync failed: ' + sync.error); return; }
+      if (sync.added || sync.updated) {
+        toast.success(`Hardware library: +${sync.added} added, ${sync.updated} updated`);
+      }
+    }
+    const selectedProducts = products.filter(p => selected.has(p.id));
     const { createQuoteSnapshot, defaultValidUntil } = await import('@/lib/quote-creation');
     const result = await createQuoteSnapshot({
       inquiryId,
@@ -168,8 +198,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       entityId,
       validUntil: defaultValidUntil(),
     });
+    setHwOpen(false);
+    setHwPlan(null);
     if (result.error) { toast.error(result.error); return; }
-    toast.success(`Quote draft created with ${entities[0].name}`);
+    toast.success(`Quote draft created with ${entityName}`);
     setSelected(new Set());
     onChange();
   };
@@ -319,6 +351,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         inquiryId={inquiryId}
         preSelectedProductIds={selectedProducts.map(p => p.id)}
         onCreated={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
+      />
+      <HardwareSyncDialog
+        open={hwOpen}
+        plan={hwPlan}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved); }}
       />
     </div>
   );

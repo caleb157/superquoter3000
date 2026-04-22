@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { createQuoteSnapshot, defaultValidUntil } from '@/lib/quote-creation';
+import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
+import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 
 type Product = {
   id: string;
@@ -43,6 +45,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [entityId, setEntityId] = useState<string>('');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
+  const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
+  const [hwOpen, setHwOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +81,26 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     if (chosen.length === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
     setSaving(true);
+    const plan = await getHardwareSyncPlan(chosen.map(p => p.id));
+    if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
+      await finalizeQuote([]);
+      return;
+    }
+    setHwPlan(plan);
+    setHwOpen(true);
+    setSaving(false);
+  };
+
+  const finalizeQuote = async (resolved: Array<HardwareConflict & { resolution: ConflictResolution }>) => {
+    const chosen = products.filter(p => selected.has(p.id));
+    setSaving(true);
+    if (hwPlan) {
+      const sync = await applyHardwareSync(hwPlan.newItems, resolved);
+      if (sync.error) { setSaving(false); toast.error('Hardware sync failed: ' + sync.error); return; }
+      if (sync.added || sync.updated) {
+        toast.success(`Hardware library: +${sync.added} added, ${sync.updated} updated`);
+      }
+    }
     const result = await createQuoteSnapshot({
       inquiryId,
       selectedProducts: chosen,
@@ -84,6 +108,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       validUntil,
     });
     setSaving(false);
+    setHwOpen(false);
+    setHwPlan(null);
     if (result.error) { toast.error(result.error); return; }
     toast.success(`Quote draft created${inquiryNumber ? ' for ' + inquiryNumber : ''}`);
     onCreated();
@@ -149,6 +175,12 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           </div>
         </DialogFooter>
       </DialogContent>
+      <HardwareSyncDialog
+        open={hwOpen}
+        plan={hwPlan}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); setSaving(false); }}
+        onConfirm={(resolved) => finalizeQuote(resolved)}
+      />
     </Dialog>
   );
 }
