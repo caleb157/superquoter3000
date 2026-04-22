@@ -19,6 +19,8 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
+import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
