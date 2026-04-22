@@ -112,6 +112,7 @@ export type Database = {
           mc_depth: number | null
           mc_empty_weight_kg: number | null
           mc_height: number | null
+          mc_height_buffer_inch: number | null
           mc_ics_along_d: number | null
           mc_ics_along_h: number | null
           mc_ics_along_w: number | null
@@ -146,6 +147,7 @@ export type Database = {
           mc_depth?: number | null
           mc_empty_weight_kg?: number | null
           mc_height?: number | null
+          mc_height_buffer_inch?: number | null
           mc_ics_along_d?: number | null
           mc_ics_along_h?: number | null
           mc_ics_along_w?: number | null
@@ -180,6 +182,7 @@ export type Database = {
           mc_depth?: number | null
           mc_empty_weight_kg?: number | null
           mc_height?: number | null
+          mc_height_buffer_inch?: number | null
           mc_ics_along_d?: number | null
           mc_ics_along_h?: number | null
           mc_ics_along_w?: number | null
@@ -537,39 +540,54 @@ export type Database = {
         Row: {
           auto_transport_cost_per_cbm: number
           available_hours_per_month: number
+          bubble_kg_per_sq_in: number
+          bubble_price_per_kg: number
           contractor_to_inhouse_decrease: number
+          corrugate_kg_per_sq_in: number
+          corrugate_price_per_kg: number
           created_at: string | null
           default_shipping_type: string | null
           exchange_rate: number
           id: string
           indirect_overhead_monthly: number
           local_transport_cost_per_cbm: number | null
+          mc_height_buffer_inch: number
           num_laborers: number
           packaging_cost_per_cbm: number
         }
         Insert: {
           auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
+          bubble_kg_per_sq_in?: number
+          bubble_price_per_kg?: number
           contractor_to_inhouse_decrease?: number
+          corrugate_kg_per_sq_in?: number
+          corrugate_price_per_kg?: number
           created_at?: string | null
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
           indirect_overhead_monthly?: number
           local_transport_cost_per_cbm?: number | null
+          mc_height_buffer_inch?: number
           num_laborers?: number
           packaging_cost_per_cbm?: number
         }
         Update: {
           auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
+          bubble_kg_per_sq_in?: number
+          bubble_price_per_kg?: number
           contractor_to_inhouse_decrease?: number
+          corrugate_kg_per_sq_in?: number
+          corrugate_price_per_kg?: number
           created_at?: string | null
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
           indirect_overhead_monthly?: number
           local_transport_cost_per_cbm?: number | null
+          mc_height_buffer_inch?: number
           num_laborers?: number
           packaging_cost_per_cbm?: number
         }
@@ -928,6 +946,7 @@ export type Database = {
           notes_issues: string | null
           notes_vendors: string | null
           overhead_done: boolean | null
+          packaging_type: string
           percent_wood: number | null
           photo_url: string | null
           product_type_id: string | null
@@ -963,6 +982,7 @@ export type Database = {
           notes_issues?: string | null
           notes_vendors?: string | null
           overhead_done?: boolean | null
+          packaging_type?: string
           percent_wood?: number | null
           photo_url?: string | null
           product_type_id?: string | null
@@ -998,6 +1018,7 @@ export type Database = {
           notes_issues?: string | null
           notes_vendors?: string | null
           overhead_done?: boolean | null
+          packaging_type?: string
           percent_wood?: number | null
           photo_url?: string | null
           product_type_id?: string | null

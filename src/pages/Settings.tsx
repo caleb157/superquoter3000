@@ -214,11 +214,55 @@ function GeneralSettings() {
   );
 }
 
+// Wrapping settings (subset of global_settings)
+function WrappingSettings() {
+  const [settings, setSettings] = useState<any>(null);
+  useEffect(() => {
+    supabase.from('global_settings').select('*').limit(1).single().then(({ data }) => data && setSettings(data));
+  }, []);
+  const update = async (field: string, value: any) => {
+    if (!settings) return;
+    const { error } = await supabase.from('global_settings').update({ [field]: value } as any).eq('id', settings.id);
+    if (error) { toast.error(error.message); return; }
+    setSettings({ ...settings, [field]: value });
+  };
+  if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+  const fields = [
+    { key: 'mc_height_buffer_inch', label: 'MC Height Buffer (in)', hint: 'Default vertical buffer added inside master cartons. Seeded onto each new product.' },
+    { key: 'corrugate_kg_per_sq_in', label: 'Corrugate KG / sq in', hint: 'Mass of corrugate wrap per square inch of product surface area.' },
+    { key: 'bubble_kg_per_sq_in', label: 'Bubble Wrap KG / sq in', hint: 'Mass of bubble wrap per square inch of product surface area.' },
+    { key: 'corrugate_price_per_kg', label: 'Corrugate Price (₹/kg)' },
+    { key: 'bubble_price_per_kg', label: 'Bubble Wrap Price (₹/kg)' },
+  ];
+  return (
+    <div className="space-y-4 max-w-lg">
+      {fields.map(f => (
+        <div key={f.key}>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium w-52 shrink-0">{f.label}</label>
+            <Input
+              className="h-8 text-sm"
+              type="number"
+              step="0.01"
+              defaultValue={settings[f.key] ?? ''}
+              onBlur={(e) => {
+                const val = Number(e.target.value);
+                if (val !== settings[f.key]) update(f.key, val);
+              }}
+            />
+          </div>
+          {(f as any).hint && <p className="text-[10px] text-muted-foreground ml-[13.5rem] mt-0.5">{(f as any).hint}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type SectionId =
   | 'general' | 'entities' | 'team'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'box-data';
+  | 'shipping' | 'box-data' | 'wrapping';
 
 const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
   {
@@ -253,9 +297,15 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
       { id: 'box-data', label: 'Box data' },
     ],
   },
+  {
+    label: 'Packaging',
+    items: [
+      { id: 'wrapping', label: 'Wrapping' },
+    ],
+  },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -299,6 +349,7 @@ const Settings = () => {
   const renderSection = () => {
     switch (section) {
       case 'general': return <GeneralSettings />;
+      case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'team': return <TeamManagementContent />;
       case 'customers':

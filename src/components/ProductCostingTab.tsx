@@ -235,7 +235,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const productsPerIc = cbm?.products_per_ic || 1;
 
   // Step 4: MC calcs with type-specific cost lookup
-  const includeMc = cbm?.include_mc ?? true;
+  const packagingType: 'ic_only' | 'ic_mc' | 'corrugate_bubble' = product?.packaging_type || 'ic_mc';
+  const includeMc = packagingType === 'ic_mc';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
   const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
@@ -244,6 +245,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     mc_max_depth: cbm?.mc_max_depth || 25,
     mc_max_height: cbm?.mc_max_height || 25,
     mc_buffer_inch: cbm?.mc_buffer_inch || 1,
+    mc_height_buffer_inch: cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5,
     mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20,
     mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
     product_weight_kg: product?.weight_kg || 0,
@@ -260,10 +262,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const along_w = cbm?.mc_ics_along_w || autoMcResult.mc_ics_along_w;
     const along_d = cbm?.mc_ics_along_d || autoMcResult.mc_ics_along_d;
     const along_h = cbm?.mc_ics_along_h || autoMcResult.mc_ics_along_h;
-    const buffer = cbm?.mc_buffer_inch || 1;
-    const mc_width = icDims.ic_width * along_w + buffer;
-    const mc_depth = icDims.ic_depth * along_d + buffer;
-    const mc_height = icDims.ic_height * along_h + buffer;
+    const wd_buffer = cbm?.mc_buffer_inch || 1;
+    const h_buffer = cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5;
+    const mc_width = icDims.ic_width * along_w + wd_buffer;
+    const mc_depth = icDims.ic_depth * along_d + wd_buffer;
+    const mc_height = icDims.ic_height * along_h + h_buffer;
     const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
     const products_per_mc = along_w * along_d * along_h * productsPerIc;
     return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
@@ -276,7 +279,20 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     : 0;
   const mcCost = calc.calcICCostEstimate(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, avgMcCostPerSqIn);
 
-  const finalUnitCbm = calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
+  // Corrugate + Bubble Wrap packaging (alternative to IC/MC)
+  const wrappingResult = useMemo(() => calc.calcCorrugateBubblePackaging(
+    w, d, h, icAdd,
+    {
+      corrugate_kg_per_sq_in: globalSettings?.corrugate_kg_per_sq_in ?? 0.25,
+      bubble_kg_per_sq_in: globalSettings?.bubble_kg_per_sq_in ?? 0.20,
+      corrugate_price_per_kg: globalSettings?.corrugate_price_per_kg ?? 0,
+      bubble_price_per_kg: globalSettings?.bubble_price_per_kg ?? 0,
+    },
+  ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
+
+  const finalUnitCbm = packagingType === 'corrugate_bubble'
+    ? wrappingResult.final_unit_cbm
+    : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
   // Persist derived CBM values so summary/quotes always use current numbers
@@ -380,11 +396,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length, recalcTick]);
 
-  // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
+  // Step 6: Auto-populate packaging COGS (IC Box, MC Box, Corrugate Wrap, Bubble Wrap)
+  const wrapCreatingRef = useRef(false);
   useEffect(() => {
     if (!dataLoaded || !product || cogsItems.length === 0 || w === 0) return;
 
-    const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number }[] = [];
+    const isWrapMode = packagingType === 'corrugate_bubble';
+    const isIcOnly = packagingType === 'ic_only';
+
+    const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number; units?: string }[] = [];
 
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated) return;
@@ -392,19 +412,38 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
         updates.push({
           id: item.id,
-          components_per_product: productsPerIc > 0 ? 1 / productsPerIc : 1,
-          unit_cost_inr: icCost,
-          include: 'Yes',
+          components_per_product: !isWrapMode && productsPerIc > 0 ? 1 / productsPerIc : 0,
+          unit_cost_inr: isWrapMode ? 0 : icCost,
+          include: isWrapMode ? 'No' : 'Yes',
           waste_factor: 0.05,
         });
       } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
         const ppmc = mcResult.products_per_mc || 1;
+        const useMc = !isWrapMode && !isIcOnly && ppmc > 0;
         updates.push({
           id: item.id,
-          components_per_product: includeMc && ppmc > 0 ? 1 / ppmc : 0,
-          unit_cost_inr: mcCost,
-          include: includeMc ? 'Yes' : 'No',
+          components_per_product: useMc ? 1 / ppmc : 0,
+          unit_cost_inr: useMc ? mcCost : 0,
+          include: useMc ? 'Yes' : 'No',
           waste_factor: 0,
+        });
+      } else if (name === 'corrugate wrap') {
+        updates.push({
+          id: item.id,
+          components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
+          unit_cost_inr: isWrapMode ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
+          include: isWrapMode ? 'Yes' : 'No',
+          waste_factor: 0,
+          units: 'KG',
+        });
+      } else if (name === 'bubble wrap') {
+        updates.push({
+          id: item.id,
+          components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
+          unit_cost_inr: isWrapMode ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
+          include: isWrapMode ? 'Yes' : 'No',
+          waste_factor: 0,
+          units: 'KG',
         });
       }
     });
@@ -416,15 +455,52 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         return { ...item, ...upd };
       }));
       updates.forEach(upd => {
-        (supabase as any).from('cogs_items').update({
+        const dbUpd: any = {
           components_per_product: upd.components_per_product,
           unit_cost_inr: upd.unit_cost_inr,
           include: upd.include,
           waste_factor: upd.waste_factor,
-        }).eq('id', upd.id);
+        };
+        if (upd.units) dbUpd.units = upd.units;
+        (supabase as any).from('cogs_items').update(dbUpd).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length, recalcTick]);
+
+    // Auto-create Corrugate/Bubble rows on first switch into wrap mode
+    if (isWrapMode && !wrapCreatingRef.current) {
+      const hasCorrugate = cogsItems.some(i => (i.component_name || '').toLowerCase() === 'corrugate wrap');
+      const hasBubble = cogsItems.some(i => (i.component_name || '').toLowerCase() === 'bubble wrap');
+      if (!hasCorrugate || !hasBubble) {
+        wrapCreatingRef.current = true;
+        (async () => {
+          const toInsert: any[] = [];
+          if (!hasCorrugate) {
+            toInsert.push({
+              product_id: id, cogs_type: 'Packaging', component_name: 'Corrugate Wrap',
+              units: 'KG', components_per_product: wrappingResult.corrugate_kg,
+              unit_cost_inr: globalSettings?.corrugate_price_per_kg ?? 0,
+              waste_factor: 0, is_auto_calculated: true, include: 'Yes',
+              sort_order: cogsItems.length + 100,
+            });
+          }
+          if (!hasBubble) {
+            toInsert.push({
+              product_id: id, cogs_type: 'Packaging', component_name: 'Bubble Wrap',
+              units: 'KG', components_per_product: wrappingResult.bubble_kg,
+              unit_cost_inr: globalSettings?.bubble_price_per_kg ?? 0,
+              waste_factor: 0, is_auto_calculated: true, include: 'Yes',
+              sort_order: cogsItems.length + 101,
+            });
+          }
+          if (toInsert.length) {
+            const { data } = await (supabase as any).from('cogs_items').insert(toInsert).select();
+            if (data) setCogsItems(prev => [...prev, ...data]);
+          }
+          wrapCreatingRef.current = false;
+        })();
+      }
+    }
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
@@ -727,6 +803,27 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </Select>
               </div>
               <div>
+                <label className="text-[10px] text-muted-foreground">Packaging Type</label>
+                <Select
+                  value={packagingType}
+                  onValueChange={(v) => {
+                    // Keep legacy include_mc flag in sync for downstream code
+                    updateProduct('packaging_type', v);
+                    const nextIncludeMc = v === 'ic_mc';
+                    if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
+                      updateCbm('include_mc', nextIncludeMc);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ic_only">IC only</SelectItem>
+                    <SelectItem value="ic_mc">IC + MC</SelectItem>
+                    <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -810,6 +907,48 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
+              {packagingType === 'corrugate_bubble' ? (
+                <>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped W (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_w.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped D (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_d.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped H (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_h.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Surface Area (sq in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.surface_area_sq_in.toFixed(1)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Total CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(totalCbm)}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div className="p-2 rounded-md border border-border/50 bg-muted/30">
+                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Corrugate Wrap (per unit)</div>
+                      <div className="text-xs">{wrappingResult.corrugate_kg.toFixed(3)} kg × {fmt.inr(globalSettings?.corrugate_price_per_kg ?? 0)}/kg = <span className="font-semibold">{fmt.inr(wrappingResult.corrugate_cost)}</span></div>
+                    </div>
+                    <div className="p-2 rounded-md border border-border/50 bg-muted/30">
+                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Bubble Wrap (per unit)</div>
+                      <div className="text-xs">{wrappingResult.bubble_kg.toFixed(3)} kg × {fmt.inr(globalSettings?.bubble_price_per_kg ?? 0)}/kg = <span className="font-semibold">{fmt.inr(wrappingResult.bubble_cost)}</span></div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Box-data lookups are skipped in this mode. Wrap quantities flow into COGS as auto-calculated rows.</p>
+                </>
+              ) : (
+              <>
               <div className="grid grid-cols-6 gap-2">
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Type</label>
@@ -856,12 +995,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox checked={includeMc} onCheckedChange={(v) => updateCbm('include_mc', !!v)} />
-                  <span className="text-xs font-medium">Include Master Carton (MC)</span>
-                </div>
-                {includeMc && (
+              {includeMc && (
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-medium">Master Carton Type:</span>
                   <div className="w-36">
                     <Select value={mcType} onValueChange={v => updateCbm('mc_type', v)}>
                       <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -872,11 +1008,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {includeMc && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <div>
                     <label className="text-[10px] text-muted-foreground">MC Max W</label>
                     <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_max_width || 25} onBlur={e => updateCbm('mc_max_width', Number(e.target.value))} />
@@ -890,8 +1026,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_max_height || 25} onBlur={e => updateCbm('mc_max_height', Number(e.target.value))} />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground">Buffer (in)</label>
-                    <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_buffer_inch || 1} onBlur={e => updateCbm('mc_buffer_inch', Number(e.target.value))} />
+                    <label className="text-[10px] text-muted-foreground">MC W/D Buffer (in)</label>
+                    <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_buffer_inch ?? 1} onBlur={e => updateCbm('mc_buffer_inch', Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">MC H Buffer (in)</label>
+                    <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5} onBlur={e => updateCbm('mc_height_buffer_inch', Number(e.target.value))} />
                   </div>
                   <div>
                     <label className="text-[10px] text-muted-foreground">Weight Limit (kg)</label>
@@ -961,6 +1101,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(totalCbm)}</span>
                   </div>
                 </div>
+              )}
+              </>
               )}
 
               {/* Carton Summary */}

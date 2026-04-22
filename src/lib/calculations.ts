@@ -51,7 +51,8 @@ export interface MCConfig {
   mc_max_width: number;
   mc_max_depth: number;
   mc_max_height: number;
-  mc_buffer_inch: number;
+  mc_buffer_inch: number; // W/D buffer
+  mc_height_buffer_inch?: number; // separate height buffer (defaults to mc_buffer_inch if absent)
   mc_weight_limit_kg: number;
   mc_empty_weight_kg: number;
   product_weight_kg: number;
@@ -155,10 +156,12 @@ export function calcMCPacking(config: MCConfig): {
   const { mc_max_width, mc_max_depth, mc_max_height, mc_buffer_inch,
     mc_weight_limit_kg, mc_empty_weight_kg, product_weight_kg,
     quantity, products_per_ic, ic_width, ic_depth, ic_height } = config;
+  const wd_buffer = mc_buffer_inch;
+  const h_buffer = config.mc_height_buffer_inch ?? mc_buffer_inch;
 
-  const along_w = Math.max(1, Math.floor((mc_max_width - mc_buffer_inch) / ic_width));
-  const along_d = Math.max(1, Math.floor((mc_max_depth - mc_buffer_inch) / ic_depth));
-  const along_h = Math.max(1, Math.floor((mc_max_height - mc_buffer_inch) / ic_height));
+  const along_w = Math.max(1, Math.floor((mc_max_width - wd_buffer) / ic_width));
+  const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / ic_depth));
+  const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / ic_height));
 
   let max_by_weight = along_w * along_d * along_h;
   if (mc_weight_limit_kg > 0 && product_weight_kg > 0) {
@@ -175,14 +178,59 @@ export function calcMCPacking(config: MCConfig): {
 
   const products_per_mc = actual_w * actual_d * actual_h * products_per_ic;
 
-  const mc_width = ic_width * actual_w + mc_buffer_inch;
-  const mc_depth = ic_depth * actual_d + mc_buffer_inch;
-  const mc_height = ic_height * actual_h + mc_buffer_inch;
+  const mc_width = ic_width * actual_w + wd_buffer;
+  const mc_depth = ic_depth * actual_d + wd_buffer;
+  const mc_height = ic_height * actual_h + h_buffer;
   const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
     products_per_mc, mc_width, mc_depth, mc_height, mc_volume_cbm,
+  };
+}
+
+// ============================================================
+// Corrugate + Bubble Wrap packaging
+// ============================================================
+
+export interface WrappingSettings {
+  corrugate_kg_per_sq_in: number;
+  bubble_kg_per_sq_in: number;
+  corrugate_price_per_kg: number;
+  bubble_price_per_kg: number;
+}
+
+export function calcCorrugateBubblePackaging(
+  productW: number,
+  productD: number,
+  productH: number,
+  icAddPerSide: number,
+  s: WrappingSettings,
+): {
+  wrapped_w: number;
+  wrapped_d: number;
+  wrapped_h: number;
+  final_unit_cbm: number;
+  surface_area_sq_in: number;
+  corrugate_kg: number;
+  corrugate_cost: number;
+  bubble_kg: number;
+  bubble_cost: number;
+} {
+  const wrapped_w = (productW || 0) + 2 * icAddPerSide;
+  const wrapped_d = (productD || 0) + 2 * icAddPerSide;
+  const wrapped_h = (productH || 0) + 2 * icAddPerSide;
+  const final_unit_cbm = (wrapped_w * wrapped_d * wrapped_h) / 61020;
+  const sa = surfaceAreaSqIn(productW || 0, productD || 0, productH || 0);
+  const corrugate_kg = sa * (s.corrugate_kg_per_sq_in || 0);
+  const bubble_kg = sa * (s.bubble_kg_per_sq_in || 0);
+  return {
+    wrapped_w, wrapped_d, wrapped_h, final_unit_cbm,
+    surface_area_sq_in: sa,
+    corrugate_kg,
+    corrugate_cost: corrugate_kg * (s.corrugate_price_per_kg || 0),
+    bubble_kg,
+    bubble_cost: bubble_kg * (s.bubble_price_per_kg || 0),
   };
 }
 
