@@ -131,8 +131,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <DialogTitle>Generate Quote{inquiryNumber ? ` — ${inquiryNumber}` : ''}</DialogTitle>
           <p className="text-xs text-muted-foreground">Select products and quote details</p>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
             <Label className="text-xs">Company entity</Label>
             <Select value={entityId} onValueChange={setEntityId}>
               <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Select entity..." /></SelectTrigger>
@@ -146,6 +146,16 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             </Select>
           </div>
           <div>
+            <Label className="text-xs">Currency</Label>
+            <Select value={currency} onValueChange={(v) => setCurrency(v as 'USD' | 'INR')}>
+              <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USD">USD ($)</SelectItem>
+                <SelectItem value="INR">INR (₹)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
             <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-9 mt-1" />
           </div>
