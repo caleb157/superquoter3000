@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X } from 'lucide-react';
@@ -285,17 +286,19 @@ export default function InquiryDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-max">
-              <TabsTrigger value="products" className="text-xs">Products</TabsTrigger>
-              <TabsTrigger value="assemblies" className="text-xs">Assemblies</TabsTrigger>
-              <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-              <TabsTrigger value="quotes" className="text-xs">Quotes</TabsTrigger>
-              <TabsTrigger value="samples" className="text-xs">Samples</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
-              <TabsTrigger value="summary" className="text-xs">Summary</TabsTrigger>
-            </TabsList>
-          </div>
+          <ResponsiveTabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as TabKey)}
+            options={[
+              { value: 'products', label: 'Products' },
+              { value: 'assemblies', label: 'Assemblies' },
+              { value: 'tasks', label: 'Tasks' },
+              { value: 'quotes', label: 'Quotes' },
+              { value: 'samples', label: 'Samples' },
+              { value: 'settings', label: 'Settings' },
+              { value: 'summary', label: 'Summary' },
+            ]}
+          />
 
           <TabsContent value="summary" className="mt-3 space-y-3">
             <Card>

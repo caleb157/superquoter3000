@@ -301,9 +301,9 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <TooltipProvider>
-        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4">
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
+          {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
@@ -360,7 +360,7 @@ const Dashboard = () => {
                         key={b}
                         onClick={() => navigate(`/products?stage=${b}`)}
                         className={cn(
-                          'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md hover:opacity-80 transition',
+                          'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md hover:opacity-80 transition min-h-[44px] sm:min-h-0',
                           STAGE_BUCKET_COLOR[b],
                         )}
                       >

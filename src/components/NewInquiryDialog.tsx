@@ -119,7 +119,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
           <DialogTitle>{showNewCustomer ? 'Add Customer' : 'New Inquiry'}</DialogTitle>
           <DialogDescription>

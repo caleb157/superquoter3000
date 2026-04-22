@@ -231,52 +231,93 @@ export default function SamplesList() {
             <p>No samples match these filters.</p>
           </CardContent></Card>
         ) : (
-          <Card><CardContent className="p-0">
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead className="text-xs">Product</TableHead>
-                <TableHead className="text-xs">Inquiry</TableHead>
-                <TableHead className="text-xs">Customer</TableHead>
-                <TableHead className="text-xs">Vendor</TableHead>
-                <TableHead className="text-xs">Status</TableHead>
-                <TableHead className="text-xs">Requested</TableHead>
-                <TableHead className="text-xs">Completed</TableHead>
-                <TableHead className="text-xs text-right">Days</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {visible.map(s => {
-                  const product = s.product_id ? productById[s.product_id] : null;
-                  const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
-                  const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
-                  const days = daysToSample(s);
-                  return (
-                    <TableRow
-                      key={s.id}
-                      className="cursor-pointer hover:bg-muted/30"
-                      onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
-                    >
-                      <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
-                      <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
-                      <TableCell className="text-xs">{cust?.name ?? cust?.company ?? '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {s.requested_date ? format(parseISO(s.requested_date), 'MMM d, yyyy') : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {s.completed_at ? format(parseISO(s.completed_at), 'MMM d, yyyy') : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-right tabular-nums">
-                        {days !== null ? `${days}d` : (s.status === 'cancelled' ? '' : '—')}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent></Card>
+          <>
+            {/* Desktop table */}
+            <Card className="hidden md:block"><CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">Inquiry</TableHead>
+                  <TableHead className="text-xs">Customer</TableHead>
+                  <TableHead className="text-xs">Vendor</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Requested</TableHead>
+                  <TableHead className="text-xs">Completed</TableHead>
+                  <TableHead className="text-xs text-right">Days</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {visible.map(s => {
+                    const product = s.product_id ? productById[s.product_id] : null;
+                    const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
+                    const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+                    const days = daysToSample(s);
+                    return (
+                      <TableRow
+                        key={s.id}
+                        className="cursor-pointer hover:bg-muted/30"
+                        onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                      >
+                        <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
+                        <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
+                        <TableCell className="text-xs">{cust?.name ?? cust?.company ?? '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {s.requested_date ? format(parseISO(s.requested_date), 'MMM d, yyyy') : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {s.completed_at ? format(parseISO(s.completed_at), 'MMM d, yyyy') : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">
+                          {days !== null ? `${days}d` : (s.status === 'cancelled' ? '' : '—')}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent></Card>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-2">
+              {visible.map(s => {
+                const product = s.product_id ? productById[s.product_id] : null;
+                const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
+                const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+                const days = daysToSample(s);
+                return (
+                  <Card
+                    key={s.id}
+                    className="cursor-pointer active:bg-accent/50"
+                    onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                  >
+                    <CardContent className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm truncate">{product?.name ?? '—'}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {s.vendor?.name ?? 'No vendor'}
+                            {inq?.rfq_number && <span> · {inq.rfq_number}</span>}
+                            {(cust?.name || cust?.company) && <span> · {cust?.name ?? cust?.company}</span>}
+                          </div>
+                        </div>
+                        <Badge variant="secondary" className={cn('text-[10px] shrink-0', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+                        <span>
+                          {s.requested_date ? format(parseISO(s.requested_date), 'MMM d') : '—'}
+                          {s.completed_at && <span> → {format(parseISO(s.completed_at), 'MMM d')}</span>}
+                        </span>
+                        <span>{days !== null ? `${days}d` : ''}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
