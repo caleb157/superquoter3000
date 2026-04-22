@@ -508,7 +508,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
         await supabase.from('overhead_items').insert(defaultOverhead as any);
 
         // CBM estimates — include IC/MC data from structured intake if present
-        const cbmData: any = { product_id: prod.id };
+        const cbmData: any = { product_id: prod.id, mc_height_buffer_inch: gsMcHBuffer };
         if (p.ic_type) cbmData.ic_type = p.ic_type;
         if (p.products_per_ic != null) cbmData.products_per_ic = p.products_per_ic;
         if (p.ic_width != null) cbmData.ic_width = p.ic_width;
