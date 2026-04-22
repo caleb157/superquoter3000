@@ -211,7 +211,8 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number } }> {
+  meta?: { payment_terms?: string | null },
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number }; payment_terms?: string | null }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -226,11 +227,16 @@ export async function updateQuoteLineItems(
     total_cbm: totalCbm,
   };
 
+  const updatePayload: any = { products: productsJson, totals };
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'payment_terms')) {
+    updatePayload.payment_terms = meta.payment_terms?.toString().trim() || null;
+  }
+
   const { error } = await (supabase as any)
     .from('quote_snapshots')
-    .update({ products: productsJson, totals })
+    .update(updatePayload)
     .eq('id', snapshotId);
 
   if (error) return { error: error.message };
-  return { products: productsJson, totals };
+  return { products: productsJson, totals, payment_terms: updatePayload.payment_terms };
 }
