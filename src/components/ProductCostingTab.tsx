@@ -1317,6 +1317,24 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
                         <TableCell className="text-right calc-field font-mono text-xs">{fmt.inr(costCalc.unit_cost)}</TableCell>
+                        <TableCell className="p-0 text-right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            title={isAuto ? 'Auto-calculated rows are managed by the system' : 'Delete row'}
+                            disabled={isAuto}
+                            onClick={async () => {
+                              if (isAuto) return;
+                              if (!confirm(`Delete "${item.component_name || item.cogs_type}" row?`)) return;
+                              const { error } = await (supabase as any).from('cogs_items').delete().eq('id', item.id);
+                              if (error) { toast.error(error.message); return; }
+                              setCogsItems(items => items.filter(i => i.id !== item.id));
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
