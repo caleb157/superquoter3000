@@ -112,7 +112,7 @@ export default function SamplesList() {
         const product = s.product_id ? productById[s.product_id] : null;
         const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
         const productName = product?.name?.toLowerCase() ?? '';
-        const vendorName = (s.vendor_name ?? '').toLowerCase();
+        const vendorName = (s.vendor?.name ?? '').toLowerCase();
         const inqNumber = (inq?.rfq_number ?? '').toLowerCase();
         return productName.includes(q) || vendorName.includes(q) || inqNumber.includes(q);
       });
