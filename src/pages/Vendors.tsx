@@ -43,7 +43,7 @@ export default function Vendors() {
         supabase.from('vendors').select('id, name, category, email, phone, notes').order('name'),
         supabase
           .from('samples')
-          .select('vendor_id, vendor_name, status, product_id, products(id, name)')
+          .select('vendor_id, status, product_id, products(id, name)')
           .not('vendor_id', 'is', null),
       ]);
       if (cancel) return;
