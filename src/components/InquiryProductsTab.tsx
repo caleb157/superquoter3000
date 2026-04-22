@@ -23,6 +23,10 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { fmt } from '@/lib/formatters';
+import { SortableHeader } from '@/components/SortableHeader';
+import { useTableSort } from '@/hooks/use-table-sort';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -94,6 +98,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [reviewSaving, setReviewSaving] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
+  const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
+    storageKey: `inquiry-products-sort:${inquiryId}`,
+  });
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
@@ -110,13 +118,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      setProducts(data ?? []);
+      const list = data ?? [];
+      setProducts(list);
+      if (list.length > 0) {
+        const prices = await computeProductPriceAndCost(list.map(p => p.id));
+        setPriceMap(prices);
+      } else {
+        setPriceMap({});
+      }
     })();
   }, [inquiryId, refresh]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return products.filter(p => {
+    const base = products.filter(p => {
       if (q && !p.name.toLowerCase().includes(q)) return false;
       if (filter === 'needs_design') return p.design_stage === 'need_design';
       if (filter === 'in_costing') {
@@ -131,7 +146,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
       return true;
     });
-  }, [products, search, filter]);
+    return sortItems(base, {
+      name: (p) => (p.name || '').toLowerCase(),
+      price: (p) => priceMap[p.id]?.unit_price_usd ?? 0,
+      updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
+    });
+  }, [products, search, filter, sortItems, priceMap]);
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
@@ -333,12 +353,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
-                <TableHead className="text-xs">Name</TableHead>
+                <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
                 <TableHead className="text-xs">Costing</TableHead>
-                <TableHead className="text-xs">Updated</TableHead>
+                <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                <SortableHeader column="updated" label="Updated" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -359,24 +380,23 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {priceMap[p.id]?.unit_price_usd ? fmt.usd(priceMap[p.id].unit_price_usd) : '—'}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=costing`)}>Costing</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=sample-log`)}>Sample Log</Button>
-                        <ConfirmDeleteButton
-                          itemLabel={`product "${p.name}"`}
-                          iconOnly
-                          onConfirm={async () => {
-                            const { error } = await supabase.from('products').delete().eq('id', p.id);
-                            if (error) throw error;
-                            setRefresh(r => r + 1);
-                            onChange();
-                          }}
-                        />
-                      </div>
+                      <ConfirmDeleteButton
+                        itemLabel={`product "${p.name}"`}
+                        iconOnly
+                        onConfirm={async () => {
+                          const { error } = await supabase.from('products').delete().eq('id', p.id);
+                          if (error) throw error;
+                          setRefresh(r => r + 1);
+                          onChange();
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 );
