@@ -178,7 +178,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (prodRes.data?.customer_rfq_id) {
         const { data: inqData } = await (supabase as any)
           .from('customer_rfqs')
-          .select('exchange_rate_override, markup_percent_override, shipping_type_id_override')
+          .select('*')
           .eq('id', prodRes.data.customer_rfq_id)
           .maybeSingle();
         if (inqData) setInquiryOverrides(inqData);
