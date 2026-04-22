@@ -10,14 +10,26 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Plus, Package2, ChevronDown, ChevronRight } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { cn } from '@/lib/utils';
 
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-700',
   in_progress: 'bg-amber-100 text-amber-700',
+  paused: 'bg-blue-100 text-blue-700',
   completed: 'bg-emerald-100 text-emerald-700',
+  done: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-700',
 };
+
+const STATUS_FILTERS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'in_progress', label: 'In progress' },
+  { key: 'paused', label: 'Paused' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
 
 const SAMPLE_STATUS_COLOR: Record<string, string> = {
   requested: 'bg-gray-100 text-gray-700',
@@ -35,6 +47,7 @@ export default function SamplesList() {
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const fetchAll = async () => {
     const [rfsRes, sampleRes, inqRes] = await Promise.all([
@@ -62,6 +75,17 @@ export default function SamplesList() {
     return i ? `${i.rfq_number}${i.title ? ` · ${i.title}` : ''}` : '—';
   };
 
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: rfsItems.length };
+    rfsItems.forEach(r => { c[r.status] = (c[r.status] || 0) + 1; });
+    return c;
+  }, [rfsItems]);
+
+  const filteredRfs = useMemo(
+    () => statusFilter === 'all' ? rfsItems : rfsItems.filter(r => r.status === statusFilter),
+    [rfsItems, statusFilter],
+  );
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
@@ -71,6 +95,33 @@ export default function SamplesList() {
             <Plus className="h-4 w-4" /> New Batch
           </Button>
         </div>
+
+        {!loading && rfsItems.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {STATUS_FILTERS.map(f => {
+              const active = statusFilter === f.key;
+              const n = counts[f.key] ?? 0;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setStatusFilter(f.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition',
+                    active
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-muted text-muted-foreground border-border',
+                  )}
+                >
+                  <span>{f.label}</span>
+                  <span className={cn(
+                    'rounded-full px-1.5 text-[10px] tabular-nums',
+                    active ? 'bg-primary-foreground/20' : 'bg-muted',
+                  )}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
@@ -96,7 +147,7 @@ export default function SamplesList() {
                   <TableHead className="text-xs text-right">Days</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {rfsItems.map(r => {
+                  {filteredRfs.map(r => {
                     const list = samplesByRfs[r.id] || [];
                     const days = differenceInDays(new Date(), parseISO(r.requested_date));
                     const isOpen = expanded[r.id];
@@ -156,7 +207,7 @@ export default function SamplesList() {
 
             {/* Mobile card list */}
             <div className="md:hidden space-y-2">
-              {rfsItems.map(r => {
+              {filteredRfs.map(r => {
                 const list = samplesByRfs[r.id] || [];
                 const days = differenceInDays(new Date(), parseISO(r.requested_date));
                 const isOpen = expanded[r.id];

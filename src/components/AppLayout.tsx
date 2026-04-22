@@ -4,11 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
-import {
-  Settings, LogOut, ShoppingCart, FileText, ClipboardList, Menu, ChevronDown,
-  Users, Inbox, Package2, CheckSquare, BarChart3, Shield, MoreHorizontal, ScrollText,
+  Settings, LogOut, ShoppingCart, FileText, Menu,
+  Users, Inbox, Package2, CheckSquare, MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -33,20 +30,16 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const visibleItems = navItems.filter(n => n.show);
 
-  // Desktop primary nav order: Inquiries, Customers, Products, Logs (dropdown), Tasks
+  // Desktop primary nav: Inquiries, Customers, Products, Tasks, Quotes, Samples
   const primaryDesktop: Array<{ to: string; label: string; icon: typeof Inbox }> = [
     { to: '/', label: 'Inquiries', icon: Inbox },
     { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
-  ].filter(i => visibleItems.find(v => v.to === i.to));
-
-  const logsItems = [
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
   ].filter(i => visibleItems.find(v => v.to === i.to));
 
-  const logsActive = logsItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
   const showSettings = !!visibleItems.find(v => v.to === '/settings');
 
   // Bottom-nav primary set on mobile (4 most-used + More)
@@ -79,46 +72,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 ml-4 flex-1 min-w-0 overflow-x-auto">
-            {primaryDesktop.slice(0, 3).map(item => (
-              <Link key={item.to} to={item.to}>
-                <Button
-                  variant={isActive(item.to) ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn('h-8 text-xs gap-1.5', isActive(item.to) && 'bg-secondary')}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-
-            {logsItems.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant={logsActive ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className={cn('h-8 text-xs gap-1.5 group', logsActive && 'bg-secondary')}
-                  >
-                    <ScrollText className="h-3.5 w-3.5" />
-                    Logs
-                    <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-40">
-                  {logsItems.map(item => (
-                    <DropdownMenuItem key={item.to} asChild>
-                      <Link to={item.to} className="cursor-pointer gap-2">
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {primaryDesktop.slice(3).map(item => (
+            {primaryDesktop.map(item => (
               <Link key={item.to} to={item.to}>
                 <Button
                   variant={isActive(item.to) ? 'secondary' : 'ghost'}
@@ -181,70 +135,20 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   <span className="font-bold">Product HQ</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
-                  {visibleItems
-                    .filter(item => !logsItems.find(l => l.to === item.to))
-                    .map(item => {
-                      const insertLogsBefore = item.to === '/settings' && logsItems.length > 0;
-                      return (
-                        <div key={item.to}>
-                          {insertLogsBefore && (
-                            <>
-                              <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                Logs
-                              </div>
-                              {logsItems.map(li => (
-                                <Link key={li.to} to={li.to} onClick={() => setMobileOpen(false)}>
-                                  <Button
-                                    variant={isActive(li.to) ? 'secondary' : 'ghost'}
-                                    className={cn(
-                                      'w-full justify-start gap-3 h-11 text-sm',
-                                      isActive(li.to) && 'bg-secondary',
-                                    )}
-                                  >
-                                    <li.icon className="h-4 w-4" />
-                                    {li.label}
-                                  </Button>
-                                </Link>
-                              ))}
-                              <div className="h-2" />
-                            </>
-                          )}
-                          <Link to={item.to} onClick={() => setMobileOpen(false)}>
-                            <Button
-                              variant={isActive(item.to) ? 'secondary' : 'ghost'}
-                              className={cn(
-                                'w-full justify-start gap-3 h-11 text-sm',
-                                isActive(item.to) && 'bg-secondary',
-                              )}
-                            >
-                              <item.icon className="h-4 w-4" />
-                              {item.label}
-                            </Button>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  {!visibleItems.find(v => v.to === '/settings') && logsItems.length > 0 && (
-                    <>
-                      <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Logs
-                      </div>
-                      {logsItems.map(li => (
-                        <Link key={li.to} to={li.to} onClick={() => setMobileOpen(false)}>
-                          <Button
-                            variant={isActive(li.to) ? 'secondary' : 'ghost'}
-                            className={cn(
-                              'w-full justify-start gap-3 h-11 text-sm',
-                              isActive(li.to) && 'bg-secondary',
-                            )}
-                          >
-                            <li.icon className="h-4 w-4" />
-                            {li.label}
-                          </Button>
-                        </Link>
-                      ))}
-                    </>
-                  )}
+                  {visibleItems.map(item => (
+                    <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}>
+                      <Button
+                        variant={isActive(item.to) ? 'secondary' : 'ghost'}
+                        className={cn(
+                          'w-full justify-start gap-3 h-11 text-sm',
+                          isActive(item.to) && 'bg-secondary',
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
                 </nav>
                 <div className="pt-4 border-t mt-2">
                   <Button
