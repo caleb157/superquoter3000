@@ -177,24 +177,22 @@ const Dashboard = () => {
       );
     });
 
-    list = [...list].sort((a, b) => {
-      switch (sortKey) {
-        case 'created':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'product_count':
-          return (productsByInquiry[b.id]?.length ?? 0) - (productsByInquiry[a.id]?.length ?? 0);
-        case 'customer': {
-          const an = (customerMap[a.customer_id ?? '']?.name || '').toLowerCase();
-          const bn = (customerMap[b.customer_id ?? '']?.name || '').toLowerCase();
-          return an.localeCompare(bn);
-        }
-        case 'updated':
-        default:
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      }
-    });
+    // Default ordering: most recently updated first when no explicit sort selected.
+    if (!sortColumn || !sortDirection) {
+      list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    } else {
+      const getters: Record<string, (i: Inquiry) => string | number> = {
+        rfq: (i) => i.rfq_number.toLowerCase(),
+        customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
+        title: (i) => (i.title ?? '').toLowerCase(),
+        status: (i) => i.status,
+        products: (i) => productsByInquiry[i.id]?.length ?? 0,
+        updated: (i) => new Date(i.updated_at).getTime(),
+      };
+      list = sortItems(list, getters);
+    }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortKey]);
+  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
