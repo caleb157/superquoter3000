@@ -405,7 +405,11 @@ const Dashboard = () => {
                 return (
                   <Card
                     key={inq.id}
-                    className="active:scale-[0.99] transition-transform"
+                    data-row-nav
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open inquiry ${inq.rfq_number}`}
+                    className="active:scale-[0.99] transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     onClick={() => navigate(`/inquiry/${inq.id}`)}
                   >
                     <CardContent className="p-3 space-y-2">
@@ -512,7 +516,11 @@ const Dashboard = () => {
                       return (
                         <TableRow
                           key={inq.id}
-                          className="cursor-pointer hover:bg-muted/50"
+                          data-row-nav
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Open inquiry ${inq.rfq_number}`}
+                          className="cursor-pointer hover:bg-muted/50 outline-none focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                           onClick={goToInquiry}
                         >
                           <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
