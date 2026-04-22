@@ -390,7 +390,7 @@ const Dashboard = () => {
           </div>
 
           {/* Mobile: card list */}
-          <div className="md:hidden space-y-2">
+          <div className="md:hidden space-y-2" ref={mobileListRef}>
             {loading ? (
               <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
             ) : visibleInquiries.length === 0 ? (
@@ -471,7 +471,7 @@ const Dashboard = () => {
           </div>
 
           {/* Desktop: table */}
-          <Card className="hidden md:block">
+          <Card className="hidden md:block" ref={desktopListRef as any}>
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
