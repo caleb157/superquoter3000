@@ -25,16 +25,23 @@ const STATUS_COLOR: Record<string, string> = {
 export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string; refreshKey: number }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await (supabase as any)
-        .from('quote_snapshots')
-        .select('id, quote_number, status, totals, created_at, share_token')
-        .eq('customer_rfq_id', inquiryId)
-        .order('created_at', { ascending: false });
-      setQuotes(data ?? []);
-    })();
-  }, [inquiryId, refreshKey]);
+  const load = async () => {
+    const { data } = await (supabase as any)
+      .from('quote_snapshots')
+      .select('id, quote_number, status, totals, created_at, share_token')
+      .eq('customer_rfq_id', inquiryId)
+      .order('created_at', { ascending: false });
+    setQuotes(data ?? []);
+  };
+
+  useEffect(() => { load(); }, [inquiryId, refreshKey]);
+
+  const deleteQuote = async (id: string) => {
+    const { error } = await (supabase as any).from('quote_snapshots').delete().eq('id', id);
+    if (error) throw error;
+    toast.success('Quote deleted');
+    setQuotes(prev => prev.filter(q => q.id !== id));
+  };
 
   return (
     <div className="space-y-4">
