@@ -83,7 +83,8 @@ const Dashboard = () => {
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
-  const [unitPrices, setUnitPrices] = useState<ProductUnitPriceMap>({});
+  const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
+  const [showPipelineDebug, setShowPipelineDebug] = useState(false);
 
   useEffect(() => {
     (async () => {
