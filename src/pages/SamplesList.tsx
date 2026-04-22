@@ -66,7 +66,7 @@ export default function SamplesList() {
 
   const fetchAll = async () => {
     const [sampleRes, inqRes, custRes, prodRes] = await Promise.all([
-      (supabase as any).from('samples').select('*').order('created_at', { ascending: false }),
+      (supabase as any).from('samples').select('*, vendor:vendors(name)').order('created_at', { ascending: false }),
       supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id, status'),
       supabase.from('customers').select('id, name, company'),
       supabase.from('products').select('id, name'),
