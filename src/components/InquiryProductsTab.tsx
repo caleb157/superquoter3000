@@ -381,11 +381,25 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         preSelectedProductIds={selectedProducts.map(p => p.id)}
         onCreated={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
       />
+      <QuotePriceReviewDialog
+        open={reviewOpen}
+        onOpenChange={(o) => { if (!o) { setReviewOpen(false); setReviewSaving(false); } }}
+        selectedProducts={selectedProducts.map(p => ({
+          id: p.id,
+          name: p.name,
+          quantity: (p as any).quantity ?? null,
+          target_price_usd: p.target_price_usd,
+          markup_percent: p.markup_percent,
+        }))}
+        currency={hwCurrency}
+        onConfirm={handleReviewConfirm}
+        saving={reviewSaving}
+      />
       <HardwareSyncDialog
         open={hwOpen}
         plan={hwPlan}
-        onCancel={() => { setHwOpen(false); setHwPlan(null); }}
-        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency); }}
+        onCancel={() => { setHwOpen(false); setHwPlan(null); setPendingLines(null); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency, pendingLines || undefined); }}
       />
     </div>
   );
