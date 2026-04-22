@@ -149,30 +149,27 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const handleGenerateQuote = async () => {
     const selectedProducts = products.filter(p => selected.has(p.id));
     if (selectedProducts.length === 0) return;
-    const productsJson = selectedProducts.map(p => {
-      const unit = Number(p.target_price_usd ?? 0);
-      return {
+    // Pick the first available company entity as default; the inquiry-detail dialog has a richer picker.
+    const { data: entities } = await supabase.from('company_entities').select('id, name').order('name').limit(1);
+    const entityId = entities?.[0]?.id;
+    if (!entityId) {
+      toast.error('Set up a Company Entity in Settings before generating quotes.');
+      return;
+    }
+    const { createQuoteSnapshot, defaultValidUntil } = await import('@/lib/quote-creation');
+    const result = await createQuoteSnapshot({
+      inquiryId,
+      selectedProducts: selectedProducts.map(p => ({
         id: p.id,
         name: p.name,
         target_price_usd: p.target_price_usd,
         markup_percent: p.markup_percent,
-        quantity: 0,
-        unit_price_usd: unit,
-        total: 0,
-      };
+      })),
+      entityId,
+      validUntil: defaultValidUntil(),
     });
-    const totalQty = productsJson.reduce((sum, product) => sum + Number(product.quantity ?? 0), 0);
-    const grandTotal = productsJson.reduce((sum, product) => sum + Number(product.total ?? 0), 0);
-    const { error } = await (supabase as any).from('quote_snapshots').insert({
-      customer_rfq_id: inquiryId,
-      quote_number: 'Q-' + Date.now(),
-      status: 'draft',
-      share_token: crypto.randomUUID(),
-      products: productsJson,
-      totals: { sku_count: selectedProducts.length, total_qty: totalQty, grand_total: grandTotal },
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success('Quote draft created');
+    if (result.error) { toast.error(result.error); return; }
+    toast.success(`Quote draft created with ${entities[0].name}`);
     setSelected(new Set());
     onChange();
   };
