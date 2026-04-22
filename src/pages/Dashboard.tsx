@@ -43,7 +43,6 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
 };
 
 type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
-type SortKey = 'updated' | 'created' | 'product_count' | 'customer';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
@@ -78,7 +77,7 @@ const Dashboard = () => {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
-  const [sortKey, setSortKey] = useState<SortKey>('updated');
+  const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [quoteDialog, setQuoteDialog] = useState<{ id: string; rfq: string } | null>(null);
