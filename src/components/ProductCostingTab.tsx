@@ -19,6 +19,8 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
+import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
@@ -47,6 +49,8 @@ type Props = { productId: string; onProductUpdated?: () => void; onSummaryChange
 
 export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryChange }: Props) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
 
   // Data state
   const [product, setProduct] = useState<any>(null);
@@ -766,6 +770,52 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   };
 
   if (!product) return <div className="text-center py-12 text-muted-foreground">Loading product...</div>;
+
+  if (isMobile) {
+    return (
+      <ProductCostingTabMobile
+        productId={id}
+        product={product}
+        setProduct={setProduct}
+        productTypes={productTypes}
+        cbm={cbm}
+        cogsItems={cogsItems}
+        setCogsItems={setCogsItems}
+        nonUnitCogs={nonUnitCogs}
+        setNonUnitCogs={setNonUnitCogs}
+        overheadItems={overheadItems}
+        setOverheadItems={setOverheadItems}
+        shippingItems={shippingItems}
+        shippingTypes={shippingTypes}
+        employees={employees}
+        globalSettings={globalSettings}
+        hardwarePrices={hardwarePrices}
+        ri={ri}
+        prePackCbm={prePackCbm}
+        finalUnitCbm={finalUnitCbm}
+        totalCbm={totalCbm}
+        cogsPerUnit={cogsPerUnit}
+        nonUnitCogsPerUnit={nonUnitCogsPerUnit}
+        directOhPerUnit={directOhPerUnit}
+        indirectOhPerUnit={indirectOhPerUnit}
+        totalDirectMhPerUnit={totalDirectMhPerUnit}
+        indirectOhPerMh={indirectOhPerMh}
+        shippingPerUnit={shippingPerUnit}
+        exchangeRate={exchangeRate}
+        markupPercent={markupPercent}
+        qty={qty}
+        summary={summary}
+        shipItem={shipItem}
+        updateProduct={updateProduct}
+        updateCbm={updateCbm}
+        updateCogsItem={updateCogsItem}
+        updateOverheadItem={updateOverheadItem}
+        setShippingType={setShippingType}
+        recalculateAllAutoCosts={recalculateAllAutoCosts}
+        recalcing={recalcing}
+      />
+    );
+  }
 
   return (
     <div className="space-y-2">
