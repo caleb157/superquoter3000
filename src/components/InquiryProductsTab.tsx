@@ -89,6 +89,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [hwEntityId, setHwEntityId] = useState<string>('');
   const [hwEntityName, setHwEntityName] = useState<string>('');
   const [hwCurrency, setHwCurrency] = useState<'USD' | 'INR'>('USD');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
