@@ -215,9 +215,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
             {dirty && status === 'idle' && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[10px] font-medium">
+              <Badge variant="outline" className="ml-2 text-[10px] font-medium">
                 Unsaved
-              </span>
+              </Badge>
             )}
           </div>
           <div className="flex gap-2">
