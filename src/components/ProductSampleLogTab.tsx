@@ -56,7 +56,7 @@ export function ProductSampleLogTab({ productId }: Props) {
     setLoading(true);
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*')
+      .select('*, vendor:vendors(name)')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
     setSamples(((data as any) ?? []).map((s: any) => ({ ...s, photo_urls: Array.isArray(s.photo_urls) ? s.photo_urls : [] })));
