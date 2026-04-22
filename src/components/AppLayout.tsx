@@ -4,9 +4,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
-import {
   Settings, LogOut, ShoppingCart, FileText, Menu,
   Users, Inbox, Package2, CheckSquare, MoreHorizontal,
 } from 'lucide-react';
