@@ -451,6 +451,13 @@ const Dashboard = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                         <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
+                        <span className="tabular-nums">
+                          <FobValue
+                            entry={fobByInquiry[inq.id]}
+                            productCount={prods?.length ?? 0}
+                            compact
+                          />
+                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
@@ -612,27 +619,43 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function ActionButton({
-  disabled, tooltip, icon, label, onClick,
+function FobValue({
+  entry, productCount, compact = false,
 }: {
-  disabled?: boolean; tooltip: string; icon: React.ReactNode; label: string; onClick: () => void;
+  entry: { total: number; missing: number } | undefined;
+  productCount: number;
+  compact?: boolean;
 }) {
-  const btn = (
-    <Button
-      size="sm" variant="outline"
-      className="h-7 px-2 text-xs gap-1"
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {icon}{label}
-    </Button>
+  if (!productCount) {
+    return <span className="text-muted-foreground/60">—</span>;
+  }
+  const total = entry?.total ?? 0;
+  const missing = entry?.missing ?? 0;
+  const allMissing = total === 0 && missing > 0;
+
+  const valueLabel = allMissing ? '—' : fmt.usd(total);
+  const tooltipText = allMissing
+    ? 'No costed products yet'
+    : missing > 0
+      ? `${missing} product${missing === 1 ? '' : 's'} not yet costed — value is partial`
+      : `Σ qty × FOB cost across ${productCount} product${productCount === 1 ? '' : 's'}`;
+
+  const inner = (
+    <span className={cn(
+      'inline-flex items-baseline gap-1',
+      allMissing && 'text-muted-foreground/70',
+    )}>
+      <span className={compact ? 'font-medium text-foreground' : 'font-semibold'}>{valueLabel}</span>
+      {missing > 0 && !allMissing && (
+        <span className="text-[10px] text-amber-600 dark:text-amber-400">·{missing}?</span>
+      )}
+    </span>
   );
+
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        {disabled ? <span tabIndex={0}>{btn}</span> : btn}
-      </TooltipTrigger>
-      <TooltipContent><span className="text-xs">{tooltip}</span></TooltipContent>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent><span className="text-xs">{tooltipText}</span></TooltipContent>
     </Tooltip>
   );
 }
