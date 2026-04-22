@@ -556,6 +556,12 @@ const Dashboard = () => {
                           <TableCell className="text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}
                           </TableCell>
+                          <TableCell className="text-right text-xs tabular-nums">
+                            <FobValue
+                              entry={fobByInquiry[inq.id]}
+                              productCount={prods?.length ?? 0}
+                            />
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                               <ConfirmDeleteButton
