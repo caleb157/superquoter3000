@@ -1211,8 +1211,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <TableRow>
                     <ResizableTableHead storageKey="cogs.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.type" defaultWidth={104} minWidth={70}>Type</ResizableTableHead>
-                    <ResizableTableHead storageKey="cogs.component" defaultWidth={180} minWidth={100}>Component</ResizableTableHead>
-                    <ResizableTableHead storageKey="cogs.vendor" defaultWidth={180} minWidth={80}>Vendor</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.component" defaultWidth={150} minWidth={90}>Component</ResizableTableHead>
+                    <ResizableTableHead storageKey="cogs.vendor" defaultWidth={140} minWidth={70}>Vendor</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.units" defaultWidth={56} minWidth={40}>Units</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.qty" defaultWidth={112} minWidth={70} align="right">Qty/Prod</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.cost" defaultWidth={112} minWidth={70} align="right">Cost (₹)</ResizableTableHead>
@@ -1261,9 +1261,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             </Select>
                           )}
                         </TableCell>
-                        <TableCell className="min-w-[260px]">
+                        <TableCell className="align-middle">
                           {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
-                            <div className="flex items-center gap-1 min-w-[260px]">
+                            <div className="flex items-center gap-1 w-full">
                               <Select
                                 value={hardwarePrices.some(hp => hp.name === item.component_name) ? (item.component_name || '') : '__custom__'}
                                 onValueChange={(v) => {
@@ -1283,7 +1283,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                                 }}
                               >
                                 <SelectTrigger
-                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-[200px] [&>span]:truncate [&>span]:block [&>span]:text-left"
+                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-0 [&>span]:truncate [&>span]:block [&>span]:text-left"
                                   title={item.component_name || ''}
                                 >
                                   <SelectValue placeholder="Select hardware…">
@@ -1302,18 +1302,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                               </Select>
                               {!hardwarePrices.some(hp => hp.name === item.component_name) && (
                                 <Input
-                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-[180px]"
+                                  className="h-7 text-xs border-transparent hover:border-input flex-1 min-w-0"
                                   placeholder="Custom name"
                                   defaultValue={item.component_name || ''}
                                   title={item.component_name || ''}
                                   onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)}
                                 />
                               )}
-                              {/* Hardware library is synced automatically when a quote is generated. */}
                             </div>
                           ) : (
                             <Input
-                              className={`h-7 text-xs border-transparent hover:border-input min-w-[220px] ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`}
+                              className={`h-7 text-xs border-transparent hover:border-input w-full min-w-0 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`}
                               defaultValue={item.component_name || ''}
                               title={item.component_name || ''}
                               onBlur={e => updateCogsItem(item.id, 'component_name', e.target.value)}
