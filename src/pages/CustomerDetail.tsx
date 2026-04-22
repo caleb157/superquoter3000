@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -166,15 +167,16 @@ export default function CustomerDetail() {
           />
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — keeps original style on desktop because there are only 2 */}
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="inquiries" className="text-xs gap-1.5 flex-1 sm:flex-initial">
-              Inquiries
-              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{inquiries.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs flex-1 sm:flex-initial">Tasks</TabsTrigger>
-          </TabsList>
+          <ResponsiveTabs
+            value={tab}
+            onValueChange={setTab}
+            options={[
+              { value: 'inquiries', label: `Inquiries (${inquiries.length})` },
+              { value: 'tasks', label: 'Tasks' },
+            ]}
+          />
 
           <TabsContent value="inquiries" className="mt-3">
             {inquiries.length === 0 ? (

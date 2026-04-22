@@ -3,7 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { ArrowLeft, FileText, DollarSign, Package2, ListChecks } from 'lucide-react';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
@@ -278,14 +279,16 @@ const ProductDetail = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setTab}>
-          <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
-            <TabsList className="w-max">
-              <TabsTrigger value="costing"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Costing</TabsTrigger>
-              <TabsTrigger value="sample-log"><Package2 className="h-3.5 w-3.5 mr-1.5" />Sample Log</TabsTrigger>
-              <TabsTrigger value="tasks"><ListChecks className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
-              <TabsTrigger value="summary"><FileText className="h-3.5 w-3.5 mr-1.5" />Summary</TabsTrigger>
-            </TabsList>
-          </div>
+          <ResponsiveTabs
+            value={activeTab}
+            onValueChange={setTab}
+            options={[
+              { value: 'costing', label: 'Costing', icon: DollarSign },
+              { value: 'sample-log', label: 'Sample Log', icon: Package2 },
+              { value: 'tasks', label: 'Tasks', icon: ListChecks },
+              { value: 'summary', label: 'Summary', icon: FileText },
+            ]}
+          />
 
           <TabsContent value="summary">
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}
