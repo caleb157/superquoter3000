@@ -126,6 +126,24 @@ const Dashboard = () => {
     return m;
   }, [products]);
 
+  // Live FOB total per inquiry: Σ (qty × unit_cost_usd) over its products.
+  // Recomputes whenever pricing or product list changes.
+  const fobByInquiry = useMemo(() => {
+    const m: Record<string, { total: number; missing: number }> = {};
+    for (const p of products) {
+      if (!p.customer_rfq_id) continue;
+      const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
+      const qty = p.quantity ?? 0;
+      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
+      if (cost === 0 || qty === 0) {
+        entry.missing += 1;
+      } else {
+        entry.total += qty * cost;
+      }
+    }
+    return m;
+  }, [products, productPricing]);
+
   const inquiryStatusById = useMemo(
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
     [inquiries],
