@@ -1407,11 +1407,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
             <Table className="dense-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Include</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-20 text-right">Total Qty</TableHead>
-                  <TableHead className="w-20 text-right">Cost Each (₹)</TableHead>
-                  <TableHead className="w-20 text-right">Unit Cost</TableHead>
+                  <ResizableTableHead storageKey="nonunit.include" defaultWidth={64} minWidth={48}>Include</ResizableTableHead>
+                  <ResizableTableHead storageKey="nonunit.name" defaultWidth={220} minWidth={100}>Name</ResizableTableHead>
+                  <ResizableTableHead storageKey="nonunit.qty" defaultWidth={96} minWidth={70} align="right">Total Qty</ResizableTableHead>
+                  <ResizableTableHead storageKey="nonunit.cost" defaultWidth={112} minWidth={70} align="right">Cost Each (₹)</ResizableTableHead>
+                  <ResizableTableHead storageKey="nonunit.unitcost" defaultWidth={96} minWidth={70} align="right">Unit Cost</ResizableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1582,11 +1582,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <Table className="dense-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Per Unit (₹)</TableHead>
-                    <TableHead className="text-right">Per Unit ($)</TableHead>
-                    <TableHead className="text-right">Total (₹)</TableHead>
-                    <TableHead className="text-right">% of Cost</TableHead>
+                    <ResizableTableHead storageKey="summary.category" defaultWidth={180} minWidth={100}>Category</ResizableTableHead>
+                    <ResizableTableHead storageKey="summary.peru-inr" defaultWidth={128} minWidth={80} align="right">Per Unit (₹)</ResizableTableHead>
+                    <ResizableTableHead storageKey="summary.peru-usd" defaultWidth={128} minWidth={80} align="right">Per Unit ($)</ResizableTableHead>
+                    <ResizableTableHead storageKey="summary.total-inr" defaultWidth={128} minWidth={80} align="right">Total (₹)</ResizableTableHead>
+                    <ResizableTableHead storageKey="summary.pct" defaultWidth={112} minWidth={70} align="right">% of Cost</ResizableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
