@@ -14,6 +14,7 @@ export type CreateQuoteParams = {
   selectedProducts: QuoteProductInput[];
   entityId: string;
   validUntil: string; // YYYY-MM-DD
+  currency?: 'USD' | 'INR';
 };
 
 export type CreateQuoteResult = {
@@ -33,7 +34,7 @@ export type CreateQuoteResult = {
  * The snapshot is the source of truth for the customer-facing quote page.
  */
 export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<CreateQuoteResult> {
-  const { inquiryId, selectedProducts, entityId, validUntil } = params;
+  const { inquiryId, selectedProducts, entityId, validUntil, currency } = params;
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
 
@@ -131,6 +132,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     },
     entity_id: entityId,
     valid_until: validUntil,
+    currency: currency || 'USD',
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,
