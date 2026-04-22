@@ -505,7 +505,15 @@ const Quotes = () => {
           open={!!editSnap}
           onOpenChange={(o) => !o && setEditSnap(null)}
           snapshot={editSnap}
-          onSaved={fetchData}
+          onSaved={(patch) => {
+            // Merge optimistic patch into local state so the row updates instantly,
+            // then refetch in the background to pick up any server-side changes.
+            setSnapshots(prev =>
+              prev.map(s => s.id === patch.id ? { ...s, products: patch.products, totals: patch.totals } : s),
+            );
+            setEditSnap(prev => prev && prev.id === patch.id ? { ...prev, products: patch.products, totals: patch.totals } : prev);
+            fetchData();
+          }}
         />
       </div>
     </AppLayout>

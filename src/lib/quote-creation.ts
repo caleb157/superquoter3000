@@ -211,7 +211,7 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number } }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -219,20 +219,18 @@ export async function updateQuoteLineItems(
   const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
   const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
   const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
+  const totals = {
+    sku_count: productsJson.length,
+    total_qty: totalQty,
+    grand_total: grandTotal,
+    total_cbm: totalCbm,
+  };
 
   const { error } = await (supabase as any)
     .from('quote_snapshots')
-    .update({
-      products: productsJson,
-      totals: {
-        sku_count: productsJson.length,
-        total_qty: totalQty,
-        grand_total: grandTotal,
-        total_cbm: totalCbm,
-      },
-    })
+    .update({ products: productsJson, totals })
     .eq('id', snapshotId);
 
   if (error) return { error: error.message };
-  return {};
+  return { products: productsJson, totals };
 }
