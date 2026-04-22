@@ -907,6 +907,48 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
+              {packagingType === 'corrugate_bubble' ? (
+                <>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped W (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_w.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped D (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_d.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Wrapped H (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.wrapped_h.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Surface Area (sq in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{wrappingResult.surface_area_sq_in.toFixed(1)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Final Unit CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Total CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(totalCbm)}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div className="p-2 rounded-md border border-border/50 bg-muted/30">
+                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Corrugate Wrap (per unit)</div>
+                      <div className="text-xs">{wrappingResult.corrugate_kg.toFixed(3)} kg × {fmt.inr(globalSettings?.corrugate_price_per_kg ?? 0)}/kg = <span className="font-semibold">{fmt.inr(wrappingResult.corrugate_cost)}</span></div>
+                    </div>
+                    <div className="p-2 rounded-md border border-border/50 bg-muted/30">
+                      <div className="text-[10px] font-medium text-muted-foreground mb-1">Bubble Wrap (per unit)</div>
+                      <div className="text-xs">{wrappingResult.bubble_kg.toFixed(3)} kg × {fmt.inr(globalSettings?.bubble_price_per_kg ?? 0)}/kg = <span className="font-semibold">{fmt.inr(wrappingResult.bubble_cost)}</span></div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Box-data lookups are skipped in this mode. Wrap quantities flow into COGS as auto-calculated rows.</p>
+                </>
+              ) : (
+              <>
               <div className="grid grid-cols-6 gap-2">
                 <div>
                   <label className="text-[10px] text-muted-foreground">IC Type</label>
@@ -953,12 +995,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox checked={includeMc} onCheckedChange={(v) => updateCbm('include_mc', !!v)} />
-                  <span className="text-xs font-medium">Include Master Carton (MC)</span>
-                </div>
-                {includeMc && (
+              {includeMc && (
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-medium">Master Carton Type:</span>
                   <div className="w-36">
                     <Select value={mcType} onValueChange={v => updateCbm('mc_type', v)}>
                       <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -969,11 +1008,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {includeMc && (
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <div>
                     <label className="text-[10px] text-muted-foreground">MC Max W</label>
                     <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_max_width || 25} onBlur={e => updateCbm('mc_max_width', Number(e.target.value))} />
@@ -987,8 +1026,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_max_height || 25} onBlur={e => updateCbm('mc_max_height', Number(e.target.value))} />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground">Buffer (in)</label>
-                    <Input className="h-7 text-xs" type="number" defaultValue={cbm?.mc_buffer_inch || 1} onBlur={e => updateCbm('mc_buffer_inch', Number(e.target.value))} />
+                    <label className="text-[10px] text-muted-foreground">MC W/D Buffer (in)</label>
+                    <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_buffer_inch ?? 1} onBlur={e => updateCbm('mc_buffer_inch', Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">MC H Buffer (in)</label>
+                    <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5} onBlur={e => updateCbm('mc_height_buffer_inch', Number(e.target.value))} />
                   </div>
                   <div>
                     <label className="text-[10px] text-muted-foreground">Weight Limit (kg)</label>
@@ -1058,6 +1101,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(totalCbm)}</span>
                   </div>
                 </div>
+              )}
+              </>
               )}
 
               {/* Carton Summary */}
