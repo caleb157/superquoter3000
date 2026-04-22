@@ -18,7 +18,7 @@ import {
 import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
-import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 
@@ -63,8 +63,7 @@ const QUOTE_PILLS: { key: string; label: string; cls: string }[] = [
   { key: 'quoted',          label: 'quoted',  cls: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' },
 ];
 const SAMPLE_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'sampling',    label: 'sampling', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
-  { key: 'sample_sent', label: 'sent',     cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
+  { key: 'sampling', label: 'sampling', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
 ];
 
 const Dashboard = () => {
@@ -138,7 +137,7 @@ const Dashboard = () => {
     const counts: Record<StageBucket, number> = {
       not_started: 0, need_design: 0, designed: 0,
       quoting: 0, ready_for_quote: 0, quoted: 0,
-      sampling: 0, sample_sent: 0, po: 0,
+      sampling: 0, po: 0,
     };
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
@@ -552,7 +551,7 @@ const Dashboard = () => {
           />
         )}
         {sampleDialog && (
-          <GenerateSampleBatchDialog
+          <GenerateSampleDialog
             open={!!sampleDialog}
             onOpenChange={(o) => !o && setSampleDialog(null)}
             inquiryId={sampleDialog.id}

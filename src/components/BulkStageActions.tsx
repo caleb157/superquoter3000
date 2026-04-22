@@ -8,7 +8,7 @@ type Props = {
   onClear: () => void;
   onSetStage: (track: StageTrack, stage: string | null) => Promise<void> | void;
   onGenerateQuote: () => void;
-  onGenerateSampleBatch: () => void;
+  onGenerateSamples: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
@@ -29,7 +29,8 @@ function StageDropdown({ track, label, onSet }: { track: StageTrack; label: stri
   );
 }
 
-export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSampleBatch }: Props) {
+export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples }: Props) {
+  const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
   return (
     <div className="sticky top-12 z-20 flex flex-wrap items-center gap-2 bg-card border rounded-md px-3 py-2 shadow-sm">
@@ -43,7 +44,7 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       <StageDropdown track="sample" label="Set Sample" onSet={onSetStage} />
       <span className="h-4 w-px bg-border mx-1" />
       <Button size="sm" className="h-8 text-xs" onClick={onGenerateQuote}>Generate Quote</Button>
-      <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onGenerateSampleBatch}>Generate Sample Batch</Button>
+      <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onGenerateSamples}>{sampleLabel}</Button>
     </div>
   );
 }

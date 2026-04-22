@@ -1,131 +1,180 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Trash2, Pencil } from 'lucide-react';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
-type Rfs = {
-  id: string; rfs_number: string; title: string | null;
-  requested_date: string; required_by_date: string | null;
-  status: string; finishes_used?: string | null; vendors_used?: string | null;
-  notes?: string | null;
-};
 type Sample = {
-  id: string; rfs_id: string; vendor_name: string | null; status: string;
-  photo_urls: any; feedback: string | null; product_id: string | null;
+  id: string;
+  product_id: string | null;
+  vendor_name: string | null;
+  status: string;
+  requested_date: string | null;
+  completed_at: string | null;
+  required_by_date: string | null;
+  dimensions_inch: string | null;
+  finish: string | null;
+  notes: string | null;
   product?: { name: string } | null;
 };
 
+const STATUSES = ['pending', 'completed', 'cancelled'] as const;
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700',
+  completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-red-100 text-red-700',
+};
+
+const FILTERS: { key: string; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
+function timeToSample(s: Sample): string {
+  if (s.status === 'cancelled') return '';
+  if (!s.completed_at || !s.requested_date) return '—';
+  const days = differenceInDays(parseISO(s.completed_at), parseISO(s.requested_date));
+  return `${days}d`;
+}
+
 export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string; refreshKey: number }) {
-  const [batches, setBatches] = useState<Rfs[]>([]);
-  const [samplesByRfs, setSamplesByRfs] = useState<Record<string, Sample[]>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [filter, setFilter] = useState<string>('all');
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await (supabase as any)
-        .from('rfs').select('*').eq('customer_rfq_id', inquiryId)
-        .order('requested_date', { ascending: false });
-      setBatches(data ?? []);
-      if (data?.length) {
-        const ids = data.map((r: Rfs) => r.id);
-        const { data: ss } = await (supabase as any)
-          .from('samples').select('*, product:products(name)').in('rfs_id', ids);
-        const map: Record<string, Sample[]> = {};
-        (ss ?? []).forEach((s: Sample) => {
-          if (!map[s.rfs_id]) map[s.rfs_id] = [];
-          map[s.rfs_id].push(s);
-        });
-        setSamplesByRfs(map);
-      } else {
-        setSamplesByRfs({});
-      }
-    })();
-  }, [inquiryId, refreshKey]);
-
-  const toggle = (id: string) => {
-    const next = new Set(expanded);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setExpanded(next);
+  const fetchSamples = async () => {
+    const { data } = await (supabase as any)
+      .from('samples')
+      .select('*, product:products(name)')
+      .eq('customer_rfq_id', inquiryId)
+      .order('created_at', { ascending: false });
+    setSamples((data ?? []) as Sample[]);
   };
 
-  if (batches.length === 0) {
-    return <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No sample batches yet.</CardContent></Card>;
+  useEffect(() => { fetchSamples(); }, [inquiryId, refreshKey]);
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: samples.length };
+    samples.forEach(s => { c[s.status] = (c[s.status] || 0) + 1; });
+    return c;
+  }, [samples]);
+
+  const filtered = useMemo(
+    () => filter === 'all' ? samples : samples.filter(s => s.status === filter),
+    [samples, filter],
+  );
+
+  const setStatus = async (id: string, newStatus: string) => {
+    const { error } = await supabase.from('samples').update({ status: newStatus }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    fetchSamples();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this sample?')) return;
+    const { error } = await supabase.from('samples').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Sample deleted');
+    fetchSamples();
+  };
+
+  if (samples.length === 0) {
+    return <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No samples yet.</CardContent></Card>;
   }
 
   return (
-    <Card><CardContent className="p-0">
-      <Table>
-        <TableHeader><TableRow>
-          <TableHead className="w-8" />
-          <TableHead className="text-xs">RFS</TableHead>
-          <TableHead className="text-xs">Title</TableHead>
-          <TableHead className="text-xs">Requested</TableHead>
-          <TableHead className="text-xs">Required by</TableHead>
-          <TableHead className="text-xs">Status</TableHead>
-          <TableHead className="text-xs text-right">Products</TableHead>
-        </TableRow></TableHeader>
-        <TableBody>
-          {batches.map(b => {
-            const samples = samplesByRfs[b.id] ?? [];
-            const isOpen = expanded.has(b.id);
-            return (
-              <>
-                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => toggle(b.id)}>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                    </Button>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{b.rfs_number}</TableCell>
-                  <TableCell className="text-sm">{b.title || '—'}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{new Date(b.requested_date).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{b.required_by_date ? new Date(b.required_by_date).toLocaleDateString() : '—'}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px]">{b.status}</Badge></TableCell>
-                  <TableCell className="text-xs text-right">{samples.length}</TableCell>
-                </TableRow>
-                {isOpen && (
-                  <TableRow key={b.id + '-exp'}>
-                    <TableCell colSpan={7} className="bg-muted/20">
-                      <div className="p-3 space-y-2">
-                        {(b.finishes_used || b.vendors_used || b.notes) && (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            {b.finishes_used && <div><span className="font-medium">Finishes:</span> {b.finishes_used}</div>}
-                            {b.vendors_used && <div><span className="font-medium">Vendors:</span> {b.vendors_used}</div>}
-                            {b.notes && <div><span className="font-medium">Notes:</span> {b.notes}</div>}
-                          </div>
-                        )}
-                        <Table>
-                          <TableHeader><TableRow>
-                            <TableHead className="text-xs">Product</TableHead>
-                            <TableHead className="text-xs">Vendor</TableHead>
-                            <TableHead className="text-xs">Status</TableHead>
-                            <TableHead className="text-xs">Photos</TableHead>
-                            <TableHead className="text-xs">Feedback</TableHead>
-                          </TableRow></TableHeader>
-                          <TableBody>
-                            {samples.map(s => (
-                              <TableRow key={s.id}>
-                                <TableCell className="text-sm">{s.product?.name ?? '—'}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
-                                <TableCell><Badge variant="outline" className="text-[10px]">{s.status}</Badge></TableCell>
-                                <TableCell className="text-xs">{Array.isArray(s.photo_urls) ? s.photo_urls.length : 0}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{s.feedback ?? '—'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </CardContent></Card>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
+        {FILTERS.map(f => {
+          const active = filter === f.key;
+          const n = counts[f.key] ?? 0;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition',
+                active
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background hover:bg-muted text-muted-foreground border-border',
+              )}
+            >
+              <span>{f.label}</span>
+              <span className={cn(
+                'rounded-full px-1.5 text-[10px] tabular-nums',
+                active ? 'bg-primary-foreground/20' : 'bg-muted',
+              )}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead className="text-xs">Product</TableHead>
+            <TableHead className="text-xs">Vendor</TableHead>
+            <TableHead className="text-xs">Status</TableHead>
+            <TableHead className="text-xs">Requested</TableHead>
+            <TableHead className="text-xs">Completed</TableHead>
+            <TableHead className="text-xs text-right">Time-to-sample</TableHead>
+            <TableHead className="text-xs w-20"></TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {filtered.map(s => (
+              <TableRow key={s.id}>
+                <TableCell className="text-sm">
+                  {s.product?.name ? (
+                    <button className="hover:underline" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
+                      {s.product.name}
+                    </button>
+                  ) : '—'}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                <TableCell>
+                  <Select value={s.status} onValueChange={(v) => setStatus(s.id, v)}>
+                    <SelectTrigger className="h-7 w-32 text-xs">
+                      <SelectValue>
+                        <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUSES.map(st => <SelectItem key={st} value={st} className="text-xs">{st}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {s.requested_date ? format(parseISO(s.requested_date), 'MMM d, yyyy') : '—'}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {s.completed_at ? format(parseISO(s.completed_at), 'MMM d, yyyy') : '—'}
+                </TableCell>
+                <TableCell className="text-xs text-right tabular-nums">{timeToSample(s)}</TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(s.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+    </div>
   );
 }

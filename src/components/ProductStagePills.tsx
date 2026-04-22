@@ -7,7 +7,7 @@ export type StageTrack = 'design' | 'quote' | 'sample';
 export const STAGE_OPTIONS: Record<StageTrack, string[]> = {
   design: ['need_design', 'designed'],
   quote: ['quoting', 'ready_for_quote', 'quoted'],
-  sample: ['sampling', 'sample_sent'],
+  sample: ['sampling'],
 };
 
 export const STAGE_LABEL: Record<string, string> = {
@@ -17,10 +17,9 @@ export const STAGE_LABEL: Record<string, string> = {
   ready_for_quote: 'Ready for Quote',
   quoted: 'Quoted',
   sampling: 'Sampling',
-  sample_sent: 'Sample Sent',
 };
 
-const TERMINAL = new Set(['designed', 'quoted', 'sample_sent']);
+const TERMINAL = new Set(['designed', 'quoted']);
 const INTERMEDIATE = new Set(['need_design', 'quoting', 'ready_for_quote', 'sampling']);
 
 function stageClass(stage: string | null | undefined): string {

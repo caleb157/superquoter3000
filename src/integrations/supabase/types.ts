@@ -1096,65 +1096,11 @@ export type Database = {
           },
         ]
       }
-      rfs: {
-        Row: {
-          created_at: string
-          customer_rfq_id: string | null
-          finishes_used: string | null
-          id: string
-          notes: string | null
-          requested_date: string
-          required_by_date: string | null
-          requirements: string | null
-          rfs_number: string
-          status: string
-          title: string | null
-          updated_at: string
-          vendors_used: string | null
-        }
-        Insert: {
-          created_at?: string
-          customer_rfq_id?: string | null
-          finishes_used?: string | null
-          id?: string
-          notes?: string | null
-          requested_date?: string
-          required_by_date?: string | null
-          requirements?: string | null
-          rfs_number?: string
-          status?: string
-          title?: string | null
-          updated_at?: string
-          vendors_used?: string | null
-        }
-        Update: {
-          created_at?: string
-          customer_rfq_id?: string | null
-          finishes_used?: string | null
-          id?: string
-          notes?: string | null
-          requested_date?: string
-          required_by_date?: string | null
-          requirements?: string | null
-          rfs_number?: string
-          status?: string
-          title?: string | null
-          updated_at?: string
-          vendors_used?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rfs_customer_rfq_id_fkey"
-            columns: ["customer_rfq_id"]
-            isOneToOne: false
-            referencedRelation: "customer_rfqs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       samples: {
         Row: {
+          completed_at: string | null
           created_at: string
+          customer_rfq_id: string | null
           dimensions_inch: string | null
           feedback: string | null
           final_ready_date: string | null
@@ -1165,6 +1111,7 @@ export type Database = {
           photo_urls: Json
           product_id: string | null
           requested_date: string | null
+          required_by_date: string | null
           rfs_id: string | null
           status: string
           updated_at: string
@@ -1173,7 +1120,9 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
+          customer_rfq_id?: string | null
           dimensions_inch?: string | null
           feedback?: string | null
           final_ready_date?: string | null
@@ -1184,6 +1133,7 @@ export type Database = {
           photo_urls?: Json
           product_id?: string | null
           requested_date?: string | null
+          required_by_date?: string | null
           rfs_id?: string | null
           status?: string
           updated_at?: string
@@ -1192,7 +1142,9 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
+          customer_rfq_id?: string | null
           dimensions_inch?: string | null
           feedback?: string | null
           final_ready_date?: string | null
@@ -1203,6 +1155,7 @@ export type Database = {
           photo_urls?: Json
           product_id?: string | null
           requested_date?: string | null
+          required_by_date?: string | null
           rfs_id?: string | null
           status?: string
           updated_at?: string
@@ -1212,17 +1165,17 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "samples_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "samples_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "samples_rfs_id_fkey"
-            columns: ["rfs_id"]
-            isOneToOne: false
-            referencedRelation: "rfs"
             referencedColumns: ["id"]
           },
           {
@@ -1668,7 +1621,6 @@ export type Database = {
         Returns: undefined
       }
       generate_crfq_number: { Args: never; Returns: string }
-      generate_rfs_number: { Args: never; Returns: string }
       get_company_entities_safe: {
         Args: never
         Returns: {

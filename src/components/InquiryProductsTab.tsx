@@ -13,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
-import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
@@ -32,8 +32,7 @@ type FilterKey =
   | 'all' | 'needs_design' | 'in_costing' | 'sampling'
   // raw stage filters (from dashboard stage-pill links)
   | 'need_design' | 'designed'
-  | 'quoting' | 'ready_for_quote' | 'quoted'
-  | 'sample_sent';
+  | 'quoting' | 'ready_for_quote' | 'quoted';
 
 const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -48,7 +47,6 @@ const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
   quoting: 'Quoting',
   ready_for_quote: 'Ready for quote',
   quoted: 'Quoted',
-  sample_sent: 'Sample sent',
 };
 
 function costingBadge(p: Product): { label: string; cls: string } {
@@ -117,7 +115,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       // Raw stage matches (from dashboard stage-pill links)
       if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
       if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
-      if (filter === 'sample_sent') return p.sample_stage === 'sample_sent';
       return true;
     });
   }, [products, search, filter]);
@@ -249,7 +246,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onClear={() => setSelected(new Set())}
         onSetStage={handleSetStage}
         onGenerateQuote={handleGenerateQuote}
-        onGenerateSampleBatch={() => setBatchOpen(true)}
+        onGenerateSamples={() => setBatchOpen(true)}
       />
 
       {filtered.length === 0 ? (
@@ -320,7 +317,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         </CardContent></Card>
       )}
 
-      <GenerateSampleBatchDialog
+      <GenerateSampleDialog
         open={batchOpen} onOpenChange={setBatchOpen}
         inquiryId={inquiryId}
         preSelectedProductIds={selectedProducts.map(p => p.id)}
