@@ -75,46 +75,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 ml-4 flex-1 min-w-0 overflow-x-auto">
-            {primaryDesktop.slice(0, 3).map(item => (
-              <Link key={item.to} to={item.to}>
-                <Button
-                  variant={isActive(item.to) ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn('h-8 text-xs gap-1.5', isActive(item.to) && 'bg-secondary')}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-
-            {logsItems.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant={logsActive ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className={cn('h-8 text-xs gap-1.5 group', logsActive && 'bg-secondary')}
-                  >
-                    <ScrollText className="h-3.5 w-3.5" />
-                    Logs
-                    <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-40">
-                  {logsItems.map(item => (
-                    <DropdownMenuItem key={item.to} asChild>
-                      <Link to={item.to} className="cursor-pointer gap-2">
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {primaryDesktop.slice(3).map(item => (
+            {primaryDesktop.map(item => (
               <Link key={item.to} to={item.to}>
                 <Button
                   variant={isActive(item.to) ? 'secondary' : 'ghost'}
