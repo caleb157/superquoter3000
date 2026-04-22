@@ -52,7 +52,8 @@ export async function computeProductUnitPrices(productIds: string[]): Promise<Pr
 
   for (const p of products as any[]) {
     const inq = p.customer_rfq_id ? inquiryById[p.customer_rfq_id] : null;
-    const exchangeRate = inq?.exchange_rate_override ?? gs?.exchange_rate ?? 90;
+    const settings = mergeSettingsWithInquiry(gs, inq);
+    const exchangeRate = settings?.exchange_rate ?? 90;
     const markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
     const qty = p.quantity || 100;
 
