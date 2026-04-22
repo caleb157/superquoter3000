@@ -803,6 +803,27 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </Select>
               </div>
               <div>
+                <label className="text-[10px] text-muted-foreground">Packaging Type</label>
+                <Select
+                  value={packagingType}
+                  onValueChange={(v) => {
+                    // Keep legacy include_mc flag in sync for downstream code
+                    updateProduct('packaging_type', v);
+                    const nextIncludeMc = v === 'ic_mc';
+                    if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
+                      updateCbm('include_mc', nextIncludeMc);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ic_only">IC only</SelectItem>
+                    <SelectItem value="ic_mc">IC + MC</SelectItem>
+                    <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
