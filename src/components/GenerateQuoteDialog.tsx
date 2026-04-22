@@ -43,6 +43,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [entities, setEntities] = useState<Entity[]>([]);
   const [entityId, setEntityId] = useState<string>('');
+  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
@@ -53,18 +54,24 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setSelected(new Set());
     setValidUntil(defaultValidUntil());
     (async () => {
-      const [prodRes, entRes] = await Promise.all([
+      const [prodRes, entRes, inqRes] = await Promise.all([
         supabase
           .from('products')
           .select('id, name, sku, quantity, quote_stage, target_price_usd, markup_percent')
           .eq('customer_rfq_id', inquiryId)
           .order('name'),
         supabase.from('company_entities').select('id, name').order('name'),
+        (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
       ]);
       setProducts((prodRes.data ?? []) as Product[]);
       const ents = (entRes.data ?? []) as Entity[];
       setEntities(ents);
-      if (ents.length > 0 && !entityId) setEntityId(ents[0].id);
+      const inq = inqRes.data;
+      const preferredEntity = inq?.quoting_entity_id && ents.find(e => e.id === inq.quoting_entity_id)
+        ? inq.quoting_entity_id
+        : (ents[0]?.id ?? '');
+      setEntityId(preferredEntity);
+      setCurrency((inq?.quoting_currency as 'USD' | 'INR') || 'USD');
     })();
   }, [open, inquiryId]);
 
@@ -106,6 +113,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       selectedProducts: chosen,
       entityId,
       validUntil,
+      currency,
     });
     setSaving(false);
     setHwOpen(false);
