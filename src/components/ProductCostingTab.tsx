@@ -396,11 +396,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length, recalcTick]);
 
-  // Step 6: Auto-populate packaging COGS (IC Box, MC Box)
+  // Step 6: Auto-populate packaging COGS (IC Box, MC Box, Corrugate Wrap, Bubble Wrap)
+  const wrapCreatingRef = useRef(false);
   useEffect(() => {
     if (!dataLoaded || !product || cogsItems.length === 0 || w === 0) return;
 
-    const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number }[] = [];
+    const isWrapMode = packagingType === 'corrugate_bubble';
+    const isIcOnly = packagingType === 'ic_only';
+
+    const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number; units?: string }[] = [];
 
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated) return;
@@ -408,19 +412,38 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
         updates.push({
           id: item.id,
-          components_per_product: productsPerIc > 0 ? 1 / productsPerIc : 1,
-          unit_cost_inr: icCost,
-          include: 'Yes',
+          components_per_product: !isWrapMode && productsPerIc > 0 ? 1 / productsPerIc : 0,
+          unit_cost_inr: isWrapMode ? 0 : icCost,
+          include: isWrapMode ? 'No' : 'Yes',
           waste_factor: 0.05,
         });
       } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
         const ppmc = mcResult.products_per_mc || 1;
+        const useMc = !isWrapMode && !isIcOnly && ppmc > 0;
         updates.push({
           id: item.id,
-          components_per_product: includeMc && ppmc > 0 ? 1 / ppmc : 0,
-          unit_cost_inr: mcCost,
-          include: includeMc ? 'Yes' : 'No',
+          components_per_product: useMc ? 1 / ppmc : 0,
+          unit_cost_inr: useMc ? mcCost : 0,
+          include: useMc ? 'Yes' : 'No',
           waste_factor: 0,
+        });
+      } else if (name === 'corrugate wrap') {
+        updates.push({
+          id: item.id,
+          components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
+          unit_cost_inr: isWrapMode ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
+          include: isWrapMode ? 'Yes' : 'No',
+          waste_factor: 0,
+          units: 'KG',
+        });
+      } else if (name === 'bubble wrap') {
+        updates.push({
+          id: item.id,
+          components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
+          unit_cost_inr: isWrapMode ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
+          include: isWrapMode ? 'Yes' : 'No',
+          waste_factor: 0,
+          units: 'KG',
         });
       }
     });
@@ -432,15 +455,52 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         return { ...item, ...upd };
       }));
       updates.forEach(upd => {
-        (supabase as any).from('cogs_items').update({
+        const dbUpd: any = {
           components_per_product: upd.components_per_product,
           unit_cost_inr: upd.unit_cost_inr,
           include: upd.include,
           waste_factor: upd.waste_factor,
-        }).eq('id', upd.id);
+        };
+        if (upd.units) dbUpd.units = upd.units;
+        (supabase as any).from('cogs_items').update(dbUpd).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, w, cogsItems.length, recalcTick]);
+
+    // Auto-create Corrugate/Bubble rows on first switch into wrap mode
+    if (isWrapMode && !wrapCreatingRef.current) {
+      const hasCorrugate = cogsItems.some(i => (i.component_name || '').toLowerCase() === 'corrugate wrap');
+      const hasBubble = cogsItems.some(i => (i.component_name || '').toLowerCase() === 'bubble wrap');
+      if (!hasCorrugate || !hasBubble) {
+        wrapCreatingRef.current = true;
+        (async () => {
+          const toInsert: any[] = [];
+          if (!hasCorrugate) {
+            toInsert.push({
+              product_id: id, cogs_type: 'Packaging', component_name: 'Corrugate Wrap',
+              units: 'KG', components_per_product: wrappingResult.corrugate_kg,
+              unit_cost_inr: globalSettings?.corrugate_price_per_kg ?? 0,
+              waste_factor: 0, is_auto_calculated: true, include: 'Yes',
+              sort_order: cogsItems.length + 100,
+            });
+          }
+          if (!hasBubble) {
+            toInsert.push({
+              product_id: id, cogs_type: 'Packaging', component_name: 'Bubble Wrap',
+              units: 'KG', components_per_product: wrappingResult.bubble_kg,
+              unit_cost_inr: globalSettings?.bubble_price_per_kg ?? 0,
+              waste_factor: 0, is_auto_calculated: true, include: 'Yes',
+              sort_order: cogsItems.length + 101,
+            });
+          }
+          if (toInsert.length) {
+            const { data } = await (supabase as any).from('cogs_items').insert(toInsert).select();
+            if (data) setCogsItems(prev => [...prev, ...data]);
+          }
+          wrapCreatingRef.current = false;
+        })();
+      }
+    }
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
