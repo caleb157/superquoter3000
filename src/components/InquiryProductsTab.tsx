@@ -21,6 +21,7 @@ import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
+import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 
 type Product = {
@@ -92,6 +93,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
+  const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
 
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
@@ -305,6 +307,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onSetStage={handleSetStage}
         onGenerateQuote={handleGenerateQuote}
         onGenerateSamples={() => setBatchOpen(true)}
+        onBulkCosting={() => setBulkCostingOpen(true)}
+      />
+
+      <BulkCostingUpdateDialog
+        open={bulkCostingOpen}
+        onOpenChange={setBulkCostingOpen}
+        selectedProductIds={Array.from(selected)}
+        selectedProductNames={selectedProducts.map(p => p.name)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
       {filtered.length === 0 ? (
