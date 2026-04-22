@@ -5,18 +5,28 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   Settings, LogOut, ShoppingCart, FileText, Menu,
-  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck,
+  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
 import { MobileTaskFab } from '@/components/MobileTaskFab';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { GlobalSearch } from '@/components/GlobalSearch';
+import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import hqLogo from '@/assets/dkt-logo.png';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useKeyboardShortcuts({
+    onOpenSearch: () => setSearchOpen(true),
+    onOpenHelp: () => setHelpOpen(true),
+  });
 
   const navItems = [
     { to: '/', label: 'Inquiries', icon: Inbox, show: isAdminOrTeam },
