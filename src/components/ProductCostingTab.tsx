@@ -32,9 +32,17 @@ const AutoCell = ({ children, isAuto }: { children: React.ReactNode; isAuto?: bo
   <span className={isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}>{children}</span>
 );
 
-type Props = { productId: string; onProductUpdated?: () => void };
+export type ProductCostingSummary = {
+  unitPriceInr: number;
+  unitPriceUsd: number;
+  unitCostInr: number;
+  unitCostUsd: number;
+  exchangeRate: number;
+};
 
-export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
+type Props = { productId: string; onProductUpdated?: () => void; onSummaryChange?: (s: ProductCostingSummary) => void };
+
+export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryChange }: Props) {
   const navigate = useNavigate();
 
   // Data state
@@ -564,6 +572,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated }: Props) {
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty
   );
+
+  // Report summary up to parent (ProductDetail header)
+  useEffect(() => {
+    if (!onSummaryChange || !dataLoaded) return;
+    onSummaryChange({
+      unitPriceInr: summary.unit_price_inr,
+      unitPriceUsd: summary.unit_price_usd,
+      unitCostInr: summary.product_cost_per_unit_inr,
+      unitCostUsd: summary.product_cost_per_unit_usd,
+      exchangeRate,
+    });
+  }, [summary.unit_price_inr, summary.unit_price_usd, summary.product_cost_per_unit_inr, summary.product_cost_per_unit_usd, exchangeRate, dataLoaded]);
 
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {

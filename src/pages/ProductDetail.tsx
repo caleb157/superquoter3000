@@ -289,7 +289,7 @@ const ProductDetail = () => {
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}
           </TabsContent>
           <TabsContent value="costing">
-            {activeTab === 'costing' && <ProductCostingTab productId={product.id} onProductUpdated={fetchProduct} />}
+            {activeTab === 'costing' && <ProductCostingTab productId={product.id} onProductUpdated={fetchProduct} onSummaryChange={setCostingSummary} />}
           </TabsContent>
           <TabsContent value="variants">
             {activeTab === 'variants' && <ProductVariantsTab productId={product.id} />}
