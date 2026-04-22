@@ -1,0 +1,1 @@
+ALTER TABLE public.quote_snapshots ADD COLUMN IF NOT EXISTS payment_terms text;

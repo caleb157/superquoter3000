@@ -1093,6 +1093,7 @@ export type Database = {
           id: string
           inquiry: Json | null
           notes: string | null
+          payment_terms: string | null
           products: Json | null
           quote_number: string | null
           sent_at: string | null
@@ -1115,6 +1116,7 @@ export type Database = {
           id?: string
           inquiry?: Json | null
           notes?: string | null
+          payment_terms?: string | null
           products?: Json | null
           quote_number?: string | null
           sent_at?: string | null
@@ -1137,6 +1139,7 @@ export type Database = {
           id?: string
           inquiry?: Json | null
           notes?: string | null
+          payment_terms?: string | null
           products?: Json | null
           quote_number?: string | null
           sent_at?: string | null
