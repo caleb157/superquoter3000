@@ -18,6 +18,8 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
+import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
+import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
