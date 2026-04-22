@@ -83,6 +83,8 @@ const Dashboard = () => {
   const [sampleDialog, setSampleDialog] = useState<{ id: string; rfq: string } | null>(null);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
+  const [unitPrices, setUnitPrices] = useState<ProductUnitPriceMap>({});
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -93,8 +95,17 @@ const Dashboard = () => {
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
-      setProducts((prod.data ?? []) as Product[]);
+      const prodList = (prod.data ?? []) as Product[];
+      setProducts(prodList);
       setLoading(false);
+      // Compute current unit prices for weighted pipeline value (async, non-blocking for UI)
+      try {
+        const ids = prodList.map(p => p.id);
+        const prices = await computeProductUnitPrices(ids);
+        setUnitPrices(prices);
+      } catch (e) {
+        console.error('Failed to compute unit prices', e);
+      }
     })();
   }, [refreshKey]);
 
