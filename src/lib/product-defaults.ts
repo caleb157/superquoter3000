@@ -32,10 +32,15 @@ export async function seedProductDefaults(productId: string) {
     { product_id: productId, labor_type: 'Market', sort_order: 6 },
   ];
 
+  // Seed mc_height_buffer_inch from current global default so admins can tune project-wide
+  const { data: gs } = await (supabase as any)
+    .from('global_settings').select('mc_height_buffer_inch').limit(1).single();
+  const mcHBuffer = gs?.mc_height_buffer_inch ?? 2.5;
+
   await Promise.all([
     (supabase as any).from('cogs_items').insert(defaultCogs),
     (supabase as any).from('overhead_items').insert(defaultOverhead),
-    (supabase as any).from('cbm_estimates').insert({ product_id: productId }),
+    (supabase as any).from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: mcHBuffer }),
     (supabase as any).from('non_unit_cogs').insert({
       product_id: productId, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
     }),
