@@ -51,7 +51,8 @@ export interface MCConfig {
   mc_max_width: number;
   mc_max_depth: number;
   mc_max_height: number;
-  mc_buffer_inch: number;
+  mc_buffer_inch: number; // W/D buffer
+  mc_height_buffer_inch?: number; // separate height buffer (defaults to mc_buffer_inch if absent)
   mc_weight_limit_kg: number;
   mc_empty_weight_kg: number;
   product_weight_kg: number;
