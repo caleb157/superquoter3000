@@ -138,70 +138,20 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   <span className="font-bold">Product HQ</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
-                  {visibleItems
-                    .filter(item => !logsItems.find(l => l.to === item.to))
-                    .map(item => {
-                      const insertLogsBefore = item.to === '/settings' && logsItems.length > 0;
-                      return (
-                        <div key={item.to}>
-                          {insertLogsBefore && (
-                            <>
-                              <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                Logs
-                              </div>
-                              {logsItems.map(li => (
-                                <Link key={li.to} to={li.to} onClick={() => setMobileOpen(false)}>
-                                  <Button
-                                    variant={isActive(li.to) ? 'secondary' : 'ghost'}
-                                    className={cn(
-                                      'w-full justify-start gap-3 h-11 text-sm',
-                                      isActive(li.to) && 'bg-secondary',
-                                    )}
-                                  >
-                                    <li.icon className="h-4 w-4" />
-                                    {li.label}
-                                  </Button>
-                                </Link>
-                              ))}
-                              <div className="h-2" />
-                            </>
-                          )}
-                          <Link to={item.to} onClick={() => setMobileOpen(false)}>
-                            <Button
-                              variant={isActive(item.to) ? 'secondary' : 'ghost'}
-                              className={cn(
-                                'w-full justify-start gap-3 h-11 text-sm',
-                                isActive(item.to) && 'bg-secondary',
-                              )}
-                            >
-                              <item.icon className="h-4 w-4" />
-                              {item.label}
-                            </Button>
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  {!visibleItems.find(v => v.to === '/settings') && logsItems.length > 0 && (
-                    <>
-                      <div className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Logs
-                      </div>
-                      {logsItems.map(li => (
-                        <Link key={li.to} to={li.to} onClick={() => setMobileOpen(false)}>
-                          <Button
-                            variant={isActive(li.to) ? 'secondary' : 'ghost'}
-                            className={cn(
-                              'w-full justify-start gap-3 h-11 text-sm',
-                              isActive(li.to) && 'bg-secondary',
-                            )}
-                          >
-                            <li.icon className="h-4 w-4" />
-                            {li.label}
-                          </Button>
-                        </Link>
-                      ))}
-                    </>
-                  )}
+                  {visibleItems.map(item => (
+                    <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}>
+                      <Button
+                        variant={isActive(item.to) ? 'secondary' : 'ghost'}
+                        className={cn(
+                          'w-full justify-start gap-3 h-11 text-sm',
+                          isActive(item.to) && 'bg-secondary',
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  ))}
                 </nav>
                 <div className="pt-4 border-t mt-2">
                   <Button
