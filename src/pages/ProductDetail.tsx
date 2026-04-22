@@ -29,7 +29,7 @@ type ProductHeader = {
   markup_percent: number | null;
 };
 
-const VALID_TABS = ['summary', 'costing', 'variants', 'sample-log', 'tasks'] as const;
+const VALID_TABS = ['costing', 'variants', 'sample-log', 'tasks', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 const ProductDetail = () => {
