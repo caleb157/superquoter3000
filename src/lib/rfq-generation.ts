@@ -1,6 +1,7 @@
 // RFQ Generation Logic — aggregates inquiry data into RFQ line items
 import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
+import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 interface RfqLineItem {
   product_id?: string;
