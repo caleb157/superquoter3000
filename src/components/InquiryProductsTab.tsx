@@ -380,24 +380,23 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {priceMap[p.id]?.unit_price_usd ? fmt.usd(priceMap[p.id].unit_price_usd) : '—'}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=costing`)}>Costing</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => navigate(`/product/${p.id}?tab=sample-log`)}>Sample Log</Button>
-                        <ConfirmDeleteButton
-                          itemLabel={`product "${p.name}"`}
-                          iconOnly
-                          onConfirm={async () => {
-                            const { error } = await supabase.from('products').delete().eq('id', p.id);
-                            if (error) throw error;
-                            setRefresh(r => r + 1);
-                            onChange();
-                          }}
-                        />
-                      </div>
+                      <ConfirmDeleteButton
+                        itemLabel={`product "${p.name}"`}
+                        iconOnly
+                        onConfirm={async () => {
+                          const { error } = await supabase.from('products').delete().eq('id', p.id);
+                          if (error) throw error;
+                          setRefresh(r => r + 1);
+                          onChange();
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 );
