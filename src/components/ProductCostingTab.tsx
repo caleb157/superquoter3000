@@ -1498,14 +1498,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       </TableCell>
                       <TableCell className="text-right">
                         <Input className={`h-6 text-xs text-right border-transparent hover:border-input w-24 ${isAuto ? 'italic text-blue-600 dark:text-blue-400' : ''}`} type="number" step="any"
-                          value={item.man_hours_per_unit ?? 0}
+                          value={Number.isFinite(item.man_hours_per_unit) ? item.man_hours_per_unit : 0}
                           onChange={e => {
                             const v = Number(e.target.value);
-                            setOverheadItems(items => items.map(i => i.id === item.id ? { ...i, man_hours_per_unit: v, is_auto_estimated: false } : i));
+                            const safe = Number.isFinite(v) ? v : 0;
+                            setOverheadItems(items => items.map(i => i.id === item.id ? { ...i, man_hours_per_unit: safe, is_auto_estimated: false } : i));
                           }}
-                          onBlur={e => updateOverheadItem(item.id, 'man_hours_per_unit', Number(e.target.value))} />
+                          onBlur={e => {
+                            const v = Number(e.target.value);
+                            updateOverheadItem(item.id, 'man_hours_per_unit', Number.isFinite(v) ? v : 0);
+                          }} />
                       </TableCell>
-                      <TableCell className="text-right calc-field">{fmt.hrs((item.man_hours_per_unit || 0) * qty)}</TableCell>
+                      <TableCell className="text-right calc-field">{fmt.hrs((Number.isFinite(item.man_hours_per_unit) ? item.man_hours_per_unit : 0) * qty)}</TableCell>
                       <TableCell className="text-right calc-field">{fmt.inr(rate)}</TableCell>
                       <TableCell className="text-right calc-field">{fmt.inr(unitCost)}</TableCell>
                     </TableRow>
