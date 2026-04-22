@@ -92,7 +92,7 @@ export default function SamplesList() {
 
   // Metrics
   const pending = samples.filter(s => s.status === 'pending');
-  const pendingWithVendor = pending.filter(s => s.vendor_id || s.vendor_name).length;
+  const pendingWithVendor = pending.filter(s => s.vendor_id).length;
   const pendingWithoutVendor = pending.length - pendingWithVendor;
 
   const completedDays = samples
