@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { seedProductDefaultsForMany } from '@/lib/product-defaults';
 
 type Row = {
   name: string;
@@ -60,9 +61,14 @@ export function QuickAddProductsDialog({ open, onOpenChange, inquiryId, onCreate
       target_price_usd: num(r.target_price_usd),
       notes: r.notes.trim() || null,
     }));
-    const { error } = await supabase.from('products').insert(payload);
+    const { data: inserted, error } = await supabase.from('products').insert(payload).select('id');
+    if (error) { setSaving(false); toast.error(error.message); return; }
+    try {
+      await seedProductDefaultsForMany((inserted || []).map(p => p.id));
+    } catch (e: any) {
+      console.error('Failed to seed defaults', e);
+    }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
     toast.success(`Added ${payload.length} product${payload.length === 1 ? '' : 's'}`);
     setRows([blankRow(), blankRow(), blankRow()]);
     onOpenChange(false);
