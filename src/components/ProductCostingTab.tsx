@@ -622,6 +622,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   return (
     <div className="space-y-2">
+        <ProductVendorsPanel productId={id} />
+
         <div className="flex justify-end">
           <Button size="sm" variant="outline" onClick={recalculateAllAutoCosts} disabled={recalcing}>
             {recalcing ? 'Recalculating…' : 'Recalculate all auto costs'}
