@@ -142,7 +142,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
                     </button>
                   ) : '—'}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{s.vendor_name ?? '—'}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{s.vendor?.name ?? '—'}</TableCell>
                 <TableCell>
                   <Select value={s.status} onValueChange={(v) => setStatus(s.id, v)}>
                     <SelectTrigger className="h-7 w-32 text-xs">
