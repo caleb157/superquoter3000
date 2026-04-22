@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Plus, Package2, ChevronDown, ChevronRight } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 import { GenerateSampleBatchDialog } from '@/components/GenerateSampleBatchDialog';
+import { cn } from '@/lib/utils';
 
 
 const STATUS_COLOR: Record<string, string> = {
