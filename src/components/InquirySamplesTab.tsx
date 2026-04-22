@@ -57,7 +57,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
   const fetchSamples = async () => {
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*, product:products(name)')
+      .select('*, product:products(name), vendor:vendors(name)')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setSamples((data ?? []) as Sample[]);
