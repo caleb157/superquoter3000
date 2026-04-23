@@ -186,6 +186,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
   const [status, setStatus] = useState<string>('pending');
   const [requestedDate, setRequestedDate] = useState('');
   const [requiredBy, setRequiredBy] = useState('');
+  const [completedDate, setCompletedDate] = useState('');
   const [dimensions, setDimensions] = useState('');
   const [weight, setWeight] = useState('');
   const [finish, setFinish] = useState('');
