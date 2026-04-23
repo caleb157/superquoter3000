@@ -103,11 +103,13 @@ const Customers = () => {
   const resetForm = () => setForm({ name: '', email: '', company: '', phone: '', linkedin_url: '', source: '', lead_status: 'lead' });
 
   const createCustomer = async () => {
-    if (!form.name.trim()) return;
+    const company = form.company.trim();
+    if (!company) return;
+    const contactName = form.name.trim();
     const { error } = await (supabase as any).from('customers').insert({
-      name: form.name.trim(),
+      name: contactName || company,
       email: form.email.trim() || null,
-      company: form.company.trim() || null,
+      company,
       phone: form.phone.trim() || null,
       linkedin_url: form.linkedin_url.trim() || null,
       source: form.source.trim() || null,
