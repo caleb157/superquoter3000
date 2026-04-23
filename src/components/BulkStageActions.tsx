@@ -47,7 +47,7 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       <Button
         size="sm"
         variant="outline"
-        className="h-8 text-xs gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+        className="h-8 text-xs gap-1"
         onClick={() => onSetStage('sample', 'sampled')}
       >
         <CheckCircle2 className="h-3.5 w-3.5" /> Mark Sampled
