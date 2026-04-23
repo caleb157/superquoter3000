@@ -228,6 +228,7 @@ const Dashboard = () => {
         customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
         title: (i) => (i.title ?? '').toLowerCase(),
         status: (i) => i.status,
+        priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
         order_value: (i) => fobByInquiry[i.id]?.total ?? 0,
