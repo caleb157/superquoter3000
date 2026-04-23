@@ -591,7 +591,7 @@ function NonUnitSection(props: MobileCostingProps) {
         })}
       </div>
 
-      <div className="sticky bottom-0 -mx-3 px-3 py-3 bg-background border-t flex items-center justify-between gap-3">
+      <div className="py-3 border-t flex items-center justify-between gap-3">
         <div className="text-sm">
           <span className="text-muted-foreground">Total: </span>
           <span className="font-mono font-bold">{fmt.inr(nonUnitCogsPerUnit)}/unit</span>
