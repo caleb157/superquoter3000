@@ -53,6 +53,9 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       >
         <CheckCircle2 className="h-3.5 w-3.5" /> Mark Sampled
       </Button>
+      {onBulkQuantity && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkQuantity}>Bulk set quantity</Button>
+      )}
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
       )}
