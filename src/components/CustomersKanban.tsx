@@ -71,10 +71,10 @@ export function CustomersKanban({ customers, inquiriesByCustomer, onStatusChange
                     className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
                   >
                     <CardContent className="p-2.5 space-y-1">
-                      <div className="text-sm font-medium truncate">{c.name}</div>
-                      {c.company && (
+                      <div className="text-sm font-medium truncate">{c.company || c.name}</div>
+                      {c.company && c.name && c.name !== c.company && (
                         <div className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-                          <Building2 className="h-2.5 w-2.5 shrink-0" /> {c.company}
+                          <Building2 className="h-2.5 w-2.5 shrink-0" /> {c.name}
                         </div>
                       )}
                       {inqs.length > 0 && (
