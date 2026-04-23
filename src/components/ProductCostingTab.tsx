@@ -174,51 +174,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (ohRes.data) setOverheadItems(ohRes.data);
       if (shipRes.data) setShippingItems(shipRes.data);
 
-      // Self-heal: seed default overhead rows if missing (legacy/copied products).
-      // Re-check the DB right before inserting to avoid races where two loads of the
-      // same product (e.g. tab switch / strict-mode double effect) both seed defaults.
-      if (!ohRes.data || ohRes.data.length === 0) {
-        const { data: recheck } = await (supabase as any)
-          .from('overhead_items').select('id').eq('product_id', id).limit(1);
-        if (!recheck || recheck.length === 0) {
-          const defaultOverhead = [
-            { product_id: id, labor_type: 'Manufacturing', sort_order: 0 },
-            { product_id: id, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
-            { product_id: id, labor_type: 'Sanding', sort_order: 2 },
-            { product_id: id, labor_type: 'Finishing', is_auto_estimated: true, sort_order: 3 },
-            { product_id: id, labor_type: 'Assembly', sort_order: 4 },
-            { product_id: id, labor_type: 'Packaging', is_auto_estimated: true, sort_order: 5 },
-            { product_id: id, labor_type: 'Market', sort_order: 6 },
-          ];
-          const { data: newOh } = await (supabase as any).from('overhead_items').insert(defaultOverhead).select();
-          if (newOh) setOverheadItems(newOh);
-        }
-      }
-      // Self-heal: seed default COGS (Bill of Materials) rows if missing.
-      if (!cogsRes.data || cogsRes.data.length === 0) {
-        const { data: recheck } = await (supabase as any)
-          .from('cogs_items').select('id').eq('product_id', id).limit(1);
-        if (!recheck || recheck.length === 0) {
-          const defaultCogs = [
-            { product_id: id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
-            { product_id: id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
-            { product_id: id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 1', sort_order: 2 },
-            { product_id: id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 2', sort_order: 3 },
-            { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, sort_order: 4 },
-            { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, sort_order: 5 },
-            { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, sort_order: 6 },
-            { product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
-            { product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
-            { product_id: id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-            { product_id: id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-            { product_id: id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-            { product_id: id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
-            { product_id: id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
-          ];
-          const { data: newCogs } = await (supabase as any).from('cogs_items').insert(defaultCogs).select();
-          if (newCogs) setCogsItems(newCogs);
-        }
-      }
+      // Defaults (COGS, overhead, CBM, non-unit COGS) are guaranteed by the DB trigger
+      // `trg_seed_product_defaults` which fires on product INSERT. No client-side self-heal
+      // is needed and would race with the trigger / cause duplicate rows.
+
       // Self-heal: ensure a cbm_estimates row exists
       if (!cbmRes.data) {
         const { data: gs } = await (supabase as any).from('global_settings').select('mc_height_buffer_inch').limit(1).single();
