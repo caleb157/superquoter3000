@@ -22,6 +22,7 @@ import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
+import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
@@ -98,6 +99,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [reviewSaving, setReviewSaving] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
+  const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
@@ -337,6 +339,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateQuote={handleGenerateQuote}
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
+        onBulkQuantity={() => setBulkQtyOpen(true)}
+      />
+
+      <BulkQuantityDialog
+        open={bulkQtyOpen}
+        onOpenChange={setBulkQtyOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
       <BulkCostingUpdateDialog

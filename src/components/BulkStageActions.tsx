@@ -10,6 +10,7 @@ type Props = {
   onGenerateQuote: () => void;
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
+  onBulkQuantity?: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
@@ -30,7 +31,7 @@ function StageDropdown({ track, label, onSet }: { track: StageTrack; label: stri
   );
 }
 
-export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting }: Props) {
+export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
   return (
@@ -52,6 +53,9 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       >
         <CheckCircle2 className="h-3.5 w-3.5" /> Mark Sampled
       </Button>
+      {onBulkQuantity && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkQuantity}>Bulk set quantity</Button>
+      )}
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
       )}
