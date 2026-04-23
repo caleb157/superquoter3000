@@ -103,11 +103,13 @@ const Customers = () => {
   const resetForm = () => setForm({ name: '', email: '', company: '', phone: '', linkedin_url: '', source: '', lead_status: 'lead' });
 
   const createCustomer = async () => {
-    if (!form.name.trim()) return;
+    const company = form.company.trim();
+    if (!company) return;
+    const contactName = form.name.trim();
     const { error } = await (supabase as any).from('customers').insert({
-      name: form.name.trim(),
+      name: contactName || company,
       email: form.email.trim() || null,
-      company: form.company.trim() || null,
+      company,
       phone: form.phone.trim() || null,
       linkedin_url: form.linkedin_url.trim() || null,
       source: form.source.trim() || null,
@@ -137,8 +139,8 @@ const Customers = () => {
               <DialogContent>
                 <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
                 <div className="space-y-3">
-                  <Input placeholder="Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-                  <Input placeholder="Company" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+                  <Input placeholder="Company *" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} autoFocus />
+                  <Input placeholder="Contact name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                   <Input placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                   <Input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                   <Input placeholder="LinkedIn URL" value={form.linkedin_url} onChange={e => setForm(f => ({ ...f, linkedin_url: e.target.value }))} />
