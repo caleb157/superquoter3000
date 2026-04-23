@@ -512,6 +512,7 @@ const Dashboard = () => {
                       <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
+                      <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs">Design</TableHead>
                       <TableHead className="text-xs">Quote</TableHead>
