@@ -10,6 +10,7 @@ type Props = {
   onGenerateQuote: () => void;
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
+  onBulkQuantity?: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
