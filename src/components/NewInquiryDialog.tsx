@@ -66,16 +66,18 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   };
 
   const createCustomer = async () => {
-    if (!newCust.name.trim()) {
-      toast.error('Customer name is required');
+    const company = newCust.company.trim();
+    if (!company) {
+      toast.error('Company is required');
       return;
     }
+    const contactName = newCust.name.trim();
     setCreatingCust(true);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('customers')
       .insert({
-        name: newCust.name.trim(),
-        company: newCust.company.trim() || null,
+        name: contactName || company,
+        company,
         email: newCust.email.trim() || null,
         phone: newCust.phone.trim() || null,
         lead_status: 'active',
@@ -83,9 +85,11 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
       .select('id, name, company')
       .single();
     setCreatingCust(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Customer "${data.name}" added`);
-    setCustomers(prev => [...prev, data as Customer].sort((a, b) => a.name.localeCompare(b.name)));
+    if (error || !data) {
+      toast.error(error?.message ?? 'Failed to create customer');
+      return;
+    }
+    setCustomers(prev => [...prev, data as Customer].sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name)));
     setCustomerId(data.id);
     setShowNewCustomer(false);
     setNewCust({ name: '', company: '', email: '', phone: '' });
