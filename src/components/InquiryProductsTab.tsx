@@ -22,6 +22,7 @@ import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
+import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
