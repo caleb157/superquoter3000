@@ -136,20 +136,20 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         {showNewCustomer ? (
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Name *</Label>
-              <Input
-                value={newCust.name}
-                onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
-                placeholder="Jane Doe"
-                autoFocus
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Company</Label>
+              <Label className="text-xs">Company *</Label>
               <Input
                 value={newCust.company}
                 onChange={e => setNewCust(c => ({ ...c, company: e.target.value }))}
                 placeholder="Acme Inc."
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Contact name</Label>
+              <Input
+                value={newCust.name}
+                onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
+                placeholder="Jane Doe"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -173,7 +173,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
               <Button variant="ghost" size="sm" onClick={() => setShowNewCustomer(false)} className="gap-1.5">
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </Button>
-              <Button size="sm" onClick={createCustomer} disabled={creatingCust || !newCust.name.trim()}>
+              <Button size="sm" onClick={createCustomer} disabled={creatingCust || !newCust.company.trim()}>
                 {creatingCust ? 'Saving…' : 'Save customer'}
               </Button>
             </DialogFooter>
