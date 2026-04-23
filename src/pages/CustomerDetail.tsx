@@ -137,15 +137,12 @@ export default function CustomerDetail() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">
-                {customer.name || customer.company || 'Customer'}
+                {customer.company || customer.name || 'Customer'}
               </h1>
               <LeadStatusBadge status={customer.lead_status} />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs sm:text-sm text-muted-foreground">
-              {customer.company && customer.company !== customer.name && <span className="truncate max-w-full">{customer.company}</span>}
+              {customer.name && customer.name !== customer.company && <span className="truncate max-w-full">{customer.name}</span>}
               {customer.email && <a href={`mailto:${customer.email}`} className="hover:text-foreground truncate max-w-full">{customer.email}</a>}
               {customer.phone && <span>{customer.phone}</span>}
               {customer.source && <span>· {customer.source}</span>}
