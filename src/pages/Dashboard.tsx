@@ -554,6 +554,11 @@ const Dashboard = () => {
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
                             )}>{inq.status}</span>
                           </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-medium capitalize',
+                              PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
+                            )}>{inq.priority}</span>
                           <TableCell className="text-right text-sm tabular-nums">
                             {prods?.length ?? 0}
                           </TableCell>
