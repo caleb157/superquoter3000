@@ -16,6 +16,7 @@ import { CustomerImportDialog } from '@/components/CustomerImportDialog';
 import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER, type LeadStatus } from '@/components/LeadStatusBadge';
 import { CustomersKanban } from '@/components/CustomersKanban';
 import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 
 const STATUS_TABS = [
@@ -61,6 +62,8 @@ const Customers = () => {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  useKeyboardShortcuts({ onNewItem: () => setShowCreate(true) });
 
   const inquiriesByCustomer = useMemo(() => {
     const map: Record<string, any[]> = {};
