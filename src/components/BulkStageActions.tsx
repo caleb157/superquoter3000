@@ -44,6 +44,14 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       <StageDropdown track="quote" label="Set Quote" onSet={onSetStage} />
       <StageDropdown track="sample" label="Set Sample" onSet={onSetStage} />
       <span className="h-4 w-px bg-border mx-1" />
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+        onClick={() => onSetStage('sample', 'sampled')}
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" /> Mark Sampled
+      </Button>
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
       )}
