@@ -66,16 +66,18 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   };
 
   const createCustomer = async () => {
-    if (!newCust.name.trim()) {
-      toast.error('Customer name is required');
+    const company = newCust.company.trim();
+    if (!company) {
+      toast.error('Company is required');
       return;
     }
+    const contactName = newCust.name.trim();
     setCreatingCust(true);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('customers')
       .insert({
-        name: newCust.name.trim(),
-        company: newCust.company.trim() || null,
+        name: contactName || company,
+        company,
         email: newCust.email.trim() || null,
         phone: newCust.phone.trim() || null,
         lead_status: 'active',
@@ -83,9 +85,11 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
       .select('id, name, company')
       .single();
     setCreatingCust(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Customer "${data.name}" added`);
-    setCustomers(prev => [...prev, data as Customer].sort((a, b) => a.name.localeCompare(b.name)));
+    if (error || !data) {
+      toast.error(error?.message ?? 'Failed to create customer');
+      return;
+    }
+    setCustomers(prev => [...prev, data as Customer].sort((a, b) => (a.company || a.name).localeCompare(b.company || b.name)));
     setCustomerId(data.id);
     setShowNewCustomer(false);
     setNewCust({ name: '', company: '', email: '', phone: '' });
@@ -132,20 +136,20 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         {showNewCustomer ? (
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Name *</Label>
-              <Input
-                value={newCust.name}
-                onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
-                placeholder="Jane Doe"
-                autoFocus
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Company</Label>
+              <Label className="text-xs">Company *</Label>
               <Input
                 value={newCust.company}
                 onChange={e => setNewCust(c => ({ ...c, company: e.target.value }))}
                 placeholder="Acme Inc."
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Contact name</Label>
+              <Input
+                value={newCust.name}
+                onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
+                placeholder="Jane Doe"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -169,7 +173,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
               <Button variant="ghost" size="sm" onClick={() => setShowNewCustomer(false)} className="gap-1.5">
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </Button>
-              <Button size="sm" onClick={createCustomer} disabled={creatingCust || !newCust.name.trim()}>
+              <Button size="sm" onClick={createCustomer} disabled={creatingCust || !newCust.company.trim()}>
                 {creatingCust ? 'Saving…' : 'Save customer'}
               </Button>
             </DialogFooter>
