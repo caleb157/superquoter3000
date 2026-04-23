@@ -137,15 +137,12 @@ export default function CustomerDetail() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">
-                {customer.name || customer.company || 'Customer'}
+                {customer.company || customer.name || 'Customer'}
               </h1>
               <LeadStatusBadge status={customer.lead_status} />
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs sm:text-sm text-muted-foreground">
-              {customer.company && customer.company !== customer.name && <span className="truncate max-w-full">{customer.company}</span>}
+              {customer.name && customer.name !== customer.company && <span className="truncate max-w-full">{customer.name}</span>}
               {customer.email && <a href={`mailto:${customer.email}`} className="hover:text-foreground truncate max-w-full">{customer.email}</a>}
               {customer.phone && <span>{customer.phone}</span>}
               {customer.source && <span>· {customer.source}</span>}
@@ -348,12 +345,15 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
   useEffect(() => { if (open) setForm(customer); }, [open, customer]);
 
   const save = async () => {
+    const company = form.company?.trim() || '';
+    if (!company) { toast.error('Company is required'); return; }
+    const contactName = form.name?.trim() || '';
     setSaving(true);
     const { error } = await supabase.from('customers').update({
-      name: form.name.trim(),
+      name: contactName || company,
       email: form.email?.trim() || null,
       phone: form.phone?.trim() || null,
-      company: form.company?.trim() || null,
+      company,
       source: form.source?.trim() || null,
       linkedin_url: form.linkedin_url?.trim() || null,
       lead_score: form.lead_score ?? 0,
@@ -373,8 +373,8 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader><DialogTitle>Edit customer</DialogTitle></DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <Field label="Name *"><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
-          <Field label="Company"><Input value={form.company ?? ''} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} /></Field>
+          <Field label="Company *"><Input value={form.company ?? ''} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} /></Field>
+          <Field label="Contact name"><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Email"><Input value={form.email ?? ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></Field>
             <Field label="Phone"><Input value={form.phone ?? ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></Field>
@@ -412,7 +412,7 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.name.trim()}>{saving ? 'Saving…' : 'Save'}</Button>
+          <Button onClick={save} disabled={saving || !form.company?.trim()}>{saving ? 'Saving…' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

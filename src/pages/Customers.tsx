@@ -217,20 +217,23 @@ const Customers = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Name</TableHead>
-                      <TableHead className="text-xs w-[160px]">Status</TableHead>
                       <TableHead className="text-xs">Company</TableHead>
+                      <TableHead className="text-xs w-[160px]">Status</TableHead>
+                      <TableHead className="text-xs">Contact</TableHead>
                       <TableHead className="text-xs">Email</TableHead>
                       <TableHead className="text-xs">Source</TableHead>
                       <TableHead className="text-xs text-right">Inquiries</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((c: any) => (
+                    {filtered.map((c: any) => {
+                      const primary = c.company || c.name;
+                      const secondary = c.company && c.name && c.name !== c.company ? c.name : null;
+                      return (
                       <TableRow key={c.id} className="hover:bg-muted/40">
                         <TableCell className="font-medium text-sm">
                           <button className="hover:underline text-left" onClick={() => navigate(`/customers/${c.id}`)}>
-                            {c.name}
+                            {primary}
                           </button>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
@@ -246,12 +249,13 @@ const Customers = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.company || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{secondary || '—'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.email || '—'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.source || '—'}</TableCell>
                         <TableCell className="text-xs text-right cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -265,8 +269,10 @@ const Customers = () => {
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm truncate">{c.name}</div>
-                          {c.company && <div className="text-xs text-muted-foreground truncate">{c.company}</div>}
+                          <div className="font-medium text-sm truncate">{c.company || c.name}</div>
+                          {c.company && c.name && c.name !== c.company && (
+                            <div className="text-xs text-muted-foreground truncate">{c.name}</div>
+                          )}
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
