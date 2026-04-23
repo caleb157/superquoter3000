@@ -186,6 +186,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
   const [status, setStatus] = useState<string>('pending');
   const [requestedDate, setRequestedDate] = useState('');
   const [requiredBy, setRequiredBy] = useState('');
+  const [completedDate, setCompletedDate] = useState('');
   const [dimensions, setDimensions] = useState('');
   const [weight, setWeight] = useState('');
   const [finish, setFinish] = useState('');
@@ -209,6 +210,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
           setStatus(data.status ?? 'pending');
           setRequestedDate(data.requested_date ?? '');
           setRequiredBy(data.required_by_date ?? '');
+          setCompletedDate(data.completed_at ? String(data.completed_at).slice(0, 10) : '');
           setDimensions(data.dimensions_inch ?? '');
           setWeight(data.weight_kg != null ? String(data.weight_kg) : '');
           setFinish(data.finish ?? '');
@@ -220,6 +222,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
         setVendorId(''); setVendorOverride(''); setStatus('pending');
         setRequestedDate(new Date().toISOString().slice(0, 10));
         setRequiredBy('');
+        setCompletedDate('');
         setDimensions(''); setWeight(''); setFinish('');
         setFeedback(''); setNotes(''); setPhotoUrls([]);
       }
@@ -285,6 +288,12 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       notes: notes.trim() || null,
       photo_urls: photoUrls,
     };
+    // Allow editing completion date when status is completed.
+    // The DB trigger only stamps completed_at on status transition, so an
+    // explicit value here is preserved on subsequent saves.
+    if (status === 'completed' && completedDate) {
+      payload.completed_at = new Date(completedDate + 'T12:00:00').toISOString();
+    }
     if (!isEdit) payload.customer_rfq_id = customerRfqId;
 
     let error;
@@ -338,6 +347,14 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
               <Input type="date" className="h-9 text-sm mt-1" value={requiredBy} onChange={e => setRequiredBy(e.target.value)} />
             </div>
           </div>
+
+          {status === 'completed' && (
+            <div>
+              <Label className="text-xs">Completed</Label>
+              <Input type="date" className="h-9 text-sm mt-1" value={completedDate} onChange={e => setCompletedDate(e.target.value)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Defaults to today when status is first set to completed.</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             <div>
