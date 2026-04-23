@@ -412,7 +412,7 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.name.trim()}>{saving ? 'Saving…' : 'Save'}</Button>
+          <Button onClick={save} disabled={saving || !form.company?.trim()}>{saving ? 'Saving…' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
