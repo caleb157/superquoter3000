@@ -185,7 +185,7 @@ const Dashboard = () => {
     const counts: Record<StageBucket, number> = {
       not_started: 0, need_design: 0, designed: 0,
       quoting: 0, ready_for_quote: 0, quoted: 0,
-      sampling: 0, po: 0,
+      sampling: 0, sampled: 0, po: 0,
     };
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
