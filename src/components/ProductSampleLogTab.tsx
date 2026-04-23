@@ -210,6 +210,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
           setStatus(data.status ?? 'pending');
           setRequestedDate(data.requested_date ?? '');
           setRequiredBy(data.required_by_date ?? '');
+          setCompletedDate(data.completed_at ? String(data.completed_at).slice(0, 10) : '');
           setDimensions(data.dimensions_inch ?? '');
           setWeight(data.weight_kg != null ? String(data.weight_kg) : '');
           setFinish(data.finish ?? '');
@@ -221,6 +222,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
         setVendorId(''); setVendorOverride(''); setStatus('pending');
         setRequestedDate(new Date().toISOString().slice(0, 10));
         setRequiredBy('');
+        setCompletedDate('');
         setDimensions(''); setWeight(''); setFinish('');
         setFeedback(''); setNotes(''); setPhotoUrls([]);
       }
