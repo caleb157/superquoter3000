@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2 } from 'lucide-react';
 import { STAGE_OPTIONS, STAGE_LABEL, type StageTrack } from '@/components/ProductStagePills';
 
 type Props = {
