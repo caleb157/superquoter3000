@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { seedProductDefaultsForMany } from '@/lib/product-defaults';
+
 
 type Row = {
   name: string;
@@ -61,13 +61,9 @@ export function QuickAddProductsDialog({ open, onOpenChange, inquiryId, onCreate
       target_price_usd: num(r.target_price_usd),
       notes: r.notes.trim() || null,
     }));
-    const { data: inserted, error } = await supabase.from('products').insert(payload).select('id');
+    const { error } = await supabase.from('products').insert(payload).select('id');
     if (error) { setSaving(false); toast.error(error.message); return; }
-    try {
-      await seedProductDefaultsForMany((inserted || []).map(p => p.id));
-    } catch (e: any) {
-      console.error('Failed to seed defaults', e);
-    }
+    // Defaults (COGS, overhead, CBM, non-unit COGS) are seeded by DB trigger trg_seed_product_defaults.
     setSaving(false);
     toast.success(`Added ${payload.length} product${payload.length === 1 ? '' : 's'}`);
     setRows([blankRow(), blankRow(), blankRow()]);
