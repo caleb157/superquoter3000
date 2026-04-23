@@ -178,6 +178,37 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       // `trg_seed_product_defaults` which fires on product INSERT. No client-side self-heal
       // is needed and would race with the trigger / cause duplicate rows.
 
+      // Integrity check: warn if seeded row counts look wrong (duplicates).
+      // Helps catch regressions where the trigger and a self-heal both fire.
+      const cogsRows = (cogsRes.data || []) as Array<{ cogs_type: string; component_name: string | null }>;
+      const ohRows = (ohRes.data || []) as Array<{ labor_type: string }>;
+      const issues: string[] = [];
+
+      const cogsKeyCounts = new Map<string, number>();
+      for (const r of cogsRows) {
+        const k = `${r.cogs_type}::${r.component_name ?? ''}`;
+        cogsKeyCounts.set(k, (cogsKeyCounts.get(k) || 0) + 1);
+      }
+      const dupCogs = [...cogsKeyCounts.entries()].filter(([, n]) => n > 1);
+      if (dupCogs.length > 0) {
+        issues.push(`${dupCogs.length} duplicate COGS row${dupCogs.length === 1 ? '' : 's'} (e.g. ${dupCogs[0][0].split('::').join(' / ')})`);
+      }
+
+      const ohKeyCounts = new Map<string, number>();
+      for (const r of ohRows) ohKeyCounts.set(r.labor_type, (ohKeyCounts.get(r.labor_type) || 0) + 1);
+      const dupOh = [...ohKeyCounts.entries()].filter(([, n]) => n > 1);
+      if (dupOh.length > 0) {
+        issues.push(`${dupOh.length} duplicate Overhead row${dupOh.length === 1 ? '' : 's'} (e.g. ${dupOh[0][0]})`);
+      }
+
+      if (issues.length > 0) {
+        console.warn('[ProductCostingTab] data integrity issues for product', id, issues);
+        toast.warning('Costing data looks off', {
+          description: issues.join(' · ') + '. Contact dev if it persists.',
+          duration: 10000,
+        });
+      }
+
       // Self-heal: ensure a cbm_estimates row exists
       if (!cbmRes.data) {
         const { data: gs } = await (supabase as any).from('global_settings').select('mc_height_buffer_inch').limit(1).single();
