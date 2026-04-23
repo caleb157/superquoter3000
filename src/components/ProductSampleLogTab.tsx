@@ -348,6 +348,14 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
             </div>
           </div>
 
+          {status === 'completed' && (
+            <div>
+              <Label className="text-xs">Completed</Label>
+              <Input type="date" className="h-9 text-sm mt-1" value={completedDate} onChange={e => setCompletedDate(e.target.value)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Defaults to today when status is first set to completed.</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2">
             <div>
               <Label className="text-xs">Dimensions</Label>
