@@ -288,6 +288,12 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
       notes: notes.trim() || null,
       photo_urls: photoUrls,
     };
+    // Allow editing completion date when status is completed.
+    // The DB trigger only stamps completed_at on status transition, so an
+    // explicit value here is preserved on subsequent saves.
+    if (status === 'completed' && completedDate) {
+      payload.completed_at = new Date(completedDate + 'T12:00:00').toISOString();
+    }
     if (!isEdit) payload.customer_rfq_id = customerRfqId;
 
     let error;
