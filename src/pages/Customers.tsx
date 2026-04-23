@@ -63,6 +63,8 @@ const Customers = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  useKeyboardShortcuts({ onNewItem: () => setShowCreate(true) });
+
   const inquiriesByCustomer = useMemo(() => {
     const map: Record<string, any[]> = {};
     inquiries.forEach(i => {
