@@ -345,12 +345,15 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
   useEffect(() => { if (open) setForm(customer); }, [open, customer]);
 
   const save = async () => {
+    const company = form.company?.trim() || '';
+    if (!company) { toast.error('Company is required'); return; }
+    const contactName = form.name?.trim() || '';
     setSaving(true);
     const { error } = await supabase.from('customers').update({
-      name: form.name.trim(),
+      name: contactName || company,
       email: form.email?.trim() || null,
       phone: form.phone?.trim() || null,
-      company: form.company?.trim() || null,
+      company,
       source: form.source?.trim() || null,
       linkedin_url: form.linkedin_url?.trim() || null,
       lead_score: form.lead_score ?? 0,
