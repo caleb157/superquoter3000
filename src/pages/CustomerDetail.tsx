@@ -370,8 +370,8 @@ function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader><DialogTitle>Edit customer</DialogTitle></DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <Field label="Name *"><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
-          <Field label="Company"><Input value={form.company ?? ''} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} /></Field>
+          <Field label="Company *"><Input value={form.company ?? ''} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} /></Field>
+          <Field label="Contact name"><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Email"><Input value={form.email ?? ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></Field>
             <Field label="Phone"><Input value={form.phone ?? ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></Field>
