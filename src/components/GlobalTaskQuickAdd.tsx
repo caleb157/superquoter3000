@@ -10,10 +10,13 @@ export function GlobalTaskQuickAdd() {
   const [open, setOpen] = useState(false);
 
   const context = useMemo<TaskContext>(() => {
-    const inquiryMatch = location.pathname.match(/^\/inquiry\/([^/]+)/);
+    const path = location.pathname;
+    const inquiryMatch = path.match(/^\/(?:inquiry|inquiries)\/([^/?#]+)/);
     if (inquiryMatch) return { inquiryId: inquiryMatch[1] };
-    const productMatch = location.pathname.match(/^\/product\/([^/]+)/);
+    const productMatch = path.match(/^\/(?:product|products)\/([^/?#]+)/);
     if (productMatch) return { productId: productMatch[1] };
+    const customerMatch = path.match(/^\/(?:customer|customers)\/([^/?#]+)/);
+    if (customerMatch) return { customerId: customerMatch[1] };
     return {};
   }, [location.pathname]);
 
