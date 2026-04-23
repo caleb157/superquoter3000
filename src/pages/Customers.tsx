@@ -269,8 +269,10 @@ const Customers = () => {
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm truncate">{c.name}</div>
-                          {c.company && <div className="text-xs text-muted-foreground truncate">{c.company}</div>}
+                          <div className="font-medium text-sm truncate">{c.company || c.name}</div>
+                          {c.company && c.name && c.name !== c.company && (
+                            <div className="text-xs text-muted-foreground truncate">{c.name}</div>
+                          )}
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
