@@ -41,10 +41,19 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
 };
 
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
+  high: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+  normal: 'bg-muted text-muted-foreground',
+  low: 'bg-gray-100 text-gray-500 dark:bg-gray-500/10 dark:text-gray-400',
+};
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+
 type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
+  priority: string;
   customer_id: string | null; updated_at: string; created_at: string;
 };
 type Customer = { id: string; name: string | null; company: string | null };
