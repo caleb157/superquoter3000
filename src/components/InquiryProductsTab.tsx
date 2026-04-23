@@ -167,6 +167,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
     const { error } = await (supabase as any).from('products').update({ [col]: stage }).in('id', ids);
     if (error) { toast.error(error.message); return; }
+    // When bulk-marking products as 'sampled', also complete any pending samples in the sample log
+    if (track === 'sample' && stage === 'sampled') {
+      const { error: sErr } = await (supabase as any)
+        .from('samples')
+        .update({ status: 'completed' })
+        .in('product_id', ids)
+        .eq('status', 'pending');
+      if (sErr) { toast.error('Products updated, but failed to complete samples: ' + sErr.message); }
+    }
     toast.success(`Updated ${ids.length} product${ids.length === 1 ? '' : 's'}`);
     setRefresh(r => r + 1);
     onChange();
