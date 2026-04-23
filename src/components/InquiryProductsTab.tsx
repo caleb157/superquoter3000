@@ -339,6 +339,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateQuote={handleGenerateQuote}
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
+        onBulkQuantity={() => setBulkQtyOpen(true)}
+      />
+
+      <BulkQuantityDialog
+        open={bulkQtyOpen}
+        onOpenChange={setBulkQtyOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
       <BulkCostingUpdateDialog
