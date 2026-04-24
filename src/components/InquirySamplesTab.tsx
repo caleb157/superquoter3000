@@ -24,7 +24,7 @@ type Sample = {
   dimensions_inch: string | null;
   finish: string | null;
   notes: string | null;
-  product?: { name: string } | null;
+  product?: { name: string; sku: string | null } | null;
 };
 
 const STATUSES = ['pending', 'completed', 'cancelled'] as const;
@@ -57,7 +57,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
   const fetchSamples = async () => {
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*, product:products(name), vendor:vendors(name)')
+      .select('*, product:products(name, sku), vendor:vendors(name)')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setSamples((data ?? []) as Sample[]);
@@ -138,8 +138,9 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
               <TableRow key={s.id}>
                 <TableCell className="text-sm">
                   {s.product?.name ? (
-                    <button className="hover:underline" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
-                      {s.product.name}
+                    <button className="hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${s.product_id}?tab=sample-log`)}>
+                      <span>{s.product.name}</span>
+                      {s.product.sku && <span className="italic text-[11px] font-normal text-muted-foreground/70">{s.product.sku}</span>}
                     </button>
                   ) : '—'}
                 </TableCell>
@@ -189,6 +190,7 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-sm truncate">{s.product?.name ?? '—'}</div>
+                  {s.product?.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{s.product.sku}</div>}
                   <div className="text-[11px] text-muted-foreground truncate">
                     {s.vendor?.name ?? 'No vendor'}
                   </div>
