@@ -505,7 +505,7 @@ const CustomerQuote = () => {
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="min-w-0">
                             <h4 className="text-base font-semibold text-slate-900 leading-snug">{product.name}</h4>
-                            {product.sku && <p className="text-xs text-slate-500 font-mono mt-0.5">{product.sku}</p>}
+                            {product.sku && <p className="italic text-[11px] text-slate-400 mt-0.5">{product.sku}</p>}
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-lg font-semibold text-slate-900 tabular-nums">
