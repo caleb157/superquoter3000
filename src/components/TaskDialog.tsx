@@ -82,6 +82,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           setDueDate(data.due_date ?? '');
           setPriority((data.priority as TaskPriority) ?? 'normal');
           setStatus((data.status as 'open' | 'done') ?? 'open');
+          setPhotoUrls(Array.isArray((data as any).photo_urls) ? ((data as any).photo_urls as string[]) : []);
         }
         return;
       }
@@ -121,6 +122,39 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     setInquiryId(null); setProductId(null); setCustomerId(null);
     setTitle(''); setDescription(''); setAssignee('unassigned');
     setDueDate(''); setPriority('normal'); setStatus('open');
+    setPhotoUrls([]);
+  };
+
+  const handlePhotoFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (list.length === 0) { toast.error('Only image files are supported'); return; }
+    setUploadingPhoto(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of list) {
+        if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name} is over 10MB`); continue; }
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('task-photos').upload(path, file, {
+          cacheControl: '3600', upsert: false, contentType: file.type,
+        });
+        if (upErr) { toast.error(upErr.message); continue; }
+        const { data } = supabase.storage.from('task-photos').getPublicUrl(path);
+        uploaded.push(data.publicUrl);
+      }
+      if (uploaded.length > 0) {
+        setPhotoUrls(prev => [...prev, ...uploaded]);
+        toast.success(`${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} attached`);
+      }
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (url: string) => {
+    setPhotoUrls(prev => prev.filter(u => u !== url));
   };
 
   const switchMode = (m: Mode) => {
