@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil } from 'lucide-react';
+import { Pencil, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDueDate, priorityColor } from '@/lib/task-helpers';
@@ -22,7 +22,7 @@ type TaskListProps = {
   assignee?: string;
   status?: 'open' | 'done' | 'all';
   dueWindow?: DueWindow;
-  sort?: 'due_date' | 'priority' | 'created_at';
+  sort?: 'due_date' | 'priority' | 'inquiry' | 'created_at';
   showAnchorLinks?: boolean;
   showEmptyState?: boolean;
   refreshKey?: number;
@@ -98,6 +98,14 @@ export function TaskList({
     list = [...list].sort((a, b) => {
       if (sort === 'priority') return (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9);
       if (sort === 'created_at') return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+      if (sort === 'inquiry') {
+        const ia = a.inquiry?.title || a.inquiry?.rfq_number || '';
+        const ib = b.inquiry?.title || b.inquiry?.rfq_number || '';
+        if (!ia && !ib) return 0;
+        if (!ia) return 1;
+        if (!ib) return -1;
+        return ia.localeCompare(ib);
+      }
       // due_date asc, nulls last
       if (a.due_date == null && b.due_date == null) return 0;
       if (a.due_date == null) return 1;
@@ -161,6 +169,17 @@ export function TaskList({
                 'text-[11px] px-1.5 py-0.5 rounded shrink-0',
                 overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
               )}>{due.text}</span>
+
+              {(() => {
+                const photos = Array.isArray((t as any).photo_urls) ? ((t as any).photo_urls as string[]) : [];
+                if (photos.length === 0) return null;
+                return (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0" title={`${photos.length} photo${photos.length === 1 ? '' : 's'} attached`}>
+                    <Paperclip className="h-3 w-3" />
+                    {photos.length}
+                  </span>
+                );
+              })()}
 
               {!compact && t.assignee && (
                 <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{t.assignee}</span>
