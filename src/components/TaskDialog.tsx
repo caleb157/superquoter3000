@@ -40,6 +40,9 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const [dueDate, setDueDate] = useState<string>('');
   const [priority, setPriority] = useState<TaskPriority>('normal');
   const [status, setStatus] = useState<'open' | 'done'>('open');
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
