@@ -30,7 +30,7 @@ import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 
 type Product = {
-  id: string; name: string; updated_at: string | null;
+  id: string; name: string; sku: string | null; updated_at: string | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
   target_price_usd: number | null; markup_percent: number | null;
   cogs_done: boolean | null; cbm_done: boolean | null; overhead_done: boolean | null;

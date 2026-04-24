@@ -24,7 +24,7 @@ type Sample = {
   dimensions_inch: string | null;
   finish: string | null;
   notes: string | null;
-  product?: { name: string } | null;
+  product?: { name: string; sku: string | null } | null;
 };
 
 const STATUSES = ['pending', 'completed', 'cancelled'] as const;
