@@ -33,7 +33,7 @@ type TaskListProps = {
 
 export function TaskList({
   inquiryId, productId, customerId, customerIdIncludingInquiries, assignee,
-  status = 'open', dueWindow = 'all', sort = 'due_date',
+  status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
   showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false,
 }: TaskListProps) {
   const [tasks, setTasks] = useState<TaskWithRefs[]>([]);
