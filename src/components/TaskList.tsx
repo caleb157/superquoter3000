@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil } from 'lucide-react';
+import { Pencil, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDueDate, priorityColor } from '@/lib/task-helpers';
@@ -169,6 +169,17 @@ export function TaskList({
                 'text-[11px] px-1.5 py-0.5 rounded shrink-0',
                 overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
               )}>{due.text}</span>
+
+              {(() => {
+                const photos = Array.isArray((t as any).photo_urls) ? ((t as any).photo_urls as string[]) : [];
+                if (photos.length === 0) return null;
+                return (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0" title={`${photos.length} photo${photos.length === 1 ? '' : 's'} attached`}>
+                    <Paperclip className="h-3 w-3" />
+                    {photos.length}
+                  </span>
+                );
+              })()}
 
               {!compact && t.assignee && (
                 <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{t.assignee}</span>
