@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
+import { cn } from '@/lib/utils';
 
-import type { DueWindow } from '@/lib/task-types';
+import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 
 export default function Tasks() {
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
