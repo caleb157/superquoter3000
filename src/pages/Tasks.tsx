@@ -147,3 +147,48 @@ export default function Tasks() {
     </AppLayout>
   );
 }
+
+const SORT_COLUMNS: { key: TaskSortKey; label: string; className: string }[] = [
+  { key: 'title',      label: 'Title',    className: 'flex-1 min-w-0' },
+  { key: 'inquiry',    label: 'Inquiry',  className: 'hidden md:block w-40 shrink-0' },
+  { key: 'due_date',   label: 'Due',      className: 'w-20 shrink-0 text-right' },
+  { key: 'priority',   label: 'Priority', className: 'w-20 shrink-0 text-right' },
+  { key: 'assignee',   label: 'Assignee', className: 'hidden sm:block w-24 shrink-0 text-right' },
+  { key: 'created_at', label: 'Created',  className: 'hidden lg:block w-24 shrink-0 text-right' },
+];
+
+function SortHeaderBar({
+  sort, sortDir, onToggle,
+}: { sort: TaskSortKey; sortDir: TaskSortDir; onToggle: (k: TaskSortKey) => void }) {
+  return (
+    <div className="flex items-center gap-2 px-1 py-1.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {/* spacers matching row layout: checkbox + priority dot */}
+      <span className="w-4 shrink-0" aria-hidden />
+      <span className="w-2 shrink-0" aria-hidden />
+      {SORT_COLUMNS.map(col => {
+        const active = sort === col.key;
+        const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+        const isRightAligned = col.className.includes('text-right');
+        return (
+          <button
+            key={col.key}
+            type="button"
+            onClick={() => onToggle(col.key)}
+            className={cn(
+              col.className,
+              'inline-flex items-center gap-1 hover:text-foreground transition-colors',
+              isRightAligned ? 'justify-end' : 'justify-start',
+              active && 'text-foreground',
+            )}
+            aria-label={`Sort by ${col.label}`}
+          >
+            <span className="truncate">{col.label}</span>
+            <Icon className={cn('h-3 w-3 shrink-0', !active && 'opacity-40')} />
+          </button>
+        );
+      })}
+      {/* trailing spacer for edit button column */}
+      <span className="hidden sm:inline-block w-6 shrink-0" aria-hidden />
+    </div>
+  );
+}
