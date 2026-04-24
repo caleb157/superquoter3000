@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
+import { cn } from '@/lib/utils';
 
-import type { DueWindow } from '@/lib/task-types';
+import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 
 export default function Tasks() {
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
@@ -21,7 +22,18 @@ export default function Tasks() {
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
-  const [sort, setSort] = useState<'due_date' | 'priority' | 'inquiry' | 'created_at'>('due_date');
+  const [sort, setSort] = useState<TaskSortKey>('due_date');
+  const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
+
+  const toggleSort = (key: TaskSortKey) => {
+    if (sort === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSort(key);
+      // Sensible defaults: text columns A→Z, dates oldest→newest, priority urgent→low
+      setSortDir(key === 'created_at' ? 'desc' : 'asc');
+    }
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -110,16 +122,11 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
-              <Select value={sort} onValueChange={(v) => setSort(v as any)}>
-                <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="due_date">Due date</SelectItem>
-                  <SelectItem value="priority">Priority</SelectItem>
-                  <SelectItem value="inquiry">Inquiry</SelectItem>
-                  <SelectItem value="created_at">Newest</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Sort dropdown removed — use column headers below to sort */}
             </div>
+
+            {/* Sortable column header bar */}
+            <SortHeaderBar sort={sort} sortDir={sortDir} onToggle={toggleSort} />
 
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
@@ -128,6 +135,7 @@ export default function Tasks() {
               status={filterStatus}
               dueWindow={filterDue}
               sort={sort}
+              sortDir={sortDir}
               refreshKey={refreshKey}
             />
           </CardContent>
@@ -137,5 +145,50 @@ export default function Tasks() {
       </div>
       
     </AppLayout>
+  );
+}
+
+const SORT_COLUMNS: { key: TaskSortKey; label: string; className: string }[] = [
+  { key: 'title',      label: 'Title',    className: 'flex-1 min-w-0' },
+  { key: 'inquiry',    label: 'Inquiry',  className: 'hidden md:block w-40 shrink-0' },
+  { key: 'due_date',   label: 'Due',      className: 'w-20 shrink-0 text-right' },
+  { key: 'priority',   label: 'Priority', className: 'w-20 shrink-0 text-right' },
+  { key: 'assignee',   label: 'Assignee', className: 'hidden sm:block w-24 shrink-0 text-right' },
+  { key: 'created_at', label: 'Created',  className: 'hidden lg:block w-24 shrink-0 text-right' },
+];
+
+function SortHeaderBar({
+  sort, sortDir, onToggle,
+}: { sort: TaskSortKey; sortDir: TaskSortDir; onToggle: (k: TaskSortKey) => void }) {
+  return (
+    <div className="flex items-center gap-2 px-1 py-1.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {/* spacers matching row layout: checkbox + priority dot */}
+      <span className="w-4 shrink-0" aria-hidden />
+      <span className="w-2 shrink-0" aria-hidden />
+      {SORT_COLUMNS.map(col => {
+        const active = sort === col.key;
+        const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+        const isRightAligned = col.className.includes('text-right');
+        return (
+          <button
+            key={col.key}
+            type="button"
+            onClick={() => onToggle(col.key)}
+            className={cn(
+              col.className,
+              'inline-flex items-center gap-1 hover:text-foreground transition-colors',
+              isRightAligned ? 'justify-end' : 'justify-start',
+              active && 'text-foreground',
+            )}
+            aria-label={`Sort by ${col.label}`}
+          >
+            <span className="truncate">{col.label}</span>
+            <Icon className={cn('h-3 w-3 shrink-0', !active && 'opacity-40')} />
+          </button>
+        );
+      })}
+      {/* trailing spacer for edit button column */}
+      <span className="hidden sm:inline-block w-6 shrink-0" aria-hidden />
+    </div>
   );
 }
