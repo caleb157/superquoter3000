@@ -122,16 +122,11 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
-              <Select value={sort} onValueChange={(v) => setSort(v as any)}>
-                <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="due_date">Due date</SelectItem>
-                  <SelectItem value="priority">Priority</SelectItem>
-                  <SelectItem value="inquiry">Inquiry</SelectItem>
-                  <SelectItem value="created_at">Newest</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Sort dropdown removed — use column headers below to sort */}
             </div>
+
+            {/* Sortable column header bar */}
+            <SortHeaderBar sort={sort} sortDir={sortDir} onToggle={toggleSort} />
 
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
@@ -140,6 +135,7 @@ export default function Tasks() {
               status={filterStatus}
               dueWindow={filterDue}
               sort={sort}
+              sortDir={sortDir}
               refreshKey={refreshKey}
             />
           </CardContent>
