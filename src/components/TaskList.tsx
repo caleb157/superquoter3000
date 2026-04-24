@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { formatDueDate, priorityColor } from '@/lib/task-helpers';
 import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
-import type { TaskWithRefs, DueWindow } from '@/lib/task-types';
+import type { TaskWithRefs, DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { PRIORITY_RANK } from '@/lib/task-types';
 
 type TaskListProps = {
