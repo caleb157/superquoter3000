@@ -175,6 +175,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
       assignee: assignee === 'unassigned' ? null : assignee,
       due_date: dueDate || null,
       priority,
+      photo_urls: photoUrls,
       inquiry_id: mode === 'inquiry' ? inquiryId : null,
       customer_id: mode === 'customer' ? customerId : null,
       product_id: mode === 'inquiry' ? productId : null,
@@ -380,6 +381,45 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                     <SelectItem value="done">Done</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Photos */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs">Photos</Label>
+              <Button
+                type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1"
+                onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}
+              >
+                {uploadingPhoto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                {uploadingPhoto ? 'Uploading…' : 'Add photo'}
+              </Button>
+            </div>
+            <input
+              ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => handlePhotoFiles(e.target.files)}
+            />
+            {photoUrls.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic">No photos attached.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {photoUrls.map(url => (
+                  <div key={url} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      <img src={url} alt="Task attachment" className="w-full h-full object-cover" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(url)}
+                      className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-background/90 border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition"
+                      aria-label="Remove photo"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
