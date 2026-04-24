@@ -21,7 +21,7 @@ export default function Tasks() {
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
-  const [sort, setSort] = useState<'due_date' | 'priority' | 'created_at'>('due_date');
+  const [sort, setSort] = useState<'due_date' | 'priority' | 'inquiry' | 'created_at'>('due_date');
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -115,6 +115,7 @@ export default function Tasks() {
                 <SelectContent>
                   <SelectItem value="due_date">Due date</SelectItem>
                   <SelectItem value="priority">Priority</SelectItem>
+                  <SelectItem value="inquiry">Inquiry</SelectItem>
                   <SelectItem value="created_at">Newest</SelectItem>
                 </SelectContent>
               </Select>

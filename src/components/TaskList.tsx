@@ -22,7 +22,7 @@ type TaskListProps = {
   assignee?: string;
   status?: 'open' | 'done' | 'all';
   dueWindow?: DueWindow;
-  sort?: 'due_date' | 'priority' | 'created_at';
+  sort?: 'due_date' | 'priority' | 'inquiry' | 'created_at';
   showAnchorLinks?: boolean;
   showEmptyState?: boolean;
   refreshKey?: number;
@@ -98,6 +98,14 @@ export function TaskList({
     list = [...list].sort((a, b) => {
       if (sort === 'priority') return (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9);
       if (sort === 'created_at') return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+      if (sort === 'inquiry') {
+        const ia = a.inquiry?.title || a.inquiry?.rfq_number || '';
+        const ib = b.inquiry?.title || b.inquiry?.rfq_number || '';
+        if (!ia && !ib) return 0;
+        if (!ia) return 1;
+        if (!ib) return -1;
+        return ia.localeCompare(ib);
+      }
       // due_date asc, nulls last
       if (a.due_date == null && b.due_date == null) return 0;
       if (a.due_date == null) return 1;
