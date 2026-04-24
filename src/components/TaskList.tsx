@@ -22,7 +22,8 @@ type TaskListProps = {
   assignee?: string;
   status?: 'open' | 'done' | 'all';
   dueWindow?: DueWindow;
-  sort?: 'due_date' | 'priority' | 'inquiry' | 'created_at';
+  sort?: TaskSortKey;
+  sortDir?: TaskSortDir;
   showAnchorLinks?: boolean;
   showEmptyState?: boolean;
   refreshKey?: number;
