@@ -1334,6 +1334,7 @@ export type Database = {
           due_date: string | null
           id: string
           inquiry_id: string | null
+          photo_urls: Json
           priority: string
           product_id: string | null
           status: string
@@ -1349,6 +1350,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           inquiry_id?: string | null
+          photo_urls?: Json
           priority?: string
           product_id?: string | null
           status?: string
@@ -1364,6 +1366,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           inquiry_id?: string | null
+          photo_urls?: Json
           priority?: string
           product_id?: string | null
           status?: string
