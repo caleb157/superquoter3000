@@ -22,7 +22,18 @@ export default function Tasks() {
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
-  const [sort, setSort] = useState<'due_date' | 'priority' | 'inquiry' | 'created_at'>('due_date');
+  const [sort, setSort] = useState<TaskSortKey>('due_date');
+  const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
+
+  const toggleSort = (key: TaskSortKey) => {
+    if (sort === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSort(key);
+      // Sensible defaults: text columns A→Z, dates oldest→newest, priority urgent→low
+      setSortDir(key === 'created_at' ? 'desc' : 'asc');
+    }
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
