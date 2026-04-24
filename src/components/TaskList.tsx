@@ -96,27 +96,38 @@ export function TaskList({
       return true;
     });
 
+    const cmpStr = (a: string, b: string) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;   // empties always last
+      if (!b) return -1;
+      return a.localeCompare(b);
+    };
+
     list = [...list].sort((a, b) => {
-      if (sort === 'priority') return (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9);
-      if (sort === 'created_at') return (b.created_at ?? '').localeCompare(a.created_at ?? '');
-      if (sort === 'inquiry') {
-        const ia = a.inquiry?.title || a.inquiry?.rfq_number || '';
-        const ib = b.inquiry?.title || b.inquiry?.rfq_number || '';
-        if (!ia && !ib) return 0;
-        if (!ia) return 1;
-        if (!ib) return -1;
-        return ia.localeCompare(ib);
+      let res = 0;
+      if (sort === 'priority') {
+        res = (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9);
+      } else if (sort === 'created_at') {
+        res = (a.created_at ?? '').localeCompare(b.created_at ?? '');
+      } else if (sort === 'inquiry') {
+        res = cmpStr(a.inquiry?.title || a.inquiry?.rfq_number || '', b.inquiry?.title || b.inquiry?.rfq_number || '');
+      } else if (sort === 'title') {
+        res = cmpStr(a.title || '', b.title || '');
+      } else if (sort === 'assignee') {
+        res = cmpStr(a.assignee || '', b.assignee || '');
+      } else {
+        // due_date asc, nulls last
+        if (a.due_date == null && b.due_date == null) res = 0;
+        else if (a.due_date == null) return 1;
+        else if (b.due_date == null) return -1;
+        else res = a.due_date.localeCompare(b.due_date);
       }
-      // due_date asc, nulls last
-      if (a.due_date == null && b.due_date == null) return 0;
-      if (a.due_date == null) return 1;
-      if (b.due_date == null) return -1;
-      return a.due_date.localeCompare(b.due_date);
+      return sortDir === 'desc' ? -res : res;
     });
 
     if (maxItems) list = list.slice(0, maxItems);
     return list;
-  }, [tasks, dueWindow, sort, maxItems]);
+  }, [tasks, dueWindow, sort, sortDir, maxItems]);
 
   const toggleStatus = async (t: TaskWithRefs) => {
     const next = t.status === 'done' ? 'open' : 'done';
