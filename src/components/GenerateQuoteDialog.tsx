@@ -191,7 +191,10 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
                 return (
                   <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted/50 rounded cursor-pointer">
                     <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
-                    <span className="flex-1 truncate">{p.name}</span>
+                    <span className="flex-1 min-w-0 truncate">
+                      {p.name}
+                      {p.sku && <span className="ml-2 italic text-[11px] text-muted-foreground/70">{p.sku}</span>}
+                    </span>
                     <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">{p.quantity ?? 0}</span>
                     {stage && <Badge variant="secondary" className={`text-[10px] ${stage.cls}`}>{stage.label}</Badge>}
                   </label>

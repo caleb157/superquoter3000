@@ -117,7 +117,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
+        .select('id, name, sku, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
       const list = data ?? [];
@@ -393,8 +393,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
                     </TableCell>
                     <TableCell>
-                      <button className="text-sm font-medium hover:underline text-left" onClick={() => navigate(`/product/${p.id}`)}>
-                        {p.name}
+                      <button className="text-sm font-medium hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${p.id}`)}>
+                        <span>{p.name}</span>
+                        {p.sku && <span className="italic text-[11px] font-normal text-muted-foreground/70">{p.sku}</span>}
                       </button>
                     </TableCell>
                     <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
@@ -447,6 +448,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm truncate">{p.name}</div>
+                        {p.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{p.sku}</div>}
                         <div className="text-[11px] text-muted-foreground">
                           {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
                         </div>
