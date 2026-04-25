@@ -643,7 +643,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           include: 'Yes',
           sort_order: cogsItems.length,
         }).select().single();
-        if (data) setCogsItems(prev => [...prev, data]);
+        if (data) setCogsItems(prev => prev.some(i => i.id === data.id) ? prev : [...prev, data]);
         freightCreatingRef.current = false;
       })();
       return;
@@ -954,41 +954,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   checked={product.sourced_externally || false}
                   onCheckedChange={async (checked) => {
                     updateProduct('sourced_externally', checked);
-                    if (checked) {
-                      // Check if freight row already exists before inserting
-                      const existing = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-                      if (!existing) {
-                        const { data: dbExisting } = await (supabase as any).from('cogs_items')
-                          .select('*').eq('product_id', id)
-                          .eq('component_name', 'Domestic Freight (External Sourcing)')
-                          .eq('is_auto_calculated', true).limit(1);
-                        if (dbExisting && dbExisting.length > 0) {
-                          setCogsItems(prev => [...prev, dbExisting[0]]);
-                        } else {
-                          const transportCost = effectiveSettings?.local_transport_cost_per_cbm || 3500;
-                          const { data } = await (supabase as any).from('cogs_items').insert({
-                            product_id: id,
-                            cogs_type: 'Subcontracting',
-                            component_name: 'Domestic Freight (External Sourcing)',
-                            units: 'CBM',
-                            components_per_product: prePackCbm,
-                            unit_cost_inr: transportCost,
-                            waste_factor: 0,
-                            is_auto_calculated: true,
-                            include: 'Yes',
-                            sort_order: cogsItems.length,
-                          }).select().single();
-                          if (data) setCogsItems(prev => [...prev, data]);
-                        }
-                      }
-                    } else {
-                      // Remove ALL domestic freight COGS items (handles duplicates)
+                    if (!checked) {
+                      // Remove ALL domestic freight COGS items (handles any legacy duplicates)
                       const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
                       for (const fi of freightItems) {
                         await (supabase as any).from('cogs_items').delete().eq('id', fi.id);
                       }
                       setCogsItems(prev => prev.filter(i => i.component_name !== 'Domestic Freight (External Sourcing)'));
                     }
+                    // When checked=true, the Step 7c useEffect handles creation (single source of truth)
                   }}
                 />
                 <div>
