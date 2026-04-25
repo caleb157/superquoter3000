@@ -115,6 +115,8 @@ export function TaskList({
         res = cmpStr(a.title || '', b.title || '');
       } else if (sort === 'assignee') {
         res = cmpStr(a.assignee || '', b.assignee || '');
+      } else if (sort === 'status') {
+        res = cmpStr(a.status || '', b.status || '');
       } else {
         // due_date asc, nulls last
         if (a.due_date == null && b.due_date == null) res = 0;
