@@ -150,57 +150,79 @@ export function TaskList({
         {filteredSorted.map(t => {
           const due = formatDueDate(t.due_date);
           const overdueOpen = due.isOverdue && t.status === 'open';
+          const photos = Array.isArray((t as any).photo_urls) ? ((t as any).photo_urls as string[]) : [];
+          const createdLabel = t.created_at
+            ? new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            : '';
           const rowInner = (
-            <div className={cn('flex items-center gap-2 py-2 px-1 group flex-wrap sm:flex-nowrap', 'hover:bg-muted/50 rounded-sm')}>
-              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} />
+            <div className={cn('flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm')}>
+              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className="shrink-0" />
               <span className={cn('h-2 w-2 rounded-full shrink-0', priorityColor(t.priority))} />
-              <button
-                onClick={() => setEditId(t.id)}
-                className={cn('text-sm text-left flex-1 min-w-0 truncate', t.status === 'done' && 'line-through text-muted-foreground')}
-              >{t.title}</button>
 
-              {showAnchorLinks && !compact && (
-                <div className="hidden sm:flex items-center gap-1 shrink-0">
-                  {t.inquiry && (
-                    <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()}>
-                      <Badge variant="secondary" className="text-[10px] h-5 max-w-[160px] truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
-                    </Link>
-                  )}
-                  {t.product && (
-                    <Link to={`/product/${t.product.id}`} onClick={e => e.stopPropagation()}>
-                      <Badge variant="outline" className="text-[10px] h-5 max-w-[120px] truncate">{t.product.name}</Badge>
-                    </Link>
-                  )}
-                  {t.customer && (
-                    <Badge variant="outline" className="text-[10px] h-5 max-w-[120px] truncate">{t.customer.name}</Badge>
-                  )}
-                </div>
-              )}
-
-              <span className={cn(
-                'text-[11px] px-1.5 py-0.5 rounded shrink-0',
-                overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
-              )}>{due.text}</span>
-
-              {(() => {
-                const photos = Array.isArray((t as any).photo_urls) ? ((t as any).photo_urls as string[]) : [];
-                if (photos.length === 0) return null;
-                return (
+              {/* Title column */}
+              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                <button
+                  onClick={() => setEditId(t.id)}
+                  className={cn('text-sm text-left min-w-0 truncate', t.status === 'done' && 'line-through text-muted-foreground')}
+                >{t.title}</button>
+                {photos.length > 0 && (
                   <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0" title={`${photos.length} photo${photos.length === 1 ? '' : 's'} attached`}>
                     <Paperclip className="h-3 w-3" />
                     {photos.length}
                   </span>
-                );
-              })()}
+                )}
+              </div>
 
-              {!compact && t.assignee && (
-                <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{t.assignee}</span>
+              {/* Inquiry column */}
+              {!compact && (
+                <div className="hidden md:flex items-center gap-1 w-40 shrink-0 min-w-0">
+                  {showAnchorLinks && t.inquiry && (
+                    <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0">
+                      <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
+                    </Link>
+                  )}
+                  {showAnchorLinks && !t.inquiry && t.product && (
+                    <Link to={`/product/${t.product.id}`} onClick={e => e.stopPropagation()} className="min-w-0">
+                      <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.product.name}</Badge>
+                    </Link>
+                  )}
+                  {showAnchorLinks && !t.inquiry && !t.product && t.customer && (
+                    <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.customer.name}</Badge>
+                  )}
+                </div>
+              )}
+
+              {/* Due column */}
+              <div className="w-20 shrink-0 text-right">
+                <span className={cn(
+                  'text-[11px] px-1.5 py-0.5 rounded inline-block',
+                  overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
+                )}>{due.text}</span>
+              </div>
+
+              {/* Priority column */}
+              <div className="w-20 shrink-0 text-right">
+                <span className="text-[11px] text-muted-foreground capitalize">{t.priority}</span>
+              </div>
+
+              {/* Assignee column */}
+              {!compact && (
+                <div className="hidden sm:block w-24 shrink-0 text-right">
+                  <span className="text-[11px] text-muted-foreground">{t.assignee || '—'}</span>
+                </div>
+              )}
+
+              {/* Created column */}
+              {!compact && (
+                <div className="hidden lg:block w-24 shrink-0 text-right">
+                  <span className="text-[11px] text-muted-foreground">{createdLabel}</span>
+                </div>
               )}
 
               {!compact && (
                 <Button
                   variant="ghost" size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 hidden sm:inline-flex"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 hidden sm:inline-flex shrink-0"
                   onClick={() => setEditId(t.id)}
                 ><Pencil className="h-3 w-3" /></Button>
               )}
