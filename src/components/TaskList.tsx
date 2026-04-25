@@ -115,6 +115,8 @@ export function TaskList({
         res = cmpStr(a.title || '', b.title || '');
       } else if (sort === 'assignee') {
         res = cmpStr(a.assignee || '', b.assignee || '');
+      } else if (sort === 'status') {
+        res = cmpStr(a.status || '', b.status || '');
       } else {
         // due_date asc, nulls last
         if (a.due_date == null && b.due_date == null) res = 0;
@@ -203,6 +205,20 @@ export function TaskList({
               {/* Priority column */}
               <div className="w-20 shrink-0 text-right">
                 <span className="text-[11px] text-muted-foreground capitalize">{t.priority}</span>
+              </div>
+
+              {/* Status column - click to toggle */}
+              <div className="w-20 shrink-0 text-right">
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleStatus(t); }}
+                  title="Click to toggle status"
+                  className={cn(
+                    'text-[11px] px-2 py-0.5 rounded capitalize transition-colors',
+                    t.status === 'done'
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                  )}
+                >{t.status === 'done' ? 'Done' : 'Open'}</button>
               </div>
 
               {/* Assignee column */}

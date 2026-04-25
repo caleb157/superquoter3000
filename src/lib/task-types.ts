@@ -24,5 +24,5 @@ export const ASSIGNEES = ['CQ', 'PH'] as const;
 
 export const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
-export type TaskSortKey = 'title' | 'inquiry' | 'due_date' | 'priority' | 'assignee' | 'created_at';
+export type TaskSortKey = 'title' | 'inquiry' | 'due_date' | 'priority' | 'status' | 'assignee' | 'created_at';
 export type TaskSortDir = 'asc' | 'desc';
