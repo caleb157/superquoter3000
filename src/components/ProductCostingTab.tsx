@@ -643,7 +643,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           include: 'Yes',
           sort_order: cogsItems.length,
         }).select().single();
-        if (data) setCogsItems(prev => [...prev, data]);
+        if (data) setCogsItems(prev => prev.some(i => i.id === data.id) ? prev : [...prev, data]);
         freightCreatingRef.current = false;
       })();
       return;
