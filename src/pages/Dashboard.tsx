@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
@@ -554,11 +555,34 @@ const Dashboard = () => {
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
                             )}>{inq.status}</span>
                           </TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium capitalize',
-                              PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
-                            )}>{inq.priority}</span>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={inq.priority}
+                              onValueChange={async (v) => {
+                                const prev = inq.priority;
+                                setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: v } : x));
+                                const { error } = await supabase.from('customer_rfqs').update({ priority: v }).eq('id', inq.id);
+                                if (error) {
+                                  toast.error(error.message);
+                                  setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: prev } : x));
+                                }
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  'h-6 w-[88px] px-2 py-0 text-[11px] font-medium capitalize border-0 focus:ring-0 focus:ring-offset-0 [&>svg]:hidden justify-center',
+                                  PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
+                                )}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="urgent">Urgent</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="normal">Normal</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">
                             {prods?.length ?? 0}
