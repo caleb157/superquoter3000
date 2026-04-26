@@ -359,6 +359,11 @@ const Quotes = () => {
                                   <Eye className="h-3 w-3" /> Selections
                                 </Button>
                               )}
+                              <ConfirmDeleteButton
+                                itemLabel={`quote ${snap.quote_number || ''}`.trim()}
+                                description="This permanently removes the quote snapshot. The originating inquiry and products are not affected. This cannot be undone."
+                                onConfirm={() => deleteQuote(snap.id)}
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
