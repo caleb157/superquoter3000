@@ -304,6 +304,17 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+
+    // Ensure the product flips to 'sampling' as soon as a pending sample is added.
+    // (DB trigger handles this too; doing it explicitly avoids any stale-cache UI issues.)
+    if (status === 'pending') {
+      const { data: prod } = await supabase
+        .from('products').select('sample_stage').eq('id', productId).maybeSingle();
+      if (prod && prod.sample_stage !== 'sampled' && prod.sample_stage !== 'sampling') {
+        await supabase.from('products').update({ sample_stage: 'sampling' }).eq('id', productId);
+      }
+    }
+
     toast.success(isEdit ? 'Sample updated' : 'Sample added');
     onSaved();
     onOpenChange(false);
