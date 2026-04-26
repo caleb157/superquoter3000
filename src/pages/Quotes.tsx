@@ -87,6 +87,12 @@ const Quotes = () => {
     toast.success(`Quote marked as ${newStatus}`);
   };
 
+  const deleteQuote = async (snapId: string) => {
+    const { error } = await (supabase as any).from('quote_snapshots').delete().eq('id', snapId);
+    if (error) throw new Error(error.message);
+    setSnapshots(prev => prev.filter(s => s.id !== snapId));
+  };
+
   const inquiryLabel = (id: string | null | undefined) => {
     if (!id) return '';
     const i = inquiries[id];
