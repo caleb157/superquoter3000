@@ -1271,6 +1271,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                                 <SelectItem value="Accessories">Accessories</SelectItem>
                                 <SelectItem value="Subcontracting">Subcontracting</SelectItem>
                                 <SelectItem value="Finishing Materials">Finishing Materials</SelectItem>
+                                <SelectItem value="Packaging">Packaging</SelectItem>
                               </SelectContent>
                             </Select>
                           )}
