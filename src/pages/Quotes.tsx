@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
@@ -84,6 +85,12 @@ const Quotes = () => {
     if (error) { toast.error('Failed to update status'); return; }
     setSnapshots(prev => prev.map(s => s.id === snapId ? { ...s, ...updates } : s));
     toast.success(`Quote marked as ${newStatus}`);
+  };
+
+  const deleteQuote = async (snapId: string) => {
+    const { error } = await (supabase as any).from('quote_snapshots').delete().eq('id', snapId);
+    if (error) throw new Error(error.message);
+    setSnapshots(prev => prev.filter(s => s.id !== snapId));
   };
 
   const inquiryLabel = (id: string | null | undefined) => {
@@ -352,6 +359,11 @@ const Quotes = () => {
                                   <Eye className="h-3 w-3" /> Selections
                                 </Button>
                               )}
+                              <ConfirmDeleteButton
+                                itemLabel={`quote ${snap.quote_number || ''}`.trim()}
+                                description="This permanently removes the quote snapshot. The originating inquiry and products are not affected. This cannot be undone."
+                                onConfirm={() => deleteQuote(snap.id)}
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
@@ -438,6 +450,11 @@ const Quotes = () => {
                             <Eye className="h-3 w-3" /> Selections
                           </Button>
                         )}
+                        <ConfirmDeleteButton
+                          itemLabel={`quote ${snap.quote_number || ''}`.trim()}
+                          description="This permanently removes the quote snapshot. The originating inquiry and products are not affected. This cannot be undone."
+                          onConfirm={() => deleteQuote(snap.id)}
+                        />
                       </div>
                     </CardContent>
                   </Card>
