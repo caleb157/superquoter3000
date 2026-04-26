@@ -207,18 +207,14 @@ export function TaskList({
                 <span className="text-[11px] text-muted-foreground capitalize">{t.priority}</span>
               </div>
 
-              {/* Status column - click to toggle */}
+              {/* Status column */}
               <div className="w-20 shrink-0 text-right">
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleStatus(t); }}
-                  title="Click to toggle status"
-                  className={cn(
-                    'text-[11px] px-2 py-0.5 rounded capitalize transition-colors',
-                    t.status === 'done'
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-                  )}
-                >{t.status === 'done' ? 'Done' : 'Open'}</button>
+                <span className={cn(
+                  'text-[11px] px-2 py-0.5 rounded capitalize',
+                  t.status === 'done'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-amber-100 text-amber-700',
+                )}>{t.status === 'done' ? 'Done' : 'Open'}</span>
               </div>
 
               {/* Assignee column */}
