@@ -286,6 +286,7 @@ export function TaskList({
           return (
             <li key={t.id}>
               <SwipeableTaskRow done={t.status === 'done'} onToggle={() => toggleStatus(t)}>
+                {mobileCard}
                 {rowInner}
               </SwipeableTaskRow>
             </li>
