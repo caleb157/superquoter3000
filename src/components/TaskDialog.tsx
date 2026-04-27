@@ -431,10 +431,19 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
             )}
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+          {!isEdit && (
+            <Button variant="secondary" onClick={() => handleSave(true)} disabled={saving}>
+              {saving ? 'Saving…' : 'Save & add another'}
+            </Button>
+          )}
+          <Button onClick={() => handleSave(false)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
       </DialogContent>
     </Dialog>
   );
