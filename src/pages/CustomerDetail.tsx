@@ -374,13 +374,6 @@ export default function CustomerDetail() {
         </Tabs>
       </div>
 
-      <EditCustomerDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        customer={customer}
-        onSaved={fetchAll}
-      />
-
       <NewInquiryDialog
         open={showNewInquiry}
         onOpenChange={setShowNewInquiry}
