@@ -156,8 +156,50 @@ export function TaskList({
           const createdLabel = t.created_at
             ? new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
             : '';
+          const anchorBadge = showAnchorLinks && (t.inquiry
+            ? <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
+              </Link>
+            : t.product
+            ? <Link to={`/product/${t.product.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.product.name}</Badge>
+              </Link>
+            : t.customer
+            ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.customer.name}</Badge>
+            : null);
+
+          const mobileCard = !compact && (
+            <div className="sm:hidden flex items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm">
+              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className="shrink-0 mt-0.5" />
+              <span className={cn('h-2 w-2 rounded-full shrink-0 mt-2', priorityColor(t.priority))} />
+              <button onClick={() => setEditId(t.id)} className="flex-1 min-w-0 text-left space-y-1">
+                <div className={cn('text-sm font-medium leading-snug break-words', t.status === 'done' && 'line-through text-muted-foreground')}>
+                  {t.title}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn(
+                    'text-[10px] px-1.5 py-0.5 rounded',
+                    overdueOpen ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground',
+                  )}>{due.text}</span>
+                  <span className={cn(
+                    'text-[10px] px-1.5 py-0.5 rounded capitalize',
+                    t.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700',
+                  )}>{t.status === 'done' ? 'Done' : 'Open'}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">{t.priority}</span>
+                  {t.assignee && <span className="text-[10px] text-muted-foreground">· {t.assignee}</span>}
+                  {photos.length > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                      <Paperclip className="h-3 w-3" />{photos.length}
+                    </span>
+                  )}
+                </div>
+                {anchorBadge && <div className="flex">{anchorBadge}</div>}
+              </button>
+            </div>
+          );
+
           const rowInner = (
-            <div className={cn('flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm')}>
+            <div className={cn('hidden sm:flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm')}>
               <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className="shrink-0" />
               <span className={cn('h-2 w-2 rounded-full shrink-0', priorityColor(t.priority))} />
 
@@ -244,6 +286,7 @@ export function TaskList({
           return (
             <li key={t.id}>
               <SwipeableTaskRow done={t.status === 'done'} onToggle={() => toggleStatus(t)}>
+                {mobileCard}
                 {rowInner}
               </SwipeableTaskRow>
             </li>

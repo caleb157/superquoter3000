@@ -162,7 +162,7 @@ function SortHeaderBar({
   sort, sortDir, onToggle,
 }: { sort: TaskSortKey; sortDir: TaskSortDir; onToggle: (k: TaskSortKey) => void }) {
   return (
-    <div className="flex items-center gap-2 px-1 py-1.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="hidden sm:flex items-center gap-2 px-1 py-1.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
       {/* spacers matching row layout: checkbox + priority dot */}
       <span className="w-4 shrink-0" aria-hidden />
       <span className="w-2 shrink-0" aria-hidden />
