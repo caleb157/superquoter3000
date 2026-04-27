@@ -125,6 +125,17 @@ export default function CustomerDetail() {
     return <AppLayout><div className="p-12 text-center text-sm text-muted-foreground">Customer not found.</div></AppLayout>;
   }
 
+  const updateField = async (patch: Partial<Customer>) => {
+    if (!customer) return;
+    const prev = customer;
+    setCustomer({ ...customer, ...patch } as Customer);
+    const { error } = await supabase.from('customers').update(patch).eq('id', customer.id);
+    if (error) {
+      setCustomer(prev);
+      toast.error(error.message);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
@@ -132,24 +143,34 @@ export default function CustomerDetail() {
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
 
-        {/* Header */}
-        <div className="flex items-start gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">
-                {customer.company || customer.name || 'Customer'}
-              </h1>
-              <LeadStatusBadge status={customer.lead_status} />
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs sm:text-sm text-muted-foreground">
-              {customer.name && customer.name !== customer.company && <span className="truncate max-w-full">{customer.name}</span>}
-              {customer.email && <a href={`mailto:${customer.email}`} className="hover:text-foreground truncate max-w-full">{customer.email}</a>}
-              {customer.phone && <span>{customer.phone}</span>}
-              {customer.source && <span>· {customer.source}</span>}
-              {customer.linkedin_url && (
-                <a href={customer.linkedin_url} target="_blank" rel="noreferrer" className="hover:text-foreground">LinkedIn</a>
-              )}
-            </div>
+        {/* Header — inline editable */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <InlineText
+              value={customer.company || ''}
+              placeholder="Company name"
+              className="text-xl sm:text-2xl font-bold tracking-tight"
+              onSave={(v) => updateField({ company: v.trim() || null })}
+            />
+            <InlineSelect
+              value={customer.lead_status}
+              options={[
+                { value: 'lead', label: 'Lead' },
+                { value: 'active', label: 'Active' },
+                { value: 'won', label: 'Won' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'churned', label: 'Churned' },
+              ]}
+              onSave={(v) => updateField({ lead_status: v })}
+              renderDisplay={() => <LeadStatusBadge status={customer.lead_status} />}
+            />
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs sm:text-sm text-muted-foreground">
+            <InlineText value={customer.name || ''} placeholder="Contact name" onSave={(v) => updateField({ name: v.trim() || customer.company || 'Customer' })} />
+            <InlineText value={customer.email || ''} placeholder="Email" onSave={(v) => updateField({ email: v.trim() || null })} />
+            <InlineText value={customer.phone || ''} placeholder="Phone" onSave={(v) => updateField({ phone: v.trim() || null })} />
+            <InlineText value={customer.source || ''} placeholder="Source" onSave={(v) => updateField({ source: v.trim() || null })} />
+            <InlineText value={customer.linkedin_url || ''} placeholder="LinkedIn URL" onSave={(v) => updateField({ linkedin_url: v.trim() || null })} />
           </div>
         </div>
 
@@ -163,6 +184,66 @@ export default function CustomerDetail() {
             value={customer.last_contacted_at ? formatDistanceToNow(new Date(customer.last_contacted_at), { addSuffix: true }) : '—'}
           />
         </div>
+
+        {/* Editable details card */}
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <DetailField label="Company">
+                <Input value={customer.company ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, company: e.target.value } : c)}
+                  onBlur={(e) => updateField({ company: e.target.value.trim() || null })} />
+              </DetailField>
+              <DetailField label="Contact name">
+                <Input value={customer.name ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, name: e.target.value } : c)}
+                  onBlur={(e) => updateField({ name: e.target.value.trim() || customer.company || 'Customer' })} />
+              </DetailField>
+              <DetailField label="Email">
+                <Input type="email" value={customer.email ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, email: e.target.value } : c)}
+                  onBlur={(e) => updateField({ email: e.target.value.trim() || null })} />
+              </DetailField>
+              <DetailField label="Phone">
+                <Input value={customer.phone ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, phone: e.target.value } : c)}
+                  onBlur={(e) => updateField({ phone: e.target.value.trim() || null })} />
+              </DetailField>
+              <DetailField label="LinkedIn URL">
+                <Input value={customer.linkedin_url ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, linkedin_url: e.target.value } : c)}
+                  onBlur={(e) => updateField({ linkedin_url: e.target.value.trim() || null })} />
+              </DetailField>
+              <DetailField label="Source">
+                <Input value={customer.source ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, source: e.target.value } : c)}
+                  onBlur={(e) => updateField({ source: e.target.value.trim() || null })} />
+              </DetailField>
+              <DetailField label="Lead status">
+                <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead">Lead</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="won">Won</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="churned">Churned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </DetailField>
+              <DetailField label="Lead score">
+                <Input type="number" value={customer.lead_score ?? 0}
+                  onChange={(e) => setCustomer(c => c ? { ...c, lead_score: parseInt(e.target.value) || 0 } : c)}
+                  onBlur={(e) => updateField({ lead_score: parseInt(e.target.value) || 0 })} />
+              </DetailField>
+              <DetailField label="Last contacted">
+                <Input type="date"
+                  value={customer.last_contacted_at ? new Date(customer.last_contacted_at).toISOString().slice(0, 10) : ''}
+                  onChange={(e) => updateField({ last_contacted_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+              </DetailField>
+              <DetailField label="Notes" className="sm:col-span-2">
+                <Textarea rows={3} value={customer.notes ?? ''}
+                  onChange={(e) => setCustomer(c => c ? { ...c, notes: e.target.value } : c)}
+                  onBlur={(e) => updateField({ notes: e.target.value.trim() || null })} />
+              </DetailField>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs — keeps original style on desktop because there are only 2 */}
         <Tabs value={tab} onValueChange={setTab}>
