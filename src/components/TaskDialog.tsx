@@ -163,7 +163,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     else { setInquiryId(null); setProductId(null); }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (addAnother = false) => {
     if (!title.trim()) { toast.error('Title is required'); return; }
     if (mode === 'inquiry' && !inquiryId) { toast.error('Inquiry is required'); return; }
     if (mode === 'customer' && !customerId) { toast.error('Customer is required'); return; }
@@ -193,7 +193,14 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if (error) { toast.error(error.message); return; }
     toast.success(isEdit ? 'Task updated' : 'Task created');
     onSaved?.();
-    onOpenChange(false);
+    if (addAnother && !isEdit) {
+      // Keep context fields (inquiry/product/customer/assignee/priority/due) for fast bulk entry.
+      setTitle('');
+      setDescription('');
+      setPhotoUrls([]);
+    } else {
+      onOpenChange(false);
+    }
   };
 
   const selectedInquiry = inquiries.find(i => i.id === inquiryId);
@@ -424,9 +431,14 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
             )}
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+          {!isEdit && (
+            <Button variant="secondary" onClick={() => handleSave(true)} disabled={saving}>
+              {saving ? 'Saving…' : 'Save & add another'}
+            </Button>
+          )}
+          <Button onClick={() => handleSave(false)} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
