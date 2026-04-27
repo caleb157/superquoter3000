@@ -444,7 +444,3 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     </Dialog>
   );
 }
-      </DialogContent>
-    </Dialog>
-  );
-}
