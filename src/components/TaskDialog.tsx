@@ -163,7 +163,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     else { setInquiryId(null); setProductId(null); }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (addAnother = false) => {
     if (!title.trim()) { toast.error('Title is required'); return; }
     if (mode === 'inquiry' && !inquiryId) { toast.error('Inquiry is required'); return; }
     if (mode === 'customer' && !customerId) { toast.error('Customer is required'); return; }
@@ -193,7 +193,14 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if (error) { toast.error(error.message); return; }
     toast.success(isEdit ? 'Task updated' : 'Task created');
     onSaved?.();
-    onOpenChange(false);
+    if (addAnother && !isEdit) {
+      // Keep context fields (inquiry/product/customer/assignee/priority/due) for fast bulk entry.
+      setTitle('');
+      setDescription('');
+      setPhotoUrls([]);
+    } else {
+      onOpenChange(false);
+    }
   };
 
   const selectedInquiry = inquiries.find(i => i.id === inquiryId);
