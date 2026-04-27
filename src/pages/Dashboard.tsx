@@ -171,7 +171,8 @@ const Dashboard = () => {
     const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number }> = [];
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-      if (inqStatus === 'cancelled') continue;
+      // Only count active and PO inquiries — exclude cancelled, paused, and products with no inquiry.
+      if (inqStatus !== 'active' && inqStatus !== 'po') continue;
       const w = productWeight(p, inqStatus);
       if (w === 0) continue;
       const qty = p.quantity ?? 0;
