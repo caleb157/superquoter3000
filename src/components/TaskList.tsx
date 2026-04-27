@@ -219,7 +219,7 @@ export function TaskList({
 
               {/* Inquiry column */}
               {!compact && (
-                <div className="hidden md:flex items-center gap-1 w-40 shrink-0 min-w-0">
+                <div className="hidden md:flex items-center gap-1 w-32 lg:w-40 shrink-0 min-w-0">
                   {showAnchorLinks && t.inquiry && (
                     <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0">
                       <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
@@ -237,7 +237,7 @@ export function TaskList({
               )}
 
               {/* Due column */}
-              <div className="w-20 shrink-0 text-right">
+              <div className="w-16 shrink-0 text-right">
                 <span className={cn(
                   'text-[11px] px-1.5 py-0.5 rounded inline-block',
                   overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
@@ -245,12 +245,12 @@ export function TaskList({
               </div>
 
               {/* Priority column */}
-              <div className="w-20 shrink-0 text-right">
+              <div className="w-16 shrink-0 text-right">
                 <span className="text-[11px] text-muted-foreground capitalize">{t.priority}</span>
               </div>
 
               {/* Status column */}
-              <div className="w-20 shrink-0 text-right">
+              <div className="w-16 shrink-0 text-right">
                 <span className={cn(
                   'text-[11px] px-2 py-0.5 rounded capitalize',
                   t.status === 'done'
@@ -261,14 +261,14 @@ export function TaskList({
 
               {/* Assignee column */}
               {!compact && (
-                <div className="hidden sm:block w-24 shrink-0 text-right">
+                <div className="hidden md:block w-20 shrink-0 text-right">
                   <span className="text-[11px] text-muted-foreground">{t.assignee || '—'}</span>
                 </div>
               )}
 
               {/* Created column */}
               {!compact && (
-                <div className="hidden lg:block w-24 shrink-0 text-right">
+                <div className="hidden lg:block w-20 shrink-0 text-right">
                   <span className="text-[11px] text-muted-foreground">{createdLabel}</span>
                 </div>
               )}
