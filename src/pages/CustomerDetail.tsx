@@ -63,7 +63,6 @@ export default function CustomerDetail() {
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [openTaskCount, setOpenTaskCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [editOpen, setEditOpen] = useState(false);
   const [showNewInquiry, setShowNewInquiry] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [taskRefresh, setTaskRefresh] = useState(0);
