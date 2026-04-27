@@ -405,99 +405,76 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
   );
 }
 
-type EditProps = {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  customer: Customer;
-  onSaved: () => void;
-};
-
-function EditCustomerDialog({ open, onOpenChange, customer, onSaved }: EditProps) {
-  const [form, setForm] = useState<Customer>(customer);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => { if (open) setForm(customer); }, [open, customer]);
-
-  const save = async () => {
-    const company = form.company?.trim() || '';
-    if (!company) { toast.error('Company is required'); return; }
-    const contactName = form.name?.trim() || '';
-    setSaving(true);
-    const { error } = await supabase.from('customers').update({
-      name: contactName || company,
-      email: form.email?.trim() || null,
-      phone: form.phone?.trim() || null,
-      company,
-      source: form.source?.trim() || null,
-      linkedin_url: form.linkedin_url?.trim() || null,
-      lead_score: form.lead_score ?? 0,
-      lead_status: form.lead_status,
-      last_contacted_at: form.last_contacted_at || null,
-      notes: form.notes?.trim() || null,
-    }).eq('id', customer.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Customer updated');
-    onOpenChange(false);
-    onSaved();
-  };
-
+function DetailField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
-        <DialogHeader><DialogTitle>Edit customer</DialogTitle></DialogHeader>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          <Field label="Company *"><Input value={form.company ?? ''} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} /></Field>
-          <Field label="Contact name"><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Email"><Input value={form.email ?? ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></Field>
-            <Field label="Phone"><Input value={form.phone ?? ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></Field>
-          </div>
-          <Field label="LinkedIn"><Input value={form.linkedin_url ?? ''} onChange={e => setForm(f => ({ ...f, linkedin_url: e.target.value }))} /></Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Source"><Input value={form.source ?? ''} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} /></Field>
-            <Field label="Lead Score">
-              <Input type="number" value={form.lead_score ?? 0} onChange={e => setForm(f => ({ ...f, lead_score: parseInt(e.target.value) || 0 }))} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Lead Status">
-              <Select value={form.lead_status} onValueChange={(v) => setForm(f => ({ ...f, lead_status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lead">Lead</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="churned">Churned</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Last contacted">
-              <Input
-                type="date"
-                value={form.last_contacted_at ? new Date(form.last_contacted_at).toISOString().slice(0, 10) : ''}
-                onChange={e => setForm(f => ({ ...f, last_contacted_at: e.target.value ? new Date(e.target.value).toISOString() : null }))}
-              />
-            </Field>
-          </div>
-          <Field label="Notes">
-            <Textarea rows={3} value={form.notes ?? ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={save} disabled={saving || !form.company?.trim()}>{saving ? 'Saving…' : 'Save'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
+    <div className={className}>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       <div className="mt-1">{children}</div>
     </div>
   );
 }
+
+function InlineText({
+  value, placeholder, onSave, className,
+}: { value: string; placeholder?: string; onSave: (v: string) => void; className?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onSave(draft);
+  };
+
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') { setDraft(value); setEditing(false); }
+        }}
+        className={cn('h-7 px-2 py-0', className)}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={cn(
+        'text-left rounded px-1 -mx-1 hover:bg-muted/60 transition-colors max-w-full truncate',
+        !value && 'text-muted-foreground/60 italic',
+        className,
+      )}
+    >
+      {value || placeholder || '—'}
+    </button>
+  );
+}
+
+function InlineSelect({
+  value, options, onSave, renderDisplay,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  onSave: (v: string) => void;
+  renderDisplay?: () => React.ReactNode;
+}) {
+  return (
+    <Select value={value} onValueChange={(v) => { if (v !== value) onSave(v); }}>
+      <SelectTrigger className="h-auto border-none p-0 bg-transparent shadow-none focus:ring-0 hover:bg-muted/60 rounded px-1 -mx-1 [&>svg]:hidden gap-0">
+        {renderDisplay ? renderDisplay() : <SelectValue />}
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
