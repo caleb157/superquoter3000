@@ -150,12 +150,12 @@ export default function Tasks() {
 
 const SORT_COLUMNS: { key: TaskSortKey; label: string; className: string }[] = [
   { key: 'title',      label: 'Title',    className: 'flex-1 min-w-0' },
-  { key: 'inquiry',    label: 'Inquiry',  className: 'hidden md:block w-40 shrink-0' },
-  { key: 'due_date',   label: 'Due',      className: 'w-20 shrink-0 text-right' },
-  { key: 'priority',   label: 'Priority', className: 'w-20 shrink-0 text-right' },
-  { key: 'status',     label: 'Status',   className: 'w-20 shrink-0 text-right' },
-  { key: 'assignee',   label: 'Assignee', className: 'hidden sm:block w-24 shrink-0 text-right' },
-  { key: 'created_at', label: 'Created',  className: 'hidden lg:block w-24 shrink-0 text-right' },
+  { key: 'inquiry',    label: 'Inquiry',  className: 'hidden md:block w-32 lg:w-40 shrink-0' },
+  { key: 'due_date',   label: 'Due',      className: 'w-16 shrink-0 text-right' },
+  { key: 'priority',   label: 'Priority', className: 'w-16 shrink-0 text-right' },
+  { key: 'status',     label: 'Status',   className: 'w-16 shrink-0 text-right' },
+  { key: 'assignee',   label: 'Assignee', className: 'hidden md:block w-20 shrink-0 text-right' },
+  { key: 'created_at', label: 'Created',  className: 'hidden lg:block w-20 shrink-0 text-right' },
 ];
 
 function SortHeaderBar({
