@@ -602,6 +602,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const autoTransportRate = (effectiveSettings as any).auto_transport_cost_per_cbm || 500;
     const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
     if (!transportItem) return;
+    if (transportItem.manual_override) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
     if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
         Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
