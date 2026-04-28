@@ -488,6 +488,39 @@ export type Database = {
           },
         ]
       }
+      customer_status_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          customer_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          occurred_at: string
+          to_status: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          customer_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          to_status: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          customer_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          to_status?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           company: string | null
@@ -651,6 +684,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inquiry_status_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          inquiry_id: string
+          note: string | null
+          occurred_at: string
+          to_status: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          inquiry_id: string
+          note?: string | null
+          occurred_at?: string
+          to_status: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          inquiry_id?: string
+          note?: string | null
+          occurred_at?: string
+          to_status?: string
+        }
+        Relationships: []
       }
       labor_employees: {
         Row: {
