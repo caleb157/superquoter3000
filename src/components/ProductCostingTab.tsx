@@ -937,13 +937,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </Select>
               </div>
               <div>
-                <label className="text-[10px] text-muted-foreground">% Wood: {((product.percent_wood || 1) * 100).toFixed(0)}%</label>
-                <Slider
-                  className="mt-1"
-                  value={[(product.percent_wood || 1) * 100]}
-                  min={0} max={100} step={5}
-                  onValueChange={([v]) => updateProduct('percent_wood', v / 100)}
-                />
+                <label className="text-[10px] text-muted-foreground">% Wood</label>
+                <Select
+                  value={String(Math.round((product.percent_wood ?? 1) * 100))}
+                  onValueChange={(v) => updateProduct('percent_wood', Number(v) / 100)}
+                >
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 21 }, (_, i) => i * 5).map(p => (
+                      <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
