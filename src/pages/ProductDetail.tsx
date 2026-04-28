@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History } from 'lucide-react';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
@@ -17,6 +17,8 @@ import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
 
 type ProductHeader = {
   id: string;
