@@ -215,16 +215,25 @@ export default function CustomerDetail() {
                   onBlur={(e) => updateField({ source: e.target.value.trim() || null })} />
               </DetailField>
               <DetailField label="Lead status">
-                <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lead">Lead</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="won">Won</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="churned">Churned</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                  <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="won">Won</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="churned">Churned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                    title="Edit history (backdate)"
+                    onClick={() => setHistoryOpen(true)}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                </div>
               </DetailField>
               <DetailField label="Lead score">
                 <Input type="number" value={customer.lead_score ?? 0}
