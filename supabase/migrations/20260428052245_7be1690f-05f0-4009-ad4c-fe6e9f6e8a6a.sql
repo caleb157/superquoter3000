@@ -1,0 +1,1 @@
+ALTER TABLE public.non_unit_cogs ADD COLUMN IF NOT EXISTS manual_override boolean NOT NULL DEFAULT false;

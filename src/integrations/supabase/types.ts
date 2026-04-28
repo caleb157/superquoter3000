@@ -748,6 +748,7 @@ export type Database = {
           created_at: string | null
           id: string
           include: string | null
+          manual_override: boolean
           name: string | null
           product_id: string | null
           sort_order: number | null
@@ -758,6 +759,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           include?: string | null
+          manual_override?: boolean
           name?: string | null
           product_id?: string | null
           sort_order?: number | null
@@ -768,6 +770,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           include?: string | null
+          manual_override?: boolean
           name?: string | null
           product_id?: string | null
           sort_order?: number | null

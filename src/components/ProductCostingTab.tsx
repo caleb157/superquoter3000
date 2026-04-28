@@ -602,6 +602,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const autoTransportRate = (effectiveSettings as any).auto_transport_cost_per_cbm || 500;
     const transportItem = nonUnitCogs.find(i => i.name === 'Auto Transport');
     if (!transportItem) return;
+    if (transportItem.manual_override) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
     if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
         Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
@@ -1426,6 +1427,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <TableBody>
                 {nonUnitCogs.map(item => {
                   const isAutoTransport = item.name === 'Auto Transport';
+                  const locked = isAutoTransport && !item.manual_override;
+                  const toggleManual = async () => {
+                    const next = !item.manual_override;
+                    setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, manual_override: next } : i));
+                    await (supabase as any).from('non_unit_cogs').update({ manual_override: next }).eq('id', item.id);
+                    if (!next) setRecalcTick(t => t + 1);
+                  };
                   return (
                   <TableRow key={item.id}>
                     <TableCell>
@@ -1442,25 +1450,35 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     </TableCell>
                     <TableCell>
                       {isAutoTransport ? (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">Auto Transport <span className="text-[9px] bg-muted px-1 rounded">auto</span></span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          Auto Transport
+                          <button
+                            type="button"
+                            onClick={toggleManual}
+                            className={`text-[9px] px-1 rounded ${item.manual_override ? 'bg-amber-200 text-amber-900' : 'bg-muted'} hover:opacity-80`}
+                            title={item.manual_override ? 'Manual override on — click to revert to auto' : 'Auto-calculated — click to edit manually'}
+                          >
+                            {item.manual_override ? 'manual' : 'auto'}
+                          </button>
+                        </span>
                       ) : (
                         <Input className="h-6 text-xs border-transparent" defaultValue={item.name || ''}
                           onBlur={e => { setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, name: e.target.value } : i)); (supabase as any).from('non_unit_cogs').update({ name: e.target.value }).eq('id', item.id); }} />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isAutoTransport ? (
+                      {locked ? (
                         <span className="text-xs text-muted-foreground">{(item.total_quantity || 0).toFixed(4)}</span>
                       ) : (
-                        <Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.total_quantity || 0}
+                        <Input key={`qty-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.total_quantity || 0}
                           onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, total_quantity: v } : i)); (supabase as any).from('non_unit_cogs').update({ total_quantity: v }).eq('id', item.id); }} />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isAutoTransport ? (
+                      {locked ? (
                         <span className="text-xs text-muted-foreground">{item.cost_each_inr || 0}</span>
                       ) : (
-                        <Input className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
+                        <Input key={`cost-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
                           onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i)); (supabase as any).from('non_unit_cogs').update({ cost_each_inr: v }).eq('id', item.id); }} />
                       )}
                     </TableCell>
