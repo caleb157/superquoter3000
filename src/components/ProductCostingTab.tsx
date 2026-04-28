@@ -1432,7 +1432,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     const next = !item.manual_override;
                     setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, manual_override: next } : i));
                     await (supabase as any).from('non_unit_cogs').update({ manual_override: next }).eq('id', item.id);
-                    if (!next) bumpRecalc();
+                    if (!next) setRecalcTick(t => t + 1);
                   };
                   return (
                   <TableRow key={item.id}>
