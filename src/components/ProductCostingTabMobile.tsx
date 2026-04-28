@@ -533,6 +533,7 @@ function NonUnitSection(props: MobileCostingProps) {
       <div className="space-y-2">
         {nonUnitCogs.map(item => {
           const isAuto = item.name === 'Auto Transport';
+          const locked = isAuto && !item.manual_override;
           const unitCost = qty > 0 ? (item.total_quantity * item.cost_each_inr) / qty : 0;
           return (
             <Card key={item.id} className={item.include === 'No' ? 'opacity-50' : ''}>
@@ -546,7 +547,15 @@ function NonUnitSection(props: MobileCostingProps) {
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2">
-                    {isAuto && <Badge variant="secondary" className="text-[10px]">auto</Badge>}
+                    {isAuto && (
+                      <button
+                        type="button"
+                        onClick={() => update(item.id, 'manual_override', !item.manual_override)}
+                        className={`text-[10px] px-2 py-0.5 rounded ${item.manual_override ? 'bg-amber-200 text-amber-900' : 'bg-muted text-muted-foreground'}`}
+                      >
+                        {item.manual_override ? 'manual' : 'auto'}
+                      </button>
+                    )}
                     <Button
                       size="icon" variant="ghost"
                       className="h-9 w-9 text-muted-foreground hover:text-destructive"
@@ -568,18 +577,18 @@ function NonUnitSection(props: MobileCostingProps) {
 
                 <FieldGrid>
                   <Field label="Total Qty">
-                    {isAuto ? (
+                    {locked ? (
                       <div className="h-10 px-3 py-2 text-sm rounded-md border bg-muted/50 font-mono">{(item.total_quantity || 0).toFixed(4)}</div>
                     ) : (
-                      <Input className="h-10" type="number" defaultValue={item.total_quantity || 0}
+                      <Input key={`q-${item.id}-${item.manual_override}`} className="h-10" type="number" defaultValue={item.total_quantity || 0}
                         onBlur={e => update(item.id, 'total_quantity', Number(e.target.value))} />
                     )}
                   </Field>
                   <Field label="Cost each (₹)">
-                    {isAuto ? (
+                    {locked ? (
                       <div className="h-10 px-3 py-2 text-sm rounded-md border bg-muted/50 font-mono">{item.cost_each_inr || 0}</div>
                     ) : (
-                      <Input className="h-10" type="number" defaultValue={item.cost_each_inr || 0}
+                      <Input key={`c-${item.id}-${item.manual_override}`} className="h-10" type="number" defaultValue={item.cost_each_inr || 0}
                         onBlur={e => update(item.id, 'cost_each_inr', Number(e.target.value))} />
                     )}
                   </Field>
