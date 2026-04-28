@@ -321,6 +321,32 @@ const ProductDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {historyTrack && (() => {
+        const optionsByTrack: Record<StageTrack, string[]> = {
+          design: ['need_design', 'designed'],
+          quote: ['quoting', 'ready_for_quote', 'quoted'],
+          sample: ['sampling', 'sampled'],
+        };
+        const cfg: HistoryConfig = {
+          table: 'product_stage_events',
+          parentColumn: 'product_id',
+          parentId: product.id,
+          options: optionsByTrack[historyTrack],
+          valueColumn: 'to_stage',
+          fromColumn: 'from_stage',
+          extraInsert: { track: historyTrack },
+          filter: { track: historyTrack },
+          label: `${product.name} — ${historyTrack} stage`,
+        };
+        return (
+          <EditHistoryDialog
+            open={!!historyTrack}
+            onOpenChange={(v) => !v && setHistoryTrack(null)}
+            config={cfg}
+          />
+        );
+      })()}
     </AppLayout>
   );
 };
