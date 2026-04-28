@@ -24,6 +24,7 @@ import { InquiryActivityFeed } from '@/components/InquiryActivityFeed';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 
 const STATUS_OPTIONS = ['active', 'paused', 'cancelled', 'po'];
 const STATUS_COLOR: Record<string, string> = {
