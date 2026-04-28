@@ -45,7 +45,7 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
   high: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
-  normal: 'bg-muted text-muted-foreground',
+  normal: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300',
   low: 'bg-gray-100 text-gray-500 dark:bg-gray-500/10 dark:text-gray-400',
 };
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
