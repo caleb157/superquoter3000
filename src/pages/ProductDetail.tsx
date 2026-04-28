@@ -48,6 +48,7 @@ const ProductDetail = () => {
   const [draftName, setDraftName] = useState('');
   const [draftSku, setDraftSku] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [historyTrack, setHistoryTrack] = useState<StageTrack | null>(null);
   
   // Costing summary state
   const [costingSummary, setCostingSummary] = useState<{
