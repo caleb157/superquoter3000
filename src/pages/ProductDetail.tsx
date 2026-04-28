@@ -275,8 +275,22 @@ const ProductDetail = () => {
             </div>
           )}
           
-          <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-1.5">
             <ProductStagePills product={product} onChange={handleStageChange} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Edit stage history (backdate)">
+                  <History className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="text-xs">Edit history of…</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setHistoryTrack('design')}>Design stage</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setHistoryTrack('quote')}>Quote stage</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setHistoryTrack('sample')}>Sample stage</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
