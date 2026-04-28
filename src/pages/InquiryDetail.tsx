@@ -213,6 +213,9 @@ export default function InquiryDetail() {
                 {STATUS_OPTIONS.map(s => (
                   <DropdownMenuItem key={s} className="capitalize" onClick={() => updateField({ status: s })}>{s}</DropdownMenuItem>
                 ))}
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="border-t mt-1 pt-1.5">
+                  <History className="h-3.5 w-3.5 mr-2" /> Edit history…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <ConfirmDeleteButton
