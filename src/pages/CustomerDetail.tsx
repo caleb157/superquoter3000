@@ -67,6 +67,7 @@ export default function CustomerDetail() {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [taskRefresh, setTaskRefresh] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const fetchAll = async () => {
     if (!id) return;
