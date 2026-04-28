@@ -398,6 +398,20 @@ export default function CustomerDetail() {
           onSaved={() => { setTaskRefresh(k => k + 1); fetchAll(); }}
         />
       )}
+
+      <EditHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        config={{
+          table: 'customer_status_events',
+          parentColumn: 'customer_id',
+          parentId: customer.id,
+          options: ['lead', 'active', 'won', 'inactive', 'churned'],
+          valueColumn: 'to_status',
+          fromColumn: 'from_status',
+          label: `${customer.name} — lead status`,
+        }}
+      />
     </AppLayout>
   );
 }
