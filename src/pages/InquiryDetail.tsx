@@ -53,6 +53,7 @@ export default function InquiryDetail() {
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [editingDrive, setEditingDrive] = useState(false);
   const [driveDraft, setDriveDraft] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Settings draft
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
