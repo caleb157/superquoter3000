@@ -293,15 +293,19 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         </Select>
       </Field>
 
-      <div>
-        <label className="text-xs text-muted-foreground">% Wood: {((product.percent_wood || 1) * 100).toFixed(0)}%</label>
-        <Slider
-          className="mt-2"
-          value={[(product.percent_wood || 1) * 100]}
-          min={0} max={100} step={5}
-          onValueChange={([v]) => updateProduct('percent_wood', v / 100)}
-        />
-      </div>
+      <Field label="% Wood">
+        <Select
+          value={String(Math.round((product.percent_wood ?? 1) * 100))}
+          onValueChange={(v) => updateProduct('percent_wood', Number(v) / 100)}
+        >
+          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Array.from({ length: 21 }, (_, i) => i * 5).map(p => (
+              <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
 
       <Field label="Target Price (USD)">
         <Input className="h-10" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
