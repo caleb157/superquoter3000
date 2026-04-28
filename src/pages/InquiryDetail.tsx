@@ -537,6 +537,22 @@ export default function InquiryDetail() {
         context={{ inquiryId: id }}
         onSaved={() => setTaskRefresh(k => k + 1)}
       />
+
+      {inquiry && (
+        <EditHistoryDialog
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          config={{
+            table: 'inquiry_status_events',
+            parentColumn: 'inquiry_id',
+            parentId: inquiry.id,
+            options: STATUS_OPTIONS,
+            valueColumn: 'to_status',
+            fromColumn: 'from_status',
+            label: `${inquiry.rfq_number} — status`,
+          }}
+        />
+      )}
     </AppLayout>
   );
 }
