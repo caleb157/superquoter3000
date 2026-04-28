@@ -12,7 +12,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
@@ -24,6 +24,7 @@ import { InquiryActivityFeed } from '@/components/InquiryActivityFeed';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 
 const STATUS_OPTIONS = ['active', 'paused', 'cancelled', 'po'];
 const STATUS_COLOR: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function InquiryDetail() {
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [editingDrive, setEditingDrive] = useState(false);
   const [driveDraft, setDriveDraft] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Settings draft
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
@@ -211,6 +213,9 @@ export default function InquiryDetail() {
                 {STATUS_OPTIONS.map(s => (
                   <DropdownMenuItem key={s} className="capitalize" onClick={() => updateField({ status: s })}>{s}</DropdownMenuItem>
                 ))}
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="border-t mt-1 pt-1.5">
+                  <History className="h-3.5 w-3.5 mr-2" /> Edit history…
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <ConfirmDeleteButton
@@ -532,6 +537,22 @@ export default function InquiryDetail() {
         context={{ inquiryId: id }}
         onSaved={() => setTaskRefresh(k => k + 1)}
       />
+
+      {inquiry && (
+        <EditHistoryDialog
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          config={{
+            table: 'inquiry_status_events',
+            parentColumn: 'inquiry_id',
+            parentId: inquiry.id,
+            options: STATUS_OPTIONS,
+            valueColumn: 'to_status',
+            fromColumn: 'from_status',
+            label: `${inquiry.rfq_number} — status`,
+          }}
+        />
+      )}
     </AppLayout>
   );
 }

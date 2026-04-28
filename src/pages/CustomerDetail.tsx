@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, FileText, ListTodo, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, ListTodo, Clock, History } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { LeadStatusBadge } from '@/components/LeadStatusBadge';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
+import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
@@ -66,6 +67,7 @@ export default function CustomerDetail() {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [taskRefresh, setTaskRefresh] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const fetchAll = async () => {
     if (!id) return;
@@ -213,16 +215,25 @@ export default function CustomerDetail() {
                   onBlur={(e) => updateField({ source: e.target.value.trim() || null })} />
               </DetailField>
               <DetailField label="Lead status">
-                <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lead">Lead</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="won">Won</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="churned">Churned</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                  <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="won">Won</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="churned">Churned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                    title="Edit history (backdate)"
+                    onClick={() => setHistoryOpen(true)}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                </div>
               </DetailField>
               <DetailField label="Lead score">
                 <Input type="number" value={customer.lead_score ?? 0}
@@ -387,6 +398,20 @@ export default function CustomerDetail() {
           onSaved={() => { setTaskRefresh(k => k + 1); fetchAll(); }}
         />
       )}
+
+      <EditHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        config={{
+          table: 'customer_status_events',
+          parentColumn: 'customer_id',
+          parentId: customer.id,
+          options: ['lead', 'active', 'won', 'inactive', 'churned'],
+          valueColumn: 'to_status',
+          fromColumn: 'from_status',
+          label: `${customer.name} — lead status`,
+        }}
+      />
     </AppLayout>
   );
 }

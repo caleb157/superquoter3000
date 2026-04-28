@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History } from 'lucide-react';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
@@ -17,6 +17,8 @@ import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
 
 type ProductHeader = {
   id: string;
@@ -46,6 +48,7 @@ const ProductDetail = () => {
   const [draftName, setDraftName] = useState('');
   const [draftSku, setDraftSku] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [historyTrack, setHistoryTrack] = useState<StageTrack | null>(null);
   
   // Costing summary state
   const [costingSummary, setCostingSummary] = useState<{
@@ -272,8 +275,22 @@ const ProductDetail = () => {
             </div>
           )}
           
-          <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="w-full sm:w-auto sm:ml-auto overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-1.5">
             <ProductStagePills product={product} onChange={handleStageChange} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Edit stage history (backdate)">
+                  <History className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="text-xs">Edit history of…</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setHistoryTrack('design')}>Design stage</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setHistoryTrack('quote')}>Quote stage</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setHistoryTrack('sample')}>Sample stage</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -304,6 +321,32 @@ const ProductDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {historyTrack && (() => {
+        const optionsByTrack: Record<StageTrack, string[]> = {
+          design: ['need_design', 'designed'],
+          quote: ['quoting', 'ready_for_quote', 'quoted'],
+          sample: ['sampling', 'sampled'],
+        };
+        const cfg: HistoryConfig = {
+          table: 'product_stage_events',
+          parentColumn: 'product_id',
+          parentId: product.id,
+          options: optionsByTrack[historyTrack],
+          valueColumn: 'to_stage',
+          fromColumn: 'from_stage',
+          extraInsert: { track: historyTrack },
+          filter: { track: historyTrack },
+          label: `${product.name} — ${historyTrack} stage`,
+        };
+        return (
+          <EditHistoryDialog
+            open={!!historyTrack}
+            onOpenChange={(v) => !v && setHistoryTrack(null)}
+            config={cfg}
+          />
+        );
+      })()}
     </AppLayout>
   );
 };
