@@ -12,7 +12,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
