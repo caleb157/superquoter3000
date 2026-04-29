@@ -140,14 +140,53 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       productsPerMc = mcResult.products_per_mc || 1;
     }
 
+    // Wrapping (Corrugate + Bubble) overrides
+    const isWrapMode = packagingType === 'corrugate_bubble';
+    const wrappingResult = calc.calcCorrugateBubblePackaging(w, d, h, icAdd, {
+      corrugate_kg_per_sq_in: (gs as any)?.corrugate_kg_per_sq_in ?? 0.25,
+      bubble_kg_per_sq_in: (gs as any)?.bubble_kg_per_sq_in ?? 0.20,
+      corrugate_price_per_kg: (gs as any)?.corrugate_price_per_kg ?? 0,
+      bubble_price_per_kg: (gs as any)?.bubble_price_per_kg ?? 0,
+    });
+
     // Apply in-memory overrides for auto-calc rows so cost stays in sync with costing sheet
     const productsPerIc = cbmRow?.products_per_ic || 1;
     const transportRate = (settings as any)?.local_transport_cost_per_cbm || 3500;
     const cogsForCalc = productCogs.map((item: any) => {
-      if (item.include === 'No') return item;
-      if (!item.is_auto_calculated) return item;
       const name = (item.component_name || '').toLowerCase();
       const type = item.cogs_type;
+      // Auto-calc rows: mirror ProductCostingTab's force-on/off behavior for packaging
+      if (item.is_auto_calculated && type === 'Packaging') {
+        if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
+          return { ...item, include: isWrapMode ? 'No' : 'Yes',
+            components_per_product: isWrapMode ? 0 : (productsPerIc > 0 ? 1 / productsPerIc : 0),
+            unit_cost_inr: isWrapMode ? 0 : icCost };
+        }
+        if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
+          const useMc = includeMc && productsPerMc > 0;
+          return { ...item, include: useMc ? 'Yes' : 'No',
+            components_per_product: useMc ? 1 / productsPerMc : 0,
+            unit_cost_inr: useMc ? mcCost : 0 };
+        }
+        if (name === 'corrugate wrap') {
+          return { ...item, include: isWrapMode ? 'Yes' : 'No',
+            components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
+            unit_cost_inr: isWrapMode ? ((gs as any)?.corrugate_price_per_kg ?? 0) : 0 };
+        }
+        if (name === 'bubble wrap') {
+          return { ...item, include: isWrapMode ? 'Yes' : 'No',
+            components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
+            unit_cost_inr: isWrapMode ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
+        }
+      }
+      if (item.include === 'No') return item;
+      if (!item.is_auto_calculated) {
+        // Domestic Freight (External Sourcing) is not auto_calculated but is name-driven
+        if (item.component_name === 'Domestic Freight (External Sourcing)' && p.sourced_externally) {
+          return { ...item, components_per_product: prePackCbm, unit_cost_inr: transportRate };
+        }
+        return item;
+      }
       // Finishing materials
       if (type === 'Finishing Materials') {
         if (name.includes('color') || name.includes('stain')) {
@@ -162,22 +201,6 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
           const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_lacquer_per_100ri || 0, ri, percentWood);
           return { ...item, components_per_product: qtyL, unit_cost_inr: lacquerPrice };
         }
-      }
-      // Packaging IC / MC
-      if (type === 'Packaging') {
-        const isWrapMode = packagingType === 'corrugate_bubble';
-        if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-          if (isWrapMode) return { ...item, components_per_product: 0, unit_cost_inr: 0 };
-          return { ...item, components_per_product: 1 / productsPerIc, unit_cost_inr: icCost };
-        }
-        if (name.includes('mc box') || name.includes('master carton') || name === 'mc') {
-          if (!includeMc) return { ...item, components_per_product: 0, unit_cost_inr: 0 };
-          return { ...item, components_per_product: 1 / productsPerMc, unit_cost_inr: mcCost };
-        }
-      }
-      // Domestic Freight (External Sourcing)
-      if (item.component_name === 'Domestic Freight (External Sourcing)' && p.sourced_externally) {
-        return { ...item, components_per_product: prePackCbm, unit_cost_inr: transportRate };
       }
       return item;
     });
