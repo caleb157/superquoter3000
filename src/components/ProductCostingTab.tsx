@@ -1342,8 +1342,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input className="h-6 text-xs border-transparent hover:border-input" defaultValue={item.vendor_name || ''}
-                            onBlur={e => updateCogsItem(item.id, 'vendor_name', e.target.value)} />
+                          <VendorCombobox
+                            value={item.vendor_name || ''}
+                            onChange={v => updateCogsItem(item.id, 'vendor_name', v)}
+                          />
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">
