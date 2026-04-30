@@ -404,11 +404,12 @@ const Dashboard = () => {
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="not_cancelled">All (no cancelled)</SelectItem>
+                <SelectItem value="open">Open (no complete/cancelled)</SelectItem>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="po">PO</SelectItem>
+                <SelectItem value="complete">Complete</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
