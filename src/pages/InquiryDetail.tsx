@@ -26,11 +26,12 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 
-const STATUS_OPTIONS = ['active', 'paused', 'cancelled', 'po'];
+const STATUS_OPTIONS = ['active', 'paused', 'po', 'complete', 'cancelled'];
 const STATUS_COLOR: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
   paused: 'bg-amber-100 text-amber-700',
   cancelled: 'bg-gray-200 text-gray-600',
+  complete: 'bg-slate-200 text-slate-700',
   po: 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];

@@ -39,6 +39,7 @@ const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
   paused: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
   cancelled: 'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
+  complete: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
   po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
 };
 
@@ -50,7 +51,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
-type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'not_cancelled';
+type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'complete' | 'open';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
@@ -84,7 +85,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('not_cancelled');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -158,7 +159,7 @@ const Dashboard = () => {
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
     [inquiries],
   );
-  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
+  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled' && i.status !== 'complete').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
@@ -200,7 +201,7 @@ const Dashboard = () => {
     };
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-      if (inqStatus === 'cancelled') continue;
+      if (inqStatus === 'cancelled' || inqStatus === 'complete') continue;
       counts[furthestStageBucket(p, inqStatus)] += 1;
     }
     return counts;
@@ -209,8 +210,8 @@ const Dashboard = () => {
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = inquiries.filter(i => {
-      if (statusFilter === 'not_cancelled' && i.status === 'cancelled') return false;
-      if (statusFilter !== 'all' && statusFilter !== 'not_cancelled' && i.status !== statusFilter) return false;
+      if (statusFilter === 'open' && (i.status === 'cancelled' || i.status === 'complete')) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'open' && i.status !== statusFilter) return false;
       if (!q) return true;
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
       const custName = (cust?.name || cust?.company || '').toLowerCase();
@@ -403,11 +404,12 @@ const Dashboard = () => {
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="not_cancelled">All (no cancelled)</SelectItem>
+                <SelectItem value="open">Open (no complete/cancelled)</SelectItem>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="po">PO</SelectItem>
+                <SelectItem value="complete">Complete</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
