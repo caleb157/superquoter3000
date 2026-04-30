@@ -159,7 +159,7 @@ const Dashboard = () => {
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
     [inquiries],
   );
-  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled').length;
+  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled' && i.status !== 'complete').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
