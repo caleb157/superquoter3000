@@ -523,9 +523,10 @@ function NonUnitSection(props: MobileCostingProps) {
     setNonUnitCogs(items => items.filter(i => i.id !== item.id));
   };
 
-  const update = (id: string, field: string, value: any) => {
+  const update = async (id: string, field: string, value: any) => {
     setNonUnitCogs(items => items.map(i => i.id === id ? { ...i, [field]: value } : i));
-    (supabase as any).from('non_unit_cogs').update({ [field]: value }).eq('id', id);
+    const { error } = await (supabase as any).from('non_unit_cogs').update({ [field]: value }).eq('id', id);
+    if (error) toast.error(`Could not save ${field}: ${error.message}`);
   };
 
   return (
