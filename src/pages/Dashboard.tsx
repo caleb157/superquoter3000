@@ -210,8 +210,8 @@ const Dashboard = () => {
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = inquiries.filter(i => {
-      if (statusFilter === 'not_cancelled' && i.status === 'cancelled') return false;
-      if (statusFilter !== 'all' && statusFilter !== 'not_cancelled' && i.status !== statusFilter) return false;
+      if (statusFilter === 'open' && (i.status === 'cancelled' || i.status === 'complete')) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'open' && i.status !== statusFilter) return false;
       if (!q) return true;
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
       const custName = (cust?.name || cust?.company || '').toLowerCase();
