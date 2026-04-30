@@ -13,6 +13,7 @@ import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { VendorCombobox } from '@/components/VendorCombobox';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
