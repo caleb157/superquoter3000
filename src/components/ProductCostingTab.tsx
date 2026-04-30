@@ -18,6 +18,7 @@ import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
+import { VendorCombobox } from '@/components/VendorCombobox';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -1341,8 +1342,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input className="h-6 text-xs border-transparent hover:border-input" defaultValue={item.vendor_name || ''}
-                            onBlur={e => updateCogsItem(item.id, 'vendor_name', e.target.value)} />
+                          <VendorCombobox
+                            value={item.vendor_name || ''}
+                            onChange={v => updateCogsItem(item.id, 'vendor_name', v)}
+                          />
                         </TableCell>
                         <TableCell className="text-[10px]">{item.units || 'pc'}</TableCell>
                         <TableCell className="text-right">

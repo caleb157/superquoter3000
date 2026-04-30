@@ -13,6 +13,7 @@ import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { VendorCombobox } from '@/components/VendorCombobox';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
@@ -456,10 +457,10 @@ function CogsSection(props: MobileCostingProps) {
                 </Field>
 
                 <Field label="Vendor">
-                  <Input
-                    className="h-10"
-                    defaultValue={item.vendor_name || ''}
-                    onBlur={e => updateCogsItem(item.id, 'vendor_name', e.target.value)}
+                  <VendorCombobox
+                    className="h-10 text-sm"
+                    value={item.vendor_name || ''}
+                    onChange={v => updateCogsItem(item.id, 'vendor_name', v)}
                   />
                 </Field>
 
