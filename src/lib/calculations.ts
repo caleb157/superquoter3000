@@ -322,12 +322,14 @@ export function calcFinishingLaborMhPerUnit(
   contractorToInhouseDecrease: number,
   difficultyFactor: number,
   avgFinishingSandingPay: number,
-  ri: number
+  ri: number,
+  percentWood: number = 1
 ): number {
   if (avgFinishingSandingPay <= 0) return 0;
   const adjustedRate = contractorBaseRate * (1 - contractorToInhouseDecrease) * difficultyFactor;
   const mhPer100ri = (adjustedRate / avgFinishingSandingPay) * 100;
-  return mhPer100ri * (ri / 100);
+  const effectiveRi = ri * (percentWood ?? 1);
+  return mhPer100ri * (effectiveRi / 100);
 }
 
 export function calcPackagingLaborMhPerUnit(
