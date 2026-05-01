@@ -77,6 +77,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     info: true, cbm: true, cogs: true, nonUnitCogs: false,
     overhead: true, indirectOh: false, shipping: true, summary: true,
   });
+  const [selectedCogsIds, setSelectedCogsIds] = useState<Set<string>>(new Set());
   const toggle = (key: string) => setSections(s => ({ ...s, [key]: !(s as any)[key] }));
 
   // Debounced save
@@ -1230,6 +1231,16 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <Table className="dense-table">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={cogsItems.length > 0 && selectedCogsIds.size === cogsItems.length}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedCogsIds(new Set(cogsItems.map(i => i.id)));
+                          else setSelectedCogsIds(new Set());
+                        }}
+                        aria-label="Select all COGS rows"
+                      />
+                    </TableHead>
                     <ResizableTableHead storageKey="cogs.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.type" defaultWidth={104} minWidth={70}>Type</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.component" defaultWidth={150} minWidth={90}>Component</ResizableTableHead>
@@ -1251,8 +1262,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       waste_factor: item.waste_factor || 0,
                     });
                     const isAuto = item.is_auto_calculated;
+                    const isSelected = selectedCogsIds.has(item.id);
                     return (
                       <TableRow key={item.id} className={`${item.include === 'No' ? 'opacity-40' : ''} ${isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedCogsIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(item.id); else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                            aria-label="Select row"
+                          />
+                        </TableCell>
                         <TableCell>
                           <Select value={item.include || 'Yes'} onValueChange={v => updateCogsItem(item.id, 'include', v)}>
                             <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>
@@ -1377,14 +1402,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            title={isAuto ? 'Auto-calculated rows are managed by the system' : 'Delete row'}
-                            disabled={isAuto}
+                            title={isAuto ? 'Delete auto-calculated row (it may be re-created if inputs change)' : 'Delete row'}
                             onClick={async () => {
-                              if (isAuto) return;
-                              if (!confirm(`Delete "${item.component_name || item.cogs_type}" row?`)) return;
+                              const label = item.component_name || item.cogs_type;
+                              const msg = isAuto
+                                ? `Delete auto-calculated row "${label}"? It may be re-created automatically if its inputs change.`
+                                : `Delete "${label}" row?`;
+                              if (!confirm(msg)) return;
                               const { error } = await (supabase as any).from('cogs_items').delete().eq('id', item.id);
                               if (error) { toast.error(error.message); return; }
                               setCogsItems(items => items.filter(i => i.id !== item.id));
+                              setSelectedCogsIds(prev => { const n = new Set(prev); n.delete(item.id); return n; });
                             }}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1396,7 +1424,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 </TableBody>
               </Table>
             </div>
-            <div className="flex gap-1 mt-1">
+            <div className="flex flex-wrap items-center gap-1 mt-1">
               <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1"
                 onClick={async () => {
                   const { data } = await (supabase as any).from('cogs_items').insert({
@@ -1407,6 +1435,53 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 }}>
                 <Plus className="h-3 w-3" /> Add Row
               </Button>
+              {selectedCogsIds.size > 0 && (
+                <>
+                  <span className="text-[10px] text-muted-foreground ml-2">
+                    {selectedCogsIds.size} selected
+                  </span>
+                  <Button size="sm" variant="outline" className="h-6 text-[10px]"
+                    onClick={async () => {
+                      const ids = Array.from(selectedCogsIds);
+                      const { error } = await (supabase as any).from('cogs_items').update({ include: 'No' }).in('id', ids);
+                      if (error) { toast.error(error.message); return; }
+                      setCogsItems(items => items.map(i => ids.includes(i.id) ? { ...i, include: 'No' } : i));
+                      toast.success(`Set ${ids.length} row${ids.length === 1 ? '' : 's'} to No`);
+                    }}>
+                    Set to No
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-6 text-[10px]"
+                    onClick={async () => {
+                      const ids = Array.from(selectedCogsIds);
+                      const { error } = await (supabase as any).from('cogs_items').update({ include: 'Yes' }).in('id', ids);
+                      if (error) { toast.error(error.message); return; }
+                      setCogsItems(items => items.map(i => ids.includes(i.id) ? { ...i, include: 'Yes' } : i));
+                      toast.success(`Set ${ids.length} row${ids.length === 1 ? '' : 's'} to Yes`);
+                    }}>
+                    Set to Yes
+                  </Button>
+                  <Button size="sm" variant="destructive" className="h-6 text-[10px] gap-1"
+                    onClick={async () => {
+                      const ids = Array.from(selectedCogsIds);
+                      const hasAuto = cogsItems.some(i => ids.includes(i.id) && i.is_auto_calculated);
+                      const msg = hasAuto
+                        ? `Delete ${ids.length} row${ids.length === 1 ? '' : 's'}? Some are auto-calculated and may be re-created if their inputs change.`
+                        : `Delete ${ids.length} row${ids.length === 1 ? '' : 's'}?`;
+                      if (!confirm(msg)) return;
+                      const { error } = await (supabase as any).from('cogs_items').delete().in('id', ids);
+                      if (error) { toast.error(error.message); return; }
+                      setCogsItems(items => items.filter(i => !ids.includes(i.id)));
+                      setSelectedCogsIds(new Set());
+                      toast.success(`Deleted ${ids.length} row${ids.length === 1 ? '' : 's'}`);
+                    }}>
+                    <Trash2 className="h-3 w-3" /> Delete Selected
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px]"
+                    onClick={() => setSelectedCogsIds(new Set())}>
+                    Clear
+                  </Button>
+                </>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
