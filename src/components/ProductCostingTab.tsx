@@ -1402,14 +1402,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            title={isAuto ? 'Auto-calculated rows are managed by the system' : 'Delete row'}
-                            disabled={isAuto}
+                            title={isAuto ? 'Delete auto-calculated row (it may be re-created if inputs change)' : 'Delete row'}
                             onClick={async () => {
-                              if (isAuto) return;
-                              if (!confirm(`Delete "${item.component_name || item.cogs_type}" row?`)) return;
+                              const label = item.component_name || item.cogs_type;
+                              const msg = isAuto
+                                ? `Delete auto-calculated row "${label}"? It may be re-created automatically if its inputs change.`
+                                : `Delete "${label}" row?`;
+                              if (!confirm(msg)) return;
                               const { error } = await (supabase as any).from('cogs_items').delete().eq('id', item.id);
                               if (error) { toast.error(error.message); return; }
                               setCogsItems(items => items.filter(i => i.id !== item.id));
+                              setSelectedCogsIds(prev => { const n = new Set(prev); n.delete(item.id); return n; });
                             }}
                           >
                             <Trash2 className="h-3 w-3" />
