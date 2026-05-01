@@ -77,6 +77,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     info: true, cbm: true, cogs: true, nonUnitCogs: false,
     overhead: true, indirectOh: false, shipping: true, summary: true,
   });
+  const [selectedCogsIds, setSelectedCogsIds] = useState<Set<string>>(new Set());
   const toggle = (key: string) => setSections(s => ({ ...s, [key]: !(s as any)[key] }));
 
   // Debounced save
