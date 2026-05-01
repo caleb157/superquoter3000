@@ -1231,6 +1231,16 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <Table className="dense-table">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={cogsItems.length > 0 && selectedCogsIds.size === cogsItems.length}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedCogsIds(new Set(cogsItems.map(i => i.id)));
+                          else setSelectedCogsIds(new Set());
+                        }}
+                        aria-label="Select all COGS rows"
+                      />
+                    </TableHead>
                     <ResizableTableHead storageKey="cogs.include" defaultWidth={56} minWidth={48}>Include</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.type" defaultWidth={104} minWidth={70}>Type</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.component" defaultWidth={150} minWidth={90}>Component</ResizableTableHead>
@@ -1252,8 +1262,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       waste_factor: item.waste_factor || 0,
                     });
                     const isAuto = item.is_auto_calculated;
+                    const isSelected = selectedCogsIds.has(item.id);
                     return (
                       <TableRow key={item.id} className={`${item.include === 'No' ? 'opacity-40' : ''} ${isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedCogsIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(item.id); else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                            aria-label="Select row"
+                          />
+                        </TableCell>
                         <TableCell>
                           <Select value={item.include || 'Yes'} onValueChange={v => updateCogsItem(item.id, 'include', v)}>
                             <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>
