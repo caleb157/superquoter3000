@@ -6,12 +6,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
+import { DrillDownDialog } from './DrillDownDialog';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
 import {
   inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
+
+type DrillKey = null | 'pipeline' | 'profit' | 'winRate' | 'activeCustomers';
 
 type Props = { range: DateRange };
 
