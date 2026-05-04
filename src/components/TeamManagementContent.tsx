@@ -83,6 +83,7 @@ export default function TeamManagementContent() {
                 <TableRow>
                   <TableHead className="text-xs">Email</TableHead>
                   <TableHead className="text-xs">Name</TableHead>
+                  <TableHead className="text-xs">Code</TableHead>
                   <TableHead className="text-xs">Current role</TableHead>
                   <TableHead className="text-xs">Joined</TableHead>
                   <TableHead className="text-xs w-[260px]">Actions</TableHead>
@@ -99,6 +100,18 @@ export default function TeamManagementContent() {
                         {isSelf && <span className="ml-2 text-[10px] text-muted-foreground">(you)</span>}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{r.display_name || '—'}</TableCell>
+                      <TableCell>
+                        <Input
+                          defaultValue={r.assignee_code ?? ''}
+                          placeholder="e.g. CQ"
+                          className="h-7 w-20 text-xs"
+                          maxLength={6}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if ((r.assignee_code ?? '') !== v) setCode(r.user_id, v);
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         {currentRole ? (
                           <Badge variant="outline" className={`text-[10px] ${ROLE_COLORS[currentRole] || ''}`}>{currentRole}</Badge>
