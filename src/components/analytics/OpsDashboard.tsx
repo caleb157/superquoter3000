@@ -21,6 +21,7 @@ const TRACKS = ['design', 'quote', 'sample'] as const;
 export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [drill, setDrill] = useState<DrillKey>(null);
   const [receivedRfqs, setReceivedRfqs] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [samples, setSamples] = useState<any[]>([]);
