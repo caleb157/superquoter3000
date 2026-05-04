@@ -161,13 +161,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!hasCogs(n => n.includes('lacquer'))) {
         cogsToInsert.push({ product_id: id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
       }
+      const pkgType: string = product?.packaging_type || 'ic_mc';
       if (!hasCogs(n => n.includes('ic box') || n.includes('inner carton') || n === 'ic')) {
-        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, include: 'Yes', sort_order: s++ });
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, include: packagingIncludeForType(pkgType, 'IC Box') ? 'Yes' : 'No', sort_order: s++ });
       }
       if (!hasCogs(n => n.includes('mc box') || n.includes('master carton') || n.includes('outer carton'))) {
-        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, include: packagingIncludeForType(pkgType, 'MC Box') ? 'Yes' : 'No', sort_order: s++ });
       }
-      const pkgType: string = product?.packaging_type || 'ic_mc';
       if (pkgType === 'corrugate_bubble') {
         if (!hasCogs(n => n === 'corrugate wrap')) {
           cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Corrugate Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
