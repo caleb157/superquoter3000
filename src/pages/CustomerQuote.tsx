@@ -126,6 +126,16 @@ const CustomerQuote = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [printSize, setPrintSize] = useState<'A4' | 'Letter'>(() => {
+    if (typeof window === 'undefined') return 'A4';
+    return (localStorage.getItem('quotePrintSize') as 'A4' | 'Letter') || 'A4';
+  });
+  const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>(() => {
+    if (typeof window === 'undefined') return 'portrait';
+    return (localStorage.getItem('quotePrintOrientation') as 'portrait' | 'landscape') || 'portrait';
+  });
+  useEffect(() => { try { localStorage.setItem('quotePrintSize', printSize); } catch {} }, [printSize]);
+  useEffect(() => { try { localStorage.setItem('quotePrintOrientation', printOrientation); } catch {} }, [printOrientation]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadRef = useRef(true);
 
