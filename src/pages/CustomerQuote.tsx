@@ -364,13 +364,45 @@ const CustomerQuote = () => {
           try { return new URL(document.referrer).origin === window.location.origin; } catch { return false; }
         })();
         const canGoBack = typeof window !== 'undefined' && (window.history.length > 1 && sameOriginReferrer);
-        if (!canGoBack) return null;
         return (
           <div className="no-print sticky top-0 z-30 bg-slate-50/90 backdrop-blur border-b border-slate-200">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-              <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="h-8 -ml-2">
-                ← Back to app
-              </Button>
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3 flex-wrap">
+              {canGoBack ? (
+                <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="h-8 -ml-2">
+                  ← Back to app
+                </Button>
+              ) : <span />}
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="hidden sm:inline text-slate-500">Print:</span>
+                <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPrintSize('A4')}
+                    className={`px-2 py-1 ${printSize === 'A4' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                    aria-pressed={printSize === 'A4'}
+                  >A4</button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintSize('Letter')}
+                    className={`px-2 py-1 border-l border-slate-200 ${printSize === 'Letter' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                    aria-pressed={printSize === 'Letter'}
+                  >Letter</button>
+                </div>
+                <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPrintOrientation('portrait')}
+                    className={`px-2 py-1 ${printOrientation === 'portrait' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                    aria-pressed={printOrientation === 'portrait'}
+                  >Portrait</button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintOrientation('landscape')}
+                    className={`px-2 py-1 border-l border-slate-200 ${printOrientation === 'landscape' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'}`}
+                    aria-pressed={printOrientation === 'landscape'}
+                  >Landscape</button>
+                </div>
+              </div>
             </div>
           </div>
         );
