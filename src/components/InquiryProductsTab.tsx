@@ -23,6 +23,7 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
+import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
@@ -101,6 +102,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
+  const [logRfqOpen, setLogRfqOpen] = useState(false);
+  const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
@@ -346,6 +349,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
+        onLogRfq={() => setLogRfqOpen(true)}
+        onLogRfs={() => setLogRfsOpen(true)}
+      />
+
+      <BulkLogRfqRfsDialog
+        open={logRfqOpen}
+        onOpenChange={setLogRfqOpen}
+        kind="rfq"
+        inquiryId={inquiryId}
+        selectedProductIds={Array.from(selected)}
+        onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <BulkLogRfqRfsDialog
+        open={logRfsOpen}
+        onOpenChange={setLogRfsOpen}
+        kind="rfs"
+        inquiryId={inquiryId}
+        selectedProductIds={Array.from(selected)}
+        onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
       />
 
       <BulkQuantityDialog

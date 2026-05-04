@@ -11,6 +11,8 @@ type Props = {
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
+  onLogRfq?: () => void;
+  onLogRfs?: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
@@ -31,7 +33,7 @@ function StageDropdown({ track, label, onSet }: { track: StageTrack; label: stri
   );
 }
 
-export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity }: Props) {
+export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity, onLogRfq, onLogRfs }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
   return (
@@ -58,6 +60,12 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       )}
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
+      )}
+      {onLogRfq && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onLogRfq}>Log RFQ</Button>
+      )}
+      {onLogRfs && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onLogRfs}>Log RFS</Button>
       )}
       <Button size="sm" className="h-8 text-xs" onClick={onGenerateQuote}>Generate Quote</Button>
       <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onGenerateSamples}>{sampleLabel}</Button>
