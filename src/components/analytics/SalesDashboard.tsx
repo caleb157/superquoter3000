@@ -196,23 +196,87 @@ export function SalesDashboard({ range }: Props) {
           label="Weighted Pipeline"
           value={fmt.usd(pipeline.total)}
           sublabel="Σ qty × FOB cost × stage weight"
+          onClick={pipeline.contributors.length ? () => setDrill('pipeline') : undefined}
         />
         <MetricCard
           label="Expected Net Profit"
           value={fmt.usd(pipeline.profit)}
           sublabel="(price − cost) × qty × weight"
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
         />
         <MetricCard
           label="Win Rate"
           value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
           sublabel={winRate ? `${winRate.wins} of ${winRate.total} quoted inquiries` : 'No quoted inquiries in range'}
+          onClick={winRateRows.length ? () => setDrill('winRate') : undefined}
         />
         <MetricCard
           label="Active Customers"
           value={activeCustomers}
           sublabel="Active status with activity in range"
+          onClick={activeCustomers ? () => setDrill('activeCustomers') : undefined}
         />
       </div>
+
+      <DrillDownDialog
+        open={drill === 'pipeline'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Weighted pipeline contributors"
+        description="Each product contributing to the weighted pipeline total. Value = qty × cost × stage weight."
+        rows={pipeline.contributors}
+        rowKey={(r, i) => `${r.name}-${i}`}
+        onRowClick={(r) => r.inquiryId && navigate(`/inquiry/${r.inquiryId}?tab=products`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.name },
+          { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
+          { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
+          { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'Value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'profit'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Expected net profit contributors"
+        description="Same products as pipeline, ranked by their value contribution. Profit = (price − cost) × qty × weight."
+        rows={pipeline.contributors}
+        rowKey={(r, i) => `p-${r.name}-${i}`}
+        onRowClick={(r) => r.inquiryId && navigate(`/inquiry/${r.inquiryId}?tab=products`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.name },
+          { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
+          { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
+          { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'Pipeline value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'winRate'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Quoted inquiries in range"
+        description="Inquiries with a quote ever sent and a status event during the selected range. Won = converted to PO in range."
+        rows={winRateRows}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/inquiry/${r.id}`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => r.rfqNumber },
+          { header: 'Customer', cell: (r: any) => r.customerName },
+          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won' : 'Open' },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'activeCustomers'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Active customers with activity in range"
+        rows={activeCustomerRows}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/customers/${r.id}`)}
+        columns={[
+          { header: 'Customer', cell: (r: any) => r.name || r.company || '—' },
+          { header: 'Company', cell: (r: any) => r.company || '—' },
+        ]}
+      />
+
 
       {/* Lifecycle table */}
       <Card>
