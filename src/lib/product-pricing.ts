@@ -210,7 +210,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     });
 
     const cogsPerUnit = cogsForCalc
-      .filter((c: any) => c.include !== 'No')
+      .filter((c: any) => c.include !== 'No' && !(noPackaging && c.cogs_type === 'Packaging'))
       .reduce((sum: number, item: any) => {
         const c = calc.calcCogsItemCost({
           include: item.include,
@@ -243,7 +243,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const contractorRate = productType?.contractor_base_rate_per_ri || 0;
     const decrease = (settings as any)?.contractor_to_inhouse_decrease || 0;
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
-    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;
@@ -252,9 +252,9 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
         else if (item.labor_type === 'Packaging' && packagingMh > 0) mh = parseFloat(packagingMh.toFixed(4));
       }
       return {
-        include: item.include,
+        include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
         labor_type: item.labor_type,
-        man_hours_per_unit: mh,
+        man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : mh,
         hourly_rate: calc.avgRateByDesignation(employees as any, item.labor_type),
       };
     });
