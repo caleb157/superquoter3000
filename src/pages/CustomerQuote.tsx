@@ -730,8 +730,9 @@ const CustomerQuote = () => {
 
               {/* Action buttons */}
               <div className="mt-5 pt-5 border-t border-slate-100 space-y-2 no-print">
-                <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf}>
-                  <Download className="h-4 w-4" /> Download PDF
+                <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+                  {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {downloadingPdf ? 'Generating PDF…' : 'Download PDF'}
                 </Button>
                 {!confirmed && !isExpired && (
                   <Button
