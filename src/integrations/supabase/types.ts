@@ -372,6 +372,44 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_lifecycle_events: {
+        Row: {
+          actor: string | null
+          customer_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          occurred_at: string
+          to_status: string
+        }
+        Insert: {
+          actor?: string | null
+          customer_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          to_status: string
+        }
+        Update: {
+          actor?: string | null
+          customer_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_lifecycle_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_rfqs: {
         Row: {
           assigned_to: string | null
@@ -587,6 +625,8 @@ export type Database = {
           mc_height_buffer_inch: number
           num_laborers: number
           packaging_cost_per_cbm: number
+          slow_quote_days: number
+          slow_sample_days: number
         }
         Insert: {
           auto_transport_cost_per_cbm?: number
@@ -605,6 +645,8 @@ export type Database = {
           mc_height_buffer_inch?: number
           num_laborers?: number
           packaging_cost_per_cbm?: number
+          slow_quote_days?: number
+          slow_sample_days?: number
         }
         Update: {
           auto_transport_cost_per_cbm?: number
@@ -623,6 +665,8 @@ export type Database = {
           mc_height_buffer_inch?: number
           num_laborers?: number
           packaging_cost_per_cbm?: number
+          slow_quote_days?: number
+          slow_sample_days?: number
         }
         Relationships: []
       }
