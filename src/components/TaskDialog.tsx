@@ -29,6 +29,7 @@ type Product = { id: string; name: string; customer_rfq_id: string | null };
 type Customer = { id: string; name: string; company: string | null };
 
 export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: TaskDialogProps) {
+  const { assigneeCode } = useAuth();
   const isEdit = !!taskId;
 
   const [mode, setMode] = useState<Mode>('inquiry');
