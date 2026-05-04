@@ -168,6 +168,8 @@ function GeneralSettings() {
     { key: 'contractor_to_inhouse_decrease', label: 'Contractor→In-house Decrease', type: 'number' },
     { key: 'local_transport_cost_per_cbm', label: 'Local Transport Cost/CBM (₹)', type: 'number', hint: 'Cost to transport raw goods from supplier cities (Agra, Moradabad, Saharanpur) to Jodhpur' },
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
+    { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
+    { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },
   ];
 
   const indirectOhPerMh = settings.num_laborers * settings.available_hours_per_month > 0

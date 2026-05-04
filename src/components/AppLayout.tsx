@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search,
+  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -33,6 +33,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
     { to: '/vendors', label: 'Vendors', icon: Truck, show: isAdminOrTeam },
@@ -47,6 +48,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },

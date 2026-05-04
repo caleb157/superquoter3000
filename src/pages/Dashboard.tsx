@@ -92,7 +92,7 @@ const Dashboard = () => {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
-  const [showPipelineDebug, setShowPipelineDebug] = useState(false);
+  
 
   const mobileListRef = useRef<HTMLDivElement>(null);
   const desktopListRef = useRef<HTMLDivElement>(null);
@@ -164,34 +164,7 @@ const Dashboard = () => {
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
-  const pipelineDetail = useMemo(() => {
-    let total = 0;
-    let counted = 0;
-    let skippedNoCost = 0;
-    let skippedNoQty = 0;
-    const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number }> = [];
-    for (const p of products) {
-      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-      // Only count active and PO inquiries — exclude cancelled, paused, and products with no inquiry.
-      if (inqStatus !== 'active' && inqStatus !== 'po') continue;
-      const w = productWeight(p, inqStatus);
-      if (w === 0) continue;
-      const qty = p.quantity ?? 0;
-      if (qty === 0) { skippedNoQty += 1; continue; }
-      // Use live-computed FOB cost. Do NOT fall back to target_price_usd — that's revenue, not cost,
-      // and mixing the two inflates the metric. If costing isn't done, skip.
-      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
-      if (cost === 0) { skippedNoCost += 1; continue; }
-      const value = qty * cost * w;
-      total += value;
-      counted += 1;
-      contributors.push({ name: p.name, qty, cost, weight: w, value });
-    }
-    contributors.sort((a, b) => b.value - a.value);
-    return { total, counted, skippedNoCost, skippedNoQty, top: contributors.slice(0, 5) };
-  }, [products, inquiryStatusById, productPricing]);
 
-  const pipelineValueUsd = pipelineDetail.total;
 
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
@@ -323,72 +296,37 @@ const Dashboard = () => {
             <StatCard label="PO Inquiries" value={poInquiries} />
           </div>
 
-          {/* Pipeline + stage buckets */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-3">
-            <Card className="lg:col-span-1">
-              <CardContent className="pt-4 pb-3">
-                <div className="text-xs text-muted-foreground mb-1">Weighted Pipeline Value</div>
-                <div className="text-xl sm:text-2xl font-bold tabular-nums">{fmt.usd(pipelineValueUsd)}</div>
-                <div className="text-[11px] text-muted-foreground mt-2 leading-snug hidden sm:block">
-                  Σ (qty × FOB cost × stage weight). Only products with completed costing counted.
-                  Designed 25% · Quoted 50% · Sampling 75% · PO 100%.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPipelineDebug(v => !v)}
-                  className="text-[10px] text-muted-foreground/70 hover:text-foreground mt-1.5 underline-offset-2 hover:underline"
-                >
-                  {showPipelineDebug ? 'hide summary' : 'summary'}
-                </button>
-                {showPipelineDebug && (
-                  <div className="text-[10px] text-muted-foreground mt-1.5 space-y-0.5 leading-snug">
-                    <div>Counted: <span className="tabular-nums text-foreground">{pipelineDetail.counted}</span> · skipped no costing: <span className="tabular-nums">{pipelineDetail.skippedNoCost}</span> · skipped qty=0: <span className="tabular-nums">{pipelineDetail.skippedNoQty}</span></div>
-                    {pipelineDetail.top.length > 0 && (
-                      <div className="pt-1">
-                        <div className="font-medium text-foreground/80">Top contributors:</div>
-                        {pipelineDetail.top.map((c, i) => (
-                          <div key={i} className="truncate">
-                            • {c.name}: {c.qty} × {fmt.usd(c.cost)} × {Math.round(c.weight * 100)}% = <span className="tabular-nums text-foreground">{fmt.usd(c.value)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+          {/* Stage buckets */}
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-muted-foreground">Products by Stage</div>
+                <div className="text-[11px] text-muted-foreground hidden sm:block">Tap to filter</div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                {STAGE_BUCKET_ORDER.map(b => {
+                  const count = productsByStageBucket[b];
+                  if (count === 0) return null;
+                  return (
+                    <button
+                      key={b}
+                      onClick={() => navigate(`/products?stage=${b}`)}
+                      className={cn(
+                        'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md hover:opacity-80 transition min-h-[44px] sm:min-h-0',
+                        STAGE_BUCKET_COLOR[b],
+                      )}
+                    >
+                      <span className="text-sm font-bold tabular-nums">{count}</span>
+                      <span className="text-[11px] font-medium">{STAGE_BUCKET_LABELS[b]}</span>
+                    </button>
+                  );
+                })}
+                {STAGE_BUCKET_ORDER.every(b => productsByStageBucket[b] === 0) && (
+                  <div className="text-xs text-muted-foreground italic py-1">No products yet.</div>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2">
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs text-muted-foreground">Products by Stage</div>
-                  <div className="text-[11px] text-muted-foreground hidden sm:block">Tap to filter</div>
-                </div>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {STAGE_BUCKET_ORDER.map(b => {
-                    const count = productsByStageBucket[b];
-                    if (count === 0) return null;
-                    return (
-                      <button
-                        key={b}
-                        onClick={() => navigate(`/products?stage=${b}`)}
-                        className={cn(
-                          'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md hover:opacity-80 transition min-h-[44px] sm:min-h-0',
-                          STAGE_BUCKET_COLOR[b],
-                        )}
-                      >
-                        <span className="text-sm font-bold tabular-nums">{count}</span>
-                        <span className="text-[11px] font-medium">{STAGE_BUCKET_LABELS[b]}</span>
-                      </button>
-                    );
-                  })}
-                  {STAGE_BUCKET_ORDER.every(b => productsByStageBucket[b] === 0) && (
-                    <div className="text-xs text-muted-foreground italic py-1">No products yet.</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Filter bar — wraps cleanly on mobile */}
           <div className="flex flex-wrap items-center gap-2">
