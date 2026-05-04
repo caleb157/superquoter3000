@@ -7,6 +7,9 @@ import {
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
 import { DrillDownDialog } from './DrillDownDialog';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { buildCsv, downloadCsv, rangeStamp, type CsvSection } from '@/lib/csv-export';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
@@ -188,8 +191,60 @@ export function SalesDashboard({ range }: Props) {
     return <div className="text-center py-10 text-sm text-muted-foreground">Loading sales analytics…</div>;
   }
 
+  const handleExport = () => {
+    const sections: CsvSection[] = [
+      {
+        title: `Sales Analytics — ${range.from.toISOString().slice(0, 10)} to ${range.to.toISOString().slice(0, 10)}`,
+        headers: ['Metric', 'Value'],
+        rows: [
+          ['Weighted Pipeline (USD)', pipeline.total.toFixed(2)],
+          ['Expected Net Profit (USD)', pipeline.profit.toFixed(2)],
+          ['Win Rate', winRate ? `${(winRate.rate * 100).toFixed(1)}%` : '—'],
+          ['Wins / Quoted Inquiries', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
+          ['Active Customers', activeCustomers],
+        ],
+      },
+      {
+        title: 'Pipeline contributors',
+        headers: ['Product', 'Qty', 'Unit cost USD', 'Stage weight', 'Pipeline value USD', 'Inquiry ID'],
+        rows: pipeline.contributors.map(c => [c.name, c.qty, c.cost.toFixed(2), c.weight.toFixed(2), c.value.toFixed(2), c.inquiryId ?? '']),
+      },
+      {
+        title: 'Quoted inquiries in range',
+        headers: ['Inquiry', 'Customer', 'Outcome'],
+        rows: winRateRows.map(r => [r.rfqNumber, r.customerName, r.won ? 'Won' : 'Open']),
+      },
+      {
+        title: 'Active customers with activity in range',
+        headers: ['Name', 'Company'],
+        rows: activeCustomerRows.map(c => [c.name || '', c.company || '']),
+      },
+      {
+        title: 'Customer lifecycle cycle-times',
+        headers: ['From', 'To', 'Avg days', 'Median days', 'Customers'],
+        rows: lifecycleRows.map(r => [r.from, r.to, avg(r.days)?.toFixed(2) ?? '', median(r.days)?.toFixed(2) ?? '', r.customers.size]),
+      },
+      {
+        title: 'Conversion funnel',
+        headers: ['Stage', 'Count'],
+        rows: [['RFQs received', funnel.rfqs], ['Quotes sent', funnel.qSent], ['POs won', funnel.pos]],
+      },
+      {
+        title: 'Top customers by pipeline',
+        headers: ['Customer', 'Pipeline USD', 'Share'],
+        rows: topCustomers.rows.map(r => [r.name, r.value.toFixed(2), `${(r.pct * 100).toFixed(1)}%`]),
+      },
+    ];
+    downloadCsv(`sales-analytics_${rangeStamp(range.from, range.to)}.csv`, buildCsv(sections));
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+        </Button>
+      </div>
       {/* Top stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard

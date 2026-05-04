@@ -7,6 +7,9 @@ import {
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
 import { DrillDownDialog } from './DrillDownDialog';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { buildCsv, downloadCsv, rangeStamp, type CsvSection } from '@/lib/csv-export';
 import {
   inRange, pairRfqsToQuotes, sampleCycleDays, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
@@ -231,8 +234,72 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
     return `${inq?.rfq_number || id.slice(0, 6)} · ${cust?.name || cust?.company || '—'}`;
   };
 
+  const handleExport = () => {
+    const sections: CsvSection[] = [
+      {
+        title: `Operations Analytics — ${range.from.toISOString().slice(0, 10)} to ${range.to.toISOString().slice(0, 10)}`,
+        headers: ['Metric', 'Value'],
+        rows: [
+          ['Avg RFQ → Quote (days)', avg(rfqQuotePairs.map(p => p.days))?.toFixed(2) ?? '—'],
+          ['Median RFQ → Quote (days)', median(rfqQuotePairs.map(p => p.days))?.toFixed(2) ?? '—'],
+          ['RFQ→Quote pairs in range', rfqQuotePairs.length],
+          ['Avg sample cycle (days)', avg(sampleCycles)?.toFixed(2) ?? '—'],
+          ['Median sample cycle (days)', median(sampleCycles)?.toFixed(2) ?? '—'],
+          ['Completed samples in range', sampleCycles.length],
+          ['Pending RFQs (received in range)', pendingRfqsInRange.length],
+          ['Pending Samples (all time)', pendingSamples.length],
+        ],
+      },
+      {
+        title: 'RFQ → Quote pairs',
+        headers: ['Inquiry', 'Received', 'Responded', 'Days'],
+        rows: rfqQuotePairs.map(p => [inqLabel(p.inquiryId), p.receivedAt, p.respondedAt, p.days.toFixed(2)]),
+      },
+      {
+        title: 'Completed sample cycles',
+        headers: ['Product', 'Inquiry', 'Customer', 'Vendor', 'Requested', 'Completed', 'Days'],
+        rows: sampleCycleRows.map(s => [s.productName, s.rfqNumber, s.customerName, s.vendorName, s.requestedDate, s.completedAt, s.days.toFixed(2)]),
+      },
+      {
+        title: 'Pending RFQs (received in range, no quote yet)',
+        headers: ['Inquiry', 'Received', 'Days waiting'],
+        rows: pendingRfqsInRange.map(r => [
+          inqLabel(r.inquiry_id),
+          r.received_date,
+          Math.round((Date.now() - new Date(r.received_date + 'T00:00:00Z').getTime()) / 86400000),
+        ]),
+      },
+      {
+        title: 'Pending samples (all time)',
+        headers: ['Product', 'Vendor', 'Requested', 'Days waiting'],
+        rows: pendingSamples.map((s: any) => [
+          productById[s.product_id]?.name || 'Unknown',
+          s.vendor_id ? (vendorById[s.vendor_id]?.name || '—') : 'no vendor',
+          s.requested_date || '—',
+          s.requested_date ? Math.round((Date.now() - new Date(s.requested_date + 'T00:00:00Z').getTime()) / 86400000) : '—',
+        ]),
+      },
+      {
+        title: `Slow quotes (>${slowQuoteDays} days)`,
+        headers: ['Inquiry', 'Customer', 'Days', 'Pending products'],
+        rows: slowQuotes.map(r => [r.rfqNumber, r.customerName, r.days.toFixed(0), r.pendingProductCount]),
+      },
+      {
+        title: `Slow samples (>${slowSampleDays} days)`,
+        headers: ['Product', 'Inquiry', 'Customer', 'Vendor', 'Days'],
+        rows: slowSamples.map(s => [s.productName, s.rfqNumber, s.customerName, s.vendorName, s.days.toFixed(0)]),
+      },
+    ];
+    downloadCsv(`operations-analytics_${rangeStamp(range.from, range.to)}.csv`, buildCsv(sections));
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExport}>
+          <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+        </Button>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="Avg RFQ → Quote"
