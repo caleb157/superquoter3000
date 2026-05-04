@@ -33,6 +33,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/customers', label: 'Customers', icon: Users, show: isAdminOrTeam },
     { to: '/products', label: 'Products', icon: ShoppingCart, show: isAdminOrTeam },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
     { to: '/vendors', label: 'Vendors', icon: Truck, show: isAdminOrTeam },
