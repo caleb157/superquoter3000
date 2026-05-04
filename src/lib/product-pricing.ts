@@ -160,25 +160,25 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       if (item.is_auto_calculated && type === 'Packaging') {
         if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
           const defaultIncluded = !noPackaging && !isWrapMode;
-          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+          return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
             components_per_product: defaultIncluded ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
             unit_cost_inr: defaultIncluded ? icCost : 0 };
         }
         if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
           const useMc = !noPackaging && includeMc && productsPerMc > 0;
-          return { ...item, include: useMc && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+          return { ...item, include: useMc && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
             components_per_product: useMc ? 1 / productsPerMc : 0,
             unit_cost_inr: useMc ? mcCost : 0 };
         }
         if (name === 'corrugate wrap') {
           const defaultIncluded = !noPackaging && isWrapMode;
-          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+          return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
             components_per_product: defaultIncluded ? wrappingResult.corrugate_kg : 0,
             unit_cost_inr: defaultIncluded ? ((gs as any)?.corrugate_price_per_kg ?? 0) : 0 };
         }
         if (name === 'bubble wrap') {
           const defaultIncluded = !noPackaging && isWrapMode;
-          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+          return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
             components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
             unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
         }
