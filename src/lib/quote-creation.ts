@@ -180,6 +180,13 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     .single();
 
   if (error) return { error: error.message };
+
+  // Close the RFQ → Quote loop: mark every product included in the snapshot as `quoted`.
+  // This is the timer-stop signal for analytics and removes products from the "ready to quote" backlog.
+  if (productIds.length > 0) {
+    await supabase.from('products').update({ quote_stage: 'quoted' }).in('id', productIds);
+  }
+
   return { id: data.id, share_token: data.share_token, quote_number: data.quote_number };
 }
 
