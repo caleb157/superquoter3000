@@ -119,7 +119,7 @@ export default function Tasks() {
                 <SelectContent>
                   <SelectItem value="all">All assignees</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {assignees.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {assignees.map(a => <SelectItem key={a} value={a}>{a}{a === assigneeCode ? ' (you)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
 
