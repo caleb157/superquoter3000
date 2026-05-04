@@ -363,8 +363,9 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  <SelectItem value="CQ">CQ</SelectItem>
-                  <SelectItem value="PH">PH</SelectItem>
+                  {Array.from(new Set([...assigneeOptions, assignee].filter(v => v && v !== 'unassigned'))).sort().map(code => (
+                    <SelectItem key={code} value={code}>{code}{code === assigneeCode ? ' (you)' : ''}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
