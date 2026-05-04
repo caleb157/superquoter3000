@@ -7,6 +7,9 @@ import {
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
 import { DrillDownDialog } from './DrillDownDialog';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { buildCsv, downloadCsv, rangeStamp, type CsvSection } from '@/lib/csv-export';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
