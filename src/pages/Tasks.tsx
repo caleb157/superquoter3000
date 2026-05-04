@@ -65,9 +65,10 @@ export default function Tasks() {
       const set = new Set<string>();
       if (aRes.data) (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
       if (pRes.data) (pRes.data as any[]).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
+      if (assigneeCode) set.add(assigneeCode);
       setAssignees(Array.from(set).sort());
     })();
-  }, [refreshKey]);
+  }, [refreshKey, assigneeCode]);
 
   useEffect(() => {
     if (filterInquiry === 'all') { setProducts([]); setFilterProduct('all'); return; }
