@@ -48,6 +48,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
