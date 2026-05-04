@@ -76,9 +76,10 @@ type Props = {
   initialFilter: FilterKey;
   onFilterChange: (f: FilterKey) => void;
   onChange: () => void; // refetch trigger for cards/quotes/samples
+  refreshKey?: number;
 };
 
-export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange }: Props) {
+export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange, refreshKey = 0 }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -134,7 +135,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       }
       setPriceMap(pm);
     })();
-  }, [inquiryId, refresh]);
+  }, [inquiryId, refresh, refreshKey]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

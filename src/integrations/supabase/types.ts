@@ -685,6 +685,33 @@ export type Database = {
           },
         ]
       }
+      inquiry_received_rfs: {
+        Row: {
+          created_at: string
+          id: string
+          inquiry_id: string
+          notes: string | null
+          received_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inquiry_id: string
+          notes?: string | null
+          received_date?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inquiry_id?: string
+          notes?: string | null
+          received_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inquiry_status_events: {
         Row: {
           actor: string | null
