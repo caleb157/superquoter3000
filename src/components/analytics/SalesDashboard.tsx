@@ -40,7 +40,7 @@ export function SalesDashboard({ range }: Props) {
       setLoading(true);
       const [p, i, c, le, rr, qs, ise] = await Promise.all([
         supabase.from('products').select('id, name, quantity, design_stage, quote_stage, sample_stage, customer_rfq_id'),
-        supabase.from('customer_rfqs').select('id, status, created_at, updated_at, customer_id'),
+        supabase.from('customer_rfqs').select('id, rfq_number, title, status, created_at, updated_at, customer_id'),
         supabase.from('customers').select('id, name, company, lead_status'),
         (supabase as any).from('customer_lifecycle_events').select('customer_id, from_status, to_status, occurred_at'),
         (supabase as any).from('inquiry_received_rfqs').select('id, inquiry_id, received_date'),
