@@ -81,6 +81,7 @@ export async function generateBoxRfq(inquiryId: string): Promise<{ title: string
   }> = {};
 
   for (const p of products) {
+    if ((p as any).packaging_type === 'no_packaging') continue;
     const c = cbm.find((x: any) => x.product_id === p.id);
     if (!c) continue;
     const qty = p.quantity || 0;
@@ -279,7 +280,8 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
     if (rawCogsRows.length === 0) continue;
 
-    const productCogs = cogs.filter((c: any) => c.product_id === p.id && c.include !== 'No');
+    const noPackaging = (p as any).packaging_type === 'no_packaging';
+    const productCogs = cogs.filter((c: any) => c.product_id === p.id && c.include !== 'No' && !(noPackaging && c.cogs_type === 'Packaging'));
     const cogsPerUnit = productCogs.reduce((sum: number, item: any) => {
       const c = calc.calcCogsItemCost({
         include: item.include, components_per_product: item.components_per_product || 0,
@@ -304,13 +306,13 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     const ri = calc.runningInches(w, d, h);
     const difficultyFactor = calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
     const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
-    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
+    const finalUnitCbm = noPackaging ? calc.prePackagedCbm(w, d, h) : (cbmRow?.final_unit_cbm || 0);
 
     const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
     const contractorRate = productType?.contractor_base_rate_per_ri || 0;
     const decrease = gs?.contractor_to_inhouse_decrease || 0;
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, p.percent_wood ?? 1);
-    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;
@@ -319,8 +321,8 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
         else if (item.labor_type === 'Packaging' && packagingMh > 0) mh = parseFloat(packagingMh.toFixed(4));
       }
       return {
-        include: item.include, labor_type: item.labor_type,
-        man_hours_per_unit: mh,
+        include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include, labor_type: item.labor_type,
+        man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : mh,
         hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
       };
     });
