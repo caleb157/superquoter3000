@@ -210,6 +210,19 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
         </div>
 
+        <div className="flex items-center gap-2 rounded-md border p-2">
+          <Label className="text-xs whitespace-nowrap">Packaging type</Label>
+          <Select value={packagingType} onValueChange={setPackagingType}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PACKAGING_TYPE_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
+        </div>
+
         {knownNames.length > 0 && (
           <div className="text-[11px] text-muted-foreground">
             <span className="font-medium">Existing names in these SKUs:</span>{' '}
