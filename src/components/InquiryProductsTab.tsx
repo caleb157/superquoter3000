@@ -135,7 +135,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       }
       setPriceMap(pm);
     })();
-  }, [inquiryId, refresh]);
+  }, [inquiryId, refresh, refreshKey]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
