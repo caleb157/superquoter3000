@@ -6,12 +6,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
+import { DrillDownDialog } from './DrillDownDialog';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
 import {
   inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
+
+type DrillKey = null | 'pipeline' | 'profit' | 'winRate' | 'activeCustomers';
 
 type Props = { range: DateRange };
 
@@ -22,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function SalesDashboard({ range }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [drill, setDrill] = useState<DrillKey>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -36,7 +40,7 @@ export function SalesDashboard({ range }: Props) {
       setLoading(true);
       const [p, i, c, le, rr, qs, ise] = await Promise.all([
         supabase.from('products').select('id, name, quantity, design_stage, quote_stage, sample_stage, customer_rfq_id'),
-        supabase.from('customer_rfqs').select('id, status, created_at, updated_at, customer_id'),
+        supabase.from('customer_rfqs').select('id, rfq_number, title, status, created_at, updated_at, customer_id'),
         supabase.from('customers').select('id, name, company, lead_status'),
         (supabase as any).from('customer_lifecycle_events').select('customer_id, from_status, to_status, occurred_at'),
         (supabase as any).from('inquiry_received_rfqs').select('id, inquiry_id, received_date'),
@@ -102,14 +106,37 @@ export function SalesDashboard({ range }: Props) {
     return { rate: wins / denomInquiries.length, wins, total: denomInquiries.length };
   }, [inqStatusEvents, quotes, range]);
 
-  const activeCustomers = useMemo(() => {
-    const inquiriesInRange = inquiries.filter(i =>
-      inRange(i.created_at, range) || inRange(i.updated_at, range),
-    );
+  const winRateRows = useMemo(() => {
+    if (!winRate) return [] as any[];
+    const poInRange = new Set<string>();
+    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range) && e.to_status === 'po') poInRange.add(e.inquiry_id); });
+    const everInquiriesInRange = new Set<string>();
+    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range)) everInquiriesInRange.add(e.inquiry_id); });
+    const quotedInquiries = new Set<string>();
+    quotes.forEach(q => { if (q.customer_rfq_id) quotedInquiries.add(q.customer_rfq_id); });
+    const ids = new Set<string>();
+    everInquiriesInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
+    poInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
+    return Array.from(ids).map(id => {
+      const inq = inquiries.find(x => x.id === id);
+      const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+      return {
+        id,
+        rfqNumber: (inq as any)?.rfq_number || id.slice(0, 6),
+        title: (inq as any)?.title || '',
+        customerName: cust?.name || cust?.company || '—',
+        won: poInRange.has(id),
+      };
+    }).sort((a, b) => Number(b.won) - Number(a.won));
+  }, [winRate, inqStatusEvents, quotes, inquiries, customerById, range]);
+
+  const activeCustomerRows = useMemo(() => {
+    const inquiriesInRange = inquiries.filter(i => inRange(i.created_at, range) || inRange(i.updated_at, range));
     const custIds = new Set<string>();
     inquiriesInRange.forEach(i => { if (i.customer_id) custIds.add(i.customer_id); });
-    return customers.filter(c => c.lead_status === 'active' && custIds.has(c.id)).length;
+    return customers.filter(c => c.lead_status === 'active' && custIds.has(c.id));
   }, [inquiries, customers, range]);
+  const activeCustomers = activeCustomerRows.length;
 
   // Lifecycle transitions in range
   const lifecycleRows = useMemo(() => {
@@ -169,23 +196,87 @@ export function SalesDashboard({ range }: Props) {
           label="Weighted Pipeline"
           value={fmt.usd(pipeline.total)}
           sublabel="Σ qty × FOB cost × stage weight"
+          onClick={pipeline.contributors.length ? () => setDrill('pipeline') : undefined}
         />
         <MetricCard
           label="Expected Net Profit"
           value={fmt.usd(pipeline.profit)}
           sublabel="(price − cost) × qty × weight"
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
         />
         <MetricCard
           label="Win Rate"
           value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
           sublabel={winRate ? `${winRate.wins} of ${winRate.total} quoted inquiries` : 'No quoted inquiries in range'}
+          onClick={winRateRows.length ? () => setDrill('winRate') : undefined}
         />
         <MetricCard
           label="Active Customers"
           value={activeCustomers}
           sublabel="Active status with activity in range"
+          onClick={activeCustomers ? () => setDrill('activeCustomers') : undefined}
         />
       </div>
+
+      <DrillDownDialog
+        open={drill === 'pipeline'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Weighted pipeline contributors"
+        description="Each product contributing to the weighted pipeline total. Value = qty × cost × stage weight."
+        rows={pipeline.contributors}
+        rowKey={(r, i) => `${r.name}-${i}`}
+        onRowClick={(r) => r.inquiryId && navigate(`/inquiry/${r.inquiryId}?tab=products`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.name },
+          { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
+          { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
+          { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'Value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'profit'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Expected net profit contributors"
+        description="Same products as pipeline, ranked by their value contribution. Profit = (price − cost) × qty × weight."
+        rows={pipeline.contributors}
+        rowKey={(r, i) => `p-${r.name}-${i}`}
+        onRowClick={(r) => r.inquiryId && navigate(`/inquiry/${r.inquiryId}?tab=products`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.name },
+          { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
+          { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
+          { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'Pipeline value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'winRate'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Quoted inquiries in range"
+        description="Inquiries with a quote ever sent and a status event during the selected range. Won = converted to PO in range."
+        rows={winRateRows}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/inquiry/${r.id}`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => r.rfqNumber },
+          { header: 'Customer', cell: (r: any) => r.customerName },
+          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won' : 'Open' },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'activeCustomers'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Active customers with activity in range"
+        rows={activeCustomerRows}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/customers/${r.id}`)}
+        columns={[
+          { header: 'Customer', cell: (r: any) => r.name || r.company || '—' },
+          { header: 'Company', cell: (r: any) => r.company || '—' },
+        ]}
+      />
+
 
       {/* Lifecycle table */}
       <Card>

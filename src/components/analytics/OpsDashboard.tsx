@@ -6,10 +6,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
+import { DrillDownDialog } from './DrillDownDialog';
 import {
   inRange, pairRfqsToQuotes, sampleCycleDays, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
 import { STAGE_LABEL } from '@/components/ProductStagePills';
+
+type DrillKey = null | 'rfqQuote' | 'sampleCycle' | 'pendingRfqs' | 'pendingSamples';
 
 type Props = { range: DateRange; slowQuoteDays: number; slowSampleDays: number };
 
@@ -18,6 +21,7 @@ const TRACKS = ['design', 'quote', 'sample'] as const;
 export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [drill, setDrill] = useState<DrillKey>(null);
   const [receivedRfqs, setReceivedRfqs] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [samples, setSamples] = useState<any[]>([]);
@@ -79,13 +83,32 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
     return pairs.filter(p => inRange(p.respondedAt, range));
   }, [receivedRfqs, quotes, range]);
 
-  // Sample cycle in range
-  const sampleCycles = useMemo(() => {
+  // Sample cycle in range — keep full row info for drill-down
+  const sampleCycleRows = useMemo(() => {
     return samples
-      .filter(s => s.status === 'completed' && s.completed_at && inRange(s.completed_at, range))
-      .map(s => sampleCycleDays(s))
-      .filter((d): d is number => d != null);
-  }, [samples, range]);
+      .filter(s => s.status === 'completed' && s.completed_at && s.requested_date && inRange(s.completed_at, range))
+      .map(s => {
+        const days = sampleCycleDays(s);
+        const prod = productById[s.product_id];
+        const inq = prod?.customer_rfq_id ? inquiryById[prod.customer_rfq_id] : (s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null);
+        const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+        const vendor = s.vendor_id ? vendorById[s.vendor_id] : null;
+        return {
+          sampleId: s.id,
+          productId: s.product_id,
+          productName: prod?.name || 'Unknown',
+          rfqNumber: inq?.rfq_number || '—',
+          customerName: cust?.name || cust?.company || '—',
+          vendorName: vendor?.name || 'no vendor',
+          requestedDate: s.requested_date,
+          completedAt: s.completed_at,
+          days: days ?? 0,
+        };
+      })
+      .filter(r => r.days != null)
+      .sort((a, b) => b.days - a.days);
+  }, [samples, range, productById, inquiryById, customerById, vendorById]);
+  const sampleCycles = useMemo(() => sampleCycleRows.map(r => r.days), [sampleCycleRows]);
 
   // Pending RFQs (received in range without a quote answering them)
   const pendingRfqsInRange = useMemo(() => {
@@ -215,23 +238,88 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
           label="Avg RFQ → Quote"
           value={fmtDays(avg(rfqQuotePairs.map(p => p.days)))}
           sublabel={`${rfqQuotePairs.length} pairs · median ${fmtDays(median(rfqQuotePairs.map(p => p.days)))}`}
+          onClick={rfqQuotePairs.length ? () => setDrill('rfqQuote') : undefined}
         />
         <MetricCard
           label="Avg Sample Cycle"
           value={fmtDays(avg(sampleCycles))}
           sublabel={`${sampleCycles.length} completed · median ${fmtDays(median(sampleCycles))}`}
+          onClick={sampleCycleRows.length ? () => setDrill('sampleCycle') : undefined}
         />
         <MetricCard
           label="Pending RFQs"
           value={pendingRfqsInRange.length}
           sublabel="Received in range, no quote yet"
+          onClick={pendingRfqsInRange.length ? () => setDrill('pendingRfqs') : undefined}
         />
         <MetricCard
           label="Pending Samples"
           value={pendingSamples.length}
           sublabel="Across all time"
+          onClick={pendingSamples.length ? () => setDrill('pendingSamples') : undefined}
         />
       </div>
+
+      <DrillDownDialog
+        open={drill === 'rfqQuote'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="RFQ → Quote pairs in range"
+        description="One row per RFQ that received a quote response with response date inside the selected range."
+        rows={rfqQuotePairs}
+        rowKey={(r) => r.receivedRfqId}
+        onRowClick={(r) => navigate(`/inquiry/${r.inquiryId}?tab=quotes`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => inqLabel(r.inquiryId) },
+          { header: 'Received', cell: (r: any) => r.receivedAt },
+          { header: 'Responded', cell: (r: any) => new Date(r.respondedAt).toLocaleDateString() },
+          { header: 'Days', align: 'right', cell: (r: any) => r.days.toFixed(1) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'sampleCycle'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Completed sample cycles in range"
+        description="Samples with completed_at inside the selected range."
+        rows={sampleCycleRows}
+        rowKey={(r) => r.sampleId}
+        onRowClick={(r) => navigate(`/product/${r.productId}?tab=sample-log`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.productName },
+          { header: 'Inquiry · Customer', cell: (r: any) => `${r.rfqNumber} · ${r.customerName}` },
+          { header: 'Vendor', cell: (r: any) => r.vendorName },
+          { header: 'Days', align: 'right', cell: (r: any) => r.days.toFixed(1) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'pendingRfqs'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Pending RFQs (received in range)"
+        description="RFQs received during the selected range that have no quote response yet."
+        rows={pendingRfqsInRange}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/inquiry/${r.inquiry_id}?tab=quotes`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => inqLabel(r.inquiry_id) },
+          { header: 'Received', cell: (r: any) => r.received_date },
+          { header: 'Days waiting', align: 'right', cell: (r: any) => Math.round((Date.now() - new Date(r.received_date + 'T00:00:00Z').getTime()) / 86400000) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'pendingSamples'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Pending samples"
+        description="All samples currently in pending status (across all time)."
+        rows={pendingSamples}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/product/${r.product_id}?tab=sample-log`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => productById[r.product_id]?.name || 'Unknown' },
+          { header: 'Vendor', cell: (r: any) => r.vendor_id ? (vendorById[r.vendor_id]?.name || '—') : 'no vendor' },
+          { header: 'Requested', cell: (r: any) => r.requested_date || '—' },
+          { header: 'Days waiting', align: 'right', cell: (r: any) => r.requested_date ? Math.round((Date.now() - new Date(r.requested_date + 'T00:00:00Z').getTime()) / 86400000) : '—' },
+        ]}
+      />
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Slow quotes */}
