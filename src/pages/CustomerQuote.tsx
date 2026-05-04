@@ -335,6 +335,23 @@ const CustomerQuote = () => {
         }
       `}</style>
 
+      {(() => {
+        const sameOriginReferrer = typeof document !== 'undefined' && document.referrer && (() => {
+          try { return new URL(document.referrer).origin === window.location.origin; } catch { return false; }
+        })();
+        const canGoBack = typeof window !== 'undefined' && (window.history.length > 1 && sameOriginReferrer);
+        if (!canGoBack) return null;
+        return (
+          <div className="no-print sticky top-0 z-30 bg-slate-50/90 backdrop-blur border-b border-slate-200">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+              <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="h-8 -ml-2">
+                ← Back to app
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0">
 
         {/* ============ HEADER BAND ============ */}
