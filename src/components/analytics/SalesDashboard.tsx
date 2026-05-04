@@ -1,0 +1,299 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import { MetricCard } from './MetricCard';
+import { fmt } from '@/lib/formatters';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { computeWeightedPipeline } from '@/lib/pipeline-weights';
+import {
+  inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
+} from '@/lib/analytics-helpers';
+
+type Props = { range: DateRange };
+
+const STATUS_LABEL: Record<string, string> = {
+  lead: 'Lead', active: 'Active', won: 'Won', inactive: 'Inactive', churned: 'Churned',
+};
+
+export function SalesDashboard({ range }: Props) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [pricing, setPricing] = useState<ProductPriceCostMap>({});
+  const [lifecycleEvents, setLifecycleEvents] = useState<any[]>([]);
+  const [receivedRfqs, setReceivedRfqs] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [inqStatusEvents, setInqStatusEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [p, i, c, le, rr, qs, ise] = await Promise.all([
+        supabase.from('products').select('id, name, quantity, design_stage, quote_stage, sample_stage, customer_rfq_id'),
+        supabase.from('customer_rfqs').select('id, status, created_at, updated_at, customer_id'),
+        supabase.from('customers').select('id, name, company, lead_status'),
+        (supabase as any).from('customer_lifecycle_events').select('customer_id, from_status, to_status, occurred_at'),
+        (supabase as any).from('inquiry_received_rfqs').select('id, inquiry_id, received_date'),
+        (supabase as any).from('quote_snapshots').select('id, customer_rfq_id, created_at, totals'),
+        (supabase as any).from('inquiry_status_events').select('inquiry_id, from_status, to_status, occurred_at'),
+      ]);
+      const prods = (p.data ?? []) as any[];
+      setProducts(prods);
+      setInquiries((i.data ?? []) as any[]);
+      setCustomers((c.data ?? []) as any[]);
+      setLifecycleEvents((le.data ?? []) as any[]);
+      setReceivedRfqs((rr.data ?? []) as any[]);
+      setQuotes((qs.data ?? []) as any[]);
+      setInqStatusEvents((ise.data ?? []) as any[]);
+      const ids = prods.map(x => x.id);
+      if (ids.length) setPricing(await computeProductPriceAndCost(ids));
+      setLoading(false);
+    })();
+  }, []);
+
+  const inquiryStatusById = useMemo(() => {
+    const m: Record<string, string> = {};
+    inquiries.forEach(i => { m[i.id] = i.status; });
+    return m;
+  }, [inquiries]);
+
+  const inquiryCustomerById = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    inquiries.forEach(i => { m[i.id] = i.customer_id; });
+    return m;
+  }, [inquiries]);
+
+  const customerById = useMemo(() => {
+    const m: Record<string, any> = {};
+    customers.forEach(c => { m[c.id] = c; });
+    return m;
+  }, [customers]);
+
+  const pipeline = useMemo(
+    () => computeWeightedPipeline(products, inquiryStatusById, pricing),
+    [products, inquiryStatusById, pricing],
+  );
+
+  // Win rate over the range:
+  // numerator = inquiries that became 'po' inside the range
+  // denominator = inquiries that ever had a quote sent (any time) AND had a status event in the range OR became po in range
+  const winRate = useMemo(() => {
+    const poInRange = new Set<string>();
+    const everInquiriesInRange = new Set<string>();
+    inqStatusEvents.forEach(e => {
+      if (!inRange(e.occurred_at, range)) return;
+      everInquiriesInRange.add(e.inquiry_id);
+      if (e.to_status === 'po') poInRange.add(e.inquiry_id);
+    });
+    // quoted inquiries
+    const quotedInquiries = new Set<string>();
+    quotes.forEach(q => { if (q.customer_rfq_id) quotedInquiries.add(q.customer_rfq_id); });
+    const denomInquiries = Array.from(everInquiriesInRange).filter(id => quotedInquiries.has(id));
+    // include all PO-in-range too (in case status events miss them)
+    poInRange.forEach(id => { if (quotedInquiries.has(id) && !denomInquiries.includes(id)) denomInquiries.push(id); });
+    if (denomInquiries.length === 0) return null;
+    const wins = denomInquiries.filter(id => poInRange.has(id)).length;
+    return { rate: wins / denomInquiries.length, wins, total: denomInquiries.length };
+  }, [inqStatusEvents, quotes, range]);
+
+  const activeCustomers = useMemo(() => {
+    const inquiriesInRange = inquiries.filter(i =>
+      inRange(i.created_at, range) || inRange(i.updated_at, range),
+    );
+    const custIds = new Set<string>();
+    inquiriesInRange.forEach(i => { if (i.customer_id) custIds.add(i.customer_id); });
+    return customers.filter(c => c.lead_status === 'active' && custIds.has(c.id)).length;
+  }, [inquiries, customers, range]);
+
+  // Lifecycle transitions in range
+  const lifecycleRows = useMemo(() => {
+    const trans = lifecycleDurations(lifecycleEvents).filter(t => inRange(t.occurred_at, range));
+    const grouped: Record<string, { from: string; to: string; days: number[]; customers: Set<string> }> = {};
+    trans.forEach(t => {
+      const key = `${t.from_status}→${t.to_status}`;
+      const slot = (grouped[key] ||= { from: t.from_status, to: t.to_status, days: [], customers: new Set() });
+      slot.days.push(t.days);
+      slot.customers.add(t.customer_id);
+    });
+    return Object.values(grouped).sort((a, b) => b.days.length - a.days.length);
+  }, [lifecycleEvents, range]);
+
+  // Funnel
+  const funnel = useMemo(() => {
+    const rfqs = receivedRfqs.filter(r => inRange(r.received_date, range)).length;
+    const qSent = quotes.filter(q => inRange(q.created_at, range)).length;
+    const pos = inqStatusEvents.filter(e => e.to_status === 'po' && inRange(e.occurred_at, range)).length;
+    return { rfqs, qSent, pos };
+  }, [receivedRfqs, quotes, inqStatusEvents, range]);
+
+  // Customer concentration top 5
+  const topCustomers = useMemo(() => {
+    const byCust: Record<string, number> = {};
+    pipeline.contributors.forEach(c => {
+      const inquiryId = c.inquiryId;
+      if (!inquiryId) return;
+      const custId = inquiryCustomerById[inquiryId];
+      if (!custId) return;
+      byCust[custId] = (byCust[custId] || 0) + c.value;
+    });
+    const total = Object.values(byCust).reduce((a, b) => a + b, 0);
+    return {
+      total,
+      rows: Object.entries(byCust)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([id, value]) => ({
+          id,
+          name: customerById[id]?.name || customerById[id]?.company || 'Unknown',
+          value,
+          pct: total > 0 ? value / total : 0,
+        })),
+    };
+  }, [pipeline.contributors, inquiryCustomerById, customerById]);
+
+  if (loading) {
+    return <div className="text-center py-10 text-sm text-muted-foreground">Loading sales analytics…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Top stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="Weighted Pipeline"
+          value={fmt.usd(pipeline.total)}
+          sublabel="Σ qty × FOB cost × stage weight"
+        />
+        <MetricCard
+          label="Expected Net Profit"
+          value={fmt.usd(pipeline.profit)}
+          sublabel="(price − cost) × qty × weight"
+        />
+        <MetricCard
+          label="Win Rate"
+          value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
+          sublabel={winRate ? `${winRate.wins} of ${winRate.total} quoted inquiries` : 'No quoted inquiries in range'}
+        />
+        <MetricCard
+          label="Active Customers"
+          value={activeCustomers}
+          sublabel="Active status with activity in range"
+        />
+      </div>
+
+      {/* Lifecycle table */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Customer lifecycle cycle-times (in range)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {lifecycleRows.length === 0 ? (
+            <div className="px-6 py-6 text-sm text-muted-foreground text-center">
+              No lifecycle transitions in this period.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="h-8 text-xs">Transition</TableHead>
+                  <TableHead className="h-8 text-xs text-right">Avg</TableHead>
+                  <TableHead className="h-8 text-xs text-right">Median</TableHead>
+                  <TableHead className="h-8 text-xs text-right">Customers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lifecycleRows.map(r => (
+                  <TableRow key={`${r.from}-${r.to}`}>
+                    <TableCell className="py-2 text-xs">
+                      {STATUS_LABEL[r.from] || r.from} → {STATUS_LABEL[r.to] || r.to}
+                    </TableCell>
+                    <TableCell className="py-2 text-xs text-right tabular-nums">{fmtDays(avg(r.days))}</TableCell>
+                    <TableCell className="py-2 text-xs text-right tabular-nums">{fmtDays(median(r.days))}</TableCell>
+                    <TableCell className="py-2 text-xs text-right tabular-nums">{r.customers.size}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Funnel */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Quote conversion funnel (in range)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <FunnelBar label="RFQs received" count={funnel.rfqs} max={Math.max(funnel.rfqs, 1)} color="bg-blue-500" />
+            <div className="text-[11px] text-muted-foreground pl-1">
+              → {funnel.rfqs > 0 ? `${Math.round((funnel.qSent / funnel.rfqs) * 100)}%` : '—'} converted
+            </div>
+            <FunnelBar label="Quotes sent" count={funnel.qSent} max={Math.max(funnel.rfqs, 1)} color="bg-purple-500" />
+            <div className="text-[11px] text-muted-foreground pl-1">
+              → {funnel.qSent > 0 ? `${Math.round((funnel.pos / funnel.qSent) * 100)}%` : '—'} won
+            </div>
+            <FunnelBar label="POs won" count={funnel.pos} max={Math.max(funnel.rfqs, 1)} color="bg-emerald-500" />
+            <p className="text-[10px] text-muted-foreground pt-1">PO date approx based on inquiry status events.</p>
+          </CardContent>
+        </Card>
+
+        {/* Customer concentration */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Top 5 customers by pipeline</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {topCustomers.rows.length === 0 ? (
+              <div className="px-6 py-6 text-sm text-muted-foreground text-center">No pipeline data.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="h-8 text-xs">Customer</TableHead>
+                    <TableHead className="h-8 text-xs text-right">Pipeline</TableHead>
+                    <TableHead className="h-8 text-xs text-right">Share</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {topCustomers.rows.map(r => (
+                    <TableRow
+                      key={r.id}
+                      onClick={() => navigate(`/customers/${r.id}`)}
+                      className="cursor-pointer"
+                    >
+                      <TableCell className="py-2 text-xs">{r.name}</TableCell>
+                      <TableCell className="py-2 text-xs text-right tabular-nums">{fmt.usd(r.value)}</TableCell>
+                      <TableCell className="py-2 text-xs text-right tabular-nums">{(r.pct * 100).toFixed(0)}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function FunnelBar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
+  const pct = max > 0 ? (count / max) * 100 : 0;
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span>{label}</span>
+        <span className="tabular-nums font-medium">{count}</span>
+      </div>
+      <div className="h-3 bg-muted rounded overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
