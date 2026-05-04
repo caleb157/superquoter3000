@@ -26,6 +26,19 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+
+const packagingIncludeForType = (packagingType: string, componentName: string, forceAllOff = false): boolean | null => {
+  const name = (componentName || '').toLowerCase();
+  if (packagingType === 'no_packaging' || forceAllOff) return false;
+  if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return packagingType === 'ic_only' || packagingType === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc';
+  if (name === 'corrugate wrap' || name === 'bubble wrap') return packagingType === 'corrugate_bubble';
+  return null;
+};
+
+const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No';
+
 const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
   <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
