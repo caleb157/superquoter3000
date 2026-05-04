@@ -652,7 +652,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
 
     // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
-    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
 
     const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
 
@@ -660,7 +660,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!item.is_auto_estimated || item.include === 'No') return;
       if (item.labor_type === 'Finishing' && finishingMh > 0) {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
-      } else if (item.labor_type === 'Packaging' && packagingMh > 0) {
+      } else if (item.labor_type === 'Packaging') {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(packagingMh.toFixed(4)) });
       }
     });
