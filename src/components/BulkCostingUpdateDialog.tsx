@@ -75,7 +75,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   }, [open, selectedProductIds]);
 
   useEffect(() => {
-    if (open) setRows([newRow()]);
+    if (open) {
+      setRows([newRow()]);
+      setPackagingType('__keep__');
+    }
   }, [open]);
 
   const addRow = () => setRows(prev => [...prev, newRow()]);
