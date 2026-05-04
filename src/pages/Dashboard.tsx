@@ -92,7 +92,7 @@ const Dashboard = () => {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
-  const [showPipelineDebug, setShowPipelineDebug] = useState(false);
+  
 
   const mobileListRef = useRef<HTMLDivElement>(null);
   const desktopListRef = useRef<HTMLDivElement>(null);
