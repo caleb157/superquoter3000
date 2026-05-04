@@ -315,6 +315,65 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
         </div>
 
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                <Checkbox checked={replaceAllRaw} onCheckedChange={(v) => setReplaceAllRaw(!!v)} />
+                Replace ALL existing raw pieces (delete others)
+              </label>
+              <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addRawRow}>
+                <Plus className="h-3 w-3" /> Add raw
+              </Button>
+            </div>
+          </div>
+          {rawRows.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No raw piece overrides — add a row to overwrite raw pieces in selected SKUs.</div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                <div className="col-span-3">Raw piece name</div>
+                <div className="col-span-2">Vendor</div>
+                <div className="col-span-2">Qty / unit</div>
+                <div className="col-span-1">Units</div>
+                <div className="col-span-2">Cost INR</div>
+                <div className="col-span-2 text-center">Incl.</div>
+              </div>
+              {rawRows.map(r => (
+                <div key={r._key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-3">
+                    <Input value={r.component_name} onChange={e => updateRaw(r._key, { component_name: e.target.value })} placeholder="e.g. Mango wood seat" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Input value={r.vendor_name} onChange={e => updateRaw(r._key, { vendor_name: e.target.value })} placeholder="Vendor (optional)" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" step="any" inputMode="decimal" value={r.components_per_product} onChange={e => updateRaw(r._key, { components_per_product: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-1">
+                    <Select value={r.units} onValueChange={(v) => updateRaw(r._key, { units: v })}>
+                      <SelectTrigger className="h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" step="any" inputMode="decimal" value={r.unit_cost_inr} onChange={e => updateRaw(r._key, { unit_cost_inr: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-center gap-1">
+                    <Checkbox checked={r.include === 'Yes'} onCheckedChange={(v) => updateRaw(r._key, { include: v ? 'Yes' : 'No' })} />
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeRawRow(r._key)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {knownNames.length > 0 && (
           <div className="text-[11px] text-muted-foreground">
             <span className="font-medium">Existing names in these SKUs:</span>{' '}
