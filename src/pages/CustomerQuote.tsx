@@ -271,14 +271,68 @@ const CustomerQuote = () => {
     setSubmitting(false);
   };
 
-  const handleDownloadPdf = () => {
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const handleDownloadPdf = async () => {
     if (!data) return;
-    const prevTitle = document.title;
-    const filename = `Quote ${data.snapshot.quote_number ?? ''} - ${customerName || data.customer?.name || 'Customer'}`.trim();
-    document.title = filename;
-    const restore = () => { document.title = prevTitle; window.removeEventListener('afterprint', restore); };
-    window.addEventListener('afterprint', restore);
-    window.print();
+    setDownloadingPdf(true);
+    try {
+      const [{ pdf }, { default: QuotePdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/quote/QuotePdfDocument'),
+      ]);
+      const productsForPdf = data.snapshot.products.map((p) => ({
+        name: p.name,
+        sku: p.sku,
+        quantity: p.quantity,
+        unit_price_usd: p.unit_price_usd,
+        unit_cbm: p.unit_cbm,
+        photo_url: p.photo_url,
+        moq: p.moq,
+        width_inch: p.width_inch,
+        depth_inch: p.depth_inch,
+        height_inch: p.height_inch,
+        weight_kg: p.weight_kg,
+      }));
+      const doc = (
+        <QuotePdfDocument
+          size={printSize === 'A4' ? 'A4' : 'LETTER'}
+          orientation={printOrientation}
+          quoteNumber={data.snapshot.quote_number}
+          currency={data.snapshot.currency}
+          validUntil={data.snapshot.valid_until}
+          createdAt={data.snapshot.created_at ?? null}
+          status={data.snapshot.status}
+          paymentTerms={data.snapshot.payment_terms ?? null}
+          notes={data.snapshot.notes ?? null}
+          products={productsForPdf}
+          selections={selections}
+          entity={data.entity}
+          customer={data.customer}
+          inquiry={data.inquiry}
+          totals={{
+            totalItems: summary.totalItems,
+            totalQty: summary.totalQty,
+            totalCbm: summary.totalCbm,
+            totalValue: summary.totalValue,
+          }}
+        />
+      );
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const filename = `Quote-${(data.snapshot.quote_number || 'quote').replace(/[^a-z0-9-_]+/gi, '_')}.pdf`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (loading) {
@@ -331,31 +385,12 @@ const CustomerQuote = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 print:bg-white">
-      {/* Print stylesheet — hide controls, force light, fit-to-page */}
+      {/* Minimal print stylesheet — PDF download is the canonical export */}
       <style>{`
         @media print {
           @page { size: ${printSize} ${printOrientation}; margin: 10mm; }
           html, body { background: #ffffff !important; }
           .no-print { display: none !important; }
-          .print-block { display: block !important; }
-          .print-shadow-none { box-shadow: none !important; }
-          .print-border-light { border-color: #e2e8f0 !important; }
-          .print-sticky-static { position: static !important; }
-          .print-grid-1 { grid-template-columns: 1fr !important; }
-
-          /* Prevent ugly mid-element page breaks */
-          header, section, table, .print-keep {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          tr, li { break-inside: avoid; page-break-inside: avoid; }
-          thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
-          h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
-          img { break-inside: avoid; page-break-inside: avoid; max-height: 90vh; }
-
-          /* Shrink quote slightly so it tries to fit one page */
-          .print-fit { font-size: 92%; }
         }
       `}</style>
 
@@ -373,7 +408,7 @@ const CustomerQuote = () => {
                 </Button>
               ) : <span />}
               <div className="flex items-center gap-2 text-xs text-slate-600">
-                <span className="hidden sm:inline text-slate-500">Print:</span>
+                <span className="hidden sm:inline text-slate-500">PDF:</span>
                 <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
                   <button
                     type="button"
@@ -695,8 +730,9 @@ const CustomerQuote = () => {
 
               {/* Action buttons */}
               <div className="mt-5 pt-5 border-t border-slate-100 space-y-2 no-print">
-                <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf}>
-                  <Download className="h-4 w-4" /> Download PDF
+                <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+                  {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {downloadingPdf ? 'Generating PDF…' : 'Download PDF'}
                 </Button>
                 {!confirmed && !isExpired && (
                   <Button
