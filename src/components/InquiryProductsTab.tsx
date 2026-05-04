@@ -146,6 +146,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         try {
           const computed = await computeProductPriceAndCost(needCompute);
           Object.assign(pm, computed);
+          // Persist so subsequent loads are instant — fire and forget per product.
+          await Promise.all(
+            needCompute
+              .filter(id => computed[id])
+              .map(id =>
+                supabase
+                  .from('products')
+                  .update({
+                    calculated_unit_price_usd: computed[id].unit_price_usd ?? null,
+                    calculated_unit_cost_usd: computed[id].unit_cost_usd ?? null,
+                  })
+                  .eq('id', id),
+              ),
+          ).catch(e => console.error('Persist computed prices failed', e));
         } catch (e) {
           console.error('Price compute failed', e);
         }
