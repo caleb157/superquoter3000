@@ -164,34 +164,7 @@ const Dashboard = () => {
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
-  const pipelineDetail = useMemo(() => {
-    let total = 0;
-    let counted = 0;
-    let skippedNoCost = 0;
-    let skippedNoQty = 0;
-    const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number }> = [];
-    for (const p of products) {
-      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-      // Only count active and PO inquiries — exclude cancelled, paused, and products with no inquiry.
-      if (inqStatus !== 'active' && inqStatus !== 'po') continue;
-      const w = productWeight(p, inqStatus);
-      if (w === 0) continue;
-      const qty = p.quantity ?? 0;
-      if (qty === 0) { skippedNoQty += 1; continue; }
-      // Use live-computed FOB cost. Do NOT fall back to target_price_usd — that's revenue, not cost,
-      // and mixing the two inflates the metric. If costing isn't done, skip.
-      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
-      if (cost === 0) { skippedNoCost += 1; continue; }
-      const value = qty * cost * w;
-      total += value;
-      counted += 1;
-      contributors.push({ name: p.name, qty, cost, weight: w, value });
-    }
-    contributors.sort((a, b) => b.value - a.value);
-    return { total, counted, skippedNoCost, skippedNoQty, top: contributors.slice(0, 5) };
-  }, [products, inquiryStatusById, productPricing]);
 
-  const pipelineValueUsd = pipelineDetail.total;
 
   const productsByStageBucket = useMemo(() => {
     const counts: Record<StageBucket, number> = {
