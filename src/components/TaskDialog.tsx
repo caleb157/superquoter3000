@@ -12,6 +12,7 @@ import { Check, ChevronsUpDown, ImagePlus, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TaskContext, TaskPriority } from '@/lib/task-types';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Mode = 'inquiry' | 'customer';
 
