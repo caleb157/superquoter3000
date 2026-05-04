@@ -6,10 +6,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { MetricCard } from './MetricCard';
+import { DrillDownDialog } from './DrillDownDialog';
 import {
   inRange, pairRfqsToQuotes, sampleCycleDays, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
 import { STAGE_LABEL } from '@/components/ProductStagePills';
+
+type DrillKey = null | 'rfqQuote' | 'sampleCycle' | 'pendingRfqs' | 'pendingSamples';
 
 type Props = { range: DateRange; slowQuoteDays: number; slowSampleDays: number };
 
