@@ -324,7 +324,7 @@ const CustomerQuote = () => {
       {/* Print stylesheet — hide controls, force light, fit-to-page */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4; margin: 10mm; }
           html, body { background: #ffffff !important; }
           .no-print { display: none !important; }
           .print-block { display: block !important; }
@@ -332,6 +332,20 @@ const CustomerQuote = () => {
           .print-border-light { border-color: #e2e8f0 !important; }
           .print-sticky-static { position: static !important; }
           .print-grid-1 { grid-template-columns: 1fr !important; }
+
+          /* Prevent ugly mid-element page breaks */
+          header, section, table, .print-keep {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          tr, li { break-inside: avoid; page-break-inside: avoid; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+          img { break-inside: avoid; page-break-inside: avoid; max-height: 90vh; }
+
+          /* Shrink quote slightly so it tries to fit one page */
+          .print-fit { font-size: 92%; }
         }
       `}</style>
 
@@ -352,7 +366,7 @@ const CustomerQuote = () => {
         );
       })()}
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0 print-fit">
 
         {/* ============ HEADER BAND ============ */}
         <header className="bg-white border border-slate-200 rounded-t-lg p-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 print-shadow-none print-border-light">
