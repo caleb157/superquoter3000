@@ -87,7 +87,6 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const percentWood = p.percent_wood || 1;
     const productType = productTypes.find((pt: any) => pt.id === p.product_type_id) as any;
     const cbmRow = allCbm.find((c: any) => c.product_id === p.id) as any;
-    const finalUnitCbm = cbmRow?.final_unit_cbm || 0;
 
     // ===== In-memory COGS auto-overrides (mirror ProductCostingTab) =====
     const productCogs = (cogs as any[]).filter((c: any) => c.product_id === p.id);
@@ -96,8 +95,10 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const icAdd = productType?.ic_addition_per_side_inch ?? 0.5;
     const icType = cbmRow?.ic_type || '7 ply';
     const mcType = cbmRow?.mc_type || '7 ply';
-    const packagingType: 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
+    const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
     const includeMc = packagingType === 'ic_mc';
+    const noPackaging = packagingType === 'no_packaging';
+    const finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
 
     const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
     const icDims = {
@@ -158,25 +159,28 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       // Auto-calc rows: mirror ProductCostingTab's force-on/off behavior for packaging
       if (item.is_auto_calculated && type === 'Packaging') {
         if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-          return { ...item, include: isWrapMode ? 'No' : 'Yes',
-            components_per_product: isWrapMode ? 0 : (productsPerIc > 0 ? 1 / productsPerIc : 0),
-            unit_cost_inr: isWrapMode ? 0 : icCost };
+          const defaultIncluded = !noPackaging && !isWrapMode;
+          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+            components_per_product: defaultIncluded ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
+            unit_cost_inr: defaultIncluded ? icCost : 0 };
         }
         if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
-          const useMc = includeMc && productsPerMc > 0;
-          return { ...item, include: useMc ? 'Yes' : 'No',
+          const useMc = !noPackaging && includeMc && productsPerMc > 0;
+          return { ...item, include: useMc && item.include !== 'No' ? (item.include || 'Yes') : 'No',
             components_per_product: useMc ? 1 / productsPerMc : 0,
             unit_cost_inr: useMc ? mcCost : 0 };
         }
         if (name === 'corrugate wrap') {
-          return { ...item, include: isWrapMode ? 'Yes' : 'No',
-            components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
-            unit_cost_inr: isWrapMode ? ((gs as any)?.corrugate_price_per_kg ?? 0) : 0 };
+          const defaultIncluded = !noPackaging && isWrapMode;
+          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+            components_per_product: defaultIncluded ? wrappingResult.corrugate_kg : 0,
+            unit_cost_inr: defaultIncluded ? ((gs as any)?.corrugate_price_per_kg ?? 0) : 0 };
         }
         if (name === 'bubble wrap') {
-          return { ...item, include: isWrapMode ? 'Yes' : 'No',
-            components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
-            unit_cost_inr: isWrapMode ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
+          const defaultIncluded = !noPackaging && isWrapMode;
+          return { ...item, include: defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No',
+            components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
+            unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
         }
       }
       if (item.include === 'No') return item;
