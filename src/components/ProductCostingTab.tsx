@@ -538,6 +538,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
     const isWrapMode = packagingType === 'corrugate_bubble';
     const isIcOnly = packagingType === 'ic_only';
+    const isNoPackaging = packagingType === 'no_packaging';
 
     const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number; units?: string }[] = [];
 
@@ -545,38 +546,41 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!item.is_auto_calculated) return;
       const name = (item.component_name || '').toLowerCase();
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
+        const defaultIncluded = !isNoPackaging && !isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: !isWrapMode && productsPerIc > 0 ? 1 / productsPerIc : 0,
-          unit_cost_inr: isWrapMode ? 0 : icCost,
-          include: isWrapMode ? 'No' : 'Yes',
+          components_per_product: defaultIncluded && productsPerIc > 0 ? 1 / productsPerIc : 0,
+          unit_cost_inr: defaultIncluded ? icCost : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0.05,
         });
       } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
         const ppmc = mcResult.products_per_mc || 1;
-        const useMc = !isWrapMode && !isIcOnly && ppmc > 0;
+        const useMc = !isNoPackaging && !isWrapMode && !isIcOnly && ppmc > 0;
         updates.push({
           id: item.id,
           components_per_product: useMc ? 1 / ppmc : 0,
           unit_cost_inr: useMc ? mcCost : 0,
-          include: useMc ? 'Yes' : 'No',
+          include: preserveManualNo(item, useMc),
           waste_factor: 0,
         });
       } else if (name === 'corrugate wrap') {
+        const defaultIncluded = !isNoPackaging && isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
-          unit_cost_inr: isWrapMode ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
-          include: isWrapMode ? 'Yes' : 'No',
+          components_per_product: defaultIncluded ? wrappingResult.corrugate_kg : 0,
+          unit_cost_inr: defaultIncluded ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0,
           units: 'KG',
         });
       } else if (name === 'bubble wrap') {
+        const defaultIncluded = !isNoPackaging && isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
-          unit_cost_inr: isWrapMode ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
-          include: isWrapMode ? 'Yes' : 'No',
+          components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
+          unit_cost_inr: defaultIncluded ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0,
           units: 'KG',
         });
