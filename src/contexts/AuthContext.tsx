@@ -13,12 +13,14 @@ interface AuthContextType {
   isTeam: boolean;
   isAdminOrTeam: boolean;
   isGuest: boolean;
+  assigneeCode: string | null;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null, session: null, roles: [], loading: true,
   isAdmin: false, isTeam: false, isAdminOrTeam: false, isGuest: false,
+  assigneeCode: null,
   signOut: async () => {},
 });
 
