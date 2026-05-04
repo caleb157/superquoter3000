@@ -324,7 +324,7 @@ const CustomerQuote = () => {
       {/* Print stylesheet — hide controls, force light, fit-to-page */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4; margin: 10mm; }
           html, body { background: #ffffff !important; }
           .no-print { display: none !important; }
           .print-block { display: block !important; }
@@ -332,6 +332,20 @@ const CustomerQuote = () => {
           .print-border-light { border-color: #e2e8f0 !important; }
           .print-sticky-static { position: static !important; }
           .print-grid-1 { grid-template-columns: 1fr !important; }
+
+          /* Prevent ugly mid-element page breaks */
+          header, section, table, .print-keep {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          tr, li { break-inside: avoid; page-break-inside: avoid; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+          img { break-inside: avoid; page-break-inside: avoid; max-height: 90vh; }
+
+          /* Shrink quote slightly so it tries to fit one page */
+          .print-fit { font-size: 92%; }
         }
       `}</style>
 
