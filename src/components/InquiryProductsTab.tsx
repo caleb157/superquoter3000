@@ -349,6 +349,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
+        onLogRfq={() => setLogRfqOpen(true)}
+        onLogRfs={() => setLogRfsOpen(true)}
+      />
+
+      <BulkLogRfqRfsDialog
+        open={logRfqOpen}
+        onOpenChange={setLogRfqOpen}
+        kind="rfq"
+        inquiryId={inquiryId}
+        selectedProductIds={Array.from(selected)}
+        onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <BulkLogRfqRfsDialog
+        open={logRfsOpen}
+        onOpenChange={setLogRfsOpen}
+        kind="rfs"
+        inquiryId={inquiryId}
+        selectedProductIds={Array.from(selected)}
+        onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
       />
 
       <BulkQuantityDialog
