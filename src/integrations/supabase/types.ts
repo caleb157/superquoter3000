@@ -1784,6 +1784,7 @@ export type Database = {
       admin_list_users: {
         Args: never
         Returns: {
+          assignee_code: string
           created_at: string
           display_name: string
           email: string
@@ -1793,6 +1794,10 @@ export type Database = {
       }
       admin_remove_user_role: {
         Args: { _target_user_id: string }
+        Returns: undefined
+      }
+      admin_set_assignee_code: {
+        Args: { _code: string; _target_user_id: string }
         Returns: undefined
       }
       admin_set_user_role: {
