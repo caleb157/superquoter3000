@@ -234,8 +234,6 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
     return `${inq?.rfq_number || id.slice(0, 6)} · ${cust?.name || cust?.company || '—'}`;
   };
 
-  return (
-    <div className="space-y-4">
   const handleExport = () => {
     const sections: CsvSection[] = [
       {
