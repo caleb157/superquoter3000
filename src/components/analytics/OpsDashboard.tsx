@@ -83,13 +83,32 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
     return pairs.filter(p => inRange(p.respondedAt, range));
   }, [receivedRfqs, quotes, range]);
 
-  // Sample cycle in range
-  const sampleCycles = useMemo(() => {
+  // Sample cycle in range — keep full row info for drill-down
+  const sampleCycleRows = useMemo(() => {
     return samples
-      .filter(s => s.status === 'completed' && s.completed_at && inRange(s.completed_at, range))
-      .map(s => sampleCycleDays(s))
-      .filter((d): d is number => d != null);
-  }, [samples, range]);
+      .filter(s => s.status === 'completed' && s.completed_at && s.requested_date && inRange(s.completed_at, range))
+      .map(s => {
+        const days = sampleCycleDays(s);
+        const prod = productById[s.product_id];
+        const inq = prod?.customer_rfq_id ? inquiryById[prod.customer_rfq_id] : (s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null);
+        const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+        const vendor = s.vendor_id ? vendorById[s.vendor_id] : null;
+        return {
+          sampleId: s.id,
+          productId: s.product_id,
+          productName: prod?.name || 'Unknown',
+          rfqNumber: inq?.rfq_number || '—',
+          customerName: cust?.name || cust?.company || '—',
+          vendorName: vendor?.name || 'no vendor',
+          requestedDate: s.requested_date,
+          completedAt: s.completed_at,
+          days: days ?? 0,
+        };
+      })
+      .filter(r => r.days != null)
+      .sort((a, b) => b.days - a.days);
+  }, [samples, range, productById, inquiryById, customerById, vendorById]);
+  const sampleCycles = useMemo(() => sampleCycleRows.map(r => r.days), [sampleCycleRows]);
 
   // Pending RFQs (received in range without a quote answering them)
   const pendingRfqsInRange = useMemo(() => {
