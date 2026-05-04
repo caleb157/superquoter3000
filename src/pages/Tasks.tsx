@@ -119,7 +119,7 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
-              <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+              <Select value={filterAssignee} onValueChange={handleAssigneeChange}>
                 <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All assignees</SelectItem>
