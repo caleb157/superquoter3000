@@ -53,17 +53,24 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const [productOpen, setProductOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assigneeOptions, setAssigneeOptions] = useState<string[]>([]);
 
   // Load reference data when dialog opens
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [iRes, cRes] = await Promise.all([
+      const [iRes, cRes, pRes, tRes] = await Promise.all([
         supabase.from('customer_rfqs').select('id, rfq_number, title, updated_at').order('updated_at', { ascending: false }),
         (supabase as any).from('customers').select('id, name, company').order('name'),
+        (supabase as any).from('profiles').select('assignee_code'),
+        supabase.from('tasks').select('assignee'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
       if (cRes.data) setCustomers(cRes.data as any);
+      const set = new Set<string>();
+      ((pRes.data as any[]) || []).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
+      ((tRes.data as any[]) || []).forEach(r => { if (r.assignee) set.add(r.assignee); });
+      setAssigneeOptions(Array.from(set).sort());
     })();
   }, [open]);
 
