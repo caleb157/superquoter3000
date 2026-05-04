@@ -33,7 +33,7 @@ function StageDropdown({ track, label, onSet }: { track: StageTrack; label: stri
   );
 }
 
-export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity }: Props) {
+export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity, onLogRfq, onLogRfs }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
   return (
