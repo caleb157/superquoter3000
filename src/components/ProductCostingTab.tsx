@@ -674,7 +674,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       setOverheadItems(prev => prev.map(item => {
         const upd = ohUpdates.find(u => u.id === item.id);
         if (!upd) return item;
-        return { ...item, man_hours_per_unit: upd.man_hours_per_unit };
+        return { ...item, man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) };
       }));
       ohUpdates.forEach(upd => {
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
