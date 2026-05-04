@@ -334,7 +334,7 @@ const CustomerQuote = () => {
       {/* Print stylesheet — hide controls, force light, fit-to-page */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page { size: ${printSize} ${printOrientation}; margin: 10mm; }
           html, body { background: #ffffff !important; }
           .no-print { display: none !important; }
           .print-block { display: block !important; }
