@@ -385,31 +385,12 @@ const CustomerQuote = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 print:bg-white">
-      {/* Print stylesheet — hide controls, force light, fit-to-page */}
+      {/* Minimal print stylesheet — PDF download is the canonical export */}
       <style>{`
         @media print {
           @page { size: ${printSize} ${printOrientation}; margin: 10mm; }
           html, body { background: #ffffff !important; }
           .no-print { display: none !important; }
-          .print-block { display: block !important; }
-          .print-shadow-none { box-shadow: none !important; }
-          .print-border-light { border-color: #e2e8f0 !important; }
-          .print-sticky-static { position: static !important; }
-          .print-grid-1 { grid-template-columns: 1fr !important; }
-
-          /* Prevent ugly mid-element page breaks */
-          header, section, table, .print-keep {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          tr, li { break-inside: avoid; page-break-inside: avoid; }
-          thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
-          h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
-          img { break-inside: avoid; page-break-inside: avoid; max-height: 90vh; }
-
-          /* Shrink quote slightly so it tries to fit one page */
-          .print-fit { font-size: 92%; }
         }
       `}</style>
 
@@ -427,7 +408,7 @@ const CustomerQuote = () => {
                 </Button>
               ) : <span />}
               <div className="flex items-center gap-2 text-xs text-slate-600">
-                <span className="hidden sm:inline text-slate-500">Print:</span>
+                <span className="hidden sm:inline text-slate-500">PDF:</span>
                 <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
                   <button
                     type="button"
