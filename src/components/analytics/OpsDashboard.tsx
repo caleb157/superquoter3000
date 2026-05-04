@@ -177,32 +177,48 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
     }).sort((a, b) => b.days - a.days);
   }, [samples, slowSampleDays, productById, inquiryById, customerById, vendorById]);
 
-  // Stage durations in range (events in range)
+  // Time-in-stage: for every product's stage entry, compute (next_event OR now) - entered_at.
+  // Counted in range if the entry's enteredAt OR exitedAt overlaps the range,
+  // plus all currently-pending entries (so we always see live work-in-progress).
   const stageDurations = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     stageEvents.forEach(e => {
       const key = `${e.product_id}|${e.track}`;
       (grouped[key] ||= []).push(e);
     });
-    type Slot = { durations: number[]; count: number };
+    type Slot = { completed: number[]; pending: number[] };
     const out: Record<string, Record<string, Slot>> = { design: {}, quote: {}, sample: {} };
+    const nowMs = Date.now();
+    const fromMs = range.from.getTime();
+    const toMs = range.to.getTime();
     Object.entries(grouped).forEach(([key, evs]) => {
       const [, track] = key.split('|');
       if (!TRACKS.includes(track as any)) return;
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
         if (!e.to_stage) continue;
+        const enteredMs = new Date(e.occurred_at).getTime();
         const next = evs[i + 1];
-        if (next && inRange(next.occurred_at, range)) {
-          const d = (new Date(next.occurred_at).getTime() - new Date(e.occurred_at).getTime()) / 86400000;
-          const slot = (out[track][e.to_stage] ||= { durations: [], count: 0 });
-          slot.durations.push(d);
-          slot.count++;
-        }
+        const isPending = !next;
+        const exitMs = next ? new Date(next.occurred_at).getTime() : nowMs;
+        // Overlap test with selected range
+        const overlaps = enteredMs <= toMs && exitMs >= fromMs;
+        if (!overlaps) continue;
+        const days = (exitMs - enteredMs) / 86400000;
+        const slot = (out[track][e.to_stage] ||= { completed: [], pending: [] });
+        if (isPending) slot.pending.push(days);
+        else slot.completed.push(days);
       }
     });
     return out;
   }, [stageEvents, range]);
+
+  const percentile = (nums: number[], p: number): number | null => {
+    if (!nums.length) return null;
+    const s = [...nums].sort((a, b) => a - b);
+    const idx = Math.min(s.length - 1, Math.max(0, Math.ceil((p / 100) * s.length) - 1));
+    return s[idx];
+  };
 
   // Pending breakdown
   const costingPending = useMemo(() => {
