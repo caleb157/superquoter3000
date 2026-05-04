@@ -997,6 +997,8 @@ export type Database = {
       }
       products: {
         Row: {
+          calculated_unit_cost_usd: number | null
+          calculated_unit_price_usd: number | null
           cbm_done: boolean | null
           cogs_done: boolean | null
           created_at: string | null
@@ -1033,6 +1035,8 @@ export type Database = {
           width_inch: number | null
         }
         Insert: {
+          calculated_unit_cost_usd?: number | null
+          calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
           cogs_done?: boolean | null
           created_at?: string | null
@@ -1069,6 +1073,8 @@ export type Database = {
           width_inch?: number | null
         }
         Update: {
+          calculated_unit_cost_usd?: number | null
+          calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
           cogs_done?: boolean | null
           created_at?: string | null

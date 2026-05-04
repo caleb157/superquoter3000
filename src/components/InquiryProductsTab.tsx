@@ -117,17 +117,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, sku, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done')
+        .select('id, name, sku, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, calculated_unit_cost_usd')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
       const list = data ?? [];
       setProducts(list);
-      if (list.length > 0) {
-        const prices = await computeProductPriceAndCost(list.map(p => p.id));
-        setPriceMap(prices);
-      } else {
-        setPriceMap({});
+      // Build price map directly from persisted costing-sheet values — no recalculation.
+      const pm: ProductPriceCostMap = {};
+      for (const p of list as any[]) {
+        pm[p.id] = {
+          unit_cost_usd: p.calculated_unit_cost_usd ?? 0,
+          unit_price_usd: p.calculated_unit_price_usd ?? 0,
+          unit_price_inr: 0,
+          exchange_rate: 0,
+        };
       }
+      setPriceMap(pm);
     })();
   }, [inquiryId, refresh]);
 

@@ -789,6 +789,23 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     });
   }, [summary.unit_price_inr, summary.unit_price_usd, summary.product_cost_per_unit_inr, summary.product_cost_per_unit_usd, exchangeRate, dataLoaded]);
 
+  // Persist calculated price/cost to products table so other screens (inquiry list, dashboard)
+  // can show the exact same number as the costing sheet without recomputing.
+  useEffect(() => {
+    if (!dataLoaded || !product?.id) return;
+    const priceUsd = Number.isFinite(summary.unit_price_usd) ? +summary.unit_price_usd.toFixed(4) : null;
+    const costUsd = Number.isFinite(summary.product_cost_per_unit_usd) ? +summary.product_cost_per_unit_usd.toFixed(4) : null;
+    if (priceUsd === null && costUsd === null) return;
+    if ((product as any).calculated_unit_price_usd === priceUsd && (product as any).calculated_unit_cost_usd === costUsd) return;
+    const t = setTimeout(() => {
+      (supabase as any).from('products').update({
+        calculated_unit_price_usd: priceUsd,
+        calculated_unit_cost_usd: costUsd,
+      }).eq('id', product.id);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [summary.unit_price_usd, summary.product_cost_per_unit_usd, dataLoaded, product?.id]);
+
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
     // If user edits an auto-calculated field, mark it as manual
