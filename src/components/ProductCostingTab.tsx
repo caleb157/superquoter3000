@@ -205,7 +205,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     } finally {
       setTimeout(() => setRecalcing(false), 600);
     }
-  }, [id, cogsItems, overheadItems, recalcing, packagingType, product?.sourced_externally]);
+  }, [id, cogsItems, overheadItems, recalcing, product?.packaging_type, product?.sourced_externally]);
 
 
   // Fetch all data
