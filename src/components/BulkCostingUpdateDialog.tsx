@@ -10,8 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COGS_TYPES = ['Finishing Materials', 'Hardware', 'Wood', 'Components', 'Packaging', 'Other'];
+const COGS_TYPES = ['Raw Piece', 'Subcontracting', 'Finishing Materials', 'Packaging', 'Hardware', 'Accessories', 'Components', 'Wood', 'Other'];
 const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
+const PACKAGING_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: '__keep__', label: 'Keep current per product' },
+  { value: 'ic_only', label: 'IC only' },
+  { value: 'ic_mc', label: 'IC + MC' },
+  { value: 'corrugate_bubble', label: 'Corrugate + Bubble Wrap' },
+];
 
 type DraftRow = {
   _key: string;
