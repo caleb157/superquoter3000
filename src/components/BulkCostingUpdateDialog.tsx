@@ -52,7 +52,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [saving, setSaving] = useState(false);
   const [knownNames, setKnownNames] = useState<string[]>([]);
 
-  const productCount = selectedProductIds.length;
+  const [packagingType, setPackagingType] = useState<string>('__keep__');
 
   // Pull existing component names from the selected products to show as suggestions —
   // makes "match by name" predictable.
