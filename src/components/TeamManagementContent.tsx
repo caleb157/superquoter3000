@@ -61,7 +61,12 @@ export default function TeamManagementContent() {
     fetchUsers();
   };
 
-  return (
+  const setCode = async (userId: string, code: string) => {
+    const { error } = await (supabase as any).rpc('admin_set_assignee_code', { _target_user_id: userId, _code: code });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Assignee code saved');
+    fetchUsers();
+  };
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         Assign roles to users. <b>Admin</b> = full access incl. settings & team. <b>Team</b> = full app access. <b>Guest</b> = restricted.
