@@ -1156,6 +1156,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          assignee_code: string | null
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -1164,6 +1165,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assignee_code?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -1172,6 +1174,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assignee_code?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
