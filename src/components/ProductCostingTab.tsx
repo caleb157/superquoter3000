@@ -131,22 +131,80 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         ),
       ]);
 
-      setCogsItems(prev => prev.map(i =>
-        cogsToReset.some(c => c.id === i.id) ? { ...i, is_auto_calculated: true } : i
-      ));
-      setOverheadItems(prev => prev.map(i =>
-        ohToReset.some(o => o.id === i.id) ? { ...i, is_auto_estimated: true } : i
-      ));
+      // Re-insert any missing auto-managed rows (so deleted ones come back)
+      const hasCogs = (matcher: (n: string) => boolean) =>
+        cogsItems.some(i => matcher((i.component_name || '').toLowerCase()));
+      const hasOh = (lt: string) => overheadItems.some(i => i.labor_type === lt);
+
+      const cogsToInsert: any[] = [];
+      const baseSort = (cogsItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)) + 1;
+      let s = baseSort;
+      if (!hasCogs(n => n.includes('color') || n.includes('stain'))) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+      if (!hasCogs(n => n.includes('sealer'))) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+      if (!hasCogs(n => n.includes('lacquer'))) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+      if (!hasCogs(n => n.includes('ic box') || n.includes('inner carton') || n === 'ic')) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, include: 'Yes', sort_order: s++ });
+      }
+      if (!hasCogs(n => n.includes('mc box') || n.includes('master carton') || n.includes('outer carton'))) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+      if (packagingType === 'corrugate_bubble') {
+        if (!hasCogs(n => n === 'corrugate wrap')) {
+          cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Corrugate Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+        }
+        if (!hasCogs(n => n === 'bubble wrap')) {
+          cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+        }
+      }
+      if (product?.sourced_externally && !hasCogs(n => n.includes('domestic freight'))) {
+        cogsToInsert.push({ product_id: id, cogs_type: 'Subcontracting', component_name: 'Domestic Freight (External Sourcing)', units: 'CBM', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+
+      const ohToInsert: any[] = [];
+      let os = (overheadItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)) + 1;
+      if (!hasOh('Finishing')) {
+        ohToInsert.push({ product_id: id, labor_type: 'Finishing', is_auto_estimated: true, include: 'Yes', sort_order: os++ });
+      }
+      if (!hasOh('Packaging')) {
+        ohToInsert.push({ product_id: id, labor_type: 'Packaging', is_auto_estimated: true, include: 'Yes', sort_order: os++ });
+      }
+
+      let insertedCogs: any[] = [];
+      let insertedOh: any[] = [];
+      if (cogsToInsert.length > 0) {
+        const { data } = await (supabase as any).from('cogs_items').insert(cogsToInsert).select();
+        if (data) insertedCogs = data;
+      }
+      if (ohToInsert.length > 0) {
+        const { data } = await (supabase as any).from('overhead_items').insert(ohToInsert).select();
+        if (data) insertedOh = data;
+      }
+
+      setCogsItems(prev => {
+        const reset = prev.map(i => cogsToReset.some(c => c.id === i.id) ? { ...i, is_auto_calculated: true } : i);
+        return [...reset, ...insertedCogs];
+      });
+      setOverheadItems(prev => {
+        const reset = prev.map(i => ohToReset.some(o => o.id === i.id) ? { ...i, is_auto_estimated: true } : i);
+        return [...reset, ...insertedOh];
+      });
 
       // Force all auto-calc effects to re-run
       setRecalcTick(t => t + 1);
-      toast.success('Recalculated auto costs');
+      const restored = insertedCogs.length + insertedOh.length;
+      toast.success(restored > 0 ? `Recalculated auto costs (restored ${restored} row${restored === 1 ? '' : 's'})` : 'Recalculated auto costs');
     } catch (e: any) {
       toast.error('Recalc failed: ' + (e?.message || 'unknown error'));
     } finally {
       setTimeout(() => setRecalcing(false), 600);
     }
-  }, [id, cogsItems, overheadItems, recalcing]);
+  }, [id, cogsItems, overheadItems, recalcing, packagingType, product?.sourced_externally]);
 
 
   // Fetch all data
