@@ -106,14 +106,37 @@ export function SalesDashboard({ range }: Props) {
     return { rate: wins / denomInquiries.length, wins, total: denomInquiries.length };
   }, [inqStatusEvents, quotes, range]);
 
-  const activeCustomers = useMemo(() => {
-    const inquiriesInRange = inquiries.filter(i =>
-      inRange(i.created_at, range) || inRange(i.updated_at, range),
-    );
+  const winRateRows = useMemo(() => {
+    if (!winRate) return [] as any[];
+    const poInRange = new Set<string>();
+    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range) && e.to_status === 'po') poInRange.add(e.inquiry_id); });
+    const everInquiriesInRange = new Set<string>();
+    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range)) everInquiriesInRange.add(e.inquiry_id); });
+    const quotedInquiries = new Set<string>();
+    quotes.forEach(q => { if (q.customer_rfq_id) quotedInquiries.add(q.customer_rfq_id); });
+    const ids = new Set<string>();
+    everInquiriesInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
+    poInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
+    return Array.from(ids).map(id => {
+      const inq = inquiries.find(x => x.id === id);
+      const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+      return {
+        id,
+        rfqNumber: (inq as any)?.rfq_number || id.slice(0, 6),
+        title: (inq as any)?.title || '',
+        customerName: cust?.name || cust?.company || '—',
+        won: poInRange.has(id),
+      };
+    }).sort((a, b) => Number(b.won) - Number(a.won));
+  }, [winRate, inqStatusEvents, quotes, inquiries, customerById, range]);
+
+  const activeCustomerRows = useMemo(() => {
+    const inquiriesInRange = inquiries.filter(i => inRange(i.created_at, range) || inRange(i.updated_at, range));
     const custIds = new Set<string>();
     inquiriesInRange.forEach(i => { if (i.customer_id) custIds.add(i.customer_id); });
-    return customers.filter(c => c.lead_status === 'active' && custIds.has(c.id)).length;
+    return customers.filter(c => c.lead_status === 'active' && custIds.has(c.id));
   }, [inquiries, customers, range]);
+  const activeCustomers = activeCustomerRows.length;
 
   // Lifecycle transitions in range
   const lifecycleRows = useMemo(() => {
