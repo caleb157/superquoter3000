@@ -93,7 +93,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const handleApply = async () => {
     if (productCount === 0) { toast.error('No products selected'); return; }
-    if (validRows.length === 0) { toast.error('Add at least one row with a name'); return; }
+    const willUpdatePackaging = packagingType !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging) {
+      toast.error('Add at least one row with a name, or pick a packaging type');
+      return;
+    }
 
     setSaving(true);
 
