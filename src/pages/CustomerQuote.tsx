@@ -271,14 +271,68 @@ const CustomerQuote = () => {
     setSubmitting(false);
   };
 
-  const handleDownloadPdf = () => {
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const handleDownloadPdf = async () => {
     if (!data) return;
-    const prevTitle = document.title;
-    const filename = `Quote ${data.snapshot.quote_number ?? ''} - ${customerName || data.customer?.name || 'Customer'}`.trim();
-    document.title = filename;
-    const restore = () => { document.title = prevTitle; window.removeEventListener('afterprint', restore); };
-    window.addEventListener('afterprint', restore);
-    window.print();
+    setDownloadingPdf(true);
+    try {
+      const [{ pdf }, { default: QuotePdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('@/components/quote/QuotePdfDocument'),
+      ]);
+      const productsForPdf = data.snapshot.products.map((p) => ({
+        name: p.name,
+        sku: p.sku,
+        quantity: p.quantity,
+        unit_price_usd: p.unit_price_usd,
+        unit_cbm: p.unit_cbm,
+        photo_url: p.photo_url,
+        moq: p.moq,
+        width_inch: p.width_inch,
+        depth_inch: p.depth_inch,
+        height_inch: p.height_inch,
+        weight_kg: p.weight_kg,
+      }));
+      const doc = (
+        <QuotePdfDocument
+          size={printSize === 'A4' ? 'A4' : 'LETTER'}
+          orientation={printOrientation}
+          quoteNumber={data.snapshot.quote_number}
+          currency={data.snapshot.currency}
+          validUntil={data.snapshot.valid_until}
+          createdAt={data.snapshot.created_at ?? null}
+          status={data.snapshot.status}
+          paymentTerms={data.snapshot.payment_terms ?? null}
+          notes={data.snapshot.notes ?? null}
+          products={productsForPdf}
+          selections={selections}
+          entity={data.entity}
+          customer={data.customer}
+          inquiry={data.inquiry}
+          totals={{
+            totalItems: summary.totalItems,
+            totalQty: summary.totalQty,
+            totalCbm: summary.totalCbm,
+            totalValue: summary.totalValue,
+          }}
+        />
+      );
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const filename = `Quote-${(data.snapshot.quote_number || 'quote').replace(/[^a-z0-9-_]+/gi, '_')}.pdf`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (loading) {
