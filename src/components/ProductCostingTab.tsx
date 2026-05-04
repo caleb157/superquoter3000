@@ -1016,6 +1016,26 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
                       updateCbm('include_mc', nextIncludeMc);
                     }
+                    const packagingUpdates = cogsItems
+                      .filter(item => item.cogs_type === 'Packaging')
+                      .map(item => ({ id: item.id, include: packagingIncludeForType(v, item.component_name, v === 'no_packaging') }));
+                    const validPackagingUpdates = packagingUpdates.filter(update => update.include !== null);
+                    if (validPackagingUpdates.length > 0) {
+                      setCogsItems(items => items.map(item => {
+                        const update = validPackagingUpdates.find(u => u.id === item.id);
+                        return update ? { ...item, include: update.include ? 'Yes' : 'No' } : item;
+                      }));
+                      validPackagingUpdates.forEach(update => {
+                        (supabase as any).from('cogs_items').update({ include: update.include ? 'Yes' : 'No' }).eq('id', update.id);
+                      });
+                    }
+                    if (v === 'no_packaging') {
+                      const packagingOverheadIds = overheadItems.filter(item => item.labor_type === 'Packaging').map(item => item.id);
+                      if (packagingOverheadIds.length > 0) {
+                        setOverheadItems(items => items.map(item => packagingOverheadIds.includes(item.id) ? { ...item, include: 'No', man_hours_per_unit: 0 } : item));
+                        (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
+                      }
+                    }
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -1023,6 +1043,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <SelectItem value="ic_only">IC only</SelectItem>
                     <SelectItem value="ic_mc">IC + MC</SelectItem>
                     <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                    <SelectItem value="no_packaging">No packaging</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
