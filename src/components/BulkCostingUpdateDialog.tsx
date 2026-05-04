@@ -29,6 +29,26 @@ type DraftRow = {
   include: 'Yes' | 'No';
 };
 
+type RawRow = {
+  _key: string;
+  component_name: string;
+  components_per_product: number;
+  unit_cost_inr: number;
+  units: string;
+  vendor_name: string;
+  include: 'Yes' | 'No';
+};
+
+const newRawRow = (name = ''): RawRow => ({
+  _key: `raw-${Math.random().toString(36).slice(2, 9)}`,
+  component_name: name,
+  components_per_product: 1,
+  unit_cost_inr: 0,
+  units: 'pc',
+  vendor_name: '',
+  include: 'Yes',
+});
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
