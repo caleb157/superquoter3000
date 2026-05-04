@@ -126,15 +126,29 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         .order('updated_at', { ascending: false });
       const list = data ?? [];
       setProducts(list);
-      // Build price map directly from persisted costing-sheet values — no recalculation.
+      // Use persisted values when available; fall back to live computation for products
+      // whose costing sheet hasn't been opened yet (so calculated_* columns are null).
       const pm: ProductPriceCostMap = {};
+      const needCompute: string[] = [];
       for (const p of list as any[]) {
-        pm[p.id] = {
-          unit_cost_usd: p.calculated_unit_cost_usd ?? 0,
-          unit_price_usd: p.calculated_unit_price_usd ?? 0,
-          unit_price_inr: 0,
-          exchange_rate: 0,
-        };
+        if (p.calculated_unit_price_usd != null || p.calculated_unit_cost_usd != null) {
+          pm[p.id] = {
+            unit_cost_usd: p.calculated_unit_cost_usd ?? 0,
+            unit_price_usd: p.calculated_unit_price_usd ?? 0,
+            unit_price_inr: 0,
+            exchange_rate: 0,
+          };
+        } else {
+          needCompute.push(p.id);
+        }
+      }
+      if (needCompute.length) {
+        try {
+          const computed = await computeProductPriceAndCost(needCompute);
+          Object.assign(pm, computed);
+        } catch (e) {
+          console.error('Price compute failed', e);
+        }
       }
       setPriceMap(pm);
     })();
