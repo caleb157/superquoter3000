@@ -9,10 +9,12 @@ import { Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 
 export default function Tasks() {
+  const { assigneeCode } = useAuth();
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
@@ -20,10 +22,19 @@ export default function Tasks() {
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
   const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
+  const [assigneeDefaulted, setAssigneeDefaulted] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
   const [sort, setSort] = useState<TaskSortKey>('due_date');
   const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
+
+  // Default the assignee filter to the signed-in user's code (only once, on first arrival).
+  useEffect(() => {
+    if (!assigneeDefaulted && assigneeCode) {
+      setFilterAssignee(assigneeCode);
+      setAssigneeDefaulted(true);
+    }
+  }, [assigneeCode, assigneeDefaulted]);
 
   const toggleSort = (key: TaskSortKey) => {
     if (sort === key) {
@@ -40,16 +51,16 @@ export default function Tasks() {
 
   useEffect(() => {
     (async () => {
-      const [iRes, aRes] = await Promise.all([
+      const [iRes, aRes, pRes] = await Promise.all([
         supabase.from('customer_rfqs').select('id, rfq_number, title').order('updated_at', { ascending: false }),
         supabase.from('tasks').select('assignee'),
+        (supabase as any).from('profiles').select('assignee_code'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
-      if (aRes.data) {
-        const set = new Set<string>();
-        (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
-        setAssignees(Array.from(set).sort());
-      }
+      const set = new Set<string>();
+      if (aRes.data) (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
+      if (pRes.data) (pRes.data as any[]).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
+      setAssignees(Array.from(set).sort());
     })();
   }, [refreshKey]);
 
@@ -108,7 +119,7 @@ export default function Tasks() {
                 <SelectContent>
                   <SelectItem value="all">All assignees</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {assignees.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {assignees.map(a => <SelectItem key={a} value={a}>{a}{a === assigneeCode ? ' (you)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
 

@@ -12,6 +12,7 @@ import { Check, ChevronsUpDown, ImagePlus, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TaskContext, TaskPriority } from '@/lib/task-types';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Mode = 'inquiry' | 'customer';
 
@@ -28,6 +29,7 @@ type Product = { id: string; name: string; customer_rfq_id: string | null };
 type Customer = { id: string; name: string; company: string | null };
 
 export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: TaskDialogProps) {
+  const { assigneeCode } = useAuth();
   const isEdit = !!taskId;
 
   const [mode, setMode] = useState<Mode>('inquiry');
@@ -51,17 +53,24 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const [productOpen, setProductOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assigneeOptions, setAssigneeOptions] = useState<string[]>([]);
 
   // Load reference data when dialog opens
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [iRes, cRes] = await Promise.all([
+      const [iRes, cRes, pRes, tRes] = await Promise.all([
         supabase.from('customer_rfqs').select('id, rfq_number, title, updated_at').order('updated_at', { ascending: false }),
         (supabase as any).from('customers').select('id, name, company').order('name'),
+        (supabase as any).from('profiles').select('assignee_code'),
+        supabase.from('tasks').select('assignee'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
       if (cRes.data) setCustomers(cRes.data as any);
+      const set = new Set<string>();
+      ((pRes.data as any[]) || []).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
+      ((tRes.data as any[]) || []).forEach(r => { if (r.assignee) set.add(r.assignee); });
+      setAssigneeOptions(Array.from(set).sort());
     })();
   }, [open]);
 
@@ -120,7 +129,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const resetForm = () => {
     setMode('inquiry');
     setInquiryId(null); setProductId(null); setCustomerId(null);
-    setTitle(''); setDescription(''); setAssignee('unassigned');
+    setTitle(''); setDescription(''); setAssignee(assigneeCode || 'unassigned');
     setDueDate(''); setPriority('normal'); setStatus('open');
     setPhotoUrls([]);
   };
@@ -354,8 +363,9 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  <SelectItem value="CQ">CQ</SelectItem>
-                  <SelectItem value="PH">PH</SelectItem>
+                  {Array.from(new Set([...assigneeOptions, assignee].filter(v => v && v !== 'unassigned'))).sort().map(code => (
+                    <SelectItem key={code} value={code}>{code}{code === assigneeCode ? ' (you)' : ''}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

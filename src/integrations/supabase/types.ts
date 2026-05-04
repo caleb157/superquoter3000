@@ -1156,6 +1156,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          assignee_code: string | null
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -1164,6 +1165,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assignee_code?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -1172,6 +1174,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assignee_code?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -1781,6 +1784,7 @@ export type Database = {
       admin_list_users: {
         Args: never
         Returns: {
+          assignee_code: string
           created_at: string
           display_name: string
           email: string
@@ -1790,6 +1794,10 @@ export type Database = {
       }
       admin_remove_user_role: {
         Args: { _target_user_id: string }
+        Returns: undefined
+      }
+      admin_set_assignee_code: {
+        Args: { _code: string; _target_user_id: string }
         Returns: undefined
       }
       admin_set_user_role: {

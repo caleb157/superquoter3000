@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { UserX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,7 @@ type Row = {
   user_id: string;
   email: string;
   display_name: string | null;
+  assignee_code: string | null;
   created_at: string;
   roles: string[];
 };
@@ -59,6 +61,13 @@ export default function TeamManagementContent() {
     fetchUsers();
   };
 
+  const setCode = async (userId: string, code: string) => {
+    const { error } = await (supabase as any).rpc('admin_set_assignee_code', { _target_user_id: userId, _code: code });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Assignee code saved');
+    fetchUsers();
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
@@ -74,6 +83,7 @@ export default function TeamManagementContent() {
                 <TableRow>
                   <TableHead className="text-xs">Email</TableHead>
                   <TableHead className="text-xs">Name</TableHead>
+                  <TableHead className="text-xs">Code</TableHead>
                   <TableHead className="text-xs">Current role</TableHead>
                   <TableHead className="text-xs">Joined</TableHead>
                   <TableHead className="text-xs w-[260px]">Actions</TableHead>
@@ -90,6 +100,18 @@ export default function TeamManagementContent() {
                         {isSelf && <span className="ml-2 text-[10px] text-muted-foreground">(you)</span>}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{r.display_name || '—'}</TableCell>
+                      <TableCell>
+                        <Input
+                          defaultValue={r.assignee_code ?? ''}
+                          placeholder="e.g. CQ"
+                          className="h-7 w-20 text-xs"
+                          maxLength={6}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if ((r.assignee_code ?? '') !== v) setCode(r.user_id, v);
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         {currentRole ? (
                           <Badge variant="outline" className={`text-[10px] ${ROLE_COLORS[currentRole] || ''}`}>{currentRole}</Badge>
