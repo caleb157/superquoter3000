@@ -67,6 +67,8 @@ export default function TeamManagementContent() {
     toast.success('Assignee code saved');
     fetchUsers();
   };
+
+  return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
         Assign roles to users. <b>Admin</b> = full access incl. settings & team. <b>Team</b> = full app access. <b>Guest</b> = restricted.
