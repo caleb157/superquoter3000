@@ -12,6 +12,7 @@ import { Trash2, Pencil } from 'lucide-react';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ReceivedRfsList } from '@/components/ReceivedRfsList';
 
 type Sample = {
   id: string;
