@@ -29,6 +29,26 @@ type DraftRow = {
   include: 'Yes' | 'No';
 };
 
+type RawRow = {
+  _key: string;
+  component_name: string;
+  components_per_product: number;
+  unit_cost_inr: number;
+  units: string;
+  vendor_name: string;
+  include: 'Yes' | 'No';
+};
+
+const newRawRow = (name = ''): RawRow => ({
+  _key: `raw-${Math.random().toString(36).slice(2, 9)}`,
+  component_name: name,
+  components_per_product: 1,
+  unit_cost_inr: 0,
+  units: 'pc',
+  vendor_name: '',
+  include: 'Yes',
+});
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,6 +74,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const [packagingType, setPackagingType] = useState<string>('__keep__');
 
+  const [rawRows, setRawRows] = useState<RawRow[]>([]);
+  const [replaceAllRaw, setReplaceAllRaw] = useState(false);
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
@@ -78,6 +101,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (open) {
       setRows([newRow()]);
       setPackagingType('__keep__');
+      setRawRows([]);
+      setReplaceAllRaw(false);
     }
   }, [open]);
 
@@ -85,6 +110,16 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r._key !== key));
   const update = (key: string, patch: Partial<DraftRow>) =>
     setRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+
+  const addRawRow = () => setRawRows(prev => [...prev, newRawRow()]);
+  const removeRawRow = (key: string) => setRawRows(prev => prev.filter(r => r._key !== key));
+  const updateRaw = (key: string, patch: Partial<RawRow>) =>
+    setRawRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+
+  const validRawRows = useMemo(
+    () => rawRows.filter(r => r.component_name.trim().length > 0),
+    [rawRows],
+  );
 
   const validRows = useMemo(
     () => rows.filter(r => r.component_name.trim().length > 0),
@@ -94,8 +129,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const handleApply = async () => {
     if (productCount === 0) { toast.error('No products selected'); return; }
     const willUpdatePackaging = packagingType !== '__keep__';
-    if (validRows.length === 0 && !willUpdatePackaging) {
-      toast.error('Add at least one row with a name, or pick a packaging type');
+    const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw) {
+      toast.error('Add at least one row, raw piece, or pick a packaging type');
       return;
     }
 
@@ -104,7 +140,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     // Pull all existing cogs_items for selected products in one shot — used to match by lower-cased name.
     const { data: existing, error: fetchErr } = await (supabase as any)
       .from('cogs_items')
-      .select('id, product_id, component_name, sort_order')
+      .select('id, product_id, component_name, sort_order, cogs_type')
       .in('product_id', selectedProductIds);
 
     if (fetchErr) {
@@ -115,6 +151,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
     const existingByProductByName = new Map<string, Map<string, { id: string; sort_order: number | null }>>();
     const maxSortByProduct = new Map<string, number>();
+    const rawIdsByProduct = new Map<string, string[]>();
     (existing || []).forEach((row: any) => {
       const pid = row.product_id;
       if (!existingByProductByName.has(pid)) existingByProductByName.set(pid, new Map());
@@ -122,10 +159,16 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       if (nameKey) existingByProductByName.get(pid)!.set(nameKey, { id: row.id, sort_order: row.sort_order ?? 0 });
       const cur = maxSortByProduct.get(pid) ?? 0;
       maxSortByProduct.set(pid, Math.max(cur, row.sort_order ?? 0));
+      if ((row.cogs_type || '') === 'Raw Piece') {
+        if (!rawIdsByProduct.has(pid)) rawIdsByProduct.set(pid, []);
+        rawIdsByProduct.get(pid)!.push(row.id);
+      }
     });
 
     const updates: Array<{ id: string; patch: any }> = [];
     const inserts: any[] = [];
+    let rawUpdatedCount = 0;
+    let rawInsertedCount = 0;
 
     for (const pid of selectedProductIds) {
       const productExisting = existingByProductByName.get(pid) ?? new Map();
@@ -141,7 +184,6 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           unit_cost_inr: Number(r.unit_cost_inr) || 0,
           units: r.units,
           include: r.include,
-          // Bulk-edited rows are manual, not auto-calculated
           is_auto_calculated: false,
         };
         if (match) {
@@ -151,9 +193,49 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           nextSort += 1;
         }
       }
+
+      // Raw pieces: overwrite by name across selected SKUs
+      for (const r of validRawRows) {
+        const nameKey = r.component_name.trim().toLowerCase();
+        const match = productExisting.get(nameKey);
+        const patch: any = {
+          cogs_type: 'Raw Piece',
+          component_name: r.component_name.trim(),
+          components_per_product: Number(r.components_per_product) || 0,
+          unit_cost_inr: Number(r.unit_cost_inr) || 0,
+          units: r.units,
+          include: r.include,
+          vendor_name: r.vendor_name?.trim() || null,
+          is_auto_calculated: false,
+        };
+        if (match) {
+          updates.push({ id: match.id, patch });
+          rawUpdatedCount += 1;
+        } else {
+          inserts.push({ ...patch, product_id: pid, sort_order: nextSort });
+          nextSort += 1;
+          rawInsertedCount += 1;
+        }
+      }
     }
 
-    // Run updates + inserts in parallel batches
+    // Optional: clear pre-existing Raw Piece rows that aren't in the new set, per product
+    const deleteRawIds: string[] = [];
+    if (replaceAllRaw) {
+      const newNameKeys = new Set(validRawRows.map(r => r.component_name.trim().toLowerCase()));
+      for (const pid of selectedProductIds) {
+        const existingRawIds = rawIdsByProduct.get(pid) ?? [];
+        const productExisting = existingByProductByName.get(pid) ?? new Map();
+        // Build reverse map id -> name
+        const nameByMatchId = new Map<string, string>();
+        productExisting.forEach((v, k) => nameByMatchId.set(v.id, k));
+        for (const id of existingRawIds) {
+          const nameKey = nameByMatchId.get(id) ?? '';
+          if (!newNameKeys.has(nameKey)) deleteRawIds.push(id);
+        }
+      }
+    }
+
     const updatePromises = updates.map(u =>
       (supabase as any).from('cogs_items').update(u.patch).eq('id', u.id),
     );
@@ -165,7 +247,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('products').update({ packaging_type: packagingType }).in('id', selectedProductIds)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise]);
+    const deletePromise = deleteRawIds.length > 0
+      ? (supabase as any).from('cogs_items').delete().in('id', deleteRawIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -176,7 +262,13 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
     const parts: string[] = [];
     if (validRows.length > 0) {
-      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length} updated, ${inserts.length} added)`);
+      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length - rawUpdatedCount} updated, ${inserts.length - rawInsertedCount} added)`);
+    }
+    if (validRawRows.length > 0) {
+      parts.push(`${validRawRows.length} raw piece${validRawRows.length === 1 ? '' : 's'} (${rawUpdatedCount} updated, ${rawInsertedCount} added)`);
+    }
+    if (deleteRawIds.length > 0) {
+      parts.push(`${deleteRawIds.length} stale raw row${deleteRawIds.length === 1 ? '' : 's'} removed`);
     }
     if (willUpdatePackaging) {
       const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
@@ -221,6 +313,65 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
             </SelectContent>
           </Select>
           <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
+        </div>
+
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                <Checkbox checked={replaceAllRaw} onCheckedChange={(v) => setReplaceAllRaw(!!v)} />
+                Replace ALL existing raw pieces (delete others)
+              </label>
+              <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addRawRow}>
+                <Plus className="h-3 w-3" /> Add raw
+              </Button>
+            </div>
+          </div>
+          {rawRows.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No raw piece overrides — add a row to overwrite raw pieces in selected SKUs.</div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                <div className="col-span-3">Raw piece name</div>
+                <div className="col-span-2">Vendor</div>
+                <div className="col-span-2">Qty / unit</div>
+                <div className="col-span-1">Units</div>
+                <div className="col-span-2">Cost INR</div>
+                <div className="col-span-2 text-center">Incl.</div>
+              </div>
+              {rawRows.map(r => (
+                <div key={r._key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-3">
+                    <Input value={r.component_name} onChange={e => updateRaw(r._key, { component_name: e.target.value })} placeholder="e.g. Mango wood seat" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Input value={r.vendor_name} onChange={e => updateRaw(r._key, { vendor_name: e.target.value })} placeholder="Vendor (optional)" className="h-8 text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" step="any" inputMode="decimal" value={r.components_per_product} onChange={e => updateRaw(r._key, { components_per_product: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-1">
+                    <Select value={r.units} onValueChange={(v) => updateRaw(r._key, { units: v })}>
+                      <SelectTrigger className="h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" step="any" inputMode="decimal" value={r.unit_cost_inr} onChange={e => updateRaw(r._key, { unit_cost_inr: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-2 flex items-center justify-center gap-1">
+                    <Checkbox checked={r.include === 'Yes'} onCheckedChange={(v) => updateRaw(r._key, { include: v ? 'Yes' : 'No' })} />
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeRawRow(r._key)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {knownNames.length > 0 && (
@@ -327,7 +478,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && packagingType === '__keep__')} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__')} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
