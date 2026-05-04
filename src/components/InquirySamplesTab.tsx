@@ -92,11 +92,17 @@ export function InquirySamplesTab({ inquiryId, refreshKey }: { inquiryId: string
   };
 
   if (samples.length === 0) {
-    return <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No samples yet.</CardContent></Card>;
+    return (
+      <div className="space-y-3">
+        <ReceivedRfsList inquiryId={inquiryId} />
+        <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No samples yet.</CardContent></Card>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-3">
+      <ReceivedRfsList inquiryId={inquiryId} />
       <div className="flex flex-wrap gap-1.5">
         {FILTERS.map(f => {
           const active = filter === f.key;
