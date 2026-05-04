@@ -367,8 +367,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const productsPerIc = cbm?.products_per_ic || 1;
 
   // Step 4: MC calcs with type-specific cost lookup
-  const packagingType: 'ic_only' | 'ic_mc' | 'corrugate_bubble' = product?.packaging_type || 'ic_mc';
+  const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
+  const noPackaging = packagingType === 'no_packaging';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
   const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
@@ -422,7 +423,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     },
   ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
 
-  const finalUnitCbm = packagingType === 'corrugate_bubble'
+  const finalUnitCbm = noPackaging
+    ? prePackCbm
+    : packagingType === 'corrugate_bubble'
     ? wrappingResult.final_unit_cbm
     : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
