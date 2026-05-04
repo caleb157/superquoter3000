@@ -81,3 +81,39 @@ export const STAGE_BUCKET_COLOR: Record<StageBucket, string> = {
   sampled: 'bg-teal-200 text-teal-950 dark:bg-teal-400/90 dark:text-teal-950',
   po: 'bg-emerald-300 text-emerald-950 dark:bg-emerald-400/90 dark:text-emerald-950',
 };
+
+/**
+ * Shared weighted-pipeline calculation. Used by both Dashboard and Analytics
+ * so the number is identical everywhere.
+ */
+export function computeWeightedPipeline(
+  products: Array<Pick<Product, 'id' | 'name' | 'quantity' | 'design_stage' | 'quote_stage' | 'sample_stage' | 'customer_rfq_id'>>,
+  inquiryStatusById: Record<string, string>,
+  pricing: Record<string, { unit_cost_usd: number; unit_price_usd: number }>,
+) {
+  let total = 0;
+  let profit = 0;
+  let counted = 0;
+  let skippedNoCost = 0;
+  let skippedNoQty = 0;
+  const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number; inquiryId: string | null }> = [];
+  for (const p of products) {
+    const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+    if (inqStatus !== 'active' && inqStatus !== 'po') continue;
+    const w = productWeight(p, inqStatus);
+    if (w === 0) continue;
+    const qty = p.quantity ?? 0;
+    if (qty === 0) { skippedNoQty += 1; continue; }
+    const cost = pricing[p.id]?.unit_cost_usd ?? 0;
+    if (cost === 0) { skippedNoCost += 1; continue; }
+    const price = pricing[p.id]?.unit_price_usd ?? 0;
+    const value = qty * cost * w;
+    total += value;
+    profit += qty * Math.max(0, price - cost) * w;
+    counted += 1;
+    contributors.push({ name: p.name, qty, cost, weight: w, value, inquiryId: p.customer_rfq_id });
+  }
+  contributors.sort((a, b) => b.value - a.value);
+  return { total, profit, counted, skippedNoCost, skippedNoQty, contributors };
+}
+
