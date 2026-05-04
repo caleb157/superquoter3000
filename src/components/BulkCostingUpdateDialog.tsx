@@ -161,7 +161,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('cogs_items').insert(inserts)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise]);
+    const packagingPromise = willUpdatePackaging
+      ? (supabase as any).from('products').update({ packaging_type: packagingType }).in('id', selectedProductIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -170,10 +174,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       return;
     }
 
-    toast.success(
-      `Applied ${validRows.length} row${validRows.length === 1 ? '' : 's'} to ${productCount} SKU${productCount === 1 ? '' : 's'} ` +
-      `(${updates.length} updated, ${inserts.length} added)`,
-    );
+    const parts: string[] = [];
+    if (validRows.length > 0) {
+      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length} updated, ${inserts.length} added)`);
+    }
+    if (willUpdatePackaging) {
+      const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
+      parts.push(`packaging → ${label}`);
+    }
+    toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
   };
