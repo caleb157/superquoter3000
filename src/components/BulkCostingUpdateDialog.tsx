@@ -10,8 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COGS_TYPES = ['Finishing Materials', 'Hardware', 'Wood', 'Components', 'Packaging', 'Other'];
+const COGS_TYPES = ['Raw Piece', 'Subcontracting', 'Finishing Materials', 'Packaging', 'Hardware', 'Accessories', 'Components', 'Wood', 'Other'];
 const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
+const PACKAGING_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: '__keep__', label: 'Keep current per product' },
+  { value: 'ic_only', label: 'IC only' },
+  { value: 'ic_mc', label: 'IC + MC' },
+  { value: 'corrugate_bubble', label: 'Corrugate + Bubble Wrap' },
+];
 
 type DraftRow = {
   _key: string;
@@ -46,6 +52,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [saving, setSaving] = useState(false);
   const [knownNames, setKnownNames] = useState<string[]>([]);
 
+  const [packagingType, setPackagingType] = useState<string>('__keep__');
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
@@ -67,7 +75,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   }, [open, selectedProductIds]);
 
   useEffect(() => {
-    if (open) setRows([newRow()]);
+    if (open) {
+      setRows([newRow()]);
+      setPackagingType('__keep__');
+    }
   }, [open]);
 
   const addRow = () => setRows(prev => [...prev, newRow()]);
@@ -82,7 +93,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const handleApply = async () => {
     if (productCount === 0) { toast.error('No products selected'); return; }
-    if (validRows.length === 0) { toast.error('Add at least one row with a name'); return; }
+    const willUpdatePackaging = packagingType !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging) {
+      toast.error('Add at least one row with a name, or pick a packaging type');
+      return;
+    }
 
     setSaving(true);
 
@@ -146,7 +161,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('cogs_items').insert(inserts)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise]);
+    const packagingPromise = willUpdatePackaging
+      ? (supabase as any).from('products').update({ packaging_type: packagingType }).in('id', selectedProductIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -155,10 +174,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       return;
     }
 
-    toast.success(
-      `Applied ${validRows.length} row${validRows.length === 1 ? '' : 's'} to ${productCount} SKU${productCount === 1 ? '' : 's'} ` +
-      `(${updates.length} updated, ${inserts.length} added)`,
-    );
+    const parts: string[] = [];
+    if (validRows.length > 0) {
+      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length} updated, ${inserts.length} added)`);
+    }
+    if (willUpdatePackaging) {
+      const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
+      parts.push(`packaging → ${label}`);
+    }
+    toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
   };
@@ -184,6 +208,19 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
               <Badge variant="outline" className="text-[10px]">+{selectedProductNames.length - 30} more</Badge>
             )}
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-md border p-2">
+          <Label className="text-xs whitespace-nowrap">Packaging type</Label>
+          <Select value={packagingType} onValueChange={setPackagingType}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PACKAGING_TYPE_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
         </div>
 
         {knownNames.length > 0 && (
@@ -290,7 +327,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || validRows.length === 0 || productCount === 0} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && packagingType === '__keep__')} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
