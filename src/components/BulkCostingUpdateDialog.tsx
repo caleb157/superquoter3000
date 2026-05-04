@@ -129,8 +129,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const handleApply = async () => {
     if (productCount === 0) { toast.error('No products selected'); return; }
     const willUpdatePackaging = packagingType !== '__keep__';
-    if (validRows.length === 0 && !willUpdatePackaging) {
-      toast.error('Add at least one row with a name, or pick a packaging type');
+    const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw) {
+      toast.error('Add at least one row, raw piece, or pick a packaging type');
       return;
     }
 
@@ -139,7 +140,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     // Pull all existing cogs_items for selected products in one shot — used to match by lower-cased name.
     const { data: existing, error: fetchErr } = await (supabase as any)
       .from('cogs_items')
-      .select('id, product_id, component_name, sort_order')
+      .select('id, product_id, component_name, sort_order, cogs_type')
       .in('product_id', selectedProductIds);
 
     if (fetchErr) {
@@ -150,6 +151,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
     const existingByProductByName = new Map<string, Map<string, { id: string; sort_order: number | null }>>();
     const maxSortByProduct = new Map<string, number>();
+    const rawIdsByProduct = new Map<string, string[]>();
     (existing || []).forEach((row: any) => {
       const pid = row.product_id;
       if (!existingByProductByName.has(pid)) existingByProductByName.set(pid, new Map());
@@ -157,10 +159,16 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       if (nameKey) existingByProductByName.get(pid)!.set(nameKey, { id: row.id, sort_order: row.sort_order ?? 0 });
       const cur = maxSortByProduct.get(pid) ?? 0;
       maxSortByProduct.set(pid, Math.max(cur, row.sort_order ?? 0));
+      if ((row.cogs_type || '') === 'Raw Piece') {
+        if (!rawIdsByProduct.has(pid)) rawIdsByProduct.set(pid, []);
+        rawIdsByProduct.get(pid)!.push(row.id);
+      }
     });
 
     const updates: Array<{ id: string; patch: any }> = [];
     const inserts: any[] = [];
+    let rawUpdatedCount = 0;
+    let rawInsertedCount = 0;
 
     for (const pid of selectedProductIds) {
       const productExisting = existingByProductByName.get(pid) ?? new Map();
@@ -176,7 +184,6 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           unit_cost_inr: Number(r.unit_cost_inr) || 0,
           units: r.units,
           include: r.include,
-          // Bulk-edited rows are manual, not auto-calculated
           is_auto_calculated: false,
         };
         if (match) {
@@ -186,9 +193,49 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           nextSort += 1;
         }
       }
+
+      // Raw pieces: overwrite by name across selected SKUs
+      for (const r of validRawRows) {
+        const nameKey = r.component_name.trim().toLowerCase();
+        const match = productExisting.get(nameKey);
+        const patch: any = {
+          cogs_type: 'Raw Piece',
+          component_name: r.component_name.trim(),
+          components_per_product: Number(r.components_per_product) || 0,
+          unit_cost_inr: Number(r.unit_cost_inr) || 0,
+          units: r.units,
+          include: r.include,
+          vendor_name: r.vendor_name?.trim() || null,
+          is_auto_calculated: false,
+        };
+        if (match) {
+          updates.push({ id: match.id, patch });
+          rawUpdatedCount += 1;
+        } else {
+          inserts.push({ ...patch, product_id: pid, sort_order: nextSort });
+          nextSort += 1;
+          rawInsertedCount += 1;
+        }
+      }
     }
 
-    // Run updates + inserts in parallel batches
+    // Optional: clear pre-existing Raw Piece rows that aren't in the new set, per product
+    const deleteRawIds: string[] = [];
+    if (replaceAllRaw) {
+      const newNameKeys = new Set(validRawRows.map(r => r.component_name.trim().toLowerCase()));
+      for (const pid of selectedProductIds) {
+        const existingRawIds = rawIdsByProduct.get(pid) ?? [];
+        const productExisting = existingByProductByName.get(pid) ?? new Map();
+        // Build reverse map id -> name
+        const nameByMatchId = new Map<string, string>();
+        productExisting.forEach((v, k) => nameByMatchId.set(v.id, k));
+        for (const id of existingRawIds) {
+          const nameKey = nameByMatchId.get(id) ?? '';
+          if (!newNameKeys.has(nameKey)) deleteRawIds.push(id);
+        }
+      }
+    }
+
     const updatePromises = updates.map(u =>
       (supabase as any).from('cogs_items').update(u.patch).eq('id', u.id),
     );
@@ -200,7 +247,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('products').update({ packaging_type: packagingType }).in('id', selectedProductIds)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise]);
+    const deletePromise = deleteRawIds.length > 0
+      ? (supabase as any).from('cogs_items').delete().in('id', deleteRawIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -211,7 +262,13 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
     const parts: string[] = [];
     if (validRows.length > 0) {
-      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length} updated, ${inserts.length} added)`);
+      parts.push(`${validRows.length} row${validRows.length === 1 ? '' : 's'} (${updates.length - rawUpdatedCount} updated, ${inserts.length - rawInsertedCount} added)`);
+    }
+    if (validRawRows.length > 0) {
+      parts.push(`${validRawRows.length} raw piece${validRawRows.length === 1 ? '' : 's'} (${rawUpdatedCount} updated, ${rawInsertedCount} added)`);
+    }
+    if (deleteRawIds.length > 0) {
+      parts.push(`${deleteRawIds.length} stale raw row${deleteRawIds.length === 1 ? '' : 's'} removed`);
     }
     if (willUpdatePackaging) {
       const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
