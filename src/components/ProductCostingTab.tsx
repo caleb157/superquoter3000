@@ -737,9 +737,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
-    include: item.include,
+    include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
     labor_type: item.labor_type,
-    man_hours_per_unit: item.man_hours_per_unit || 0,
+    man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : item.man_hours_per_unit || 0,
     hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
   }));
   const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
@@ -773,7 +773,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // COGS calculations (Step 12)
   const cogsPerUnit = cogsItems
-    .filter(i => i.include !== 'No')
+    .filter(i => i.include !== 'No' && !(noPackaging && i.cogs_type === 'Packaging'))
     .reduce((sum, item) => {
       const c = calc.calcCogsItemCost({
         include: item.include,
