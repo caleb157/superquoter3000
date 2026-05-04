@@ -654,10 +654,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
     const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
 
-    const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
+    const ohUpdates: { id: string; man_hours_per_unit: number; include?: string }[] = [];
 
     overheadItems.forEach(item => {
-      if (!item.is_auto_estimated || item.include === 'No') return;
+      if (!item.is_auto_estimated) return;
+      if (noPackaging && item.labor_type === 'Packaging') {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: 0, include: 'No' });
+        return;
+      }
+      if (item.include === 'No') return;
       if (item.labor_type === 'Finishing' && finishingMh > 0) {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
       } else if (item.labor_type === 'Packaging') {
@@ -672,7 +677,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         return { ...item, man_hours_per_unit: upd.man_hours_per_unit };
       }));
       ohUpdates.forEach(upd => {
-        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
+        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
       });
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, noPackaging, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
