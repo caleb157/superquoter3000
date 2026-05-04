@@ -11,6 +11,8 @@ type Props = {
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
+  onLogRfq?: () => void;
+  onLogRfs?: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
