@@ -37,7 +37,7 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
   return null;
 };
 
-const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && item.include !== 'No' ? (item.include || 'Yes') : 'No';
+const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
 
 const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
   <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
