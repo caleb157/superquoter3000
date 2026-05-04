@@ -129,7 +129,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const resetForm = () => {
     setMode('inquiry');
     setInquiryId(null); setProductId(null); setCustomerId(null);
-    setTitle(''); setDescription(''); setAssignee('unassigned');
+    setTitle(''); setDescription(''); setAssignee(assigneeCode || 'unassigned');
     setDueDate(''); setPriority('normal'); setStatus('open');
     setPhotoUrls([]);
   };
