@@ -338,7 +338,7 @@ const Dashboard = () => {
                   onClick={() => setShowPipelineDebug(v => !v)}
                   className="text-[10px] text-muted-foreground/70 hover:text-foreground mt-1.5 underline-offset-2 hover:underline"
                 >
-                  {showPipelineDebug ? 'hide debug' : 'debug'}
+                  {showPipelineDebug ? 'hide summary' : 'summary'}
                 </button>
                 {showPipelineDebug && (
                   <div className="text-[10px] text-muted-foreground mt-1.5 space-y-0.5 leading-snug">
