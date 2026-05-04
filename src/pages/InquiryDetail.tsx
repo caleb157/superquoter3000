@@ -330,6 +330,7 @@ export default function InquiryDetail() {
               initialFilter={productFilter}
               onFilterChange={setProductFilter}
               onChange={() => setRefreshKey(k => k + 1)}
+              refreshKey={refreshKey}
             />
           </TabsContent>
 
