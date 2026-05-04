@@ -366,7 +366,7 @@ const CustomerQuote = () => {
         );
       })()}
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0 print-fit">
 
         {/* ============ HEADER BAND ============ */}
         <header className="bg-white border border-slate-200 rounded-t-lg p-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 print-shadow-none print-border-light">
