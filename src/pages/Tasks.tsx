@@ -22,19 +22,24 @@ export default function Tasks() {
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
   const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
-  const [assigneeDefaulted, setAssigneeDefaulted] = useState(false);
+  const userTouchedAssignee = useRef(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
   const [sort, setSort] = useState<TaskSortKey>('due_date');
   const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
 
-  // Default the assignee filter to the signed-in user's code (only once, on first arrival).
+  // Default the assignee filter to the signed-in user's code as soon as it arrives,
+  // unless the user has already manually picked a different value.
   useEffect(() => {
-    if (!assigneeDefaulted && assigneeCode) {
+    if (assigneeCode && !userTouchedAssignee.current) {
       setFilterAssignee(assigneeCode);
-      setAssigneeDefaulted(true);
     }
-  }, [assigneeCode, assigneeDefaulted]);
+  }, [assigneeCode]);
+
+  const handleAssigneeChange = (v: string) => {
+    userTouchedAssignee.current = true;
+    setFilterAssignee(v);
+  };
 
   const toggleSort = (key: TaskSortKey) => {
     if (sort === key) {
