@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function SalesDashboard({ range }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [drill, setDrill] = useState<DrillKey>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
