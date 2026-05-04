@@ -74,6 +74,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const [packagingType, setPackagingType] = useState<string>('__keep__');
 
+  const [rawRows, setRawRows] = useState<RawRow[]>([]);
+  const [replaceAllRaw, setReplaceAllRaw] = useState(false);
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
@@ -98,6 +101,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (open) {
       setRows([newRow()]);
       setPackagingType('__keep__');
+      setRawRows([]);
+      setReplaceAllRaw(false);
     }
   }, [open]);
 
@@ -105,6 +110,16 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r._key !== key));
   const update = (key: string, patch: Partial<DraftRow>) =>
     setRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+
+  const addRawRow = () => setRawRows(prev => [...prev, newRawRow()]);
+  const removeRawRow = (key: string) => setRawRows(prev => prev.filter(r => r._key !== key));
+  const updateRaw = (key: string, patch: Partial<RawRow>) =>
+    setRawRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+
+  const validRawRows = useMemo(
+    () => rawRows.filter(r => r.component_name.trim().length > 0),
+    [rawRows],
+  );
 
   const validRows = useMemo(
     () => rows.filter(r => r.component_name.trim().length > 0),
