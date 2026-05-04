@@ -26,6 +26,19 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+
+const packagingIncludeForType = (packagingType: string, componentName: string, forceAllOff = false): boolean | null => {
+  const name = (componentName || '').toLowerCase();
+  if (packagingType === 'no_packaging' || forceAllOff) return false;
+  if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return packagingType === 'ic_only' || packagingType === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc';
+  if (name === 'corrugate wrap' || name === 'bubble wrap') return packagingType === 'corrugate_bubble';
+  return null;
+};
+
+const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
+
 const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
   <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
@@ -148,13 +161,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!hasCogs(n => n.includes('lacquer'))) {
         cogsToInsert.push({ product_id: id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
       }
+      const pkgType: string = product?.packaging_type || 'ic_mc';
       if (!hasCogs(n => n.includes('ic box') || n.includes('inner carton') || n === 'ic')) {
-        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, include: 'Yes', sort_order: s++ });
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, include: packagingIncludeForType(pkgType, 'IC Box') ? 'Yes' : 'No', sort_order: s++ });
       }
       if (!hasCogs(n => n.includes('mc box') || n.includes('master carton') || n.includes('outer carton'))) {
-        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+        cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, include: packagingIncludeForType(pkgType, 'MC Box') ? 'Yes' : 'No', sort_order: s++ });
       }
-      const pkgType: string = product?.packaging_type || 'ic_mc';
       if (pkgType === 'corrugate_bubble') {
         if (!hasCogs(n => n === 'corrugate wrap')) {
           cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Corrugate Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
@@ -354,8 +367,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const productsPerIc = cbm?.products_per_ic || 1;
 
   // Step 4: MC calcs with type-specific cost lookup
-  const packagingType: 'ic_only' | 'ic_mc' | 'corrugate_bubble' = product?.packaging_type || 'ic_mc';
+  const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
+  const noPackaging = packagingType === 'no_packaging';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
   const autoMcResult = calc.calcMCPacking({
     include_mc: includeMc,
@@ -409,7 +423,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     },
   ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
 
-  const finalUnitCbm = packagingType === 'corrugate_bubble'
+  const finalUnitCbm = noPackaging
+    ? prePackCbm
+    : packagingType === 'corrugate_bubble'
     ? wrappingResult.final_unit_cbm
     : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
@@ -522,6 +538,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
     const isWrapMode = packagingType === 'corrugate_bubble';
     const isIcOnly = packagingType === 'ic_only';
+    const isNoPackaging = packagingType === 'no_packaging';
 
     const updates: { id: string; components_per_product: number; unit_cost_inr: number; include: string; waste_factor: number; units?: string }[] = [];
 
@@ -529,38 +546,41 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!item.is_auto_calculated) return;
       const name = (item.component_name || '').toLowerCase();
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
+        const defaultIncluded = !isNoPackaging && !isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: !isWrapMode && productsPerIc > 0 ? 1 / productsPerIc : 0,
-          unit_cost_inr: isWrapMode ? 0 : icCost,
-          include: isWrapMode ? 'No' : 'Yes',
+          components_per_product: defaultIncluded && productsPerIc > 0 ? 1 / productsPerIc : 0,
+          unit_cost_inr: defaultIncluded ? icCost : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0.05,
         });
       } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
         const ppmc = mcResult.products_per_mc || 1;
-        const useMc = !isWrapMode && !isIcOnly && ppmc > 0;
+        const useMc = !isNoPackaging && !isWrapMode && !isIcOnly && ppmc > 0;
         updates.push({
           id: item.id,
           components_per_product: useMc ? 1 / ppmc : 0,
           unit_cost_inr: useMc ? mcCost : 0,
-          include: useMc ? 'Yes' : 'No',
+          include: preserveManualNo(item, useMc),
           waste_factor: 0,
         });
       } else if (name === 'corrugate wrap') {
+        const defaultIncluded = !isNoPackaging && isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: isWrapMode ? wrappingResult.corrugate_kg : 0,
-          unit_cost_inr: isWrapMode ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
-          include: isWrapMode ? 'Yes' : 'No',
+          components_per_product: defaultIncluded ? wrappingResult.corrugate_kg : 0,
+          unit_cost_inr: defaultIncluded ? (globalSettings?.corrugate_price_per_kg ?? 0) : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0,
           units: 'KG',
         });
       } else if (name === 'bubble wrap') {
+        const defaultIncluded = !isNoPackaging && isWrapMode;
         updates.push({
           id: item.id,
-          components_per_product: isWrapMode ? wrappingResult.bubble_kg : 0,
-          unit_cost_inr: isWrapMode ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
-          include: isWrapMode ? 'Yes' : 'No',
+          components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
+          unit_cost_inr: defaultIncluded ? (globalSettings?.bubble_price_per_kg ?? 0) : 0,
+          include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0,
           units: 'KG',
         });
@@ -632,15 +652,20 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
 
     // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
-    const packagingMh = calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
 
-    const ohUpdates: { id: string; man_hours_per_unit: number }[] = [];
+    const ohUpdates: { id: string; man_hours_per_unit: number; include?: string }[] = [];
 
     overheadItems.forEach(item => {
-      if (!item.is_auto_estimated || item.include === 'No') return;
+      if (!item.is_auto_estimated) return;
+      if (noPackaging && item.labor_type === 'Packaging') {
+        ohUpdates.push({ id: item.id, man_hours_per_unit: 0, include: 'No' });
+        return;
+      }
+      if (item.include === 'No') return;
       if (item.labor_type === 'Finishing' && finishingMh > 0) {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(finishingMh.toFixed(4)) });
-      } else if (item.labor_type === 'Packaging' && packagingMh > 0) {
+      } else if (item.labor_type === 'Packaging') {
         ohUpdates.push({ id: item.id, man_hours_per_unit: parseFloat(packagingMh.toFixed(4)) });
       }
     });
@@ -649,13 +674,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       setOverheadItems(prev => prev.map(item => {
         const upd = ohUpdates.find(u => u.id === item.id);
         if (!upd) return item;
-        return { ...item, man_hours_per_unit: upd.man_hours_per_unit };
+        return { ...item, man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) };
       }));
       ohUpdates.forEach(upd => {
-        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit }).eq('id', upd.id);
+        (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, noPackaging, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
@@ -717,9 +742,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
-    include: item.include,
+    include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
     labor_type: item.labor_type,
-    man_hours_per_unit: item.man_hours_per_unit || 0,
+    man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : item.man_hours_per_unit || 0,
     hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
   }));
   const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
@@ -753,7 +778,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // COGS calculations (Step 12)
   const cogsPerUnit = cogsItems
-    .filter(i => i.include !== 'No')
+    .filter(i => i.include !== 'No' && !(noPackaging && i.cogs_type === 'Packaging'))
     .reduce((sum, item) => {
       const c = calc.calcCogsItemCost({
         include: item.include,
@@ -810,6 +835,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
     // If user edits an auto-calculated field, mark it as manual
     const updates: any = { [field]: value };
+    const item = cogsItems.find(i => i.id === itemId);
+    if (field === 'include' && item?.cogs_type === 'Packaging' && value === 'No') {
+      updates.is_auto_calculated = false;
+    }
     if (field === 'components_per_product' || field === 'unit_cost_inr') {
       updates.is_auto_calculated = false;
     }
@@ -996,6 +1025,26 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
                       updateCbm('include_mc', nextIncludeMc);
                     }
+                    const packagingUpdates = cogsItems
+                      .filter(item => item.cogs_type === 'Packaging')
+                      .map(item => ({ id: item.id, include: packagingIncludeForType(v, item.component_name, v === 'no_packaging') }));
+                    const validPackagingUpdates = packagingUpdates.filter(update => update.include !== null);
+                    if (validPackagingUpdates.length > 0) {
+                      setCogsItems(items => items.map(item => {
+                        const update = validPackagingUpdates.find(u => u.id === item.id);
+                        return update ? { ...item, include: update.include ? 'Yes' : 'No' } : item;
+                      }));
+                      validPackagingUpdates.forEach(update => {
+                        (supabase as any).from('cogs_items').update({ include: update.include ? 'Yes' : 'No' }).eq('id', update.id);
+                      });
+                    }
+                    if (v === 'no_packaging') {
+                      const packagingOverheadIds = overheadItems.filter(item => item.labor_type === 'Packaging').map(item => item.id);
+                      if (packagingOverheadIds.length > 0) {
+                        setOverheadItems(items => items.map(item => packagingOverheadIds.includes(item.id) ? { ...item, include: 'No', man_hours_per_unit: 0 } : item));
+                        (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
+                      }
+                    }
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -1003,6 +1052,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <SelectItem value="ic_only">IC only</SelectItem>
                     <SelectItem value="ic_mc">IC + MC</SelectItem>
                     <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                    <SelectItem value="no_packaging">No packaging</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
