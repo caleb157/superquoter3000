@@ -238,23 +238,88 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
           label="Avg RFQ → Quote"
           value={fmtDays(avg(rfqQuotePairs.map(p => p.days)))}
           sublabel={`${rfqQuotePairs.length} pairs · median ${fmtDays(median(rfqQuotePairs.map(p => p.days)))}`}
+          onClick={rfqQuotePairs.length ? () => setDrill('rfqQuote') : undefined}
         />
         <MetricCard
           label="Avg Sample Cycle"
           value={fmtDays(avg(sampleCycles))}
           sublabel={`${sampleCycles.length} completed · median ${fmtDays(median(sampleCycles))}`}
+          onClick={sampleCycleRows.length ? () => setDrill('sampleCycle') : undefined}
         />
         <MetricCard
           label="Pending RFQs"
           value={pendingRfqsInRange.length}
           sublabel="Received in range, no quote yet"
+          onClick={pendingRfqsInRange.length ? () => setDrill('pendingRfqs') : undefined}
         />
         <MetricCard
           label="Pending Samples"
           value={pendingSamples.length}
           sublabel="Across all time"
+          onClick={pendingSamples.length ? () => setDrill('pendingSamples') : undefined}
         />
       </div>
+
+      <DrillDownDialog
+        open={drill === 'rfqQuote'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="RFQ → Quote pairs in range"
+        description="One row per RFQ that received a quote response with response date inside the selected range."
+        rows={rfqQuotePairs}
+        rowKey={(r) => r.receivedRfqId}
+        onRowClick={(r) => navigate(`/inquiry/${r.inquiryId}?tab=quotes`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => inqLabel(r.inquiryId) },
+          { header: 'Received', cell: (r: any) => r.receivedAt },
+          { header: 'Responded', cell: (r: any) => new Date(r.respondedAt).toLocaleDateString() },
+          { header: 'Days', align: 'right', cell: (r: any) => r.days.toFixed(1) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'sampleCycle'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Completed sample cycles in range"
+        description="Samples with completed_at inside the selected range."
+        rows={sampleCycleRows}
+        rowKey={(r) => r.sampleId}
+        onRowClick={(r) => navigate(`/product/${r.productId}?tab=sample-log`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => r.productName },
+          { header: 'Inquiry · Customer', cell: (r: any) => `${r.rfqNumber} · ${r.customerName}` },
+          { header: 'Vendor', cell: (r: any) => r.vendorName },
+          { header: 'Days', align: 'right', cell: (r: any) => r.days.toFixed(1) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'pendingRfqs'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Pending RFQs (received in range)"
+        description="RFQs received during the selected range that have no quote response yet."
+        rows={pendingRfqsInRange}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/inquiry/${r.inquiry_id}?tab=quotes`)}
+        columns={[
+          { header: 'Inquiry', cell: (r: any) => inqLabel(r.inquiry_id) },
+          { header: 'Received', cell: (r: any) => r.received_date },
+          { header: 'Days waiting', align: 'right', cell: (r: any) => Math.round((Date.now() - new Date(r.received_date + 'T00:00:00Z').getTime()) / 86400000) },
+        ]}
+      />
+      <DrillDownDialog
+        open={drill === 'pendingSamples'}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title="Pending samples"
+        description="All samples currently in pending status (across all time)."
+        rows={pendingSamples}
+        rowKey={(r) => r.id}
+        onRowClick={(r) => navigate(`/product/${r.product_id}?tab=sample-log`)}
+        columns={[
+          { header: 'Product', cell: (r: any) => productById[r.product_id]?.name || 'Unknown' },
+          { header: 'Vendor', cell: (r: any) => r.vendor_id ? (vendorById[r.vendor_id]?.name || '—') : 'no vendor' },
+          { header: 'Requested', cell: (r: any) => r.requested_date || '—' },
+          { header: 'Days waiting', align: 'right', cell: (r: any) => r.requested_date ? Math.round((Date.now() - new Date(r.requested_date + 'T00:00:00Z').getTime()) / 86400000) : '—' },
+        ]}
+      />
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Slow quotes */}
