@@ -835,6 +835,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
     // If user edits an auto-calculated field, mark it as manual
     const updates: any = { [field]: value };
+    const item = cogsItems.find(i => i.id === itemId);
+    if (field === 'include' && item?.cogs_type === 'Packaging' && value === 'No') {
+      updates.is_auto_calculated = false;
+    }
     if (field === 'components_per_product' || field === 'unit_cost_inr') {
       updates.is_auto_calculated = false;
     }
