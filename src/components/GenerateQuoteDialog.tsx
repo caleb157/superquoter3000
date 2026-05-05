@@ -245,36 +245,58 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           </div>
         </div>
         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-          {products.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-6 text-center">No products in this inquiry.</div>
+          {products.length === 0 && assemblies.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-6 text-center">No products or assemblies in this inquiry.</div>
           ) : (
             <>
-              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground border-b">
-                <Checkbox checked={allSelected} onCheckedChange={(v) => toggleAll(!!v)} />
-                <span className="flex-1">Select all / none</span>
-              </div>
-              {products.map(p => {
-                const stage = p.quote_stage ? QUOTE_STAGE_LABEL[p.quote_stage] : null;
-                return (
-                  <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted/50 rounded cursor-pointer">
-                    <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
-                    <span className="flex-1 min-w-0 truncate">
-                      {p.name}
-                      {p.sku && <span className="ml-2 italic text-[11px] text-muted-foreground/70">{p.sku}</span>}
-                    </span>
-                    <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">{p.quantity ?? 0}</span>
-                    {stage && <Badge variant="secondary" className={`text-[10px] ${stage.cls}`}>{stage.label}</Badge>}
-                  </label>
-                );
-              })}
+              {products.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground border-b">
+                    <Checkbox checked={allSelected} onCheckedChange={(v) => toggleAll(!!v)} />
+                    <span className="flex-1">Products — select all / none</span>
+                  </div>
+                  {products.map(p => {
+                    const stage = p.quote_stage ? QUOTE_STAGE_LABEL[p.quote_stage] : null;
+                    return (
+                      <label key={p.id} className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted/50 rounded cursor-pointer">
+                        <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
+                        <span className="flex-1 min-w-0 truncate">
+                          {p.name}
+                          {p.sku && <span className="ml-2 italic text-[11px] text-muted-foreground/70">{p.sku}</span>}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">{p.quantity ?? 0}</span>
+                        {stage && <Badge variant="secondary" className={`text-[10px] ${stage.cls}`}>{stage.label}</Badge>}
+                      </label>
+                    );
+                  })}
+                </>
+              )}
+              {assemblies.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground border-b mt-2">
+                    <span className="flex-1">Assemblies (kits)</span>
+                  </div>
+                  {assemblies.map(a => (
+                    <label key={a.id} className="flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted/50 rounded cursor-pointer">
+                      <Checkbox checked={selectedAsm.has(a.id)} onCheckedChange={(v) => toggleAsm(a.id, !!v)} />
+                      <span className="flex-1 min-w-0 truncate">
+                        {a.name}
+                        {a.sku && <span className="ml-2 italic text-[11px] text-muted-foreground/70">{a.sku}</span>}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">{a.components.length} comp</Badge>
+                      <span className="text-xs text-muted-foreground tabular-nums w-12 text-right">{a.quantity ?? 0}</span>
+                    </label>
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>
         <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+          <span className="text-xs text-muted-foreground">{totalSelected} selected</span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={selected.size === 0 || saving || !entityId}>
+            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId}>
               {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
@@ -283,9 +305,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       <QuotePriceReviewDialog
         open={reviewOpen}
         onOpenChange={(o) => { if (!o) { setReviewOpen(false); setSaving(false); } }}
-        selectedProducts={products.filter(p => selected.has(p.id)).map(p => ({
-          id: p.id, name: p.name, quantity: p.quantity, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
-        }))}
+        selectedProducts={reviewItems}
         currency={currency}
         onConfirm={handleReviewConfirm}
         saving={saving}
