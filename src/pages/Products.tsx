@@ -148,7 +148,7 @@ const Products = () => {
       if (stageParam) {
         const inqStatus = p.customer_rfq_id ? inquiryStatusMap[p.customer_rfq_id] : null;
         if (inqStatus === 'cancelled' || inqStatus === 'complete') return false;
-        if (furthestStageBucket(p, inqStatus) !== stageParam) return false;
+        if (!productStageBuckets(p, inqStatus).includes(stageParam)) return false;
       }
       return true;
     });
