@@ -12,6 +12,7 @@ import { Layers, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
 
 type Assembly = {
   id: string;
@@ -37,6 +38,7 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
   const [refresh, setRefresh] = useState(0);
   const [inquiryProducts, setInquiryProducts] = useState<{ id: string; name: string; sku: string | null }[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({}); // productId -> qty/asm
+  const [quoteOpen, setQuoteOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -126,9 +128,16 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
         <p className="text-sm text-muted-foreground">
           Bundle multiple products into a single sellable kit (e.g. dining set, bed package).
         </p>
-        <Button size="sm" onClick={openCreate} className="gap-1.5">
-          <Plus className="h-4 w-4" /> New assembly
-        </Button>
+        <div className="flex items-center gap-2">
+          {assemblies.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setQuoteOpen(true)}>
+              Generate quote
+            </Button>
+          )}
+          <Button size="sm" onClick={openCreate} className="gap-1.5">
+            <Plus className="h-4 w-4" /> New assembly
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -264,6 +273,13 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <GenerateQuoteDialog
+        open={quoteOpen}
+        onOpenChange={setQuoteOpen}
+        inquiryId={inquiryId}
+        onCreated={() => setRefresh(r => r + 1)}
+      />
     </div>
   );
 }
