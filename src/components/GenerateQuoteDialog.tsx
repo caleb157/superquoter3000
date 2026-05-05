@@ -121,11 +121,50 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setReviewOpen(true);
   };
 
+  const [reviewItems, setReviewItems] = useState<any[]>([]);
+  const buildReviewItems = async () => {
+    const prods = products.filter(p => selected.has(p.id)).map(p => ({
+      id: p.id, name: p.name, quantity: p.quantity, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+    }));
+    const chosenAsm = assemblies.filter(a => selectedAsm.has(a.id));
+    if (chosenAsm.length === 0) { setReviewItems(prods); return; }
+    // Compute component-driven reference price for each assembly (in display currency)
+    const allCompIds = Array.from(new Set(chosenAsm.flatMap(a => a.components.map(c => c.product_id))));
+    const priceMap = await computeProductUnitPrices(allCompIds);
+    const fx = (Object.values(priceMap)[0] as any)?.exchange_rate ?? 90;
+    const asmItems = chosenAsm.map(a => {
+      const unitCostUsd = a.components.reduce((sum, c) => {
+        const entry = priceMap[c.product_id];
+        const costUsd = entry?.unit_cost_usd ?? 0;
+        return sum + costUsd * (c.quantity_per_assembly || 1);
+      }, 0);
+      const markup = a.markup_percent ?? 0.2;
+      const usdPrice = unitCostUsd * (1 + markup);
+      const refPrice = currency === 'INR' ? usdPrice * fx : usdPrice;
+      return {
+        id: a.id,
+        name: a.name,
+        quantity: a.quantity,
+        is_assembly: true,
+        reference_price_usd: refPrice, // in display currency
+      };
+    });
+    setReviewItems([...prods, ...asmItems]);
+  };
+
+  useEffect(() => {
+    if (reviewOpen) { buildReviewItems(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewOpen]);
+
   const handleReviewConfirm = async (lines: QuoteProductInput[]) => {
     setPendingLines(lines);
     setSaving(true);
-    const productIds = Array.from(new Set(lines.map(l => l.id)));
-    const plan = await getHardwareSyncPlan(productIds);
+    // Only sync hardware for real product lines (not assemblies)
+    const productIds = Array.from(new Set(lines.filter(l => !l.assembly_id).map(l => l.id)));
+    const plan = productIds.length > 0
+      ? await getHardwareSyncPlan(productIds)
+      : { newItems: [], conflicts: [] } as HardwareSyncPlan;
     if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
       await finalizeQuote([], lines);
       return;
