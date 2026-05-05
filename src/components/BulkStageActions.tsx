@@ -68,6 +68,11 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       {onLogRfs && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onLogRfs}>Log RFS</Button>
       )}
+      {onCopyToInquiry && (
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={onCopyToInquiry}>
+          <Copy className="h-3.5 w-3.5" /> Copy to inquiry
+        </Button>
+      )}
       <Button size="sm" className="h-8 text-xs" onClick={onGenerateQuote}>Generate Quote</Button>
       <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={onGenerateSamples}>{sampleLabel}</Button>
     </div>
