@@ -26,6 +26,7 @@ import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-sh
 
 import {
   furthestStageBucket,
+  productStageBuckets,
   productWeight,
   STAGE_BUCKET_LABELS,
   STAGE_BUCKET_ORDER,
@@ -175,7 +176,7 @@ const Dashboard = () => {
     for (const p of products) {
       const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
       if (inqStatus === 'cancelled' || inqStatus === 'complete') continue;
-      counts[furthestStageBucket(p, inqStatus)] += 1;
+      for (const b of productStageBuckets(p, inqStatus)) counts[b] += 1;
     }
     return counts;
   }, [products, inquiryStatusById]);

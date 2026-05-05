@@ -46,6 +46,29 @@ export function furthestStageBucket(
   return 'not_started';
 }
 
+/**
+ * Returns ALL stage buckets a product currently belongs to (a product can be
+ * simultaneously Designed, Quoting, Sampling, etc.). Used by the Dashboard
+ * stage tiles and the Products page stage filter so a product shows up in
+ * every applicable column rather than only its furthest stage.
+ */
+export function productStageBuckets(
+  p: Pick<Product, 'design_stage' | 'quote_stage' | 'sample_stage'>,
+  inquiryStatus?: string | null,
+): StageBucket[] {
+  const buckets: StageBucket[] = [];
+  if (inquiryStatus === 'po') buckets.push('po');
+  if (p.sample_stage === 'sampled') buckets.push('sampled');
+  if (p.sample_stage === 'sampling') buckets.push('sampling');
+  if (p.quote_stage === 'quoted') buckets.push('quoted');
+  if (p.quote_stage === 'ready_for_quote') buckets.push('ready_for_quote');
+  if (p.quote_stage === 'quoting') buckets.push('quoting');
+  if (p.design_stage === 'designed') buckets.push('designed');
+  if (p.design_stage === 'need_design') buckets.push('need_design');
+  if (buckets.length === 0) buckets.push('not_started');
+  return buckets;
+}
+
 export const STAGE_BUCKET_LABELS: Record<StageBucket, string> = {
   not_started: 'Not Started',
   need_design: 'Need Design',
