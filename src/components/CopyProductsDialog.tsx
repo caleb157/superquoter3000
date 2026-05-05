@@ -38,12 +38,14 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({});
   const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setSearch('');
     setSelected(new Set());
+    setNameOverrides({});
     setLoading(true);
     (async () => {
       const { data } = await supabase
