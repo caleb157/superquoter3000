@@ -1,22 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export type QuoteProductInput = {
-  // Source product (variants ride on the same id, with a different display_name + variant_id)
   id: string;
   name: string;
   sku?: string | null;
   quantity?: number | null;
-  // If provided, this is the unit price the quote should use, in the *display* currency
-  // (USD or INR depending on `currency`). Lets the user override calculated price.
   unit_price_override?: number | null;
-  // Fallback (legacy) — USD-only target price, gets converted if currency is INR.
   target_price_usd?: number | null;
   markup_percent?: number | null;
-  // Optional: render this label/photo instead of the product's defaults (used for variants)
   display_name?: string | null;
   display_photo_url?: string | null;
   variant_id?: string | null;
   variant_name?: string | null;
+  // When set, `id` is product_assemblies.id (not products.id) and the snapshot
+  // line will include an exploded components list with each component's box size.
+  assembly_id?: string | null;
 };
 
 export type CreateQuoteParams = {
