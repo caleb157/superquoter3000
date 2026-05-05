@@ -50,7 +50,9 @@ const QUOTE_STAGE_LABEL: Record<string, { label: string; cls: string }> = {
 
 export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumber, onCreated }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [assemblies, setAssemblies] = useState<AssemblyLite[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set()); // products
+  const [selectedAsm, setSelectedAsm] = useState<Set<string>>(new Set()); // assemblies
   const [entities, setEntities] = useState<Entity[]>([]);
   const [entityId, setEntityId] = useState<string>('');
   const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
