@@ -15,6 +15,10 @@ type SelectedProduct = {
   quantity?: number | null;
   target_price_usd?: number | null;
   markup_percent?: number | null;
+  // Assembly support: when true, `id` is product_assemblies.id and we skip
+  // variant lookup + use the supplied reference price directly.
+  is_assembly?: boolean;
+  reference_price_usd?: number | null;
 };
 
 type Variant = {
