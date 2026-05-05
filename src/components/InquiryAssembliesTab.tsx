@@ -20,8 +20,10 @@ type Assembly = {
   quantity: number;
   moq: number | null;
   target_price_usd: number | null;
+  markup_percent: number | null;
   updated_at: string | null;
   components_count?: number;
+  current_unit_price_usd?: number;
 };
 
 export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
