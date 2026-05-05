@@ -105,6 +105,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
+  const [copyToOpen, setCopyToOpen] = useState(false);
   const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
