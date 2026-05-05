@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChevronDown, X, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, Copy } from 'lucide-react';
 import { STAGE_OPTIONS, STAGE_LABEL, type StageTrack } from '@/components/ProductStagePills';
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
   onBulkQuantity?: () => void;
   onLogRfq?: () => void;
   onLogRfs?: () => void;
+  onCopyToInquiry?: () => void;
 };
 
 function StageDropdown({ track, label, onSet }: { track: StageTrack; label: string; onSet: (track: StageTrack, stage: string | null) => void }) {
