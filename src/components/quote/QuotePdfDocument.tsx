@@ -1,6 +1,16 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 
 // ---- Types (kept loose to mirror CustomerQuote.tsx) ----
+export interface QuotePdfComponent {
+  name: string;
+  sku?: string | null;
+  quantity_per_assembly: number;
+  width_inch?: number | null;
+  depth_inch?: number | null;
+  height_inch?: number | null;
+  box_size?: string | null;
+}
+
 export interface QuotePdfProduct {
   name: string;
   sku?: string | null;
@@ -13,6 +23,9 @@ export interface QuotePdfProduct {
   depth_inch?: number | null;
   height_inch?: number | null;
   weight_kg?: number | null;
+  box_size?: string | null;
+  is_assembly?: boolean;
+  components?: QuotePdfComponent[];
 }
 
 export interface QuotePdfEntity {
@@ -379,20 +392,35 @@ const QuotePdfDocument = ({
                     // eslint-disable-next-line jsx-a11y/alt-text
                     <Image src={p.photo_url} style={s.thumb} />
                   ) : (
-                    <View style={s.thumbFallback}><Text style={{ color: C.light, fontSize: 12 }}>📦</Text></View>
+                    <View style={s.thumbFallback}><Text style={{ color: C.light, fontSize: 12 }}>{'\u25A0'}</Text></View>
                   )}
                 </View>
                 <View style={{ flex: 1, paddingLeft: 8, paddingRight: 6 }}>
-                  <Text style={s.pName}>{p.name}</Text>
+                  <Text style={s.pName}>{p.name}{p.is_assembly ? ' (Kit)' : ''}</Text>
                   {p.sku ? <Text style={s.pSku}>{p.sku}</Text> : null}
                   <Text style={s.pSpecs}>
                     {[
                       dims,
                       p.weight_kg ? `${p.weight_kg} kg` : null,
                       p.unit_cbm > 0 ? `${p.unit_cbm.toFixed(4)} CBM` : null,
-                    ].filter(Boolean).join('  ·  ')}
+                      !p.is_assembly && p.box_size ? `Box: ${p.box_size}` : null,
+                    ].filter(Boolean).join('  \u00B7  ')}
                   </Text>
                   {p.moq && p.moq > 1 ? <Text style={s.pMoq}>MOQ: {p.moq}</Text> : null}
+                  {p.is_assembly && p.components && p.components.length > 0 ? (
+                    <View style={{ marginTop: 4, paddingTop: 4, borderTopWidth: 0.5, borderColor: C.border }}>
+                      <Text style={{ fontSize: 7, color: C.light, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+                        Includes
+                      </Text>
+                      {p.components.map((c, ci) => (
+                        <Text key={ci} style={{ fontSize: 8, color: C.muted, marginTop: 1 }}>
+                          {`\u2022 ${c.name} \u00D7${c.quantity_per_assembly}`}
+                          {c.width_inch && c.depth_inch && c.height_inch ? `  \u00B7  ${c.width_inch}" x ${c.depth_inch}" x ${c.height_inch}"` : ''}
+                          {c.box_size ? `  \u00B7  Box: ${c.box_size}` : ''}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
                 <View style={{ width: 40 }}>
                   <Text style={s.pQty}>{qty}</Text>
