@@ -147,6 +147,7 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                 <TableHead className="text-xs">SKU</TableHead>
                 <TableHead className="text-xs text-right">Components</TableHead>
                 <TableHead className="text-xs text-right">Qty</TableHead>
+                <TableHead className="text-xs text-right">Current ($)</TableHead>
                 <TableHead className="text-xs text-right">Target ($)</TableHead>
                 <TableHead className="text-xs">Updated</TableHead>
                 <TableHead className="text-xs text-right">Actions</TableHead>
