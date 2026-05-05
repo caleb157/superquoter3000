@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { cloneProductToInquiry } from '@/lib/product-clone';
 
 type SourceProduct = {
   id: string;
