@@ -194,20 +194,37 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
                 return (
                   <li
                     key={p.id}
-                    className="flex items-start gap-3 px-3 py-2 hover:bg-muted/40 cursor-pointer"
-                    onClick={() => toggle(p.id, !isOn)}
+                    className="flex items-start gap-3 px-3 py-2 hover:bg-muted/40"
                   >
-                    <Checkbox checked={isOn} onCheckedChange={(v) => toggle(p.id, !!v)} className="mt-0.5" />
+                    <Checkbox
+                      checked={isOn}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                      className="mt-0.5 cursor-pointer"
+                    />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
+                      <div
+                        className="text-sm font-medium truncate cursor-pointer"
+                        onClick={() => toggle(p.id, !isOn)}
+                      >
                         {p.name}
                         {p.sku && <span className="ml-2 text-xs text-muted-foreground">SKU: {p.sku}</span>}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div
+                        className="text-xs text-muted-foreground truncate cursor-pointer"
+                        onClick={() => toggle(p.id, !isOn)}
+                      >
                         {p.inquiry?.rfq_number ?? '—'}
                         {p.inquiry?.customer?.name && <> · {p.inquiry.customer.name}{p.inquiry.customer.company ? ` (${p.inquiry.customer.company})` : ''}</>}
                         {p.updated_at && <> · {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}</>}
                       </div>
+                      {isOn && (
+                        <Input
+                          value={nameOverrides[p.id] ?? p.name}
+                          onChange={e => setNameOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          placeholder="Rename for new customer (optional)"
+                          className="h-7 mt-1.5 text-xs"
+                        />
+                      )}
                     </div>
                   </li>
                 );
