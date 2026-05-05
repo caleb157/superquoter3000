@@ -123,6 +123,18 @@ export function CopyProductsToInquiryDialog({
           </div>
         )}
 
+        {assemblyCount > 0 && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <Checkbox
+              checked={includeAssemblies}
+              onCheckedChange={(v) => setIncludeAssemblies(!!v)}
+            />
+            <span>
+              Also copy <strong>{assemblyCount}</strong> assembl{assemblyCount === 1 ? 'y' : 'ies'} that reference{assemblyCount === 1 ? 's' : ''} the selected product{productIds.length === 1 ? '' : 's'}
+            </span>
+          </label>
+        )}
+
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
