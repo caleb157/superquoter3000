@@ -122,7 +122,7 @@ const AssemblyDetail = () => {
   }, [id, refetchKey]);
 
   const exchangeRate = globalSettings?.exchange_rate || 90;
-  const markupPercent = assembly?.markup_percent || 0.2;
+  const markupPercent = assembly?.markup_percent ?? 0.2;
 
   // Assembly cost calculation
   const assemblyComponents: calc.AssemblyComponent[] = components.map(c => ({
