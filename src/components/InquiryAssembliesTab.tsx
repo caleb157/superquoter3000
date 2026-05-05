@@ -180,7 +180,7 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>New Assembly</DialogTitle>
           </DialogHeader>
@@ -202,9 +202,48 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                   onChange={e => setQuantity(Number(e.target.value))} />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              You'll add component products and quantities on the next screen.
-            </p>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-muted-foreground">Components from this inquiry</label>
+                <span className="text-[10px] text-muted-foreground">
+                  {Object.keys(selectedComponents).length} selected
+                </span>
+              </div>
+              {inquiryProducts.length === 0 ? (
+                <div className="text-xs text-muted-foreground border rounded-md p-3 text-center">
+                  No products in this inquiry yet. Add products first, or create the assembly empty and add components later.
+                </div>
+              ) : (
+                <div className="border rounded-md max-h-64 overflow-auto divide-y">
+                  {inquiryProducts.map(p => {
+                    const checked = p.id in selectedComponents;
+                    return (
+                      <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/40">
+                        <Checkbox checked={checked} onCheckedChange={() => toggleComponent(p.id)} />
+                        <button className="flex-1 text-left text-xs" onClick={() => toggleComponent(p.id)}>
+                          <div className="font-medium">{p.name}</div>
+                          {p.sku && <div className="text-[10px] text-muted-foreground">{p.sku}</div>}
+                        </button>
+                        {checked && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">qty/asm</span>
+                            <Input
+                              className="h-7 w-14 text-xs"
+                              type="number"
+                              min={1}
+                              value={selectedComponents[p.id]}
+                              onChange={e => setSelectedComponents(prev => ({
+                                ...prev, [p.id]: Math.max(1, Number(e.target.value) || 1),
+                              }))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
