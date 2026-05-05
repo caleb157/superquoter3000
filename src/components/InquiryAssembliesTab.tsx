@@ -20,8 +20,10 @@ type Assembly = {
   quantity: number;
   moq: number | null;
   target_price_usd: number | null;
+  markup_percent: number | null;
   updated_at: string | null;
   components_count?: number;
+  current_unit_price_usd?: number;
 };
 
 export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
@@ -41,13 +43,20 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
       setLoading(true);
       const { data } = await (supabase as any)
         .from('product_assemblies')
-        .select('id, name, sku, quantity, moq, target_price_usd, updated_at, assembly_components(id)')
+        .select('id, name, sku, quantity, moq, target_price_usd, markup_percent, updated_at, assembly_components(id, quantity_per_assembly, products(calculated_unit_cost_usd))')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      const mapped: Assembly[] = (data || []).map((a: any) => ({
-        ...a,
-        components_count: (a.assembly_components || []).length,
-      }));
+      const mapped: Assembly[] = (data || []).map((a: any) => {
+        const comps = a.assembly_components || [];
+        const unit_cost_usd = comps.reduce((sum: number, c: any) =>
+          sum + ((c.products?.calculated_unit_cost_usd || 0) * (c.quantity_per_assembly || 1)), 0);
+        const markup = a.markup_percent ?? 0.2;
+        return {
+          ...a,
+          components_count: comps.length,
+          current_unit_price_usd: unit_cost_usd * (1 + markup),
+        };
+      });
       setAssemblies(mapped);
       setLoading(false);
     })();
@@ -138,6 +147,7 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                 <TableHead className="text-xs">SKU</TableHead>
                 <TableHead className="text-xs text-right">Components</TableHead>
                 <TableHead className="text-xs text-right">Qty</TableHead>
+                <TableHead className="text-xs text-right">Current ($)</TableHead>
                 <TableHead className="text-xs text-right">Target ($)</TableHead>
                 <TableHead className="text-xs">Updated</TableHead>
                 <TableHead className="text-xs text-right">Actions</TableHead>
@@ -155,6 +165,9 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                     <Badge variant="secondary" className="text-[10px]">{a.components_count ?? 0}</Badge>
                   </TableCell>
                   <TableCell className="text-right text-xs font-mono">{a.quantity}</TableCell>
+                  <TableCell className="text-right text-xs font-mono font-semibold">
+                    {a.current_unit_price_usd ? `$${a.current_unit_price_usd.toFixed(2)}` : '—'}
+                  </TableCell>
                   <TableCell className="text-right text-xs font-mono">
                     {a.target_price_usd ? `$${a.target_price_usd.toFixed(2)}` : '—'}
                   </TableCell>
