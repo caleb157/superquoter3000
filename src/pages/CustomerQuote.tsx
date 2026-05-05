@@ -7,8 +7,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { toast } from 'sonner';
 import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail, Phone, Globe, MapPin, Building2, Landmark } from 'lucide-react';
 
+interface QuoteComponent {
+  product_id?: string | null;
+  name: string;
+  sku?: string | null;
+  photo_url?: string | null;
+  quantity_per_assembly: number;
+  width_inch?: number | null;
+  depth_inch?: number | null;
+  height_inch?: number | null;
+  weight_kg?: number | null;
+  unit_cbm?: number | null;
+  box_size?: string | null;
+}
+
 interface QuoteProduct {
-  product_id?: string;
+  product_id?: string | null;
+  assembly_id?: string | null;
+  is_assembly?: boolean;
   name: string;
   sku?: string | null;
   quantity: number;
@@ -21,6 +37,8 @@ interface QuoteProduct {
   depth_inch?: number | null;
   height_inch?: number | null;
   weight_kg?: number | null;
+  box_size?: string | null;
+  components?: QuoteComponent[];
 }
 
 interface EntitySnap {
