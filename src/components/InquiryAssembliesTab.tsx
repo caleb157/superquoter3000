@@ -43,13 +43,20 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
       setLoading(true);
       const { data } = await (supabase as any)
         .from('product_assemblies')
-        .select('id, name, sku, quantity, moq, target_price_usd, updated_at, assembly_components(id)')
+        .select('id, name, sku, quantity, moq, target_price_usd, markup_percent, updated_at, assembly_components(id, quantity_per_assembly, products(calculated_unit_cost_usd))')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      const mapped: Assembly[] = (data || []).map((a: any) => ({
-        ...a,
-        components_count: (a.assembly_components || []).length,
-      }));
+      const mapped: Assembly[] = (data || []).map((a: any) => {
+        const comps = a.assembly_components || [];
+        const unit_cost_usd = comps.reduce((sum: number, c: any) =>
+          sum + ((c.products?.calculated_unit_cost_usd || 0) * (c.quantity_per_assembly || 1)), 0);
+        const markup = a.markup_percent ?? 0.2;
+        return {
+          ...a,
+          components_count: comps.length,
+          current_unit_price_usd: unit_cost_usd * (1 + markup),
+        };
+      });
       setAssemblies(mapped);
       setLoading(false);
     })();
