@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import * as calc from '@/lib/calculations';
-import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
+import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -70,7 +69,7 @@ const Products = () => {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes, gsRes, empRes, stRes, nucRes, shipRes] = await Promise.all([
+      const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes] = await Promise.all([
         supabase.from('products').select('*').order('created_at', { ascending: false }),
         (supabase as any).from('customer_rfqs').select('*'),
         supabase.from('customers').select('*'),
@@ -78,18 +77,8 @@ const Products = () => {
         supabase.from('cbm_estimates').select('*'),
         supabase.from('cogs_items').select('*'),
         supabase.from('overhead_items').select('*'),
-        supabase.from('global_settings').select('*').limit(1).single(),
-        supabase.from('labor_employees').select('*'),
-        supabase.from('shipping_types').select('*'),
-        supabase.from('non_unit_cogs').select('*'),
-        supabase.from('shipping_items').select('*'),
       ]);
       const prods = prodRes.data || [];
-      const gs = gsRes.data;
-      const employees = empRes.data || [];
-      const shTypes = stRes.data || [];
-      const allNuc = nucRes.data || [];
-      const allShip = shipRes.data || [];
       const allCogs = cogsRes.data || [];
       const allOh = ohRes.data || [];
       const allCbm = cbmRes.data || [];
@@ -111,46 +100,12 @@ const Products = () => {
       allOh.forEach((o: any) => { if (o.product_id) { if (!ohM[o.product_id]) ohM[o.product_id] = []; ohM[o.product_id].push(o); } });
       setOhMap(ohM);
 
-      // Compute cost/price per product (Phase 7: inquiry-level settings TBD — using global settings only)
+      // Use shared helper so prices match the costing sheet (includes auto-calc rows for
+      // packaging boxes, finishing materials, finishing/packaging labor, etc.)
+      const priceMap = await computeProductPriceAndCost(prods.map((p: any) => p.id));
       const cMap: Record<string, { cost_usd: number; price_usd: number }> = {};
-      const inqList = inqRes.data || [];
-      const inqById = Object.fromEntries(inqList.map((i: any) => [i.id, i]));
-      prods.forEach((p: any) => {
-        const cbmEst = cbm[p.id];
-        const pCogs = cogsM[p.id] || [];
-        const pNuc = allNuc.filter((c: any) => c.product_id === p.id);
-        const pOh = ohM[p.id] || [];
-        const pShip = allShip.filter((c: any) => c.product_id === p.id);
-        const qty = p.quantity || 100;
-        const unit_cbm = cbmEst?.final_unit_cbm || 0;
-        const inq = p.customer_rfq_id ? inqById[p.customer_rfq_id] : null;
-        const settings: any = mergeSettingsWithInquiry(gs as any, inq);
-        const exchangeRate = settings?.exchange_rate || 90;
-
-        const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) => {
-          const c = calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 });
-          return sum + c.unit_cost;
-        }, 0);
-        const autoTransportRate = settings?.auto_transport_cost_per_cbm || 500;
-        const nucWithLiveTransport = pNuc.map((i: any) => {
-          if (i.name === 'Auto Transport' && unit_cbm > 0) {
-            return { include: i.include || 'Yes', total_quantity: +(unit_cbm * qty).toFixed(4), cost_each_inr: autoTransportRate };
-          }
-          return { include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr };
-        });
-        const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(nucWithLiveTransport, qty);
-        const ohItems = pOh.map((item: any) => ({ include: item.include, labor_type: item.labor_type, man_hours_per_unit: item.man_hours_per_unit || 0, hourly_rate: calc.avgRateByDesignation(employees, item.labor_type) }));
-        const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-        const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-        const indirectOhPerMh = settings ? calc.calcIndirectOhPerManHour(settings) : 0;
-        const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-        const shipItem = pShip[0];
-        const overrideShipType = inq?.shipping_type_id_override ? shTypes.find((s: any) => s.id === inq.shipping_type_id_override) : null;
-        const shipType = overrideShipType || shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
-        const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG', final_unit_cbm: unit_cbm, weight_kg: p.weight_kg || 0 }) : 0;
-        const markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
-        const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
-        cMap[p.id] = { cost_usd: summary.product_cost_per_unit_usd, price_usd: summary.unit_price_usd };
+      Object.entries(priceMap).forEach(([id, v]) => {
+        cMap[id] = { cost_usd: v.unit_cost_usd, price_usd: v.unit_price_usd };
       });
       setCostDataMap(cMap);
 
