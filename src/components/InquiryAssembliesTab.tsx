@@ -117,7 +117,7 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
         <p className="text-sm text-muted-foreground">
           Bundle multiple products into a single sellable kit (e.g. dining set, bed package).
         </p>
-        <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
+        <Button size="sm" onClick={openCreate} className="gap-1.5">
           <Plus className="h-4 w-4" /> New assembly
         </Button>
       </div>
