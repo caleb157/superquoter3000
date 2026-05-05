@@ -46,19 +46,44 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
 
-  // Dedupe product IDs since variants reuse the same product_id
-  const productIds = Array.from(new Set(selectedProducts.map(p => p.id)));
+  // Split inputs: regular product lines vs. assembly lines
+  const assemblyInputs = selectedProducts.filter(p => !!p.assembly_id);
+  const productInputs = selectedProducts.filter(p => !p.assembly_id);
 
-  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity (with bank fields), global settings
+  // Dedupe product IDs since variants reuse the same product_id
+  const productIds = Array.from(new Set(productInputs.map(p => p.id)));
+  const assemblyIds = Array.from(new Set(assemblyInputs.map(p => p.assembly_id as string)));
+
+  // First, fetch assembly headers + components so we can also load the component products' details
+  const asmHeadersRes = assemblyIds.length > 0
+    ? await (supabase as any)
+        .from('product_assemblies')
+        .select('id, name, sku, photo_url, moq, markup_percent, assembly_components(id, product_id, quantity_per_assembly, sort_order)')
+        .in('id', assemblyIds)
+    : { data: [], error: null };
+  if (asmHeadersRes.error) return { error: asmHeadersRes.error.message };
+  const assemblyHeaders: any[] = asmHeadersRes.data || [];
+  const componentProductIds = Array.from(new Set(
+    assemblyHeaders.flatMap((a: any) => (a.assembly_components || []).map((c: any) => c.product_id)),
+  ));
+
+  // All product IDs we need to fetch details (and CBM) for: direct + assembly components
+  const allProductIds = Array.from(new Set([...productIds, ...componentProductIds]));
+
+  // Fetch in parallel: full product details, CBM estimates, inquiry+customer, entity, global settings
   const [productsRes, cbmRes, inquiryRes, entityRes, gsRes] = await Promise.all([
-    supabase
-      .from('products')
-      .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
-      .in('id', productIds),
-    supabase
-      .from('cbm_estimates')
-      .select('product_id, final_unit_cbm')
-      .in('product_id', productIds),
+    allProductIds.length > 0
+      ? supabase
+          .from('products')
+          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
+          .in('id', allProductIds)
+      : Promise.resolve({ data: [], error: null } as any),
+    allProductIds.length > 0
+      ? supabase
+          .from('cbm_estimates')
+          .select('product_id, final_unit_cbm, ic_width, ic_depth, ic_height, mc_width, mc_depth, mc_height, products_per_ic, products_per_mc')
+          .in('product_id', allProductIds)
+      : Promise.resolve({ data: [], error: null } as any),
     (supabase as any)
       .from('customer_rfqs')
       .select('id, rfq_number, title, customer_id, exchange_rate_override, markup_percent_override, customers(id, name, company, email, logo_url)')
@@ -76,9 +101,13 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   if (entityRes.error) return { error: entityRes.error.message };
 
   const dbProducts = productsRes.data ?? [];
+  const cbmRowByProduct = new Map<string, any>();
   const cbmMap = new Map<string, number>();
   (cbmRes.data ?? []).forEach((c: any) => {
-    if (c.product_id && c.final_unit_cbm) cbmMap.set(c.product_id, Number(c.final_unit_cbm));
+    if (c.product_id) {
+      cbmRowByProduct.set(c.product_id, c);
+      if (c.final_unit_cbm) cbmMap.set(c.product_id, Number(c.final_unit_cbm));
+    }
   });
 
   // Currency conversion: snapshot stores prices in the chosen display currency.
