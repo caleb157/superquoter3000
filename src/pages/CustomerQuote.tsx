@@ -642,11 +642,44 @@ const CustomerQuote = () => {
                             </p>
                           </div>
                         </div>
-                        {(product.width_inch || product.weight_kg || product.unit_cbm > 0) && (
+                        {(product.width_inch || product.weight_kg || product.unit_cbm > 0 || product.box_size) && (
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
                             {product.width_inch && <span>{product.width_inch}" × {product.depth_inch}" × {product.height_inch}"</span>}
                             {product.weight_kg && <span>{product.weight_kg} kg</span>}
                             {product.unit_cbm > 0 && <span>{product.unit_cbm.toFixed(4)} CBM</span>}
+                            {product.box_size && !product.is_assembly && <span className="text-slate-400">Box: {product.box_size}</span>}
+                          </div>
+                        )}
+                        {product.is_assembly && product.components && product.components.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-slate-100">
+                            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-2">
+                              Includes ({product.components.length} components)
+                            </p>
+                            <div className="space-y-2">
+                              {product.components.map((c, ci) => (
+                                <div key={ci} className="flex items-start gap-2 text-xs">
+                                  <div className="w-10 h-10 rounded bg-slate-100 flex-shrink-0 overflow-hidden">
+                                    {c.photo_url ? (
+                                      <img src={c.photo_url} alt={c.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <Package className="h-4 w-4 text-slate-300" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="font-medium text-slate-700 truncate">{c.name}</span>
+                                      <span className="text-slate-400 tabular-nums shrink-0">×{c.quantity_per_assembly}</span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 mt-0.5">
+                                      {c.width_inch && <span className="mr-2">{c.width_inch}" × {c.depth_inch}" × {c.height_inch}"</span>}
+                                      {c.box_size && <span className="text-slate-400">Box: {c.box_size}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
