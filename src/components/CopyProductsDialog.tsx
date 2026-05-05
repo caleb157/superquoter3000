@@ -81,7 +81,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     setSelected(next);
   };
 
-  const cloneProduct = async (sourceId: string): Promise<string | null> => {
+  const cloneProduct = async (sourceId: string, nameOverride?: string): Promise<string | null> => {
     // 1. Fetch source product
     const { data: source } = await supabase.from('products').select('*').eq('id', sourceId).maybeSingle();
     if (!source) return null;
@@ -90,6 +90,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     for (const col of PRODUCT_COPY_COLS) {
       if ((source as any)[col] !== undefined) insertPayload[col] = (source as any)[col];
     }
+    if (nameOverride && nameOverride.trim()) insertPayload.name = nameOverride.trim();
     // Reset stages + completion flags on the copy
     insertPayload.design_stage = null;
     insertPayload.quote_stage = null;
@@ -111,7 +112,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     }
     const newId = created.id as string;
 
-    // 2. Clone child rows in parallel
+    // 2. Clone child rows in parallel — full costing page
     const cloneTable = async (table: string) => {
       const { data: rows } = await (supabase as any).from(table).select('*').eq('product_id', sourceId);
       if (!rows || rows.length === 0) return;
@@ -127,8 +128,8 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
       cloneTable('non_unit_cogs'),
       cloneTable('overhead_items'),
       cloneTable('shipping_items'),
-      // cbm_estimates is one-to-one; same shape works
       cloneTable('cbm_estimates'),
+      cloneTable('product_variants'),
     ]);
 
     return newId;
@@ -140,7 +141,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     setCopying(true);
     let success = 0;
     for (const id of ids) {
-      const newId = await cloneProduct(id);
+      const newId = await cloneProduct(id, nameOverrides[id]);
       if (newId) success++;
     }
     setCopying(false);
