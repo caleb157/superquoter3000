@@ -1,6 +1,16 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 
 // ---- Types (kept loose to mirror CustomerQuote.tsx) ----
+export interface QuotePdfComponent {
+  name: string;
+  sku?: string | null;
+  quantity_per_assembly: number;
+  width_inch?: number | null;
+  depth_inch?: number | null;
+  height_inch?: number | null;
+  box_size?: string | null;
+}
+
 export interface QuotePdfProduct {
   name: string;
   sku?: string | null;
@@ -13,6 +23,9 @@ export interface QuotePdfProduct {
   depth_inch?: number | null;
   height_inch?: number | null;
   weight_kg?: number | null;
+  box_size?: string | null;
+  is_assembly?: boolean;
+  components?: QuotePdfComponent[];
 }
 
 export interface QuotePdfEntity {
