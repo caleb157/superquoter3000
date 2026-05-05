@@ -259,9 +259,9 @@ const AssemblyDetail = () => {
                   <Input className="h-7 text-xs" type="number" defaultValue={assembly.moq || 50} onBlur={e => updateAssembly('moq', parseInt(e.target.value))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Markup %</label>
+                  <label className="text-[10px] text-muted-foreground">Markup % <span className="text-primary">(overrides components)</span></label>
                   <Input className="h-7 text-xs" type="number" step="1" defaultValue={(markupPercent * 100).toFixed(0)}
-                    onBlur={e => updateAssembly('markup_percent', (parseFloat(e.target.value) || 20) / 100)} />
+                    onBlur={e => updateAssembly('markup_percent', (parseFloat(e.target.value) || 0) / 100)} />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
