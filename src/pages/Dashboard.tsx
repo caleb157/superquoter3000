@@ -26,6 +26,7 @@ import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-sh
 
 import {
   furthestStageBucket,
+  productStageBuckets,
   productWeight,
   STAGE_BUCKET_LABELS,
   STAGE_BUCKET_ORDER,
