@@ -18,6 +18,7 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
+import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
