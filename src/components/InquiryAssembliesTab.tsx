@@ -53,6 +53,26 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
     })();
   }, [inquiryId, refresh]);
 
+  const openCreate = async () => {
+    setCreateOpen(true);
+    setSelectedComponents({});
+    const { data } = await (supabase as any)
+      .from('products')
+      .select('id, name, sku')
+      .eq('customer_rfq_id', inquiryId)
+      .order('name');
+    setInquiryProducts(data || []);
+  };
+
+  const toggleComponent = (productId: string) => {
+    setSelectedComponents(prev => {
+      const next = { ...prev };
+      if (productId in next) delete next[productId];
+      else next[productId] = 1;
+      return next;
+    });
+  };
+
   const handleCreate = async () => {
     if (!name.trim()) { toast.error('Name is required'); return; }
     const { data, error } = await (supabase as any).from('product_assemblies').insert({
@@ -62,9 +82,26 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
       quantity: quantity || 100,
     }).select().single();
     if (error) { toast.error(error.message); return; }
+
+    const componentEntries = Object.entries(selectedComponents);
+    if (data?.id && componentEntries.length > 0) {
+      const rows = componentEntries.map(([product_id, qty], idx) => ({
+        assembly_id: data.id,
+        product_id,
+        quantity_per_assembly: qty || 1,
+        sort_order: idx,
+      }));
+      const { error: compErr } = await (supabase as any).from('assembly_components').insert(rows);
+      if (compErr) toast.error('Components failed: ' + compErr.message);
+      // Sync component product quantities to assembly quantity * qty/asm
+      await Promise.all(componentEntries.map(([pid, qty]) =>
+        (supabase as any).from('products').update({ quantity: (quantity || 100) * (qty || 1) }).eq('id', pid)
+      ));
+    }
+
     toast.success('Assembly created');
     setCreateOpen(false);
-    setName(''); setSku(''); setQuantity(100);
+    setName(''); setSku(''); setQuantity(100); setSelectedComponents({});
     if (data?.id) navigate(`/assembly/${data.id}`);
   };
 
