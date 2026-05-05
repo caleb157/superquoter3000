@@ -64,11 +64,14 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   useEffect(() => {
     if (!open) return;
     setLoaded(false);
-    const ids = selectedProducts.map(p => p.id);
+    // Only fetch prices/variants for real product ids (not assemblies)
+    const productIds = selectedProducts.filter(p => !p.is_assembly).map(p => p.id);
     (async () => {
       const [priceMap, variantsRes] = await Promise.all([
-        computeProductUnitPrices(ids),
-        supabase.from('product_variants').select('id, product_id, variant_name, wood_price_factor, photo_url').in('product_id', ids).order('created_at'),
+        productIds.length > 0 ? computeProductUnitPrices(productIds) : Promise.resolve({} as ProductUnitPriceMap),
+        productIds.length > 0
+          ? supabase.from('product_variants').select('id, product_id, variant_name, wood_price_factor, photo_url').in('product_id', productIds).order('created_at')
+          : Promise.resolve({ data: [] } as any),
       ]);
       setPrices(priceMap);
       const byProd: Record<string, Variant[]> = {};
@@ -78,9 +81,10 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
       });
       setVariantsByProduct(byProd);
 
-      // Seed line drafts: one per selected product, using calculated price as default
       const drafts: LineDraft[] = selectedProducts.map(p => {
-        const ref = referencePriceFor(p, priceMap, currency);
+        const ref = p.is_assembly
+          ? Number(p.reference_price_usd ?? 0) // already in display currency, set by caller
+          : referencePriceFor(p, priceMap, currency);
         return {
           key: `base-${p.id}`,
           product_id: p.id,
@@ -88,6 +92,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
           quantity: Number(p.quantity ?? 0),
           price: ref ? ref.toFixed(2) : '',
           reference_price: ref,
+          is_assembly: !!p.is_assembly,
         };
       });
       setLines(drafts);
