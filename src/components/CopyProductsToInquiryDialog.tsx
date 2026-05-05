@@ -38,6 +38,8 @@ export function CopyProductsToInquiryDialog({
   const [search, setSearch] = useState('');
   const [targetId, setTargetId] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
+  const [includeAssemblies, setIncludeAssemblies] = useState(true);
+  const [assemblyCount, setAssemblyCount] = useState(0);
 
   useEffect(() => {
     if (!open) return;
