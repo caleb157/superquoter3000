@@ -381,6 +381,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
+        onCopyToInquiry={() => setCopyToOpen(true)}
+      />
+
+      <CopyProductsToInquiryDialog
+        open={copyToOpen}
+        onOpenChange={setCopyToOpen}
+        sourceInquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        productNames={selectedProducts.map(p => p.name)}
+        onCopied={() => { setSelected(new Set()); }}
       />
 
       <BulkLogRfqRfsDialog
