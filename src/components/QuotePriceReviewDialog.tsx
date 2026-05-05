@@ -151,6 +151,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
       display_photo_url: l.variant_photo_url ?? null,
       variant_id: l.variant_id ?? null,
       variant_name: l.variant_name ?? null,
+      assembly_id: l.is_assembly ? l.product_id : null,
     }));
     onConfirm(payload);
   };
