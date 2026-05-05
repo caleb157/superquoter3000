@@ -26,7 +26,7 @@ function costingBadge(p: { cbm_done?: boolean; cogs_done?: boolean; overhead_don
   return { label: 'Empty', cls: 'bg-muted text-muted-foreground' };
 }
 import { useTableSort } from '@/hooks/use-table-sort';
-import { furthestStageBucket, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
+import { furthestStageBucket, productStageBuckets, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 
