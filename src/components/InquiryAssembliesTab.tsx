@@ -165,6 +165,9 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                     <Badge variant="secondary" className="text-[10px]">{a.components_count ?? 0}</Badge>
                   </TableCell>
                   <TableCell className="text-right text-xs font-mono">{a.quantity}</TableCell>
+                  <TableCell className="text-right text-xs font-mono font-semibold">
+                    {a.current_unit_price_usd ? `$${a.current_unit_price_usd.toFixed(2)}` : '—'}
+                  </TableCell>
                   <TableCell className="text-right text-xs font-mono">
                     {a.target_price_usd ? `$${a.target_price_usd.toFixed(2)}` : '—'}
                   </TableCell>
