@@ -7,7 +7,8 @@ import { Search, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { cloneProductToInquiry } from '@/lib/product-clone';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cloneProductToInquiry, cloneAssembliesForProducts } from '@/lib/product-clone';
 
 type Inquiry = {
   id: string;
