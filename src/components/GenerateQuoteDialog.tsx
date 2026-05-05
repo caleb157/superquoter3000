@@ -23,6 +23,15 @@ type Product = {
   markup_percent: number | null;
 };
 
+type AssemblyLite = {
+  id: string;
+  name: string;
+  sku: string | null;
+  quantity: number | null;
+  markup_percent: number | null;
+  components: Array<{ product_id: string; quantity_per_assembly: number }>;
+};
+
 type Entity = { id: string; name: string };
 
 type Props = {
