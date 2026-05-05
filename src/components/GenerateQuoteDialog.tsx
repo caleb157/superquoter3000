@@ -66,18 +66,28 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   useEffect(() => {
     if (!open) return;
     setSelected(new Set());
+    setSelectedAsm(new Set());
     setValidUntil(defaultValidUntil());
     (async () => {
-      const [prodRes, entRes, inqRes] = await Promise.all([
+      const [prodRes, asmRes, entRes, inqRes] = await Promise.all([
         supabase
           .from('products')
           .select('id, name, sku, quantity, quote_stage, target_price_usd, markup_percent')
+          .eq('customer_rfq_id', inquiryId)
+          .order('name'),
+        (supabase as any)
+          .from('product_assemblies')
+          .select('id, name, sku, quantity, markup_percent, assembly_components(product_id, quantity_per_assembly)')
           .eq('customer_rfq_id', inquiryId)
           .order('name'),
         supabase.from('company_entities').select('id, name').order('name'),
         (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
       ]);
       setProducts((prodRes.data ?? []) as Product[]);
+      setAssemblies(((asmRes.data ?? []) as any[]).map(a => ({
+        id: a.id, name: a.name, sku: a.sku, quantity: a.quantity, markup_percent: a.markup_percent,
+        components: a.assembly_components || [],
+      })));
       const ents = (entRes.data ?? []) as Entity[];
       setEntities(ents);
       const inq = inqRes.data;
@@ -96,10 +106,16 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     if (v) next.add(id); else next.delete(id);
     setSelected(next);
   };
+  const toggleAsm = (id: string, v: boolean) => {
+    const next = new Set(selectedAsm);
+    if (v) next.add(id); else next.delete(id);
+    setSelectedAsm(next);
+  };
+
+  const totalSelected = selected.size + selectedAsm.size;
 
   const submit = async () => {
-    const chosen = products.filter(p => selected.has(p.id));
-    if (chosen.length === 0) return;
+    if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
     setReviewOpen(true);
   };
