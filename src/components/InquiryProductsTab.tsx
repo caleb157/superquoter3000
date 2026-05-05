@@ -18,6 +18,7 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
+import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
@@ -104,6 +105,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
+  const [copyToOpen, setCopyToOpen] = useState(false);
   const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
@@ -379,6 +381,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
+        onCopyToInquiry={() => setCopyToOpen(true)}
+      />
+
+      <CopyProductsToInquiryDialog
+        open={copyToOpen}
+        onOpenChange={setCopyToOpen}
+        sourceInquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        productNames={selectedProducts.map(p => p.name)}
+        onCopied={() => { setSelected(new Set()); }}
       />
 
       <BulkLogRfqRfsDialog
