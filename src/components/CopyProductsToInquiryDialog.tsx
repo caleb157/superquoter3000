@@ -90,12 +90,18 @@ export function CopyProductsToInquiryDialog({
     if (!targetId || productIds.length === 0) return;
     setCopying(true);
     let success = 0;
+    const idMap: Record<string, string> = {};
     for (const id of productIds) {
       const newId = await cloneProductToInquiry(id, targetId);
-      if (newId) success++;
+      if (newId) { success++; idMap[id] = newId; }
+    }
+    let asmCloned = 0;
+    if (includeAssemblies && assemblyCount > 0) {
+      asmCloned = await cloneAssembliesForProducts(productIds, targetId, idMap);
     }
     setCopying(false);
-    toast.success(`Copied ${success} product${success === 1 ? '' : 's'} to inquiry`);
+    const asmMsg = asmCloned > 0 ? ` and ${asmCloned} assembl${asmCloned === 1 ? 'y' : 'ies'}` : '';
+    toast.success(`Copied ${success} product${success === 1 ? '' : 's'}${asmMsg} to inquiry`);
     onOpenChange(false);
     onCopied?.(success, targetId);
   };
