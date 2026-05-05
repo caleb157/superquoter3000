@@ -30,18 +30,16 @@ type Variant = {
 };
 
 type LineDraft = {
-  // Stable key for React
   key: string;
   product_id: string;
   display_name: string;
   quantity: number;
-  // editable price in chosen currency
-  price: string; // string so users can type freely
-  // reference (calculated) price in chosen currency
-  reference_price: number;
+  price: string; // editable price in chosen currency
+  reference_price: number; // calculated reference in chosen currency
   variant_id?: string | null;
   variant_name?: string | null;
   variant_photo_url?: string | null;
+  is_assembly?: boolean;
 };
 
 type Props = {
