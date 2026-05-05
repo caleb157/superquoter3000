@@ -120,17 +120,79 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const isInr = (currency || 'USD') === 'INR';
   const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
 
+  const buildBoxSizeStr = (cbmRow: any, db: any): string | null => {
+    if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
+      const ppm = cbmRow.products_per_mc ? ` (${cbmRow.products_per_mc}/MC)` : '';
+      return `${cbmRow.mc_width}" × ${cbmRow.mc_depth}" × ${cbmRow.mc_height}" master carton${ppm}`;
+    }
+    if (cbmRow?.ic_width && cbmRow?.ic_depth && cbmRow?.ic_height) {
+      const ppi = cbmRow.products_per_ic && cbmRow.products_per_ic > 1 ? ` (${cbmRow.products_per_ic}/IC)` : '';
+      return `${cbmRow.ic_width}" × ${cbmRow.ic_depth}" × ${cbmRow.ic_height}" inner carton${ppi}`;
+    }
+    if (db?.width_inch && db?.depth_inch && db?.height_inch) {
+      return `${db.width_inch}" × ${db.depth_inch}" × ${db.height_inch}"`;
+    }
+    return null;
+  };
+
   // Build line items from DB (single source of truth) merged with caller overrides.
   const productsJson = selectedProducts.map(sel => {
+    // ===== Assembly line =====
+    if (sel.assembly_id) {
+      const asm: any = assemblyHeaders.find((a: any) => a.id === sel.assembly_id) ?? {};
+      const qty = Number(sel.quantity ?? 0);
+      const unit = sel.unit_price_override != null ? Number(sel.unit_price_override) : 0;
+      const comps = (asm.assembly_components || [])
+        .slice()
+        .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      const componentsJson = comps.map((c: any) => {
+        const cdb: any = dbProducts.find(p => p.id === c.product_id) ?? {};
+        const cbmRow = cbmRowByProduct.get(c.product_id);
+        const cbm = cbmRow?.final_unit_cbm ?? (cdb.width_inch && cdb.depth_inch && cdb.height_inch
+          ? (Number(cdb.width_inch) * Number(cdb.depth_inch) * Number(cdb.height_inch)) / 61020
+          : 0);
+        return {
+          product_id: c.product_id,
+          name: cdb.name || 'Component',
+          sku: cdb.sku ?? null,
+          photo_url: cdb.photo_url ?? null,
+          quantity_per_assembly: Number(c.quantity_per_assembly || 1),
+          width_inch: cdb.width_inch ?? null,
+          depth_inch: cdb.depth_inch ?? null,
+          height_inch: cdb.height_inch ?? null,
+          weight_kg: cdb.weight_kg ?? null,
+          unit_cbm: cbm,
+          box_size: buildBoxSizeStr(cbmRow, cdb),
+        };
+      });
+      const unitCbm = componentsJson.reduce((s, c) => s + (c.unit_cbm || 0) * c.quantity_per_assembly, 0);
+      const unitWeight = componentsJson.reduce((s, c) => s + (Number(c.weight_kg) || 0) * c.quantity_per_assembly, 0);
+      return {
+        product_id: null,
+        assembly_id: sel.assembly_id,
+        is_assembly: true,
+        name: sel.display_name?.trim() || asm.name || sel.name,
+        sku: asm.sku ?? null,
+        photo_url: sel.display_photo_url ?? asm.photo_url ?? null,
+        quantity: qty,
+        unit_price_usd: unit,
+        total: unit * qty,
+        unit_cbm: unitCbm,
+        weight_kg: unitWeight || null,
+        moq: asm.moq ?? null,
+        components: componentsJson,
+        // Variant fields kept null for assemblies
+        variant_id: null,
+        variant_name: null,
+      };
+    }
+
+    // ===== Regular product line =====
     const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
     const qty = Number(sel.quantity ?? db.quantity ?? 0);
-    // Prefer caller-supplied display-currency price; otherwise convert legacy USD target,
-    // applying the inquiry-level markup override if the product had no explicit price.
     const baseUsd = Number(sel.target_price_usd ?? db.target_price_usd ?? 0);
     const productMarkup = Number(sel.markup_percent ?? db.markup_percent ?? 0);
     const effectiveMarkup = inquiryMarkup != null ? Number(inquiryMarkup) : productMarkup;
-    // If the price was stored *before* markup, this gives us the marked-up price.
-    // (Most callers pass unit_price_override anyway, so this is the legacy-fallback path.)
     const usdWithMarkup = effectiveMarkup && !sel.target_price_usd ? baseUsd * (1 + effectiveMarkup) : baseUsd;
     const unit = sel.unit_price_override != null
       ? Number(sel.unit_price_override)
@@ -153,7 +215,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       height_inch: db.height_inch ?? null,
       weight_kg: db.weight_kg ?? null,
       moq: db.moq ?? null,
-      // Variant metadata (optional)
+      box_size: buildBoxSizeStr(cbmRowByProduct.get(sel.id), db),
       variant_id: sel.variant_id ?? null,
       variant_name: sel.variant_name ?? null,
     };
