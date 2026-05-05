@@ -29,7 +29,8 @@ const PRODUCT_COPY_COLS = [
   'name', 'sku', 'photo_url', 'notes', 'notes_finishes', 'notes_vendors', 'notes_issues',
   'sort_order', 'markup_percent', 'target_price_usd', 'is_component', 'percent_wood',
   'finishing_difficulty', 'product_type_id', 'weight_kg', 'height_inch', 'depth_inch',
-  'width_inch', 'moq', 'quantity', 'sourced_externally',
+  'width_inch', 'moq', 'quantity', 'sourced_externally', 'packaging_type',
+  'calculated_unit_cost_usd', 'calculated_unit_price_usd',
 ] as const;
 
 export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopied }: Props) {
@@ -37,12 +38,14 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({});
   const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setSearch('');
     setSelected(new Set());
+    setNameOverrides({});
     setLoading(true);
     (async () => {
       const { data } = await supabase
@@ -78,7 +81,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     setSelected(next);
   };
 
-  const cloneProduct = async (sourceId: string): Promise<string | null> => {
+  const cloneProduct = async (sourceId: string, nameOverride?: string): Promise<string | null> => {
     // 1. Fetch source product
     const { data: source } = await supabase.from('products').select('*').eq('id', sourceId).maybeSingle();
     if (!source) return null;
@@ -87,6 +90,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     for (const col of PRODUCT_COPY_COLS) {
       if ((source as any)[col] !== undefined) insertPayload[col] = (source as any)[col];
     }
+    if (nameOverride && nameOverride.trim()) insertPayload.name = nameOverride.trim();
     // Reset stages + completion flags on the copy
     insertPayload.design_stage = null;
     insertPayload.quote_stage = null;
@@ -108,7 +112,16 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     }
     const newId = created.id as string;
 
-    // 2. Clone child rows in parallel
+    // The seed_product_defaults trigger inserts default rows on product INSERT.
+    // Wipe them so clones reflect the source exactly.
+    await Promise.all([
+      (supabase as any).from('cogs_items').delete().eq('product_id', newId),
+      (supabase as any).from('non_unit_cogs').delete().eq('product_id', newId),
+      (supabase as any).from('overhead_items').delete().eq('product_id', newId),
+      (supabase as any).from('cbm_estimates').delete().eq('product_id', newId),
+    ]);
+
+    // 2. Clone child rows in parallel — full costing page
     const cloneTable = async (table: string) => {
       const { data: rows } = await (supabase as any).from(table).select('*').eq('product_id', sourceId);
       if (!rows || rows.length === 0) return;
@@ -124,8 +137,8 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
       cloneTable('non_unit_cogs'),
       cloneTable('overhead_items'),
       cloneTable('shipping_items'),
-      // cbm_estimates is one-to-one; same shape works
       cloneTable('cbm_estimates'),
+      cloneTable('product_variants'),
     ]);
 
     return newId;
@@ -137,7 +150,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     setCopying(true);
     let success = 0;
     for (const id of ids) {
-      const newId = await cloneProduct(id);
+      const newId = await cloneProduct(id, nameOverrides[id]);
       if (newId) success++;
     }
     setCopying(false);
@@ -181,20 +194,37 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
                 return (
                   <li
                     key={p.id}
-                    className="flex items-start gap-3 px-3 py-2 hover:bg-muted/40 cursor-pointer"
-                    onClick={() => toggle(p.id, !isOn)}
+                    className="flex items-start gap-3 px-3 py-2 hover:bg-muted/40"
                   >
-                    <Checkbox checked={isOn} onCheckedChange={(v) => toggle(p.id, !!v)} className="mt-0.5" />
+                    <Checkbox
+                      checked={isOn}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                      className="mt-0.5 cursor-pointer"
+                    />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
+                      <div
+                        className="text-sm font-medium truncate cursor-pointer"
+                        onClick={() => toggle(p.id, !isOn)}
+                      >
                         {p.name}
                         {p.sku && <span className="ml-2 text-xs text-muted-foreground">SKU: {p.sku}</span>}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div
+                        className="text-xs text-muted-foreground truncate cursor-pointer"
+                        onClick={() => toggle(p.id, !isOn)}
+                      >
                         {p.inquiry?.rfq_number ?? '—'}
                         {p.inquiry?.customer?.name && <> · {p.inquiry.customer.name}{p.inquiry.customer.company ? ` (${p.inquiry.customer.company})` : ''}</>}
                         {p.updated_at && <> · {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}</>}
                       </div>
+                      {isOn && (
+                        <Input
+                          value={nameOverrides[p.id] ?? p.name}
+                          onChange={e => setNameOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          placeholder="Rename for new customer (optional)"
+                          className="h-7 mt-1.5 text-xs"
+                        />
+                      )}
                     </div>
                   </li>
                 );
