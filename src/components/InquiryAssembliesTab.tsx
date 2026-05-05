@@ -33,6 +33,8 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
   const [sku, setSku] = useState('');
   const [quantity, setQuantity] = useState(100);
   const [refresh, setRefresh] = useState(0);
+  const [inquiryProducts, setInquiryProducts] = useState<{ id: string; name: string; sku: string | null }[]>([]);
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({}); // productId -> qty/asm
 
   useEffect(() => {
     (async () => {
