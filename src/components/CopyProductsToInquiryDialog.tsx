@@ -7,7 +7,8 @@ import { Search, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { cloneProductToInquiry } from '@/lib/product-clone';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cloneProductToInquiry, cloneAssembliesForProducts } from '@/lib/product-clone';
 
 type Inquiry = {
   id: string;
@@ -37,6 +38,8 @@ export function CopyProductsToInquiryDialog({
   const [search, setSearch] = useState('');
   const [targetId, setTargetId] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
+  const [includeAssemblies, setIncludeAssemblies] = useState(true);
+  const [assemblyCount, setAssemblyCount] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +57,19 @@ export function CopyProductsToInquiryDialog({
       setLoading(false);
     })();
   }, [open]);
+
+  // Count assemblies referencing the selected products so we can show it on the toggle.
+  useEffect(() => {
+    if (!open || productIds.length === 0) { setAssemblyCount(0); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('assembly_components')
+        .select('assembly_id')
+        .in('product_id', productIds);
+      const ids = new Set((data ?? []).map((r: any) => r.assembly_id));
+      setAssemblyCount(ids.size);
+    })();
+  }, [open, productIds]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -74,12 +90,18 @@ export function CopyProductsToInquiryDialog({
     if (!targetId || productIds.length === 0) return;
     setCopying(true);
     let success = 0;
+    const idMap: Record<string, string> = {};
     for (const id of productIds) {
       const newId = await cloneProductToInquiry(id, targetId);
-      if (newId) success++;
+      if (newId) { success++; idMap[id] = newId; }
+    }
+    let asmCloned = 0;
+    if (includeAssemblies && assemblyCount > 0) {
+      asmCloned = await cloneAssembliesForProducts(productIds, targetId, idMap);
     }
     setCopying(false);
-    toast.success(`Copied ${success} product${success === 1 ? '' : 's'} to inquiry`);
+    const asmMsg = asmCloned > 0 ? ` and ${asmCloned} assembl${asmCloned === 1 ? 'y' : 'ies'}` : '';
+    toast.success(`Copied ${success} product${success === 1 ? '' : 's'}${asmMsg} to inquiry`);
     onOpenChange(false);
     onCopied?.(success, targetId);
   };
@@ -99,6 +121,18 @@ export function CopyProductsToInquiryDialog({
           <div className="text-xs text-muted-foreground border rounded-md px-3 py-2 max-h-20 overflow-y-auto">
             {productNames.join(', ')}
           </div>
+        )}
+
+        {assemblyCount > 0 && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <Checkbox
+              checked={includeAssemblies}
+              onCheckedChange={(v) => setIncludeAssemblies(!!v)}
+            />
+            <span>
+              Also copy <strong>{assemblyCount}</strong> assembl{assemblyCount === 1 ? 'y' : 'ies'} that reference{assemblyCount === 1 ? 's' : ''} the selected product{productIds.length === 1 ? '' : 's'}
+            </span>
+          </label>
         )}
 
         <div className="relative">

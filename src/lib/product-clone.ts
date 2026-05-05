@@ -74,3 +74,73 @@ export async function cloneProductToInquiry(
 
   return newId;
 }
+
+const ASSEMBLY_COPY_COLS = [
+  'name', 'sku', 'photo_url', 'quantity', 'moq', 'target_price_usd',
+  'markup_percent', 'notes',
+] as const;
+
+/**
+ * Clone any assemblies that reference one or more of `sourceProductIds` into the
+ * target inquiry, re-linking each component to the freshly cloned product
+ * (using `idMap`: source product id → new product id). Components referencing
+ * products that were NOT cloned still link to the original product id, so the
+ * assembly remains functional.
+ *
+ * Returns the number of assemblies cloned.
+ */
+export async function cloneAssembliesForProducts(
+  sourceProductIds: string[],
+  targetInquiryId: string,
+  idMap: Record<string, string>,
+): Promise<number> {
+  if (sourceProductIds.length === 0) return 0;
+
+  const { data: refs } = await (supabase as any)
+    .from('assembly_components')
+    .select('assembly_id')
+    .in('product_id', sourceProductIds);
+  const assemblyIds = Array.from(new Set((refs ?? []).map((r: any) => r.assembly_id as string)));
+  if (assemblyIds.length === 0) return 0;
+
+  const { data: assemblies } = await (supabase as any)
+    .from('product_assemblies')
+    .select('*')
+    .in('id', assemblyIds);
+  if (!assemblies || assemblies.length === 0) return 0;
+
+  let cloned = 0;
+  for (const a of assemblies) {
+    const payload: Record<string, any> = { customer_rfq_id: targetInquiryId };
+    for (const col of ASSEMBLY_COPY_COLS) {
+      if (a[col] !== undefined) payload[col] = a[col];
+    }
+    const { data: newAsm, error } = await (supabase as any)
+      .from('product_assemblies')
+      .insert(payload)
+      .select('id')
+      .single();
+    if (error || !newAsm) {
+      console.warn('Failed cloning assembly:', error?.message);
+      continue;
+    }
+
+    const { data: comps } = await (supabase as any)
+      .from('assembly_components')
+      .select('product_id, quantity_per_assembly, sort_order')
+      .eq('assembly_id', a.id);
+    if (comps && comps.length > 0) {
+      const inserts = comps.map((c: any) => ({
+        assembly_id: newAsm.id,
+        product_id: idMap[c.product_id] ?? c.product_id,
+        quantity_per_assembly: c.quantity_per_assembly,
+        sort_order: c.sort_order,
+      }));
+      const { error: cErr } = await (supabase as any).from('assembly_components').insert(inserts);
+      if (cErr) console.warn('Failed cloning assembly components:', cErr.message);
+    }
+    cloned++;
+  }
+  return cloned;
+}
+
