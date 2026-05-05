@@ -58,6 +58,19 @@ export function CopyProductsToInquiryDialog({
     })();
   }, [open]);
 
+  // Count assemblies referencing the selected products so we can show it on the toggle.
+  useEffect(() => {
+    if (!open || productIds.length === 0) { setAssemblyCount(0); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('assembly_components')
+        .select('assembly_id')
+        .in('product_id', productIds);
+      const ids = new Set((data ?? []).map((r: any) => r.assembly_id));
+      setAssemblyCount(ids.size);
+    })();
+  }, [open, productIds]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return inquiries
