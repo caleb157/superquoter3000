@@ -112,6 +112,15 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
     }
     const newId = created.id as string;
 
+    // The seed_product_defaults trigger inserts default rows on product INSERT.
+    // Wipe them so clones reflect the source exactly.
+    await Promise.all([
+      (supabase as any).from('cogs_items').delete().eq('product_id', newId),
+      (supabase as any).from('non_unit_cogs').delete().eq('product_id', newId),
+      (supabase as any).from('overhead_items').delete().eq('product_id', newId),
+      (supabase as any).from('cbm_estimates').delete().eq('product_id', newId),
+    ]);
+
     // 2. Clone child rows in parallel — full costing page
     const cloneTable = async (table: string) => {
       const { data: rows } = await (supabase as any).from(table).select('*').eq('product_id', sourceId);
