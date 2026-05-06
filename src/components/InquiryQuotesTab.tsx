@@ -100,6 +100,14 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     <TableCell className="text-xs text-muted-foreground">
                       {q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}
                     </TableCell>
+                    <TableCell className="text-xs">
+                      <Input
+                        type="datetime-local"
+                        className="h-7 text-xs w-[180px]"
+                        value={q.sent_at ? toLocalInput(q.sent_at) : ''}
+                        onChange={(e) => updateSentAt(q.id, e.target.value)}
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
                         {q.share_token && (
