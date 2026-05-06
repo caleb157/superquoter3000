@@ -202,7 +202,7 @@ export function SalesDashboard({ range }: Props) {
           ['Weighted Pipeline (USD)', pipeline.total.toFixed(2)],
           ['Expected Net Profit (USD)', pipeline.profit.toFixed(2)],
           ['Win Rate', winRate ? `${(winRate.rate * 100).toFixed(1)}%` : '—'],
-          ['Wins / Decided Inquiries', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
+          ['Wins / Inquiries in range', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
           ['Active Customers', activeCustomers],
         ],
       },
@@ -212,9 +212,9 @@ export function SalesDashboard({ range }: Props) {
         rows: pipeline.contributors.map(c => [c.name, c.qty, c.cost.toFixed(2), c.weight.toFixed(2), c.value.toFixed(2), c.inquiryId ?? '']),
       },
       {
-        title: 'Decided inquiries in range',
+        title: 'Inquiries created in range',
         headers: ['Inquiry', 'Customer', 'Outcome'],
-        rows: winRateRows.map(r => [r.rfqNumber, r.customerName, r.won ? 'Won (PO)' : 'Lost (Cancelled)']),
+        rows: winRateRows.map(r => [r.rfqNumber, r.customerName, r.outcome]),
       },
       {
         title: 'Active customers with activity in range',
