@@ -314,15 +314,15 @@ export function SalesDashboard({ range }: Props) {
       <DrillDownDialog
         open={drill === 'winRate'}
         onOpenChange={(o) => !o && setDrill(null)}
-        title="Quoted inquiries in range"
-        description="Inquiries with a quote ever sent and a status event during the selected range. Won = converted to PO in range."
+        title="Decided inquiries in range"
+        description="Inquiries that reached a final status (PO or Cancelled) during the selected range. Win rate = PO / (PO + Cancelled)."
         rows={winRateRows}
         rowKey={(r) => r.id}
         onRowClick={(r) => navigate(`/inquiry/${r.id}`)}
         columns={[
           { header: 'Inquiry', cell: (r: any) => r.rfqNumber },
           { header: 'Customer', cell: (r: any) => r.customerName },
-          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won' : 'Open' },
+          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won (PO)' : '✗ Lost (Cancelled)' },
         ]}
       />
       <DrillDownDialog
