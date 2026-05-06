@@ -170,6 +170,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   .eq('id', id),
               ),
           ).catch(e => console.error('Persist computed prices failed', e));
+          // Reflect newly persisted calculated price in local state so the displayed
+          // unit price matches what's now in the DB (and the costing tab).
+          setProducts(prev => prev.map(prod => {
+            const c = computed[prod.id];
+            if (!c) return prod;
+            return { ...prod, calculated_unit_price_usd: c.unit_price_usd ?? null };
+          }));
         } catch (e) {
           console.error('Price compute failed', e);
         }
