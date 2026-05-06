@@ -112,9 +112,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    const sheetPrice = Number(p.target_price_usd ?? 0);
-    if (sheetPrice > 0) return sheetPrice;
-    return priceMap[p.id]?.unit_price_usd ?? 0;
+    const calc = priceMap[p.id]?.unit_price_usd;
+    if (calc && calc > 0) return calc;
+    return Number(p.target_price_usd ?? 0);
   };
 
   useEffect(() => {
