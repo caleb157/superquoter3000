@@ -129,7 +129,7 @@ export default function InquiryDetail() {
     const patch = {
       title: settingsDraft.title?.trim() || null,
       status: settingsDraft.status,
-      priority: settingsDraft.priority,
+      priority: settingsDraft.status === 'paused' ? 'low' : settingsDraft.priority,
       assigned_to: settingsDraft.assigned_to?.trim() || null,
       target_completion_date: settingsDraft.target_completion_date || null,
       requirements: settingsDraft.requirements?.trim() || null,
