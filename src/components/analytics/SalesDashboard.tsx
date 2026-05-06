@@ -88,56 +88,52 @@ export function SalesDashboard({ range }: Props) {
   );
 
   // Win rate over the range, based on inquiry status:
-  // denominator = inquiries that reached a terminal state (po or cancelled) inside the range
-  // numerator = those that reached 'po'
-  // Falls back to current inquiry status if no status event was logged in range.
-  const terminalInRange = useMemo(() => {
+  // denominator = all inquiries created in range (every live inquiry counts)
+  // numerator = those whose current status is 'po' (won)
+  // 'cancelled' inquiries count as losses (in denominator, not in numerator).
+  const winRateInRange = useMemo(() => {
     const wonIds = new Set<string>();
     const lostIds = new Set<string>();
-    inqStatusEvents.forEach(e => {
-      if (!inRange(e.occurred_at, range)) return;
-      if (e.to_status === 'po') wonIds.add(e.inquiry_id);
-      else if (e.to_status === 'cancelled') lostIds.add(e.inquiry_id);
-    });
-    // Fallback: include inquiries currently in terminal state whose updated_at is in range
+    const openIds = new Set<string>();
     inquiries.forEach(i => {
-      if (!inRange(i.updated_at, range)) return;
+      if (!inRange(i.created_at, range)) return;
       if (i.status === 'po') wonIds.add(i.id);
       else if (i.status === 'cancelled') lostIds.add(i.id);
+      else openIds.add(i.id);
     });
-    // If an inquiry both won and lost in range, prefer the latest event
-    lostIds.forEach(id => { if (wonIds.has(id)) {
-      const evs = inqStatusEvents
-        .filter(e => e.inquiry_id === id && inRange(e.occurred_at, range) && (e.to_status === 'po' || e.to_status === 'cancelled'))
-        .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
-      const last = evs[evs.length - 1];
-      if (last?.to_status === 'po') lostIds.delete(id); else wonIds.delete(id);
-    }});
-    return { wonIds, lostIds };
-  }, [inqStatusEvents, inquiries, range]);
+    return { wonIds, lostIds, openIds };
+  }, [inquiries, range]);
 
   const winRate = useMemo(() => {
-    const total = terminalInRange.wonIds.size + terminalInRange.lostIds.size;
+    const total = winRateInRange.wonIds.size + winRateInRange.lostIds.size + winRateInRange.openIds.size;
     if (total === 0) return null;
-    const wins = terminalInRange.wonIds.size;
+    const wins = winRateInRange.wonIds.size;
     return { rate: wins / total, wins, total };
-  }, [terminalInRange]);
+  }, [winRateInRange]);
 
   const winRateRows = useMemo(() => {
     if (!winRate) return [] as any[];
-    const ids = new Set<string>([...terminalInRange.wonIds, ...terminalInRange.lostIds]);
+    const ids = new Set<string>([
+      ...winRateInRange.wonIds,
+      ...winRateInRange.lostIds,
+      ...winRateInRange.openIds,
+    ]);
     return Array.from(ids).map(id => {
       const inq = inquiries.find(x => x.id === id);
       const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
+      const won = winRateInRange.wonIds.has(id);
+      const lost = winRateInRange.lostIds.has(id);
       return {
         id,
         rfqNumber: (inq as any)?.rfq_number || id.slice(0, 6),
         title: (inq as any)?.title || '',
         customerName: cust?.name || cust?.company || '—',
-        won: terminalInRange.wonIds.has(id),
+        won,
+        lost,
+        outcome: won ? 'Won (PO)' : lost ? 'Lost (Cancelled)' : 'Open',
       };
     }).sort((a, b) => Number(b.won) - Number(a.won));
-  }, [winRate, terminalInRange, inquiries, customerById]);
+  }, [winRate, winRateInRange, inquiries, customerById]);
 
   const activeCustomerRows = useMemo(() => {
     const inquiriesInRange = inquiries.filter(i => inRange(i.created_at, range) || inRange(i.updated_at, range));
@@ -206,7 +202,7 @@ export function SalesDashboard({ range }: Props) {
           ['Weighted Pipeline (USD)', pipeline.total.toFixed(2)],
           ['Expected Net Profit (USD)', pipeline.profit.toFixed(2)],
           ['Win Rate', winRate ? `${(winRate.rate * 100).toFixed(1)}%` : '—'],
-          ['Wins / Decided Inquiries', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
+          ['Wins / Inquiries in range', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
           ['Active Customers', activeCustomers],
         ],
       },
@@ -216,9 +212,9 @@ export function SalesDashboard({ range }: Props) {
         rows: pipeline.contributors.map(c => [c.name, c.qty, c.cost.toFixed(2), c.weight.toFixed(2), c.value.toFixed(2), c.inquiryId ?? '']),
       },
       {
-        title: 'Decided inquiries in range',
+        title: 'Inquiries created in range',
         headers: ['Inquiry', 'Customer', 'Outcome'],
-        rows: winRateRows.map(r => [r.rfqNumber, r.customerName, r.won ? 'Won (PO)' : 'Lost (Cancelled)']),
+        rows: winRateRows.map(r => [r.rfqNumber, r.customerName, r.outcome]),
       },
       {
         title: 'Active customers with activity in range',
@@ -268,7 +264,7 @@ export function SalesDashboard({ range }: Props) {
         <MetricCard
           label="Win Rate"
           value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
-          sublabel={winRate ? `${winRate.wins} of ${winRate.total} decided inquiries (PO vs cancelled)` : 'No decided inquiries in range'}
+          sublabel={winRate ? `${winRate.wins} won of ${winRate.total} inquiries created in range` : 'No inquiries created in range'}
           onClick={winRateRows.length ? () => setDrill('winRate') : undefined}
         />
         <MetricCard
@@ -314,15 +310,15 @@ export function SalesDashboard({ range }: Props) {
       <DrillDownDialog
         open={drill === 'winRate'}
         onOpenChange={(o) => !o && setDrill(null)}
-        title="Decided inquiries in range"
-        description="Inquiries that reached a final status (PO or Cancelled) during the selected range. Win rate = PO / (PO + Cancelled)."
+        title="Inquiries created in range"
+        description="Every inquiry created during the selected range counts toward the win rate. Win rate = PO / (PO + Cancelled + Open)."
         rows={winRateRows}
         rowKey={(r) => r.id}
         onRowClick={(r) => navigate(`/inquiry/${r.id}`)}
         columns={[
           { header: 'Inquiry', cell: (r: any) => r.rfqNumber },
           { header: 'Customer', cell: (r: any) => r.customerName },
-          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won (PO)' : '✗ Lost (Cancelled)' },
+          { header: 'Outcome', align: 'right', cell: (r: any) => r.won ? '✓ Won (PO)' : r.lost ? '✗ Lost (Cancelled)' : '◌ Open' },
         ]}
       />
       <DrillDownDialog
