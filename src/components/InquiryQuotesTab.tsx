@@ -7,12 +7,19 @@ import { Badge } from '@/components/ui/badge';
 import { ReceivedRfqList } from '@/components/ReceivedRfqList';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { toast } from 'sonner';
 
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 type Quote = {
   id: string; quote_number: string | null; status: string | null;
-  totals: any; created_at: string | null; share_token: string | null;
+  totals: any; created_at: string | null; sent_at: string | null; share_token: string | null;
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -28,7 +35,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
   const load = async () => {
     const { data } = await (supabase as any)
       .from('quote_snapshots')
-      .select('id, quote_number, status, totals, created_at, share_token')
+      .select('id, quote_number, status, totals, created_at, sent_at, share_token')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setQuotes(data ?? []);
@@ -41,6 +48,18 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
     if (error) throw error;
     toast.success('Quote deleted');
     setQuotes(prev => prev.filter(q => q.id !== id));
+  };
+
+  const updateSentAt = async (id: string, localValue: string) => {
+    const iso = localValue ? new Date(localValue).toISOString() : null;
+    const patch: any = { sent_at: iso };
+    // If marking as sent for the first time, also flip status
+    const q = quotes.find(x => x.id === id);
+    if (iso && q && (q.status === 'draft' || !q.status)) patch.status = 'sent';
+    const { error } = await (supabase as any).from('quote_snapshots').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    setQuotes(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
+    toast.success('Sent date updated');
   };
 
   return (
@@ -63,6 +82,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                   <TableHead className="text-xs text-right">SKUs</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
                   <TableHead className="text-xs">Created</TableHead>
+                  <TableHead className="text-xs">Sent</TableHead>
                   <TableHead className="text-xs text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -79,6 +99,14 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <Input
+                        type="datetime-local"
+                        className="h-7 text-xs w-[180px]"
+                        value={q.sent_at ? toLocalInput(q.sent_at) : ''}
+                        onChange={(e) => updateSentAt(q.id, e.target.value)}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
