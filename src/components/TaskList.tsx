@@ -42,6 +42,7 @@ export function TaskList({
   const [internalRefresh, setInternalRefresh] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
 
@@ -76,10 +77,12 @@ export function TaskList({
       }
       if (status !== 'all') q = q.eq('status', status);
       const { data, error } = await q;
+      if (cancelled) return;
       if (error) toast.error(error.message);
       setTasks((data as any) ?? []);
       setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, status, refreshKey, internalRefresh]);
 
   const filteredSorted = useMemo(() => {
