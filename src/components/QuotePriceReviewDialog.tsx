@@ -290,14 +290,12 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
 }
 
 function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: 'USD' | 'INR'): number {
-  const entry = prices[p.id];
-  if (entry) return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
-  // Fallback to stored target if no calculated price was returned
   const tgt = Number(p.target_price_usd ?? 0);
-  if (!tgt) return 0;
-  if (currency === 'USD') return tgt;
-  // No exchange rate available here — best effort using prices' fx if any line had it
-  const anyEntry = Object.values(prices)[0];
-  const fx = anyEntry?.exchange_rate ?? 90;
-  return tgt * fx;
+  const entry = prices[p.id];
+  if (tgt > 0) {
+    const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
+    return currency === 'INR' ? tgt * fx : tgt;
+  }
+  if (entry) return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
+  return 0;
 }
