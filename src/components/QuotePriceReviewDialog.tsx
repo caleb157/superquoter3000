@@ -290,12 +290,14 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
 }
 
 function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: 'USD' | 'INR'): number {
-  const tgt = Number(p.target_price_usd ?? 0);
   const entry = prices[p.id];
+  if (entry && (entry.unit_price_usd > 0 || entry.unit_price_inr > 0)) {
+    return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
+  }
+  const tgt = Number(p.target_price_usd ?? 0);
   if (tgt > 0) {
     const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
     return currency === 'INR' ? tgt * fx : tgt;
   }
-  if (entry) return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
   return 0;
 }
