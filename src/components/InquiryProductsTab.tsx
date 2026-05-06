@@ -37,6 +37,7 @@ type Product = {
   target_price_usd: number | null; markup_percent: number | null;
   cogs_done: boolean | null; cbm_done: boolean | null; overhead_done: boolean | null;
   shipping_done: boolean | null; revenue_done: boolean | null;
+  calculated_unit_price_usd: number | null;
   sample_stage_was?: string | null;
 };
 
@@ -112,8 +113,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    const calc = priceMap[p.id]?.unit_price_usd;
-    if (calc && calc > 0) return calc;
+    if (p.calculated_unit_price_usd != null && p.calculated_unit_price_usd > 0) {
+      return Number(p.calculated_unit_price_usd);
+    }
     return Number(p.target_price_usd ?? 0);
   };
 
@@ -168,6 +170,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   .eq('id', id),
               ),
           ).catch(e => console.error('Persist computed prices failed', e));
+          // Reflect newly persisted calculated price in local state so the displayed
+          // unit price matches what's now in the DB (and the costing tab).
+          setProducts(prev => prev.map(prod => {
+            const c = computed[prod.id];
+            if (!c) return prod;
+            return { ...prod, calculated_unit_price_usd: c.unit_price_usd ?? null };
+          }));
         } catch (e) {
           console.error('Price compute failed', e);
         }
