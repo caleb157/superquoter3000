@@ -7,8 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { ReceivedRfqList } from '@/components/ReceivedRfqList';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { toast } from 'sonner';
+
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 type Quote = {
   id: string; quote_number: string | null; status: string | null;
