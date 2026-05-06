@@ -111,6 +111,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     storageKey: `inquiry-products-sort:${inquiryId}`,
   });
 
+  const displayPriceUsd = (p: Product) => {
+    const sheetPrice = Number(p.target_price_usd ?? 0);
+    if (sheetPrice > 0) return sheetPrice;
+    return priceMap[p.id]?.unit_price_usd ?? 0;
+  };
+
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
       if (data) setProductTypes(data);
@@ -189,7 +195,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     });
     return sortItems(base, {
       name: (p) => (p.name || '').toLowerCase(),
-      price: (p) => priceMap[p.id]?.unit_price_usd ?? 0,
+      price: displayPriceUsd,
       updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
     });
   }, [products, search, filter, sortItems, priceMap]);
@@ -472,7 +478,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      {priceMap[p.id]?.unit_price_usd ? fmt.usd(priceMap[p.id].unit_price_usd) : '—'}
+                      {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
@@ -531,7 +537,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t text-[11px]">
                       <span className="font-mono tabular-nums font-medium">
-                        {priceMap[p.id]?.unit_price_usd ? fmt.usd(priceMap[p.id].unit_price_usd) : '—'}
+                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                       </span>
                       <div onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
