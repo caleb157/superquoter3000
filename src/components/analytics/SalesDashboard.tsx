@@ -268,7 +268,7 @@ export function SalesDashboard({ range }: Props) {
         <MetricCard
           label="Win Rate"
           value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
-          sublabel={winRate ? `${winRate.wins} of ${winRate.total} quoted inquiries` : 'No quoted inquiries in range'}
+          sublabel={winRate ? `${winRate.wins} of ${winRate.total} decided inquiries (PO vs cancelled)` : 'No decided inquiries in range'}
           onClick={winRateRows.length ? () => setDrill('winRate') : undefined}
         />
         <MetricCard
