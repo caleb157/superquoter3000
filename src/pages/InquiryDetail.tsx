@@ -99,9 +99,11 @@ export default function InquiryDetail() {
   useEffect(() => { fetchInquiry(); }, [id]);
 
   const updateField = async (patch: any) => {
+    if (patch.status === 'paused') patch = { priority: 'low', ...patch };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setInquiry((i: any) => ({ ...i, ...patch }));
+    setSettingsDraft((d: any) => d ? { ...d, ...patch } : d);
   };
 
   const saveTitle = async () => {
@@ -127,7 +129,7 @@ export default function InquiryDetail() {
     const patch = {
       title: settingsDraft.title?.trim() || null,
       status: settingsDraft.status,
-      priority: settingsDraft.priority,
+      priority: settingsDraft.status === 'paused' ? 'low' : settingsDraft.priority,
       assigned_to: settingsDraft.assigned_to?.trim() || null,
       target_completion_date: settingsDraft.target_completion_date || null,
       requirements: settingsDraft.requirements?.trim() || null,
