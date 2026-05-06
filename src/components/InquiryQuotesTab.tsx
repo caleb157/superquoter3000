@@ -50,6 +50,18 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
     setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
+  const updateSentAt = async (id: string, localValue: string) => {
+    const iso = localValue ? new Date(localValue).toISOString() : null;
+    const patch: any = { sent_at: iso };
+    // If marking as sent for the first time, also flip status
+    const q = quotes.find(x => x.id === id);
+    if (iso && q && (q.status === 'draft' || !q.status)) patch.status = 'sent';
+    const { error } = await (supabase as any).from('quote_snapshots').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    setQuotes(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
+    toast.success('Sent date updated');
+  };
+
   return (
     <div className="space-y-4">
       <ReceivedRfqList inquiryId={inquiryId} />
