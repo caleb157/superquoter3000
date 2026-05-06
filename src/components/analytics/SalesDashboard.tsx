@@ -87,39 +87,45 @@ export function SalesDashboard({ range }: Props) {
     [products, inquiryStatusById, pricing],
   );
 
-  // Win rate over the range:
-  // numerator = inquiries that became 'po' inside the range
-  // denominator = inquiries that ever had a quote sent (any time) AND had a status event in the range OR became po in range
-  const winRate = useMemo(() => {
-    const poInRange = new Set<string>();
-    const everInquiriesInRange = new Set<string>();
+  // Win rate over the range, based on inquiry status:
+  // denominator = inquiries that reached a terminal state (po or cancelled) inside the range
+  // numerator = those that reached 'po'
+  // Falls back to current inquiry status if no status event was logged in range.
+  const terminalInRange = useMemo(() => {
+    const wonIds = new Set<string>();
+    const lostIds = new Set<string>();
     inqStatusEvents.forEach(e => {
       if (!inRange(e.occurred_at, range)) return;
-      everInquiriesInRange.add(e.inquiry_id);
-      if (e.to_status === 'po') poInRange.add(e.inquiry_id);
+      if (e.to_status === 'po') wonIds.add(e.inquiry_id);
+      else if (e.to_status === 'cancelled') lostIds.add(e.inquiry_id);
     });
-    // quoted inquiries
-    const quotedInquiries = new Set<string>();
-    quotes.forEach(q => { if (q.customer_rfq_id) quotedInquiries.add(q.customer_rfq_id); });
-    const denomInquiries = Array.from(everInquiriesInRange).filter(id => quotedInquiries.has(id));
-    // include all PO-in-range too (in case status events miss them)
-    poInRange.forEach(id => { if (quotedInquiries.has(id) && !denomInquiries.includes(id)) denomInquiries.push(id); });
-    if (denomInquiries.length === 0) return null;
-    const wins = denomInquiries.filter(id => poInRange.has(id)).length;
-    return { rate: wins / denomInquiries.length, wins, total: denomInquiries.length };
-  }, [inqStatusEvents, quotes, range]);
+    // Fallback: include inquiries currently in terminal state whose updated_at is in range
+    inquiries.forEach(i => {
+      if (!inRange(i.updated_at, range)) return;
+      if (i.status === 'po') wonIds.add(i.id);
+      else if (i.status === 'cancelled') lostIds.add(i.id);
+    });
+    // If an inquiry both won and lost in range, prefer the latest event
+    lostIds.forEach(id => { if (wonIds.has(id)) {
+      const evs = inqStatusEvents
+        .filter(e => e.inquiry_id === id && inRange(e.occurred_at, range) && (e.to_status === 'po' || e.to_status === 'cancelled'))
+        .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
+      const last = evs[evs.length - 1];
+      if (last?.to_status === 'po') lostIds.delete(id); else wonIds.delete(id);
+    }});
+    return { wonIds, lostIds };
+  }, [inqStatusEvents, inquiries, range]);
+
+  const winRate = useMemo(() => {
+    const total = terminalInRange.wonIds.size + terminalInRange.lostIds.size;
+    if (total === 0) return null;
+    const wins = terminalInRange.wonIds.size;
+    return { rate: wins / total, wins, total };
+  }, [terminalInRange]);
 
   const winRateRows = useMemo(() => {
     if (!winRate) return [] as any[];
-    const poInRange = new Set<string>();
-    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range) && e.to_status === 'po') poInRange.add(e.inquiry_id); });
-    const everInquiriesInRange = new Set<string>();
-    inqStatusEvents.forEach(e => { if (inRange(e.occurred_at, range)) everInquiriesInRange.add(e.inquiry_id); });
-    const quotedInquiries = new Set<string>();
-    quotes.forEach(q => { if (q.customer_rfq_id) quotedInquiries.add(q.customer_rfq_id); });
-    const ids = new Set<string>();
-    everInquiriesInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
-    poInRange.forEach(id => { if (quotedInquiries.has(id)) ids.add(id); });
+    const ids = new Set<string>([...terminalInRange.wonIds, ...terminalInRange.lostIds]);
     return Array.from(ids).map(id => {
       const inq = inquiries.find(x => x.id === id);
       const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
@@ -128,10 +134,10 @@ export function SalesDashboard({ range }: Props) {
         rfqNumber: (inq as any)?.rfq_number || id.slice(0, 6),
         title: (inq as any)?.title || '',
         customerName: cust?.name || cust?.company || '—',
-        won: poInRange.has(id),
+        won: terminalInRange.wonIds.has(id),
       };
     }).sort((a, b) => Number(b.won) - Number(a.won));
-  }, [winRate, inqStatusEvents, quotes, inquiries, customerById, range]);
+  }, [winRate, terminalInRange, inquiries, customerById]);
 
   const activeCustomerRows = useMemo(() => {
     const inquiriesInRange = inquiries.filter(i => inRange(i.created_at, range) || inRange(i.updated_at, range));
