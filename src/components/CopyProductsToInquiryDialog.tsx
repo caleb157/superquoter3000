@@ -40,11 +40,19 @@ export function CopyProductsToInquiryDialog({
   const [copying, setCopying] = useState(false);
   const [includeAssemblies, setIncludeAssemblies] = useState(true);
   const [assemblyCount, setAssemblyCount] = useState(0);
+  const [variantName, setVariantName] = useState('');
+  const [variantNotes, setVariantNotes] = useState('');
+  const [sourceProduct, setSourceProduct] = useState<{ name: string; notes: string | null } | null>(null);
+
+  const isSameInquirySingle = targetId === sourceInquiryId && productIds.length === 1;
 
   useEffect(() => {
     if (!open) return;
     setSearch('');
     setTargetId(null);
+    setVariantName('');
+    setVariantNotes('');
+    setSourceProduct(null);
     setLoading(true);
     (async () => {
       const { data } = await supabase
@@ -68,6 +76,23 @@ export function CopyProductsToInquiryDialog({
         .in('product_id', productIds);
       const ids = new Set((data ?? []).map((r: any) => r.assembly_id));
       setAssemblyCount(ids.size);
+    })();
+  }, [open, productIds]);
+
+  // Fetch source product name/notes once when single-product same-inquiry copy is possible.
+  useEffect(() => {
+    if (!open || productIds.length !== 1) { setSourceProduct(null); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('name, notes')
+        .eq('id', productIds[0])
+        .maybeSingle();
+      if (data) {
+        setSourceProduct({ name: data.name, notes: data.notes });
+        setVariantName(`${data.name} (variant)`);
+        setVariantNotes(data.notes ?? '');
+      }
     })();
   }, [open, productIds]);
 
@@ -98,7 +123,12 @@ export function CopyProductsToInquiryDialog({
     let success = 0;
     const idMap: Record<string, string> = {};
     for (const id of productIds) {
-      const newId = await cloneProductToInquiry(id, targetId);
+      const newId = await cloneProductToInquiry(
+        id,
+        targetId,
+        isSameInquirySingle ? variantName : undefined,
+        isSameInquirySingle ? variantNotes : undefined,
+      );
       if (newId) { success++; idMap[id] = newId; }
     }
     let asmCloned = 0;
@@ -191,6 +221,30 @@ export function CopyProductsToInquiryDialog({
             </ul>
           )}
         </div>
+
+        {isSameInquirySingle && sourceProduct && (
+          <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+            <div className="text-xs font-medium text-muted-foreground">Variant details</div>
+            <div>
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input
+                value={variantName}
+                onChange={e => setVariantName(e.target.value)}
+                placeholder={`${sourceProduct.name} (variant)`}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Notes</label>
+              <textarea
+                value={variantNotes}
+                onChange={e => setVariantNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+        )}
 
         <DialogFooter className="flex items-center sm:justify-between gap-2">
           <span className="text-xs text-muted-foreground">

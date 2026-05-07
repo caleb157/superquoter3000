@@ -26,6 +26,7 @@ export async function cloneProductToInquiry(
   sourceId: string,
   targetInquiryId: string,
   nameOverride?: string,
+  notesOverride?: string,
 ): Promise<string | null> {
   const { data: source } = await supabase.from('products').select('*').eq('id', sourceId).maybeSingle();
   if (!source) return null;
@@ -35,6 +36,7 @@ export async function cloneProductToInquiry(
     if ((source as any)[col] !== undefined) insertPayload[col] = (source as any)[col];
   }
   if (nameOverride && nameOverride.trim()) insertPayload.name = nameOverride.trim();
+  if (notesOverride !== undefined) insertPayload.notes = notesOverride.trim() || null;
   insertPayload.design_stage = null;
   insertPayload.quote_stage = null;
   insertPayload.sample_stage = null;
