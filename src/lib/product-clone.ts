@@ -26,7 +26,17 @@ export async function cloneProductToInquiry(
   sourceId: string,
   targetInquiryId: string,
   nameOverride?: string,
+  notesOverride?: string,
 ): Promise<string | null> {
+  const { data: source } = await supabase.from('products').select('*').eq('id', sourceId).maybeSingle();
+  if (!source) return null;
+
+  const insertPayload: Record<string, any> = { customer_rfq_id: targetInquiryId };
+  for (const col of PRODUCT_COPY_COLS) {
+    if ((source as any)[col] !== undefined) insertPayload[col] = (source as any)[col];
+  }
+  if (nameOverride && nameOverride.trim()) insertPayload.name = nameOverride.trim();
+  if (notesOverride !== undefined) insertPayload.notes = notesOverride.trim() || null;
   const { data: source } = await supabase.from('products').select('*').eq('id', sourceId).maybeSingle();
   if (!source) return null;
 
