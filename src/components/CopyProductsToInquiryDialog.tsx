@@ -123,7 +123,12 @@ export function CopyProductsToInquiryDialog({
     let success = 0;
     const idMap: Record<string, string> = {};
     for (const id of productIds) {
-      const newId = await cloneProductToInquiry(id, targetId);
+      const newId = await cloneProductToInquiry(
+        id,
+        targetId,
+        isSameInquirySingle ? variantName : undefined,
+        isSameInquirySingle ? variantNotes : undefined,
+      );
       if (newId) { success++; idMap[id] = newId; }
     }
     let asmCloned = 0;
