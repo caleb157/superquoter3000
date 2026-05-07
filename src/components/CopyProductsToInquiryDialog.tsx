@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Copy } from 'lucide-react';
+import { Search, Copy, Plus, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -19,10 +19,20 @@ type Inquiry = {
   customer: { name: string; company: string | null } | null;
 };
 
+type SourceProduct = { id: string; name: string; notes: string | null };
+
+type VariantRow = {
+  sourceId: string;
+  sourceName: string;
+  copyIndex: number; // 1-based, per source product
+  name: string;
+  notes: string;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /** The inquiry the products currently belong to — excluded from target list. */
+  /** The inquiry the products currently belong to. */
   sourceInquiryId: string;
   /** Products to copy. */
   productIds: string[];
@@ -40,19 +50,19 @@ export function CopyProductsToInquiryDialog({
   const [copying, setCopying] = useState(false);
   const [includeAssemblies, setIncludeAssemblies] = useState(true);
   const [assemblyCount, setAssemblyCount] = useState(0);
-  const [variantName, setVariantName] = useState('');
-  const [variantNotes, setVariantNotes] = useState('');
-  const [sourceProduct, setSourceProduct] = useState<{ name: string; notes: string | null } | null>(null);
+  const [copiesPerProduct, setCopiesPerProduct] = useState(1);
+  const [sourceProducts, setSourceProducts] = useState<SourceProduct[]>([]);
+  const [variants, setVariants] = useState<VariantRow[]>([]);
 
-  const isSameInquirySingle = targetId === sourceInquiryId && productIds.length === 1;
+  const isSameInquiry = targetId === sourceInquiryId;
 
   useEffect(() => {
     if (!open) return;
     setSearch('');
     setTargetId(null);
-    setVariantName('');
-    setVariantNotes('');
-    setSourceProduct(null);
+    setCopiesPerProduct(1);
+    setSourceProducts([]);
+    setVariants([]);
     setLoading(true);
     (async () => {
       const { data } = await supabase
@@ -66,7 +76,7 @@ export function CopyProductsToInquiryDialog({
     })();
   }, [open]);
 
-  // Count assemblies referencing the selected products so we can show it on the toggle.
+  // Count assemblies referencing the selected products.
   useEffect(() => {
     if (!open || productIds.length === 0) { setAssemblyCount(0); return; }
     (async () => {
@@ -79,60 +89,89 @@ export function CopyProductsToInquiryDialog({
     })();
   }, [open, productIds]);
 
-  // Fetch source product name/notes once when single-product same-inquiry copy is possible.
+  // Fetch source product name/notes for all selected products (used when same-inquiry).
   useEffect(() => {
-    if (!open || productIds.length !== 1) { setSourceProduct(null); return; }
+    if (!open || productIds.length === 0) { setSourceProducts([]); return; }
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('name, notes')
-        .eq('id', productIds[0])
-        .maybeSingle();
-      if (data) {
-        setSourceProduct({ name: data.name, notes: data.notes });
-        setVariantName(`${data.name} (variant)`);
-        setVariantNotes(data.notes ?? '');
-      }
+        .select('id, name, notes')
+        .in('id', productIds);
+      setSourceProducts((data ?? []) as SourceProduct[]);
     })();
   }, [open, productIds]);
 
+  // Rebuild variant rows whenever same-inquiry mode, copy count, or sources change.
+  useEffect(() => {
+    if (!isSameInquiry || sourceProducts.length === 0) {
+      setVariants([]);
+      return;
+    }
+    const ordered = productIds
+      .map(id => sourceProducts.find(p => p.id === id))
+      .filter((p): p is SourceProduct => !!p);
+    const rows: VariantRow[] = [];
+    for (const sp of ordered) {
+      for (let i = 1; i <= Math.max(1, copiesPerProduct); i++) {
+        const suffix = copiesPerProduct === 1 ? '(variant)' : `(variant ${i})`;
+        rows.push({
+          sourceId: sp.id,
+          sourceName: sp.name,
+          copyIndex: i,
+          name: `${sp.name} ${suffix}`,
+          notes: sp.notes ?? '',
+        });
+      }
+    }
+    setVariants(rows);
+  }, [isSameInquiry, copiesPerProduct, sourceProducts, productIds]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    // Sort the current/source inquiry to the top so users can quickly duplicate
-    // a product into the same inquiry as a variant.
     const sorted = [...inquiries].sort((a, b) => {
       if (a.id === sourceInquiryId) return -1;
       if (b.id === sourceInquiryId) return 1;
       return 0;
     });
-    return sorted
-      .filter(i => {
-        if (!q) return true;
-        return (
-          i.rfq_number.toLowerCase().includes(q) ||
-          (i.title ?? '').toLowerCase().includes(q) ||
-          (i.customer?.name ?? '').toLowerCase().includes(q) ||
-          (i.customer?.company ?? '').toLowerCase().includes(q)
-        );
-      });
+    return sorted.filter(i => {
+      if (!q) return true;
+      return (
+        i.rfq_number.toLowerCase().includes(q) ||
+        (i.title ?? '').toLowerCase().includes(q) ||
+        (i.customer?.name ?? '').toLowerCase().includes(q) ||
+        (i.customer?.company ?? '').toLowerCase().includes(q)
+      );
+    });
   }, [inquiries, search, sourceInquiryId]);
+
+  const updateVariant = (idx: number, patch: Partial<VariantRow>) => {
+    setVariants(v => v.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+  };
+
+  const totalCopies = isSameInquiry
+    ? productIds.length * Math.max(1, copiesPerProduct)
+    : productIds.length;
 
   const handleCopy = async () => {
     if (!targetId || productIds.length === 0) return;
     setCopying(true);
     let success = 0;
     const idMap: Record<string, string> = {};
-    for (const id of productIds) {
-      const newId = await cloneProductToInquiry(
-        id,
-        targetId,
-        isSameInquirySingle ? variantName : undefined,
-        isSameInquirySingle ? variantNotes : undefined,
-      );
-      if (newId) { success++; idMap[id] = newId; }
+
+    if (isSameInquiry) {
+      for (const v of variants) {
+        const newId = await cloneProductToInquiry(v.sourceId, targetId, v.name, v.notes);
+        if (newId) { success++; idMap[v.sourceId] = newId; }
+      }
+    } else {
+      for (const id of productIds) {
+        const newId = await cloneProductToInquiry(id, targetId);
+        if (newId) { success++; idMap[id] = newId; }
+      }
     }
+
     let asmCloned = 0;
-    if (includeAssemblies && assemblyCount > 0) {
+    if (includeAssemblies && assemblyCount > 0 && !isSameInquiry) {
       asmCloned = await cloneAssembliesForProducts(productIds, targetId, idMap);
     }
     setCopying(false);
@@ -146,9 +185,9 @@ export function CopyProductsToInquiryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Copy {productIds.length} product{productIds.length === 1 ? '' : 's'} to another inquiry</DialogTitle>
+          <DialogTitle>Copy {productIds.length} product{productIds.length === 1 ? '' : 's'} to an inquiry</DialogTitle>
           <DialogDescription>
-            Variants, COGS, overhead, CBM, and shipping are cloned and re-linked to the target inquiry.
+            Variants, COGS, overhead, CBM, and shipping are cloned and re-linked.
             Stages and completion flags reset on the copies.
           </DialogDescription>
         </DialogHeader>
@@ -159,7 +198,7 @@ export function CopyProductsToInquiryDialog({
           </div>
         )}
 
-        {assemblyCount > 0 && (
+        {assemblyCount > 0 && !isSameInquiry && (
           <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
             <Checkbox
               checked={includeAssemblies}
@@ -182,12 +221,12 @@ export function CopyProductsToInquiryDialog({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto border rounded-md">
+        <div className="flex-1 overflow-y-auto border rounded-md min-h-[120px]">
           {loading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
           ) : filtered.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
-              {search ? 'No matches.' : 'No other inquiries available.'}
+              {search ? 'No matches.' : 'No inquiries available.'}
             </div>
           ) : (
             <ul className="divide-y">
@@ -222,33 +261,65 @@ export function CopyProductsToInquiryDialog({
           )}
         </div>
 
-        {isSameInquirySingle && sourceProduct && (
-          <div className="space-y-2 border rounded-md p-3 bg-muted/30">
-            <div className="text-xs font-medium text-muted-foreground">Variant details</div>
-            <div>
-              <label className="text-xs text-muted-foreground">Name</label>
-              <Input
-                value={variantName}
-                onChange={e => setVariantName(e.target.value)}
-                placeholder={`${sourceProduct.name} (variant)`}
-                className="h-9"
-              />
+        {isSameInquiry && (
+          <div className="space-y-3 border rounded-md p-3 bg-muted/30">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-medium text-muted-foreground">
+                Variant details ({totalCopies} cop{totalCopies === 1 ? 'y' : 'ies'} total)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Copies per product</span>
+                <Button
+                  type="button" variant="outline" size="icon" className="h-7 w-7"
+                  onClick={() => setCopiesPerProduct(c => Math.max(1, c - 1))}
+                  disabled={copiesPerProduct <= 1}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <Input
+                  type="number" min={1} max={50}
+                  value={copiesPerProduct}
+                  onChange={e => setCopiesPerProduct(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                  className="h-7 w-14 text-center"
+                />
+                <Button
+                  type="button" variant="outline" size="icon" className="h-7 w-7"
+                  onClick={() => setCopiesPerProduct(c => Math.min(50, c + 1))}
+                  disabled={copiesPerProduct >= 50}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Notes</label>
-              <textarea
-                value={variantNotes}
-                onChange={e => setVariantNotes(e.target.value)}
-                rows={2}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
-              />
+
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
+              {variants.map((v, idx) => (
+                <div key={`${v.sourceId}-${v.copyIndex}`} className="space-y-1.5 border-t pt-2 first:border-t-0 first:pt-0">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    From: {v.sourceName}{copiesPerProduct > 1 ? ` · #${v.copyIndex}` : ''}
+                  </div>
+                  <Input
+                    value={v.name}
+                    onChange={e => updateVariant(idx, { name: e.target.value })}
+                    placeholder="Variant name"
+                    className="h-8"
+                  />
+                  <textarea
+                    value={v.notes}
+                    onChange={e => updateVariant(idx, { notes: e.target.value })}
+                    rows={2}
+                    placeholder="Notes (optional)"
+                    className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         <DialogFooter className="flex items-center sm:justify-between gap-2">
           <span className="text-xs text-muted-foreground">
-            {targetId ? '1 inquiry selected' : 'Select a target inquiry'}
+            {targetId ? `Will create ${totalCopies} cop${totalCopies === 1 ? 'y' : 'ies'}` : 'Select a target inquiry'}
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={copying}>Cancel</Button>
