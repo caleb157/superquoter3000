@@ -222,6 +222,30 @@ export function CopyProductsToInquiryDialog({
           )}
         </div>
 
+        {isSameInquirySingle && sourceProduct && (
+          <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+            <div className="text-xs font-medium text-muted-foreground">Variant details</div>
+            <div>
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input
+                value={variantName}
+                onChange={e => setVariantName(e.target.value)}
+                placeholder={`${sourceProduct.name} (variant)`}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Notes</label>
+              <textarea
+                value={variantNotes}
+                onChange={e => setVariantNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="flex items-center sm:justify-between gap-2">
           <span className="text-xs text-muted-foreground">
             {targetId ? '1 inquiry selected' : 'Select a target inquiry'}
