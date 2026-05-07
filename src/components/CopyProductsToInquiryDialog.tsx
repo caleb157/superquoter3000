@@ -175,6 +175,9 @@ export function CopyProductsToInquiryDialog({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">
                         {i.rfq_number}
+                        {i.id === sourceInquiryId && (
+                          <span className="ml-2 text-xs text-primary font-normal">(this inquiry — duplicate as variant)</span>
+                        )}
                         {i.title && <span className="ml-2 text-muted-foreground font-normal">· {i.title}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
