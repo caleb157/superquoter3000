@@ -40,6 +40,11 @@ export function CopyProductsToInquiryDialog({
   const [copying, setCopying] = useState(false);
   const [includeAssemblies, setIncludeAssemblies] = useState(true);
   const [assemblyCount, setAssemblyCount] = useState(0);
+  const [variantName, setVariantName] = useState('');
+  const [variantNotes, setVariantNotes] = useState('');
+  const [sourceProduct, setSourceProduct] = useState<{ name: string; notes: string | null } | null>(null);
+
+  const isSameInquirySingle = targetId === sourceInquiryId && productIds.length === 1;
 
   useEffect(() => {
     if (!open) return;
