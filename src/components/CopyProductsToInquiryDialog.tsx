@@ -73,8 +73,14 @@ export function CopyProductsToInquiryDialog({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return inquiries
-      .filter(i => i.id !== sourceInquiryId)
+    // Sort the current/source inquiry to the top so users can quickly duplicate
+    // a product into the same inquiry as a variant.
+    const sorted = [...inquiries].sort((a, b) => {
+      if (a.id === sourceInquiryId) return -1;
+      if (b.id === sourceInquiryId) return 1;
+      return 0;
+    });
+    return sorted
       .filter(i => {
         if (!q) return true;
         return (
@@ -169,6 +175,9 @@ export function CopyProductsToInquiryDialog({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">
                         {i.rfq_number}
+                        {i.id === sourceInquiryId && (
+                          <span className="ml-2 text-xs text-primary font-normal">(this inquiry — duplicate as variant)</span>
+                        )}
                         {i.title && <span className="ml-2 text-muted-foreground font-normal">· {i.title}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
