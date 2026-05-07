@@ -73,8 +73,14 @@ export function CopyProductsToInquiryDialog({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return inquiries
-      .filter(i => i.id !== sourceInquiryId)
+    // Sort the current/source inquiry to the top so users can quickly duplicate
+    // a product into the same inquiry as a variant.
+    const sorted = [...inquiries].sort((a, b) => {
+      if (a.id === sourceInquiryId) return -1;
+      if (b.id === sourceInquiryId) return 1;
+      return 0;
+    });
+    return sorted
       .filter(i => {
         if (!q) return true;
         return (
