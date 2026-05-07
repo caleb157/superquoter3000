@@ -79,6 +79,23 @@ export function CopyProductsToInquiryDialog({
     })();
   }, [open, productIds]);
 
+  // Fetch source product name/notes once when single-product same-inquiry copy is possible.
+  useEffect(() => {
+    if (!open || productIds.length !== 1) { setSourceProduct(null); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('name, notes')
+        .eq('id', productIds[0])
+        .maybeSingle();
+      if (data) {
+        setSourceProduct({ name: data.name, notes: data.notes });
+        setVariantName(`${data.name} (variant)`);
+        setVariantNotes(data.notes ?? '');
+      }
+    })();
+  }, [open, productIds]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     // Sort the current/source inquiry to the top so users can quickly duplicate
