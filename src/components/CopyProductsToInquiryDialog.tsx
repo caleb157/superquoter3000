@@ -50,6 +50,9 @@ export function CopyProductsToInquiryDialog({
     if (!open) return;
     setSearch('');
     setTargetId(null);
+    setVariantName('');
+    setVariantNotes('');
+    setSourceProduct(null);
     setLoading(true);
     (async () => {
       const { data } = await supabase
