@@ -75,7 +75,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     allProductIds.length > 0
       ? supabase
           .from('products')
-          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
+          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq, hard_moq')
           .in('id', allProductIds)
       : Promise.resolve({ data: [], error: null } as any),
     allProductIds.length > 0
