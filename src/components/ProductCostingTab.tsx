@@ -506,6 +506,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated || item.cogs_type !== 'Finishing Materials') return;
       const name = (item.component_name || '').toLowerCase();
+      // Sticky auto-fill: once either qty or price has a non-zero value, don't overwrite
+      // either field. This keeps the auto-filled values persistent when the user edits one.
+      const hasQty = (Number(item.components_per_product) || 0) > 0;
+      const hasPrice = (Number(item.unit_cost_inr) || 0) > 0;
+      if (hasQty || hasPrice) return;
       if (name.includes('color') || name.includes('stain')) {
         autoUpdates.push({ id: item.id, components_per_product: colorQty, unit_cost_inr: colorPrice, units: 'L' });
       } else if (name.includes('sealer')) {
