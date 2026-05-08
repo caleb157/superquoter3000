@@ -204,13 +204,21 @@ const CustomerQuote = () => {
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
     if (!token || !data || confirmed) return;
     try {
+      const pct = data.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
       const customerSelections = {
-        products: data.snapshot.products.map((p, i) => ({
-          name: p.name,
-          sku: p.sku,
-          quantity: currentSelections[i]?.quantity ?? p.quantity,
-          line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
-        })),
+        products: data.snapshot.products.map((p, i) => {
+          const q = currentSelections[i]?.quantity ?? p.quantity;
+          const moq = Math.max(1, p.moq || 1);
+          const unit = q < moq ? (p.unit_price_usd || 0) * (1 + pct) : (p.unit_price_usd || 0);
+          return {
+            name: p.name,
+            sku: p.sku,
+            quantity: q,
+            unit_price: unit,
+            below_moq: q < moq,
+            line_total: unit * q,
+          };
+        }),
         draft_saved_at: new Date().toISOString(),
       };
       await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
