@@ -229,18 +229,33 @@ const CustomerQuote = () => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [selections, autoSave, confirmed, data]);
 
+  // Below-MOQ surcharge & hard-floor helpers.
+  // - hardFloor: absolute minimum quantity the customer can order.
+  // - moq: standard MOQ. If qty is between hardFloor and moq-1, apply surcharge.
+  const surchargePct = data?.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
+  const getProductFloors = (p: QuoteProduct | undefined) => {
+    const moq = Math.max(1, p?.moq || 1);
+    const hardFloor = Math.max(1, p?.hard_moq ?? moq);
+    return { moq, hardFloor };
+  };
+  const effectiveUnitPrice = (p: QuoteProduct, qty: number) => {
+    const { moq } = getProductFloors(p);
+    const base = p.unit_price_usd || 0;
+    return qty < moq ? base * (1 + surchargePct) : base;
+  };
+
   const updateQuantity = (idx: number, delta: number) => {
     setSelections(prev => {
       const current = prev[idx]?.quantity || 0;
-      const moq = data?.snapshot.products[idx]?.moq || 1;
-      const newQty = Math.max(moq, current + delta);
+      const { hardFloor } = getProductFloors(data?.snapshot.products[idx]);
+      const newQty = Math.max(hardFloor, current + delta);
       return { ...prev, [idx]: { quantity: newQty } };
     });
   };
 
   const setQuantity = (idx: number, qty: number) => {
-    const moq = data?.snapshot.products[idx]?.moq || 1;
-    setSelections(prev => ({ ...prev, [idx]: { quantity: Math.max(moq, qty) } }));
+    const { hardFloor } = getProductFloors(data?.snapshot.products[idx]);
+    setSelections(prev => ({ ...prev, [idx]: { quantity: Math.max(hardFloor, qty) } }));
   };
 
   const summary = useMemo(() => {
@@ -248,12 +263,14 @@ const CustomerQuote = () => {
     let totalQty = 0, totalCbm = 0, totalValue = 0;
     data.snapshot.products.forEach((p, i) => {
       const qty = selections[i]?.quantity ?? p.quantity;
+      const unit = effectiveUnitPrice(p, qty);
       totalQty += qty;
       totalCbm += (p.unit_cbm || 0) * qty;
-      totalValue += (p.unit_price_usd || 0) * qty;
+      totalValue += unit * qty;
     });
     return { totalItems: data.snapshot.products.length, totalQty, totalCbm, totalValue };
-  }, [data, selections]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, selections, surchargePct]);
 
   const symbol = data?.snapshot.currency === 'INR' ? '₹' : '$';
 
