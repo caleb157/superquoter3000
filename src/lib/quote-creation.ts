@@ -255,6 +255,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       total_qty: totalQty,
       grand_total: grandTotal,
       total_cbm: totalCbm,
+      below_moq_surcharge_percent: Number((gsRes.data as any)?.below_moq_surcharge_percent ?? 0.15),
     },
     entity_id: entityId,
     valid_until: validUntil,
