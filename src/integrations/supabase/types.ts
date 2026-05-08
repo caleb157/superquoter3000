@@ -611,6 +611,7 @@ export type Database = {
         Row: {
           auto_transport_cost_per_cbm: number
           available_hours_per_month: number
+          below_moq_surcharge_percent: number
           bubble_kg_per_sq_in: number
           bubble_price_per_kg: number
           contractor_to_inhouse_decrease: number
@@ -631,6 +632,7 @@ export type Database = {
         Insert: {
           auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
+          below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
           bubble_price_per_kg?: number
           contractor_to_inhouse_decrease?: number
@@ -651,6 +653,7 @@ export type Database = {
         Update: {
           auto_transport_cost_per_cbm?: number
           available_hours_per_month?: number
+          below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
           bubble_price_per_kg?: number
           contractor_to_inhouse_decrease?: number
@@ -902,6 +905,7 @@ export type Database = {
         Row: {
           created_at: string | null
           customer_rfq_id: string | null
+          hard_moq: number | null
           id: string
           markup_percent: number | null
           moq: number | null
@@ -916,6 +920,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           customer_rfq_id?: string | null
+          hard_moq?: number | null
           id?: string
           markup_percent?: number | null
           moq?: number | null
@@ -930,6 +935,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           customer_rfq_id?: string | null
+          hard_moq?: number | null
           id?: string
           markup_percent?: number | null
           moq?: number | null
@@ -1077,6 +1083,7 @@ export type Database = {
           depth_inch: number | null
           design_stage: string | null
           finishing_difficulty: string | null
+          hard_moq: number | null
           height_inch: number | null
           id: string
           is_component: boolean | null
@@ -1115,6 +1122,7 @@ export type Database = {
           depth_inch?: number | null
           design_stage?: string | null
           finishing_difficulty?: string | null
+          hard_moq?: number | null
           height_inch?: number | null
           id?: string
           is_component?: boolean | null
@@ -1153,6 +1161,7 @@ export type Database = {
           depth_inch?: number | null
           design_stage?: string | null
           finishing_difficulty?: string | null
+          hard_moq?: number | null
           height_inch?: number | null
           id?: string
           is_component?: boolean | null
