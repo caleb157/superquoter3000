@@ -18,26 +18,26 @@ export const fmt = {
     return `$${n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`;
   },
   pct: (v: number | null | undefined) => {
-    return `${(toFinite(v) * 100).toFixed(1)}%`;
+    return `${(toFinite(v) * 100).toFixed(3)}%`;
   },
   qty: (v: number | null | undefined) => {
     return Math.round(toFinite(v)).toLocaleString();
   },
   cbm: (v: number | null | undefined) => {
-    return `${toFinite(v).toFixed(4)} CBM`;
+    return `${toFinite(v).toFixed(3)} CBM`;
   },
   dim: (w: number, d: number, h: number) =>
-    `${toFinite(w)}" × ${toFinite(d)}" × ${toFinite(h)}"`,
-  num: (v: number | null | undefined, decimals = 2) => {
+    `${toFinite(w).toFixed(3)}" × ${toFinite(d).toFixed(3)}" × ${toFinite(h).toFixed(3)}"`,
+  num: (v: number | null | undefined, decimals = 3) => {
     return toFinite(v).toFixed(decimals);
   },
   hrs: (v: number | null | undefined) => {
-    return `${toFinite(v).toFixed(2)} hrs`;
+    return `${toFinite(v).toFixed(3)} hrs`;
   },
   kg: (v: number | null | undefined) => {
-    return `${toFinite(v).toFixed(2)} kg`;
+    return `${toFinite(v).toFixed(3)} kg`;
   },
   inch: (v: number | null | undefined) => {
-    return `${toFinite(v).toFixed(1)}"`;
+    return `${toFinite(v).toFixed(3)}"`;
   },
 };
