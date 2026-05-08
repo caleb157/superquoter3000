@@ -993,6 +993,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <Input className="h-7 text-xs" type="number" defaultValue={product.moq || 50} onBlur={e => updateProduct('moq', parseInt(e.target.value))} />
               </div>
               <div>
+                <label className="text-[10px] text-muted-foreground" title="Absolute floor — customer cannot order less than this. Between Hard MOQ and MOQ, the below-MOQ surcharge applies.">Hard MOQ</label>
+                <Input className="h-7 text-xs" type="number" defaultValue={(product as any).hard_moq ?? ''} placeholder={String(product.moq || 50)}
+                  onBlur={e => updateProduct('hard_moq', e.target.value === '' ? null : parseInt(e.target.value))} />
+              </div>
+              <div>
                 <label className="text-[10px] text-muted-foreground">Width (in)</label>
                 <Input className="h-7 text-xs" type="number" defaultValue={w || ''} onBlur={e => updateProduct('width_inch', Number(e.target.value))} />
               </div>
