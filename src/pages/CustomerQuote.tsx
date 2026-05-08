@@ -90,7 +90,7 @@ interface QuoteData {
     valid_until: string | null;
     status: string;
     products: QuoteProduct[];
-    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number };
+    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number };
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
