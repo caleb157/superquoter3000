@@ -58,7 +58,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const asmHeadersRes = assemblyIds.length > 0
     ? await (supabase as any)
         .from('product_assemblies')
-        .select('id, name, sku, photo_url, moq, markup_percent, assembly_components(id, product_id, quantity_per_assembly, sort_order)')
+        .select('id, name, sku, photo_url, moq, hard_moq, markup_percent, assembly_components(id, product_id, quantity_per_assembly, sort_order)')
         .in('id', assemblyIds)
     : { data: [], error: null };
   if (asmHeadersRes.error) return { error: asmHeadersRes.error.message };
