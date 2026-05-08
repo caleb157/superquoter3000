@@ -33,6 +33,7 @@ interface QuoteProduct {
   unit_cbm: number;
   photo_url?: string | null;
   moq?: number | null;
+  hard_moq?: number | null;
   width_inch?: number | null;
   depth_inch?: number | null;
   height_inch?: number | null;
@@ -89,7 +90,7 @@ interface QuoteData {
     valid_until: string | null;
     status: string;
     products: QuoteProduct[];
-    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number };
+    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number };
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
@@ -203,13 +204,21 @@ const CustomerQuote = () => {
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
     if (!token || !data || confirmed) return;
     try {
+      const pct = data.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
       const customerSelections = {
-        products: data.snapshot.products.map((p, i) => ({
-          name: p.name,
-          sku: p.sku,
-          quantity: currentSelections[i]?.quantity ?? p.quantity,
-          line_total: (p.unit_price_usd || 0) * (currentSelections[i]?.quantity ?? p.quantity),
-        })),
+        products: data.snapshot.products.map((p, i) => {
+          const q = currentSelections[i]?.quantity ?? p.quantity;
+          const moq = Math.max(1, p.moq || 1);
+          const unit = q < moq ? (p.unit_price_usd || 0) * (1 + pct) : (p.unit_price_usd || 0);
+          return {
+            name: p.name,
+            sku: p.sku,
+            quantity: q,
+            unit_price: unit,
+            below_moq: q < moq,
+            line_total: unit * q,
+          };
+        }),
         draft_saved_at: new Date().toISOString(),
       };
       await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
@@ -228,18 +237,33 @@ const CustomerQuote = () => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [selections, autoSave, confirmed, data]);
 
+  // Below-MOQ surcharge & hard-floor helpers.
+  // - hardFloor: absolute minimum quantity the customer can order.
+  // - moq: standard MOQ. If qty is between hardFloor and moq-1, apply surcharge.
+  const surchargePct = data?.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
+  const getProductFloors = (p: QuoteProduct | undefined) => {
+    const moq = Math.max(1, p?.moq || 1);
+    const hardFloor = Math.max(1, p?.hard_moq ?? moq);
+    return { moq, hardFloor };
+  };
+  const effectiveUnitPrice = (p: QuoteProduct, qty: number) => {
+    const { moq } = getProductFloors(p);
+    const base = p.unit_price_usd || 0;
+    return qty < moq ? base * (1 + surchargePct) : base;
+  };
+
   const updateQuantity = (idx: number, delta: number) => {
     setSelections(prev => {
       const current = prev[idx]?.quantity || 0;
-      const moq = data?.snapshot.products[idx]?.moq || 1;
-      const newQty = Math.max(moq, current + delta);
+      const { hardFloor } = getProductFloors(data?.snapshot.products[idx]);
+      const newQty = Math.max(hardFloor, current + delta);
       return { ...prev, [idx]: { quantity: newQty } };
     });
   };
 
   const setQuantity = (idx: number, qty: number) => {
-    const moq = data?.snapshot.products[idx]?.moq || 1;
-    setSelections(prev => ({ ...prev, [idx]: { quantity: Math.max(moq, qty) } }));
+    const { hardFloor } = getProductFloors(data?.snapshot.products[idx]);
+    setSelections(prev => ({ ...prev, [idx]: { quantity: Math.max(hardFloor, qty) } }));
   };
 
   const summary = useMemo(() => {
@@ -247,12 +271,14 @@ const CustomerQuote = () => {
     let totalQty = 0, totalCbm = 0, totalValue = 0;
     data.snapshot.products.forEach((p, i) => {
       const qty = selections[i]?.quantity ?? p.quantity;
+      const unit = effectiveUnitPrice(p, qty);
       totalQty += qty;
       totalCbm += (p.unit_cbm || 0) * qty;
-      totalValue += (p.unit_price_usd || 0) * qty;
+      totalValue += unit * qty;
     });
     return { totalItems: data.snapshot.products.length, totalQty, totalCbm, totalValue };
-  }, [data, selections]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, selections, surchargePct]);
 
   const symbol = data?.snapshot.currency === 'INR' ? '₹' : '$';
 
@@ -261,12 +287,19 @@ const CustomerQuote = () => {
     setSubmitting(true);
     try {
       const customerSelections = {
-        products: data?.snapshot.products.map((p, i) => ({
-          name: p.name,
-          sku: p.sku,
-          quantity: selections[i]?.quantity ?? p.quantity,
-          line_total: (p.unit_price_usd || 0) * (selections[i]?.quantity ?? p.quantity),
-        })),
+        products: data?.snapshot.products.map((p, i) => {
+          const q = selections[i]?.quantity ?? p.quantity;
+          const unit = effectiveUnitPrice(p, q);
+          const moq = Math.max(1, p.moq || 1);
+          return {
+            name: p.name,
+            sku: p.sku,
+            quantity: q,
+            unit_price: unit,
+            below_moq: q < moq,
+            line_total: unit * q,
+          };
+        }),
         summary: { ...summary, confirmed_at: new Date().toISOString() },
       };
       const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
@@ -616,7 +649,10 @@ const CustomerQuote = () => {
             </h3>
             {snapshot.products.map((product, idx) => {
               const qty = selections[idx]?.quantity ?? product.quantity;
-              const lineTotal = (product.unit_price_usd || 0) * qty;
+              const { moq: pMoq, hardFloor: pFloor } = getProductFloors(product);
+              const unitPrice = effectiveUnitPrice(product, qty);
+              const isBelowMoq = qty < pMoq;
+              const lineTotal = unitPrice * qty;
               return (
                 <div key={idx} className="bg-white border border-slate-200 rounded-lg overflow-hidden print-shadow-none print-border-light">
                   <div className="flex flex-col sm:flex-row">
@@ -641,8 +677,13 @@ const CustomerQuote = () => {
                               {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                             <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
-                              {symbol}{(product.unit_price_usd || 0).toFixed(2)} / unit
+                              {symbol}{unitPrice.toFixed(2)} / unit
                             </p>
+                            {isBelowMoq && (
+                              <p className="text-[10px] text-amber-600 mt-0.5">
+                                +{(surchargePct * 100).toFixed(0)}% below-MOQ surcharge
+                              </p>
+                            )}
                           </div>
                         </div>
                         {(product.width_inch || product.weight_kg || product.unit_cbm > 0 || product.box_size) && (
@@ -696,15 +737,17 @@ const CustomerQuote = () => {
                           <Input className="h-8 w-20 text-center text-sm font-medium border-0 border-x border-slate-200 rounded-none focus-visible:ring-0"
                             type="number" value={qty}
                             onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
-                            disabled={confirmed || isExpired} min={product.moq || 1} />
+                            disabled={confirmed || isExpired} min={pFloor} />
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
                             onClick={() => updateQuantity(idx, 10)} disabled={confirmed || isExpired}>
                             <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                         <span className="hidden print:inline text-sm tabular-nums">{qty}</span>
-                        {product.moq && product.moq > 1 && (
-                          <span className="text-[11px] text-slate-400">MOQ: {product.moq}</span>
+                        {pMoq > 1 && (
+                          <span className="text-[11px] text-slate-400">
+                            MOQ: {pMoq}{pFloor < pMoq ? ` · Min: ${pFloor}` : ''}
+                          </span>
                         )}
                       </div>
                     </div>

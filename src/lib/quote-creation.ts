@@ -58,7 +58,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const asmHeadersRes = assemblyIds.length > 0
     ? await (supabase as any)
         .from('product_assemblies')
-        .select('id, name, sku, photo_url, moq, markup_percent, assembly_components(id, product_id, quantity_per_assembly, sort_order)')
+        .select('id, name, sku, photo_url, moq, hard_moq, markup_percent, assembly_components(id, product_id, quantity_per_assembly, sort_order)')
         .in('id', assemblyIds)
     : { data: [], error: null };
   if (asmHeadersRes.error) return { error: asmHeadersRes.error.message };
@@ -75,7 +75,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     allProductIds.length > 0
       ? supabase
           .from('products')
-          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq')
+          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq, hard_moq')
           .in('id', allProductIds)
       : Promise.resolve({ data: [], error: null } as any),
     allProductIds.length > 0
@@ -180,6 +180,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
         unit_cbm: unitCbm,
         weight_kg: unitWeight || null,
         moq: asm.moq ?? null,
+        hard_moq: asm.hard_moq ?? null,
         components: componentsJson,
         // Variant fields kept null for assemblies
         variant_id: null,
@@ -215,6 +216,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       height_inch: db.height_inch ?? null,
       weight_kg: db.weight_kg ?? null,
       moq: db.moq ?? null,
+      hard_moq: db.hard_moq ?? null,
       box_size: buildBoxSizeStr(cbmRowByProduct.get(sel.id), db),
       variant_id: sel.variant_id ?? null,
       variant_name: sel.variant_name ?? null,
@@ -253,6 +255,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       total_qty: totalQty,
       grand_total: grandTotal,
       total_cbm: totalCbm,
+      below_moq_surcharge_percent: Number((gsRes.data as any)?.below_moq_surcharge_percent ?? 0.15),
     },
     entity_id: entityId,
     valid_until: validUntil,
