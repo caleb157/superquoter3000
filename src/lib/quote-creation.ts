@@ -180,6 +180,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
         unit_cbm: unitCbm,
         weight_kg: unitWeight || null,
         moq: asm.moq ?? null,
+        hard_moq: asm.hard_moq ?? null,
         components: componentsJson,
         // Variant fields kept null for assemblies
         variant_id: null,
