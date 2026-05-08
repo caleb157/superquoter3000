@@ -287,12 +287,19 @@ const CustomerQuote = () => {
     setSubmitting(true);
     try {
       const customerSelections = {
-        products: data?.snapshot.products.map((p, i) => ({
-          name: p.name,
-          sku: p.sku,
-          quantity: selections[i]?.quantity ?? p.quantity,
-          line_total: (p.unit_price_usd || 0) * (selections[i]?.quantity ?? p.quantity),
-        })),
+        products: data?.snapshot.products.map((p, i) => {
+          const q = selections[i]?.quantity ?? p.quantity;
+          const unit = effectiveUnitPrice(p, q);
+          const moq = Math.max(1, p.moq || 1);
+          return {
+            name: p.name,
+            sku: p.sku,
+            quantity: q,
+            unit_price: unit,
+            below_moq: q < moq,
+            line_total: unit * q,
+          };
+        }),
         summary: { ...summary, confirmed_at: new Date().toISOString() },
       };
       const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`, {
