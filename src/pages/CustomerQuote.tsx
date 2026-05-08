@@ -649,7 +649,10 @@ const CustomerQuote = () => {
             </h3>
             {snapshot.products.map((product, idx) => {
               const qty = selections[idx]?.quantity ?? product.quantity;
-              const lineTotal = (product.unit_price_usd || 0) * qty;
+              const { moq: pMoq, hardFloor: pFloor } = getProductFloors(product);
+              const unitPrice = effectiveUnitPrice(product, qty);
+              const isBelowMoq = qty < pMoq;
+              const lineTotal = unitPrice * qty;
               return (
                 <div key={idx} className="bg-white border border-slate-200 rounded-lg overflow-hidden print-shadow-none print-border-light">
                   <div className="flex flex-col sm:flex-row">
