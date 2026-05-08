@@ -677,8 +677,13 @@ const CustomerQuote = () => {
                               {symbol}{lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                             <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
-                              {symbol}{(product.unit_price_usd || 0).toFixed(2)} / unit
+                              {symbol}{unitPrice.toFixed(2)} / unit
                             </p>
+                            {isBelowMoq && (
+                              <p className="text-[10px] text-amber-600 mt-0.5">
+                                +{(surchargePct * 100).toFixed(0)}% below-MOQ surcharge
+                              </p>
+                            )}
                           </div>
                         </div>
                         {(product.width_inch || product.weight_kg || product.unit_cbm > 0 || product.box_size) && (
