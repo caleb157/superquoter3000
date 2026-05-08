@@ -737,15 +737,17 @@ const CustomerQuote = () => {
                           <Input className="h-8 w-20 text-center text-sm font-medium border-0 border-x border-slate-200 rounded-none focus-visible:ring-0"
                             type="number" value={qty}
                             onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
-                            disabled={confirmed || isExpired} min={product.moq || 1} />
+                            disabled={confirmed || isExpired} min={pFloor} />
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
                             onClick={() => updateQuantity(idx, 10)} disabled={confirmed || isExpired}>
                             <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                         <span className="hidden print:inline text-sm tabular-nums">{qty}</span>
-                        {product.moq && product.moq > 1 && (
-                          <span className="text-[11px] text-slate-400">MOQ: {product.moq}</span>
+                        {pMoq > 1 && (
+                          <span className="text-[11px] text-slate-400">
+                            MOQ: {pMoq}{pFloor < pMoq ? ` · Min: ${pFloor}` : ''}
+                          </span>
                         )}
                       </div>
                     </div>
