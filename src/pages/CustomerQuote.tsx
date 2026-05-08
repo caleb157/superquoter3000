@@ -33,6 +33,7 @@ interface QuoteProduct {
   unit_cbm: number;
   photo_url?: string | null;
   moq?: number | null;
+  hard_moq?: number | null;
   width_inch?: number | null;
   depth_inch?: number | null;
   height_inch?: number | null;
