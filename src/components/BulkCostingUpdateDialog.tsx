@@ -318,6 +318,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
       parts.push(`packaging → ${label}`);
     }
+    if (willUpdateShipping) {
+      const label = shippingTypes.find(s => s.id === shippingTypeId)?.name ?? 'shipping';
+      parts.push(`shipping → ${label}`);
+    }
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
