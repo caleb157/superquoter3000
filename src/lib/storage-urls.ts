@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createElement, useEffect, useState, type ImgHTMLAttributes } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Buckets that are private and require signed URLs for display.
