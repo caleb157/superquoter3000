@@ -78,6 +78,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [replaceAllRaw, setReplaceAllRaw] = useState(false);
 
+  const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
+  const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
@@ -99,11 +102,20 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   }, [open, selectedProductIds]);
 
   useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await (supabase as any).from('shipping_types').select('id, name, per_unit, cost_inr').order('name');
+      setShippingTypes(data || []);
+    })();
+  }, [open]);
+
+  useEffect(() => {
     if (open) {
       setRows([newRow()]);
       setPackagingType('__keep__');
       setRawRows([]);
       setReplaceAllRaw(false);
+      setShippingTypeId('__keep__');
     }
   }, [open]);
 
@@ -131,8 +143,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (productCount === 0) { toast.error('No products selected'); return; }
     const willUpdatePackaging = packagingType !== '__keep__';
     const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw) {
-      toast.error('Add at least one row, raw piece, or pick a packaging type');
+    const willUpdateShipping = shippingTypeId !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping) {
+      toast.error('Add at least one row, raw piece, packaging type, or shipping type');
       return;
     }
 
@@ -252,7 +265,37 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('cogs_items').delete().in('id', deleteRawIds)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise]);
+    // Bulk shipping type: upsert one shipping_items row per selected product
+    let shippingPromise: Promise<any> = Promise.resolve({ error: null });
+    if (willUpdateShipping) {
+      shippingPromise = (async () => {
+        const { data: existingShip, error: fetchShipErr } = await (supabase as any)
+          .from('shipping_items')
+          .select('id, product_id')
+          .in('product_id', selectedProductIds);
+        if (fetchShipErr) return { error: fetchShipErr };
+        const existingByPid = new Map<string, string>();
+        (existingShip || []).forEach((r: any) => existingByPid.set(r.product_id, r.id));
+        const toInsert: any[] = [];
+        const toUpdateIds: string[] = [];
+        for (const pid of selectedProductIds) {
+          const existingId = existingByPid.get(pid);
+          if (existingId) toUpdateIds.push(existingId);
+          else toInsert.push({ product_id: pid, shipping_type_id: shippingTypeId, include: true });
+        }
+        const ops: Promise<any>[] = [];
+        if (toUpdateIds.length > 0) {
+          ops.push((supabase as any).from('shipping_items').update({ shipping_type_id: shippingTypeId }).in('id', toUpdateIds));
+        }
+        if (toInsert.length > 0) {
+          ops.push((supabase as any).from('shipping_items').insert(toInsert));
+        }
+        const res = await Promise.all(ops);
+        return { error: res.find((r: any) => r?.error)?.error ?? null };
+      })();
+    }
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -274,6 +317,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willUpdatePackaging) {
       const label = PACKAGING_TYPE_OPTIONS.find(o => o.value === packagingType)?.label ?? packagingType;
       parts.push(`packaging → ${label}`);
+    }
+    if (willUpdateShipping) {
+      const label = shippingTypes.find(s => s.id === shippingTypeId)?.name ?? 'shipping';
+      parts.push(`shipping → ${label}`);
     }
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
@@ -316,6 +363,21 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
         </div>
 
+        <div className="flex items-center gap-2 rounded-md border p-2">
+          <Label className="text-xs whitespace-nowrap">Shipping type</Label>
+          <Select value={shippingTypeId} onValueChange={setShippingTypeId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__keep__" className="text-xs">Keep current per product</SelectItem>
+              {shippingTypes.map(s => (
+                <SelectItem key={s.id} value={s.id} className="text-xs">
+                  {s.name} ({s.per_unit} @ ₹{s.cost_inr})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] text-muted-foreground">Sets shipping type on every selected SKU.</span>
+        </div>
         <div className="rounded-md border p-2 space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
@@ -479,7 +541,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__')} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__')} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
