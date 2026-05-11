@@ -54,9 +54,8 @@ export function useSignedUrl(url: string | null | undefined): string {
   return arr[0] ?? '';
 }
 
-import { createElement, type ImgHTMLAttributes } from 'react';
 
-type SignedImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src: string };
+
 export function SignedImg({ src, ...rest }: SignedImgProps) {
   const resolved = useSignedUrl(src);
   return createElement('img', { ...rest, src: resolved || src });
