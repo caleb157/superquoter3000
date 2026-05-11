@@ -102,11 +102,20 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   }, [open, selectedProductIds]);
 
   useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await (supabase as any).from('shipping_types').select('id, name, per_unit, cost_inr').order('name');
+      setShippingTypes(data || []);
+    })();
+  }, [open]);
+
+  useEffect(() => {
     if (open) {
       setRows([newRow()]);
       setPackagingType('__keep__');
       setRawRows([]);
       setReplaceAllRaw(false);
+      setShippingTypeId('__keep__');
     }
   }, [open]);
 
