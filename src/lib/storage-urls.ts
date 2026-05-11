@@ -53,9 +53,7 @@ export function useSignedUrl(url: string | null | undefined): string {
   const arr = useSignedUrls(url ? [url] : []);
   return arr[0] ?? '';
 }
-
-
-
+type SignedImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & { src: string };
 export function SignedImg({ src, ...rest }: SignedImgProps) {
   const resolved = useSignedUrl(src);
   return createElement('img', { ...rest, src: resolved || src });
