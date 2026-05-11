@@ -130,8 +130,8 @@ export function ProductSampleLogTab({ productId }: Props) {
                   {s.photo_urls.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {s.photo_urls.map((url, i) => (
-                        <button key={i} onClick={() => setLightboxUrl(url)} className="block">
-                          <img src={url} alt={`Sample ${i + 1}`} className="h-16 w-16 object-cover rounded border hover:ring-2 hover:ring-primary transition" />
+                        <button key={i} onClick={async () => setLightboxUrl(await resolveDisplayUrl(url))} className="block">
+                          <SignedImg src={url} alt={`Sample ${i + 1}`} className="h-16 w-16 object-cover rounded border hover:ring-2 hover:ring-primary transition" />
                         </button>
                       ))}
                     </div>
