@@ -541,7 +541,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__')} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__')} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
