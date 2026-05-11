@@ -143,8 +143,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (productCount === 0) { toast.error('No products selected'); return; }
     const willUpdatePackaging = packagingType !== '__keep__';
     const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw) {
-      toast.error('Add at least one row, raw piece, or pick a packaging type');
+    const willUpdateShipping = shippingTypeId !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping) {
+      toast.error('Add at least one row, raw piece, packaging type, or shipping type');
       return;
     }
 
