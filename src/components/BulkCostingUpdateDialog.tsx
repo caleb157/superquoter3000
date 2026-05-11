@@ -78,6 +78,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [replaceAllRaw, setReplaceAllRaw] = useState(false);
 
+  const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
+  const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
