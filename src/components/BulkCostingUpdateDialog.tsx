@@ -363,6 +363,21 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
         </div>
 
+        <div className="flex items-center gap-2 rounded-md border p-2">
+          <Label className="text-xs whitespace-nowrap">Shipping type</Label>
+          <Select value={shippingTypeId} onValueChange={setShippingTypeId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__keep__" className="text-xs">Keep current per product</SelectItem>
+              {shippingTypes.map(s => (
+                <SelectItem key={s.id} value={s.id} className="text-xs">
+                  {s.name} ({s.per_unit} @ ₹{s.cost_inr})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] text-muted-foreground">Sets shipping type on every selected SKU.</span>
+        </div>
         <div className="rounded-md border p-2 space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
