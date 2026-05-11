@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TaskContext, TaskPriority } from '@/lib/task-types';
 import { useAuth } from '@/contexts/AuthContext';
+import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
 
 type Mode = 'inquiry' | 'customer';
 
@@ -424,9 +425,13 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               <div className="grid grid-cols-4 gap-2">
                 {photoUrls.map(url => (
                   <div key={url} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
-                    <a href={url} target="_blank" rel="noreferrer">
-                      <img src={url} alt="Task attachment" className="w-full h-full object-cover" />
-                    </a>
+                    <button
+                      type="button"
+                      onClick={async () => { const u = await resolveDisplayUrl(url); window.open(u, '_blank', 'noreferrer'); }}
+                      className="block w-full h-full"
+                    >
+                      <SignedImg src={url} alt="Task attachment" className="w-full h-full object-cover" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => removePhoto(url)}
