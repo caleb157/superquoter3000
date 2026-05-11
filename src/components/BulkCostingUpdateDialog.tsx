@@ -265,7 +265,37 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('cogs_items').delete().in('id', deleteRawIds)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise]);
+    // Bulk shipping type: upsert one shipping_items row per selected product
+    let shippingPromise: Promise<any> = Promise.resolve({ error: null });
+    if (willUpdateShipping) {
+      shippingPromise = (async () => {
+        const { data: existingShip, error: fetchShipErr } = await (supabase as any)
+          .from('shipping_items')
+          .select('id, product_id')
+          .in('product_id', selectedProductIds);
+        if (fetchShipErr) return { error: fetchShipErr };
+        const existingByPid = new Map<string, string>();
+        (existingShip || []).forEach((r: any) => existingByPid.set(r.product_id, r.id));
+        const toInsert: any[] = [];
+        const toUpdateIds: string[] = [];
+        for (const pid of selectedProductIds) {
+          const existingId = existingByPid.get(pid);
+          if (existingId) toUpdateIds.push(existingId);
+          else toInsert.push({ product_id: pid, shipping_type_id: shippingTypeId, include: true });
+        }
+        const ops: Promise<any>[] = [];
+        if (toUpdateIds.length > 0) {
+          ops.push((supabase as any).from('shipping_items').update({ shipping_type_id: shippingTypeId }).in('id', toUpdateIds));
+        }
+        if (toInsert.length > 0) {
+          ops.push((supabase as any).from('shipping_items').insert(toInsert));
+        }
+        const res = await Promise.all(ops);
+        return { error: res.find((r: any) => r?.error)?.error ?? null };
+      })();
+    }
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
