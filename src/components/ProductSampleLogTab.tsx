@@ -388,7 +388,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
             <div className="mt-1 flex flex-wrap gap-2">
               {photoUrls.map((url) => (
                 <div key={url} className="relative group">
-                  <img src={url} alt="" className="h-16 w-16 object-cover rounded border" />
+                  <SignedImg src={url} alt="" className="h-16 w-16 object-cover rounded border" />
                   <button type="button" onClick={() => removePhoto(url)}
                     className="absolute -top-1 -right-1 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                     <X className="h-3 w-3" />
