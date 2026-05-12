@@ -4,6 +4,8 @@ export type SortDirection = 'asc' | 'desc' | null;
 
 interface UseSortOptions {
   storageKey?: string;
+  defaultColumn?: string;
+  defaultDirection?: SortDirection;
 }
 
 export function useTableSort<T>(opts?: UseSortOptions) {
