@@ -26,13 +26,13 @@ import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import type { QuoteProductInput } from '@/lib/quote-creation';
-import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 
 type Product = {
   id: string; name: string; sku: string | null; updated_at: string | null;
+  quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
   target_price_usd: number | null; markup_percent: number | null;
   cogs_done: boolean | null; cbm_done: boolean | null; overhead_done: boolean | null;
@@ -107,7 +107,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
-  const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
     defaultColumn: 'name',
@@ -115,10 +114,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    if (p.calculated_unit_price_usd != null && p.calculated_unit_price_usd > 0) {
-      return Number(p.calculated_unit_price_usd);
-    }
-    return Number(p.target_price_usd ?? 0);
+    return Number(p.calculated_unit_price_usd ?? 0);
   };
 
   useEffect(() => {
@@ -133,57 +129,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, sku, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, calculated_unit_cost_usd')
+        .select('id, name, sku, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      const list = data ?? [];
-      setProducts(list);
-      // Use persisted values when available; fall back to live computation for products
-      // whose costing sheet hasn't been opened yet (so calculated_* columns are null).
-      const pm: ProductPriceCostMap = {};
-      const needCompute: string[] = [];
-      for (const p of list as any[]) {
-        if (p.calculated_unit_price_usd != null || p.calculated_unit_cost_usd != null) {
-          pm[p.id] = {
-            unit_cost_usd: p.calculated_unit_cost_usd ?? 0,
-            unit_price_usd: p.calculated_unit_price_usd ?? 0,
-            unit_price_inr: 0,
-            exchange_rate: 0,
-          };
-        } else {
-          needCompute.push(p.id);
-        }
-      }
-      if (needCompute.length) {
-        try {
-          const computed = await computeProductPriceAndCost(needCompute);
-          Object.assign(pm, computed);
-          // Persist so subsequent loads are instant — fire and forget per product.
-          await Promise.all(
-            needCompute
-              .filter(id => computed[id])
-              .map(id =>
-                supabase
-                  .from('products')
-                  .update({
-                    calculated_unit_price_usd: computed[id].unit_price_usd ?? null,
-                    calculated_unit_cost_usd: computed[id].unit_cost_usd ?? null,
-                  })
-                  .eq('id', id),
-              ),
-          ).catch(e => console.error('Persist computed prices failed', e));
-          // Reflect newly persisted calculated price in local state so the displayed
-          // unit price matches what's now in the DB (and the costing tab).
-          setProducts(prev => prev.map(prod => {
-            const c = computed[prod.id];
-            if (!c) return prod;
-            return { ...prod, calculated_unit_price_usd: c.unit_price_usd ?? null };
-          }));
-        } catch (e) {
-          console.error('Price compute failed', e);
-        }
-      }
-      setPriceMap(pm);
+      setProducts(data ?? []);
     })();
   }, [inquiryId, refresh, refreshKey]);
 
@@ -209,7 +158,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       price: displayPriceUsd,
       updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
     });
-  }, [products, search, filter, sortItems, priceMap]);
+  }, [products, search, filter, sortItems]);
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
