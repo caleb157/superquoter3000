@@ -4,24 +4,28 @@ export type SortDirection = 'asc' | 'desc' | null;
 
 interface UseSortOptions {
   storageKey?: string;
+  defaultColumn?: string;
+  defaultDirection?: SortDirection;
 }
 
 export function useTableSort<T>(opts?: UseSortOptions) {
   const storageKey = opts?.storageKey;
+  const defaultColumn = opts?.defaultColumn ?? null;
+  const defaultDirection = opts?.defaultDirection ?? null;
 
   const [sortColumn, setSortColumn] = useState<string | null>(() => {
     if (storageKey) {
-      return localStorage.getItem(`${storageKey}-column`) || null;
+      return localStorage.getItem(`${storageKey}-column`) || defaultColumn;
     }
-    return null;
+    return defaultColumn;
   });
 
   const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
     if (storageKey) {
       const d = localStorage.getItem(`${storageKey}-direction`);
-      return d === 'asc' || d === 'desc' ? d : null;
+      return d === 'asc' || d === 'desc' ? d : defaultDirection;
     }
-    return null;
+    return defaultDirection;
   });
 
   const toggleSort = useCallback((column: string) => {

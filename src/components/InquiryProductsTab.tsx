@@ -110,6 +110,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
+    defaultColumn: 'name',
+    defaultDirection: 'asc',
   });
 
   const displayPriceUsd = (p: Product) => {
