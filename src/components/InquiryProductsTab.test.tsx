@@ -28,11 +28,12 @@ vi.mock('@/lib/product-pricing', () => ({
   computeProductPriceAndCost: (...args: unknown[]) => computeMock(...args),
 }));
 
-// --- Supabase client mock: returns one product with null calculated_* columns ---
+// --- Supabase client mock: returns one product with the saved costing-page price ---
 const productRow = {
   id: 'p1',
   name: 'Test Chair',
   sku: 'TC-1',
+  quantity: null,
   updated_at: new Date().toISOString(),
   design_stage: null,
   quote_stage: null,
@@ -44,7 +45,7 @@ const productRow = {
   overhead_done: null,
   shipping_done: null,
   revenue_done: null,
-  calculated_unit_price_usd: null,
+  calculated_unit_price_usd: 123.45,
   calculated_unit_cost_usd: null,
 };
 
@@ -83,11 +84,7 @@ describe('InquiryProductsTab unit price rendering', () => {
     updateEqMock.mockClear();
   });
 
-  it('shows unit price computed live when calculated_* columns are null, and persists it', async () => {
-    computeMock.mockResolvedValue({
-      p1: { unit_cost_usd: 80, unit_price_usd: 123.45, unit_price_inr: 0, exchange_rate: 0 },
-    });
-
+  it('shows the saved costing-page unit price without recomputing or persisting', async () => {
     render(
       <MemoryRouter>
         <InquiryProductsTab
@@ -107,13 +104,7 @@ describe('InquiryProductsTab unit price rendering', () => {
       expect(matches.length).toBeGreaterThan(0);
     });
 
-    // Live-computed values are persisted back to the products row
-    expect(computeMock).toHaveBeenCalledWith(['p1']);
-    await waitFor(() => {
-      expect(updateEqMock).toHaveBeenCalledWith(
-        { calculated_unit_price_usd: 123.45, calculated_unit_cost_usd: 80 },
-        'p1',
-      );
-    });
+    expect(computeMock).not.toHaveBeenCalled();
+    expect(updateEqMock).not.toHaveBeenCalled();
   });
 });
