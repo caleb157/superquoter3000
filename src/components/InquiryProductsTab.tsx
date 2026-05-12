@@ -532,7 +532,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         selectedProducts={selectedProducts.map(p => ({
           id: p.id,
           name: p.name,
-          quantity: (p as any).quantity ?? null,
+          quantity: p.quantity ?? null,
+          reference_price_usd: displayPriceUsd(p),
           target_price_usd: p.target_price_usd,
           markup_percent: p.markup_percent,
         }))}
