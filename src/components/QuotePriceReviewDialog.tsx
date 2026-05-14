@@ -291,13 +291,13 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
 
 function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: 'USD' | 'INR'): number {
   const entry = prices[p.id];
+  const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
+  const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
+  if (supplied > 0) {
+    return currency === 'INR' ? supplied * fx : supplied;
+  }
   if (entry && (entry.unit_price_usd > 0 || entry.unit_price_inr > 0)) {
     return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
-  }
-  const tgt = Number(p.target_price_usd ?? 0);
-  if (tgt > 0) {
-    const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
-    return currency === 'INR' ? tgt * fx : tgt;
   }
   return 0;
 }
