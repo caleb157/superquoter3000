@@ -28,7 +28,7 @@ vi.mock('@/lib/product-pricing', () => ({
   computeProductPriceAndCost: (...args: unknown[]) => computeMock(...args),
 }));
 
-// --- Supabase client mock: returns one product with the saved costing-page price ---
+// --- Supabase client mock: returns one product with the saved product unit price ---
 const productRow = {
   id: 'p1',
   name: 'Test Chair',
@@ -38,14 +38,14 @@ const productRow = {
   design_stage: null,
   quote_stage: null,
   sample_stage: null,
-  target_price_usd: null,
+  target_price_usd: 123.45,
   markup_percent: null,
   cogs_done: null,
   cbm_done: null,
   overhead_done: null,
   shipping_done: null,
   revenue_done: null,
-  calculated_unit_price_usd: 123.45,
+  calculated_unit_price_usd: 0.22,
   calculated_unit_cost_usd: null,
 };
 
@@ -84,7 +84,7 @@ describe('InquiryProductsTab unit price rendering', () => {
     updateEqMock.mockClear();
   });
 
-  it('shows the saved costing-page unit price without recomputing or persisting', async () => {
+  it('shows the saved product unit price without recomputing or persisting', async () => {
     render(
       <MemoryRouter>
         <InquiryProductsTab
