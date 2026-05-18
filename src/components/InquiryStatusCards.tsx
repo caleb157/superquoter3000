@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
+import { prePackagedCbm } from '@/lib/calculations';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
@@ -14,7 +15,7 @@ type Props = {
 
 type Counts = { needs_design: number; in_costing: number; sampling: number };
 type Financials = {
-  avgUnitPrice: number;
+  totalCbm: number;
   totalProfit: number;
   totalRevenue: number;
   marginPct: number;
@@ -24,21 +25,30 @@ type Financials = {
 export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: Props) {
   const [counts, setCounts] = useState<Counts>({ needs_design: 0, in_costing: 0, sampling: 0 });
   const [fin, setFin] = useState<Financials>({
-    avgUnitPrice: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
+    totalCbm: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
   });
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd')
-        .eq('customer_rfq_id', inquiryId);
-      const rows = data ?? [];
+      const [{ data: prodData }, { data: cbmData }] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd, width_inch, depth_inch, height_inch')
+          .eq('customer_rfq_id', inquiryId),
+        supabase
+          .from('cbm_estimates')
+          .select('product_id, final_unit_cbm')
+          .not('final_unit_cbm', 'is', null),
+      ]);
+      const rows = prodData ?? [];
+      const cbmMap = new Map<string, number>();
+      (cbmData ?? []).forEach((c: any) => {
+        cbmMap.set(c.product_id, Number(c.final_unit_cbm) || 0);
+      });
       const c: Counts = { needs_design: 0, in_costing: 0, sampling: 0 };
       let revenue = 0;
       let cost = 0;
-      let priceSum = 0;
-      let pricedCount = 0;
+      let totalCbm = 0;
       rows.forEach((p: any) => {
         if (p.design_stage === 'need_design') c.needs_design++;
         if (p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote') c.in_costing++;
@@ -46,17 +56,15 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         const qty = Number(p.quantity) || 0;
         const price = Number(p.target_price_usd ?? p.calculated_unit_price_usd) || 0;
         const unitCost = Number(p.calculated_unit_cost_usd) || 0;
-        if (price > 0) {
-          priceSum += price;
-          pricedCount++;
-        }
         revenue += price * qty;
         cost += unitCost * qty;
+        const unitCbm = cbmMap.get(p.id) ?? prePackagedCbm(p.width_inch, p.depth_inch, p.height_inch);
+        totalCbm += unitCbm * qty;
       });
       const profit = revenue - cost;
       setCounts(c);
       setFin({
-        avgUnitPrice: pricedCount > 0 ? priceSum / pricedCount : 0,
+        totalCbm,
         totalProfit: profit,
         totalRevenue: revenue,
         marginPct: revenue > 0 ? profit / revenue : 0,
@@ -105,10 +113,10 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{fmt.usd(fin.avgUnitPrice)}</div>
-            <div className="text-sm font-medium">Avg Unit Price</div>
+            <div className="text-2xl font-bold">{fmt.cbm(fin.totalCbm)}</div>
+            <div className="text-sm font-medium">Current Total CBM</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              across {fin.productCount === 1 ? '1 product' : `${fin.productCount} products`}
+              at current quantities
             </div>
           </CardContent>
         </Card>
