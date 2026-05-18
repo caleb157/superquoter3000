@@ -113,10 +113,10 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{fmt.usd(fin.avgUnitPrice)}</div>
-            <div className="text-sm font-medium">Avg Unit Price</div>
+            <div className="text-2xl font-bold">{fmt.cbm(fin.totalCbm)}</div>
+            <div className="text-sm font-medium">Current Total CBM</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              across {fin.productCount === 1 ? '1 product' : `${fin.productCount} products`}
+              at current quantities
             </div>
           </CardContent>
         </Card>
