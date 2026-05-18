@@ -15,7 +15,7 @@ type Props = {
 
 type Counts = { needs_design: number; in_costing: number; sampling: number };
 type Financials = {
-  avgUnitPrice: number;
+  totalCbm: number;
   totalProfit: number;
   totalRevenue: number;
   marginPct: number;
