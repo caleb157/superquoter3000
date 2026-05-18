@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
+import { prePackagedCbm } from '@/lib/calculations';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
