@@ -30,16 +30,25 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd')
-        .eq('customer_rfq_id', inquiryId);
-      const rows = data ?? [];
+      const [{ data: prodData }, { data: cbmData }] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd, width_inch, depth_inch, height_inch')
+          .eq('customer_rfq_id', inquiryId),
+        supabase
+          .from('cbm_estimates')
+          .select('product_id, final_unit_cbm')
+          .not('final_unit_cbm', 'is', null),
+      ]);
+      const rows = prodData ?? [];
+      const cbmMap = new Map<string, number>();
+      (cbmData ?? []).forEach((c: any) => {
+        cbmMap.set(c.product_id, Number(c.final_unit_cbm) || 0);
+      });
       const c: Counts = { needs_design: 0, in_costing: 0, sampling: 0 };
       let revenue = 0;
       let cost = 0;
-      let priceSum = 0;
-      let pricedCount = 0;
+      let totalCbm = 0;
       rows.forEach((p: any) => {
         if (p.design_stage === 'need_design') c.needs_design++;
         if (p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote') c.in_costing++;
@@ -47,17 +56,15 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         const qty = Number(p.quantity) || 0;
         const price = Number(p.target_price_usd ?? p.calculated_unit_price_usd) || 0;
         const unitCost = Number(p.calculated_unit_cost_usd) || 0;
-        if (price > 0) {
-          priceSum += price;
-          pricedCount++;
-        }
         revenue += price * qty;
         cost += unitCost * qty;
+        const unitCbm = cbmMap.get(p.id) ?? prePackagedCbm(p.width_inch, p.depth_inch, p.height_inch);
+        totalCbm += unitCbm * qty;
       });
       const profit = revenue - cost;
       setCounts(c);
       setFin({
-        avgUnitPrice: pricedCount > 0 ? priceSum / pricedCount : 0,
+        totalCbm,
         totalProfit: profit,
         totalRevenue: revenue,
         marginPct: revenue > 0 ? profit / revenue : 0,
