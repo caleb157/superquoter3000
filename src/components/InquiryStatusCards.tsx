@@ -25,7 +25,7 @@ type Financials = {
 export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: Props) {
   const [counts, setCounts] = useState<Counts>({ needs_design: 0, in_costing: 0, sampling: 0 });
   const [fin, setFin] = useState<Financials>({
-    avgUnitPrice: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
+    totalCbm: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
   });
 
   useEffect(() => {
