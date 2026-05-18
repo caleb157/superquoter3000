@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { fmt } from '@/lib/formatters';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
@@ -12,23 +13,55 @@ type Props = {
 };
 
 type Counts = { needs_design: number; in_costing: number; sampling: number };
+type Financials = {
+  avgUnitPrice: number;
+  totalProfit: number;
+  totalRevenue: number;
+  marginPct: number;
+  productCount: number;
+};
 
 export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: Props) {
   const [counts, setCounts] = useState<Counts>({ needs_design: 0, in_costing: 0, sampling: 0 });
+  const [fin, setFin] = useState<Financials>({
+    avgUnitPrice: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
+  });
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('design_stage, quote_stage, sample_stage')
+        .select('design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_cost_usd')
         .eq('customer_rfq_id', inquiryId);
+      const rows = data ?? [];
       const c: Counts = { needs_design: 0, in_costing: 0, sampling: 0 };
-      (data ?? []).forEach((p: any) => {
+      let revenue = 0;
+      let cost = 0;
+      let priceSum = 0;
+      let pricedCount = 0;
+      rows.forEach((p: any) => {
         if (p.design_stage === 'need_design') c.needs_design++;
         if (p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote') c.in_costing++;
         if (p.sample_stage === 'sampling') c.sampling++;
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.target_price_usd) || 0;
+        const unitCost = Number(p.calculated_unit_cost_usd) || 0;
+        if (price > 0) {
+          priceSum += price;
+          pricedCount++;
+        }
+        revenue += price * qty;
+        cost += unitCost * qty;
       });
+      const profit = revenue - cost;
       setCounts(c);
+      setFin({
+        avgUnitPrice: pricedCount > 0 ? priceSum / pricedCount : 0,
+        totalProfit: profit,
+        totalRevenue: revenue,
+        marginPct: revenue > 0 ? profit / revenue : 0,
+        productCount: rows.length,
+      });
     })();
   }, [inquiryId, refreshKey]);
 
@@ -38,26 +71,64 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
     { key: 'sampling', label: 'Sampling', count: counts.sampling },
   ];
 
+  const usd0 = (n: number) =>
+    `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  const profitTone =
+    fin.totalProfit > 0 ? 'text-emerald-600'
+    : fin.totalProfit < 0 ? 'text-destructive'
+    : '';
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      {cards.map(c => {
-        const empty = c.count === 0;
-        return (
-          <Card
-            key={c.key}
-            onClick={() => onCardClick(c.key)}
-            className={cn('cursor-pointer transition hover:bg-muted/50', empty && 'opacity-60')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{c.count}</div>
-              <div className="text-sm font-medium">{c.label}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                {c.count === 1 ? '1 product' : `${c.count} products`}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {cards.map(c => {
+          const empty = c.count === 0;
+          return (
+            <Card
+              key={c.key}
+              onClick={() => onCardClick(c.key)}
+              className={cn('cursor-pointer transition hover:bg-muted/50', empty && 'opacity-60')}
+            >
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">{c.count}</div>
+                <div className="text-sm font-medium">{c.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {c.count === 1 ? '1 product' : `${c.count} products`}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{fmt.usd(fin.avgUnitPrice)}</div>
+            <div className="text-sm font-medium">Avg Unit Price</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              across {fin.productCount === 1 ? '1 product' : `${fin.productCount} products`}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className={cn('text-2xl font-bold', profitTone)}>{usd0(fin.totalProfit)}</div>
+            <div className="text-sm font-medium">Total Profit</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {fmt.pct(fin.marginPct)} margin
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{usd0(fin.totalRevenue)}</div>
+            <div className="text-sm font-medium">Order Revenue</div>
+            <div className="text-xs text-muted-foreground mt-0.5">price × quantity</div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
