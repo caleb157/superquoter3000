@@ -114,7 +114,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    return Number(p.target_price_usd ?? 0);
+    return Number(p.target_price_usd ?? p.calculated_unit_price_usd ?? 0);
   };
 
   useEffect(() => {

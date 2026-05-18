@@ -31,7 +31,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_cost_usd')
+        .select('design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd')
         .eq('customer_rfq_id', inquiryId);
       const rows = data ?? [];
       const c: Counts = { needs_design: 0, in_costing: 0, sampling: 0 };
@@ -44,7 +44,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         if (p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote') c.in_costing++;
         if (p.sample_stage === 'sampling') c.sampling++;
         const qty = Number(p.quantity) || 0;
-        const price = Number(p.target_price_usd) || 0;
+        const price = Number(p.target_price_usd ?? p.calculated_unit_price_usd) || 0;
         const unitCost = Number(p.calculated_unit_cost_usd) || 0;
         if (price > 0) {
           priceSum += price;
