@@ -53,13 +53,13 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } }
   );
-  const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(authHeader.replace("Bearer ", ""));
-  if (claimsErr || !claimsData?.claims) {
+  const { data: userData, error: userErr } = await supabaseAuth.auth.getUser();
+  if (userErr || !userData?.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const { data: isAllowed } = await supabaseAuth.rpc("is_admin_or_team", { _user_id: claimsData.claims.sub });
+  const { data: isAllowed } = await supabaseAuth.rpc("is_admin_or_team", { _user_id: userData.user.id });
   if (!isAllowed) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
