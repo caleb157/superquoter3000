@@ -12,6 +12,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettings, CogsCategoriesSettings, LocalTransportSettings } from '@/components/Phase2Settings';
 
 // Generic editable table component
 function EditableTable<T extends { id: string }>({
@@ -269,13 +270,17 @@ type SectionId =
   | 'general' | 'entities' | 'team'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'box-data' | 'wrapping';
+  | 'shipping' | 'box-data' | 'wrapping'
+  | 'currencies' | 'finishing-difficulty'
+  | 'raw-materials' | 'cogs-categories'
+  | 'local-transport';
 
 const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
   {
     label: 'General',
     items: [
       { id: 'general', label: 'General' },
+      { id: 'currencies', label: 'Currencies' },
       { id: 'entities', label: 'Company entities' },
       { id: 'team', label: 'Team' },
     ],
@@ -289,6 +294,12 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     ],
   },
   {
+    label: 'Labor',
+    items: [
+      { id: 'finishing-difficulty', label: 'Finishing difficulty' },
+    ],
+  },
+  {
     label: 'Products',
     items: [
       { id: 'product-types', label: 'Product types' },
@@ -298,10 +309,18 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     ],
   },
   {
+    label: 'Raw Materials',
+    items: [
+      { id: 'raw-materials', label: 'Raw material costs' },
+      { id: 'cogs-categories', label: 'COGS categories' },
+    ],
+  },
+  {
     label: 'Logistics',
     items: [
       { id: 'shipping', label: 'Shipping' },
       { id: 'box-data', label: 'Box data' },
+      { id: 'local-transport', label: 'Local transport' },
     ],
   },
   {
@@ -312,7 +331,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -359,6 +378,11 @@ const Settings = () => {
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'team': return <TeamManagementContent />;
+      case 'currencies': return <CurrenciesSettings />;
+      case 'finishing-difficulty': return <FinishingDifficultySettings />;
+      case 'local-transport': return <LocalTransportSettings />;
+      case 'cogs-categories': return <CogsCategoriesSettings />;
+      case 'raw-materials': return <RawMaterialCostsSettings />;
       case 'customers':
         return (
           <EditableTable
@@ -412,36 +436,46 @@ const Settings = () => {
             tableName="product_types"
             data={productTypes} setData={setProductTypes}
             fetchData={() => supabase.from('product_types').select('*').order('name').then(({ data }) => data && setProductTypes(data))}
-            defaultRow={{ name: 'New Type', contractor_base_rate_per_ri: 0, ic_addition_per_side_inch: 0.5, finishing_color_per_100ri: 0, finishing_sealer_per_100ri: 0, finishing_lacquer_per_100ri: 0, packaging_mh_per_cbm: 10.8 }}
+            defaultRow={{ name: 'New Type', contractor_base_rate_per_ri: 0, pkg_ic_add_per_side_in: 0.5, finishing_color_per_100ri: 0, finishing_sealer_l_per_100ri: 0, finishing_lacquer_per_100ri: 0, finishing_mh_per_100ri: 0, pkg_corrugate_bubble_rate_mh_per_cbm: 10.8, pkg_ic_rate_mh_per_cbm: 0, pkg_ic_mc_rate_mh_per_cbm: 0, default_percent_wood_for_finishing: 1.0 }}
             columns={[
               { key: 'name', label: 'Name', width: '160px' },
-              { key: 'contractor_base_rate_per_ri', label: 'Rate/RI', type: 'number', width: '80px' },
-              { key: 'ic_addition_per_side_inch', label: 'IC Add/Side', type: 'number', width: '90px' },
-              { key: 'finishing_color_per_100ri', label: 'Color/100RI', type: 'number', width: '90px' },
-              { key: 'finishing_sealer_per_100ri', label: 'Sealer/100RI', type: 'number', width: '90px' },
-              { key: 'finishing_lacquer_per_100ri', label: 'Lacquer/100RI', type: 'number', width: '100px' },
-              { key: 'packaging_mh_per_cbm', label: 'Pkg MH/CBM', type: 'number', width: '100px' },
+              { key: 'contractor_base_rate_per_ri', label: 'Contractor ₹/RI', type: 'number', width: '110px' },
+              { key: 'finishing_mh_per_100ri', label: 'Finish MH/100RI', type: 'number', width: '110px' },
+              { key: 'finishing_color_per_100ri', label: 'Color L/100RI', type: 'number', width: '100px' },
+              { key: 'finishing_sealer_l_per_100ri', label: 'Sealer L/100RI', type: 'number', width: '110px' },
+              { key: 'finishing_lacquer_per_100ri', label: 'Lacquer L/100RI', type: 'number', width: '110px' },
+              { key: 'pkg_ic_add_per_side_in', label: 'IC Add/Side (in)', type: 'number', width: '110px' },
+              { key: 'pkg_corrugate_bubble_rate_mh_per_cbm', label: 'Pkg Corr+Bub MH/CBM', type: 'number', width: '140px' },
+              { key: 'pkg_ic_rate_mh_per_cbm', label: 'Pkg IC MH/CBM', type: 'number', width: '120px' },
+              { key: 'pkg_ic_mc_rate_mh_per_cbm', label: 'Pkg IC+MC MH/CBM', type: 'number', width: '130px' },
+              { key: 'default_percent_wood_for_finishing', label: 'Default % Wood (0-1)', type: 'number', width: '130px' },
             ]}
           />
         );
       case 'box-data':
         return (
-          <EditableTable
-            tableName="box_data"
-            data={boxData} setData={setBoxData}
-            fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
-            defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0 }}
-            columns={[
-              { key: 'box_type', label: 'Type', width: '150px' },
-              { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
-              { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
-              { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
-              { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
-              { key: 'date_quoted', label: 'Date', width: '100px' },
-              { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
-              { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
-            ]}
-          />
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">OD = Inner Dimension + (these offsets). Used for shipping volume calculations and master carton sizing in Phase 3.</p>
+            <EditableTable
+              tableName="box_data"
+              data={boxData} setData={setBoxData}
+              fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
+              defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0, od_length_add_in: 0.375, od_width_add_in: 0.375, od_height_add_in: 1.25 }}
+              columns={[
+                { key: 'box_type', label: 'Type', width: '150px' },
+                { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
+                { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
+                { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
+                { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
+                { key: 'date_quoted', label: 'Date', width: '100px' },
+                { key: 'od_length_add_in', label: 'OD L+ (in)', type: 'number', width: '90px' },
+                { key: 'od_width_add_in', label: 'OD W+ (in)', type: 'number', width: '90px' },
+                { key: 'od_height_add_in', label: 'OD H+ (in)', type: 'number', width: '90px' },
+                { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
+                { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
+              ]}
+            />
+          </div>
         );
       case 'employees':
         return (

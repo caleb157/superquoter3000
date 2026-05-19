@@ -13,6 +13,7 @@ import { computeProductUnitPrices } from '@/lib/product-pricing';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
+import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 
 type Product = {
   id: string;
@@ -231,13 +232,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           </div>
           <div>
             <Label className="text-xs">Currency</Label>
-            <Select value={currency} onValueChange={(v) => setCurrency(v as 'USD' | 'INR')}>
-              <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USD">USD ($)</SelectItem>
-                <SelectItem value="INR">INR (₹)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="mt-1">
+              <CurrencyCombobox value={currency} onChange={(v) => setCurrency(v as any)} />
+            </div>
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
