@@ -493,17 +493,10 @@ export default function InquiryDetail() {
                     className="h-9 mt-1" />
                 </div>
                 <div>
-                  <Label className="text-xs">Available hours / month</Label>
+                  <Label className="text-xs">Total available MH / month</Label>
                   <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.available_hours_per_month_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, available_hours_per_month_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs"># Laborers</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.num_laborers_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, num_laborers_override: e.target.value })}
+                    value={settingsDraft?.total_available_mh_per_month_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, total_available_mh_per_month_override: e.target.value })}
                     className="h-9 mt-1" />
                 </div>
                 <div>
@@ -525,13 +518,6 @@ export default function InquiryDetail() {
                   <Input type="number" step="1" placeholder="Global default"
                     value={settingsDraft?.local_transport_cost_per_cbm_override ?? ''}
                     onChange={e => setSettingsDraft({ ...settingsDraft, local_transport_cost_per_cbm_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Contractor → in-house decrease (0–1)</Label>
-                  <Input type="number" step="0.01" placeholder="Global default"
-                    value={settingsDraft?.contractor_to_inhouse_decrease_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, contractor_to_inhouse_decrease_override: e.target.value })}
                     className="h-9 mt-1" />
                 </div>
                 <div className="md:col-span-3">
