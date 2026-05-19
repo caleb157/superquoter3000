@@ -378,6 +378,11 @@ const Settings = () => {
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'team': return <TeamManagementContent />;
+      case 'currencies': return <CurrenciesSettings />;
+      case 'finishing-difficulty': return <FinishingDifficultySettings />;
+      case 'local-transport': return <LocalTransportSettings />;
+      case 'cogs-categories': return <CogsCategoriesSettings />;
+      case 'raw-materials': return <RawMaterialCostsSettings />;
       case 'customers':
         return (
           <EditableTable
