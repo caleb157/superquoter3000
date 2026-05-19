@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
+
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
