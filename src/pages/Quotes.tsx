@@ -504,7 +504,7 @@ const Quotes = () => {
                         <TableCell className="text-xs">{p.selectedVariant || '—'}</TableCell>
                         <TableCell className="text-xs text-right">
                           {p.line_total != null
-                            ? `${selectionsSnap.currency === 'INR' ? '₹' : '$'}${Number(p.line_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            ? fmt.money(Number(p.line_total), selectionsSnap.currency || 'USD')
                             : '—'}
                         </TableCell>
                       </TableRow>
