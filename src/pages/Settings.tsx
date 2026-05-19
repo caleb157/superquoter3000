@@ -281,7 +281,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     ],
   },
   {
-    label: 'Suppliers',
+    label: 'People',
     items: [
       { id: 'vendors', label: 'Vendors' },
       { id: 'customers', label: 'Customers' },
@@ -314,7 +314,6 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     label: 'Logistics',
     items: [
       { id: 'shipping', label: 'Shipping' },
-      { id: 'box-data', label: 'Box data' },
       { id: 'local-transport', label: 'Local transport' },
     ],
   },
@@ -322,6 +321,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     label: 'Packaging',
     items: [
       { id: 'wrapping', label: 'Wrapping' },
+      { id: 'box-data', label: 'Box prices' },
     ],
   },
 ];
