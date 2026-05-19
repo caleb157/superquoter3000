@@ -162,22 +162,15 @@ function GeneralSettings() {
 
   const fields = [
     { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number' },
-    { key: 'num_laborers', label: 'Number of Laborers', type: 'number' },
-    { key: 'available_hours_per_month', label: 'Available Hours/Month', type: 'number' },
-    { key: 'total_available_mh_per_month', label: 'Total Available MH/Month', type: 'number', hint: 'Total man-hours available per month (overrides Laborers × Available Hours when set). Used as the divisor for indirect overhead per MH.' },
+    { key: 'total_available_mh_per_month', label: 'Total Available MH/Month', type: 'number', hint: 'Total man-hours available per month. Used as the divisor for indirect overhead per MH.' },
     { key: 'indirect_overhead_monthly', label: 'Indirect Overhead Monthly (₹)', type: 'number' },
-    
-    { key: 'contractor_to_inhouse_decrease', label: 'Contractor→In-house Decrease', type: 'number' },
-    { key: 'local_transport_cost_per_cbm', label: 'Local Transport Cost/CBM (₹)', type: 'number', hint: 'Cost to transport raw goods from supplier cities (Agra, Moradabad, Saharanpur) to Jodhpur' },
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
     { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
     { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },
     { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
 
-  const totalMh = Number(settings.total_available_mh_per_month) > 0
-    ? Number(settings.total_available_mh_per_month)
-    : settings.num_laborers * settings.available_hours_per_month;
+  const totalMh = Number(settings.total_available_mh_per_month) || 0;
   const indirectOhPerMh = totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 
   return (
