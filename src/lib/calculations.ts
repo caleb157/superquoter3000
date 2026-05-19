@@ -408,9 +408,9 @@ export function packagingMhPerCbmForType(
   switch (packagingType) {
     case 'corrugate_bubble': return productType.pkg_corrugate_bubble_rate_mh_per_cbm ?? 0;
     case 'ic_only':          return productType.pkg_ic_rate_mh_per_cbm ?? 0;
-    case 'ic_mc':            return productType.pkg_ic_mc_rate_mh_per_cbm ?? productType.packaging_mh_per_cbm ?? 0;
+    case 'ic_mc':            return productType.pkg_ic_mc_rate_mh_per_cbm ?? 0;
     case 'no_packaging':     return 0;
-    default:                 return productType.packaging_mh_per_cbm ?? 0;
+    default:                 return productType.pkg_ic_mc_rate_mh_per_cbm ?? 0;
   }
 }
 
