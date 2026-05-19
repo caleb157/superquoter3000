@@ -271,6 +271,7 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
   const gs = mergeSettingsWithInquiry(gsRes.data as any, inq);
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
+  const difficulties = (diffRes as any).data || [];
 
   const exchangeRate = gs?.exchange_rate || 90;
 
@@ -305,15 +306,16 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     const d = p.depth_inch || 0;
     const h = p.height_inch || 0;
     const ri = calc.runningInches(w, d, h);
-    const difficultyFactor = calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
+    const difficultyFactor = (difficulties.find((dd: any) => dd.name === (p.finishing_difficulty || 'Medium'))?.adjustment_factor)
+      ?? calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
     const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
     const finalUnitCbm = noPackaging ? calc.prePackagedCbm(w, d, h) : (cbmRow?.final_unit_cbm || 0);
 
-    const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
-    const contractorRate = productType?.contractor_base_rate_per_ri || 0;
-    const decrease = gs?.contractor_to_inhouse_decrease || 0;
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, p.percent_wood ?? 1);
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+    // Phase 3a/4: new finishing labor formula (MH/100RI × adjustment × %wood × RI/100)
+    const finishingMhPer100Ri = (productType as any)?.finishing_mh_per_100ri || 0;
+    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, p.percent_wood ?? 1, ri);
+    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, (p as any).packaging_type || 'ic_mc');
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;
