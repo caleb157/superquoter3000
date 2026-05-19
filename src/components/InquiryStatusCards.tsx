@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import { prePackagedCbm } from '@/lib/calculations';
+import { computeProductPriceAndCost } from '@/lib/product-pricing';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
