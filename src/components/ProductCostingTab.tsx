@@ -310,6 +310,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
+      if (diffRes.data) setDifficulties(diffRes.data);
+      if (locRes.data) setLocations(locRes.data);
 
       // Fetch inquiry-level overrides if this product belongs to an inquiry
       if (prodRes.data?.customer_rfq_id) {
