@@ -178,7 +178,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
         }
       }
-      if (product?.sourced_externally && !hasCogs(n => n.includes('domestic freight'))) {
+      if (product?.source_location_id && !hasCogs(n => n.includes('domestic freight'))) {
         cogsToInsert.push({ product_id: id, cogs_type: 'Subcontracting', component_name: 'Domestic Freight (External Sourcing)', units: 'CBM', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
       }
 
