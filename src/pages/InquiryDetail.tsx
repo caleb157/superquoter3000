@@ -25,6 +25,7 @@ import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
+import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 
 const STATUS_OPTIONS = ['active', 'paused', 'po', 'complete', 'cancelled'];
 const STATUS_COLOR: Record<string, string> = {
