@@ -8,6 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
+let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
+let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
+
 export type ProductPriceCostMap = Record<string, {
   unit_cost_usd: number;     // FOB cost, no markup (used by Dashboard pipeline)
   unit_price_usd: number;    // cost + markup (used by quotes)
