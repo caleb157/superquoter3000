@@ -523,7 +523,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                          chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
 
     const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood);
-    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri || 0, ri, percentWood);
+    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood);
     const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood);
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
