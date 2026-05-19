@@ -378,7 +378,7 @@ const Quotes = () => {
             <div className="md:hidden space-y-2">
               {filtered.map((snap: any) => {
                 const totals = (snap.totals || {}) as any;
-                const sym = snap.currency === 'INR' ? '₹' : '$';
+                const code = snap.currency || 'USD';
                 return (
                   <Card key={snap.id}>
                     <CardContent className="p-3 space-y-2">
