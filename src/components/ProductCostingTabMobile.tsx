@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
+
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -209,6 +209,18 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
 // ===== Section A: Product Info =====
 function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId }: MobileCostingProps) {
   const packagingType = product?.packaging_type || 'ic_mc';
+  const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    (async () => {
+      const [d, l] = await Promise.all([
+        (supabase as any).from('finishing_difficulty').select('name').order('sort_order'),
+        (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
+      ]);
+      setDifficulties(d.data || []);
+      setLocations(l.data || []);
+    })();
+  }, []);
   return (
     <div className="space-y-3">
       {/* Photo */}
@@ -290,7 +302,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {DIFFICULTIES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
       </Field>
@@ -313,13 +325,18 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         <Input className="h-10" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
       </Field>
 
-      <div className="flex items-center gap-3 pt-2">
-        <Switch
-          checked={product.sourced_externally || false}
-          onCheckedChange={(checked) => updateProduct('sourced_externally', checked)}
-        />
-        <span className="text-sm">Sourced from outside Jodhpur?</span>
-      </div>
+      <Field label="Source location">
+        <Select
+          value={product.source_location_id || '__inhouse__'}
+          onValueChange={(v) => updateProduct('source_location_id', v === '__inhouse__' ? null : v)}
+        >
+          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__inhouse__">In-house (Jodhpur)</SelectItem>
+            {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
     </div>
   );
 }

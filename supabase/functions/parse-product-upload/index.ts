@@ -65,7 +65,7 @@ const HEADER_ALIASES: Record<string, string> = {
   finishing_difficulty: "finishing_difficulty", difficulty: "finishing_difficulty", finish_difficulty: "finishing_difficulty",
   percent_wood: "percent_wood", wood_percent: "percent_wood", wood_pct: "percent_wood", wood_fraction: "percent_wood",
   is_component: "is_component", component: "is_component",
-  sourced_externally: "sourced_externally", external: "sourced_externally", outsourced: "sourced_externally",
+  source_location_name: "source_location_name", source_location: "source_location_name", location: "source_location_name",
   // notes
   notes: "notes", note: "notes", remarks: "notes", description_notes: "notes", comments: "notes",
   // collection (kept as note prefix)
@@ -118,7 +118,7 @@ function parseSheetByHeaders(rows: any[][], fileName: string, sheetName: string)
       name: null, sku: null, width_inch: null, depth_inch: null, height_inch: null,
       weight_kg: null, quantity: null, moq: null, product_type: null,
       finishing_difficulty: "Medium", percent_wood: 1, target_price_usd: null,
-      is_component: false, sourced_externally: false, notes: null,
+      is_component: false, source_location_name: null, notes: null,
       hardware_detected: [], confidence: "high", source_file: fileName,
     };
     let collection: string | null = null;
@@ -143,7 +143,7 @@ function parseSheetByHeaders(rows: any[][], fileName: string, sheetName: string)
           const n = toNum(val); if (n !== null) obj.percent_wood = n > 1 ? n / 100 : n; break;
         }
         case "is_component": obj.is_component = toBool(val); break;
-        case "sourced_externally": obj.sourced_externally = toBool(val); break;
+        case "source_location_name": obj.source_location_name = String(val).trim() || null; break;
         case "notes": obj.notes = String(val).trim(); break;
         case "collection": collection = String(val).trim(); break;
       }

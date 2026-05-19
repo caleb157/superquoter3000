@@ -39,6 +39,8 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     inquiriesRes,
     chemRes,
     boxRes,
+    diffRes,
+    locRes,
   ] = await Promise.all([
     supabase.from('products').select('*').in('id', productIds),
     supabase.from('cogs_items').select('*').in('product_id', productIds),
@@ -53,6 +55,8 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, total_available_mh_per_month_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override'),
     supabase.from('chemical_prices').select('*'),
     supabase.from('box_data').select('*'),
+    (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+    (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
   ]);
 
   const products = productsRes.data || [];
@@ -69,6 +73,10 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   const inquiryById = Object.fromEntries(inquiries.map((i: any) => [i.id, i]));
   const chemicalPrices = chemRes.data || [];
   const boxData = boxRes.data || [];
+  const difficulties: any[] = (diffRes as any).data || [];
+  const locations: any[] = (locRes as any).data || [];
+  _difficultiesCache = difficulties as any;
+  _locationsCache = locations as any;
 
   // Pre-compute global chemical lookups
   const colorPrice = (chemicalPrices.find((c: any) => c.category === 'Color') as any)?.price_per_litre_inr || 0;
@@ -95,7 +103,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const productCogs = (cogs as any[]).filter((c: any) => c.product_id === p.id);
 
     // Compute IC/MC dims & costs to override packaging COGS unit_cost_inr / qty
-    const icAdd = productType?.ic_addition_per_side_inch ?? 0.5;
+    const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
     const icType = cbmRow?.ic_type || '7 ply';
     const mcType = cbmRow?.mc_type || '7 ply';
     const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
@@ -155,7 +163,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
 
     // Apply in-memory overrides for auto-calc rows so cost stays in sync with costing sheet
     const productsPerIc = cbmRow?.products_per_ic || 1;
-    const transportRate = (settings as any)?.local_transport_cost_per_cbm || 3500;
+    // transportRate removed (now read per-product from local_transport_locations by source_location_id)
     const cogsForCalc = productCogs.map((item: any) => {
       const name = (item.component_name || '').toLowerCase();
       const type = item.cogs_type;
@@ -188,9 +196,11 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       }
       if (item.include === 'No') return item;
       if (!item.is_auto_calculated) {
-        // Domestic Freight (External Sourcing) is not auto_calculated but is name-driven
-        if (item.component_name === 'Domestic Freight (External Sourcing)' && p.sourced_externally) {
-          return { ...item, components_per_product: prePackCbm, unit_cost_inr: transportRate };
+        // Domestic Freight (External Sourcing): rate from local_transport_locations by source_location_id
+        if (item.component_name === 'Domestic Freight (External Sourcing)' && p.source_location_id) {
+          const loc = locations.find((l: any) => l.id === p.source_location_id);
+          const locRate = Number(loc?.cost_per_cbm_inr) || 0;
+          return { ...item, components_per_product: prePackCbm, unit_cost_inr: locRate };
         }
         return item;
       }
@@ -201,7 +211,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
           return { ...item, components_per_product: qtyL, unit_cost_inr: colorPrice };
         }
         if (name.includes('sealer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_per_100ri || 0, ri, percentWood);
+          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
           return { ...item, components_per_product: qtyL, unit_cost_inr: sealerPrice };
         }
         if (name.includes('lacquer')) {
@@ -239,14 +249,15 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       qty,
     );
 
-    // Overhead (auto-estimated finishing/packaging mh applied in-memory)
+    // Overhead (auto-estimated finishing/packaging mh applied in-memory) — Phase 3a engine
     const productOh = (allOh as any[]).filter((o: any) => o.product_id === p.id);
-    const difficultyFactor = calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
-    const avgFinishingRate = calc.avgRateByDesignation(employees as any, 'Finishing') || calc.avgRateByDesignation(employees as any, 'Sanding');
-    const contractorRate = productType?.contractor_base_rate_per_ri || 0;
-    const decrease = (settings as any)?.contractor_to_inhouse_decrease || 0;
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const diffName = p.finishing_difficulty || 'Medium';
+    const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor)
+      ?? calc.getDifficultyFactor(diffName);
+    const finishingMhPer100Ri = Number(productType?.finishing_mh_per_100ri) || 0;
+    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, percentWood, ri);
+    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;

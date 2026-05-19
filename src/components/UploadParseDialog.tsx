@@ -52,7 +52,7 @@ interface ParsedProduct {
   _expanded?: boolean;
   // Structured intake fields
   cogs_rows?: any[];
-  sourced_externally?: boolean;
+  source_location_name?: string | null;
   ic_type?: string | null;
   products_per_ic?: number | null;
   ic_width?: number | null;
@@ -310,7 +310,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
               _expanded: false,
               // Structured intake fields
               cogs_rows: p.cogs_rows || undefined,
-              sourced_externally: p.sourced_externally || false,
+              source_location_name: p.source_location_name || null,
               ic_type: p.ic_type || null,
               products_per_ic: p.products_per_ic || null,
               ic_width: p.ic_width || null,
@@ -390,7 +390,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
           finishing_difficulty: p.finishing_difficulty || 'Medium',
           percent_wood: p.percent_wood || 1,
           is_component: p.is_component || false,
-          sourced_externally: p.sourced_externally || false,
+          
           notes: [
             p.material_guess ? `Material: ${p.material_guess}` : '',
             p.construction_notes ? `Construction: ${p.construction_notes}` : '',
@@ -601,7 +601,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                 download the import template
               </a>
               . Required column: <code className="px-1 bg-muted rounded">name</code>. Optional:{' '}
-              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, sourced_externally, collection, notes</code>.
+              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, source_location_name, collection, notes</code>.
             </div>
 
             {/* File list */}

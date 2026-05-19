@@ -359,7 +359,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const mcType = cbm?.mc_type || '7 ply';
 
   // Step 2 & 3: IC calcs with type-specific cost lookup
-  const icAdd = productType?.ic_addition_per_side_inch || 0.5;
+  const icAdd = productType?.pkg_ic_add_per_side_in || 0.5;
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   // Allow manual overrides: use saved values from cbm if they exist, otherwise auto-calculated
   const icDims = {
@@ -523,7 +523,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                          chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
 
     const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood);
-    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_per_100ri || 0, ri, percentWood);
+    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood);
     const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood);
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
@@ -1097,7 +1097,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {DIFFICULTIES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -1125,8 +1125,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   value={product.source_location_id || '__inhouse__'}
                   onValueChange={async (v) => {
                     const newLocId = v === '__inhouse__' ? null : v;
-                    setProduct((p: any) => ({ ...p, source_location_id: newLocId, sourced_externally: !!newLocId }));
-                    await (supabase as any).from('products').update({ source_location_id: newLocId, sourced_externally: !!newLocId }).eq('id', id);
+                    setProduct((p: any) => ({ ...p, source_location_id: newLocId }));
+                    await (supabase as any).from('products').update({ source_location_id: newLocId }).eq('id', id);
                     if (!newLocId) {
                       const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
                       for (const fi of freightItems) {
