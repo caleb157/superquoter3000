@@ -492,8 +492,6 @@ export type Database = {
         Row: {
           assigned_to: string | null
           auto_transport_cost_per_cbm_override: number | null
-          available_hours_per_month_override: number | null
-          contractor_to_inhouse_decrease_override: number | null
           created_at: string
           customer_id: string | null
           drive_url: string | null
@@ -503,7 +501,6 @@ export type Database = {
           local_transport_cost_per_cbm_override: number | null
           markup_percent_override: number | null
           notes: string | null
-          num_laborers_override: number | null
           packaging_cost_per_cbm_override: number | null
           priority: string
           quoting_currency: string | null
@@ -515,13 +512,12 @@ export type Database = {
           status: string
           target_completion_date: string | null
           title: string | null
+          total_available_mh_per_month_override: number | null
           updated_at: string
         }
         Insert: {
           assigned_to?: string | null
           auto_transport_cost_per_cbm_override?: number | null
-          available_hours_per_month_override?: number | null
-          contractor_to_inhouse_decrease_override?: number | null
           created_at?: string
           customer_id?: string | null
           drive_url?: string | null
@@ -531,7 +527,6 @@ export type Database = {
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
-          num_laborers_override?: number | null
           packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
@@ -543,13 +538,12 @@ export type Database = {
           status?: string
           target_completion_date?: string | null
           title?: string | null
+          total_available_mh_per_month_override?: number | null
           updated_at?: string
         }
         Update: {
           assigned_to?: string | null
           auto_transport_cost_per_cbm_override?: number | null
-          available_hours_per_month_override?: number | null
-          contractor_to_inhouse_decrease_override?: number | null
           created_at?: string
           customer_id?: string | null
           drive_url?: string | null
@@ -559,7 +553,6 @@ export type Database = {
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
-          num_laborers_override?: number | null
           packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
@@ -571,6 +564,7 @@ export type Database = {
           status?: string
           target_completion_date?: string | null
           title?: string | null
+          total_available_mh_per_month_override?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -715,11 +709,9 @@ export type Database = {
       global_settings: {
         Row: {
           auto_transport_cost_per_cbm: number
-          available_hours_per_month: number
           below_moq_surcharge_percent: number
           bubble_kg_per_sq_in: number
           bubble_price_per_kg: number
-          contractor_to_inhouse_decrease: number
           corrugate_kg_per_sq_in: number
           corrugate_price_per_kg: number
           created_at: string | null
@@ -729,7 +721,6 @@ export type Database = {
           indirect_overhead_monthly: number
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
-          num_laborers: number
           packaging_cost_per_cbm: number
           slow_quote_days: number
           slow_sample_days: number
@@ -737,11 +728,9 @@ export type Database = {
         }
         Insert: {
           auto_transport_cost_per_cbm?: number
-          available_hours_per_month?: number
           below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
           bubble_price_per_kg?: number
-          contractor_to_inhouse_decrease?: number
           corrugate_kg_per_sq_in?: number
           corrugate_price_per_kg?: number
           created_at?: string | null
@@ -751,7 +740,6 @@ export type Database = {
           indirect_overhead_monthly?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
-          num_laborers?: number
           packaging_cost_per_cbm?: number
           slow_quote_days?: number
           slow_sample_days?: number
@@ -759,11 +747,9 @@ export type Database = {
         }
         Update: {
           auto_transport_cost_per_cbm?: number
-          available_hours_per_month?: number
           below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
           bubble_price_per_kg?: number
-          contractor_to_inhouse_decrease?: number
           corrugate_kg_per_sq_in?: number
           corrugate_price_per_kg?: number
           created_at?: string | null
@@ -773,7 +759,6 @@ export type Database = {
           indirect_overhead_monthly?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
-          num_laborers?: number
           packaging_cost_per_cbm?: number
           slow_quote_days?: number
           slow_sample_days?: number
@@ -1138,54 +1123,42 @@ export type Database = {
       }
       product_types: {
         Row: {
-          contractor_base_rate_per_ri: number | null
           created_at: string | null
           default_percent_wood_for_finishing: number | null
           finishing_color_per_100ri: number | null
           finishing_lacquer_per_100ri: number | null
           finishing_mh_per_100ri: number | null
           finishing_sealer_l_per_100ri: number | null
-          finishing_sealer_per_100ri: number | null
-          ic_addition_per_side_inch: number | null
           id: string
           name: string
-          packaging_mh_per_cbm: number | null
           pkg_corrugate_bubble_rate_mh_per_cbm: number | null
           pkg_ic_add_per_side_in: number | null
           pkg_ic_mc_rate_mh_per_cbm: number | null
           pkg_ic_rate_mh_per_cbm: number | null
         }
         Insert: {
-          contractor_base_rate_per_ri?: number | null
           created_at?: string | null
           default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
           finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
-          finishing_sealer_per_100ri?: number | null
-          ic_addition_per_side_inch?: number | null
           id?: string
           name: string
-          packaging_mh_per_cbm?: number | null
           pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
           pkg_ic_add_per_side_in?: number | null
           pkg_ic_mc_rate_mh_per_cbm?: number | null
           pkg_ic_rate_mh_per_cbm?: number | null
         }
         Update: {
-          contractor_base_rate_per_ri?: number | null
           created_at?: string | null
           default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
           finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
-          finishing_sealer_per_100ri?: number | null
-          ic_addition_per_side_inch?: number | null
           id?: string
           name?: string
-          packaging_mh_per_cbm?: number | null
           pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
           pkg_ic_add_per_side_in?: number | null
           pkg_ic_mc_rate_mh_per_cbm?: number | null
@@ -1269,7 +1242,6 @@ export type Database = {
           sku: string | null
           sort_order: number | null
           source_location_id: string | null
-          sourced_externally: boolean | null
           target_price_usd: number | null
           updated_at: string | null
           weight_kg: number | null
@@ -1309,7 +1281,6 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           source_location_id?: string | null
-          sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null
@@ -1349,7 +1320,6 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           source_location_id?: string | null
-          sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null

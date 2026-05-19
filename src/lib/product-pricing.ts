@@ -8,6 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
+let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
+let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
+
 export type ProductPriceCostMap = Record<string, {
   unit_cost_usd: number;     // FOB cost, no markup (used by Dashboard pipeline)
   unit_price_usd: number;    // cost + markup (used by quotes)
@@ -47,7 +50,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*').in('product_id', productIds),
     supabase.from('product_types').select('*'),
-    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, available_hours_per_month_override, num_laborers_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, contractor_to_inhouse_decrease_override'),
+    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, total_available_mh_per_month_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override'),
     supabase.from('chemical_prices').select('*'),
     supabase.from('box_data').select('*'),
   ]);
