@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import { prePackagedCbm } from '@/lib/calculations';
+import { computeProductPriceAndCost } from '@/lib/product-pricing';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
@@ -45,6 +46,10 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
       (cbmData ?? []).forEach((c: any) => {
         cbmMap.set(c.product_id, Number(c.final_unit_cbm) || 0);
       });
+      // Compute live unit price + cost for accurate margin (DB columns may be stale/null)
+      const priceMap = rows.length > 0
+        ? await computeProductPriceAndCost(rows.map((p: any) => p.id))
+        : {};
       const c: Counts = { needs_design: 0, in_costing: 0, sampling: 0 };
       let revenue = 0;
       let cost = 0;
@@ -54,8 +59,13 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         if (p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote') c.in_costing++;
         if (p.sample_stage === 'sampling') c.sampling++;
         const qty = Number(p.quantity) || 0;
-        const price = Number(p.calculated_unit_price_usd ?? p.target_price_usd) || 0;
-        const unitCost = Number(p.calculated_unit_cost_usd) || 0;
+        const computed = priceMap[p.id];
+        const price = Number(
+          p.calculated_unit_price_usd ?? computed?.unit_price_usd ?? p.target_price_usd
+        ) || 0;
+        const unitCost = Number(
+          p.calculated_unit_cost_usd ?? computed?.unit_cost_usd
+        ) || 0;
         revenue += price * qty;
         cost += unitCost * qty;
         const unitCbm = cbmMap.get(p.id) ?? prePackagedCbm(p.width_inch, p.depth_inch, p.height_inch);
