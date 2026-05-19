@@ -1117,28 +1117,39 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
                 <Input className="h-7 text-xs" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
               </div>
-              <div className="col-span-2 flex items-center gap-3 pt-2">
-                <Switch
-                  checked={product.sourced_externally || false}
-                  onCheckedChange={async (checked) => {
-                    updateProduct('sourced_externally', checked);
-                    if (!checked) {
-                      // Remove ALL domestic freight COGS items (handles any legacy duplicates)
+              <div className="col-span-2 pt-2">
+                <label className="text-[10px] text-muted-foreground">Source Location</label>
+                <Select
+                  value={product.source_location_id || '__inhouse__'}
+                  onValueChange={async (v) => {
+                    const newLocId = v === '__inhouse__' ? null : v;
+                    setProduct((p: any) => ({ ...p, source_location_id: newLocId, sourced_externally: !!newLocId }));
+                    await (supabase as any).from('products').update({ source_location_id: newLocId, sourced_externally: !!newLocId }).eq('id', id);
+                    if (!newLocId) {
                       const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
                       for (const fi of freightItems) {
                         await (supabase as any).from('cogs_items').delete().eq('id', fi.id);
                       }
                       setCogsItems(prev => prev.filter(i => i.component_name !== 'Domestic Freight (External Sourcing)'));
                     }
-                    // When checked=true, the Step 7c useEffect handles creation (single source of truth)
+                    onProductUpdated?.();
                   }}
-                />
-                <div>
-                  <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
-                  {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(effectiveSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
-                  )}
-                </div>
+                >
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__inhouse__">In-house (Jodhpur)</SelectItem>
+                    {locations.map(loc => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name} — ₹{Number(loc.cost_per_cbm_inr).toLocaleString()}/CBM</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {product.source_location_id && (() => {
+                  const loc = locations.find(l => l.id === product.source_location_id);
+                  const rate = loc?.cost_per_cbm_inr || 0;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">Domestic freight ₹{Number(rate).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
+                  );
+                })()}
               </div>
                 </div>
               </div>
