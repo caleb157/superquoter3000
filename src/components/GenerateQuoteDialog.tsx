@@ -98,7 +98,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         ? inq.quoting_entity_id
         : (ents[0]?.id ?? '');
       setEntityId(preferredEntity);
-      setCurrency((inq?.quoting_currency as 'USD' | 'INR') || 'USD');
+      setCurrency((inq?.quoting_currency as string) || 'USD');
     })();
   }, [open, inquiryId]);
 
