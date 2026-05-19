@@ -108,7 +108,7 @@ export default function Vendors() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl font-semibold">Vendors</h1>
+            <h1 className="text-xl font-serif font-medium tracking-tight">Vendors</h1>
             <Badge variant="secondary" className="text-xs">{vendors.length}</Badge>
           </div>
           <Link to="/settings#vendors">

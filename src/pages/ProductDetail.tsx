@@ -248,7 +248,7 @@ const ProductDetail = () => {
             ) : (
               <div className="flex items-center gap-1.5 group">
                 <div className="min-w-0">
-                  <h1 className="text-base sm:text-lg font-bold truncate">{product.name}</h1>
+                  <h1 className="text-base sm:text-lg font-serif font-medium tracking-tight truncate">{product.name}</h1>
                   {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100" onClick={startEdit}>

@@ -395,7 +395,7 @@ const CustomerQuote = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="font-sans min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center space-y-3">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-500" />
           <p className="text-sm text-slate-500">Loading your quote…</p>
@@ -406,7 +406,7 @@ const CustomerQuote = () => {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="font-sans min-h-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-lg p-8 text-center space-y-3 shadow-sm">
           <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto">
             <AlertCircle className="h-7 w-7 text-red-500" />
@@ -442,7 +442,7 @@ const CustomerQuote = () => {
   const isUS = (entity?.country ?? '').toLowerCase().includes('united states') || (entity?.country ?? '').toLowerCase() === 'usa' || (entity?.country ?? '').toLowerCase() === 'us';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 print:bg-white">
+    <div className="font-sans min-h-screen bg-slate-50 text-slate-900 print:bg-white">
       {/* Minimal print stylesheet — PDF download is the canonical export */}
       <style>{`
         @media print {

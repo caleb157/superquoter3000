@@ -84,7 +84,7 @@ export default function Tasks() {
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Tasks</h1>
+          <h1 className="text-xl font-serif font-medium tracking-tight">Tasks</h1>
           <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
           </Button>

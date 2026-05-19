@@ -189,7 +189,7 @@ export default function InquiryDetail() {
               </div>
             ) : (
               <h1
-                className="text-xl font-bold cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 inline-flex items-center gap-2 group"
+                className="text-xl font-serif font-medium tracking-tight cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 inline-flex items-center gap-2 group"
                 onClick={() => { setTitleDraft(inquiry.title ?? ''); setEditingTitle(true); }}
               >
                 {inquiry.title || 'Untitled Inquiry'}

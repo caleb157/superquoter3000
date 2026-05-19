@@ -164,7 +164,7 @@ const Quotes = () => {
     <AppLayout>
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-bold">All Quotes</h1>
+          <h1 className="text-lg font-serif font-medium tracking-tight">All Quotes</h1>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchData}>
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>

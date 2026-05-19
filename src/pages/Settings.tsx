@@ -537,7 +537,7 @@ const Settings = () => {
         {/* Sidebar */}
         <aside className="w-[180px] shrink-0 border-r border-border bg-card min-h-[calc(100vh-8rem)]">
           <div className="px-3 py-4">
-            <h1 className="text-base font-bold mb-4 px-2">Settings</h1>
+            <h1 className="text-base font-serif font-medium tracking-tight mb-4 px-2">Settings</h1>
             <nav className="space-y-4">
               {NAV_GROUPS.map(group => (
                 <div key={group.label}>
