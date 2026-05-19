@@ -40,7 +40,7 @@ export function CurrenciesSettings() {
     return r.code.toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q);
   });
 
-  const startAdd = () => { setEditing({ code: '', name: '', units_per_inr_base: 1, import_rate: null, export_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
+  const startAdd = () => { setEditing({ code: '', name: '', symbol: '', units_per_inr_base: 1, import_rate: null, export_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
   const startEdit = (r: any) => { setEditing({ ...r }); setOpen(true); };
 
   const save = async () => {
@@ -50,6 +50,7 @@ export function CurrenciesSettings() {
     const payload = {
       code,
       name: editing.name,
+      symbol: editing.symbol === '' || editing.symbol == null ? null : String(editing.symbol),
       units_per_inr_base: Number(editing.units_per_inr_base) || 1,
       import_rate: editing.import_rate === '' || editing.import_rate == null ? null : Number(editing.import_rate),
       export_rate: editing.export_rate === '' || editing.export_rate == null ? null : Number(editing.export_rate),
