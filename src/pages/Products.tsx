@@ -180,7 +180,7 @@ const Products = () => {
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold">All Products</h1>
+          <h1 className="text-lg font-serif font-medium tracking-tight">All Products</h1>
           <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowInquiryPicker(true)}>
             <Upload className="h-3 w-3" /> Upload & Parse
           </Button>

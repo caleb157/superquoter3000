@@ -146,7 +146,7 @@ export default function SamplesList() {
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold flex items-center gap-2"><Package2 className="h-5 w-5" /> Samples</h1>
+          <h1 className="text-lg font-serif font-medium tracking-tight flex items-center gap-2"><Package2 className="h-5 w-5" /> Samples</h1>
           <Button size="sm" className="ml-auto gap-1.5" onClick={() => setShowNew(true)}>
             <Plus className="h-4 w-4" /> New Sample
           </Button>
