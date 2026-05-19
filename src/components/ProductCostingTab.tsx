@@ -675,14 +675,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!dataLoaded || !product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
 
-    const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
-    const contractorRate = productType.contractor_base_rate_per_ri || 0;
-    const decrease = effectiveSettings.contractor_to_inhouse_decrease || 0;
+    // Phase 3a: new finishing formula — MH/100RI × adjustment factor × %wood × RI/100
+    const finishingMhPer100Ri = productType.finishing_mh_per_100ri ?? 0;
+    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, percentWood, ri);
 
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
-
-    // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+    // Phase 3a: pick packaging MH/CBM rate from product_types based on packaging type.
+    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
 
     const ohUpdates: { id: string; man_hours_per_unit: number; include?: string }[] = [];
 
