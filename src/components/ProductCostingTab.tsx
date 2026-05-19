@@ -447,11 +447,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     },
   ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
 
+  // Phase 3a: shipping CBM uses MC OD (or IC OD if no MC), not ID.
   const finalUnitCbm = noPackaging
     ? prePackCbm
     : packagingType === 'corrugate_bubble'
     ? wrappingResult.final_unit_cbm
-    : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
+    : calc.calcFinalUnitCbm(includeMc, icOdVolumeCbm, productsPerIc, mcOdVolumeCbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
   // Persist derived CBM values so summary/quotes always use current numbers
