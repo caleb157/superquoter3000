@@ -601,7 +601,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                 download the import template
               </a>
               . Required column: <code className="px-1 bg-muted rounded">name</code>. Optional:{' '}
-              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, sourced_externally, collection, notes</code>.
+              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, source_location_name, collection, notes</code>.
             </div>
 
             {/* File list */}
