@@ -269,13 +269,17 @@ type SectionId =
   | 'general' | 'entities' | 'team'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'box-data' | 'wrapping';
+  | 'shipping' | 'box-data' | 'wrapping'
+  | 'currencies' | 'finishing-difficulty'
+  | 'raw-materials' | 'cogs-categories'
+  | 'local-transport';
 
 const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
   {
     label: 'General',
     items: [
       { id: 'general', label: 'General' },
+      { id: 'currencies', label: 'Currencies' },
       { id: 'entities', label: 'Company entities' },
       { id: 'team', label: 'Team' },
     ],
@@ -289,6 +293,12 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     ],
   },
   {
+    label: 'Labor',
+    items: [
+      { id: 'finishing-difficulty', label: 'Finishing difficulty' },
+    ],
+  },
+  {
     label: 'Products',
     items: [
       { id: 'product-types', label: 'Product types' },
@@ -298,10 +308,18 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     ],
   },
   {
+    label: 'Raw Materials',
+    items: [
+      { id: 'raw-materials', label: 'Raw material costs' },
+      { id: 'cogs-categories', label: 'COGS categories' },
+    ],
+  },
+  {
     label: 'Logistics',
     items: [
       { id: 'shipping', label: 'Shipping' },
       { id: 'box-data', label: 'Box data' },
+      { id: 'local-transport', label: 'Local transport' },
     ],
   },
   {
@@ -312,7 +330,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport'];
 
 const Settings = () => {
   const initialSection = (() => {
