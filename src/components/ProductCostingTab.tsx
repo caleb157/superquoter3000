@@ -1166,6 +1166,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     ))}
                   </SelectContent>
                 </Select>
+                {locationsError && (
+                  <p className="text-[10px] text-destructive mt-1">⚠ {locationsError}</p>
+                )}
                 {product.source_location_id && (() => {
                   const loc = locations.find(l => l.id === product.source_location_id);
                   const rate = loc?.cost_per_cbm_inr || 0;
