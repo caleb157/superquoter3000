@@ -1125,8 +1125,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   value={product.source_location_id || '__inhouse__'}
                   onValueChange={async (v) => {
                     const newLocId = v === '__inhouse__' ? null : v;
-                    setProduct((p: any) => ({ ...p, source_location_id: newLocId, sourced_externally: !!newLocId }));
-                    await (supabase as any).from('products').update({ source_location_id: newLocId, sourced_externally: !!newLocId }).eq('id', id);
+                    setProduct((p: any) => ({ ...p, source_location_id: newLocId }));
+                    await (supabase as any).from('products').update({ source_location_id: newLocId }).eq('id', id);
                     if (!newLocId) {
                       const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
                       for (const fi of freightItems) {
