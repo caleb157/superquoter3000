@@ -312,8 +312,24 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
-      if (diffRes.data) setDifficulties(diffRes.data);
-      if (locRes.data) setLocations(locRes.data);
+      if (diffRes.error) {
+        const msg = `Could not load finishing difficulty options: ${diffRes.error.message}`;
+        setDifficultiesError(msg);
+        toast.error(msg);
+      } else if (!diffRes.data || diffRes.data.length === 0) {
+        setDifficultiesError('No finishing difficulty options configured. Add at least one in Settings → Finishing.');
+      } else {
+        setDifficultiesError(null);
+        setDifficulties(diffRes.data);
+      }
+      if (locRes.error) {
+        const msg = `Could not load source locations: ${locRes.error.message}`;
+        setLocationsError(msg);
+        toast.error(msg);
+      } else {
+        setLocationsError(null);
+        setLocations(locRes.data || []);
+      }
 
       // Fetch inquiry-level overrides if this product belongs to an inquiry
       if (prodRes.data?.customer_rfq_id) {
