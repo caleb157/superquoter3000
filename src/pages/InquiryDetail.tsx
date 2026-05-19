@@ -137,6 +137,8 @@ export default function InquiryDetail() {
       notes: settingsDraft.notes?.trim() || null,
       exchange_rate_override: settingsDraft.exchange_rate_override === '' || settingsDraft.exchange_rate_override == null
         ? null : Number(settingsDraft.exchange_rate_override),
+      quoting_currency_rate_override: settingsDraft.quoting_currency_rate_override === '' || settingsDraft.quoting_currency_rate_override == null
+        ? null : Number(settingsDraft.quoting_currency_rate_override),
       markup_percent_override: settingsDraft.markup_percent_override === '' || settingsDraft.markup_percent_override == null
         ? null : Number(settingsDraft.markup_percent_override),
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
