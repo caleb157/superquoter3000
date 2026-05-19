@@ -1118,6 +1118,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {difficultiesError && (
+                  <p className="text-[10px] text-destructive mt-1">⚠ {difficultiesError}</p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">% Wood</label>
