@@ -504,6 +504,7 @@ export type Database = {
           packaging_cost_per_cbm_override: number | null
           priority: string
           quoting_currency: string | null
+          quoting_currency_rate_override: number | null
           quoting_entity_id: string | null
           received_date: string
           requirements: string | null
@@ -530,6 +531,7 @@ export type Database = {
           packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
+          quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
           received_date?: string
           requirements?: string | null
@@ -556,6 +558,7 @@ export type Database = {
           packaging_cost_per_cbm_override?: number | null
           priority?: string
           quoting_currency?: string | null
+          quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
           received_date?: string
           requirements?: string | null
