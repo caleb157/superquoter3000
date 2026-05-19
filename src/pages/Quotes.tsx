@@ -273,7 +273,7 @@ const Quotes = () => {
                   <TableBody>
                     {filtered.map((snap: any) => {
                       const totals = (snap.totals || {}) as any;
-                      const sym = snap.currency === 'INR' ? '₹' : '$';
+                      const code = snap.currency || 'USD';
                       const viewedAt = snap.viewed_at ? new Date(snap.viewed_at).toLocaleDateString() : '—';
                       const approvedAt = snap.approved_at ? new Date(snap.approved_at).toLocaleDateString() : null;
 
