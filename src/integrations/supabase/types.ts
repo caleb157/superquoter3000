@@ -1265,6 +1265,7 @@ export type Database = {
           shipping_done: boolean | null
           sku: string | null
           sort_order: number | null
+          source_location_id: string | null
           sourced_externally: boolean | null
           target_price_usd: number | null
           updated_at: string | null
@@ -1304,6 +1305,7 @@ export type Database = {
           shipping_done?: boolean | null
           sku?: string | null
           sort_order?: number | null
+          source_location_id?: string | null
           sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
@@ -1343,6 +1345,7 @@ export type Database = {
           shipping_done?: boolean | null
           sku?: string | null
           sort_order?: number | null
+          source_location_id?: string | null
           sourced_externally?: boolean | null
           target_price_usd?: number | null
           updated_at?: string | null
@@ -1362,6 +1365,13 @@ export type Database = {
             columns: ["product_type_id"]
             isOneToOne: false
             referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_source_location_id_fkey"
+            columns: ["source_location_id"]
+            isOneToOne: false
+            referencedRelation: "local_transport_locations"
             referencedColumns: ["id"]
           },
         ]
