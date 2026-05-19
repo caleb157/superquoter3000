@@ -178,7 +178,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           cogsToInsert.push({ product_id: id, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
         }
       }
-      if (product?.sourced_externally && !hasCogs(n => n.includes('domestic freight'))) {
+      if (product?.source_location_id && !hasCogs(n => n.includes('domestic freight'))) {
         cogsToInsert.push({ product_id: id, cogs_type: 'Subcontracting', component_name: 'Domestic Freight (External Sourcing)', units: 'CBM', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
       }
 
@@ -220,7 +220,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     } finally {
       setTimeout(() => setRecalcing(false), 600);
     }
-  }, [id, cogsItems, overheadItems, recalcing, product?.packaging_type, product?.sourced_externally]);
+  }, [id, cogsItems, overheadItems, recalcing, product?.packaging_type, product?.source_location_id]);
 
 
   // Fetch all data
@@ -725,23 +725,25 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     void (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id).then(({ error }: any) => { if (error) console.error('Auto Transport update failed:', error); });
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length, recalcTick]);
 
-  // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
+  // Step 7c: Auto-create or update Domestic Freight COGS when product has a source_location_id
   const freightCreatingRef = useRef(false);
   useEffect(() => {
-    if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
+    if (!dataLoaded || !id) return;
+    const locId = product?.source_location_id;
+    const selectedLoc = locId ? locations.find(l => l.id === locId) : null;
+    const externallySourced = !!selectedLoc;
+    if (!externallySourced || !globalSettings || prePackCbm <= 0) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-    const transportRate = effectiveSettings.local_transport_cost_per_cbm || 3500;
+    const transportRate = Number(selectedLoc!.cost_per_cbm_inr) || effectiveSettings.local_transport_cost_per_cbm || 3500;
     if (!freightItem) {
       if (freightCreatingRef.current) return;
       freightCreatingRef.current = true;
-      // Check DB first to avoid duplicates
       (async () => {
         const { data: existing } = await (supabase as any).from('cogs_items')
           .select('id').eq('product_id', id)
           .eq('component_name', 'Domestic Freight (External Sourcing)')
           .eq('is_auto_calculated', true).limit(1);
         if (existing && existing.length > 0) {
-          // Already exists in DB, just refetch
           const { data: row } = await (supabase as any).from('cogs_items').select('*').eq('id', existing[0].id).single();
           if (row) setCogsItems(prev => [...prev, row]);
           freightCreatingRef.current = false;
@@ -768,7 +770,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
     setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
     (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
-  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
+  }, [dataLoaded, prePackCbm, product?.source_location_id, locations, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
     include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
@@ -1117,28 +1119,39 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
                 <Input className="h-7 text-xs" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
               </div>
-              <div className="col-span-2 flex items-center gap-3 pt-2">
-                <Switch
-                  checked={product.sourced_externally || false}
-                  onCheckedChange={async (checked) => {
-                    updateProduct('sourced_externally', checked);
-                    if (!checked) {
-                      // Remove ALL domestic freight COGS items (handles any legacy duplicates)
+              <div className="col-span-2 pt-2">
+                <label className="text-[10px] text-muted-foreground">Source Location</label>
+                <Select
+                  value={product.source_location_id || '__inhouse__'}
+                  onValueChange={async (v) => {
+                    const newLocId = v === '__inhouse__' ? null : v;
+                    setProduct((p: any) => ({ ...p, source_location_id: newLocId, sourced_externally: !!newLocId }));
+                    await (supabase as any).from('products').update({ source_location_id: newLocId, sourced_externally: !!newLocId }).eq('id', id);
+                    if (!newLocId) {
                       const freightItems = cogsItems.filter(i => i.component_name === 'Domestic Freight (External Sourcing)');
                       for (const fi of freightItems) {
                         await (supabase as any).from('cogs_items').delete().eq('id', fi.id);
                       }
                       setCogsItems(prev => prev.filter(i => i.component_name !== 'Domestic Freight (External Sourcing)'));
                     }
-                    // When checked=true, the Step 7c useEffect handles creation (single source of truth)
+                    onProductUpdated?.();
                   }}
-                />
-                <div>
-                  <span className="text-xs font-medium">Sourced from outside Jodhpur?</span>
-                  {product.sourced_externally && (
-                    <p className="text-[10px] text-muted-foreground">Domestic freight ₹{(effectiveSettings?.local_transport_cost_per_cbm || 3500).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
-                  )}
-                </div>
+                >
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__inhouse__">In-house (Jodhpur)</SelectItem>
+                    {locations.map(loc => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name} — ₹{Number(loc.cost_per_cbm_inr).toLocaleString()}/CBM</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {product.source_location_id && (() => {
+                  const loc = locations.find(l => l.id === product.source_location_id);
+                  const rate = loc?.cost_per_cbm_inr || 0;
+                  return (
+                    <p className="text-[10px] text-muted-foreground mt-1">Domestic freight ₹{Number(rate).toLocaleString()}/CBM × {prePackCbm.toFixed(4)} CBM added to COGS</p>
+                  );
+                })()}
               </div>
                 </div>
               </div>
@@ -1353,23 +1366,33 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
               {/* Carton Summary */}
               <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1.5">
-                <div className="flex items-center gap-2 text-xs">
-                  <span>📦</span>
-                  <span className="font-medium">Inner Carton:</span>
-                  <span>{fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)}</span>
-                  <span className="text-muted-foreground">({fmt.cbm(icVolume)})</span>
-                  <span className="text-muted-foreground">— {icType}</span>
-                  <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                <div className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <span>📦</span>
+                    <span className="font-medium">Inner Carton OD:</span>
+                    <span>{fmt.dim(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height)}</span>
+                    <span className="text-muted-foreground">({fmt.cbm(icOdVolumeCbm)})</span>
+                    <span className="text-muted-foreground">— {icType}</span>
+                    <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground ml-6">
+                    (ID: {fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)} — {fmt.cbm(icVolume)})
+                  </div>
                 </div>
                 {includeMc && (
                   <>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span>📦</span>
-                      <span className="font-medium">Master Carton:</span>
-                      <span>{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
-                      <span className="text-muted-foreground">({fmt.cbm(mcResult.mc_volume_cbm)})</span>
-                      <span className="text-muted-foreground">— {mcType}</span>
-                      <span className="text-muted-foreground">— {fmt.inr(mcCost)}/box</span>
+                    <div className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span>📦</span>
+                        <span className="font-medium">Master Carton OD:</span>
+                        <span>{fmt.dim(mcOd.mc_od_width, mcOd.mc_od_depth, mcOd.mc_od_height)}</span>
+                        <span className="text-muted-foreground">({fmt.cbm(mcOdVolumeCbm)})</span>
+                        <span className="text-muted-foreground">— {mcType}</span>
+                        <span className="text-muted-foreground">— {fmt.inr(mcCost)}/box</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground ml-6">
+                        (ID: {fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)} — {fmt.cbm(mcResult.mc_volume_cbm)})
+                      </div>
                     </div>
                     <div className="text-[10px] text-muted-foreground ml-6">
                       └── {productsPerIc} product{productsPerIc > 1 ? 's' : ''} per IC, {mcResult.products_per_mc} product{mcResult.products_per_mc > 1 ? 's' : ''} per MC

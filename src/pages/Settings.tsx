@@ -164,6 +164,7 @@ function GeneralSettings() {
     { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number' },
     { key: 'num_laborers', label: 'Number of Laborers', type: 'number' },
     { key: 'available_hours_per_month', label: 'Available Hours/Month', type: 'number' },
+    { key: 'total_available_mh_per_month', label: 'Total Available MH/Month', type: 'number', hint: 'Total man-hours available per month (overrides Laborers × Available Hours when set). Used as the divisor for indirect overhead per MH.' },
     { key: 'indirect_overhead_monthly', label: 'Indirect Overhead Monthly (₹)', type: 'number' },
     
     { key: 'contractor_to_inhouse_decrease', label: 'Contractor→In-house Decrease', type: 'number' },
@@ -174,9 +175,10 @@ function GeneralSettings() {
     { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
 
-  const indirectOhPerMh = settings.num_laborers * settings.available_hours_per_month > 0
-    ? settings.indirect_overhead_monthly / (settings.num_laborers * settings.available_hours_per_month)
-    : 0;
+  const totalMh = Number(settings.total_available_mh_per_month) > 0
+    ? Number(settings.total_available_mh_per_month)
+    : settings.num_laborers * settings.available_hours_per_month;
+  const indirectOhPerMh = totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 
   return (
     <div className="space-y-4 max-w-lg">
