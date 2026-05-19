@@ -211,14 +211,30 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
   const packagingType = product?.packaging_type || 'ic_mc';
   const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
       const [d, l] = await Promise.all([
         (supabase as any).from('finishing_difficulty').select('name').order('sort_order'),
         (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
       ]);
-      setDifficulties(d.data || []);
-      setLocations(l.data || []);
+      if (d.error) {
+        const msg = `Could not load difficulty options: ${d.error.message}`;
+        setDifficultiesError(msg);
+        toast.error(msg);
+      } else if (!d.data || d.data.length === 0) {
+        setDifficultiesError('No finishing difficulty options configured.');
+      } else {
+        setDifficulties(d.data);
+      }
+      if (l.error) {
+        const msg = `Could not load source locations: ${l.error.message}`;
+        setLocationsError(msg);
+        toast.error(msg);
+      } else {
+        setLocations(l.data || []);
+      }
     })();
   }, []);
   return (
@@ -305,6 +321,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
             {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
+        {difficultiesError && <p className="text-xs text-destructive mt-1">⚠ {difficultiesError}</p>}
       </Field>
 
       <Field label="% Wood">
@@ -336,6 +353,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
             {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {locationsError && <p className="text-xs text-destructive mt-1">⚠ {locationsError}</p>}
       </Field>
     </div>
   );

@@ -82,6 +82,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor: number }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string; cost_per_cbm_inr: number }>>([]);
+  const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
@@ -310,8 +312,24 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
-      if (diffRes.data) setDifficulties(diffRes.data);
-      if (locRes.data) setLocations(locRes.data);
+      if (diffRes.error) {
+        const msg = `Could not load finishing difficulty options: ${diffRes.error.message}`;
+        setDifficultiesError(msg);
+        toast.error(msg);
+      } else if (!diffRes.data || diffRes.data.length === 0) {
+        setDifficultiesError('No finishing difficulty options configured. Add at least one in Settings → Finishing.');
+      } else {
+        setDifficultiesError(null);
+        setDifficulties(diffRes.data);
+      }
+      if (locRes.error) {
+        const msg = `Could not load source locations: ${locRes.error.message}`;
+        setLocationsError(msg);
+        toast.error(msg);
+      } else {
+        setLocationsError(null);
+        setLocations(locRes.data || []);
+      }
 
       // Fetch inquiry-level overrides if this product belongs to an inquiry
       if (prodRes.data?.customer_rfq_id) {
@@ -1100,6 +1118,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {difficultiesError && (
+                  <p className="text-[10px] text-destructive mt-1">⚠ {difficultiesError}</p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">% Wood</label>
@@ -1145,6 +1166,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     ))}
                   </SelectContent>
                 </Select>
+                {locationsError && (
+                  <p className="text-[10px] text-destructive mt-1">⚠ {locationsError}</p>
+                )}
                 {product.source_location_id && (() => {
                   const loc = locations.find(l => l.id === product.source_location_id);
                   const rate = loc?.cost_per_cbm_inr || 0;
