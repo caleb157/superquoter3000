@@ -160,7 +160,7 @@ export function CurrenciesSettings() {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
+            {filtered.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
