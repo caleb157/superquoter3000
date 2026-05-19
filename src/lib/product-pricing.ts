@@ -47,7 +47,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*').in('product_id', productIds),
     supabase.from('product_types').select('*'),
-    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, available_hours_per_month_override, num_laborers_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, contractor_to_inhouse_decrease_override'),
+    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_monthly_override, total_available_mh_per_month_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override'),
     supabase.from('chemical_prices').select('*'),
     supabase.from('box_data').select('*'),
   ]);
