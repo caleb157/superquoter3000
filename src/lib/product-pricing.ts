@@ -196,9 +196,11 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       }
       if (item.include === 'No') return item;
       if (!item.is_auto_calculated) {
-        // Domestic Freight (External Sourcing) is not auto_calculated but is name-driven
-        if (item.component_name === 'Domestic Freight (External Sourcing)' && p.sourced_externally) {
-          return { ...item, components_per_product: prePackCbm, unit_cost_inr: transportRate };
+        // Domestic Freight (External Sourcing): rate from local_transport_locations by source_location_id
+        if (item.component_name === 'Domestic Freight (External Sourcing)' && p.source_location_id) {
+          const loc = locations.find((l: any) => l.id === p.source_location_id);
+          const locRate = Number(loc?.cost_per_cbm_inr) || 0;
+          return { ...item, components_per_product: prePackCbm, unit_cost_inr: locRate };
         }
         return item;
       }
@@ -209,7 +211,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
           return { ...item, components_per_product: qtyL, unit_cost_inr: colorPrice };
         }
         if (name.includes('sealer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_per_100ri || 0, ri, percentWood);
+          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
           return { ...item, components_per_product: qtyL, unit_cost_inr: sealerPrice };
         }
         if (name.includes('lacquer')) {
