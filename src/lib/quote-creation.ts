@@ -22,7 +22,7 @@ export type CreateQuoteParams = {
   selectedProducts: QuoteProductInput[];
   entityId: string;
   validUntil: string; // YYYY-MM-DD
-  currency?: 'USD' | 'INR';
+  currency?: string;
 };
 
 export type CreateQuoteResult = {
