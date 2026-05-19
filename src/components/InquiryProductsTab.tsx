@@ -29,6 +29,7 @@ import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 
 type Product = {
   id: string; name: string; sku: string | null; updated_at: string | null;
@@ -85,6 +86,7 @@ type Props = {
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange, refreshKey = 0 }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -114,6 +116,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
+    const live = livePrices[p.id]?.unit_price_usd;
+    if (live && live > 0) return live;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
@@ -132,7 +136,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         .select('id, name, sku, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      setProducts(data ?? []);
+      const rows = data ?? [];
+      setProducts(rows);
+      if (rows.length > 0) {
+        const prices = await computeProductPriceAndCost(rows.map((p: any) => p.id));
+        setLivePrices(prices);
+      } else {
+        setLivePrices({});
+      }
     })();
   }, [inquiryId, refresh, refreshKey]);
 

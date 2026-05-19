@@ -61,10 +61,14 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         const qty = Number(p.quantity) || 0;
         const computed = priceMap[p.id];
         const price = Number(
-          p.calculated_unit_price_usd ?? computed?.unit_price_usd ?? p.target_price_usd
+          (computed?.unit_price_usd && computed.unit_price_usd > 0)
+            ? computed.unit_price_usd
+            : (p.calculated_unit_price_usd ?? p.target_price_usd)
         ) || 0;
         const unitCost = Number(
-          p.calculated_unit_cost_usd ?? computed?.unit_cost_usd
+          (computed?.unit_cost_usd && computed.unit_cost_usd > 0)
+            ? computed.unit_cost_usd
+            : p.calculated_unit_cost_usd
         ) || 0;
         revenue += price * qty;
         cost += unitCost * qty;
