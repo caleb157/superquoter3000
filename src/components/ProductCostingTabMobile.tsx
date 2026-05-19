@@ -353,6 +353,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
             {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {locationsError && <p className="text-xs text-destructive mt-1">⚠ {locationsError}</p>}
       </Field>
     </div>
   );
