@@ -175,9 +175,10 @@ function GeneralSettings() {
     { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
 
-  const indirectOhPerMh = settings.num_laborers * settings.available_hours_per_month > 0
-    ? settings.indirect_overhead_monthly / (settings.num_laborers * settings.available_hours_per_month)
-    : 0;
+  const totalMh = Number(settings.total_available_mh_per_month) > 0
+    ? Number(settings.total_available_mh_per_month)
+    : settings.num_laborers * settings.available_hours_per_month;
+  const indirectOhPerMh = totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 
   return (
     <div className="space-y-4 max-w-lg">
