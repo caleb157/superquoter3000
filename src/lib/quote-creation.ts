@@ -115,10 +115,35 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const inqRow: any = inquiryRes.data ?? {};
   const { mergeSettingsWithInquiry } = await import('@/lib/inquiry-overrides');
   const effective = mergeSettingsWithInquiry(gsRes.data as any, inqRow);
-  const fxRate = Number(effective?.exchange_rate ?? 90);
+  const usdFxRate = Number(effective?.exchange_rate ?? 90); // INR per USD (used for legacy USD→INR conversion of stored target_price_usd)
   const inquiryMarkup: number | null = inqRow.markup_percent_override ?? null;
-  const isInr = (currency || 'USD') === 'INR';
-  const toDisplay = (usd: number) => isInr ? usd * fxRate : usd;
+  const code = currency || 'USD';
+
+  // Resolve the freeze rate (INR per 1 unit of display currency) from the currencies table.
+  const { loadCurrencyMap, inrPerUnit } = await import('@/lib/currency');
+  const fxMap = await loadCurrencyMap();
+  let frozenInrPerUnit: number | null = null;
+  if (code === 'INR') {
+    frozenInrPerUnit = 1;
+  } else if (code === 'USD') {
+    // Prefer the consolidated currencies table rate; fall back to the legacy global_settings exchange_rate.
+    const r = inrPerUnit(fxMap, 'USD', 'import');
+    frozenInrPerUnit = isFinite(r) ? r : usdFxRate;
+  } else {
+    const r = inrPerUnit(fxMap, code, 'import');
+    if (!isFinite(r)) {
+      return { error: `No import rate configured for ${code}. Add it in Settings → Currencies.` };
+    }
+    frozenInrPerUnit = r;
+  }
+
+  // Convert a USD reference price (from target_price_usd) into the display currency.
+  const toDisplay = (usd: number) => {
+    if (code === 'USD') return usd;
+    const inr = usd * usdFxRate; // legacy: target_price_usd → INR via global FX
+    if (code === 'INR') return inr;
+    return inr / (frozenInrPerUnit as number);
+  };
 
   const buildBoxSizeStr = (cbmRow: any, db: any): string | null => {
     if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
