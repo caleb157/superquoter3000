@@ -302,7 +302,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {DIFFICULTIES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
       </Field>
