@@ -359,7 +359,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const mcType = cbm?.mc_type || '7 ply';
 
   // Step 2 & 3: IC calcs with type-specific cost lookup
-  const icAdd = productType?.ic_addition_per_side_inch || 0.5;
+  const icAdd = productType?.pkg_ic_add_per_side_in || 0.5;
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   // Allow manual overrides: use saved values from cbm if they exist, otherwise auto-calculated
   const icDims = {
