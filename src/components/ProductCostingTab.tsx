@@ -344,7 +344,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const prePackCbm = calc.prePackagedCbm(w, d, h);
   const percentWood = product?.percent_wood || 1;
   const difficulty = product?.finishing_difficulty || 'Medium';
-  const difficultyFactor = calc.getDifficultyFactor(difficulty);
+  // Phase 3a: difficulty factor is sourced from the finishing_difficulty DB table;
+  // fall back to hardcoded defaults via getDifficultyFactor if the table is empty.
+  const difficultyFactor = difficulties.find(d => d.name === difficulty)?.adjustment_factor
+    ?? calc.getDifficultyFactor(difficulty);
 
   // Unique box types for dropdowns
   const uniqueBoxTypes = useMemo(() => {
