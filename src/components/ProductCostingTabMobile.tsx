@@ -209,6 +209,18 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
 // ===== Section A: Product Info =====
 function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId }: MobileCostingProps) {
   const packagingType = product?.packaging_type || 'ic_mc';
+  const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    (async () => {
+      const [d, l] = await Promise.all([
+        (supabase as any).from('finishing_difficulty').select('name').order('sort_order'),
+        (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
+      ]);
+      setDifficulties(d.data || []);
+      setLocations(l.data || []);
+    })();
+  }, []);
   return (
     <div className="space-y-3">
       {/* Photo */}
