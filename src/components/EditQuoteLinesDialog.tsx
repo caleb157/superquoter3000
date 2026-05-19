@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
+import { fmt } from '@/lib/formatters';
 
 type SnapshotLine = {
   product_id?: string | null;
