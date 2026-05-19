@@ -255,7 +255,13 @@ const QuotePdfDocument = ({
   inquiry,
   totals,
 }: QuotePdfProps) => {
-  const symbol = currency === 'INR' ? '\u20B9' : '$';
+  // PDF font (Helvetica) is WinAnsi-only, so non-WinAnsi symbols like ₹ render as boxes.
+  // Use a whitelist of safe glyphs; fall back to "CODE " prefix for everything else.
+  const PDF_SAFE_SYMBOLS: Record<string, string> = {
+    USD: '$', EUR: '\u20AC', GBP: '\u00A3', JPY: '\u00A5',
+    AUD: 'A$', CAD: 'C$', NZD: 'NZ$', SGD: 'S$', HKD: 'HK$',
+  };
+  const symbol = PDF_SAFE_SYMBOLS[currency] ?? `${currency} `;
   const isExpired = validUntil ? new Date(validUntil) < new Date() : false;
   const statusKey = isExpired ? 'expired' : (status || 'draft');
 

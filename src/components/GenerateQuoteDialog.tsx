@@ -14,6 +14,7 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
+import { convertFromInr, hasImportRate, loadCurrencyMap } from '@/lib/currency';
 
 type Product = {
   id: string;
@@ -57,7 +58,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [selectedAsm, setSelectedAsm] = useState<Set<string>>(new Set()); // assemblies
   const [entities, setEntities] = useState<Entity[]>([]);
   const [entityId, setEntityId] = useState<string>('');
-  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+  const [currency, setCurrency] = useState<string>('USD');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
@@ -97,7 +98,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         ? inq.quoting_entity_id
         : (ents[0]?.id ?? '');
       setEntityId(preferredEntity);
-      setCurrency((inq?.quoting_currency as 'USD' | 'INR') || 'USD');
+      setCurrency((inq?.quoting_currency as string) || 'USD');
     })();
   }, [open, inquiryId]);
 

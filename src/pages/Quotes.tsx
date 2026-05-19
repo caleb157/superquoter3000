@@ -273,7 +273,7 @@ const Quotes = () => {
                   <TableBody>
                     {filtered.map((snap: any) => {
                       const totals = (snap.totals || {}) as any;
-                      const sym = snap.currency === 'INR' ? '₹' : '$';
+                      const code = snap.currency || 'USD';
                       const viewedAt = snap.viewed_at ? new Date(snap.viewed_at).toLocaleDateString() : '—';
                       const approvedAt = snap.approved_at ? new Date(snap.approved_at).toLocaleDateString() : null;
 
@@ -299,7 +299,7 @@ const Quotes = () => {
                           <TableCell className="text-xs text-right">{totals.total_cbm != null ? Number(totals.total_cbm).toFixed(2) : '—'}</TableCell>
                           <TableCell className="text-xs text-right font-medium">
                             {totals.grand_total != null
-                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              ? fmt.money(Number(totals.grand_total), code)
                               : '—'}
                           </TableCell>
                           <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
@@ -378,7 +378,7 @@ const Quotes = () => {
             <div className="md:hidden space-y-2">
               {filtered.map((snap: any) => {
                 const totals = (snap.totals || {}) as any;
-                const sym = snap.currency === 'INR' ? '₹' : '$';
+                const code = snap.currency || 'USD';
                 return (
                   <Card key={snap.id}>
                     <CardContent className="p-3 space-y-2">
@@ -403,7 +403,7 @@ const Quotes = () => {
                           <div className="text-muted-foreground">Total</div>
                           <div className="font-medium">
                             {totals.grand_total != null
-                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                              ? fmt.money(Number(totals.grand_total), code, 0)
                               : '—'}
                           </div>
                         </div>
@@ -504,7 +504,7 @@ const Quotes = () => {
                         <TableCell className="text-xs">{p.selectedVariant || '—'}</TableCell>
                         <TableCell className="text-xs text-right">
                           {p.line_total != null
-                            ? `${selectionsSnap.currency === 'INR' ? '₹' : '$'}${Number(p.line_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            ? fmt.money(Number(p.line_total), selectionsSnap.currency || 'USD')
                             : '—'}
                         </TableCell>
                       </TableRow>
