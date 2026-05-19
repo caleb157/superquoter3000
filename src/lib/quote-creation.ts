@@ -86,7 +86,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       : Promise.resolve({ data: [], error: null } as any),
     (supabase as any)
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, exchange_rate_override, markup_percent_override, customers(id, name, company, email, logo_url)')
+      .select('id, rfq_number, title, customer_id, exchange_rate_override, quoting_currency_rate_override, markup_percent_override, customers(id, name, company, email, logo_url)')
       .eq('id', inquiryId)
       .maybeSingle(),
     supabase
