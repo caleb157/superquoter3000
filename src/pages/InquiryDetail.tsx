@@ -146,6 +146,9 @@ export default function InquiryDetail() {
       quoting_currency: settingsDraft.quoting_currency || null,
       indirect_overhead_monthly_override: settingsDraft.indirect_overhead_monthly_override === '' || settingsDraft.indirect_overhead_monthly_override == null ? null : Number(settingsDraft.indirect_overhead_monthly_override),
       total_available_mh_per_month_override: settingsDraft.total_available_mh_per_month_override === '' || settingsDraft.total_available_mh_per_month_override == null ? null : Number(settingsDraft.total_available_mh_per_month_override),
+      packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
+      auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
+      local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
