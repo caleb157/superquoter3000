@@ -441,9 +441,7 @@ export function calcTotalDirectManHoursPerUnit(items: OverheadItem[]): number {
 // ============================================================
 
 export function calcIndirectOhPerManHour(settings: GlobalSettings & { total_available_mh_per_month?: number | null }): number {
-  // Phase 3a: prefer consolidated field; fall back to laborers × hours for legacy data.
-  const totalMh = settings.total_available_mh_per_month
-    ?? (settings.num_laborers * settings.available_hours_per_month);
+  const totalMh = Number(settings.total_available_mh_per_month) || 0;
   return totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 }
 
