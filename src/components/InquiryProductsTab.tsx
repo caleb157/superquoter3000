@@ -29,6 +29,7 @@ import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
+import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 
 type Product = {
   id: string; name: string; sku: string | null; updated_at: string | null;
