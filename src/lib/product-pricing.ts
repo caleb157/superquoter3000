@@ -249,14 +249,15 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       qty,
     );
 
-    // Overhead (auto-estimated finishing/packaging mh applied in-memory)
+    // Overhead (auto-estimated finishing/packaging mh applied in-memory) — Phase 3a engine
     const productOh = (allOh as any[]).filter((o: any) => o.product_id === p.id);
-    const difficultyFactor = calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
-    const avgFinishingRate = calc.avgRateByDesignation(employees as any, 'Finishing') || calc.avgRateByDesignation(employees as any, 'Sanding');
-    const contractorRate = productType?.contractor_base_rate_per_ri || 0;
-    const decrease = (settings as any)?.contractor_to_inhouse_decrease || 0;
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType?.packaging_mh_per_cbm || 0, finalUnitCbm);
+    const diffName = p.finishing_difficulty || 'Medium';
+    const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor)
+      ?? calc.getDifficultyFactor(diffName);
+    const finishingMhPer100Ri = Number(productType?.finishing_mh_per_100ri) || 0;
+    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, percentWood, ri);
+    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
 
     const ohItems = productOh.map((item: any) => {
       let mh = item.man_hours_per_unit || 0;
