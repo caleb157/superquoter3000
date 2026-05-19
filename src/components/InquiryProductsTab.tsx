@@ -116,6 +116,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
+    const live = livePrices[p.id]?.unit_price_usd;
+    if (live && live > 0) return live;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
