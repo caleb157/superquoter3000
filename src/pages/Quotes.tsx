@@ -299,7 +299,7 @@ const Quotes = () => {
                           <TableCell className="text-xs text-right">{totals.total_cbm != null ? Number(totals.total_cbm).toFixed(2) : '—'}</TableCell>
                           <TableCell className="text-xs text-right font-medium">
                             {totals.grand_total != null
-                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              ? fmt.money(Number(totals.grand_total), code)
                               : '—'}
                           </TableCell>
                           <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
