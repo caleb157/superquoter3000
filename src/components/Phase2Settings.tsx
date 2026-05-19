@@ -111,6 +111,7 @@ export function CurrenciesSettings() {
             <TableRow>
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Symbol</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Sort</TableHead>
               <TableHead>Import Rate</TableHead>
@@ -125,6 +126,10 @@ export function CurrenciesSettings() {
               <TableRow key={r.code}>
                 <TableCell className="font-mono font-medium">{r.code}</TableCell>
                 <TableCell>{r.name}</TableCell>
+                <TableCell>
+                  <Input defaultValue={r.symbol ?? ''} className="h-7 text-xs w-16"
+                    onBlur={e => { const v = e.target.value || null; if (v !== r.symbol) updateInline(r.code, 'symbol', v); }} />
+                </TableCell>
                 <TableCell><Checkbox checked={!!r.is_featured} onCheckedChange={v => toggleFeatured(r, !!v)} /></TableCell>
                 <TableCell>
                   <Input type="number" defaultValue={r.sort_priority ?? 100} className="h-7 text-xs w-16"
