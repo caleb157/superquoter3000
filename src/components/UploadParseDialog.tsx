@@ -52,7 +52,7 @@ interface ParsedProduct {
   _expanded?: boolean;
   // Structured intake fields
   cogs_rows?: any[];
-  sourced_externally?: boolean;
+  source_location_name?: string | null;
   ic_type?: string | null;
   products_per_ic?: number | null;
   ic_width?: number | null;
