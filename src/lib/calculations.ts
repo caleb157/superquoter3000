@@ -7,23 +7,23 @@
 
 export interface GlobalSettings {
   exchange_rate: number;
-  num_laborers: number;
-  available_hours_per_month: number;
+  total_available_mh_per_month?: number | null;
   indirect_overhead_monthly: number;
   packaging_cost_per_cbm: number;
-  contractor_to_inhouse_decrease: number;
   default_shipping_type: string;
 }
 
 export interface ProductType {
   id: string;
   name: string;
-  contractor_base_rate_per_ri: number;
-  ic_addition_per_side_inch: number;
+  pkg_ic_add_per_side_in: number;
   finishing_color_per_100ri: number;
-  finishing_sealer_per_100ri: number;
+  finishing_sealer_l_per_100ri: number;
   finishing_lacquer_per_100ri: number;
-  packaging_mh_per_cbm: number;
+  finishing_mh_per_100ri: number;
+  pkg_ic_rate_mh_per_cbm: number;
+  pkg_ic_mc_rate_mh_per_cbm: number;
+  pkg_corrugate_bubble_rate_mh_per_cbm: number;
 }
 
 export interface ProductDimensions {
