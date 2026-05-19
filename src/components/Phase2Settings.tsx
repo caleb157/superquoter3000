@@ -174,6 +174,9 @@ export function CurrenciesSettings() {
                 <Input value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value.toUpperCase() })} disabled={!editing.__isNew} maxLength={4} />
               </div>
               <div><Label className="text-xs">Name</Label><Input value={editing.name || ''} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
+              <div><Label className="text-xs">Symbol <span className="text-muted-foreground">(blank = show code prefix)</span></Label>
+                <Input value={editing.symbol ?? ''} onChange={e => setEditing({ ...editing, symbol: e.target.value })} maxLength={6} placeholder="e.g. €, £, A$, kr" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div><Label className="text-xs">Import rate</Label><Input type="number" step="0.0001" value={editing.import_rate ?? ''} onChange={e => setEditing({ ...editing, import_rate: e.target.value })} /></div>
                 <div><Label className="text-xs">Export rate</Label><Input type="number" step="0.0001" value={editing.export_rate ?? ''} onChange={e => setEditing({ ...editing, export_rate: e.target.value })} /></div>
