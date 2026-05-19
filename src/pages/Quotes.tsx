@@ -403,7 +403,7 @@ const Quotes = () => {
                           <div className="text-muted-foreground">Total</div>
                           <div className="font-medium">
                             {totals.grand_total != null
-                              ? `${sym}${Number(totals.grand_total).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                              ? fmt.money(Number(totals.grand_total), code, 0)
                               : '—'}
                           </div>
                         </div>
