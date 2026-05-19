@@ -390,7 +390,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
           finishing_difficulty: p.finishing_difficulty || 'Medium',
           percent_wood: p.percent_wood || 1,
           is_component: p.is_component || false,
-          sourced_externally: p.sourced_externally || false,
+          
           notes: [
             p.material_guess ? `Material: ${p.material_guess}` : '',
             p.construction_notes ? `Construction: ${p.construction_notes}` : '',
