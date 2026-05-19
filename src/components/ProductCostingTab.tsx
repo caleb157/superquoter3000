@@ -698,7 +698,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
         Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
     setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, total_quantity: totalCbm, cost_each_inr: autoTransportRate } : i));
-    (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id);
+    void (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id).then(({ error }: any) => { if (error) console.error('Auto Transport update failed:', error); });
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length, recalcTick]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
@@ -1678,7 +1678,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         </span>
                       ) : (
                         <Input className="h-6 text-xs border-transparent" defaultValue={item.name || ''}
-                          onBlur={e => { setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, name: e.target.value } : i)); (supabase as any).from('non_unit_cogs').update({ name: e.target.value }).eq('id', item.id); }} />
+                          onBlur={async e => {
+                            const v = e.target.value;
+                            setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, name: v } : i));
+                            const { error } = await (supabase as any).from('non_unit_cogs').update({ name: v }).eq('id', item.id);
+                            if (error) toast.error(`Could not save name: ${error.message}`);
+                          }} />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -1686,7 +1691,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         <span className="text-xs text-muted-foreground">{(item.total_quantity || 0).toFixed(4)}</span>
                       ) : (
                         <Input key={`qty-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.total_quantity || 0}
-                          onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, total_quantity: v } : i)); (supabase as any).from('non_unit_cogs').update({ total_quantity: v }).eq('id', item.id); }} />
+                          onBlur={async e => {
+                            const v = Number(e.target.value);
+                            setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, total_quantity: v } : i));
+                            const { error } = await (supabase as any).from('non_unit_cogs').update({ total_quantity: v }).eq('id', item.id);
+                            if (error) toast.error(`Could not save qty: ${error.message}`);
+                          }} />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -1694,7 +1704,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         <span className="text-xs text-muted-foreground">{item.cost_each_inr || 0}</span>
                       ) : (
                         <Input key={`cost-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
-                          onBlur={e => { const v = Number(e.target.value); setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i)); (supabase as any).from('non_unit_cogs').update({ cost_each_inr: v }).eq('id', item.id); }} />
+                          onBlur={async e => {
+                            const v = Number(e.target.value);
+                            setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i));
+                            const { error } = await (supabase as any).from('non_unit_cogs').update({ cost_each_inr: v }).eq('id', item.id);
+                            if (error) toast.error(`Could not save cost: ${error.message}`);
+                          }} />
                       )}
                     </TableCell>
                     <TableCell className="text-right calc-field">{qty > 0 ? fmt.inr((item.total_quantity * item.cost_each_inr) / qty) : '—'}</TableCell>
