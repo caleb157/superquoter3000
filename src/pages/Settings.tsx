@@ -454,22 +454,28 @@ const Settings = () => {
         );
       case 'box-data':
         return (
-          <EditableTable
-            tableName="box_data"
-            data={boxData} setData={setBoxData}
-            fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
-            defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0 }}
-            columns={[
-              { key: 'box_type', label: 'Type', width: '150px' },
-              { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
-              { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
-              { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
-              { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
-              { key: 'date_quoted', label: 'Date', width: '100px' },
-              { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
-              { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
-            ]}
-          />
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">OD = Inner Dimension + (these offsets). Used for shipping volume calculations and master carton sizing in Phase 3.</p>
+            <EditableTable
+              tableName="box_data"
+              data={boxData} setData={setBoxData}
+              fetchData={() => supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data))}
+              defaultRow={{ box_type: '7 ply', width_inch: 0, depth_inch: 0, height_inch: 0, cost_inr: 0, od_length_add_in: 0.375, od_width_add_in: 0.375, od_height_add_in: 1.25 }}
+              columns={[
+                { key: 'box_type', label: 'Type', width: '150px' },
+                { key: 'width_inch', label: 'W (in)', type: 'number', width: '70px' },
+                { key: 'depth_inch', label: 'D (in)', type: 'number', width: '70px' },
+                { key: 'height_inch', label: 'H (in)', type: 'number', width: '70px' },
+                { key: 'cost_inr', label: 'Cost (₹)', type: 'number', width: '90px' },
+                { key: 'date_quoted', label: 'Date', width: '100px' },
+                { key: 'od_length_add_in', label: 'OD L+ (in)', type: 'number', width: '90px' },
+                { key: 'od_width_add_in', label: 'OD W+ (in)', type: 'number', width: '90px' },
+                { key: 'od_height_add_in', label: 'OD H+ (in)', type: 'number', width: '90px' },
+                { key: 'surface_area_sq_in', label: 'SA (sq in)', type: 'readonly', width: '90px' },
+                { key: 'cost_per_sq_in', label: '₹/sq in', type: 'readonly', width: '80px' },
+              ]}
+            />
+          </div>
         );
       case 'employees':
         return (
