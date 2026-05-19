@@ -58,7 +58,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [selectedAsm, setSelectedAsm] = useState<Set<string>>(new Set()); // assemblies
   const [entities, setEntities] = useState<Entity[]>([]);
   const [entityId, setEntityId] = useState<string>('');
-  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+  const [currency, setCurrency] = useState<string>('USD');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
