@@ -1366,23 +1366,33 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
               {/* Carton Summary */}
               <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1.5">
-                <div className="flex items-center gap-2 text-xs">
-                  <span>📦</span>
-                  <span className="font-medium">Inner Carton:</span>
-                  <span>{fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)}</span>
-                  <span className="text-muted-foreground">({fmt.cbm(icVolume)})</span>
-                  <span className="text-muted-foreground">— {icType}</span>
-                  <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                <div className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <span>📦</span>
+                    <span className="font-medium">Inner Carton OD:</span>
+                    <span>{fmt.dim(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height)}</span>
+                    <span className="text-muted-foreground">({fmt.cbm(icOdVolumeCbm)})</span>
+                    <span className="text-muted-foreground">— {icType}</span>
+                    <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground ml-6">
+                    (ID: {fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)} — {fmt.cbm(icVolume)})
+                  </div>
                 </div>
                 {includeMc && (
                   <>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span>📦</span>
-                      <span className="font-medium">Master Carton:</span>
-                      <span>{fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)}</span>
-                      <span className="text-muted-foreground">({fmt.cbm(mcResult.mc_volume_cbm)})</span>
-                      <span className="text-muted-foreground">— {mcType}</span>
-                      <span className="text-muted-foreground">— {fmt.inr(mcCost)}/box</span>
+                    <div className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <span>📦</span>
+                        <span className="font-medium">Master Carton OD:</span>
+                        <span>{fmt.dim(mcOd.mc_od_width, mcOd.mc_od_depth, mcOd.mc_od_height)}</span>
+                        <span className="text-muted-foreground">({fmt.cbm(mcOdVolumeCbm)})</span>
+                        <span className="text-muted-foreground">— {mcType}</span>
+                        <span className="text-muted-foreground">— {fmt.inr(mcCost)}/box</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground ml-6">
+                        (ID: {fmt.dim(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height)} — {fmt.cbm(mcResult.mc_volume_cbm)})
+                      </div>
                     </div>
                     <div className="text-[10px] text-muted-foreground ml-6">
                       └── {productsPerIc} product{productsPerIc > 1 ? 's' : ''} per IC, {mcResult.products_per_mc} product{mcResult.products_per_mc > 1 ? 's' : ''} per MC
