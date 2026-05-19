@@ -164,6 +164,7 @@ function GeneralSettings() {
     { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number' },
     { key: 'num_laborers', label: 'Number of Laborers', type: 'number' },
     { key: 'available_hours_per_month', label: 'Available Hours/Month', type: 'number' },
+    { key: 'total_available_mh_per_month', label: 'Total Available MH/Month', type: 'number', hint: 'Total man-hours available per month (overrides Laborers × Available Hours when set). Used as the divisor for indirect overhead per MH.' },
     { key: 'indirect_overhead_monthly', label: 'Indirect Overhead Monthly (₹)', type: 'number' },
     
     { key: 'contractor_to_inhouse_decrease', label: 'Contractor→In-house Decrease', type: 'number' },
