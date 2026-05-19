@@ -155,6 +155,7 @@ const CustomerQuote = () => {
     if (typeof window === 'undefined') return 'portrait';
     return (localStorage.getItem('quotePrintOrientation') as 'portrait' | 'landscape') || 'portrait';
   });
+  useEffect(() => { loadCurrencyMap(); }, []);
   useEffect(() => { try { localStorage.setItem('quotePrintSize', printSize); } catch {} }, [printSize]);
   useEffect(() => { try { localStorage.setItem('quotePrintOrientation', printOrientation); } catch {} }, [printOrientation]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
