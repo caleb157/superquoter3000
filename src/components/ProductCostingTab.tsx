@@ -725,23 +725,25 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     void (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id).then(({ error }: any) => { if (error) console.error('Auto Transport update failed:', error); });
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length, recalcTick]);
 
-  // Step 7c: Auto-create or update Domestic Freight COGS when sourced_externally is true
+  // Step 7c: Auto-create or update Domestic Freight COGS when product has a source_location_id
   const freightCreatingRef = useRef(false);
   useEffect(() => {
-    if (!dataLoaded || !product?.sourced_externally || !globalSettings || prePackCbm <= 0 || !id) return;
+    if (!dataLoaded || !id) return;
+    const locId = product?.source_location_id;
+    const selectedLoc = locId ? locations.find(l => l.id === locId) : null;
+    const externallySourced = !!selectedLoc;
+    if (!externallySourced || !globalSettings || prePackCbm <= 0) return;
     const freightItem = cogsItems.find(i => i.component_name === 'Domestic Freight (External Sourcing)' && i.is_auto_calculated);
-    const transportRate = effectiveSettings.local_transport_cost_per_cbm || 3500;
+    const transportRate = Number(selectedLoc!.cost_per_cbm_inr) || effectiveSettings.local_transport_cost_per_cbm || 3500;
     if (!freightItem) {
       if (freightCreatingRef.current) return;
       freightCreatingRef.current = true;
-      // Check DB first to avoid duplicates
       (async () => {
         const { data: existing } = await (supabase as any).from('cogs_items')
           .select('id').eq('product_id', id)
           .eq('component_name', 'Domestic Freight (External Sourcing)')
           .eq('is_auto_calculated', true).limit(1);
         if (existing && existing.length > 0) {
-          // Already exists in DB, just refetch
           const { data: row } = await (supabase as any).from('cogs_items').select('*').eq('id', existing[0].id).single();
           if (row) setCogsItems(prev => [...prev, row]);
           freightCreatingRef.current = false;
@@ -768,7 +770,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
     setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
     (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
-  }, [dataLoaded, prePackCbm, product?.sourced_externally, globalSettings?.id, cogsItems.length, recalcTick]);
+  }, [dataLoaded, prePackCbm, product?.source_location_id, locations, globalSettings?.id, cogsItems.length, recalcTick]);
 
   const ohItems = overheadItems.map(item => ({
     include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
