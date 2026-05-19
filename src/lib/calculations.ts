@@ -136,7 +136,11 @@ export function calcICVolumeCbm(icW: number, icD: number, icH: number): number {
   return (icW * icD * icH) / 61020;
 }
 
-export function calcMCPacking(config: MCConfig): {
+export function calcMCPacking(config: MCConfig & {
+  ic_od_width?: number;
+  ic_od_depth?: number;
+  ic_od_height?: number;
+}): {
   mc_ics_along_w: number;
   mc_ics_along_d: number;
   mc_ics_along_h: number;
@@ -159,9 +163,14 @@ export function calcMCPacking(config: MCConfig): {
   const wd_buffer = mc_buffer_inch;
   const h_buffer = config.mc_height_buffer_inch ?? mc_buffer_inch;
 
-  const along_w = Math.max(1, Math.floor((mc_max_width - wd_buffer) / ic_width));
-  const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / ic_depth));
-  const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / ic_height));
+  // Phase 3a: layout math uses IC OD when provided, falls back to IC ID for backward compat.
+  const layoutW = config.ic_od_width ?? ic_width;
+  const layoutD = config.ic_od_depth ?? ic_depth;
+  const layoutH = config.ic_od_height ?? ic_height;
+
+  const along_w = Math.max(1, Math.floor((mc_max_width - wd_buffer) / layoutW));
+  const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / layoutD));
+  const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / layoutH));
 
   let max_by_weight = along_w * along_d * along_h;
   if (mc_weight_limit_kg > 0 && product_weight_kg > 0) {
@@ -178,14 +187,53 @@ export function calcMCPacking(config: MCConfig): {
 
   const products_per_mc = actual_w * actual_d * actual_h * products_per_ic;
 
-  const mc_width = ic_width * actual_w + wd_buffer;
-  const mc_depth = ic_depth * actual_d + wd_buffer;
-  const mc_height = ic_height * actual_h + h_buffer;
+  // MC ID dimensions reflect packing of IC ODs (or IC IDs if OD not supplied).
+  const mc_width = layoutW * actual_w + wd_buffer;
+  const mc_depth = layoutD * actual_d + wd_buffer;
+  const mc_height = layoutH * actual_h + h_buffer;
   const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
     products_per_mc, mc_width, mc_depth, mc_height, mc_volume_cbm,
+  };
+}
+
+// ============================================================
+// Box OD offsets (Phase 3a)
+// ============================================================
+
+export function getBoxOdOffsets(
+  boxData: Array<{ box_type: string; od_length_add_in?: number; od_width_add_in?: number; od_height_add_in?: number }>,
+  boxType: string,
+): { lAdd: number; wAdd: number; hAdd: number } {
+  const matching = boxData.filter(b => b.box_type === boxType);
+  if (matching.length === 0) return { lAdd: 0, wAdd: 0, hAdd: 0 };
+  const lAdd = matching.reduce((s, b) => s + (b.od_length_add_in || 0), 0) / matching.length;
+  const wAdd = matching.reduce((s, b) => s + (b.od_width_add_in || 0), 0) / matching.length;
+  const hAdd = matching.reduce((s, b) => s + (b.od_height_add_in || 0), 0) / matching.length;
+  return { lAdd, wAdd, hAdd };
+}
+
+export function calcIcOd(
+  icIdW: number, icIdD: number, icIdH: number,
+  offsets: { lAdd: number; wAdd: number; hAdd: number },
+): { ic_od_width: number; ic_od_depth: number; ic_od_height: number } {
+  return {
+    ic_od_width: icIdW + offsets.lAdd,
+    ic_od_depth: icIdD + offsets.wAdd,
+    ic_od_height: icIdH + offsets.hAdd,
+  };
+}
+
+export function calcMcOd(
+  mcIdW: number, mcIdD: number, mcIdH: number,
+  offsets: { lAdd: number; wAdd: number; hAdd: number },
+): { mc_od_width: number; mc_od_depth: number; mc_od_height: number } {
+  return {
+    mc_od_width: mcIdW + offsets.lAdd,
+    mc_od_depth: mcIdD + offsets.wAdd,
+    mc_od_height: mcIdH + offsets.hAdd,
   };
 }
 
