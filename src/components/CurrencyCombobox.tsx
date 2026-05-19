@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { invalidateCurrencyCache } from '@/lib/currency';
+
 export type Currency = {
   code: string;
   name: string;
+  symbol: string | null;
   is_featured: boolean;
   sort_priority: number;
 };
@@ -23,7 +26,7 @@ export async function loadCurrencies(force = false): Promise<Currency[]> {
   inflight = (async () => {
     const { data } = await (supabase as any)
       .from('currencies')
-      .select('code, name, is_featured, sort_priority')
+      .select('code, name, symbol, is_featured, sort_priority')
       .order('is_featured', { ascending: false })
       .order('sort_priority', { ascending: true })
       .order('code', { ascending: true });
@@ -38,6 +41,7 @@ export async function loadCurrencies(force = false): Promise<Currency[]> {
 export function invalidateCurrencies() {
   cache = null;
   loadCurrencies(true);
+  invalidateCurrencyCache();
 }
 
 type Props = {

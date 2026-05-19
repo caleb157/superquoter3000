@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X, RotateCcw } from 'lucide-react';
 import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 import type { QuoteProductInput } from '@/lib/quote-creation';
+import { fmt } from '@/lib/formatters';
+import { convertFromInr, getCachedCurrencyMap, loadCurrencyMap } from '@/lib/currency';
 
 type SelectedProduct = {
   id: string;
@@ -46,7 +48,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedProducts: SelectedProduct[];
-  currency: 'USD' | 'INR';
+  currency: string;
   onConfirm: (lines: QuoteProductInput[]) => void;
   saving?: boolean;
 };
@@ -57,8 +59,9 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   const [lines, setLines] = useState<LineDraft[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const sym = currency === 'INR' ? '₹' : '$';
-  const fmtMoney = (n: number) => `${sym}${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtMoney = (n: number) => fmt.money(n, currency);
+  // Prime currency map so conversions are accurate after first render
+  useEffect(() => { loadCurrencyMap(); }, []);
 
   // Load calculated prices + variants whenever the dialog opens with a new selection
   useEffect(() => {
@@ -289,15 +292,21 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   );
 }
 
-function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: 'USD' | 'INR'): number {
+function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: string): number {
   const entry = prices[p.id];
   const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
+  const map = getCachedCurrencyMap();
   const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
   if (supplied > 0) {
-    return currency === 'INR' ? supplied * fx : supplied;
+    // supplied is USD; convert to display currency
+    if (currency === 'USD') return supplied;
+    const inr = supplied * fx;
+    return currency === 'INR' ? inr : convertFromInr(map, inr, currency, 'import');
   }
   if (entry && (entry.unit_price_usd > 0 || entry.unit_price_inr > 0)) {
-    return currency === 'INR' ? entry.unit_price_inr : entry.unit_price_usd;
+    if (currency === 'INR') return entry.unit_price_inr;
+    if (currency === 'USD') return entry.unit_price_usd;
+    return convertFromInr(map, entry.unit_price_inr, currency, 'import');
   }
   return 0;
 }

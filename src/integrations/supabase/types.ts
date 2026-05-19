@@ -418,6 +418,7 @@ export type Database = {
           is_featured: boolean
           name: string
           sort_priority: number
+          symbol: string | null
           units_per_inr_base: number
           updated_at: string
         }
@@ -430,6 +431,7 @@ export type Database = {
           is_featured?: boolean
           name: string
           sort_priority?: number
+          symbol?: string | null
           units_per_inr_base?: number
           updated_at?: string
         }
@@ -442,6 +444,7 @@ export type Database = {
           is_featured?: boolean
           name?: string
           sort_priority?: number
+          symbol?: string | null
           units_per_inr_base?: number
           updated_at?: string
         }
@@ -1412,6 +1415,7 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           currency: string | null
+          currency_rate_inr_per_unit: number | null
           customer: Json | null
           customer_rfq_id: string | null
           customer_selections: Json | null
@@ -1435,6 +1439,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           currency?: string | null
+          currency_rate_inr_per_unit?: number | null
           customer?: Json | null
           customer_rfq_id?: string | null
           customer_selections?: Json | null
@@ -1458,6 +1463,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           currency?: string | null
+          currency_rate_inr_per_unit?: number | null
           customer?: Json | null
           customer_rfq_id?: string | null
           customer_selections?: Json | null

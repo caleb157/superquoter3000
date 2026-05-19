@@ -40,7 +40,7 @@ export function CurrenciesSettings() {
     return r.code.toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q);
   });
 
-  const startAdd = () => { setEditing({ code: '', name: '', units_per_inr_base: 1, import_rate: null, export_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
+  const startAdd = () => { setEditing({ code: '', name: '', symbol: '', units_per_inr_base: 1, import_rate: null, export_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
   const startEdit = (r: any) => { setEditing({ ...r }); setOpen(true); };
 
   const save = async () => {
@@ -50,6 +50,7 @@ export function CurrenciesSettings() {
     const payload = {
       code,
       name: editing.name,
+      symbol: editing.symbol === '' || editing.symbol == null ? null : String(editing.symbol),
       units_per_inr_base: Number(editing.units_per_inr_base) || 1,
       import_rate: editing.import_rate === '' || editing.import_rate == null ? null : Number(editing.import_rate),
       export_rate: editing.export_rate === '' || editing.export_rate == null ? null : Number(editing.export_rate),
@@ -110,6 +111,7 @@ export function CurrenciesSettings() {
             <TableRow>
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Symbol</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Sort</TableHead>
               <TableHead>Import Rate</TableHead>
@@ -124,6 +126,10 @@ export function CurrenciesSettings() {
               <TableRow key={r.code}>
                 <TableCell className="font-mono font-medium">{r.code}</TableCell>
                 <TableCell>{r.name}</TableCell>
+                <TableCell>
+                  <Input defaultValue={r.symbol ?? ''} className="h-7 text-xs w-16"
+                    onBlur={e => { const v = e.target.value || null; if (v !== r.symbol) updateInline(r.code, 'symbol', v); }} />
+                </TableCell>
                 <TableCell><Checkbox checked={!!r.is_featured} onCheckedChange={v => toggleFeatured(r, !!v)} /></TableCell>
                 <TableCell>
                   <Input type="number" defaultValue={r.sort_priority ?? 100} className="h-7 text-xs w-16"
@@ -154,7 +160,7 @@ export function CurrenciesSettings() {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
+            {filtered.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
@@ -168,6 +174,9 @@ export function CurrenciesSettings() {
                 <Input value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value.toUpperCase() })} disabled={!editing.__isNew} maxLength={4} />
               </div>
               <div><Label className="text-xs">Name</Label><Input value={editing.name || ''} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
+              <div><Label className="text-xs">Symbol <span className="text-muted-foreground">(blank = show code prefix)</span></Label>
+                <Input value={editing.symbol ?? ''} onChange={e => setEditing({ ...editing, symbol: e.target.value })} maxLength={6} placeholder="e.g. €, £, A$, kr" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div><Label className="text-xs">Import rate</Label><Input type="number" step="0.0001" value={editing.import_rate ?? ''} onChange={e => setEditing({ ...editing, import_rate: e.target.value })} /></div>
                 <div><Label className="text-xs">Export rate</Label><Input type="number" step="0.0001" value={editing.export_rate ?? ''} onChange={e => setEditing({ ...editing, export_rate: e.target.value })} /></div>

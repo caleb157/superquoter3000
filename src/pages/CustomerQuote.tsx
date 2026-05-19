@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail, Phone, Globe, MapPin, Building2, Landmark } from 'lucide-react';
+import { fmt } from '@/lib/formatters';
+import { loadCurrencyMap } from '@/lib/currency';
 
 interface QuoteComponent {
   product_id?: string | null;
@@ -153,6 +155,7 @@ const CustomerQuote = () => {
     if (typeof window === 'undefined') return 'portrait';
     return (localStorage.getItem('quotePrintOrientation') as 'portrait' | 'landscape') || 'portrait';
   });
+  useEffect(() => { loadCurrencyMap(); }, []);
   useEffect(() => { try { localStorage.setItem('quotePrintSize', printSize); } catch {} }, [printSize]);
   useEffect(() => { try { localStorage.setItem('quotePrintOrientation', printOrientation); } catch {} }, [printOrientation]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -280,7 +283,8 @@ const CustomerQuote = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, selections, surchargePct]);
 
-  const symbol = data?.snapshot.currency === 'INR' ? '₹' : '$';
+  const currencyCode: string = data?.snapshot.currency || 'USD';
+  const symbol = fmt.money(0, currencyCode).replace(/[\d.,\s]/g, '') || '$';
 
   const handleConfirm = async () => {
     if (!token) return;
