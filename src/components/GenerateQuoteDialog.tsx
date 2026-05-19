@@ -13,6 +13,7 @@ import { computeProductUnitPrices } from '@/lib/product-pricing';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
+import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 
 type Product = {
   id: string;
