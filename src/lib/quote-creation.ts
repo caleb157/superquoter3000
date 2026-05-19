@@ -123,8 +123,12 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const { loadCurrencyMap, inrPerUnit } = await import('@/lib/currency');
   const fxMap = await loadCurrencyMap();
   let frozenInrPerUnit: number | null = null;
+  const perCurrencyOverride = inqRow.quoting_currency_rate_override == null ? null : Number(inqRow.quoting_currency_rate_override);
   if (code === 'INR') {
     frozenInrPerUnit = 1;
+  } else if (perCurrencyOverride && perCurrencyOverride > 0) {
+    // Inquiry-level override wins for any non-INR currency.
+    frozenInrPerUnit = perCurrencyOverride;
   } else if (code === 'USD') {
     // Prefer the consolidated currencies table rate; fall back to the legacy global_settings exchange_rate.
     const r = inrPerUnit(fxMap, 'USD', 'import');
@@ -132,7 +136,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   } else {
     const r = inrPerUnit(fxMap, code, 'import');
     if (!isFinite(r)) {
-      return { error: `No import rate configured for ${code}. Add it in Settings → Currencies.` };
+      return { error: `No import rate configured for ${code}. Add it in Settings → Currencies, or set a per-inquiry override.` };
     }
     frozenInrPerUnit = r;
   }
