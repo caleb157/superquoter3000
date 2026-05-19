@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail, Phone, Globe, MapPin, Building2, Landmark } from 'lucide-react';
+import { fmt } from '@/lib/formatters';
+import { loadCurrencyMap } from '@/lib/currency';
 
 interface QuoteComponent {
   product_id?: string | null;
