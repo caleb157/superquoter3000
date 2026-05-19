@@ -163,7 +163,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
 
     // Apply in-memory overrides for auto-calc rows so cost stays in sync with costing sheet
     const productsPerIc = cbmRow?.products_per_ic || 1;
-    const transportRate = (settings as any)?.local_transport_cost_per_cbm || 3500;
+    // transportRate removed (now read per-product from local_transport_locations by source_location_id)
     const cogsForCalc = productCogs.map((item: any) => {
       const name = (item.component_name || '').toLowerCase();
       const type = item.cogs_type;
