@@ -66,6 +66,9 @@ export type Database = {
           depth_inch: number | null
           height_inch: number | null
           id: string
+          od_height_add_in: number
+          od_length_add_in: number
+          od_width_add_in: number
           surface_area_sq_in: number | null
           width_inch: number | null
         }
@@ -78,6 +81,9 @@ export type Database = {
           depth_inch?: number | null
           height_inch?: number | null
           id?: string
+          od_height_add_in?: number
+          od_length_add_in?: number
+          od_width_add_in?: number
           surface_area_sq_in?: number | null
           width_inch?: number | null
         }
@@ -90,6 +96,9 @@ export type Database = {
           depth_inch?: number | null
           height_inch?: number | null
           id?: string
+          od_height_add_in?: number
+          od_length_add_in?: number
+          od_width_add_in?: number
           surface_area_sq_in?: number | null
           width_inch?: number | null
         }
@@ -235,6 +244,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cogs_categories: {
+        Row: {
+          created_at: string
+          default_unit_type: string | null
+          id: string
+          is_subcontracting: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          default_unit_type?: string | null
+          id?: string
+          is_subcontracting?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          default_unit_type?: string | null
+          id?: string
+          is_subcontracting?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       cogs_items: {
         Row: {
           cogs_type: string
@@ -369,6 +405,45 @@ export type Database = {
           state?: string | null
           swift_code?: string | null
           website?: string | null
+        }
+        Relationships: []
+      }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          effective_start_date: string | null
+          export_rate: number | null
+          import_rate: number | null
+          is_featured: boolean
+          name: string
+          sort_priority: number
+          units_per_inr_base: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          effective_start_date?: string | null
+          export_rate?: number | null
+          import_rate?: number | null
+          is_featured?: boolean
+          name: string
+          sort_priority?: number
+          units_per_inr_base?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          effective_start_date?: string | null
+          export_rate?: number | null
+          import_rate?: number | null
+          is_featured?: boolean
+          name?: string
+          sort_priority?: number
+          units_per_inr_base?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -607,6 +682,33 @@ export type Database = {
         }
         Relationships: []
       }
+      finishing_difficulty: {
+        Row: {
+          adjustment_factor: number
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          adjustment_factor?: number
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          adjustment_factor?: number
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       global_settings: {
         Row: {
           auto_transport_cost_per_cbm: number
@@ -628,6 +730,7 @@ export type Database = {
           packaging_cost_per_cbm: number
           slow_quote_days: number
           slow_sample_days: number
+          total_available_mh_per_month: number | null
         }
         Insert: {
           auto_transport_cost_per_cbm?: number
@@ -649,6 +752,7 @@ export type Database = {
           packaging_cost_per_cbm?: number
           slow_quote_days?: number
           slow_sample_days?: number
+          total_available_mh_per_month?: number | null
         }
         Update: {
           auto_transport_cost_per_cbm?: number
@@ -670,6 +774,7 @@ export type Database = {
           packaging_cost_per_cbm?: number
           slow_quote_days?: number
           slow_sample_days?: number
+          total_available_mh_per_month?: number | null
         }
         Relationships: []
       }
@@ -813,6 +918,39 @@ export type Database = {
           hourly_rate_inr?: number
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      local_transport_locations: {
+        Row: {
+          active: boolean
+          cost_per_cbm_inr: number
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cost_per_cbm_inr?: number
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cost_per_cbm_inr?: number
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -999,35 +1137,56 @@ export type Database = {
         Row: {
           contractor_base_rate_per_ri: number | null
           created_at: string | null
+          default_percent_wood_for_finishing: number | null
           finishing_color_per_100ri: number | null
           finishing_lacquer_per_100ri: number | null
+          finishing_mh_per_100ri: number | null
+          finishing_sealer_l_per_100ri: number | null
           finishing_sealer_per_100ri: number | null
           ic_addition_per_side_inch: number | null
           id: string
           name: string
           packaging_mh_per_cbm: number | null
+          pkg_corrugate_bubble_rate_mh_per_cbm: number | null
+          pkg_ic_add_per_side_in: number | null
+          pkg_ic_mc_rate_mh_per_cbm: number | null
+          pkg_ic_rate_mh_per_cbm: number | null
         }
         Insert: {
           contractor_base_rate_per_ri?: number | null
           created_at?: string | null
+          default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
+          finishing_mh_per_100ri?: number | null
+          finishing_sealer_l_per_100ri?: number | null
           finishing_sealer_per_100ri?: number | null
           ic_addition_per_side_inch?: number | null
           id?: string
           name: string
           packaging_mh_per_cbm?: number | null
+          pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
+          pkg_ic_add_per_side_in?: number | null
+          pkg_ic_mc_rate_mh_per_cbm?: number | null
+          pkg_ic_rate_mh_per_cbm?: number | null
         }
         Update: {
           contractor_base_rate_per_ri?: number | null
           created_at?: string | null
+          default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
+          finishing_mh_per_100ri?: number | null
+          finishing_sealer_l_per_100ri?: number | null
           finishing_sealer_per_100ri?: number | null
           ic_addition_per_side_inch?: number | null
           id?: string
           name?: string
           packaging_mh_per_cbm?: number | null
+          pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
+          pkg_ic_add_per_side_in?: number | null
+          pkg_ic_mc_rate_mh_per_cbm?: number | null
+          pkg_ic_rate_mh_per_cbm?: number | null
         }
         Relationships: []
       }
@@ -1330,6 +1489,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      raw_material_costs: {
+        Row: {
+          active: boolean
+          category: string
+          cost: number
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          notes: string | null
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          cost?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          name: string
+          notes?: string | null
+          unit_type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          cost?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          unit_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       samples: {
         Row: {
