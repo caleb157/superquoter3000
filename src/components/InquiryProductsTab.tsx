@@ -136,7 +136,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         .select('id, name, sku, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
-      setProducts(data ?? []);
+      const rows = data ?? [];
+      setProducts(rows);
+      if (rows.length > 0) {
+        const prices = await computeProductPriceAndCost(rows.map((p: any) => p.id));
+        setLivePrices(prices);
+      } else {
+        setLivePrices({});
+      }
     })();
   }, [inquiryId, refresh, refreshKey]);
 
