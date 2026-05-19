@@ -53,10 +53,8 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const initialPaymentTermsRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currency: 'USD' | 'INR' = snapshot?.currency === 'INR' ? 'INR' : 'USD';
-  const sym = currency === 'INR' ? '₹' : '$';
-  const fmtMoney = (n: number) =>
-    `${sym}${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const currency: string = snapshot?.currency || 'USD';
+  const fmtMoney = (n: number) => fmt.money(n, currency);
 
   // Load lines + reset transient state whenever the dialog opens for a new snapshot.
   useEffect(() => {
