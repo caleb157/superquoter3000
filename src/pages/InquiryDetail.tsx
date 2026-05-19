@@ -417,16 +417,12 @@ export default function InquiryDetail() {
                 </div>
                 <div>
                   <Label className="text-xs">Quoting currency</Label>
-                  <Select
-                    value={settingsDraft?.quoting_currency ?? 'USD'}
-                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_currency: v })}
-                  >
-                    <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="INR">INR (₹)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="mt-1">
+                    <CurrencyCombobox
+                      value={settingsDraft?.quoting_currency ?? 'USD'}
+                      onChange={v => setSettingsDraft({ ...settingsDraft, quoting_currency: v })}
+                    />
+                  </div>
                 </div>
                 <div className="md:col-span-2">
                   <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
