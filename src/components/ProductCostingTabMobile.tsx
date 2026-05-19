@@ -325,13 +325,18 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         <Input className="h-10" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
       </Field>
 
-      <div className="flex items-center gap-3 pt-2">
-        <Switch
-          checked={product.sourced_externally || false}
-          onCheckedChange={(checked) => updateProduct('sourced_externally', checked)}
-        />
-        <span className="text-sm">Sourced from outside Jodhpur?</span>
-      </div>
+      <Field label="Source location">
+        <Select
+          value={product.source_location_id || '__inhouse__'}
+          onValueChange={(v) => updateProduct('source_location_id', v === '__inhouse__' ? null : v)}
+        >
+          <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__inhouse__">In-house (Jodhpur)</SelectItem>
+            {locations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
     </div>
   );
 }
