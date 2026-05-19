@@ -446,7 +446,20 @@ export default function InquiryDetail() {
                     onChange={e => setSettingsDraft({ ...settingsDraft, exchange_rate_override: e.target.value })}
                     className="h-9 mt-1"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">Used by costing display (₹↔$).</p>
                 </div>
+                {settingsDraft?.quoting_currency && settingsDraft.quoting_currency !== 'INR' && settingsDraft.quoting_currency !== 'USD' && (
+                  <div>
+                    <Label className="text-xs">Quote FX (INR per {settingsDraft.quoting_currency})</Label>
+                    <Input
+                      type="number" step="0.0001" placeholder="Currencies table default"
+                      value={settingsDraft?.quoting_currency_rate_override ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, quoting_currency_rate_override: e.target.value })}
+                      className="h-9 mt-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Frozen into generated quotes for this currency.</p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs">Uniform markup % (overrides per product)</Label>
                   <Input
