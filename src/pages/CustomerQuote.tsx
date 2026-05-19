@@ -280,7 +280,8 @@ const CustomerQuote = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, selections, surchargePct]);
 
-  const symbol = data?.snapshot.currency === 'INR' ? '₹' : '$';
+  const currencyCode: string = data?.snapshot.currency || 'USD';
+  const symbol = fmt.money(0, currencyCode).replace(/[\d.,\s]/g, '') || '$';
 
   const handleConfirm = async () => {
     if (!token) return;
