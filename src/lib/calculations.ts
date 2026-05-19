@@ -136,7 +136,11 @@ export function calcICVolumeCbm(icW: number, icD: number, icH: number): number {
   return (icW * icD * icH) / 61020;
 }
 
-export function calcMCPacking(config: MCConfig): {
+export function calcMCPacking(config: MCConfig & {
+  ic_od_width?: number;
+  ic_od_depth?: number;
+  ic_od_height?: number;
+}): {
   mc_ics_along_w: number;
   mc_ics_along_d: number;
   mc_ics_along_h: number;
@@ -159,9 +163,14 @@ export function calcMCPacking(config: MCConfig): {
   const wd_buffer = mc_buffer_inch;
   const h_buffer = config.mc_height_buffer_inch ?? mc_buffer_inch;
 
-  const along_w = Math.max(1, Math.floor((mc_max_width - wd_buffer) / ic_width));
-  const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / ic_depth));
-  const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / ic_height));
+  // Phase 3a: layout math uses IC OD when provided, falls back to IC ID for backward compat.
+  const layoutW = config.ic_od_width ?? ic_width;
+  const layoutD = config.ic_od_depth ?? ic_depth;
+  const layoutH = config.ic_od_height ?? ic_height;
+
+  const along_w = Math.max(1, Math.floor((mc_max_width - wd_buffer) / layoutW));
+  const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / layoutD));
+  const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / layoutH));
 
   let max_by_weight = along_w * along_d * along_h;
   if (mc_weight_limit_kg > 0 && product_weight_kg > 0) {
@@ -178,14 +187,53 @@ export function calcMCPacking(config: MCConfig): {
 
   const products_per_mc = actual_w * actual_d * actual_h * products_per_ic;
 
-  const mc_width = ic_width * actual_w + wd_buffer;
-  const mc_depth = ic_depth * actual_d + wd_buffer;
-  const mc_height = ic_height * actual_h + h_buffer;
+  // MC ID dimensions reflect packing of IC ODs (or IC IDs if OD not supplied).
+  const mc_width = layoutW * actual_w + wd_buffer;
+  const mc_depth = layoutD * actual_d + wd_buffer;
+  const mc_height = layoutH * actual_h + h_buffer;
   const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
     products_per_mc, mc_width, mc_depth, mc_height, mc_volume_cbm,
+  };
+}
+
+// ============================================================
+// Box OD offsets (Phase 3a)
+// ============================================================
+
+export function getBoxOdOffsets(
+  boxData: Array<{ box_type: string; od_length_add_in?: number; od_width_add_in?: number; od_height_add_in?: number }>,
+  boxType: string,
+): { lAdd: number; wAdd: number; hAdd: number } {
+  const matching = boxData.filter(b => b.box_type === boxType);
+  if (matching.length === 0) return { lAdd: 0, wAdd: 0, hAdd: 0 };
+  const lAdd = matching.reduce((s, b) => s + (b.od_length_add_in || 0), 0) / matching.length;
+  const wAdd = matching.reduce((s, b) => s + (b.od_width_add_in || 0), 0) / matching.length;
+  const hAdd = matching.reduce((s, b) => s + (b.od_height_add_in || 0), 0) / matching.length;
+  return { lAdd, wAdd, hAdd };
+}
+
+export function calcIcOd(
+  icIdW: number, icIdD: number, icIdH: number,
+  offsets: { lAdd: number; wAdd: number; hAdd: number },
+): { ic_od_width: number; ic_od_depth: number; ic_od_height: number } {
+  return {
+    ic_od_width: icIdW + offsets.lAdd,
+    ic_od_depth: icIdD + offsets.wAdd,
+    ic_od_height: icIdH + offsets.hAdd,
+  };
+}
+
+export function calcMcOd(
+  mcIdW: number, mcIdD: number, mcIdH: number,
+  offsets: { lAdd: number; wAdd: number; hAdd: number },
+): { mc_od_width: number; mc_od_depth: number; mc_od_height: number } {
+  return {
+    mc_od_width: mcIdW + offsets.lAdd,
+    mc_od_depth: mcIdD + offsets.wAdd,
+    mc_od_height: mcIdH + offsets.hAdd,
   };
 }
 
@@ -332,11 +380,38 @@ export function calcFinishingLaborMhPerUnit(
   return mhPer100ri * (effectiveRi / 100);
 }
 
+// Phase 3a: new direct finishing labor formula. Uses MH/100RI from product_type and
+// adjustment factor from finishing_difficulty table (instead of contractor rate / payrate).
+export function calcFinishingMhPerUnit(
+  finishingMhPer100Ri: number,
+  adjustmentFactor: number,
+  percentWood: number,
+  ri: number,
+): number {
+  if (!finishingMhPer100Ri || ri <= 0) return 0;
+  return finishingMhPer100Ri * (adjustmentFactor || 1) * (percentWood ?? 1) * (ri / 100);
+}
+
 export function calcPackagingLaborMhPerUnit(
   packagingMhPerCbm: number,
   finalUnitCbm: number
 ): number {
   return packagingMhPerCbm * finalUnitCbm;
+}
+
+// Phase 3a: pick the right MH/CBM rate from product_types based on the product's packaging type.
+export function packagingMhPerCbmForType(
+  productType: any,
+  packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | string,
+): number {
+  if (!productType) return 0;
+  switch (packagingType) {
+    case 'corrugate_bubble': return productType.pkg_corrugate_bubble_rate_mh_per_cbm ?? 0;
+    case 'ic_only':          return productType.pkg_ic_rate_mh_per_cbm ?? 0;
+    case 'ic_mc':            return productType.pkg_ic_mc_rate_mh_per_cbm ?? productType.packaging_mh_per_cbm ?? 0;
+    case 'no_packaging':     return 0;
+    default:                 return productType.packaging_mh_per_cbm ?? 0;
+  }
 }
 
 export function calcOverheadItemCost(item: OverheadItem, quantity: number): {
@@ -365,9 +440,11 @@ export function calcTotalDirectManHoursPerUnit(items: OverheadItem[]): number {
 // Indirect Overhead
 // ============================================================
 
-export function calcIndirectOhPerManHour(settings: GlobalSettings): number {
-  const denom = settings.num_laborers * settings.available_hours_per_month;
-  return denom > 0 ? settings.indirect_overhead_monthly / denom : 0;
+export function calcIndirectOhPerManHour(settings: GlobalSettings & { total_available_mh_per_month?: number | null }): number {
+  // Phase 3a: prefer consolidated field; fall back to laborers × hours for legacy data.
+  const totalMh = settings.total_available_mh_per_month
+    ?? (settings.num_laborers * settings.available_hours_per_month);
+  return totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 }
 
 export function calcIndirectOhPerUnit(

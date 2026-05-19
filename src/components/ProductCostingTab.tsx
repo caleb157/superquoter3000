@@ -80,6 +80,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
+  const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor: number }>>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string; cost_per_cbm_inr: number }>>([]);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
@@ -225,7 +227,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -239,6 +241,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('box_data').select('*'),
         (supabase as any).from('chemical_prices').select('*'),
         (supabase as any).from('hardware_prices').select('*').order('name'),
+        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+        (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr, active, sort_order').eq('active', true).order('sort_order'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -306,6 +310,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
+      if (diffRes.data) setDifficulties(diffRes.data);
+      if (locRes.data) setLocations(locRes.data);
 
       // Fetch inquiry-level overrides if this product belongs to an inquiry
       if (prodRes.data?.customer_rfq_id) {
@@ -338,7 +344,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const prePackCbm = calc.prePackagedCbm(w, d, h);
   const percentWood = product?.percent_wood || 1;
   const difficulty = product?.finishing_difficulty || 'Medium';
-  const difficultyFactor = calc.getDifficultyFactor(difficulty);
+  // Phase 3a: difficulty factor is sourced from the finishing_difficulty DB table;
+  // fall back to hardcoded defaults via getDifficultyFactor if the table is empty.
+  const difficultyFactor = difficulties.find(d => d.name === difficulty)?.adjustment_factor
+    ?? calc.getDifficultyFactor(difficulty);
 
   // Unique box types for dropdowns
   const uniqueBoxTypes = useMemo(() => {
@@ -366,6 +375,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const icVolume = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
   const productsPerIc = cbm?.products_per_ic || 1;
 
+  // Phase 3a: IC OD = IC ID + box offsets from box_data for the selected IC type.
+  const icBoxOffsets = calc.getBoxOdOffsets(boxData, icType);
+  const icOd = calc.calcIcOd(icDims.ic_width, icDims.ic_depth, icDims.ic_height, icBoxOffsets);
+  const icOdVolumeCbm = calc.calcICVolumeCbm(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height);
+
   // Step 4: MC calcs with type-specific cost lookup
   const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
@@ -387,6 +401,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     ic_width: icDims.ic_width,
     ic_depth: icDims.ic_depth,
     ic_height: icDims.ic_height,
+    // Phase 3a: packing layout uses IC OD
+    ic_od_width: icOd.ic_od_width,
+    ic_od_depth: icOd.ic_od_depth,
+    ic_od_height: icOd.ic_od_height,
   });
 
   // When manual layout override is on, use stored layout values and recompute dims/volume
@@ -397,13 +415,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const along_h = cbm?.mc_ics_along_h || autoMcResult.mc_ics_along_h;
     const wd_buffer = cbm?.mc_buffer_inch || 1;
     const h_buffer = cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5;
-    const mc_width = icDims.ic_width * along_w + wd_buffer;
-    const mc_depth = icDims.ic_depth * along_d + wd_buffer;
-    const mc_height = icDims.ic_height * along_h + h_buffer;
+    // Use IC OD for manual layout too
+    const mc_width = icOd.ic_od_width * along_w + wd_buffer;
+    const mc_depth = icOd.ic_od_depth * along_d + wd_buffer;
+    const mc_height = icOd.ic_od_height * along_h + h_buffer;
     const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
     const products_per_mc = along_w * along_d * along_h * productsPerIc;
     return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
   })();
+
+  // Phase 3a: MC OD = MC ID + box offsets from the selected MC type.
+  const mcBoxOffsets = calc.getBoxOdOffsets(boxData, mcType);
+  const mcOd = calc.calcMcOd(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, mcBoxOffsets);
+  const mcOdVolumeCbm = includeMc ? (mcOd.mc_od_width * mcOd.mc_od_depth * mcOd.mc_od_height) / 61020 : 0;
 
   // MC cost estimate
   const mcBoxes = boxData.filter(b => b.box_type === mcType && b.cost_per_sq_in > 0);
@@ -423,11 +447,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     },
   ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
 
+  // Phase 3a: shipping CBM uses MC OD (or IC OD if no MC), not ID.
   const finalUnitCbm = noPackaging
     ? prePackCbm
     : packagingType === 'corrugate_bubble'
     ? wrappingResult.final_unit_cbm
-    : calc.calcFinalUnitCbm(includeMc, icVolume, productsPerIc, mcResult.mc_volume_cbm, mcResult.products_per_mc);
+    : calc.calcFinalUnitCbm(includeMc, icOdVolumeCbm, productsPerIc, mcOdVolumeCbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
   // Persist derived CBM values so summary/quotes always use current numbers
@@ -650,14 +675,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!dataLoaded || !product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
 
-    const avgFinishingRate = calc.avgRateByDesignation(employees, 'Finishing') || calc.avgRateByDesignation(employees, 'Sanding');
-    const contractorRate = productType.contractor_base_rate_per_ri || 0;
-    const decrease = effectiveSettings.contractor_to_inhouse_decrease || 0;
+    // Phase 3a: new finishing formula — MH/100RI × adjustment factor × %wood × RI/100
+    const finishingMhPer100Ri = productType.finishing_mh_per_100ri ?? 0;
+    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, percentWood, ri);
 
-    const finishingMh = calc.calcFinishingLaborMhPerUnit(contractorRate, decrease, difficultyFactor, avgFinishingRate, ri, percentWood);
-
-    // Packaging MH: packaging_mh_per_cbm from product type × finalUnitCbm
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(productType.packaging_mh_per_cbm || 0, finalUnitCbm);
+    // Phase 3a: pick packaging MH/CBM rate from product_types based on packaging type.
+    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
+    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
 
     const ohUpdates: { id: string; man_hours_per_unit: number; include?: string }[] = [];
 
@@ -685,7 +709,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, percentWood, finalUnitCbm, noPackaging, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, difficultyFactor, percentWood, finalUnitCbm, noPackaging, packagingType, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
