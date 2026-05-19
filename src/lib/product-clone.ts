@@ -5,7 +5,7 @@ export const PRODUCT_COPY_COLS = [
   'name', 'sku', 'photo_url', 'notes', 'notes_finishes', 'notes_vendors', 'notes_issues',
   'sort_order', 'markup_percent', 'target_price_usd', 'is_component', 'percent_wood',
   'finishing_difficulty', 'product_type_id', 'weight_kg', 'height_inch', 'depth_inch',
-  'width_inch', 'moq', 'quantity', 'sourced_externally', 'packaging_type',
+  'width_inch', 'moq', 'quantity', 'source_location_id', 'packaging_type',
   'calculated_unit_cost_usd', 'calculated_unit_price_usd',
 ] as const;
 
