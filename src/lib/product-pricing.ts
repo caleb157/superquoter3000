@@ -103,7 +103,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const productCogs = (cogs as any[]).filter((c: any) => c.product_id === p.id);
 
     // Compute IC/MC dims & costs to override packaging COGS unit_cost_inr / qty
-    const icAdd = productType?.ic_addition_per_side_inch ?? 0.5;
+    const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
     const icType = cbmRow?.ic_type || '7 ply';
     const mcType = cbmRow?.mc_type || '7 ply';
     const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
