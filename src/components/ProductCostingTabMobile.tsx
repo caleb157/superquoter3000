@@ -321,6 +321,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
             {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
+        {difficultiesError && <p className="text-xs text-destructive mt-1">⚠ {difficultiesError}</p>}
       </Field>
 
       <Field label="% Wood">
