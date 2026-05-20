@@ -273,20 +273,20 @@ const Products = () => {
         ) : (
           <>
             <div className="hidden md:block border rounded-md overflow-auto">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10"></TableHead>
-                    <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                    <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                    <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                    <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
-                    <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                    <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                    <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                    <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right" />
-                    <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center" />
-                    <TableHead className="text-xs w-10"></TableHead>
+                    <TableHead noResize className="w-10"></TableHead>
+                    <SortableHeader column="product" label="Product" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="w-[220px]" />
+                    <SortableHeader column="sku" label="SKU" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="w-[140px]" />
+                    <SortableHeader column="inquiry" label="Inquiry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="w-[240px]" />
+                    <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="w-[160px]" />
+                    <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right w-[80px]" />
+                    <SortableHeader column="unit_cbm" label="Unit CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right w-[110px]" />
+                    <SortableHeader column="cost" label="Cost ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right w-[100px]" />
+                    <SortableHeader column="price" label="Price ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-right w-[100px]" />
+                    <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-center w-[110px]" />
+                    <TableHead noResize className="text-xs w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -303,14 +303,14 @@ const Products = () => {
                             <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                         </TableCell>
-                        <TableCell className="font-medium text-sm">{p.name}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{p.sku || '—'}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium text-sm break-words">{p.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground break-all">{p.sku || '—'}</TableCell>
+                        <TableCell className="break-words">
                           <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (inq) navigate(`/inquiry/${inq.id}`); }}>
                             {inq ? `${inq.rfq_number} — ${inq.title || 'Untitled'}` : '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs">{cust?.name || '—'}</TableCell>
+                        <TableCell className="text-xs break-words">{cust?.name || '—'}</TableCell>
                         <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
                         <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
                         <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
