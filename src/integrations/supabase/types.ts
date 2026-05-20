@@ -1832,6 +1832,51 @@ export type Database = {
           },
         ]
       }
+      vendor_rfq_responses: {
+        Row: {
+          id: string
+          quoted_lead_time_days: number | null
+          quoted_unit_price: number | null
+          submitted_at: string
+          vendor_notes: string | null
+          vendor_rfq_id: string
+          vendor_rfq_line_item_id: string | null
+        }
+        Insert: {
+          id?: string
+          quoted_lead_time_days?: number | null
+          quoted_unit_price?: number | null
+          submitted_at?: string
+          vendor_notes?: string | null
+          vendor_rfq_id: string
+          vendor_rfq_line_item_id?: string | null
+        }
+        Update: {
+          id?: string
+          quoted_lead_time_days?: number | null
+          quoted_unit_price?: number | null
+          submitted_at?: string
+          vendor_notes?: string | null
+          vendor_rfq_id?: string
+          vendor_rfq_line_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_rfq_responses_vendor_rfq_id_fkey"
+            columns: ["vendor_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_rfq_responses_vendor_rfq_line_item_id_fkey"
+            columns: ["vendor_rfq_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_rfq_line_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_rfqs: {
         Row: {
           created_at: string | null
@@ -1854,6 +1899,9 @@ export type Database = {
           vendor_email: string | null
           vendor_name: string | null
           vendor_phone: string | null
+          vendor_response_lead_time_days: number | null
+          vendor_response_notes: string | null
+          vendor_response_submitted_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1876,6 +1924,9 @@ export type Database = {
           vendor_email?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
+          vendor_response_lead_time_days?: number | null
+          vendor_response_notes?: string | null
+          vendor_response_submitted_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1898,6 +1949,9 @@ export type Database = {
           vendor_email?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
+          vendor_response_lead_time_days?: number | null
+          vendor_response_notes?: string | null
+          vendor_response_submitted_at?: string | null
         }
         Relationships: [
           {
@@ -2110,6 +2164,9 @@ export type Database = {
           vendor_email: string | null
           vendor_name: string | null
           vendor_phone: string | null
+          vendor_response_lead_time_days: number | null
+          vendor_response_notes: string | null
+          vendor_response_submitted_at: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -2145,6 +2202,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_rfq_line_items_with_responses_by_share_token: {
+        Args: { _token: string }
+        Returns: {
+          description: string
+          dimensions: string
+          estimated_cost: number
+          existing_quoted_lead_time_days: number
+          existing_quoted_unit_price: number
+          existing_vendor_notes: string
+          id: string
+          item_name: string
+          notes: string
+          product_id: string
+          product_name: string
+          product_photo_url: string
+          quantity: number
+          sort_order: number
+          target_price: number
+          units: string
+          vendor_price: number
+          vendor_rfq_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2153,6 +2233,15 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_team: { Args: { _user_id: string }; Returns: boolean }
+      submit_vendor_rfq_response: {
+        Args: {
+          _line_responses: Json
+          _overall_lead_time_days?: number
+          _overall_notes?: string
+          _token: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "team" | "guest"

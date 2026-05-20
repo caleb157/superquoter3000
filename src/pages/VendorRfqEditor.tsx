@@ -39,18 +39,21 @@ const VendorRfqEditor = () => {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [vendorOpen, setVendorOpen] = useState(false);
+  const [responses, setResponses] = useState<any[]>([]);
 
   const fetchRfq = async () => {
     if (!id) return;
-    const [rfqRes, itemsRes, vendorsRes] = await Promise.all([
+    const [rfqRes, itemsRes, vendorsRes, respRes] = await Promise.all([
       (supabase as any).from('vendor_rfqs').select('*').eq('id', id).single(),
       (supabase as any).from('vendor_rfq_line_items').select('*').eq('vendor_rfq_id', id).order('sort_order'),
       (supabase as any).from('vendors').select('*').order('name'),
+      (supabase as any).from('vendor_rfq_responses').select('*').eq('vendor_rfq_id', id),
     ]);
     if (rfqRes.error) { toast.error('Vendor RFQ not found'); navigate('/vendor-rfqs'); return; }
     setRfq(rfqRes.data);
     setItems(itemsRes.data || []);
     setVendors(vendorsRes.data || []);
+    setResponses(respRes.data || []);
     // Default view: table for boxes, card for others
     if (rfqRes.data?.rfq_type === 'boxes') setViewMode('table');
     setLoading(false);
@@ -476,6 +479,96 @@ const VendorRfqEditor = () => {
             </>
           )}
         </div>
+
+
+        {/* Vendor Response (read-only summary of what vendor submitted via share link) */}
+        {(responses.length > 0 || rfq.vendor_response_submitted_at) && (
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold">Vendor Response</h2>
+                <Badge className={STATUS_COLORS['responded']} variant="secondary">Responded</Badge>
+                {rfq.vendor_response_submitted_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Submitted {new Date(rfq.vendor_response_submitted_at).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <div className="border rounded-md overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Item</TableHead>
+                      <TableHead className="text-xs text-right">Qty</TableHead>
+                      <TableHead className="text-xs text-right">Target</TableHead>
+                      <TableHead className="text-xs text-right">Vendor Quoted</TableHead>
+                      <TableHead className="text-xs text-right">Lead (days)</TableHead>
+                      <TableHead className="text-xs">Vendor Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((it) => {
+                      const r = responses.find((x: any) => x.vendor_rfq_line_item_id === it.id);
+                      const target = it.target_price;
+                      const quoted = r?.quoted_unit_price;
+                      const color = quoted != null && target != null
+                        ? (Number(quoted) <= Number(target) ? 'text-emerald-600' : 'text-red-600')
+                        : '';
+                      return (
+                        <TableRow key={it.id}>
+                          <TableCell className="text-xs">{it.item_name}</TableCell>
+                          <TableCell className="text-xs text-right">{it.quantity}</TableCell>
+                          <TableCell className="text-xs text-right">{target != null ? fmt.inr(target) : '—'}</TableCell>
+                          <TableCell className={cn("text-xs text-right font-medium", color)}>{quoted != null ? fmt.inr(quoted) : '—'}</TableCell>
+                          <TableCell className="text-xs text-right">{r?.quoted_lead_time_days ?? '—'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{r?.vendor_notes || '—'}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="sm:col-span-2">
+                  <div className="text-muted-foreground">Overall notes / payment terms</div>
+                  <div className="whitespace-pre-wrap mt-0.5">{rfq.vendor_response_notes || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Overall lead time (days)</div>
+                  <div className="mt-0.5">{rfq.vendor_response_lead_time_days ?? '—'}</div>
+                </div>
+              </div>
+              {rfq.status !== 'accepted' && rfq.status !== 'rejected' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                    onClick={async () => {
+                      await (supabase as any).from('vendor_rfqs').update({ status: 'accepted' }).eq('id', id);
+                      updateRfqField('status', 'accepted');
+                      toast.success('Marked as accepted');
+                    }}
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" /> Mark as accepted
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-red-700 border-red-300 hover:bg-red-50"
+                    onClick={async () => {
+                      await (supabase as any).from('vendor_rfqs').update({ status: 'rejected' }).eq('id', id);
+                      updateRfqField('status', 'rejected');
+                      toast.success('Marked as rejected');
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Mark as rejected
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">

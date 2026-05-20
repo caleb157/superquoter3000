@@ -38,17 +38,21 @@ const VendorRfqList = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
+  const [responses, setResponses] = useState<any[]>([]);
+
   const fetchAll = async () => {
-    const [rfqRes, itemRes, inqRes, custRes] = await Promise.all([
+    const [rfqRes, itemRes, inqRes, custRes, respRes] = await Promise.all([
       (supabase as any).from('vendor_rfqs').select('*').order('created_at', { ascending: false }),
       (supabase as any).from('vendor_rfq_line_items').select('vendor_rfq_id, quantity, estimated_cost, target_price'),
       (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
       (supabase as any).from('customers').select('id, name'),
+      (supabase as any).from('vendor_rfq_responses').select('vendor_rfq_id, quoted_unit_price'),
     ]);
     setRfqs(rfqRes.data || []);
     setLineItems(itemRes.data || []);
     setInquiries(inqRes.data || []);
     setCustomers(custRes.data || []);
+    setResponses(respRes.data || []);
     setLoading(false);
   };
 
@@ -86,6 +90,14 @@ const VendorRfqList = () => {
     });
     return m;
   }, [lineItems]);
+
+  const respAgg = useMemo(() => {
+    const m: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      if (r.quoted_unit_price != null) m[r.vendor_rfq_id] = (m[r.vendor_rfq_id] || 0) + 1;
+    });
+    return m;
+  }, [responses]);
 
   const filtered = useMemo(() => {
     return rfqs.filter((r: any) => {
@@ -193,7 +205,12 @@ const VendorRfqList = () => {
                           <TableCell className="text-xs text-right">{agg.count}</TableCell>
                           <TableCell className="text-xs text-right">{agg.estTotal > 0 ? fmt.inr(agg.estTotal) : '—'}</TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                              {respAgg[r.id] > 0 && (
+                                <span className="text-[10px] text-muted-foreground">💬 {respAgg[r.id]}/{agg.count} priced</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-right text-muted-foreground">
                             {new Date(r.created_at).toLocaleDateString()}
@@ -220,9 +237,12 @@ const VendorRfqList = () => {
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-mono font-medium">{r.rfq_number || '—'}</span>
                             <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                            {respAgg[r.id] > 0 && (
+                              <span className="text-[10px] text-muted-foreground">💬 {respAgg[r.id]}/{agg.count}</span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {TYPE_LABELS[r.rfq_type] || r.rfq_type}
