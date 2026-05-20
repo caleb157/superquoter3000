@@ -38,17 +38,21 @@ const VendorRfqList = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 
+  const [responses, setResponses] = useState<any[]>([]);
+
   const fetchAll = async () => {
-    const [rfqRes, itemRes, inqRes, custRes] = await Promise.all([
+    const [rfqRes, itemRes, inqRes, custRes, respRes] = await Promise.all([
       (supabase as any).from('vendor_rfqs').select('*').order('created_at', { ascending: false }),
       (supabase as any).from('vendor_rfq_line_items').select('vendor_rfq_id, quantity, estimated_cost, target_price'),
       (supabase as any).from('customer_rfqs').select('id, rfq_number, title, customer_id'),
       (supabase as any).from('customers').select('id, name'),
+      (supabase as any).from('vendor_rfq_responses').select('vendor_rfq_id, quoted_unit_price'),
     ]);
     setRfqs(rfqRes.data || []);
     setLineItems(itemRes.data || []);
     setInquiries(inqRes.data || []);
     setCustomers(custRes.data || []);
+    setResponses(respRes.data || []);
     setLoading(false);
   };
 
