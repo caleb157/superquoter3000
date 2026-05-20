@@ -207,7 +207,9 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
 }
 
 // ===== Section A: Product Info =====
-function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId }: MobileCostingProps) {
+function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId, overheadItems, setOverheadItems, ri }: MobileCostingProps) {
+  const productType = productTypes.find(pt => pt.id === product?.product_type_id);
+
   const packagingType = product?.packaging_type || 'ic_mc';
   const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
