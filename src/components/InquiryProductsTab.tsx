@@ -473,7 +473,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       ) : (
                         <button
                           className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/50 hover:border-primary hover:text-primary transition-colors"
-                          onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click(); }}
+                          onClick={(e) => { e.stopPropagation(); setPhotoTargetId(p.id); photoInputRef.current?.click(); }}
                           disabled={uploadingPhotoId === p.id}
                         >
                           {uploadingPhotoId === p.id ? (
