@@ -43,15 +43,17 @@ const VendorRfqEditor = () => {
 
   const fetchRfq = async () => {
     if (!id) return;
-    const [rfqRes, itemsRes, vendorsRes] = await Promise.all([
+    const [rfqRes, itemsRes, vendorsRes, respRes] = await Promise.all([
       (supabase as any).from('vendor_rfqs').select('*').eq('id', id).single(),
       (supabase as any).from('vendor_rfq_line_items').select('*').eq('vendor_rfq_id', id).order('sort_order'),
       (supabase as any).from('vendors').select('*').order('name'),
+      (supabase as any).from('vendor_rfq_responses').select('*').eq('vendor_rfq_id', id),
     ]);
     if (rfqRes.error) { toast.error('Vendor RFQ not found'); navigate('/vendor-rfqs'); return; }
     setRfq(rfqRes.data);
     setItems(itemsRes.data || []);
     setVendors(vendorsRes.data || []);
+    setResponses(respRes.data || []);
     // Default view: table for boxes, card for others
     if (rfqRes.data?.rfq_type === 'boxes') setViewMode('table');
     setLoading(false);
