@@ -15,6 +15,7 @@ import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { convertFromInr, hasImportRate, loadCurrencyMap } from '@/lib/currency';
+import type { FreightInput, FreightMode } from '@/lib/freight';
 
 type Product = {
   id: string;
