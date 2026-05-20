@@ -66,6 +66,10 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [hwOpen, setHwOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
+  // Optional rough freight estimate
+  const [freightMode, setFreightMode] = useState<FreightMode>('sea');
+  const [freightRate, setFreightRate] = useState<string>('');
+  const [dimDivisor, setDimDivisor] = useState<string>('5000');
 
   useEffect(() => {
     if (!open) return;
