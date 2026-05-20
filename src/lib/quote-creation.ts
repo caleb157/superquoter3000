@@ -258,6 +258,46 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const grandTotal = productsJson.reduce((s, p) => s + p.total, 0);
   const totalCbm = productsJson.reduce((s, p) => s + p.unit_cbm * p.quantity, 0);
 
+  // Optional rough freight estimate (sea per CBM, or air per chargeable kg).
+  let freightSnap: ReturnType<typeof computeFreight> | null = null;
+  if (params.freight && Number(params.freight.rate || 0) > 0) {
+    const divisor = params.freight.dim_divisor || 5000;
+    const freightLines: FreightLine[] = selectedProducts.map(sel => {
+      if (sel.assembly_id) {
+        const asm: any = assemblyHeaders.find((a: any) => a.id === sel.assembly_id) ?? {};
+        const qty = Number(sel.quantity ?? 0);
+        let dimUnit = 0, weightUnit = 0, cbmUnit = 0;
+        for (const c of (asm.assembly_components || [])) {
+          const cdb: any = dbProducts.find(p => p.id === c.product_id) ?? {};
+          const qpa = Number(c.quantity_per_assembly || 1);
+          dimUnit += dimKgPerUnit(cdb.width_inch, cdb.depth_inch, cdb.height_inch, divisor) * qpa;
+          weightUnit += Number(cdb.weight_kg || 0) * qpa;
+          const cbmRow = cbmRowByProduct.get(c.product_id);
+          const cbm = cbmRow?.final_unit_cbm ?? (cdb.width_inch && cdb.depth_inch && cdb.height_inch
+            ? (Number(cdb.width_inch) * Number(cdb.depth_inch) * Number(cdb.height_inch)) / 61020
+            : 0);
+          cbmUnit += Number(cbm || 0) * qpa;
+        }
+        return { quantity: qty, unit_cbm: cbmUnit, weight_kg: weightUnit, dim_kg_per_unit_override: dimUnit };
+      }
+      const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
+      const qty = Number(sel.quantity ?? db.quantity ?? 0);
+      let unitCbm = cbmMap.get(sel.id) ?? 0;
+      if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
+        unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
+      }
+      return {
+        quantity: qty,
+        unit_cbm: unitCbm,
+        weight_kg: db.weight_kg,
+        width_inch: db.width_inch,
+        depth_inch: db.depth_inch,
+        height_inch: db.height_inch,
+      };
+    });
+    freightSnap = computeFreight(freightLines, params.freight);
+  }
+
   const inq: any = inquiryRes.data ?? {};
   const cust: any = inq.customers ?? null;
   const customerJson = cust
@@ -287,6 +327,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       grand_total: grandTotal,
       total_cbm: totalCbm,
       below_moq_surcharge_percent: Number((gsRes.data as any)?.below_moq_surcharge_percent ?? 0.15),
+      freight: freightSnap,
     },
     entity_id: entityId,
     valid_until: validUntil,
