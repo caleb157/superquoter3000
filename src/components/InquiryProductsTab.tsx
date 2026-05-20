@@ -123,6 +123,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
+  const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
 
   const handlePhotoUpload = async (productId: string, file: File) => {
     setUploadingPhotoId(productId);
