@@ -218,7 +218,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
   useEffect(() => {
     (async () => {
       const [d, l] = await Promise.all([
-        (supabase as any).from('finishing_difficulty').select('name').order('sort_order'),
+        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').order('sort_order'),
         (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
       ]);
       if (d.error) {
