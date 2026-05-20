@@ -616,10 +616,11 @@ function FobValue({
 
   const valueLabel = allMissing ? '—' : fmt.usd(total);
   const tooltipText = allMissing
-    ? 'No costed products yet'
+    ? 'No priced products yet'
     : missing > 0
-      ? `${missing} product${missing === 1 ? '' : 's'} not yet costed — value is partial`
-      : `Σ qty × FOB cost across ${productCount} product${productCount === 1 ? '' : 's'}`;
+      ? `${missing} product${missing === 1 ? '' : 's'} not yet priced — value is partial`
+      : `Σ qty × unit price across ${productCount} product${productCount === 1 ? '' : 's'}`;
+
 
   const inner = (
     <span className={cn(
