@@ -121,6 +121,32 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
+
+  const handlePhotoUpload = async (productId: string, file: File) => {
+    setUploadingPhotoId(productId);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${productId}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('product-photos')
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (uploadErr) { toast.error('Upload failed: ' + uploadErr.message); return; }
+
+      const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(path);
+      const photoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const { error: updateErr } = await supabase.from('products').update({ photo_url: photoUrl }).eq('id', productId);
+      if (updateErr) { toast.error('Failed to save photo: ' + updateErr.message); return; }
+
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, photo_url: photoUrl } : p));
+      toast.success('Photo uploaded');
+    } finally {
+      setUploadingPhotoId(null);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
       if (data) setProductTypes(data);
