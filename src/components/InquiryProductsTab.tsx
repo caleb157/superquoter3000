@@ -167,7 +167,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return sortItems(base, {
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
-      updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
     });
   }, [products, search, filter, sortItems]);
 
