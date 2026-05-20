@@ -53,6 +53,7 @@ export default function InquiryDetail() {
   const [productFilter, setProductFilter] = useState<ProductFilterKey>('all');
   const [refreshKey, setRefreshKey] = useState(0);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  useKeyboardShortcuts({ onNewItem: () => setTaskDialogOpen(true) });
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [editingDrive, setEditingDrive] = useState(false);
   const [driveDraft, setDriveDraft] = useState('');
