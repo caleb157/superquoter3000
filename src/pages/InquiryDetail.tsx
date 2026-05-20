@@ -101,6 +101,28 @@ export default function InquiryDetail() {
 
   const updateField = async (patch: any) => {
     if (patch.status === 'paused') patch = { priority: 'low', ...patch };
+    // Auto-populate PO fields the first time the inquiry flips to 'po'
+    if (patch.status === 'po' && inquiry?.status !== 'po' && id) {
+      const fill: any = {};
+      if (!inquiry?.po_received_date) {
+        fill.po_received_date = new Date().toISOString().slice(0, 10);
+      }
+      if (inquiry?.po_total_value_usd == null) {
+        const { data: latest } = await (supabase as any)
+          .from('quote_snapshots')
+          .select('totals, currency, created_at')
+          .eq('customer_rfq_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const totalsAny = latest?.totals as any;
+        const grand = totalsAny?.grand_total;
+        if (latest && (latest.currency ?? 'USD') === 'USD' && typeof grand === 'number') {
+          fill.po_total_value_usd = grand;
+        }
+      }
+      patch = { ...fill, ...patch };
+    }
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setInquiry((i: any) => ({ ...i, ...patch }));
