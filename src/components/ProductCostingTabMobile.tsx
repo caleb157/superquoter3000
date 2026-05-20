@@ -207,16 +207,18 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
 }
 
 // ===== Section A: Product Info =====
-function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId }: MobileCostingProps) {
+function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId, overheadItems, setOverheadItems, ri }: MobileCostingProps) {
+  const productType = productTypes.find(pt => pt.id === product?.product_type_id);
+
   const packagingType = product?.packaging_type || 'ic_mc';
-  const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
+  const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor?: number }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   useEffect(() => {
     (async () => {
       const [d, l] = await Promise.all([
-        (supabase as any).from('finishing_difficulty').select('name').order('sort_order'),
+        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').order('sort_order'),
         (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
       ]);
       if (d.error) {
@@ -315,7 +317,27 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
       </Field>
 
       <Field label="Difficulty">
-        <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
+        <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
+          updateProduct('finishing_difficulty', v);
+          const newFactor = difficulties.find(x => x.name === v)?.adjustment_factor
+            ?? calc.getDifficultyFactor(v);
+          const finishingMhPer100Ri = productType?.finishing_mh_per_100ri ?? 0;
+          const percentWood = product?.percent_wood ?? 1;
+          const newFinishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, newFactor, percentWood, ri);
+          const finRows = overheadItems.filter((i: any) => i.labor_type === 'Finishing');
+          if (finRows.length) {
+            const mh = parseFloat(newFinishingMh.toFixed(4));
+            setOverheadItems(prev => prev.map((i: any) => i.labor_type === 'Finishing'
+              ? { ...i, man_hours_per_unit: mh, is_auto_estimated: true }
+              : i));
+            finRows.forEach((r: any) => {
+              (supabase as any).from('overhead_items')
+                .update({ man_hours_per_unit: mh, is_auto_estimated: true })
+                .eq('id', r.id);
+            });
+          }
+        }}>
+
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
