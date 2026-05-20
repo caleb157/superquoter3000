@@ -551,6 +551,59 @@ export default function InquiryDetail() {
                 </div>
               </CardContent>
             </Card>
+            {inquiry.status === 'po' && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">PO & Payment Terms</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Used by the cashflow forecast on the Sales analytics dashboard.</p>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">PO received date</Label>
+                    <Input type="date" value={settingsDraft?.po_received_date ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_received_date: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">PO total value (USD)</Label>
+                    <Input type="number" step="0.01" placeholder="0.00"
+                      value={settingsDraft?.po_total_value_usd ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_total_value_usd: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Estimated ship date</Label>
+                    <Input type="date" value={settingsDraft?.po_estimated_ship_date ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_estimated_ship_date: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Deposit %</Label>
+                    <Input type="number" step="1" placeholder="30"
+                      value={settingsDraft?.payment_terms_deposit_pct ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_deposit_pct: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Deposit due (days after PO)</Label>
+                    <Input type="number" step="1" placeholder="0"
+                      value={settingsDraft?.payment_terms_deposit_due_days ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_deposit_due_days: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Balance due (days after PO)</Label>
+                    <Input type="number" step="1" placeholder="70"
+                      value={settingsDraft?.payment_terms_balance_due_days ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_balance_due_days: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div className="md:col-span-3">
+                    <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save PO terms</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry history</CardTitle></CardHeader>
               <CardContent><InquiryActivityFeed inquiryId={id!} limit={50} /></CardContent>
