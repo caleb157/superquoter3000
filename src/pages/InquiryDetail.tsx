@@ -101,6 +101,28 @@ export default function InquiryDetail() {
 
   const updateField = async (patch: any) => {
     if (patch.status === 'paused') patch = { priority: 'low', ...patch };
+    // Auto-populate PO fields the first time the inquiry flips to 'po'
+    if (patch.status === 'po' && inquiry?.status !== 'po' && id) {
+      const fill: any = {};
+      if (!inquiry?.po_received_date) {
+        fill.po_received_date = new Date().toISOString().slice(0, 10);
+      }
+      if (inquiry?.po_total_value_usd == null) {
+        const { data: latest } = await (supabase as any)
+          .from('quote_snapshots')
+          .select('totals, currency, created_at')
+          .eq('customer_rfq_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const totalsAny = latest?.totals as any;
+        const grand = totalsAny?.grand_total;
+        if (latest && (latest.currency ?? 'USD') === 'USD' && typeof grand === 'number') {
+          fill.po_total_value_usd = grand;
+        }
+      }
+      patch = { ...fill, ...patch };
+    }
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setInquiry((i: any) => ({ ...i, ...patch }));
@@ -149,6 +171,12 @@ export default function InquiryDetail() {
       packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
       auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
       local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
+      po_received_date: settingsDraft.po_received_date || null,
+      po_total_value_usd: settingsDraft.po_total_value_usd === '' || settingsDraft.po_total_value_usd == null ? null : Number(settingsDraft.po_total_value_usd),
+      payment_terms_deposit_pct: settingsDraft.payment_terms_deposit_pct === '' || settingsDraft.payment_terms_deposit_pct == null ? null : Number(settingsDraft.payment_terms_deposit_pct),
+      payment_terms_deposit_due_days: settingsDraft.payment_terms_deposit_due_days === '' || settingsDraft.payment_terms_deposit_due_days == null ? null : Number(settingsDraft.payment_terms_deposit_due_days),
+      payment_terms_balance_due_days: settingsDraft.payment_terms_balance_due_days === '' || settingsDraft.payment_terms_balance_due_days == null ? null : Number(settingsDraft.payment_terms_balance_due_days),
+      po_estimated_ship_date: settingsDraft.po_estimated_ship_date || null,
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
@@ -523,6 +551,59 @@ export default function InquiryDetail() {
                 </div>
               </CardContent>
             </Card>
+            {inquiry.status === 'po' && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">PO & Payment Terms</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Used by the cashflow forecast on the Sales analytics dashboard.</p>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">PO received date</Label>
+                    <Input type="date" value={settingsDraft?.po_received_date ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_received_date: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">PO total value (USD)</Label>
+                    <Input type="number" step="0.01" placeholder="0.00"
+                      value={settingsDraft?.po_total_value_usd ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_total_value_usd: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Estimated ship date</Label>
+                    <Input type="date" value={settingsDraft?.po_estimated_ship_date ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, po_estimated_ship_date: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Deposit %</Label>
+                    <Input type="number" step="1" placeholder="30"
+                      value={settingsDraft?.payment_terms_deposit_pct ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_deposit_pct: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Deposit due (days after PO)</Label>
+                    <Input type="number" step="1" placeholder="0"
+                      value={settingsDraft?.payment_terms_deposit_due_days ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_deposit_due_days: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Balance due (days after PO)</Label>
+                    <Input type="number" step="1" placeholder="70"
+                      value={settingsDraft?.payment_terms_balance_due_days ?? ''}
+                      onChange={e => setSettingsDraft({ ...settingsDraft, payment_terms_balance_due_days: e.target.value })}
+                      className="h-9 mt-1" />
+                  </div>
+                  <div className="md:col-span-3">
+                    <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save PO terms</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry history</CardTitle></CardHeader>
               <CardContent><InquiryActivityFeed inquiryId={id!} limit={50} /></CardContent>
