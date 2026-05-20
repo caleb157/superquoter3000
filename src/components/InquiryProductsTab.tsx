@@ -545,6 +545,24 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <div onClick={e => e.stopPropagation()} className="pt-0.5">
                         <Checkbox checked={isSelected} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
                       </div>
+                      {p.photo_url ? (
+                        <Avatar className="h-10 w-10 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <AvatarImage src={p.photo_url} />
+                          <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <button
+                          className="h-10 w-10 shrink-0 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/50 hover:border-primary hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setPhotoTargetId(p.id); photoInputRef.current?.click(); }}
+                          disabled={uploadingPhotoId === p.id}
+                        >
+                          {uploadingPhotoId === p.id ? (
+                            <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm truncate">{p.name}</div>
                         {p.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{p.sku}</div>}
