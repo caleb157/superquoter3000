@@ -237,9 +237,12 @@ const VendorRfqList = () => {
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-mono font-medium">{r.rfq_number || '—'}</span>
                             <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                            {respAgg[r.id] > 0 && (
+                              <span className="text-[10px] text-muted-foreground">💬 {respAgg[r.id]}/{agg.count}</span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {TYPE_LABELS[r.rfq_type] || r.rfq_type}
