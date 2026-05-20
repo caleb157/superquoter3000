@@ -317,7 +317,27 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
       </Field>
 
       <Field label="Difficulty">
-        <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
+        <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
+          updateProduct('finishing_difficulty', v);
+          const newFactor = difficulties.find(x => x.name === v)?.adjustment_factor
+            ?? calc.getDifficultyFactor(v);
+          const finishingMhPer100Ri = productType?.finishing_mh_per_100ri ?? 0;
+          const percentWood = product?.percent_wood ?? 1;
+          const newFinishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, newFactor, percentWood, ri);
+          const finRows = overheadItems.filter((i: any) => i.labor_type === 'Finishing');
+          if (finRows.length) {
+            const mh = parseFloat(newFinishingMh.toFixed(4));
+            setOverheadItems(prev => prev.map((i: any) => i.labor_type === 'Finishing'
+              ? { ...i, man_hours_per_unit: mh, is_auto_estimated: true }
+              : i));
+            finRows.forEach((r: any) => {
+              (supabase as any).from('overhead_items')
+                .update({ man_hours_per_unit: mh, is_auto_estimated: true })
+                .eq('id', r.id);
+            });
+          }
+        }}>
+
           <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
