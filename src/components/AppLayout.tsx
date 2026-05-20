@@ -153,7 +153,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
                     <img src={hqLogo} alt="Product HQ" className="h-6 w-6 object-contain" />
                   </span>
-                  <span className="font-serif font-medium text-base">Product HQ</span>
+                  <span className="font-display font-bold text-base uppercase tracking-tight">Product HQ</span>
                 </div>
                 <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
                   {visibleItems.map(item => (
