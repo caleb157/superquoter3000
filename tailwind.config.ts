@@ -17,7 +17,6 @@ export default {
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         serif: ['Fraunces', 'Georgia', 'Cambria', 'serif'],
-        display: ['League Spartan', 'Futura', 'Avenir', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
