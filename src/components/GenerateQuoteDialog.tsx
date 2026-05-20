@@ -251,6 +251,51 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             <Label className="text-xs">Valid until</Label>
             <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-9 mt-1" />
           </div>
+          <div className="col-span-3 rounded-md border bg-muted/30 p-2.5 space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Freight Estimate (Rough) <span className="font-normal normal-case">— optional</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Mode</Label>
+                <Select value={freightMode} onValueChange={(v) => setFreightMode(v as FreightMode)}>
+                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sea">Sea (per CBM)</SelectItem>
+                    <SelectItem value="air">Air (per kg, chargeable)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">
+                  Rate ({currency}/{freightMode === 'sea' ? 'CBM' : 'kg'})
+                </Label>
+                <Input
+                  type="number" step="any" inputMode="decimal"
+                  value={freightRate}
+                  onChange={e => setFreightRate(e.target.value)}
+                  className="h-9 mt-1 text-right" placeholder="0"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">
+                  {freightMode === 'air' ? 'DIM divisor' : '\u00A0'}
+                </Label>
+                <Input
+                  type="number" step="any" inputMode="decimal"
+                  value={dimDivisor}
+                  onChange={e => setDimDivisor(e.target.value)}
+                  className="h-9 mt-1 text-right"
+                  disabled={freightMode !== 'air'}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {freightMode === 'sea'
+                ? 'Total CBM × rate. Shown as a separate line below the quote total.'
+                : 'Chargeable kg = max(actual kg, L×W×H cm ÷ divisor). Sum across all lines × rate.'}
+            </p>
+          </div>
         </div>
         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
           {products.length === 0 && assemblies.length === 0 ? (
