@@ -1115,16 +1115,25 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
                   updateProduct('finishing_difficulty', v);
-                  // Re-enable auto-estimation for the Finishing overhead row so the
-                  // new difficulty factor flows into MH/unit immediately.
-                  const finRows = overheadItems.filter(i => i.labor_type === 'Finishing' && !i.is_auto_estimated);
+                  // Immediately recompute Finishing overhead MH/unit with the new difficulty.
+                  const newFactor = difficulties.find(x => x.name === v)?.adjustment_factor
+                    ?? calc.getDifficultyFactor(v);
+                  const finishingMhPer100Ri = productType?.finishing_mh_per_100ri ?? 0;
+                  const newFinishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, newFactor, percentWood, ri);
+                  const finRows = overheadItems.filter(i => i.labor_type === 'Finishing');
                   if (finRows.length) {
-                    setOverheadItems(prev => prev.map(i => i.labor_type === 'Finishing' ? { ...i, is_auto_estimated: true } : i));
+                    const mh = parseFloat(newFinishingMh.toFixed(4));
+                    setOverheadItems(prev => prev.map(i => i.labor_type === 'Finishing'
+                      ? { ...i, man_hours_per_unit: mh, is_auto_estimated: true }
+                      : i));
                     finRows.forEach(r => {
-                      (supabase as any).from('overhead_items').update({ is_auto_estimated: true }).eq('id', r.id);
+                      (supabase as any).from('overhead_items')
+                        .update({ man_hours_per_unit: mh, is_auto_estimated: true })
+                        .eq('id', r.id);
                     });
                   }
                 }}>
+
 
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
