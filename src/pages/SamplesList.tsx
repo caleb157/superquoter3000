@@ -60,6 +60,7 @@ export default function SamplesList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
+  useKeyboardShortcuts({ onNewItem: () => setShowNew(true) });
 
   const [statusFilter, setStatusFilter] = useState<string>('pending');
   const [search, setSearch] = useState('');
