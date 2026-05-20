@@ -778,6 +778,16 @@ const CustomerQuote = () => {
                     {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
+                {data.snapshot.totals?.freight && data.snapshot.totals.freight.amount > 0 && (
+                  <div className="mt-1 flex justify-between items-baseline text-xs">
+                    <span className="text-slate-500">
+                      Freight Estimate (Rough) · {data.snapshot.totals.freight.mode === 'air' ? 'Air' : 'Sea'}
+                    </span>
+                    <span className="font-medium text-slate-700 tabular-nums">
+                      {symbol}{data.snapshot.totals.freight.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Container fill forecast */}
