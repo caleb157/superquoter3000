@@ -55,6 +55,8 @@ export default function Tasks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  useKeyboardShortcuts({ onNewItem: () => setDialogOpen(true) });
+
   useEffect(() => {
     (async () => {
       const [iRes, aRes, pRes] = await Promise.all([
