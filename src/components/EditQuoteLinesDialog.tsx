@@ -8,6 +8,8 @@ import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { FreightInput, FreightMode } from '@/lib/freight';
 
 type SnapshotLine = {
   product_id?: string | null;
