@@ -26,6 +26,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 const STATUS_OPTIONS = ['active', 'paused', 'po', 'complete', 'cancelled'];
 const STATUS_COLOR: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function InquiryDetail() {
   const [productFilter, setProductFilter] = useState<ProductFilterKey>('all');
   const [refreshKey, setRefreshKey] = useState(0);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  useKeyboardShortcuts({ onNewItem: () => setTaskDialogOpen(true) });
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [editingDrive, setEditingDrive] = useState(false);
   const [driveDraft, setDriveDraft] = useState('');

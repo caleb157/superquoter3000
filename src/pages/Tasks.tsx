@@ -10,6 +10,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 
@@ -53,6 +54,8 @@ export default function Tasks() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useKeyboardShortcuts({ onNewItem: () => setDialogOpen(true) });
 
   useEffect(() => {
     (async () => {

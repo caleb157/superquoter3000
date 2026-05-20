@@ -21,6 +21,7 @@ import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
@@ -68,6 +69,8 @@ export default function CustomerDetail() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useKeyboardShortcuts({ onNewItem: () => setShowNewInquiry(true) });
 
   const fetchAll = async () => {
     if (!id) return;
