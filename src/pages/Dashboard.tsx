@@ -63,6 +63,8 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+  target_price_usd: number | null;
+  calculated_unit_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -107,7 +109,7 @@ const Dashboard = () => {
       const [inq, cust, prod] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd, calculated_unit_price_usd'),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
@@ -139,14 +141,20 @@ const Dashboard = () => {
   }, [products]);
 
   // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
-  // Matches the "Order Revenue" card on the inquiry page.
+  // Matches the "Order Revenue" card on the inquiry page, including the same
+  // fallback to saved calculated/target prices when live pricing is unavailable.
   const fobByInquiry = useMemo(() => {
     const m: Record<string, { total: number; missing: number }> = {};
     for (const p of products) {
       if (!p.customer_rfq_id) continue;
       const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
       const qty = p.quantity ?? 0;
-      const price = productPricing[p.id]?.unit_price_usd ?? 0;
+      const computedPrice = productPricing[p.id]?.unit_price_usd;
+      const price = Number(
+        (computedPrice && computedPrice > 0)
+          ? computedPrice
+          : (p.calculated_unit_price_usd ?? p.target_price_usd)
+      ) || 0;
       if (price === 0 || qty === 0) {
         entry.missing += 1;
       } else {
