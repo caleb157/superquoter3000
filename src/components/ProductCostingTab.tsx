@@ -1113,7 +1113,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
-                <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => updateProduct('finishing_difficulty', v)}>
+                <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
+                  updateProduct('finishing_difficulty', v);
+                  // Re-enable auto-estimation for the Finishing overhead row so the
+                  // new difficulty factor flows into MH/unit immediately.
+                  const finRows = overheadItems.filter(i => i.labor_type === 'Finishing' && !i.is_auto_estimated);
+                  if (finRows.length) {
+                    setOverheadItems(prev => prev.map(i => i.labor_type === 'Finishing' ? { ...i, is_auto_estimated: true } : i));
+                    finRows.forEach(r => {
+                      (supabase as any).from('overhead_items').update({ is_auto_estimated: true }).eq('id', r.id);
+                    });
+                  }
+                }}>
+
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(difficulties.length > 0 ? difficulties.map(d => d.name) : DIFFICULTIES).map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
