@@ -17,7 +17,7 @@ export function MetricCard({ label, value, sublabel, subValue, className, onClic
       onClick={onClick}
     >
       <CardContent className="pt-4 pb-3">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1 flex items-center justify-between">
+        <div className="text-[11px] uppercase tracking-wide font-display text-muted-foreground mb-1 flex items-center justify-between">
           <span>{label}</span>
           {onClick && <span className="text-[10px] text-muted-foreground/70 normal-case tracking-normal">View →</span>}
         </div>
