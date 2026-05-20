@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Upload, X, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
@@ -32,7 +32,7 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 
 type Product = {
-  id: string; name: string; sku: string | null; updated_at: string | null;
+  id: string; name: string; sku: string | null; photo_url: string | null; updated_at: string | null;
   quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
   target_price_usd: number | null; markup_percent: number | null;
@@ -121,6 +121,33 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
+  const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
+
+  const handlePhotoUpload = async (productId: string, file: File) => {
+    setUploadingPhotoId(productId);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${productId}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('product-photos')
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (uploadErr) { toast.error('Upload failed: ' + uploadErr.message); return; }
+
+      const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(path);
+      const photoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const { error: updateErr } = await supabase.from('products').update({ photo_url: photoUrl }).eq('id', productId);
+      if (updateErr) { toast.error('Failed to save photo: ' + updateErr.message); return; }
+
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, photo_url: photoUrl } : p));
+      toast.success('Photo uploaded');
+    } finally {
+      setUploadingPhotoId(null);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
   useEffect(() => {
     supabase.from('product_types').select('id, name').order('name').then(({ data }) => {
       if (data) setProductTypes(data);
@@ -133,7 +160,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, sku, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
+        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
       const rows = data ?? [];
@@ -167,7 +194,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return sortItems(base, {
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
-      updated: (p) => p.updated_at ? new Date(p.updated_at).getTime() : 0,
     });
   }, [products, search, filter, sortItems]);
 
@@ -288,6 +314,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   return (
     <div className="space-y-3">
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && photoTargetId) handlePhotoUpload(photoTargetId, file);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -420,13 +456,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
+                <TableHead className="text-xs w-10">Photo</TableHead>
                 <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
                 <TableHead className="text-xs">Costing</TableHead>
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                <SortableHeader column="updated" label="Updated" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -437,6 +473,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   <TableRow key={p.id} className={cn(selected.has(p.id) && 'bg-muted/40')}>
                     <TableCell>
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
+                    </TableCell>
+                    <TableCell className="w-10">
+                      {p.photo_url ? (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={p.photo_url} />
+                          <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <button
+                          className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/50 hover:border-primary hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setPhotoTargetId(p.id); photoInputRef.current?.click(); }}
+                          disabled={uploadingPhotoId === p.id}
+                        >
+                          {uploadingPhotoId === p.id ? (
+                            <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                        </button>
+                      )}
                     </TableCell>
                     <TableCell>
                       <button className="text-sm font-medium hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${p.id}`)}>
@@ -450,9 +506,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
                     </TableCell>
                     <TableCell className="text-right">
                       <ConfirmDeleteButton
@@ -492,12 +545,27 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <div onClick={e => e.stopPropagation()} className="pt-0.5">
                         <Checkbox checked={isSelected} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
                       </div>
+                      {p.photo_url ? (
+                        <Avatar className="h-10 w-10 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <AvatarImage src={p.photo_url} />
+                          <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <button
+                          className="h-10 w-10 shrink-0 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/50 hover:border-primary hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setPhotoTargetId(p.id); photoInputRef.current?.click(); }}
+                          disabled={uploadingPhotoId === p.id}
+                        >
+                          {uploadingPhotoId === p.id ? (
+                            <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm truncate">{p.name}</div>
                         {p.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{p.sku}</div>}
-                        <div className="text-[11px] text-muted-foreground">
-                          {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
-                        </div>
                       </div>
                       <Badge className={cn(cb.cls, 'text-[10px] shrink-0')} variant="secondary">{cb.label}</Badge>
                     </div>
