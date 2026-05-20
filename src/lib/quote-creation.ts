@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { computeFreight, dimKgPerUnit, type FreightInput, type FreightLine } from '@/lib/freight';
 
 export type QuoteProductInput = {
   id: string;
@@ -23,6 +24,7 @@ export type CreateQuoteParams = {
   entityId: string;
   validUntil: string; // YYYY-MM-DD
   currency?: string;
+  freight?: FreightInput | null;
 };
 
 export type CreateQuoteResult = {
