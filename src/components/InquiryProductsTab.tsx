@@ -450,9 +450,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell className="text-xs text-right tabular-nums">
                       {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
-                    </TableCell>
                     <TableCell className="text-right">
                       <ConfirmDeleteButton
                         itemLabel={`product "${p.name}"`}
