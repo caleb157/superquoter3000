@@ -303,14 +303,14 @@ const Products = () => {
                             <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                         </TableCell>
-                        <TableCell className="font-medium text-sm">{p.name}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{p.sku || '—'}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium text-sm break-words">{p.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground break-all">{p.sku || '—'}</TableCell>
+                        <TableCell className="break-words">
                           <span className="text-xs text-primary hover:underline" onClick={e => { e.stopPropagation(); if (inq) navigate(`/inquiry/${inq.id}`); }}>
                             {inq ? `${inq.rfq_number} — ${inq.title || 'Untitled'}` : '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs">{cust?.name || '—'}</TableCell>
+                        <TableCell className="text-xs break-words">{cust?.name || '—'}</TableCell>
                         <TableCell className="text-right text-xs">{fmt.qty(p.quantity)}</TableCell>
                         <TableCell className="text-right text-xs">{cbm?.final_unit_cbm ? fmt.cbm(cbm.final_unit_cbm) : '—'}</TableCell>
                         <TableCell className="text-right text-xs">{costDataMap[p.id]?.cost_usd ? fmt.usd(costDataMap[p.id].cost_usd) : '—'}</TableCell>
