@@ -502,6 +502,12 @@ export type Database = {
           markup_percent_override: number | null
           notes: string | null
           packaging_cost_per_cbm_override: number | null
+          payment_terms_balance_due_days: number | null
+          payment_terms_deposit_due_days: number | null
+          payment_terms_deposit_pct: number | null
+          po_estimated_ship_date: string | null
+          po_received_date: string | null
+          po_total_value_usd: number | null
           priority: string
           quoting_currency: string | null
           quoting_currency_rate_override: number | null
@@ -529,6 +535,12 @@ export type Database = {
           markup_percent_override?: number | null
           notes?: string | null
           packaging_cost_per_cbm_override?: number | null
+          payment_terms_balance_due_days?: number | null
+          payment_terms_deposit_due_days?: number | null
+          payment_terms_deposit_pct?: number | null
+          po_estimated_ship_date?: string | null
+          po_received_date?: string | null
+          po_total_value_usd?: number | null
           priority?: string
           quoting_currency?: string | null
           quoting_currency_rate_override?: number | null
@@ -556,6 +568,12 @@ export type Database = {
           markup_percent_override?: number | null
           notes?: string | null
           packaging_cost_per_cbm_override?: number | null
+          payment_terms_balance_due_days?: number | null
+          payment_terms_deposit_due_days?: number | null
+          payment_terms_deposit_pct?: number | null
+          po_estimated_ship_date?: string | null
+          po_received_date?: string | null
+          po_total_value_usd?: number | null
           priority?: string
           quoting_currency?: string | null
           quoting_currency_rate_override?: number | null
