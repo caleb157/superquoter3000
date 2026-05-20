@@ -138,23 +138,24 @@ const Dashboard = () => {
     return m;
   }, [products]);
 
-  // Live FOB total per inquiry: Σ (qty × unit_cost_usd) over its products.
-  // Recomputes whenever pricing or product list changes.
+  // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
+  // Matches the "Order Revenue" card on the inquiry page.
   const fobByInquiry = useMemo(() => {
     const m: Record<string, { total: number; missing: number }> = {};
     for (const p of products) {
       if (!p.customer_rfq_id) continue;
       const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
       const qty = p.quantity ?? 0;
-      const cost = productPricing[p.id]?.unit_cost_usd ?? 0;
-      if (cost === 0 || qty === 0) {
+      const price = productPricing[p.id]?.unit_price_usd ?? 0;
+      if (price === 0 || qty === 0) {
         entry.missing += 1;
       } else {
-        entry.total += qty * cost;
+        entry.total += qty * price;
       }
     }
     return m;
   }, [products, productPricing]);
+
 
   const inquiryStatusById = useMemo(
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
@@ -615,10 +616,11 @@ function FobValue({
 
   const valueLabel = allMissing ? '—' : fmt.usd(total);
   const tooltipText = allMissing
-    ? 'No costed products yet'
+    ? 'No priced products yet'
     : missing > 0
-      ? `${missing} product${missing === 1 ? '' : 's'} not yet costed — value is partial`
-      : `Σ qty × FOB cost across ${productCount} product${productCount === 1 ? '' : 's'}`;
+      ? `${missing} product${missing === 1 ? '' : 's'} not yet priced — value is partial`
+      : `Σ qty × unit price across ${productCount} product${productCount === 1 ? '' : 's'}`;
+
 
   const inner = (
     <span className={cn(
