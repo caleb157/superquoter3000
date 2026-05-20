@@ -92,7 +92,7 @@ interface QuoteData {
     valid_until: string | null;
     status: string;
     products: QuoteProduct[];
-    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number };
+    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number; freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null };
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
