@@ -463,6 +463,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell>
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
                     </TableCell>
+                    <TableCell className="w-10">
+                      {p.photo_url ? (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={p.photo_url} />
+                          <AvatarFallback className="text-[10px]">{p.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <button
+                          className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground/50 hover:border-primary hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click(); }}
+                          disabled={uploadingPhotoId === p.id}
+                        >
+                          {uploadingPhotoId === p.id ? (
+                            <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3" />
+                          )}
+                        </button>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <button className="text-sm font-medium hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${p.id}`)}>
                         <span>{p.name}</span>
