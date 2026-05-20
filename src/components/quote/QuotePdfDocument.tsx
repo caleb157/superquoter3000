@@ -79,7 +79,13 @@ export interface QuotePdfProps {
   entity: QuotePdfEntity | null;
   customer: QuotePdfCustomer | null;
   inquiry: QuotePdfInquiry | null;
-  totals: { totalItems: number; totalQty: number; totalCbm: number; totalValue: number };
+  totals: {
+    totalItems: number;
+    totalQty: number;
+    totalCbm: number;
+    totalValue: number;
+    freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null;
+  };
 }
 
 // ---- Styling (slate palette, mirrors web view) ----
