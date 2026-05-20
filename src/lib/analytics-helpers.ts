@@ -173,3 +173,82 @@ export function fmtDays(d: number | null | undefined): string {
 export function fmtDateShort(d: Date): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+// ---------------- Cashflow forecast ----------------
+
+export type CashflowItem = {
+  inquiry_id: string;
+  inquiry_number: string;
+  customer_name: string;
+  amount_usd: number;
+  expected_date: Date;
+  kind: 'deposit' | 'balance';
+};
+
+export type PoInquiryForForecast = {
+  id: string;
+  rfq_number: string;
+  customer_name: string;
+  po_received_date: string | null;
+  po_total_value_usd: number | null;
+  payment_terms_deposit_pct: number | null;
+  payment_terms_deposit_due_days: number | null;
+  payment_terms_balance_due_days: number | null;
+};
+
+export function projectCashflow(
+  poInquiries: PoInquiryForForecast[],
+  horizonDays: number = 90,
+  now: Date = new Date(),
+): CashflowItem[] {
+  const out: CashflowItem[] = [];
+  const horizonEnd = new Date(now.getTime() + horizonDays * 86400000);
+  for (const inq of poInquiries) {
+    if (!inq.po_received_date || inq.po_total_value_usd == null) continue;
+    const poDate = new Date(inq.po_received_date + 'T00:00:00Z');
+    const depositPct = (inq.payment_terms_deposit_pct ?? 30) / 100;
+    const depositDueDays = inq.payment_terms_deposit_due_days ?? 0;
+    const balanceDueDays = inq.payment_terms_balance_due_days ?? 70;
+    const depositDate = new Date(poDate.getTime() + depositDueDays * 86400000);
+    const balanceDate = new Date(poDate.getTime() + balanceDueDays * 86400000);
+    const depositAmount = inq.po_total_value_usd * depositPct;
+    const balanceAmount = inq.po_total_value_usd * (1 - depositPct);
+    if (depositDate >= now && depositDate <= horizonEnd) {
+      out.push({
+        inquiry_id: inq.id, inquiry_number: inq.rfq_number, customer_name: inq.customer_name,
+        amount_usd: depositAmount, expected_date: depositDate, kind: 'deposit',
+      });
+    }
+    if (balanceDate >= now && balanceDate <= horizonEnd) {
+      out.push({
+        inquiry_id: inq.id, inquiry_number: inq.rfq_number, customer_name: inq.customer_name,
+        amount_usd: balanceAmount, expected_date: balanceDate, kind: 'balance',
+      });
+    }
+  }
+  return out.sort((a, b) => a.expected_date.getTime() - b.expected_date.getTime());
+}
+
+export function groupCashflowByWeek(
+  items: CashflowItem[],
+): Array<{ weekStart: Date; weekLabel: string; deposit: number; balance: number; total: number }> {
+  const buckets: Record<string, { weekStart: Date; deposit: number; balance: number }> = {};
+  for (const item of items) {
+    const d = new Date(item.expected_date);
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() - day + 1);
+    d.setUTCHours(0, 0, 0, 0);
+    const key = d.toISOString();
+    buckets[key] ||= { weekStart: d, deposit: 0, balance: 0 };
+    if (item.kind === 'deposit') buckets[key].deposit += item.amount_usd;
+    else buckets[key].balance += item.amount_usd;
+  }
+  return Object.values(buckets)
+    .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+    .map(b => ({
+      ...b,
+      weekLabel: b.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      total: b.deposit + b.balance,
+    }));
+}
+
