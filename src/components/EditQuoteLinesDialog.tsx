@@ -49,10 +49,14 @@ type Status = 'idle' | 'saving' | 'saved' | 'error';
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
   const [paymentTerms, setPaymentTerms] = useState<string>('');
+  const [freightMode, setFreightMode] = useState<FreightMode>('sea');
+  const [freightRate, setFreightRate] = useState<string>('');
+  const [dimDivisor, setDimDivisor] = useState<string>('5000');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const initialSerialRef = useRef<string>('');
   const initialPaymentTermsRef = useRef<string>('');
+  const initialFreightRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currency: string = snapshot?.currency || 'USD';
