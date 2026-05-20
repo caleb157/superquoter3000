@@ -383,8 +383,8 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-  meta?: { payment_terms?: string | null },
-): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number }; payment_terms?: string | null }> {
+  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean },
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any }; payment_terms?: string | null }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -392,11 +392,60 @@ export async function updateQuoteLineItems(
   const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
   const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
   const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
-  const totals = {
+
+  // Recompute freight using snapshot line data when caller sends new freight
+  // settings; preserve the prior value otherwise.
+  let freightSnap: any = undefined;
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'freight')) {
+    if (meta.freight && Number(meta.freight.rate || 0) > 0) {
+      const divisor = meta.freight.dim_divisor || 5000;
+      const freightLines: FreightLine[] = productsJson.map((p: any) => {
+        // Assembly lines aggregate dim kg from their stored components array.
+        if (p.is_assembly && Array.isArray(p.components)) {
+          let dimUnit = 0;
+          for (const c of p.components) {
+            const qpa = Number(c.quantity_per_assembly || 1);
+            dimUnit += dimKgPerUnit(c.width_inch, c.depth_inch, c.height_inch, divisor) * qpa;
+          }
+          return {
+            quantity: Number(p.quantity || 0),
+            unit_cbm: Number(p.unit_cbm || 0),
+            weight_kg: Number(p.weight_kg || 0),
+            dim_kg_per_unit_override: dimUnit,
+          };
+        }
+        return {
+          quantity: Number(p.quantity || 0),
+          unit_cbm: Number(p.unit_cbm || 0),
+          weight_kg: Number(p.weight_kg || 0),
+          width_inch: p.width_inch,
+          depth_inch: p.depth_inch,
+          height_inch: p.height_inch,
+        };
+      });
+      freightSnap = computeFreight(freightLines, meta.freight);
+    } else {
+      freightSnap = null; // explicit clear
+    }
+  }
+
+  // Fetch existing totals when we need to preserve freight (no new value supplied).
+  let existingFreight: any = undefined;
+  if (freightSnap === undefined) {
+    const { data: existing } = await (supabase as any)
+      .from('quote_snapshots')
+      .select('totals')
+      .eq('id', snapshotId)
+      .maybeSingle();
+    existingFreight = existing?.totals?.freight ?? null;
+  }
+
+  const totals: any = {
     sku_count: productsJson.length,
     total_qty: totalQty,
     grand_total: grandTotal,
     total_cbm: totalCbm,
+    freight: freightSnap !== undefined ? freightSnap : existingFreight,
   };
 
   const updatePayload: any = { products: productsJson, totals };
