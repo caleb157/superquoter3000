@@ -245,6 +245,55 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
         </div>
 
+        <div className="rounded-md border p-3 bg-card space-y-2">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Freight Estimate (Rough)</Label>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[10px] text-muted-foreground">Mode</Label>
+              <Select
+                value={freightMode}
+                onValueChange={(v) => { setFreightMode(v as FreightMode); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                disabled={status === 'saving'}
+              >
+                <SelectTrigger className="h-8 mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sea">Sea (per CBM)</SelectItem>
+                  <SelectItem value="air">Air (per kg)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">
+                Rate ({currency}/{freightMode === 'sea' ? 'CBM' : 'kg'})
+              </Label>
+              <Input
+                type="number" step="any" inputMode="decimal"
+                value={freightRate}
+                onChange={e => { setFreightRate(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                className="h-8 mt-1 text-xs text-right" placeholder="0"
+                disabled={status === 'saving'}
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">
+                {freightMode === 'air' ? 'DIM divisor' : '\u00A0'}
+              </Label>
+              <Input
+                type="number" step="any" inputMode="decimal"
+                value={dimDivisor}
+                onChange={e => { setDimDivisor(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                className="h-8 mt-1 text-xs text-right"
+                disabled={status === 'saving' || freightMode !== 'air'}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {freightMode === 'sea'
+              ? 'Total CBM × rate. Shown as a separate line on the customer quote.'
+              : 'Chargeable kg = max(actual kg, L×W×H cm ÷ divisor). Set rate to 0 to hide.'}
+          </p>
+        </div>
+
         {status === 'error' && errorMsg && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {errorMsg}
