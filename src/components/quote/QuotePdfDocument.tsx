@@ -461,6 +461,14 @@ const QuotePdfDocument = ({
             <Text style={s.totalLabel}>Total</Text>
             <Text style={s.totalValue}>{symbol}{fmt(totals.totalValue)}</Text>
           </View>
+          {totals.freight && totals.freight.amount > 0 ? (
+            <View style={[s.sumRow, { marginTop: 4 }]}>
+              <Text style={s.sumLabel}>
+                Freight Estimate (Rough) · {totals.freight.mode === 'air' ? 'Air' : 'Sea'}
+              </Text>
+              <Text style={s.sumValue}>{symbol}{fmt(totals.freight.amount)}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Footer */}
