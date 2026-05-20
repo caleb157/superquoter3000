@@ -491,9 +491,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm truncate">{p.name}</div>
                         {p.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{p.sku}</div>}
-                        <div className="text-[11px] text-muted-foreground">
-                          {p.updated_at ? formatDistanceToNow(new Date(p.updated_at), { addSuffix: true }) : '—'}
-                        </div>
                       </div>
                       <Badge className={cn(cb.cls, 'text-[10px] shrink-0')} variant="secondary">{cb.label}</Badge>
                     </div>
