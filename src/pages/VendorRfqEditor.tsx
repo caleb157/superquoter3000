@@ -39,6 +39,7 @@ const VendorRfqEditor = () => {
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [vendorOpen, setVendorOpen] = useState(false);
+  const [responses, setResponses] = useState<any[]>([]);
 
   const fetchRfq = async () => {
     if (!id) return;
