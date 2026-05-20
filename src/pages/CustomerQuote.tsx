@@ -372,6 +372,7 @@ const CustomerQuote = () => {
             totalQty: summary.totalQty,
             totalCbm: summary.totalCbm,
             totalValue: summary.totalValue,
+            freight: data.snapshot.totals?.freight ?? null,
           }}
         />
       );
