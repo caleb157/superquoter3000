@@ -83,7 +83,7 @@ const VendorRfqPublicView = () => {
       _token: token,
       _line_responses: lineResponses,
       _overall_notes: overallNotes.trim() || null,
-      _overall_lead_time_days: overallLeadTime.trim() || null,
+      _overall_lead_time_days: overallLeadTime.trim() ? parseInt(overallLeadTime, 10) : null,
     });
     setSubmitting(false);
     if (error || !data?.ok) {
