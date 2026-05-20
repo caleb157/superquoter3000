@@ -79,7 +79,13 @@ export interface QuotePdfProps {
   entity: QuotePdfEntity | null;
   customer: QuotePdfCustomer | null;
   inquiry: QuotePdfInquiry | null;
-  totals: { totalItems: number; totalQty: number; totalCbm: number; totalValue: number };
+  totals: {
+    totalItems: number;
+    totalQty: number;
+    totalCbm: number;
+    totalValue: number;
+    freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null;
+  };
 }
 
 // ---- Styling (slate palette, mirrors web view) ----
@@ -455,6 +461,14 @@ const QuotePdfDocument = ({
             <Text style={s.totalLabel}>Total</Text>
             <Text style={s.totalValue}>{symbol}{fmt(totals.totalValue)}</Text>
           </View>
+          {totals.freight && totals.freight.amount > 0 ? (
+            <View style={[s.sumRow, { marginTop: 4 }]}>
+              <Text style={s.sumLabel}>
+                Freight Estimate (Rough) · {totals.freight.mode === 'air' ? 'Air' : 'Sea'}
+              </Text>
+              <Text style={s.sumValue}>{symbol}{fmt(totals.freight.amount)}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Footer */}

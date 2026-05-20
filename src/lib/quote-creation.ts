@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { computeFreight, dimKgPerUnit, type FreightInput, type FreightLine } from '@/lib/freight';
 
 export type QuoteProductInput = {
   id: string;
@@ -23,6 +24,7 @@ export type CreateQuoteParams = {
   entityId: string;
   validUntil: string; // YYYY-MM-DD
   currency?: string;
+  freight?: FreightInput | null;
 };
 
 export type CreateQuoteResult = {
@@ -256,6 +258,46 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const grandTotal = productsJson.reduce((s, p) => s + p.total, 0);
   const totalCbm = productsJson.reduce((s, p) => s + p.unit_cbm * p.quantity, 0);
 
+  // Optional rough freight estimate (sea per CBM, or air per chargeable kg).
+  let freightSnap: ReturnType<typeof computeFreight> | null = null;
+  if (params.freight && Number(params.freight.rate || 0) > 0) {
+    const divisor = params.freight.dim_divisor || 5000;
+    const freightLines: FreightLine[] = selectedProducts.map(sel => {
+      if (sel.assembly_id) {
+        const asm: any = assemblyHeaders.find((a: any) => a.id === sel.assembly_id) ?? {};
+        const qty = Number(sel.quantity ?? 0);
+        let dimUnit = 0, weightUnit = 0, cbmUnit = 0;
+        for (const c of (asm.assembly_components || [])) {
+          const cdb: any = dbProducts.find(p => p.id === c.product_id) ?? {};
+          const qpa = Number(c.quantity_per_assembly || 1);
+          dimUnit += dimKgPerUnit(cdb.width_inch, cdb.depth_inch, cdb.height_inch, divisor) * qpa;
+          weightUnit += Number(cdb.weight_kg || 0) * qpa;
+          const cbmRow = cbmRowByProduct.get(c.product_id);
+          const cbm = cbmRow?.final_unit_cbm ?? (cdb.width_inch && cdb.depth_inch && cdb.height_inch
+            ? (Number(cdb.width_inch) * Number(cdb.depth_inch) * Number(cdb.height_inch)) / 61020
+            : 0);
+          cbmUnit += Number(cbm || 0) * qpa;
+        }
+        return { quantity: qty, unit_cbm: cbmUnit, weight_kg: weightUnit, dim_kg_per_unit_override: dimUnit };
+      }
+      const db: any = dbProducts.find(p => p.id === sel.id) ?? {};
+      const qty = Number(sel.quantity ?? db.quantity ?? 0);
+      let unitCbm = cbmMap.get(sel.id) ?? 0;
+      if (!unitCbm && db.width_inch && db.depth_inch && db.height_inch) {
+        unitCbm = (Number(db.width_inch) * Number(db.depth_inch) * Number(db.height_inch)) / 61020;
+      }
+      return {
+        quantity: qty,
+        unit_cbm: unitCbm,
+        weight_kg: db.weight_kg,
+        width_inch: db.width_inch,
+        depth_inch: db.depth_inch,
+        height_inch: db.height_inch,
+      };
+    });
+    freightSnap = computeFreight(freightLines, params.freight);
+  }
+
   const inq: any = inquiryRes.data ?? {};
   const cust: any = inq.customers ?? null;
   const customerJson = cust
@@ -285,6 +327,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       grand_total: grandTotal,
       total_cbm: totalCbm,
       below_moq_surcharge_percent: Number((gsRes.data as any)?.below_moq_surcharge_percent ?? 0.15),
+      freight: freightSnap,
     },
     entity_id: entityId,
     valid_until: validUntil,
@@ -340,8 +383,8 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-  meta?: { payment_terms?: string | null },
-): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number }; payment_terms?: string | null }> {
+  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean },
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any }; payment_terms?: string | null }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -349,11 +392,60 @@ export async function updateQuoteLineItems(
   const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
   const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
   const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
-  const totals = {
+
+  // Recompute freight using snapshot line data when caller sends new freight
+  // settings; preserve the prior value otherwise.
+  let freightSnap: any = undefined;
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'freight')) {
+    if (meta.freight && Number(meta.freight.rate || 0) > 0) {
+      const divisor = meta.freight.dim_divisor || 5000;
+      const freightLines: FreightLine[] = productsJson.map((p: any) => {
+        // Assembly lines aggregate dim kg from their stored components array.
+        if (p.is_assembly && Array.isArray(p.components)) {
+          let dimUnit = 0;
+          for (const c of p.components) {
+            const qpa = Number(c.quantity_per_assembly || 1);
+            dimUnit += dimKgPerUnit(c.width_inch, c.depth_inch, c.height_inch, divisor) * qpa;
+          }
+          return {
+            quantity: Number(p.quantity || 0),
+            unit_cbm: Number(p.unit_cbm || 0),
+            weight_kg: Number(p.weight_kg || 0),
+            dim_kg_per_unit_override: dimUnit,
+          };
+        }
+        return {
+          quantity: Number(p.quantity || 0),
+          unit_cbm: Number(p.unit_cbm || 0),
+          weight_kg: Number(p.weight_kg || 0),
+          width_inch: p.width_inch,
+          depth_inch: p.depth_inch,
+          height_inch: p.height_inch,
+        };
+      });
+      freightSnap = computeFreight(freightLines, meta.freight);
+    } else {
+      freightSnap = null; // explicit clear
+    }
+  }
+
+  // Fetch existing totals when we need to preserve freight (no new value supplied).
+  let existingFreight: any = undefined;
+  if (freightSnap === undefined) {
+    const { data: existing } = await (supabase as any)
+      .from('quote_snapshots')
+      .select('totals')
+      .eq('id', snapshotId)
+      .maybeSingle();
+    existingFreight = existing?.totals?.freight ?? null;
+  }
+
+  const totals: any = {
     sku_count: productsJson.length,
     total_qty: totalQty,
     grand_total: grandTotal,
     total_cbm: totalCbm,
+    freight: freightSnap !== undefined ? freightSnap : existingFreight,
   };
 
   const updatePayload: any = { products: productsJson, totals };

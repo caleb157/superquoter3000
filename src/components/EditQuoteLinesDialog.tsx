@@ -8,6 +8,8 @@ import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { FreightInput, FreightMode } from '@/lib/freight';
 
 type SnapshotLine = {
   product_id?: string | null;
@@ -29,7 +31,7 @@ type SnapshotLine = {
 type SavedPatch = {
   id: string;
   products: any[];
-  totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number };
+  totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any };
   payment_terms?: string | null;
 };
 
@@ -47,10 +49,14 @@ type Status = 'idle' | 'saving' | 'saved' | 'error';
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
   const [paymentTerms, setPaymentTerms] = useState<string>('');
+  const [freightMode, setFreightMode] = useState<FreightMode>('sea');
+  const [freightRate, setFreightRate] = useState<string>('');
+  const [dimDivisor, setDimDivisor] = useState<string>('5000');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const initialSerialRef = useRef<string>('');
   const initialPaymentTermsRef = useRef<string>('');
+  const initialFreightRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currency: string = snapshot?.currency || 'USD';
@@ -66,6 +72,14 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
     initialPaymentTermsRef.current = pt;
+    const f = snapshot?.totals?.freight ?? null;
+    const fm = (f?.mode === 'air' ? 'air' : 'sea') as FreightMode;
+    const fr = f?.rate != null ? String(f.rate) : '';
+    const fd = f?.dim_divisor != null ? String(f.dim_divisor) : '5000';
+    setFreightMode(fm);
+    setFreightRate(fr);
+    setDimDivisor(fd);
+    initialFreightRef.current = `${fm}|${fr}|${fd}`;
     setStatus('idle');
     setErrorMsg(null);
   }, [open, snapshot]);
@@ -80,10 +94,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     return { qty, grand, cbm, sku: lines.length };
   }, [lines]);
 
+  const freightSerial = `${freightMode}|${freightRate}|${dimDivisor}`;
   const dirty = useMemo(
     () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
-      || paymentTerms !== initialPaymentTermsRef.current,
-    [lines, paymentTerms],
+      || paymentTerms !== initialPaymentTermsRef.current
+      || freightSerial !== initialFreightRef.current,
+    [lines, paymentTerms, freightSerial],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
@@ -102,7 +118,11 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     setErrorMsg(null);
 
     const payload = lines.map(({ _key, ...rest }) => rest);
-    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms });
+    const freightRateNum = Number(freightRate || 0);
+    const freight: FreightInput | null = freightRateNum > 0
+      ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
+      : null;
+    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight });
 
     if (result.error) {
       setStatus('error');
@@ -114,6 +134,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
     initialPaymentTermsRef.current = paymentTerms;
+    initialFreightRef.current = freightSerial;
     setStatus('saved');
     toast.success('Quote updated');
 
@@ -222,6 +243,55 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             disabled={status === 'saving'}
           />
           <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
+        </div>
+
+        <div className="rounded-md border p-3 bg-card space-y-2">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Freight Estimate (Rough)</Label>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[10px] text-muted-foreground">Mode</Label>
+              <Select
+                value={freightMode}
+                onValueChange={(v) => { setFreightMode(v as FreightMode); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                disabled={status === 'saving'}
+              >
+                <SelectTrigger className="h-8 mt-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sea">Sea (per CBM)</SelectItem>
+                  <SelectItem value="air">Air (per kg)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">
+                Rate ({currency}/{freightMode === 'sea' ? 'CBM' : 'kg'})
+              </Label>
+              <Input
+                type="number" step="any" inputMode="decimal"
+                value={freightRate}
+                onChange={e => { setFreightRate(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                className="h-8 mt-1 text-xs text-right" placeholder="0"
+                disabled={status === 'saving'}
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">
+                {freightMode === 'air' ? 'DIM divisor' : '\u00A0'}
+              </Label>
+              <Input
+                type="number" step="any" inputMode="decimal"
+                value={dimDivisor}
+                onChange={e => { setDimDivisor(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                className="h-8 mt-1 text-xs text-right"
+                disabled={status === 'saving' || freightMode !== 'air'}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {freightMode === 'sea'
+              ? 'Total CBM × rate. Shown as a separate line on the customer quote.'
+              : 'Chargeable kg = max(actual kg, L×W×H cm ÷ divisor). Set rate to 0 to hide.'}
+          </p>
         </div>
 
         {status === 'error' && errorMsg && (
