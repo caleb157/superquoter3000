@@ -21,6 +21,7 @@ import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700',
