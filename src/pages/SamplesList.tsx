@@ -14,6 +14,7 @@ import { Plus, Package2, Search, Clock } from 'lucide-react';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { cn } from '@/lib/utils';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 type Sample = {
   id: string;
