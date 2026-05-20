@@ -70,6 +70,8 @@ export default function CustomerDetail() {
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  useKeyboardShortcuts({ onNewItem: () => setShowNewInquiry(true) });
+
   const fetchAll = async () => {
     if (!id) return;
     setLoading(true);
