@@ -390,13 +390,14 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     ? icBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / icBoxes.length
     : 0;
   const icCost = calc.calcICCostEstimate(icDims.ic_width, icDims.ic_depth, icDims.ic_height, avgIcCostPerSqIn);
-  const icVolume = calc.calcICVolumeCbm(icDims.ic_width, icDims.ic_depth, icDims.ic_height);
   const productsPerIc = cbm?.products_per_ic || 1;
 
   // Phase 3a: IC OD = IC ID + box offsets from box_data for the selected IC type.
   const icBoxOffsets = calc.getBoxOdOffsets(boxData, icType);
   const icOd = calc.calcIcOd(icDims.ic_width, icDims.ic_depth, icDims.ic_height, icBoxOffsets);
   const icOdVolumeCbm = calc.calcICVolumeCbm(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height);
+  // IC Volume displayed/persisted is the OD volume (used for MC layout and IC-only shipping).
+  const icVolume = icOdVolumeCbm;
 
   // Step 4: MC calcs with type-specific cost lookup
   const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
