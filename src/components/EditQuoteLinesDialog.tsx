@@ -72,6 +72,14 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
     initialPaymentTermsRef.current = pt;
+    const f = snapshot?.totals?.freight ?? null;
+    const fm = (f?.mode === 'air' ? 'air' : 'sea') as FreightMode;
+    const fr = f?.rate != null ? String(f.rate) : '';
+    const fd = f?.dim_divisor != null ? String(f.dim_divisor) : '5000';
+    setFreightMode(fm);
+    setFreightRate(fr);
+    setDimDivisor(fd);
+    initialFreightRef.current = `${fm}|${fr}|${fd}`;
     setStatus('idle');
     setErrorMsg(null);
   }, [open, snapshot]);
@@ -86,10 +94,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     return { qty, grand, cbm, sku: lines.length };
   }, [lines]);
 
+  const freightSerial = `${freightMode}|${freightRate}|${dimDivisor}`;
   const dirty = useMemo(
     () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
-      || paymentTerms !== initialPaymentTermsRef.current,
-    [lines, paymentTerms],
+      || paymentTerms !== initialPaymentTermsRef.current
+      || freightSerial !== initialFreightRef.current,
+    [lines, paymentTerms, freightSerial],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
