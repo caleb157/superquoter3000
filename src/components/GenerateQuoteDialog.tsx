@@ -197,12 +197,17 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     const linesToUse = lines ?? pendingLines ?? products.filter(p => selected.has(p.id)).map(p => ({
       id: p.id, name: p.name, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
     } as QuoteProductInput));
+    const freightRateNum = Number(freightRate || 0);
+    const freight: FreightInput | null = freightRateNum > 0
+      ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
+      : null;
     const result = await createQuoteSnapshot({
       inquiryId,
       selectedProducts: linesToUse,
       entityId,
       validUntil,
       currency,
+      freight,
     });
     setSaving(false);
     setHwOpen(false);
