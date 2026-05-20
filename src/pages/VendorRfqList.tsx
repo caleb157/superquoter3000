@@ -91,6 +91,14 @@ const VendorRfqList = () => {
     return m;
   }, [lineItems]);
 
+  const respAgg = useMemo(() => {
+    const m: Record<string, number> = {};
+    responses.forEach((r: any) => {
+      if (r.quoted_unit_price != null) m[r.vendor_rfq_id] = (m[r.vendor_rfq_id] || 0) + 1;
+    });
+    return m;
+  }, [responses]);
+
   const filtered = useMemo(() => {
     return rfqs.filter((r: any) => {
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
