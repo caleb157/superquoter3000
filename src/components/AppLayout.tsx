@@ -77,7 +77,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex h-12 items-center px-3 sm:px-4 gap-2 sm:gap-4">
-          <Link to="/" className="flex items-center gap-2 font-serif font-medium text-base tracking-tight shrink-0">
+          <Link to="/" className="flex items-center gap-2 font-display font-bold text-base uppercase tracking-tight shrink-0">
             <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
               <img src={hqLogo} alt="Product HQ" className="h-6 w-6 object-contain" />
             </span>
