@@ -171,6 +171,12 @@ export default function InquiryDetail() {
       packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
       auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
       local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
+      po_received_date: settingsDraft.po_received_date || null,
+      po_total_value_usd: settingsDraft.po_total_value_usd === '' || settingsDraft.po_total_value_usd == null ? null : Number(settingsDraft.po_total_value_usd),
+      payment_terms_deposit_pct: settingsDraft.payment_terms_deposit_pct === '' || settingsDraft.payment_terms_deposit_pct == null ? null : Number(settingsDraft.payment_terms_deposit_pct),
+      payment_terms_deposit_due_days: settingsDraft.payment_terms_deposit_due_days === '' || settingsDraft.payment_terms_deposit_due_days == null ? null : Number(settingsDraft.payment_terms_deposit_due_days),
+      payment_terms_balance_due_days: settingsDraft.payment_terms_balance_due_days === '' || settingsDraft.payment_terms_balance_due_days == null ? null : Number(settingsDraft.payment_terms_balance_due_days),
+      po_estimated_ship_date: settingsDraft.po_estimated_ship_date || null,
     };
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
