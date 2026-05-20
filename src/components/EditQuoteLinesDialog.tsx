@@ -31,7 +31,7 @@ type SnapshotLine = {
 type SavedPatch = {
   id: string;
   products: any[];
-  totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number };
+  totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any };
   payment_terms?: string | null;
 };
 
