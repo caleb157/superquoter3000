@@ -211,7 +211,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
   const productType = productTypes.find(pt => pt.id === product?.product_type_id);
 
   const packagingType = product?.packaging_type || 'ic_mc';
-  const [difficulties, setDifficulties] = useState<Array<{ name: string }>>([]);
+  const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor?: number }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
