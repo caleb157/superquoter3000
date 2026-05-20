@@ -118,7 +118,11 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     setErrorMsg(null);
 
     const payload = lines.map(({ _key, ...rest }) => rest);
-    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms });
+    const freightRateNum = Number(freightRate || 0);
+    const freight: FreightInput | null = freightRateNum > 0
+      ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
+      : null;
+    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight });
 
     if (result.error) {
       setStatus('error');
@@ -130,6 +134,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
     initialPaymentTermsRef.current = paymentTerms;
+    initialFreightRef.current = freightSerial;
     setStatus('saved');
     toast.success('Quote updated');
 
