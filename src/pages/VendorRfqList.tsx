@@ -205,7 +205,12 @@ const VendorRfqList = () => {
                           <TableCell className="text-xs text-right">{agg.count}</TableCell>
                           <TableCell className="text-xs text-right">{agg.estTotal > 0 ? fmt.inr(agg.estTotal) : '—'}</TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className={STATUS_COLORS[r.status] || ''} variant="secondary">{r.status}</Badge>
+                              {respAgg[r.id] > 0 && (
+                                <span className="text-[10px] text-muted-foreground">💬 {respAgg[r.id]}/{agg.count} priced</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-right text-muted-foreground">
                             {new Date(r.created_at).toLocaleDateString()}
