@@ -419,13 +419,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     onCheckedChange={(v) => toggleAll(!!v)}
                   />
                 </TableHead>
+                <TableHead className="text-xs w-10">Photo</TableHead>
                 <SortableHeader column="name" label="Name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
                 <TableHead className="text-xs">Costing</TableHead>
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
-                <SortableHeader column="updated" label="Updated" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
