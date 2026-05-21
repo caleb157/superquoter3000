@@ -14,6 +14,7 @@ import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
 
