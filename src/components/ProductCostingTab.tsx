@@ -21,6 +21,7 @@ import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
+import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
