@@ -264,9 +264,18 @@ const AssemblyDetail = () => {
                     onBlur={e => updateAssembly('hard_moq', e.target.value === '' ? null : parseInt(e.target.value))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Markup % <span className="text-primary">(overrides components)</span></label>
-                  <Input className="h-7 text-xs" type="number" step="1" defaultValue={(markupPercent * 100).toFixed(0)}
-                    onBlur={e => updateAssembly('markup_percent', (parseFloat(e.target.value) || 0) / 100)} />
+                  <label className="text-[10px] text-muted-foreground">Net Profit Margin % <span className="text-primary">(overrides components)</span></label>
+                  <Input className="h-7 text-xs" type="number" step="0.1"
+                    defaultValue={(calc.markupToNpm(markupPercent) * 100).toFixed(1)}
+                    key={`npm-asm-${markupPercent}`}
+                    onBlur={e => {
+                      const npmPct = parseFloat(e.target.value);
+                      if (!isFinite(npmPct) || npmPct < 0 || npmPct >= 100) {
+                        e.target.value = (calc.markupToNpm(markupPercent) * 100).toFixed(1);
+                        return;
+                      }
+                      updateAssembly('markup_percent', calc.npmToMarkup(npmPct / 100));
+                    }} />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
