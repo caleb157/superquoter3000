@@ -489,7 +489,11 @@ function CogsSection(props: MobileCostingProps) {
           });
           const isAuto = item.is_auto_calculated;
           return (
-            <Card key={item.id} className={`${item.include === 'No' ? 'opacity-50' : ''} ${isAuto ? 'border-blue-500/30' : ''}`}>
+            <Card key={item.id} className={cn(
+              item.include === 'No' && 'opacity-50',
+              isAuto && 'border-blue-500/30',
+              item.include === 'Review' && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-l-amber-500'
+            )}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <Select value={item.include || 'Yes'} onValueChange={v => updateCogsItem(item.id, 'include', v)}>
