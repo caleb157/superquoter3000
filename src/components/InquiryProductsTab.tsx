@@ -197,6 +197,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return sortItems(base, {
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
+      npm: (p) => p.markup_percent ?? 0,
     });
   }, [products, search, filter, sortItems]);
 
