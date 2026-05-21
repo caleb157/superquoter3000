@@ -493,7 +493,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
-                <TableHead className="text-xs">Costing</TableHead>
+                <SortableHeader column="costing" label="Costing" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
