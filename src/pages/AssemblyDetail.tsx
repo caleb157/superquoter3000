@@ -397,7 +397,7 @@ const AssemblyDetail = () => {
                 <span className="font-mono font-semibold">{fmt.usd(assemblyCost.unit_cost_usd)}</span>
               </div>
               <div>
-                <span className="text-muted-foreground block text-[10px]">Markup ({(markupPercent * 100).toFixed(0)}%)</span>
+                <span className="text-muted-foreground block text-[10px]">Margin ({(calc.markupToNpm(markupPercent) * 100).toFixed(1)}% NPM)</span>
                 <span className="font-mono font-semibold">{fmt.usd(assemblyCost.unit_price_usd - assemblyCost.unit_cost_usd)}</span>
               </div>
               <div>
