@@ -11,6 +11,7 @@ type Props = {
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
+  onBulkSetNpm?: () => void;
   onLogRfq?: () => void;
   onLogRfs?: () => void;
   onCopyToInquiry?: () => void;
