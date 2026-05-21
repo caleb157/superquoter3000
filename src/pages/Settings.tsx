@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
+import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
