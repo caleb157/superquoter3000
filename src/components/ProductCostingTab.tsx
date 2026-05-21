@@ -1615,7 +1615,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     const isAuto = item.is_auto_calculated;
                     const isSelected = selectedCogsIds.has(item.id);
                     return (
-                      <TableRow key={item.id} className={`${item.include === 'No' ? 'opacity-40' : ''} ${isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+                      <TableRow key={item.id} className={cn(
+                        item.include === 'No' && 'opacity-40',
+                        isAuto && 'bg-blue-50/50 dark:bg-blue-950/20',
+                        item.include === 'Review' && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500'
+                      )}>
                         <TableCell>
                           <Checkbox
                             checked={isSelected}
