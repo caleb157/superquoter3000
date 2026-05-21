@@ -1970,7 +1970,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   const unitCost = (item.man_hours_per_unit || 0) * rate;
                   const isAuto = item.is_auto_estimated;
                   return (
-                    <TableRow key={item.id} className={isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
+                    <TableRow key={item.id} className={cn(
+                      isAuto && 'bg-blue-50/50 dark:bg-blue-950/20',
+                      item.include === 'Review' && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500'
+                    )}>
                       <TableCell>
                         <Select value={item.include || 'Yes'} onValueChange={v => updateOverheadItem(item.id, 'include', v)}>
                           <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>
