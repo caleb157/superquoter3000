@@ -160,7 +160,10 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
                 {meta.letter}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">{meta.title}</div>
+                <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                  {meta.title}
+                  {s.hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
+                </div>
                 <div className="text-xs text-muted-foreground truncate">{s.metric}</div>
               </div>
               {s.done ? (
