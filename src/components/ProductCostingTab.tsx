@@ -557,35 +557,58 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   ]);
 
   // Step 5: Auto-populate finishing materials COGS
+  //  - Matches by chemical_price_id when set, falls back to category/name heuristic.
+  //  - Uses unit-aware pricing (price_per_unit_inr falls back to legacy price_per_litre_inr).
+  //  - Supports Wax (grams via surface area).
   useEffect(() => {
-    if (!dataLoaded || !product || !productType || ri <= 0 || cogsItems.length === 0) return;
+    if (!dataLoaded || !product || !productType || cogsItems.length === 0) return;
 
-    const colorPrice = chemicalPrices.find(c => c.category === 'Color')?.price_per_litre_inr || 0;
-    const sealerPrice = chemicalPrices.find(c => c.category === 'Sealer')?.price_per_litre_inr || 0;
-    const lacquerPrice = chemicalPrices.find(c => c.category === 'Lacquer' && c.name.includes('NC'))?.price_per_litre_inr ||
-                         chemicalPrices.find(c => c.category === 'Lacquer')?.price_per_litre_inr || 0;
+    const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
+    const unitOf = (c: any) => (c?.unit_type as string) || 'L';
+    const byId = (cid: string | null | undefined) => chemicalPrices.find(c => c.id === cid);
+    const byCategory = (cat: string, prefer?: (c: any) => boolean) => {
+      const matches = chemicalPrices.filter(c => c.category === cat);
+      if (prefer) return matches.find(prefer) || matches[0];
+      return matches[0];
+    };
 
-    const colorQty = calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood);
-    const sealerQty = calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood);
-    const lacquerQty = calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood);
+    const colorQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood) : 0;
+    const sealerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood) : 0;
+    const lacquerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood) : 0;
+    const waxGramsPerSqIn = Number((productType as any).finishing_wax_g_per_sqin ?? 0);
+    const waxQty = (calc as any).calcWaxGrams ? (calc as any).calcWaxGrams(w, d, h, waxGramsPerSqIn, percentWood) : 0;
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
 
     cogsItems.forEach(item => {
       if (!item.is_auto_calculated || item.cogs_type !== 'Finishing Materials') return;
-      const name = (item.component_name || '').toLowerCase();
-      // Sticky auto-fill: once either qty or price has a non-zero value, don't overwrite
-      // either field. This keeps the auto-filled values persistent when the user edits one.
       const hasQty = (Number(item.components_per_product) || 0) > 0;
       const hasPrice = (Number(item.unit_cost_inr) || 0) > 0;
       if (hasQty || hasPrice) return;
-      if (name.includes('color') || name.includes('stain')) {
-        autoUpdates.push({ id: item.id, components_per_product: colorQty, unit_cost_inr: colorPrice, units: 'L' });
-      } else if (name.includes('sealer')) {
-        autoUpdates.push({ id: item.id, components_per_product: sealerQty, unit_cost_inr: sealerPrice, units: 'L' });
-      } else if (name.includes('lacquer')) {
-        autoUpdates.push({ id: item.id, components_per_product: lacquerQty, unit_cost_inr: lacquerPrice, units: 'L' });
+
+      const linked = byId((item as any).chemical_price_id);
+      const name = (item.component_name || '').toLowerCase();
+      let cat: string | undefined = linked?.category;
+      if (!cat) {
+        if (name.includes('color') || name.includes('stain')) cat = 'Color';
+        else if (name.includes('sealer')) cat = 'Sealer';
+        else if (name.includes('lacquer')) cat = 'Lacquer';
+        else if (name.includes('wax')) cat = 'Wax';
       }
+      if (!cat) return;
+
+      const chem = linked || (cat === 'Lacquer'
+        ? byCategory('Lacquer', c => (c.name || '').includes('NC'))
+        : byCategory(cat));
+      const price = priceOf(chem);
+      const units = unitOf(chem);
+      let qty = 0;
+      if (cat === 'Color') qty = colorQty;
+      else if (cat === 'Sealer') qty = sealerQty;
+      else if (cat === 'Lacquer') qty = lacquerQty;
+      else if (cat === 'Wax') qty = waxQty;
+
+      autoUpdates.push({ id: item.id, components_per_product: qty, unit_cost_inr: price, units });
     });
 
     if (autoUpdates.length > 0) {
@@ -603,6 +626,61 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       });
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length, recalcTick]);
+
+  // Step 5b: Seed default finishing chemicals from product_type_default_chemicals
+  // Runs when the product's type is set. Creates a Finishing Materials row for each
+  // default chemical that isn't already present (matched by chemical_price_id, or by
+  // category for legacy unlinked rows). New rows are flagged is_auto_calculated so
+  // the Step 5 effect fills in qty/price on the next pass.
+  const seededTypeRef = useRef<string | null>(null);
+  useEffect(() => {
+    const typeId = product?.product_type_id;
+    if (!dataLoaded || !id || !typeId) return;
+    if (seededTypeRef.current === typeId) return;
+    seededTypeRef.current = typeId;
+    (async () => {
+      const { data: defaults } = await (supabase as any)
+        .from('product_type_default_chemicals')
+        .select('chemical_price_id, chemical_price:chemical_prices(id, name, category, unit_type, price_per_unit_inr, price_per_litre_inr)')
+        .eq('product_type_id', typeId);
+      if (!defaults || defaults.length === 0) return;
+
+      const existingChemIds = new Set(cogsItems.map(i => (i as any).chemical_price_id).filter(Boolean));
+      const existingCats = new Set(
+        cogsItems
+          .filter(i => i.cogs_type === 'Finishing Materials')
+          .map(i => {
+            const n = (i.component_name || '').toLowerCase();
+            if (n.includes('color') || n.includes('stain')) return 'Color';
+            if (n.includes('sealer')) return 'Sealer';
+            if (n.includes('lacquer')) return 'Lacquer';
+            if (n.includes('wax')) return 'Wax';
+            return null;
+          })
+          .filter(Boolean) as string[]
+      );
+
+      const baseSort = (cogsItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)) + 1;
+      let s = baseSort;
+      const rows = defaults
+        .filter((d: any) => d.chemical_price && !existingChemIds.has(d.chemical_price.id) && !existingCats.has(d.chemical_price.category))
+        .map((d: any) => ({
+          product_id: id,
+          cogs_type: 'Finishing Materials',
+          component_name: d.chemical_price.name,
+          chemical_price_id: d.chemical_price.id,
+          is_auto_calculated: true,
+          include: 'Yes',
+          units: d.chemical_price.unit_type || 'L',
+          components_per_product: 0,
+          unit_cost_inr: Number(d.chemical_price.price_per_unit_inr ?? d.chemical_price.price_per_litre_inr ?? 0),
+          sort_order: s++,
+        }));
+      if (rows.length === 0) return;
+      const { data: inserted } = await (supabase as any).from('cogs_items').insert(rows).select();
+      if (inserted) setCogsItems(prev => [...prev, ...inserted]);
+    })();
+  }, [dataLoaded, id, product?.product_type_id, cogsItems.length, recalcTick]);
 
   // Step 6: Auto-populate packaging COGS (IC Box, MC Box, Corrugate Wrap, Bubble Wrap)
   const wrapCreatingRef = useRef(false);
