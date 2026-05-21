@@ -1563,7 +1563,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
           <div className="flex items-center gap-2">
             <CollapsibleTrigger asChild>
-              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
+              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} hasReview={cogsHasReview} /></div>
             </CollapsibleTrigger>
             {sections.cogs && (
               <ProductChemicalsPicker
