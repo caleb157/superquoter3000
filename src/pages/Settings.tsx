@@ -439,13 +439,14 @@ const Settings = () => {
             tableName="product_types"
             data={productTypes} setData={setProductTypes}
             fetchData={() => supabase.from('product_types').select('*').order('name').then(({ data }) => data && setProductTypes(data))}
-            defaultRow={{ name: 'New Type', pkg_ic_add_per_side_in: 0.5, finishing_color_per_100ri: 0, finishing_sealer_l_per_100ri: 0, finishing_lacquer_per_100ri: 0, finishing_mh_per_100ri: 0, pkg_corrugate_bubble_rate_mh_per_cbm: 10.8, pkg_ic_rate_mh_per_cbm: 0, pkg_ic_mc_rate_mh_per_cbm: 0, default_percent_wood_for_finishing: 1.0 }}
+            defaultRow={{ name: 'New Type', pkg_ic_add_per_side_in: 0.5, finishing_color_per_100ri: 0, finishing_sealer_l_per_100ri: 0, finishing_lacquer_per_100ri: 0, finishing_wax_g_per_sqin: 0.1, finishing_mh_per_100ri: 0, pkg_corrugate_bubble_rate_mh_per_cbm: 10.8, pkg_ic_rate_mh_per_cbm: 0, pkg_ic_mc_rate_mh_per_cbm: 0, default_percent_wood_for_finishing: 1.0 }}
             columns={[
               { key: 'name', label: 'Name', width: '160px' },
               { key: 'finishing_mh_per_100ri', label: 'Finish MH/100RI', type: 'number', width: '110px' },
               { key: 'finishing_color_per_100ri', label: 'Color L/100RI', type: 'number', width: '100px' },
               { key: 'finishing_sealer_l_per_100ri', label: 'Sealer L/100RI', type: 'number', width: '110px' },
               { key: 'finishing_lacquer_per_100ri', label: 'Lacquer L/100RI', type: 'number', width: '110px' },
+              { key: 'finishing_wax_g_per_sqin', label: 'Wax g/sq.in', type: 'number', width: '100px' },
               { key: 'pkg_ic_add_per_side_in', label: 'IC Add/Side (in)', type: 'number', width: '110px' },
               { key: 'pkg_corrugate_bubble_rate_mh_per_cbm', label: 'Pkg Corr+Bub MH/CBM', type: 'number', width: '140px' },
               { key: 'pkg_ic_rate_mh_per_cbm', label: 'Pkg IC MH/CBM', type: 'number', width: '120px' },
