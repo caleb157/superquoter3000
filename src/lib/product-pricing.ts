@@ -208,19 +208,27 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
         }
         return item;
       }
-      // Finishing materials
+      // Finishing materials (unit-aware via chemical_price_id; legacy name match as fallback)
       if (type === 'Finishing Materials') {
-        if (name.includes('color') || name.includes('stain')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_color_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: colorPrice };
+        const linked = item.chemical_price_id ? chemById.get(item.chemical_price_id) : null;
+        const cat = (linked?.category || '').toLowerCase();
+        const useChem = (chem: any, qty: number) => ({ ...item, components_per_product: qty, unit_cost_inr: priceOf(chem), units: unitOf(chem) });
+
+        if (cat === 'wax' || (!linked && name.includes('wax'))) {
+          const grams = calc.calcWaxGrams(w, d, h, productType?.finishing_wax_g_per_sqin || 0, percentWood);
+          return useChem(linked || waxChem, grams);
         }
-        if (name.includes('sealer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: sealerPrice };
+        if (cat === 'color' || (!linked && (name.includes('color') || name.includes('stain')))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_color_per_100ri || 0, ri, percentWood);
+          return useChem(linked || colorChem, q);
         }
-        if (name.includes('lacquer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_lacquer_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: lacquerPrice };
+        if (cat === 'sealer' || (!linked && name.includes('sealer'))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
+          return useChem(linked || sealerChem, q);
+        }
+        if (cat === 'lacquer' || (!linked && name.includes('lacquer'))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_lacquer_per_100ri || 0, ri, percentWood);
+          return useChem(linked || lacquerChem, q);
         }
       }
       return item;
