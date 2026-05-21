@@ -41,10 +41,11 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
 
 const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
 
-const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
+const SectionHeader = ({ title, open, onToggle, badge, done, hasReview }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean }) => (
   <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
     <span className={`text-sm font-semibold flex-1 ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
+    {hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
     {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
   </button>
 );
