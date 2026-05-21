@@ -173,10 +173,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       const rows = data ?? [];
       setProducts(rows);
       if (rows.length > 0) {
-        const prices = await computeProductPriceAndCost(rows.map((p: any) => p.id));
+        const ids = rows.map((p: any) => p.id);
+        const [prices, cogsRes, ohRes] = await Promise.all([
+          computeProductPriceAndCost(ids),
+          supabase.from('cogs_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
+          supabase.from('overhead_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
+        ]);
         setLivePrices(prices);
+        const rset = new Set<string>();
+        (cogsRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+        (ohRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+        setReviewIds(rset);
       } else {
         setLivePrices({});
+        setReviewIds(new Set());
       }
     })();
   }, [inquiryId, refresh, refreshKey]);
