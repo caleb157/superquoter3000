@@ -501,7 +501,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </TableHeader>
             <TableBody>
               {filtered.map(p => {
-                const cb = costingBadge(p);
+                const cb = costingBadge(p, reviewIds.has(p.id));
                 return (
                   <TableRow key={p.id} className={cn(selected.has(p.id) && 'bg-muted/40')}>
                     <TableCell>
@@ -565,7 +565,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
             {filtered.map(p => {
-              const cb = costingBadge(p);
+              const cb = costingBadge(p, reviewIds.has(p.id));
               const isSelected = selected.has(p.id);
               return (
                 <Card
