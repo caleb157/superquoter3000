@@ -204,6 +204,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote' || (done > 0 && done < 5);
       }
       if (filter === 'sampling') return p.sample_stage === 'sampling';
+      if (filter === 'needs_review') return reviewIds.has(p.id);
       // Raw stage matches (from dashboard stage-pill links)
       if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
       if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
