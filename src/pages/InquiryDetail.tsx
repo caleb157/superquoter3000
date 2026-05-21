@@ -489,16 +489,25 @@ export default function InquiryDetail() {
                   </div>
                 )}
                 <div>
-                  <Label className="text-xs">Uniform markup % (overrides per product)</Label>
+                  <Label className="text-xs">Uniform NPM % (overrides per product)</Label>
                   <Input
-                    type="number" step="0.1" placeholder="Per-product default"
-                    value={settingsDraft?.markup_percent_override == null || settingsDraft?.markup_percent_override === '' ? '' : Number(settingsDraft.markup_percent_override) * 100}
-                    onChange={e => setSettingsDraft({
-                      ...settingsDraft,
-                      markup_percent_override: e.target.value === '' ? null : Number(e.target.value) / 100,
-                    })}
+                    type="number" step="0.1" placeholder="Per-product default" min={0} max={99.9}
+                    value={
+                      settingsDraft?.markup_percent_override == null || settingsDraft?.markup_percent_override === ''
+                        ? ''
+                        : (Number(settingsDraft.markup_percent_override) / (1 + Number(settingsDraft.markup_percent_override)) * 100).toFixed(1)
+                    }
+                    onChange={e => {
+                      const v = e.target.value;
+                      if (v === '') { setSettingsDraft({ ...settingsDraft, markup_percent_override: null }); return; }
+                      const npm = Number(v) / 100;
+                      if (!isFinite(npm) || npm < 0 || npm >= 1) return;
+                      const markup = npm >= 1 ? null : npm / (1 - npm);
+                      setSettingsDraft({ ...settingsDraft, markup_percent_override: markup });
+                    }}
                     className="h-9 mt-1"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">Net Profit Margin. Stored internally as markup multiplier.</p>
                 </div>
                 <div>
                   <Label className="text-xs">Shipping type override</Label>
