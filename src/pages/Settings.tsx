@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettings, CogsCategoriesSettings, LocalTransportSettings } from '@/components/Phase2Settings';
+import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefaultChemicalsEditor';
 
 // Generic editable table component
 function EditableTable<T extends { id: string }>({
