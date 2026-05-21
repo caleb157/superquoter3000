@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
+import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -268,7 +269,7 @@ type SectionId =
   | 'shipping' | 'box-data' | 'wrapping'
   | 'currencies' | 'finishing-difficulty'
   | 'raw-materials' | 'cogs-categories'
-  | 'local-transport';
+  | 'local-transport' | 'data-export';
 
 const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
   {
@@ -324,9 +325,15 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
       { id: 'box-data', label: 'Box prices' },
     ],
   },
+  {
+    label: 'Backups',
+    items: [
+      { id: 'data-export', label: 'Data export' },
+    ],
+  },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -375,6 +382,7 @@ const Settings = () => {
       case 'team': return <TeamManagementContent />;
       case 'currencies': return <CurrenciesSettings />;
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
+      case 'data-export': return <DataExportSection />;
       case 'local-transport': return <LocalTransportSettings />;
       case 'cogs-categories': return <CogsCategoriesSettings />;
       case 'raw-materials': return <RawMaterialCostsSettings />;
