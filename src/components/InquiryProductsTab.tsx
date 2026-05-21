@@ -435,6 +435,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
+      <BulkSetNpmDialog
+        open={bulkNpmOpen}
+        onOpenChange={setBulkNpmOpen}
+        selectedProducts={selectedProducts.map(p => ({ id: p.id, markup_percent: p.markup_percent }))}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+
       <BulkCostingUpdateDialog
         open={bulkCostingOpen}
         onOpenChange={setBulkCostingOpen}
