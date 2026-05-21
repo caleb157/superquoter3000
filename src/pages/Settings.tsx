@@ -324,9 +324,15 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
       { id: 'box-data', label: 'Box prices' },
     ],
   },
+  {
+    label: 'Backups',
+    items: [
+      { id: 'data-export', label: 'Data export' },
+    ],
+  },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
