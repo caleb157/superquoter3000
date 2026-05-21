@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-react';
+import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
@@ -35,6 +36,7 @@ export type MobileCostingProps = {
   employees: any[];
   globalSettings: any;
   hardwarePrices: any[];
+  chemicalPrices: any[];
 
   // derived metrics
   ri: number;
@@ -81,6 +83,7 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
   const {
     product, productTypes, cbm, cogsItems, nonUnitCogs, overheadItems,
     shippingItems, shippingTypes, employees, globalSettings, hardwarePrices,
+    chemicalPrices,
     ri, prePackCbm, finalUnitCbm, totalCbm,
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     totalDirectMhPerUnit, indirectOhPerMh, shippingPerUnit,
@@ -436,7 +439,12 @@ function CbmSection(props: MobileCostingProps) {
 
 // ===== Section C: COGS =====
 function CogsSection(props: MobileCostingProps) {
-  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices } = props;
+  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices, chemicalPrices } = props;
+
+  const refetchCogs = async () => {
+    const { data } = await (supabase as any).from('cogs_items').select('*').eq('product_id', productId).order('sort_order');
+    if (data) setCogsItems(data);
+  };
 
   const addRow = async () => {
     const { data } = await (supabase as any).from('cogs_items').insert({
@@ -456,6 +464,14 @@ function CogsSection(props: MobileCostingProps) {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <ProductChemicalsPicker
+          productId={productId}
+          chemicals={chemicalPrices}
+          cogsItems={cogsItems}
+          onChanged={refetchCogs}
+        />
+      </div>
       <div className="space-y-2">
         {cogsItems.map(item => {
           const costCalc = calc.calcCogsItemCost({
