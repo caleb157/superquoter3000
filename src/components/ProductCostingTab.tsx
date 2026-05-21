@@ -97,22 +97,38 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [selectedCogsIds, setSelectedCogsIds] = useState<Set<string>>(new Set());
   const toggle = (key: string) => setSections(s => ({ ...s, [key]: !(s as any)[key] }));
 
-  // Debounced save
+  // Debounced save — accumulates pending updates so rapid edits to different fields don't drop earlier ones
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
-  const saveProduct = useCallback((updates: any) => {
-    if (saveTimeout.current) clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(async () => {
-      if (!id) return;
-      const { error } = await (supabase as any).from('products').update(updates).eq('id', id);
-      if (error) toast.error('Save failed: ' + error.message);
-      else onProductUpdated?.();
-    }, 500);
+  const pendingUpdates = useRef<Record<string, any>>({});
+  const flushSave = useCallback(async () => {
+    if (!id) return;
+    const updates = pendingUpdates.current;
+    pendingUpdates.current = {};
+    if (saveTimeout.current) { clearTimeout(saveTimeout.current); saveTimeout.current = null; }
+    if (Object.keys(updates).length === 0) return;
+    const { error } = await (supabase as any).from('products').update(updates).eq('id', id);
+    if (error) toast.error('Save failed: ' + error.message);
+    else onProductUpdated?.();
   }, [id, onProductUpdated]);
+  const saveProduct = useCallback((updates: any, immediate = false) => {
+    pendingUpdates.current = { ...pendingUpdates.current, ...updates };
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    if (immediate) {
+      flushSave();
+    } else {
+      saveTimeout.current = setTimeout(flushSave, 500);
+    }
+  }, [flushSave]);
 
-  const updateProduct = (field: string, value: any) => {
+  const updateProduct = (field: string, value: any, immediate = false) => {
     setProduct((p: any) => ({ ...p, [field]: value }));
-    saveProduct({ [field]: value });
+    saveProduct({ [field]: value }, immediate);
   };
+
+  // Flush pending edits on unmount so leaving the page doesn't drop the last change
+  useEffect(() => {
+    return () => { flushSave(); };
+  }, [flushSave]);
 
   const saveCbm = useCallback((updates: any) => {
     if (!id) return;
