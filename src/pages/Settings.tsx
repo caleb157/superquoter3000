@@ -381,6 +381,7 @@ const Settings = () => {
       case 'team': return <TeamManagementContent />;
       case 'currencies': return <CurrenciesSettings />;
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
+      case 'data-export': return <DataExportSection />;
       case 'local-transport': return <LocalTransportSettings />;
       case 'cogs-categories': return <CogsCategoriesSettings />;
       case 'raw-materials': return <RawMaterialCostsSettings />;
