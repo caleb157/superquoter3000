@@ -36,6 +36,7 @@ export type MobileCostingProps = {
   employees: any[];
   globalSettings: any;
   hardwarePrices: any[];
+  chemicalPrices: any[];
 
   // derived metrics
   ri: number;
