@@ -2117,7 +2117,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <label key={c.key} className="flex items-center gap-1.5 text-xs">
                     <Checkbox
                       checked={product[c.key] || false}
-                      onCheckedChange={(v) => updateProduct(c.key, !!v)}
+                      onCheckedChange={(v) => updateProduct(c.key, !!v, true)}
                     />
                     {c.label}
                   </label>
