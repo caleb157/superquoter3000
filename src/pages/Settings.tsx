@@ -268,7 +268,7 @@ type SectionId =
   | 'shipping' | 'box-data' | 'wrapping'
   | 'currencies' | 'finishing-difficulty'
   | 'raw-materials' | 'cogs-categories'
-  | 'local-transport';
+  | 'local-transport' | 'data-export';
 
 const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
   {
