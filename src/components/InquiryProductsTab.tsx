@@ -45,7 +45,7 @@ type Product = {
 };
 
 type FilterKey =
-  | 'all' | 'needs_design' | 'in_costing' | 'sampling'
+  | 'all' | 'needs_design' | 'in_costing' | 'sampling' | 'needs_review'
   // raw stage filters (from dashboard stage-pill links)
   | 'need_design' | 'designed'
   | 'quoting' | 'ready_for_quote' | 'quoted';
@@ -55,6 +55,7 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'needs_design', label: 'Needs Design' },
   { key: 'in_costing', label: 'In Costing' },
   { key: 'sampling', label: 'Sampling' },
+  { key: 'needs_review', label: 'Needs Review' },
 ];
 
 const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
