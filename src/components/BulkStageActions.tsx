@@ -63,6 +63,9 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
       )}
+      {onBulkSetNpm && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkSetNpm}>Set NPM…</Button>
+      )}
       {onLogRfq && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onLogRfq}>Log RFQ</Button>
       )}
