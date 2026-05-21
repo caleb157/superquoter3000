@@ -464,6 +464,14 @@ function CogsSection(props: MobileCostingProps) {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <ProductChemicalsPicker
+          productId={productId}
+          chemicals={chemicalPrices}
+          cogsItems={cogsItems}
+          onChanged={refetchCogs}
+        />
+      </div>
       <div className="space-y-2">
         {cogsItems.map(item => {
           const costCalc = calc.calcCogsItemCost({
