@@ -65,7 +65,10 @@ const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
   quoted: 'Quoted',
 };
 
-function costingBadge(p: Product): { label: string; cls: string } {
+function costingBadge(p: Product, hasReview: boolean): { label: string; cls: string } {
+  if (hasReview) {
+    return { label: 'Needs Review', cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' };
+  }
   const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
   const done = flags.filter(Boolean).length;
   if (done === 5) {
@@ -88,6 +91,7 @@ type Props = {
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange, refreshKey = 0 }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
@@ -169,10 +173,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       const rows = data ?? [];
       setProducts(rows);
       if (rows.length > 0) {
-        const prices = await computeProductPriceAndCost(rows.map((p: any) => p.id));
+        const ids = rows.map((p: any) => p.id);
+        const [prices, cogsRes, ohRes] = await Promise.all([
+          computeProductPriceAndCost(ids),
+          supabase.from('cogs_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
+          supabase.from('overhead_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
+        ]);
         setLivePrices(prices);
+        const rset = new Set<string>();
+        (cogsRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+        (ohRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+        setReviewIds(rset);
       } else {
         setLivePrices({});
+        setReviewIds(new Set());
       }
     })();
   }, [inquiryId, refresh, refreshKey]);
@@ -198,8 +212,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
       npm: (p) => p.markup_percent ?? 0,
+      costing: (p) => {
+        if (reviewIds.has(p.id)) return 100;
+        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+        return flags.filter(Boolean).length;
+      },
     });
-  }, [products, search, filter, sortItems]);
+  }, [products, search, filter, sortItems, reviewIds]);
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
@@ -474,7 +493,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
-                <TableHead className="text-xs">Costing</TableHead>
+                <SortableHeader column="costing" label="Costing" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
@@ -482,7 +501,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </TableHeader>
             <TableBody>
               {filtered.map(p => {
-                const cb = costingBadge(p);
+                const cb = costingBadge(p, reviewIds.has(p.id));
                 return (
                   <TableRow key={p.id} className={cn(selected.has(p.id) && 'bg-muted/40')}>
                     <TableCell>
@@ -546,7 +565,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
             {filtered.map(p => {
-              const cb = costingBadge(p);
+              const cb = costingBadge(p, reviewIds.has(p.id));
               const isSelected = selected.has(p.id);
               return (
                 <Card
