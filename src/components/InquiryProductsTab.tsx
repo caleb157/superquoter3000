@@ -395,6 +395,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
+        onBulkSetNpm={() => setBulkNpmOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
