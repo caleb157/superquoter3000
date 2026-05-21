@@ -520,6 +520,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell className="text-xs text-right tabular-nums">
                       {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                     </TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {p.markup_percent && p.markup_percent > 0 ? `${(markupToNpm(p.markup_percent) * 100).toFixed(1)}%` : '—'}
+                    </TableCell>
                     <TableCell className="text-right">
                       <ConfirmDeleteButton
                         itemLabel={`product "${p.name}"`}
