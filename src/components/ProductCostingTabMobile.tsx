@@ -55,7 +55,7 @@ export type MobileCostingProps = {
   shipItem: any;
 
   // setters
-  updateProduct: (field: string, value: any) => void;
+  updateProduct: (field: string, value: any, immediate?: boolean) => void;
   updateCbm: (field: string, value: any) => void;
   updateCogsItem: (id: string, field: string, value: any) => void;
   updateOverheadItem: (id: string, field: string, value: any) => void;
