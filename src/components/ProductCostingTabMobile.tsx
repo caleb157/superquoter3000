@@ -55,7 +55,7 @@ export type MobileCostingProps = {
   shipItem: any;
 
   // setters
-  updateProduct: (field: string, value: any) => void;
+  updateProduct: (field: string, value: any, immediate?: boolean) => void;
   updateCbm: (field: string, value: any) => void;
   updateCogsItem: (id: string, field: string, value: any) => void;
   updateOverheadItem: (id: string, field: string, value: any) => void;
@@ -835,7 +835,7 @@ function SummarySection({ summary, exchangeRate, qty, markupPercent, updateProdu
             <label key={c.key} className="flex items-center gap-2 text-sm py-1">
               <Checkbox
                 checked={product[c.key] || false}
-                onCheckedChange={(v) => updateProduct(c.key, !!v)}
+                onCheckedChange={(v) => updateProduct(c.key, !!v, true)}
               />
               {c.label}
             </label>
