@@ -78,11 +78,15 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   _difficultiesCache = difficulties as any;
   _locationsCache = locations as any;
 
-  // Pre-compute global chemical lookups
-  const colorPrice = (chemicalPrices.find((c: any) => c.category === 'Color') as any)?.price_per_litre_inr || 0;
-  const sealerPrice = (chemicalPrices.find((c: any) => c.category === 'Sealer') as any)?.price_per_litre_inr || 0;
-  const lacquerPrice = (chemicalPrices.find((c: any) => c.category === 'Lacquer' && (c as any).name?.includes('NC')) as any)?.price_per_litre_inr ||
-                       (chemicalPrices.find((c: any) => c.category === 'Lacquer') as any)?.price_per_litre_inr || 0;
+  // Pre-compute chemical lookups (unit-aware, with legacy fallback)
+  const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
+  const unitOf = (c: any) => (c?.unit_type || 'L') as string;
+  const chemById = new Map<string, any>((chemicalPrices as any[]).map((c: any) => [c.id, c]));
+  const firstByCat = (cat: string) => (chemicalPrices as any[]).find((c: any) => c.category === cat);
+  const lacquerChem = (chemicalPrices as any[]).find((c: any) => c.category === 'Lacquer' && (c.name || '').includes('NC')) || firstByCat('Lacquer');
+  const colorChem = firstByCat('Color');
+  const sealerChem = firstByCat('Sealer');
+  const waxChem = firstByCat('Wax');
 
   for (const p of products as any[]) {
     const inq = p.customer_rfq_id ? inquiryById[p.customer_rfq_id] : null;
@@ -204,19 +208,27 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
         }
         return item;
       }
-      // Finishing materials
+      // Finishing materials (unit-aware via chemical_price_id; legacy name match as fallback)
       if (type === 'Finishing Materials') {
-        if (name.includes('color') || name.includes('stain')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_color_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: colorPrice };
+        const linked = item.chemical_price_id ? chemById.get(item.chemical_price_id) : null;
+        const cat = (linked?.category || '').toLowerCase();
+        const useChem = (chem: any, qty: number) => ({ ...item, components_per_product: qty, unit_cost_inr: priceOf(chem), units: unitOf(chem) });
+
+        if (cat === 'wax' || (!linked && name.includes('wax'))) {
+          const grams = calc.calcWaxGrams(w, d, h, productType?.finishing_wax_g_per_sqin || 0, percentWood);
+          return useChem(linked || waxChem, grams);
         }
-        if (name.includes('sealer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: sealerPrice };
+        if (cat === 'color' || (!linked && (name.includes('color') || name.includes('stain')))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_color_per_100ri || 0, ri, percentWood);
+          return useChem(linked || colorChem, q);
         }
-        if (name.includes('lacquer')) {
-          const qtyL = calc.calcFinishingMaterialQty(productType?.finishing_lacquer_per_100ri || 0, ri, percentWood);
-          return { ...item, components_per_product: qtyL, unit_cost_inr: lacquerPrice };
+        if (cat === 'sealer' || (!linked && name.includes('sealer'))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_sealer_l_per_100ri || 0, ri, percentWood);
+          return useChem(linked || sealerChem, q);
+        }
+        if (cat === 'lacquer' || (!linked && name.includes('lacquer'))) {
+          const q = calc.calcFinishingMaterialQty(productType?.finishing_lacquer_per_100ri || 0, ri, percentWood);
+          return useChem(linked || lacquerChem, q);
         }
       }
       return item;
