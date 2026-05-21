@@ -226,21 +226,27 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
-          price_per_litre_inr: number
+          price_per_litre_inr: number | null
+          price_per_unit_inr: number | null
+          unit_type: string
         }
         Insert: {
           category: string
           created_at?: string | null
           id?: string
           name: string
-          price_per_litre_inr: number
+          price_per_litre_inr?: number | null
+          price_per_unit_inr?: number | null
+          unit_type?: string
         }
         Update: {
           category?: string
           created_at?: string | null
           id?: string
           name?: string
-          price_per_litre_inr?: number
+          price_per_litre_inr?: number | null
+          price_per_unit_inr?: number | null
+          unit_type?: string
         }
         Relationships: []
       }
@@ -273,6 +279,7 @@ export type Database = {
       }
       cogs_items: {
         Row: {
+          chemical_price_id: string | null
           cogs_type: string
           component_name: string | null
           components_per_product: number | null
@@ -288,6 +295,7 @@ export type Database = {
           waste_factor: number | null
         }
         Insert: {
+          chemical_price_id?: string | null
           cogs_type: string
           component_name?: string | null
           components_per_product?: number | null
@@ -303,6 +311,7 @@ export type Database = {
           waste_factor?: number | null
         }
         Update: {
+          chemical_price_id?: string | null
           cogs_type?: string
           component_name?: string | null
           components_per_product?: number | null
@@ -318,6 +327,13 @@ export type Database = {
           waste_factor?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cogs_items_chemical_price_id_fkey"
+            columns: ["chemical_price_id"]
+            isOneToOne: false
+            referencedRelation: "chemical_prices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cogs_items_product_id_fkey"
             columns: ["product_id"]
@@ -1150,6 +1166,7 @@ export type Database = {
           finishing_lacquer_per_100ri: number | null
           finishing_mh_per_100ri: number | null
           finishing_sealer_l_per_100ri: number | null
+          finishing_wax_g_per_sqin: number | null
           id: string
           name: string
           pkg_corrugate_bubble_rate_mh_per_cbm: number | null
@@ -1164,6 +1181,7 @@ export type Database = {
           finishing_lacquer_per_100ri?: number | null
           finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
+          finishing_wax_g_per_sqin?: number | null
           id?: string
           name: string
           pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
@@ -1178,6 +1196,7 @@ export type Database = {
           finishing_lacquer_per_100ri?: number | null
           finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
+          finishing_wax_g_per_sqin?: number | null
           id?: string
           name?: string
           pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
