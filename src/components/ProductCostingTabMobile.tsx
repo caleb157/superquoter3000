@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-react';
+import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
