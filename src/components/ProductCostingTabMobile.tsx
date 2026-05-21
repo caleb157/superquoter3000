@@ -835,7 +835,7 @@ function SummarySection({ summary, exchangeRate, qty, markupPercent, updateProdu
             <label key={c.key} className="flex items-center gap-2 text-sm py-1">
               <Checkbox
                 checked={product[c.key] || false}
-                onCheckedChange={(v) => updateProduct(c.key, !!v)}
+                onCheckedChange={(v) => updateProduct(c.key, !!v, true)}
               />
               {c.label}
             </label>
