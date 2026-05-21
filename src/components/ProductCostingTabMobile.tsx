@@ -716,7 +716,11 @@ function OverheadSection(props: MobileCostingProps) {
           const unitCost = (item.man_hours_per_unit || 0) * rate;
           const isAuto = item.is_auto_estimated;
           return (
-            <Card key={item.id} className={`${item.include === 'No' ? 'opacity-50' : ''} ${isAuto ? 'border-blue-500/30' : ''}`}>
+            <Card key={item.id} className={cn(
+              item.include === 'No' && 'opacity-50',
+              isAuto && 'border-blue-500/30',
+              item.include === 'Review' && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-l-amber-500'
+            )}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold flex items-center gap-2">
