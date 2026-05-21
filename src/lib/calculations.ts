@@ -345,11 +345,32 @@ export function calcFinishingMaterialQty(
   return chemicalRate_per100ri * (ri / 100) * percentWood;
 }
 
+/**
+ * Surface area of a rectangular box in square inches. = 2(LW + LH + WH)
+ */
+export function calcSurfaceArea(w: number, d: number, h: number): number {
+  if (w <= 0 || d <= 0 || h <= 0) return 0;
+  return 2 * (w * d + w * h + d * h);
+}
+
+/**
+ * Wax quantity in grams = surface_area * grams_per_sqin * percent_wood.
+ * Only the wood surface gets waxed (matches per-chemical convention).
+ */
+export function calcWaxGrams(
+  w: number, d: number, h: number,
+  gramsPerSqIn: number,
+  percentWood: number,
+): number {
+  return calcSurfaceArea(w, d, h) * (gramsPerSqIn || 0) * (percentWood ?? 1);
+}
+
 // ============================================================
 // Difficulty Factor
 // ============================================================
 
 const DIFFICULTY_FACTORS: Record<string, number> = {
+  'Extremely Easy': 0.5,
   'Very Easy': 0.7,
   'Easy': 0.9,
   'Medium': 1.0,
