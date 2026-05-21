@@ -629,3 +629,26 @@ export function avgRateByDesignation(
   if (matching.length === 0) return 0;
   return matching.reduce((sum, e) => sum + e.hourly_rate_inr, 0) / matching.length;
 }
+
+// ============================================================
+// Net Profit Margin <-> Markup helpers
+// ============================================================
+
+/**
+ * Convert net profit margin (decimal, e.g. 0.20 for 20%) to markup multiplier (e.g. 0.25).
+ * markup = npm / (1 - npm)
+ */
+export function npmToMarkup(npm: number): number {
+  if (!isFinite(npm) || npm >= 1) return Infinity;
+  if (npm <= 0) return 0;
+  return npm / (1 - npm);
+}
+
+/**
+ * Convert markup multiplier (e.g. 0.25) to net profit margin (e.g. 0.20).
+ * npm = markup / (1 + markup)
+ */
+export function markupToNpm(markup: number): number {
+  if (!isFinite(markup) || markup <= 0) return 0;
+  return markup / (1 + markup);
+}

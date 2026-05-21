@@ -25,6 +25,8 @@ import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
+import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
+import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -106,6 +108,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
+  const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
@@ -194,6 +197,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return sortItems(base, {
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
+      npm: (p) => p.markup_percent ?? 0,
     });
   }, [products, search, filter, sortItems]);
 
@@ -392,6 +396,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onGenerateSamples={() => setBatchOpen(true)}
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
+        onBulkSetNpm={() => setBulkNpmOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
@@ -431,6 +436,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
+      <BulkSetNpmDialog
+        open={bulkNpmOpen}
+        onOpenChange={setBulkNpmOpen}
+        selectedProducts={selectedProducts.map(p => ({ id: p.id, markup_percent: p.markup_percent }))}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+
       <BulkCostingUpdateDialog
         open={bulkCostingOpen}
         onOpenChange={setBulkCostingOpen}
@@ -463,6 +476,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 <TableHead className="text-xs">Sample</TableHead>
                 <TableHead className="text-xs">Costing</TableHead>
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -506,6 +520,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {p.markup_percent && p.markup_percent > 0 ? `${(markupToNpm(p.markup_percent) * 100).toFixed(1)}%` : '—'}
                     </TableCell>
                     <TableCell className="text-right">
                       <ConfirmDeleteButton

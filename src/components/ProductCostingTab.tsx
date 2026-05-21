@@ -227,6 +227,14 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // Fetch all data
   useEffect(() => {
+    const KEY = 'seenMarkupToNpmNotice_2026_05';
+    if (typeof window !== 'undefined' && !localStorage.getItem(KEY)) {
+      toast.info('Markup input is now Net Profit Margin. The price is unchanged; only the number you enter changes. 25% markup = 20% NPM.', { duration: 8000 });
+      localStorage.setItem(KEY, '1');
+    }
+  }, []);
+
+  useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
       const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes] = await Promise.all([
@@ -1975,10 +1983,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               {/* Pricing */}
               <div className="grid grid-cols-4 gap-3 border-t pt-3">
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Markup %</label>
-                  <Input className="h-7 text-xs" type="number"
-                    defaultValue={(markupPercent * 100).toFixed(0)}
-                    onBlur={e => updateProduct('markup_percent', Number(e.target.value) / 100)} />
+                  <label className="text-[10px] text-muted-foreground">Net Profit Margin %</label>
+                  <Input className="h-7 text-xs" type="number" step="0.1"
+                    defaultValue={(calc.markupToNpm(markupPercent) * 100).toFixed(1)}
+                    key={`npm-${markupPercent}`}
+                    onBlur={e => {
+                      const npmPct = Number(e.target.value);
+                      if (!isFinite(npmPct) || npmPct < 0 || npmPct >= 100) {
+                        e.target.value = (calc.markupToNpm(markupPercent) * 100).toFixed(1);
+                        toast.error('Enter a value between 0 and 99.9');
+                        return;
+                      }
+                      updateProduct('markup_percent', calc.npmToMarkup(npmPct / 100));
+                    }} />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Unit Price (₹)</label>

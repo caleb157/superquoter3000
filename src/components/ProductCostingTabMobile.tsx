@@ -13,6 +13,7 @@ import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
@@ -793,10 +794,19 @@ function SummarySection({ summary, exchangeRate, qty, markupPercent, updateProdu
         </div>
       </div>
 
-      <Field label="Markup %">
-        <Input className="h-10" type="number"
-          defaultValue={(markupPercent * 100).toFixed(0)}
-          onBlur={e => updateProduct('markup_percent', Number(e.target.value) / 100)} />
+      <Field label="Net Profit Margin %">
+        <Input className="h-10" type="number" step="0.1"
+          defaultValue={(markupToNpm(markupPercent) * 100).toFixed(1)}
+          key={`npm-m-${markupPercent}`}
+          onBlur={e => {
+            const npmPct = Number(e.target.value);
+            if (!isFinite(npmPct) || npmPct < 0 || npmPct >= 100) {
+              e.target.value = (markupToNpm(markupPercent) * 100).toFixed(1);
+              toast.error('Enter 0–99.9');
+              return;
+            }
+            updateProduct('markup_percent', npmToMarkup(npmPct / 100));
+          }} />
       </Field>
 
       <div className="grid grid-cols-2 gap-2">

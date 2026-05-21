@@ -11,6 +11,7 @@ type Props = {
   onGenerateSamples: () => void;
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
+  onBulkSetNpm?: () => void;
   onLogRfq?: () => void;
   onLogRfs?: () => void;
   onCopyToInquiry?: () => void;
@@ -34,7 +35,7 @@ function StageDropdown({ track, label, onSet }: { track: StageTrack; label: stri
   );
 }
 
-export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity, onLogRfq, onLogRfs, onCopyToInquiry }: Props) {
+export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQuote, onGenerateSamples, onBulkCosting, onBulkQuantity, onBulkSetNpm, onLogRfq, onLogRfs, onCopyToInquiry }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
   return (
@@ -61,6 +62,9 @@ export function BulkStageActions({ selectedIds, onClear, onSetStage, onGenerateQ
       )}
       {onBulkCosting && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkCosting}>Bulk update costing</Button>
+      )}
+      {onBulkSetNpm && (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onBulkSetNpm}>Set NPM…</Button>
       )}
       {onLogRfq && (
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onLogRfq}>Log RFQ</Button>
