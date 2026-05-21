@@ -83,6 +83,7 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
   const {
     product, productTypes, cbm, cogsItems, nonUnitCogs, overheadItems,
     shippingItems, shippingTypes, employees, globalSettings, hardwarePrices,
+    chemicalPrices,
     ri, prePackCbm, finalUnitCbm, totalCbm,
     cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
     totalDirectMhPerUnit, indirectOhPerMh, shippingPerUnit,
