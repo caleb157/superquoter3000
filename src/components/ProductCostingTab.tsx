@@ -944,6 +944,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       return sum + c.unit_cost;
     }, 0);
 
+  const cogsHasReview = cogsItems.some(i => i.include === 'Review');
+  const overheadHasReview = overheadItems.some(i => i.include === 'Review');
+
   const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
     nonUnitCogs.map(i => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })),
     qty
