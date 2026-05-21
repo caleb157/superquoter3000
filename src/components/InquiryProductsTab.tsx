@@ -359,9 +359,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             <Button
               key={c.key}
               variant={filter === c.key ? 'secondary' : 'ghost'}
-              size="sm" className="h-8 text-xs"
+              size="sm" className="h-8 text-xs gap-1"
               onClick={() => { setFilter(c.key); onFilterChange(c.key); }}
-            >{c.label}</Button>
+            >
+              {c.label}
+              {c.key === 'needs_review' && reviewIds.size > 0 && (
+                <Badge variant="destructive" className="ml-1 h-4 px-1.5 text-[10px]">
+                  {reviewIds.size}
+                </Badge>
+              )}
+            </Button>
           ))}
           {RAW_STAGE_LABELS[filter] && (
             <Button
