@@ -65,7 +65,10 @@ const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
   quoted: 'Quoted',
 };
 
-function costingBadge(p: Product): { label: string; cls: string } {
+function costingBadge(p: Product, hasReview: boolean): { label: string; cls: string } {
+  if (hasReview) {
+    return { label: 'Needs Review', cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' };
+  }
   const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
   const done = flags.filter(Boolean).length;
   if (done === 5) {
