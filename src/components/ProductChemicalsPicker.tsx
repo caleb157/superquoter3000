@@ -92,7 +92,9 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
             include: 'Yes',
             units: chem.unit_type || 'L',
             components_per_product: 0,
-            unit_cost_inr: Number(chem.price_per_unit_inr ?? chem.price_per_litre_inr ?? 0),
+            // Leave qty + price at 0 so the costing tab's auto-fill effect
+            // populates both (qty from surface area / RI, price from chem table).
+            unit_cost_inr: 0,
             sort_order: baseSort,
           });
           if (error) throw error;
