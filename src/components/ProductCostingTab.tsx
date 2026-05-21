@@ -627,6 +627,61 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     }
   }, [dataLoaded, product?.product_type_id, w, d, h, percentWood, productTypes.length, chemicalPrices.length, cogsItems.length, recalcTick]);
 
+  // Step 5b: Seed default finishing chemicals from product_type_default_chemicals
+  // Runs when the product's type is set. Creates a Finishing Materials row for each
+  // default chemical that isn't already present (matched by chemical_price_id, or by
+  // category for legacy unlinked rows). New rows are flagged is_auto_calculated so
+  // the Step 5 effect fills in qty/price on the next pass.
+  const seededTypeRef = useRef<string | null>(null);
+  useEffect(() => {
+    const typeId = product?.product_type_id;
+    if (!dataLoaded || !id || !typeId) return;
+    if (seededTypeRef.current === typeId) return;
+    seededTypeRef.current = typeId;
+    (async () => {
+      const { data: defaults } = await (supabase as any)
+        .from('product_type_default_chemicals')
+        .select('chemical_price_id, chemical_price:chemical_prices(id, name, category, unit_type, price_per_unit_inr, price_per_litre_inr)')
+        .eq('product_type_id', typeId);
+      if (!defaults || defaults.length === 0) return;
+
+      const existingChemIds = new Set(cogsItems.map(i => (i as any).chemical_price_id).filter(Boolean));
+      const existingCats = new Set(
+        cogsItems
+          .filter(i => i.cogs_type === 'Finishing Materials')
+          .map(i => {
+            const n = (i.component_name || '').toLowerCase();
+            if (n.includes('color') || n.includes('stain')) return 'Color';
+            if (n.includes('sealer')) return 'Sealer';
+            if (n.includes('lacquer')) return 'Lacquer';
+            if (n.includes('wax')) return 'Wax';
+            return null;
+          })
+          .filter(Boolean) as string[]
+      );
+
+      const baseSort = (cogsItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)) + 1;
+      let s = baseSort;
+      const rows = defaults
+        .filter((d: any) => d.chemical_price && !existingChemIds.has(d.chemical_price.id) && !existingCats.has(d.chemical_price.category))
+        .map((d: any) => ({
+          product_id: id,
+          cogs_type: 'Finishing Materials',
+          component_name: d.chemical_price.name,
+          chemical_price_id: d.chemical_price.id,
+          is_auto_calculated: true,
+          include: 'Yes',
+          units: d.chemical_price.unit_type || 'L',
+          components_per_product: 0,
+          unit_cost_inr: Number(d.chemical_price.price_per_unit_inr ?? d.chemical_price.price_per_litre_inr ?? 0),
+          sort_order: s++,
+        }));
+      if (rows.length === 0) return;
+      const { data: inserted } = await (supabase as any).from('cogs_items').insert(rows).select();
+      if (inserted) setCogsItems(prev => [...prev, ...inserted]);
+    })();
+  }, [dataLoaded, id, product?.product_type_id, cogsItems.length, recalcTick]);
+
   // Step 6: Auto-populate packaging COGS (IC Box, MC Box, Corrugate Wrap, Bubble Wrap)
   const wrapCreatingRef = useRef(false);
   useEffect(() => {
