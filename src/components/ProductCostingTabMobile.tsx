@@ -439,7 +439,12 @@ function CbmSection(props: MobileCostingProps) {
 
 // ===== Section C: COGS =====
 function CogsSection(props: MobileCostingProps) {
-  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices } = props;
+  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices, chemicalPrices } = props;
+
+  const refetchCogs = async () => {
+    const { data } = await (supabase as any).from('cogs_items').select('*').eq('product_id', productId).order('sort_order');
+    if (data) setCogsItems(data);
+  };
 
   const addRow = async () => {
     const { data } = await (supabase as any).from('cogs_items').insert({
