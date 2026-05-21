@@ -212,8 +212,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
       npm: (p) => p.markup_percent ?? 0,
+      costing: (p) => {
+        if (reviewIds.has(p.id)) return 100;
+        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
+        return flags.filter(Boolean).length;
+      },
     });
-  }, [products, search, filter, sortItems]);
+  }, [products, search, filter, sortItems, reviewIds]);
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
