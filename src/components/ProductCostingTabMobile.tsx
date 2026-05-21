@@ -100,12 +100,15 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
   const margin = summary.npm || 0;
   const showCostLine = Math.abs(summary.unit_price_usd - summary.product_cost_per_unit_usd) > 0.01;
 
-  const sections: Array<{ key: SectionKey; metric: string; done: boolean }> = [
+  const cogsHasReview = cogsItems.some((i: any) => i.include === 'Review');
+  const overheadHasReview = overheadItems.some((i: any) => i.include === 'Review');
+
+  const sections: Array<{ key: SectionKey; metric: string; done: boolean; hasReview?: boolean }> = [
     { key: 'info', metric: `RI ${ri.toFixed(1)}″ · ${fmt.cbm(prePackCbm)}`, done: false },
     { key: 'cbm', metric: `Unit ${fmt.cbm(finalUnitCbm)} · Total ${fmt.cbm(totalCbm)}`, done: !!product.cbm_done },
-    { key: 'cogs', metric: `${fmt.inr(cogsPerUnit)}/unit · ${cogsItems.length} items`, done: !!product.cogs_done },
+    { key: 'cogs', metric: `${fmt.inr(cogsPerUnit)}/unit · ${cogsItems.length} items`, done: !!product.cogs_done, hasReview: cogsHasReview },
     { key: 'nonunit', metric: `${fmt.inr(nonUnitCogsPerUnit)}/unit · ${nonUnitCogs.length} items`, done: !!product.cogs_done },
-    { key: 'overhead', metric: `${fmt.inr(directOhPerUnit)}/unit`, done: !!product.overhead_done },
+    { key: 'overhead', metric: `${fmt.inr(directOhPerUnit)}/unit`, done: !!product.overhead_done, hasReview: overheadHasReview },
     { key: 'indirect', metric: `${fmt.inr(indirectOhPerUnit)}/unit`, done: !!product.overhead_done },
     { key: 'shipping', metric: `${shipType?.name ?? '—'} · ${fmt.inr(shippingPerUnit)}/unit`, done: !!product.shipping_done },
     { key: 'summary', metric: `NPM ${fmt.pct(margin)}`, done: !!product.revenue_done },
