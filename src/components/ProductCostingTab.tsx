@@ -21,6 +21,7 @@ import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
+import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
@@ -1554,9 +1555,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
         {/* Section C: COGS */}
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
-          <CollapsibleTrigger asChild>
-            <div><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
-          </CollapsibleTrigger>
+          <div className="flex items-center gap-2">
+            <CollapsibleTrigger asChild>
+              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
+            </CollapsibleTrigger>
+            {sections.cogs && (
+              <ProductChemicalsPicker
+                productId={id!}
+                chemicals={chemicalPrices}
+                cogsItems={cogsItems}
+                onChanged={() => {
+                  (supabase as any).from('cogs_items').select('*').eq('product_id', id).order('sort_order')
+                    .then(({ data }: any) => { if (data) setCogsItems(data); });
+                }}
+              />
+            )}
+          </div>
           <CollapsibleContent>
             <div className="overflow-auto">
               <Table className="dense-table">
