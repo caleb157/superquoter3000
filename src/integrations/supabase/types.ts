@@ -1158,6 +1158,39 @@ export type Database = {
           },
         ]
       }
+      product_type_default_chemicals: {
+        Row: {
+          chemical_price_id: string
+          created_at: string
+          product_type_id: string
+        }
+        Insert: {
+          chemical_price_id: string
+          created_at?: string
+          product_type_id: string
+        }
+        Update: {
+          chemical_price_id?: string
+          created_at?: string
+          product_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_type_default_chemicals_chemical_price_id_fkey"
+            columns: ["chemical_price_id"]
+            isOneToOne: false
+            referencedRelation: "chemical_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_type_default_chemicals_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_types: {
         Row: {
           created_at: string | null
