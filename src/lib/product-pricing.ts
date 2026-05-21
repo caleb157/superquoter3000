@@ -78,11 +78,15 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   _difficultiesCache = difficulties as any;
   _locationsCache = locations as any;
 
-  // Pre-compute global chemical lookups
-  const colorPrice = (chemicalPrices.find((c: any) => c.category === 'Color') as any)?.price_per_litre_inr || 0;
-  const sealerPrice = (chemicalPrices.find((c: any) => c.category === 'Sealer') as any)?.price_per_litre_inr || 0;
-  const lacquerPrice = (chemicalPrices.find((c: any) => c.category === 'Lacquer' && (c as any).name?.includes('NC')) as any)?.price_per_litre_inr ||
-                       (chemicalPrices.find((c: any) => c.category === 'Lacquer') as any)?.price_per_litre_inr || 0;
+  // Pre-compute chemical lookups (unit-aware, with legacy fallback)
+  const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
+  const unitOf = (c: any) => (c?.unit_type || 'L') as string;
+  const chemById = new Map<string, any>((chemicalPrices as any[]).map((c: any) => [c.id, c]));
+  const firstByCat = (cat: string) => (chemicalPrices as any[]).find((c: any) => c.category === cat);
+  const lacquerChem = (chemicalPrices as any[]).find((c: any) => c.category === 'Lacquer' && (c.name || '').includes('NC')) || firstByCat('Lacquer');
+  const colorChem = firstByCat('Color');
+  const sealerChem = firstByCat('Sealer');
+  const waxChem = firstByCat('Wax');
 
   for (const p of products as any[]) {
     const inq = p.customer_rfq_id ? inquiryById[p.customer_rfq_id] : null;
