@@ -227,6 +227,14 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // Fetch all data
   useEffect(() => {
+    const KEY = 'seenMarkupToNpmNotice_2026_05';
+    if (typeof window !== 'undefined' && !localStorage.getItem(KEY)) {
+      toast.info('Markup input is now Net Profit Margin. The price is unchanged; only the number you enter changes. 25% markup = 20% NPM.', { duration: 8000 });
+      localStorage.setItem(KEY, '1');
+    }
+  }, []);
+
+  useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
       const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes] = await Promise.all([
