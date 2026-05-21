@@ -15,6 +15,7 @@ import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
