@@ -499,11 +499,12 @@ const Settings = () => {
             tableName="chemical_prices"
             data={chemicals} setData={setChemicals}
             fetchData={() => supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data))}
-            defaultRow={{ name: 'New Chemical', price_per_litre_inr: 0, category: 'Color' }}
+            defaultRow={{ name: 'New Chemical', price_per_unit_inr: 0, unit_type: 'L', category: 'Color' }}
             columns={[
               { key: 'name', label: 'Name', width: '200px' },
-              { key: 'price_per_litre_inr', label: 'Price/L (₹)', type: 'number', width: '110px' },
               { key: 'category', label: 'Category', width: '120px' },
+              { key: 'unit_type', label: 'Unit', width: '80px' },
+              { key: 'price_per_unit_inr', label: 'Price/Unit (₹)', type: 'number', width: '120px' },
             ]}
           />
         );
