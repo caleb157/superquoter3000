@@ -1041,6 +1041,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         employees={employees}
         globalSettings={globalSettings}
         hardwarePrices={hardwarePrices}
+        chemicalPrices={chemicalPrices}
         ri={ri}
         prePackCbm={prePackCbm}
         finalUnitCbm={finalUnitCbm}
