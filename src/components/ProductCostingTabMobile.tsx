@@ -14,6 +14,7 @@ import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
 
@@ -99,12 +100,15 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
   const margin = summary.npm || 0;
   const showCostLine = Math.abs(summary.unit_price_usd - summary.product_cost_per_unit_usd) > 0.01;
 
-  const sections: Array<{ key: SectionKey; metric: string; done: boolean }> = [
+  const cogsHasReview = cogsItems.some((i: any) => i.include === 'Review');
+  const overheadHasReview = overheadItems.some((i: any) => i.include === 'Review');
+
+  const sections: Array<{ key: SectionKey; metric: string; done: boolean; hasReview?: boolean }> = [
     { key: 'info', metric: `RI ${ri.toFixed(1)}″ · ${fmt.cbm(prePackCbm)}`, done: false },
     { key: 'cbm', metric: `Unit ${fmt.cbm(finalUnitCbm)} · Total ${fmt.cbm(totalCbm)}`, done: !!product.cbm_done },
-    { key: 'cogs', metric: `${fmt.inr(cogsPerUnit)}/unit · ${cogsItems.length} items`, done: !!product.cogs_done },
+    { key: 'cogs', metric: `${fmt.inr(cogsPerUnit)}/unit · ${cogsItems.length} items`, done: !!product.cogs_done, hasReview: cogsHasReview },
     { key: 'nonunit', metric: `${fmt.inr(nonUnitCogsPerUnit)}/unit · ${nonUnitCogs.length} items`, done: !!product.cogs_done },
-    { key: 'overhead', metric: `${fmt.inr(directOhPerUnit)}/unit`, done: !!product.overhead_done },
+    { key: 'overhead', metric: `${fmt.inr(directOhPerUnit)}/unit`, done: !!product.overhead_done, hasReview: overheadHasReview },
     { key: 'indirect', metric: `${fmt.inr(indirectOhPerUnit)}/unit`, done: !!product.overhead_done },
     { key: 'shipping', metric: `${shipType?.name ?? '—'} · ${fmt.inr(shippingPerUnit)}/unit`, done: !!product.shipping_done },
     { key: 'summary', metric: `NPM ${fmt.pct(margin)}`, done: !!product.revenue_done },
@@ -156,7 +160,10 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
                 {meta.letter}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">{meta.title}</div>
+                <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                  {meta.title}
+                  {s.hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
+                </div>
                 <div className="text-xs text-muted-foreground truncate">{s.metric}</div>
               </div>
               {s.done ? (
@@ -482,7 +489,11 @@ function CogsSection(props: MobileCostingProps) {
           });
           const isAuto = item.is_auto_calculated;
           return (
-            <Card key={item.id} className={`${item.include === 'No' ? 'opacity-50' : ''} ${isAuto ? 'border-blue-500/30' : ''}`}>
+            <Card key={item.id} className={cn(
+              item.include === 'No' && 'opacity-50',
+              isAuto && 'border-blue-500/30',
+              item.include === 'Review' && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-l-amber-500'
+            )}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <Select value={item.include || 'Yes'} onValueChange={v => updateCogsItem(item.id, 'include', v)}>
@@ -705,7 +716,11 @@ function OverheadSection(props: MobileCostingProps) {
           const unitCost = (item.man_hours_per_unit || 0) * rate;
           const isAuto = item.is_auto_estimated;
           return (
-            <Card key={item.id} className={`${item.include === 'No' ? 'opacity-50' : ''} ${isAuto ? 'border-blue-500/30' : ''}`}>
+            <Card key={item.id} className={cn(
+              item.include === 'No' && 'opacity-50',
+              isAuto && 'border-blue-500/30',
+              item.include === 'Review' && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-l-amber-500'
+            )}>
               <CardContent className="p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold flex items-center gap-2">

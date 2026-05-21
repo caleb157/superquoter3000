@@ -15,6 +15,7 @@ import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
@@ -40,10 +41,11 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
 
 const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
 
-const SectionHeader = ({ title, open, onToggle, badge, done }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean }) => (
+const SectionHeader = ({ title, open, onToggle, badge, done, hasReview }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean }) => (
   <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
     <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
     <span className={`text-sm font-semibold flex-1 ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
+    {hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
     {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
   </button>
 );
@@ -942,6 +944,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       return sum + c.unit_cost;
     }, 0);
 
+  const cogsHasReview = cogsItems.some(i => i.include === 'Review');
+  const overheadHasReview = overheadItems.some(i => i.include === 'Review');
+
   const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
     nonUnitCogs.map(i => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })),
     qty
@@ -1558,7 +1563,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
           <div className="flex items-center gap-2">
             <CollapsibleTrigger asChild>
-              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} /></div>
+              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} hasReview={cogsHasReview} /></div>
             </CollapsibleTrigger>
             {sections.cogs && (
               <ProductChemicalsPicker
@@ -1610,7 +1615,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     const isAuto = item.is_auto_calculated;
                     const isSelected = selectedCogsIds.has(item.id);
                     return (
-                      <TableRow key={item.id} className={`${item.include === 'No' ? 'opacity-40' : ''} ${isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+                      <TableRow key={item.id} className={cn(
+                        item.include === 'No' && 'opacity-40',
+                        isAuto && 'bg-blue-50/50 dark:bg-blue-950/20',
+                        item.include === 'Review' && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500'
+                      )}>
                         <TableCell>
                           <Checkbox
                             checked={isSelected}
@@ -1941,7 +1950,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section E: Direct Overhead */}
         <Collapsible open={sections.overhead} onOpenChange={() => toggle('overhead')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} /></div>
+            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} hasReview={overheadHasReview} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
@@ -1961,7 +1970,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   const unitCost = (item.man_hours_per_unit || 0) * rate;
                   const isAuto = item.is_auto_estimated;
                   return (
-                    <TableRow key={item.id} className={isAuto ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}>
+                    <TableRow key={item.id} className={cn(
+                      isAuto && 'bg-blue-50/50 dark:bg-blue-950/20',
+                      item.include === 'Review' && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500'
+                    )}>
                       <TableCell>
                         <Select value={item.include || 'Yes'} onValueChange={v => updateOverheadItem(item.id, 'include', v)}>
                           <SelectTrigger className="h-6 text-[10px] w-14 border-none"><SelectValue /></SelectTrigger>

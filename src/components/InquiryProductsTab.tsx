@@ -45,7 +45,7 @@ type Product = {
 };
 
 type FilterKey =
-  | 'all' | 'needs_design' | 'in_costing' | 'sampling'
+  | 'all' | 'needs_design' | 'in_costing' | 'sampling' | 'needs_review'
   // raw stage filters (from dashboard stage-pill links)
   | 'need_design' | 'designed'
   | 'quoting' | 'ready_for_quote' | 'quoted';
@@ -55,6 +55,7 @@ const FILTER_CHIPS: { key: FilterKey; label: string }[] = [
   { key: 'needs_design', label: 'Needs Design' },
   { key: 'in_costing', label: 'In Costing' },
   { key: 'sampling', label: 'Sampling' },
+  { key: 'needs_review', label: 'Needs Review' },
 ];
 
 const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
@@ -203,6 +204,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         return p.quote_stage === 'quoting' || p.quote_stage === 'ready_for_quote' || (done > 0 && done < 5);
       }
       if (filter === 'sampling') return p.sample_stage === 'sampling';
+      if (filter === 'needs_review') return reviewIds.has(p.id);
       // Raw stage matches (from dashboard stage-pill links)
       if (filter === 'need_design' || filter === 'designed') return p.design_stage === filter;
       if (filter === 'quoting' || filter === 'ready_for_quote' || filter === 'quoted') return p.quote_stage === filter;
@@ -357,9 +359,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             <Button
               key={c.key}
               variant={filter === c.key ? 'secondary' : 'ghost'}
-              size="sm" className="h-8 text-xs"
+              size="sm" className="h-8 text-xs gap-1"
               onClick={() => { setFilter(c.key); onFilterChange(c.key); }}
-            >{c.label}</Button>
+            >
+              {c.label}
+              {c.key === 'needs_review' && reviewIds.size > 0 && (
+                <Badge variant="destructive" className="ml-1 h-4 px-1.5 text-[10px]">
+                  {reviewIds.size}
+                </Badge>
+              )}
+            </Button>
           ))}
           {RAW_STAGE_LABELS[filter] && (
             <Button
