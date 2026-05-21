@@ -91,6 +91,7 @@ type Props = {
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange, refreshKey = 0 }: Props) {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
