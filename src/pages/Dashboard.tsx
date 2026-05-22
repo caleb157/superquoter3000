@@ -405,7 +405,10 @@ const Dashboard = () => {
                     tabIndex={0}
                     role="link"
                     aria-label={`Open inquiry ${inq.rfq_number}`}
-                    className="row-action active:scale-[0.99] transition-transform"
+                    className={cn(
+                      "row-action active:scale-[0.99] transition-transform",
+                      reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
+                    )}
                     onClick={() => navigate(`/inquiry/${inq.id}`)}
                   >
                     <CardContent className="p-3 space-y-2">
