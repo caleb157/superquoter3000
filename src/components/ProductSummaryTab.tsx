@@ -111,6 +111,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
         <CardHeader className="pb-2"><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {([
+            { key: 'quote_notes', label: 'Quote Notes (shown to customer)' },
             { key: 'notes_finishes', label: 'Finishes' },
             { key: 'notes_vendors', label: 'Vendors' },
             { key: 'notes_issues', label: 'Issues' },
