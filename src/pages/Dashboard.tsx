@@ -200,12 +200,11 @@ const Dashboard = () => {
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
-        order_value: (i) => fobByInquiry[i.id]?.total ?? 0,
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, fobByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
