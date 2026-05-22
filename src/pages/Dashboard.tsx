@@ -95,6 +95,9 @@ const Dashboard = () => {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
+  const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
+  
+
   
 
   const mobileListRef = useRef<HTMLDivElement>(null);
@@ -106,15 +109,21 @@ const Dashboard = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [inq, cust, prod] = await Promise.all([
+      const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
         supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd, calculated_unit_price_usd'),
+        supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
+        supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
       const prodList = (prod.data ?? []) as Product[];
       setProducts(prodList);
+      const rset = new Set<string>();
+      (cogsRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+      (ohRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+      setReviewProductIds(rset);
       setLoading(false);
       // Compute current FOB cost + unit price for weighted pipeline (async, non-blocking)
       try {
@@ -139,6 +148,16 @@ const Dashboard = () => {
     });
     return m;
   }, [products]);
+
+  const reviewInquiryIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of products) {
+      if (p.customer_rfq_id && reviewProductIds.has(p.id)) s.add(p.customer_rfq_id);
+    }
+    return s;
+  }, [products, reviewProductIds]);
+
+
 
   // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
   // Matches the "Order Revenue" card on the inquiry page, including the same
@@ -386,7 +405,10 @@ const Dashboard = () => {
                     tabIndex={0}
                     role="link"
                     aria-label={`Open inquiry ${inq.rfq_number}`}
-                    className="row-action active:scale-[0.99] transition-transform"
+                    className={cn(
+                      "row-action active:scale-[0.99] transition-transform",
+                      reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
+                    )}
                     onClick={() => navigate(`/inquiry/${inq.id}`)}
                   >
                     <CardContent className="p-3 space-y-2">
@@ -394,6 +416,9 @@ const Dashboard = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-[11px] text-muted-foreground">{inq.rfq_number}</span>
+                            {reviewInquiryIds.has(inq.id) && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
+                            )}
                             <span className={cn(
                               'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
@@ -490,10 +515,20 @@ const Dashboard = () => {
                           tabIndex={0}
                           role="link"
                           aria-label={`Open inquiry ${inq.rfq_number}`}
-                          className="row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset"
+                          className={cn(
+                            "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
+                            reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                          )}
                           onClick={goToInquiry}
                         >
-                          <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span>{inq.rfq_number}</span>
+                              {reviewInquiryIds.has(inq.id) && (
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠</span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm truncate max-w-[180px]">
                             {cust?.name || cust?.company || '—'}
                           </TableCell>

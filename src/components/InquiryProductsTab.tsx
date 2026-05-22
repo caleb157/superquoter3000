@@ -511,8 +511,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             <TableBody>
               {filtered.map(p => {
                 const cb = costingBadge(p, reviewIds.has(p.id));
+                const needsReview = reviewIds.has(p.id);
                 return (
-                  <TableRow key={p.id} className={cn(selected.has(p.id) && 'bg-muted/40')}>
+                  <TableRow key={p.id} className={cn(
+                    selected.has(p.id) && 'bg-muted/40',
+                    needsReview && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                  )}>
                     <TableCell>
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
                     </TableCell>
@@ -582,6 +586,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   className={cn(
                     'cursor-pointer active:bg-accent/50 transition-colors',
                     isSelected && 'ring-2 ring-primary',
+                    reviewIds.has(p.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
                   )}
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
