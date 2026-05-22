@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
 import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryProductsTab';
+import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
 import { InquirySamplesTab } from '@/components/InquirySamplesTab';
 import { InquiryAssembliesTab } from '@/components/InquiryAssembliesTab';
