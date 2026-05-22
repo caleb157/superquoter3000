@@ -149,6 +149,16 @@ const Dashboard = () => {
     return m;
   }, [products]);
 
+  const reviewInquiryIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of products) {
+      if (p.customer_rfq_id && reviewProductIds.has(p.id)) s.add(p.customer_rfq_id);
+    }
+    return s;
+  }, [products, reviewProductIds]);
+
+
+
   // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
   // Matches the "Order Revenue" card on the inquiry page, including the same
   // fallback to saved calculated/target prices when live pricing is unavailable.
