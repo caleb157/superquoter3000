@@ -62,8 +62,6 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  target_price_usd: number | null;
-  calculated_unit_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
