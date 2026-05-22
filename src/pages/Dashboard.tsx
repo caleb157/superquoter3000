@@ -590,46 +590,5 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function FobValue({
-  entry, productCount, compact = false,
-}: {
-  entry: { total: number; missing: number } | undefined;
-  productCount: number;
-  compact?: boolean;
-}) {
-  if (!productCount) {
-    return <span className="text-muted-foreground/60">—</span>;
-  }
-  const total = entry?.total ?? 0;
-  const missing = entry?.missing ?? 0;
-  const allMissing = total === 0 && missing > 0;
-
-  const valueLabel = allMissing ? '—' : `$${total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  const tooltipText = allMissing
-    ? 'No priced products yet'
-    : missing > 0
-      ? `${missing} product${missing === 1 ? '' : 's'} not yet priced — value is partial`
-      : `Σ qty × unit price across ${productCount} product${productCount === 1 ? '' : 's'}`;
-
-
-  const inner = (
-    <span className={cn(
-      'inline-flex items-baseline gap-1',
-      allMissing && 'text-muted-foreground/70',
-    )}>
-      <span className={compact ? 'font-medium text-foreground' : 'font-semibold'}>{valueLabel}</span>
-      {missing > 0 && !allMissing && (
-        <span className="text-[10px] text-warning">·{missing}?</span>
-      )}
-    </span>
-  );
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent><span className="text-xs">{tooltipText}</span></TooltipContent>
-    </Tooltip>
-  );
-}
 
 export default Dashboard;
