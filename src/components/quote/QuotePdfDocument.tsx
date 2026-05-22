@@ -24,6 +24,7 @@ export interface QuotePdfProduct {
   height_inch?: number | null;
   weight_kg?: number | null;
   box_size?: string | null;
+  quote_notes?: string | null;
   is_assembly?: boolean;
   components?: QuotePdfComponent[];
 }
