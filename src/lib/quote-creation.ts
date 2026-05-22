@@ -77,7 +77,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     allProductIds.length > 0
       ? supabase
           .from('products')
-          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq, hard_moq')
+          .select('id, name, sku, photo_url, quantity, target_price_usd, markup_percent, width_inch, depth_inch, height_inch, weight_kg, moq, hard_moq, quote_notes')
           .in('id', allProductIds)
       : Promise.resolve({ data: [], error: null } as any),
     allProductIds.length > 0
@@ -237,6 +237,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       product_id: sel.id,
       name: sel.display_name?.trim() || db.name || sel.name,
       sku: db.sku ?? sel.sku ?? null,
+      quote_notes: db.quote_notes ?? null,
       photo_url: sel.display_photo_url ?? db.photo_url ?? null,
       quantity: qty,
       unit_price_usd: unit, // value is in display currency (USD or INR)

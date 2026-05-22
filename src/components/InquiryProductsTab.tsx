@@ -41,6 +41,7 @@ type Product = {
   cogs_done: boolean | null; cbm_done: boolean | null; overhead_done: boolean | null;
   shipping_done: boolean | null; revenue_done: boolean | null;
   calculated_unit_price_usd: number | null;
+  quote_notes: string | null;
   sample_stage_was?: string | null;
 };
 
@@ -168,7 +169,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
+        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
       const rows = data ?? [];
@@ -544,6 +545,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <button className="text-sm font-medium hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${p.id}`)}>
                         <span>{p.name}</span>
                         {p.sku && <span className="italic text-[11px] font-normal text-muted-foreground/70">{p.sku}</span>}
+                        {p.quote_notes && <span className="text-[11px] font-normal text-muted-foreground whitespace-pre-wrap text-left mt-0.5">{p.quote_notes}</span>}
                       </button>
                     </TableCell>
                     <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
@@ -616,6 +618,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm truncate">{p.name}</div>
                         {p.sku && <div className="italic text-[11px] text-muted-foreground/70 truncate">{p.sku}</div>}
+                        {p.quote_notes && <div className="text-[11px] text-muted-foreground whitespace-pre-wrap mt-0.5">{p.quote_notes}</div>}
                       </div>
                       <Badge className={cn(cb.cls, 'text-[10px] shrink-0')} variant="secondary">{cb.label}</Badge>
                     </div>

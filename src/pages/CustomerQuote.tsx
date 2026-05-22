@@ -41,6 +41,7 @@ interface QuoteProduct {
   height_inch?: number | null;
   weight_kg?: number | null;
   box_size?: string | null;
+  quote_notes?: string | null;
   components?: QuoteComponent[];
 }
 
@@ -348,6 +349,7 @@ const CustomerQuote = () => {
         height_inch: p.height_inch,
         weight_kg: p.weight_kg,
         box_size: p.box_size,
+        quote_notes: p.quote_notes,
         is_assembly: p.is_assembly,
         components: p.components,
       }));
@@ -676,6 +678,7 @@ const CustomerQuote = () => {
                           <div className="min-w-0">
                             <h4 className="text-base font-semibold text-slate-900 leading-snug">{product.name}</h4>
                             {product.sku && <p className="italic text-[11px] text-slate-400 mt-0.5">{product.sku}</p>}
+                            {product.quote_notes && <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap">{product.quote_notes}</p>}
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-lg font-semibold text-slate-900 tabular-nums">

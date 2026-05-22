@@ -14,7 +14,7 @@ type Product = {
   id: string; name: string; updated_at: string | null;
   customer_rfq_id: string | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  notes_finishes: string | null; notes_vendors: string | null; notes_issues: string | null;
+  notes_finishes: string | null; notes_vendors: string | null; notes_issues: string | null; quote_notes: string | null;
 };
 type Inquiry = {
   id: string; rfq_number: string; title: string | null;
@@ -38,7 +38,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
     (async () => {
       const { data: p } = await supabase
         .from('products')
-        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues')
+        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues, quote_notes')
         .eq('id', productId).maybeSingle();
       if (p) setProduct(p as any);
 
@@ -60,7 +60,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
     })();
   }, [productId]);
 
-  const saveNote = async (field: 'notes_finishes' | 'notes_vendors' | 'notes_issues', value: string) => {
+  const saveNote = async (field: 'notes_finishes' | 'notes_vendors' | 'notes_issues' | 'quote_notes', value: string) => {
     setSaving(s => ({ ...s, [field]: 'saving' }));
     const { error } = await (supabase as any).from('products').update({ [field]: value || null }).eq('id', productId);
     if (error) { toast.error(error.message); setSaving(s => ({ ...s, [field]: 'idle' })); return; }
@@ -111,6 +111,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
         <CardHeader className="pb-2"><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {([
+            { key: 'quote_notes', label: 'Quote Notes (shown to customer)' },
             { key: 'notes_finishes', label: 'Finishes' },
             { key: 'notes_vendors', label: 'Vendors' },
             { key: 'notes_issues', label: 'Issues' },
