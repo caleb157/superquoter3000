@@ -470,7 +470,7 @@ const Dashboard = () => {
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
                       
-                      <SortableHeader column="order_value" label="Order Value" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[110px] text-right" />
+                      <SortableHeader column="order_value" label="Revenue" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[110px] text-right" />
                       <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -622,7 +622,7 @@ function FobValue({
   const missing = entry?.missing ?? 0;
   const allMissing = total === 0 && missing > 0;
 
-  const valueLabel = allMissing ? '—' : fmt.usd(total);
+  const valueLabel = allMissing ? '—' : `$${total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const tooltipText = allMissing
     ? 'No priced products yet'
     : missing > 0
