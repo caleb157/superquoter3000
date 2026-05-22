@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
 import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryProductsTab';
+import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
 import { InquirySamplesTab } from '@/components/InquirySamplesTab';
 import { InquiryAssembliesTab } from '@/components/InquiryAssembliesTab';
@@ -37,7 +38,7 @@ const STATUS_COLOR: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
-const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'settings', 'summary'] as const;
+const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 export default function InquiryDetail() {
@@ -334,6 +335,7 @@ export default function InquiryDetail() {
               { value: 'tasks', label: 'Tasks' },
               { value: 'quotes', label: 'Quotes' },
               { value: 'samples', label: 'Samples' },
+              { value: 'projection', label: 'Projection' },
               { value: 'settings', label: 'Settings' },
               { value: 'summary', label: 'Summary' },
             ]}
@@ -389,6 +391,11 @@ export default function InquiryDetail() {
           <TabsContent value="samples" className="mt-3">
             <InquirySamplesTab inquiryId={id!} refreshKey={refreshKey} />
           </TabsContent>
+
+          <TabsContent value="projection" className="mt-3">
+            <InquiryProjectionTab inquiryId={id!} />
+          </TabsContent>
+
 
           <TabsContent value="settings" className="mt-3 space-y-3">
             <Card>

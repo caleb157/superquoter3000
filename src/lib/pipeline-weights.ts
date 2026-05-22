@@ -108,11 +108,24 @@ export const STAGE_BUCKET_COLOR: Record<StageBucket, string> = {
 /**
  * Shared weighted-pipeline calculation. Used by both Dashboard and Analytics
  * so the number is identical everywhere.
+ *
+ * If an inquiry has a projection row with projected_fob_revenue_usd, that
+ * inquiry's contribution = projected_fob_revenue × effective_certainty
+ * (certainty_override if set, else average product stage weight).
+ * Otherwise, falls back to the legacy product-level cost × qty × stage_weight.
  */
+type ProjectionRow = {
+  inquiry_id: string;
+  projected_fob_revenue_usd: number | null;
+  project_gpm: number | null;
+  certainty_override: number | null;
+};
+
 export function computeWeightedPipeline(
   products: Array<Pick<Product, 'id' | 'name' | 'quantity' | 'design_stage' | 'quote_stage' | 'sample_stage' | 'customer_rfq_id'>>,
   inquiryStatusById: Record<string, string>,
   pricing: Record<string, { unit_cost_usd: number; unit_price_usd: number }>,
+  projectionsByInquiry: Record<string, ProjectionRow> = {},
 ) {
   let total = 0;
   let profit = 0;
@@ -120,7 +133,49 @@ export function computeWeightedPipeline(
   let skippedNoCost = 0;
   let skippedNoQty = 0;
   const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number; inquiryId: string | null }> = [];
+
+  const productsByInquiry: Record<string, typeof products> = {};
   for (const p of products) {
+    if (p.customer_rfq_id) (productsByInquiry[p.customer_rfq_id] ||= []).push(p);
+  }
+
+  const inquiriesUsingProjection = new Set<string>();
+
+  for (const [inqId, inqProducts] of Object.entries(productsByInquiry)) {
+    const inqStatus = inquiryStatusById[inqId];
+    if (inqStatus !== 'active' && inqStatus !== 'po') continue;
+    const proj = projectionsByInquiry[inqId];
+    if (proj && proj.projected_fob_revenue_usd != null) {
+      let certainty: number;
+      if (proj.certainty_override != null) {
+        certainty = Number(proj.certainty_override);
+      } else if (inqStatus === 'po') {
+        certainty = 1.0;
+      } else {
+        const sum = inqProducts.reduce((acc, p) => acc + productWeight(p, inqStatus), 0);
+        certainty = inqProducts.length > 0 ? sum / inqProducts.length : 0;
+      }
+      if (certainty <= 0) continue;
+      const rev = Number(proj.projected_fob_revenue_usd);
+      const value = rev * certainty;
+      const gpm = proj.project_gpm != null ? Number(proj.project_gpm) : 0;
+      total += value;
+      profit += rev * gpm * certainty;
+      counted += 1;
+      contributors.push({
+        name: `Inquiry ${inqId.slice(0, 8)} (projection)`,
+        qty: 1,
+        cost: rev,
+        weight: certainty,
+        value,
+        inquiryId: inqId,
+      });
+      inquiriesUsingProjection.add(inqId);
+    }
+  }
+
+  for (const p of products) {
+    if (p.customer_rfq_id && inquiriesUsingProjection.has(p.customer_rfq_id)) continue;
     const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
     if (inqStatus !== 'active' && inqStatus !== 'po') continue;
     const w = productWeight(p, inqStatus);

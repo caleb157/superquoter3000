@@ -827,6 +827,150 @@ export type Database = {
         }
         Relationships: []
       }
+      inquiry_projections: {
+        Row: {
+          actual_po_date: string | null
+          actual_ready_date: string | null
+          certainty_override: number | null
+          committed_days: number | null
+          created_at: string
+          cust_deposit_month: string | null
+          cust_deposit_pct: number | null
+          cust_final_month: string | null
+          cust_final_pct: number | null
+          cust_other_month: string | null
+          cust_other_pct: number | null
+          delivery_month: string | null
+          estimated_man_hours: number | null
+          ie_balance_month: string | null
+          ie_balance_pct: number | null
+          ie_deposit_month: string | null
+          ie_deposit_pct: number | null
+          inquiry_id: string
+          inter_entity_markup_pct: number | null
+          notes: string | null
+          producing_entity_id: string | null
+          project_gpm: number | null
+          projected_fob_revenue_usd: number | null
+          repeat_order: boolean | null
+          selling_entity_id: string | null
+          shipping_method: string | null
+          shipping_month: string | null
+          start_month: string | null
+          updated_at: string
+          vendor_balance_month: string | null
+          vendor_balance_pct: number | null
+          vendor_deposit_month: string | null
+          vendor_deposit_pct: number | null
+        }
+        Insert: {
+          actual_po_date?: string | null
+          actual_ready_date?: string | null
+          certainty_override?: number | null
+          committed_days?: number | null
+          created_at?: string
+          cust_deposit_month?: string | null
+          cust_deposit_pct?: number | null
+          cust_final_month?: string | null
+          cust_final_pct?: number | null
+          cust_other_month?: string | null
+          cust_other_pct?: number | null
+          delivery_month?: string | null
+          estimated_man_hours?: number | null
+          ie_balance_month?: string | null
+          ie_balance_pct?: number | null
+          ie_deposit_month?: string | null
+          ie_deposit_pct?: number | null
+          inquiry_id: string
+          inter_entity_markup_pct?: number | null
+          notes?: string | null
+          producing_entity_id?: string | null
+          project_gpm?: number | null
+          projected_fob_revenue_usd?: number | null
+          repeat_order?: boolean | null
+          selling_entity_id?: string | null
+          shipping_method?: string | null
+          shipping_month?: string | null
+          start_month?: string | null
+          updated_at?: string
+          vendor_balance_month?: string | null
+          vendor_balance_pct?: number | null
+          vendor_deposit_month?: string | null
+          vendor_deposit_pct?: number | null
+        }
+        Update: {
+          actual_po_date?: string | null
+          actual_ready_date?: string | null
+          certainty_override?: number | null
+          committed_days?: number | null
+          created_at?: string
+          cust_deposit_month?: string | null
+          cust_deposit_pct?: number | null
+          cust_final_month?: string | null
+          cust_final_pct?: number | null
+          cust_other_month?: string | null
+          cust_other_pct?: number | null
+          delivery_month?: string | null
+          estimated_man_hours?: number | null
+          ie_balance_month?: string | null
+          ie_balance_pct?: number | null
+          ie_deposit_month?: string | null
+          ie_deposit_pct?: number | null
+          inquiry_id?: string
+          inter_entity_markup_pct?: number | null
+          notes?: string | null
+          producing_entity_id?: string | null
+          project_gpm?: number | null
+          projected_fob_revenue_usd?: number | null
+          repeat_order?: boolean | null
+          selling_entity_id?: string | null
+          shipping_method?: string | null
+          shipping_month?: string | null
+          start_month?: string | null
+          updated_at?: string
+          vendor_balance_month?: string | null
+          vendor_balance_pct?: number | null
+          vendor_deposit_month?: string | null
+          vendor_deposit_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_projections_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: true
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_projections_producing_entity_id_fkey"
+            columns: ["producing_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_projections_producing_entity_id_fkey"
+            columns: ["producing_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_projections_selling_entity_id_fkey"
+            columns: ["selling_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_projections_selling_entity_id_fkey"
+            columns: ["selling_entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inquiry_received_rfqs: {
         Row: {
           created_at: string
