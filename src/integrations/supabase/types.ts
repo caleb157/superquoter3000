@@ -1308,6 +1308,7 @@ export type Database = {
           photo_url: string | null
           product_type_id: string | null
           quantity: number
+          quote_notes: string | null
           quote_stage: string | null
           revenue_done: boolean | null
           sample_stage: string | null
@@ -1347,6 +1348,7 @@ export type Database = {
           photo_url?: string | null
           product_type_id?: string | null
           quantity?: number
+          quote_notes?: string | null
           quote_stage?: string | null
           revenue_done?: boolean | null
           sample_stage?: string | null
@@ -1386,6 +1388,7 @@ export type Database = {
           photo_url?: string | null
           product_type_id?: string | null
           quantity?: number
+          quote_notes?: string | null
           quote_stage?: string | null
           revenue_done?: boolean | null
           sample_stage?: string | null
