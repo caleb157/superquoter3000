@@ -545,6 +545,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <button className="text-sm font-medium hover:underline text-left flex flex-col items-start" onClick={() => navigate(`/product/${p.id}`)}>
                         <span>{p.name}</span>
                         {p.sku && <span className="italic text-[11px] font-normal text-muted-foreground/70">{p.sku}</span>}
+                        {p.quote_notes && <span className="text-[11px] font-normal text-muted-foreground whitespace-pre-wrap text-left mt-0.5">{p.quote_notes}</span>}
                       </button>
                     </TableCell>
                     <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
