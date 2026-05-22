@@ -41,6 +41,7 @@ type Product = {
   cogs_done: boolean | null; cbm_done: boolean | null; overhead_done: boolean | null;
   shipping_done: boolean | null; revenue_done: boolean | null;
   calculated_unit_price_usd: number | null;
+  quote_notes: string | null;
   sample_stage_was?: string | null;
 };
 
