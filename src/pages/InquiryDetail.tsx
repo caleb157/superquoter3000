@@ -38,7 +38,7 @@ const STATUS_COLOR: Record<string, string> = {
   po: 'bg-emerald-100 text-emerald-700',
 };
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
-const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'settings', 'summary'] as const;
+const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 export default function InquiryDetail() {
