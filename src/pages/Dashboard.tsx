@@ -401,13 +401,6 @@ const Dashboard = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                         <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
-                        <span className="tabular-nums">
-                          <FobValue
-                            entry={fobByInquiry[inq.id]}
-                            productCount={prods?.length ?? 0}
-                            compact
-                          />
-                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
