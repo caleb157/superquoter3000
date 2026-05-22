@@ -60,7 +60,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
     })();
   }, [productId]);
 
-  const saveNote = async (field: 'notes_finishes' | 'notes_vendors' | 'notes_issues', value: string) => {
+  const saveNote = async (field: 'notes_finishes' | 'notes_vendors' | 'notes_issues' | 'quote_notes', value: string) => {
     setSaving(s => ({ ...s, [field]: 'saving' }));
     const { error } = await (supabase as any).from('products').update({ [field]: value || null }).eq('id', productId);
     if (error) { toast.error(error.message); setSaving(s => ({ ...s, [field]: 'idle' })); return; }
