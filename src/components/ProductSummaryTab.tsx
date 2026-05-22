@@ -38,7 +38,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
     (async () => {
       const { data: p } = await supabase
         .from('products')
-        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues')
+        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues, quote_notes')
         .eq('id', productId).maybeSingle();
       if (p) setProduct(p as any);
 
