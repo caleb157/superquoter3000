@@ -586,6 +586,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   className={cn(
                     'cursor-pointer active:bg-accent/50 transition-colors',
                     isSelected && 'ring-2 ring-primary',
+                    reviewIds.has(p.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
                   )}
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
