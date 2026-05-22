@@ -392,6 +392,11 @@ export default function InquiryDetail() {
             <InquirySamplesTab inquiryId={id!} refreshKey={refreshKey} />
           </TabsContent>
 
+          <TabsContent value="projection" className="mt-3">
+            <InquiryProjectionTab inquiryId={id!} />
+          </TabsContent>
+
+
           <TabsContent value="settings" className="mt-3 space-y-3">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry settings</CardTitle></CardHeader>
