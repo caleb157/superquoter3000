@@ -9,9 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -34,7 +32,6 @@ import {
   type StageBucket,
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
-import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 
 const INQUIRY_STATUS_COLORS: Record<string, string> = {
   active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
@@ -63,8 +60,6 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  target_price_usd: number | null;
-  calculated_unit_price_usd: number | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -94,7 +89,6 @@ const Dashboard = () => {
 
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
-  const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
   const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
   
 
@@ -112,27 +106,18 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd, calculated_unit_price_usd'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
-      const prodList = (prod.data ?? []) as Product[];
-      setProducts(prodList);
+      setProducts((prod.data ?? []) as Product[]);
       const rset = new Set<string>();
       (cogsRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
       (ohRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
       setReviewProductIds(rset);
       setLoading(false);
-      // Compute current FOB cost + unit price for weighted pipeline (async, non-blocking)
-      try {
-        const ids = prodList.map(p => p.id);
-        const pricing = await computeProductPriceAndCost(ids);
-        setProductPricing(pricing);
-      } catch (e) {
-        console.error('Failed to compute product pricing', e);
-      }
     })();
   }, [refreshKey]);
 
@@ -157,31 +142,6 @@ const Dashboard = () => {
     return s;
   }, [products, reviewProductIds]);
 
-
-
-  // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
-  // Matches the "Order Revenue" card on the inquiry page, including the same
-  // fallback to saved calculated/target prices when live pricing is unavailable.
-  const fobByInquiry = useMemo(() => {
-    const m: Record<string, { total: number; missing: number }> = {};
-    for (const p of products) {
-      if (!p.customer_rfq_id) continue;
-      const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
-      const qty = p.quantity ?? 0;
-      const computedPrice = productPricing[p.id]?.unit_price_usd;
-      const price = Number(
-        (computedPrice && computedPrice > 0)
-          ? computedPrice
-          : (p.calculated_unit_price_usd ?? p.target_price_usd)
-      ) || 0;
-      if (price === 0 || qty === 0) {
-        entry.missing += 1;
-      } else {
-        entry.total += qty * price;
-      }
-    }
-    return m;
-  }, [products, productPricing]);
 
 
   const inquiryStatusById = useMemo(
@@ -236,12 +196,11 @@ const Dashboard = () => {
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
-        order_value: (i) => fobByInquiry[i.id]?.total ?? 0,
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, fobByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -438,13 +397,6 @@ const Dashboard = () => {
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                         <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
-                        <span className="tabular-nums">
-                          <FobValue
-                            entry={fobByInquiry[inq.id]}
-                            productCount={prods?.length ?? 0}
-                            compact
-                          />
-                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
@@ -495,7 +447,6 @@ const Dashboard = () => {
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
                       
-                      <SortableHeader column="order_value" label="Revenue" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[110px] text-right" />
                       <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -588,12 +539,6 @@ const Dashboard = () => {
                               ? <span className="text-muted-foreground/60">—</span>
                               : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
                           </TableCell>
-                          <TableCell className="text-right text-xs tabular-nums">
-                            <FobValue
-                              entry={fobByInquiry[inq.id]}
-                              productCount={prods?.length ?? 0}
-                            />
-                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                               <ConfirmDeleteButton
@@ -643,46 +588,5 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function FobValue({
-  entry, productCount, compact = false,
-}: {
-  entry: { total: number; missing: number } | undefined;
-  productCount: number;
-  compact?: boolean;
-}) {
-  if (!productCount) {
-    return <span className="text-muted-foreground/60">—</span>;
-  }
-  const total = entry?.total ?? 0;
-  const missing = entry?.missing ?? 0;
-  const allMissing = total === 0 && missing > 0;
-
-  const valueLabel = allMissing ? '—' : `$${total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  const tooltipText = allMissing
-    ? 'No priced products yet'
-    : missing > 0
-      ? `${missing} product${missing === 1 ? '' : 's'} not yet priced — value is partial`
-      : `Σ qty × unit price across ${productCount} product${productCount === 1 ? '' : 's'}`;
-
-
-  const inner = (
-    <span className={cn(
-      'inline-flex items-baseline gap-1',
-      allMissing && 'text-muted-foreground/70',
-    )}>
-      <span className={compact ? 'font-medium text-foreground' : 'font-semibold'}>{valueLabel}</span>
-      {missing > 0 && !allMissing && (
-        <span className="text-[10px] text-warning">·{missing}?</span>
-      )}
-    </span>
-  );
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent><span className="text-xs">{tooltipText}</span></TooltipContent>
-    </Tooltip>
-  );
-}
 
 export default Dashboard;
