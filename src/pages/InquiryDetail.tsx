@@ -335,6 +335,7 @@ export default function InquiryDetail() {
               { value: 'tasks', label: 'Tasks' },
               { value: 'quotes', label: 'Quotes' },
               { value: 'samples', label: 'Samples' },
+              { value: 'projection', label: 'Projection' },
               { value: 'settings', label: 'Settings' },
               { value: 'summary', label: 'Summary' },
             ]}
