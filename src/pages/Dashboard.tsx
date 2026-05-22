@@ -110,27 +110,18 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, target_price_usd, calculated_unit_price_usd'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
-      const prodList = (prod.data ?? []) as Product[];
-      setProducts(prodList);
+      setProducts((prod.data ?? []) as Product[]);
       const rset = new Set<string>();
       (cogsRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
       (ohRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
       setReviewProductIds(rset);
       setLoading(false);
-      // Compute current FOB cost + unit price for weighted pipeline (async, non-blocking)
-      try {
-        const ids = prodList.map(p => p.id);
-        const pricing = await computeProductPriceAndCost(ids);
-        setProductPricing(pricing);
-      } catch (e) {
-        console.error('Failed to compute product pricing', e);
-      }
     })();
   }, [refreshKey]);
 
