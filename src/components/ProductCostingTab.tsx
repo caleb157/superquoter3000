@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1320,6 +1321,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 })()}
               </div>
                 </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Quote Notes (shown to customer)</label>
+                <Textarea
+                  className="text-xs min-h-[60px]"
+                  rows={2}
+                  defaultValue={product.quote_notes || ''}
+                  placeholder="Notes that appear on the customer quote under the product name…"
+                  onBlur={e => {
+                    const v = e.target.value;
+                    if (v !== (product.quote_notes || '')) updateProduct('quote_notes', v || null, true);
+                  }}
+                />
               </div>
             </div>
           </CollapsibleContent>
