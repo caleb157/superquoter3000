@@ -1328,7 +1328,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section B: CBM Calculator */}
         <Collapsible open={sections.cbm} onOpenChange={() => toggle('cbm')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} done={product.cbm_done} /></div>
+            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} done={product.cbm_done} onDoneChange={(v) => updateProduct('cbm_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
