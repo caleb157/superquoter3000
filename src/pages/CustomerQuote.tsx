@@ -41,6 +41,7 @@ interface QuoteProduct {
   height_inch?: number | null;
   weight_kg?: number | null;
   box_size?: string | null;
+  quote_notes?: string | null;
   components?: QuoteComponent[];
 }
 
