@@ -148,31 +148,6 @@ const Dashboard = () => {
 
 
 
-  // Live order revenue per inquiry: Σ (qty × unit_price_usd) over its products.
-  // Matches the "Order Revenue" card on the inquiry page, including the same
-  // fallback to saved calculated/target prices when live pricing is unavailable.
-  const fobByInquiry = useMemo(() => {
-    const m: Record<string, { total: number; missing: number }> = {};
-    for (const p of products) {
-      if (!p.customer_rfq_id) continue;
-      const entry = (m[p.customer_rfq_id] ||= { total: 0, missing: 0 });
-      const qty = p.quantity ?? 0;
-      const computedPrice = productPricing[p.id]?.unit_price_usd;
-      const price = Number(
-        (computedPrice && computedPrice > 0)
-          ? computedPrice
-          : (p.calculated_unit_price_usd ?? p.target_price_usd)
-      ) || 0;
-      if (price === 0 || qty === 0) {
-        entry.missing += 1;
-      } else {
-        entry.total += qty * price;
-      }
-    }
-    return m;
-  }, [products, productPricing]);
-
-
   const inquiryStatusById = useMemo(
     () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
     [inquiries],
