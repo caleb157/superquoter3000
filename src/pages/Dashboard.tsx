@@ -543,12 +543,6 @@ const Dashboard = () => {
                               ? <span className="text-muted-foreground/60">—</span>
                               : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
                           </TableCell>
-                          <TableCell className="text-right text-xs tabular-nums">
-                            <FobValue
-                              entry={fobByInquiry[inq.id]}
-                              productCount={prods?.length ?? 0}
-                            />
-                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                               <ConfirmDeleteButton
