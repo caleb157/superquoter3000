@@ -411,6 +411,7 @@ const QuotePdfDocument = ({
                 <View style={{ flex: 1, paddingLeft: 8, paddingRight: 6 }}>
                   <Text style={s.pName}>{p.name}{p.is_assembly ? ' (Kit)' : ''}</Text>
                   {p.sku ? <Text style={s.pSku}>{p.sku}</Text> : null}
+                  {p.quote_notes ? <Text style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>{p.quote_notes}</Text> : null}
                   <Text style={s.pSpecs}>
                     {[
                       dims,
