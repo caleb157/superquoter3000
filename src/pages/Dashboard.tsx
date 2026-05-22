@@ -515,10 +515,20 @@ const Dashboard = () => {
                           tabIndex={0}
                           role="link"
                           aria-label={`Open inquiry ${inq.rfq_number}`}
-                          className="row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset"
+                          className={cn(
+                            "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
+                            reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                          )}
                           onClick={goToInquiry}
                         >
-                          <TableCell className="font-mono text-xs">{inq.rfq_number}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span>{inq.rfq_number}</span>
+                              {reviewInquiryIds.has(inq.id) && (
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠</span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm truncate max-w-[180px]">
                             {cust?.name || cust?.company || '—'}
                           </TableCell>
