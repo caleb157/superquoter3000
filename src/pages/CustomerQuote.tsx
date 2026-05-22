@@ -349,6 +349,7 @@ const CustomerQuote = () => {
         height_inch: p.height_inch,
         weight_kg: p.weight_kg,
         box_size: p.box_size,
+        quote_notes: p.quote_notes,
         is_assembly: p.is_assembly,
         components: p.components,
       }));
