@@ -169,7 +169,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     (async () => {
       const { data } = await supabase
         .from('products')
-        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd')
+        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes')
         .eq('customer_rfq_id', inquiryId)
         .order('updated_at', { ascending: false });
       const rows = data ?? [];
