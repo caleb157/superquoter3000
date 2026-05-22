@@ -451,7 +451,6 @@ const Dashboard = () => {
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
                       
-                      <SortableHeader column="order_value" label="Revenue" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[110px] text-right" />
                       <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
