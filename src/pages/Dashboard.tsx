@@ -95,6 +95,9 @@ const Dashboard = () => {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
 
   const [productPricing, setProductPricing] = useState<ProductPriceCostMap>({});
+  const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
+  
+
   
 
   const mobileListRef = useRef<HTMLDivElement>(null);
