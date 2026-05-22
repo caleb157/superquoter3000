@@ -41,13 +41,24 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
 
 const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
 
-const SectionHeader = ({ title, open, onToggle, badge, done, hasReview }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean }) => (
-  <button onClick={onToggle} className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors text-left ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
-    <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
-    <span className={`text-sm font-semibold flex-1 ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
-    {hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
-    {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
-  </button>
+const SectionHeader = ({ title, open, onToggle, badge, done, hasReview, onDoneChange }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean; onDoneChange?: (next: boolean) => void }) => (
+  <div className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
+    {onDoneChange && (
+      <Checkbox
+        checked={!!done}
+        onCheckedChange={(v) => onDoneChange(!!v)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Mark ${title} done`}
+        title="Mark section done"
+      />
+    )}
+    <button onClick={onToggle} className="flex-1 flex items-center gap-2 text-left min-w-0">
+      <ChevronDown className={`h-4 w-4 transition-transform shrink-0 ${open ? '' : '-rotate-90'}`} />
+      <span className={`text-sm font-semibold flex-1 truncate ${done ? 'text-green-800 dark:text-green-300' : ''}`}>{title}</span>
+      {hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
+      {badge && <span className="text-xs calc-field px-2 py-0.5 rounded">{badge}</span>}
+    </button>
+  </div>
 );
 
 const AutoCell = ({ children, isAuto }: { children: React.ReactNode; isAuto?: boolean }) => (
@@ -1317,7 +1328,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section B: CBM Calculator */}
         <Collapsible open={sections.cbm} onOpenChange={() => toggle('cbm')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} done={product.cbm_done} /></div>
+            <div><SectionHeader title="B. CBM Calculator" open={sections.cbm} onToggle={() => {}} badge={`Unit: ${fmt.cbm(finalUnitCbm)} | Total: ${fmt.cbm(totalCbm)}`} done={product.cbm_done} onDoneChange={(v) => updateProduct('cbm_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
@@ -1563,7 +1574,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         <Collapsible open={sections.cogs} onOpenChange={() => toggle('cogs')}>
           <div className="flex items-center gap-2">
             <CollapsibleTrigger asChild>
-              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} hasReview={cogsHasReview} /></div>
+              <div className="flex-1 min-w-0"><SectionHeader title="C. COGS (Bill of Materials)" open={sections.cogs} onToggle={() => {}} badge={`${fmt.inr(cogsPerUnit)}/unit`} done={product.cogs_done} hasReview={cogsHasReview} onDoneChange={(v) => updateProduct('cogs_done', v, true)} /></div>
             </CollapsibleTrigger>
             {sections.cogs && (
               <ProductChemicalsPicker
@@ -1950,7 +1961,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section E: Direct Overhead */}
         <Collapsible open={sections.overhead} onOpenChange={() => toggle('overhead')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} hasReview={overheadHasReview} /></div>
+            <div><SectionHeader title="E. Direct Overhead (Labor)" open={sections.overhead} onToggle={() => {}} badge={`${fmt.inr(directOhPerUnit)}/unit`} done={product.overhead_done} hasReview={overheadHasReview} onDoneChange={(v) => updateProduct('overhead_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <Table className="dense-table">
@@ -2027,7 +2038,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section G: Shipping */}
         <Collapsible open={sections.shipping} onOpenChange={() => toggle('shipping')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} done={product.shipping_done} /></div>
+            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} done={product.shipping_done} onDoneChange={(v) => updateProduct('shipping_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 flex items-center gap-4">
@@ -2057,7 +2068,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section H: Cost & Revenue Summary */}
         <Collapsible open={sections.summary} onOpenChange={() => toggle('summary')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} done={product.revenue_done} /></div>
+            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} done={product.revenue_done} onDoneChange={(v) => updateProduct('revenue_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
@@ -2210,24 +2221,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 );
               })()}
 
-              {/* Completion checklist */}
-              <div className="flex items-center gap-4 border-t pt-3">
-                {[
-                  { key: 'cbm_done', label: 'CBM' },
-                  { key: 'cogs_done', label: 'COGS' },
-                  { key: 'overhead_done', label: 'Overhead' },
-                  { key: 'shipping_done', label: 'Shipping' },
-                  { key: 'revenue_done', label: 'Revenue' },
-                ].map(c => (
-                  <label key={c.key} className="flex items-center gap-1.5 text-xs">
-                    <Checkbox
-                      checked={product[c.key] || false}
-                      onCheckedChange={(v) => updateProduct(c.key, !!v, true)}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
