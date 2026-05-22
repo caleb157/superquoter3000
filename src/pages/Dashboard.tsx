@@ -416,6 +416,9 @@ const Dashboard = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-[11px] text-muted-foreground">{inq.rfq_number}</span>
+                            {reviewInquiryIds.has(inq.id) && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
+                            )}
                             <span className={cn(
                               'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
