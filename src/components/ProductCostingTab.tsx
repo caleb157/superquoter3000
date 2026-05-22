@@ -2038,7 +2038,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section G: Shipping */}
         <Collapsible open={sections.shipping} onOpenChange={() => toggle('shipping')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} done={product.shipping_done} /></div>
+            <div><SectionHeader title="G. Shipping" open={sections.shipping} onToggle={() => {}} badge={`${fmt.inr(shippingPerUnit)}/unit`} done={product.shipping_done} onDoneChange={(v) => updateProduct('shipping_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 flex items-center gap-4">
