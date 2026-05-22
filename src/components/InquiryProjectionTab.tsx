@@ -244,8 +244,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
           </div>
           <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t text-xs">
             <div><span className="text-muted-foreground">Effective certainty:</span> <span className="font-medium tabular-nums">{(effCertainty * 100).toFixed(1)}%</span></div>
-            <div><span className="text-muted-foreground">Expected revenue:</span> <span className="font-medium tabular-nums">${fmt(expectedRevenue)}</span></div>
-            <div><span className="text-muted-foreground">Expected gross profit:</span> <span className="font-medium tabular-nums">${fmt(expectedGp)}</span></div>
+            <div><span className="text-muted-foreground">Expected revenue:</span> <span className="font-medium tabular-nums">${fmt.usd(expectedRevenue)}</span></div>
+            <div><span className="text-muted-foreground">Expected gross profit:</span> <span className="font-medium tabular-nums">${fmt.usd(expectedGp)}</span></div>
             <div className="md:col-span-3 text-[11px] text-muted-foreground">Stage-weighted certainty (used if no override): {(autoCertainty * 100).toFixed(1)}%</div>
           </div>
         </CardContent>
@@ -351,7 +351,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                     className="h-9 mt-1" />
                 </div>
                 <div className="text-xs text-muted-foreground md:pt-6">
-                  Amount: <span className="font-medium text-foreground tabular-nums">${fmt(amt)}</span>
+                  Amount: <span className="font-medium text-foreground tabular-nums">${fmt.usd(amt)}</span>
                 </div>
               </div>
             );
@@ -380,7 +380,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                   className="h-9 mt-1" />
               </div>
               <div className="text-xs text-muted-foreground md:pt-6">
-                IE total = FOB × markup = <span className="font-medium text-foreground tabular-nums">${fmt(ieTotal)}</span>
+                IE total = FOB × markup = <span className="font-medium text-foreground tabular-nums">${fmt.usd(ieTotal)}</span>
               </div>
             </div>
             {[
@@ -406,7 +406,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                       className="h-9 mt-1" />
                   </div>
                   <div className="text-xs text-muted-foreground md:pt-6">
-                    Amount: <span className="font-medium text-foreground tabular-nums">${fmt(ieTotal * pctV)}</span>
+                    Amount: <span className="font-medium text-foreground tabular-nums">${fmt.usd(ieTotal * pctV)}</span>
                   </div>
                 </div>
               );
@@ -420,7 +420,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         <CardHeader className="pb-2"><CardTitle className="text-sm">Vendor Payments (producing entity → vendors)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="text-xs text-muted-foreground">
-            Vendor total = FOB × (1 − GPM) = <span className="font-medium text-foreground tabular-nums">${fmt(vendorTotal)}</span>
+            Vendor total = FOB × (1 − GPM) = <span className="font-medium text-foreground tabular-nums">${fmt.usd(vendorTotal)}</span>
           </div>
           {[
             { name: 'Deposit', pctKey: 'vendor_deposit_pct', monthKey: 'vendor_deposit_month' },
@@ -445,7 +445,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                     className="h-9 mt-1" />
                 </div>
                 <div className="text-xs text-muted-foreground md:pt-6">
-                  Amount: <span className="font-medium text-foreground tabular-nums">${fmt(vendorTotal * pctV)}</span>
+                  Amount: <span className="font-medium text-foreground tabular-nums">${fmt.usd(vendorTotal * pctV)}</span>
                 </div>
               </div>
             );
