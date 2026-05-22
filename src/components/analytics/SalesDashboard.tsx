@@ -38,11 +38,12 @@ export function SalesDashboard({ range }: Props) {
   const [receivedRfqs, setReceivedRfqs] = useState<any[]>([]);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [inqStatusEvents, setInqStatusEvents] = useState<any[]>([]);
+  const [projections, setProjections] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [p, i, c, le, rr, qs, ise] = await Promise.all([
+      const [p, i, c, le, rr, qs, ise, pr] = await Promise.all([
         supabase.from('products').select('id, name, quantity, design_stage, quote_stage, sample_stage, customer_rfq_id'),
         supabase.from('customer_rfqs').select('id, rfq_number, title, status, created_at, updated_at, customer_id'),
         supabase.from('customers').select('id, name, company, lead_status'),
@@ -50,6 +51,7 @@ export function SalesDashboard({ range }: Props) {
         (supabase as any).from('inquiry_received_rfqs').select('id, inquiry_id, received_date'),
         (supabase as any).from('quote_snapshots').select('id, customer_rfq_id, created_at, totals'),
         (supabase as any).from('inquiry_status_events').select('inquiry_id, from_status, to_status, occurred_at'),
+        (supabase as any).from('inquiry_projections').select('inquiry_id, projected_fob_revenue_usd, project_gpm, certainty_override'),
       ]);
       const prods = (p.data ?? []) as any[];
       setProducts(prods);
@@ -59,6 +61,7 @@ export function SalesDashboard({ range }: Props) {
       setReceivedRfqs((rr.data ?? []) as any[]);
       setQuotes((qs.data ?? []) as any[]);
       setInqStatusEvents((ise.data ?? []) as any[]);
+      setProjections((pr.data ?? []) as any[]);
       const ids = prods.map(x => x.id);
       if (ids.length) setPricing(await computeProductPriceAndCost(ids));
       setLoading(false);
@@ -83,9 +86,15 @@ export function SalesDashboard({ range }: Props) {
     return m;
   }, [customers]);
 
+  const projectionsByInquiry = useMemo(() => {
+    const m: Record<string, any> = {};
+    projections.forEach(p => { m[p.inquiry_id] = p; });
+    return m;
+  }, [projections]);
+
   const pipeline = useMemo(
-    () => computeWeightedPipeline(products, inquiryStatusById, pricing),
-    [products, inquiryStatusById, pricing],
+    () => computeWeightedPipeline(products, inquiryStatusById, pricing, projectionsByInquiry),
+    [products, inquiryStatusById, pricing, projectionsByInquiry],
   );
 
   // Win rate over the range, based on inquiry status:
