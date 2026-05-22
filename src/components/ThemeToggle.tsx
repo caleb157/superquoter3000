@@ -24,10 +24,13 @@ export function ThemeToggle({ className }: { className?: string }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[140px]">
         <DropdownMenuItem onClick={() => setTheme('light')} className={cn('text-xs gap-2', theme === 'light' && 'bg-secondary')}>
-          <Sun className="h-3.5 w-3.5" /> Light
+          <Sun className="h-3.5 w-3.5" /> Q Mode
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('dark')} className={cn('text-xs gap-2', theme === 'dark' && 'bg-secondary')}>
-          <Moon className="h-3.5 w-3.5" /> Dark
+          <Moon className="h-3.5 w-3.5" /> Parker Mode
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme('system')} className={cn('text-xs gap-2', theme === 'system' && 'bg-secondary')}>
+          <Monitor className="h-3.5 w-3.5" /> System
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('system')} className={cn('text-xs gap-2', theme === 'system' && 'bg-secondary')}>
           <Monitor className="h-3.5 w-3.5" /> System
