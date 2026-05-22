@@ -622,7 +622,7 @@ function FobValue({
   const missing = entry?.missing ?? 0;
   const allMissing = total === 0 && missing > 0;
 
-  const valueLabel = allMissing ? '—' : fmt.usd(total);
+  const valueLabel = allMissing ? '—' : `$${total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const tooltipText = allMissing
     ? 'No priced products yet'
     : missing > 0
