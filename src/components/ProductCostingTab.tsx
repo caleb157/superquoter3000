@@ -2221,24 +2221,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 );
               })()}
 
-              {/* Completion checklist */}
-              <div className="flex items-center gap-4 border-t pt-3">
-                {[
-                  { key: 'cbm_done', label: 'CBM' },
-                  { key: 'cogs_done', label: 'COGS' },
-                  { key: 'overhead_done', label: 'Overhead' },
-                  { key: 'shipping_done', label: 'Shipping' },
-                  { key: 'revenue_done', label: 'Revenue' },
-                ].map(c => (
-                  <label key={c.key} className="flex items-center gap-1.5 text-xs">
-                    <Checkbox
-                      checked={product[c.key] || false}
-                      onCheckedChange={(v) => updateProduct(c.key, !!v, true)}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
