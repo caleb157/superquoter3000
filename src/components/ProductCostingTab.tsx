@@ -1322,6 +1322,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </div>
                 </div>
               </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Quote Notes (shown to customer)</label>
+                <Textarea
+                  className="text-xs min-h-[60px]"
+                  rows={2}
+                  defaultValue={product.quote_notes || ''}
+                  placeholder="Notes that appear on the customer quote under the product name…"
+                  onBlur={e => {
+                    const v = e.target.value;
+                    if (v !== (product.quote_notes || '')) updateProduct('quote_notes', v || null, true);
+                  }}
+                />
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
