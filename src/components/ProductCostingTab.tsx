@@ -2068,7 +2068,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         {/* Section H: Cost & Revenue Summary */}
         <Collapsible open={sections.summary} onOpenChange={() => toggle('summary')}>
           <CollapsibleTrigger asChild>
-            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} done={product.revenue_done} /></div>
+            <div><SectionHeader title="H. Cost & Revenue Summary" open={sections.summary} onToggle={() => {}} badge={`NPM: ${fmt.pct(summary.npm)}`} done={product.revenue_done} onDoneChange={(v) => updateProduct('revenue_done', v, true)} /></div>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="py-2 px-1 space-y-3">
