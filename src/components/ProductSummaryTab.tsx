@@ -14,7 +14,7 @@ type Product = {
   id: string; name: string; updated_at: string | null;
   customer_rfq_id: string | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  notes_finishes: string | null; notes_vendors: string | null; notes_issues: string | null;
+  notes_finishes: string | null; notes_vendors: string | null; notes_issues: string | null; quote_notes: string | null;
 };
 type Inquiry = {
   id: string; rfq_number: string; title: string | null;
