@@ -33,13 +33,7 @@ import {
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
-const INQUIRY_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
-  paused: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-  cancelled: 'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
-  complete: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
-  po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-};
+import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -49,7 +43,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
-type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'complete' | 'open';
+type StatusFilter = 'all' | 'active' | 'paused' | 'projected_po' | 'po' | 'cancelled' | 'complete' | 'open';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
