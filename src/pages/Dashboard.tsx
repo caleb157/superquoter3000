@@ -272,11 +272,12 @@ const Dashboard = () => {
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
           {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
+            <StatCard label="Projected POs" value={projectedPoCount} />
           </div>
 
           {/* Stage buckets */}
