@@ -299,8 +299,8 @@ export default function CustomerDetail() {
                               {i.title || <span className="italic text-muted-foreground">Untitled</span>}
                             </TableCell>
                             <TableCell>
-                              <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium capitalize',
-                                INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                              <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium',
+                                INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{statusLabel(i.status)}</span>
                             </TableCell>
                             <TableCell className="text-xs text-right tabular-nums">{productCounts[i.id] ?? 0}</TableCell>
                             <TableCell className="text-xs text-right text-muted-foreground">
