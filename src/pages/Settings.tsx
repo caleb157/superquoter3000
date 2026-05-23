@@ -264,7 +264,7 @@ function WrappingSettings() {
 }
 
 type SectionId =
-  | 'general' | 'entities' | 'team'
+  | 'general' | 'entities' | 'team' | 'integrations'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'box-data' | 'wrapping'
