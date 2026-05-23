@@ -241,6 +241,29 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
                 </SelectContent>
               </Select>
             </div>
+            {defaultStatus === 'projected_po' && (
+              <div className="grid grid-cols-2 gap-2 rounded-md border border-teal-300 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-500/10 p-3">
+                <div className="col-span-2 text-xs font-medium text-teal-800 dark:text-teal-300">Projection (minimum)</div>
+                <div>
+                  <Label className="text-xs">Projected FOB (USD) *</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={projFobUsd}
+                    onChange={e => setProjFobUsd(e.target.value)}
+                    placeholder="50000"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Start month *</Label>
+                  <Input
+                    type="month"
+                    value={projStartMonth}
+                    onChange={e => setProjStartMonth(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <Label className="text-xs">Requirements / Notes</Label>
               <Textarea
@@ -263,7 +286,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button size="sm" onClick={create} disabled={saving || !customerId}>
-                {saving ? 'Creating…' : 'Create inquiry'}
+                {saving ? 'Creating…' : defaultStatus === 'projected_po' ? 'Create projected PO' : 'Create inquiry'}
               </Button>
             </DialogFooter>
           </div>
