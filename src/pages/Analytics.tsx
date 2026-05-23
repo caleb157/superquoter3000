@@ -9,7 +9,6 @@ import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
 import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
-import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
 
