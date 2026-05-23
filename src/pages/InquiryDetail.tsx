@@ -638,7 +638,7 @@ export default function InquiryDetail() {
             table: 'inquiry_status_events',
             parentColumn: 'inquiry_id',
             parentId: inquiry.id,
-            options: STATUS_OPTIONS,
+            options: [...STATUS_OPTIONS],
             valueColumn: 'to_status',
             fromColumn: 'from_status',
             label: `${inquiry.rfq_number} — status`,
