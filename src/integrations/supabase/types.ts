@@ -759,6 +759,8 @@ export type Database = {
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
           packaging_cost_per_cbm: number
+          projections_sheet_id: string | null
+          projections_sheet_tab_name: string | null
           slow_quote_days: number
           slow_sample_days: number
           total_available_mh_per_month: number | null
@@ -778,6 +780,8 @@ export type Database = {
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           packaging_cost_per_cbm?: number
+          projections_sheet_id?: string | null
+          projections_sheet_tab_name?: string | null
           slow_quote_days?: number
           slow_sample_days?: number
           total_available_mh_per_month?: number | null
@@ -797,6 +801,8 @@ export type Database = {
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           packaging_cost_per_cbm?: number
+          projections_sheet_id?: string | null
+          projections_sheet_tab_name?: string | null
           slow_quote_days?: number
           slow_sample_days?: number
           total_available_mh_per_month?: number | null
@@ -1596,6 +1602,42 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      projection_push_log: {
+        Row: {
+          error_message: string | null
+          id: string
+          months_count: number | null
+          rows_written: number | null
+          starting_month: string | null
+          status_filter: string[] | null
+          success: boolean
+          triggered_at: string
+          triggered_by: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          months_count?: number | null
+          rows_written?: number | null
+          starting_month?: string | null
+          status_filter?: string[] | null
+          success: boolean
+          triggered_at?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          months_count?: number | null
+          rows_written?: number | null
+          starting_month?: string | null
+          status_filter?: string[] | null
+          success?: boolean
+          triggered_at?: string
+          triggered_by?: string | null
         }
         Relationships: []
       }

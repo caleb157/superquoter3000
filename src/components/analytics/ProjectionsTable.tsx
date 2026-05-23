@@ -13,7 +13,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Plus, CalendarIcon, Check } from 'lucide-react';
+import { Plus, CalendarIcon, Check, Sheet as SheetIcon, Loader2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -118,6 +119,92 @@ export function ProjectionsTable() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: EditableField } | null>(null);
   const [editVal, setEditVal] = useState<string>('');
+  const [pushing, setPushing] = useState(false);
+  const [pushCooldownUntil, setPushCooldownUntil] = useState<number>(0);
+  const [, forceTick] = useState(0);
+  const [sheetConfigured, setSheetConfigured] = useState<boolean>(false);
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const [lastPush, setLastPush] = useState<{ at: string; email: string | null; success: boolean } | null>(null);
+
+  // tick every second while in cooldown so the button label updates
+  useEffect(() => {
+    if (pushCooldownUntil <= Date.now()) return;
+    const t = setInterval(() => forceTick((x) => x + 1), 500);
+    return () => clearInterval(t);
+  }, [pushCooldownUntil]);
+
+  const refreshIntegrationState = useCallback(async () => {
+    const [{ data: gs }, { data: log }] = await Promise.all([
+      supabase.from('global_settings').select('projections_sheet_id').limit(1).maybeSingle(),
+      supabase
+        .from('projection_push_log')
+        .select('triggered_at, success, triggered_by')
+        .order('triggered_at', { ascending: false })
+        .limit(1),
+    ]);
+    const sid = (gs as any)?.projections_sheet_id || null;
+    setSheetId(sid);
+    setSheetConfigured(!!sid);
+    if (log && log[0]) {
+      // Resolve email
+      let email: string | null = null;
+      if ((log[0] as any).triggered_by) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', (log[0] as any).triggered_by)
+          .maybeSingle();
+        email = (prof as any)?.display_name || null;
+      }
+      setLastPush({
+        at: (log[0] as any).triggered_at,
+        email,
+        success: (log[0] as any).success,
+      });
+    } else {
+      setLastPush(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshIntegrationState();
+  }, [refreshIntegrationState]);
+
+  const pushToSheets = async () => {
+    if (!sheetConfigured) {
+      toast.error('Configure the Sheet ID in Settings → Integrations first.');
+      return;
+    }
+    setPushing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-projections-to-sheets', {
+        body: {
+          starting_month: format(startMonth, 'yyyy-MM-dd'),
+          months_count: monthsCount,
+          status_filter: STATUS_FILTERS[statusKey],
+        },
+      });
+      if (error || !data?.ok) {
+        const msg = (data as any)?.error || error?.message || 'Push failed';
+        toast.error(msg);
+      } else {
+        toast.success(`Updated Google Sheet · ${data.rows_written} rows`, {
+          action: data.sheet_url
+            ? { label: 'Open Sheet', onClick: () => window.open(data.sheet_url, '_blank') }
+            : undefined,
+        });
+        setPushCooldownUntil(Date.now() + 30_000);
+        refreshIntegrationState();
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Push failed');
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const cooldownLeft = Math.max(0, Math.ceil((pushCooldownUntil - Date.now()) / 1000));
+  const pushDisabled = pushing || cooldownLeft > 0 || !sheetConfigured;
 
   const setUrl = (next: Record<string, string | null>) => {
     const np = new URLSearchParams(params);
@@ -355,10 +442,54 @@ export function ProjectionsTable() {
 
         <div className="flex-1" />
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={pushToSheets}
+          disabled={pushDisabled}
+          className="gap-1"
+          title={!sheetConfigured ? 'Configure the Sheet ID in Settings → Integrations first.' : undefined}
+        >
+          {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SheetIcon className="h-3.5 w-3.5" />}
+          {pushing
+            ? 'Pushing…'
+            : cooldownLeft > 0
+            ? `Wait ${cooldownLeft}s`
+            : 'Push to Google Sheets'}
+        </Button>
+
         <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Add projection
         </Button>
       </div>
+
+      {(lastPush || !sheetConfigured) && (
+        <div className="text-xs text-muted-foreground -mt-2 flex items-center gap-2">
+          {!sheetConfigured && (
+            <span>Configure the Google Sheet in Settings → Integrations to enable push.</span>
+          )}
+          {lastPush && sheetConfigured && (
+            <span>
+              Last pushed: {formatDistanceToNow(new Date(lastPush.at), { addSuffix: true })}
+              {lastPush.email ? ` by ${lastPush.email}` : ''}
+              {!lastPush.success && ' (failed)'}
+              {sheetId && (
+                <>
+                  {' · '}
+                  <a
+                    className="underline hover:text-foreground"
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Sheet
+                  </a>
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       {mobile}
 
