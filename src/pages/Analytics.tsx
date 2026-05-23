@@ -68,24 +68,30 @@ const Analytics = () => {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-xl font-serif font-medium tracking-tight">Analytics</h1>
-          <DateRangePicker
-            preset={preset}
-            customFrom={customFrom}
-            customTo={customTo}
-            onChange={setRange}
-          />
+          {view !== 'projections' && (
+            <DateRangePicker
+              preset={preset}
+              customFrom={customFrom}
+              customTo={customTo}
+              onChange={setRange}
+            />
+          )}
         </div>
 
-        <Tabs value={view} onValueChange={(v) => setView(v as 'sales' | 'ops')}>
+        <Tabs value={view} onValueChange={(v) => setView(v as View)}>
           <TabsList>
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="ops">Operations</TabsTrigger>
+            <TabsTrigger value="projections">Projections</TabsTrigger>
           </TabsList>
           <TabsContent value="sales" className="mt-4">
             <SalesDashboard range={range} />
           </TabsContent>
           <TabsContent value="ops" className="mt-4">
             <OpsDashboard range={range} slowQuoteDays={slowQuoteDays} slowSampleDays={slowSampleDays} />
+          </TabsContent>
+          <TabsContent value="projections" className="mt-4">
+            <ProjectionsTable />
           </TabsContent>
         </Tabs>
       </div>
