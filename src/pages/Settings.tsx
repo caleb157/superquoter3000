@@ -280,6 +280,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
       { id: 'currencies', label: 'Currencies' },
       { id: 'entities', label: 'Company entities' },
       { id: 'team', label: 'Team' },
+      { id: 'integrations', label: 'Integrations' },
     ],
   },
   {
