@@ -45,7 +45,7 @@ const Analytics = () => {
     })();
   }, []);
 
-  const setView = (v: 'sales' | 'ops') => {
+  const setView = (v: View) => {
     const next = new URLSearchParams(params);
     next.set('view', v);
     setParams(next, { replace: true });
