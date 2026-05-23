@@ -23,12 +23,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
-const INQUIRY_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700',
-  paused: 'bg-amber-100 text-amber-700',
-  cancelled: 'bg-gray-200 text-gray-600',
-  po: 'bg-emerald-100 text-emerald-700',
-};
+import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
 type Customer = {
   id: string;
@@ -304,8 +299,8 @@ export default function CustomerDetail() {
                               {i.title || <span className="italic text-muted-foreground">Untitled</span>}
                             </TableCell>
                             <TableCell>
-                              <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium capitalize',
-                                INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                              <span className={cn('px-2 py-0.5 rounded text-[11px] font-medium',
+                                INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{statusLabel(i.status)}</span>
                             </TableCell>
                             <TableCell className="text-xs text-right tabular-nums">{productCounts[i.id] ?? 0}</TableCell>
                             <TableCell className="text-xs text-right text-muted-foreground">
@@ -326,8 +321,8 @@ export default function CustomerDetail() {
                             <div className="font-mono text-[11px] text-muted-foreground">{i.rfq_number}</div>
                             <div className="text-sm font-medium truncate">{i.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
                           </div>
-                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium capitalize shrink-0',
-                            INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium shrink-0',
+                            INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{statusLabel(i.status)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{productCounts[i.id] ?? 0} product{(productCounts[i.id] ?? 0) === 1 ? '' : 's'}</span>

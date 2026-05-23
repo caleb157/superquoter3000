@@ -33,13 +33,7 @@ import {
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
-const INQUIRY_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
-  paused: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-  cancelled: 'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
-  complete: 'bg-slate-200 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
-  po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-};
+import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -49,7 +43,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
-type StatusFilter = 'all' | 'active' | 'paused' | 'po' | 'cancelled' | 'complete' | 'open';
+type StatusFilter = 'all' | 'active' | 'paused' | 'projected_po' | 'po' | 'cancelled' | 'complete' | 'open';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
@@ -88,6 +82,7 @@ const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showNewInquiry, setShowNewInquiry] = useState(false);
+  const [newInquiryStatus, setNewInquiryStatus] = useState<'active' | 'projected_po'>('active');
 
   const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
   
@@ -150,6 +145,7 @@ const Dashboard = () => {
   );
   const activeInquiries = inquiries.filter(i => i.status !== 'cancelled' && i.status !== 'complete').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
+  const projectedPoCount = inquiries.filter(i => i.status === 'projected_po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
@@ -277,11 +273,12 @@ const Dashboard = () => {
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
           {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
+            <StatCard label="Projected POs" value={projectedPoCount} />
           </div>
 
           {/* Stage buckets */}
@@ -334,14 +331,20 @@ const Dashboard = () => {
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="projected_po">Projected PO</SelectItem>
                 <SelectItem value="po">PO</SelectItem>
                 <SelectItem value="complete">Complete</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
-              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => { setNewInquiryStatus('projected_po'); setShowNewInquiry(true); }}>
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Projected PO</span><span className="sm:hidden">Proj. PO</span>
+              </Button>
+              <Button size="sm" className="h-9 gap-1.5" onClick={() => { setNewInquiryStatus('active'); setShowNewInquiry(true); }}>
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
 
           {/* Mobile: card list */}
@@ -379,9 +382,9 @@ const Dashboard = () => {
                               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
                             )}
                             <span className={cn(
-                              'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                              'px-1.5 py-0.5 rounded text-[10px] font-medium',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{inq.status}</span>
+                            )}>{statusLabel(inq.status)}</span>
                           </div>
                           <div className="font-semibold text-sm leading-tight mt-1 truncate">
                             {inq.title || <span className="text-muted-foreground italic font-normal">Untitled</span>}
@@ -488,9 +491,9 @@ const Dashboard = () => {
                           </TableCell>
                           <TableCell>
                             <span className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium capitalize',
+                              'px-2 py-0.5 rounded text-[11px] font-medium',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{inq.status}</span>
+                            )}>{statusLabel(inq.status)}</span>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Select
@@ -566,9 +569,10 @@ const Dashboard = () => {
         <NewInquiryDialog
           open={showNewInquiry}
           onOpenChange={setShowNewInquiry}
+          defaultStatus={newInquiryStatus}
           onCreated={(id) => {
             setRefreshKey(k => k + 1);
-            navigate(`/inquiry/${id}?tab=products`);
+            navigate(`/inquiry/${id}?tab=${newInquiryStatus === 'projected_po' ? 'projection' : 'products'}`);
           }}
         />
       </TooltipProvider>

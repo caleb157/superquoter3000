@@ -143,7 +143,7 @@ export function computeWeightedPipeline(
 
   for (const [inqId, inqProducts] of Object.entries(productsByInquiry)) {
     const inqStatus = inquiryStatusById[inqId];
-    if (inqStatus !== 'active' && inqStatus !== 'po') continue;
+    if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
     const proj = projectionsByInquiry[inqId];
     if (proj && proj.projected_fob_revenue_usd != null) {
       let certainty: number;
@@ -151,6 +151,8 @@ export function computeWeightedPipeline(
         certainty = Number(proj.certainty_override);
       } else if (inqStatus === 'po') {
         certainty = 1.0;
+      } else if (inqStatus === 'projected_po') {
+        certainty = 0.5;
       } else {
         const sum = inqProducts.reduce((acc, p) => acc + productWeight(p, inqStatus), 0);
         certainty = inqProducts.length > 0 ? sum / inqProducts.length : 0;
@@ -177,7 +179,7 @@ export function computeWeightedPipeline(
   for (const p of products) {
     if (p.customer_rfq_id && inquiriesUsingProjection.has(p.customer_rfq_id)) continue;
     const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-    if (inqStatus !== 'active' && inqStatus !== 'po') continue;
+    if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
     const w = productWeight(p, inqStatus);
     if (w === 0) continue;
     const qty = p.quantity ?? 0;

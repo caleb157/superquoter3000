@@ -42,6 +42,11 @@ export function effectiveCertainty(
   if (projection?.certainty_override != null) return Number(projection.certainty_override);
   if (inquiryStatus === 'po' || inquiryStatus === 'complete') return 1.0;
   if (inquiryStatus === 'cancelled' || inquiryStatus === 'paused') return 0;
+  if (inquiryStatus === 'projected_po') {
+    // Default certainty for projected POs is 0.5 — conservative middle ground.
+    // User can override per-inquiry via certainty_override.
+    return 0.5;
+  }
   if (products.length === 0) return 0;
   const total = products.reduce((acc, p) => acc + productWeight(p as any, inquiryStatus), 0);
   return total / products.length;

@@ -23,9 +23,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   onCreated?: (inquiryId: string) => void;
   defaultCustomerId?: string;
+  defaultStatus?: 'active' | 'projected_po';
 }
 
-export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustomerId }: Props) {
+export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustomerId, defaultStatus = 'active' }: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>('');
   const [title, setTitle] = useState('');
@@ -33,6 +34,11 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   const [requirements, setRequirements] = useState('');
   const [saving, setSaving] = useState(false);
   const [copyAfterCreate, setCopyAfterCreate] = useState(false);
+  // Projected-PO quick fields (only shown when defaultStatus === 'projected_po')
+  const [projFobUsd, setProjFobUsd] = useState('');
+  const [projStartMonth, setProjStartMonth] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [createdInquiryId, setCreatedInquiryId] = useState<string | null>(null);
 
   // Inline new-customer panel
@@ -97,6 +103,10 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
 
   const create = async () => {
     if (!customerId) { toast.error('Please select a customer'); return; }
+    if (defaultStatus === 'projected_po') {
+      if (!projFobUsd || Number(projFobUsd) <= 0) { toast.error('Projected FOB revenue is required'); return; }
+      if (!projStartMonth) { toast.error('Start month is required'); return; }
+    }
     setSaving(true);
     const { data, error } = await supabase
       .from('customer_rfqs')
@@ -104,12 +114,25 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         customer_id: customerId,
         title: title.trim() || null,
         priority,
+        status: defaultStatus,
         requirements: requirements.trim() || null,
       })
       .select('id, rfq_number')
       .single();
+    if (error || !data) { setSaving(false); toast.error(error?.message ?? 'Failed'); return; }
+    if (defaultStatus === 'projected_po') {
+      const { suggestDefaultMonths } = await import('@/lib/projections');
+      const months = suggestDefaultMonths('sea');
+      const startDate = `${projStartMonth}-01`;
+      await (supabase as any).from('inquiry_projections').insert({
+        inquiry_id: data.id,
+        projected_fob_revenue_usd: Number(projFobUsd),
+        start_month: startDate,
+        shipping_month: months.shipping_month,
+        delivery_month: months.delivery_month,
+      });
+    }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
     toast.success(`Inquiry ${data.rfq_number} created`);
     if (copyAfterCreate) {
       // Keep inquiry id, open copy dialog. Navigate after copy completes.
@@ -125,11 +148,13 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
-          <DialogTitle>{showNewCustomer ? 'Add Customer' : 'New Inquiry'}</DialogTitle>
+          <DialogTitle>{showNewCustomer ? 'Add Customer' : defaultStatus === 'projected_po' ? 'New Projected PO' : 'New Inquiry'}</DialogTitle>
           <DialogDescription>
             {showNewCustomer
               ? 'New customer will be saved and selected for this inquiry.'
-              : 'Create a new customer inquiry. You can add products right after.'}
+              : defaultStatus === 'projected_po'
+                ? 'Forecast a repeat order before the PO is signed. You can flesh out details on the Projection tab.'
+                : 'Create a new customer inquiry. You can add products right after.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -216,6 +241,29 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
                 </SelectContent>
               </Select>
             </div>
+            {defaultStatus === 'projected_po' && (
+              <div className="grid grid-cols-2 gap-2 rounded-md border border-teal-300 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-500/10 p-3">
+                <div className="col-span-2 text-xs font-medium text-teal-800 dark:text-teal-300">Projection (minimum)</div>
+                <div>
+                  <Label className="text-xs">Projected FOB (USD) *</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={projFobUsd}
+                    onChange={e => setProjFobUsd(e.target.value)}
+                    placeholder="50000"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Start month *</Label>
+                  <Input
+                    type="month"
+                    value={projStartMonth}
+                    onChange={e => setProjStartMonth(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <Label className="text-xs">Requirements / Notes</Label>
               <Textarea
@@ -238,7 +286,7 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button size="sm" onClick={create} disabled={saving || !customerId}>
-                {saving ? 'Creating…' : 'Create inquiry'}
+                {saving ? 'Creating…' : defaultStatus === 'projected_po' ? 'Create projected PO' : 'Create inquiry'}
               </Button>
             </DialogFooter>
           </div>
