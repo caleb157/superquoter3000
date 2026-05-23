@@ -569,9 +569,10 @@ const Dashboard = () => {
         <NewInquiryDialog
           open={showNewInquiry}
           onOpenChange={setShowNewInquiry}
+          defaultStatus={newInquiryStatus}
           onCreated={(id) => {
             setRefreshKey(k => k + 1);
-            navigate(`/inquiry/${id}?tab=products`);
+            navigate(`/inquiry/${id}?tab=${newInquiryStatus === 'projected_po' ? 'projection' : 'products'}`);
           }}
         />
       </TooltipProvider>
