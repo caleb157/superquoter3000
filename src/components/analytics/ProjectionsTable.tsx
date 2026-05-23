@@ -234,7 +234,7 @@ export function ProjectionsTable() {
 
     const { error } = await supabase
       .from('inquiry_projections')
-      .upsert({ inquiry_id: id, [field]: value }, { onConflict: 'inquiry_id' });
+      .upsert({ inquiry_id: id, [field]: value } as any, { onConflict: 'inquiry_id' });
     if (error) {
       toast.error('Save failed: ' + error.message);
       setRows(prev);
