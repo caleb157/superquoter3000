@@ -343,6 +343,9 @@ function IntegrationsSettings() {
       </div>
     </div>
   );
+}
+
+// Wrapping settings (subset of global_settings)
 function WrappingSettings() {
   const [settings, setSettings] = useState<any>(null);
   useEffect(() => {
