@@ -382,9 +382,9 @@ const Dashboard = () => {
                               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
                             )}
                             <span className={cn(
-                              'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                              'px-1.5 py-0.5 rounded text-[10px] font-medium',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{inq.status}</span>
+                            )}>{statusLabel(inq.status)}</span>
                           </div>
                           <div className="font-semibold text-sm leading-tight mt-1 truncate">
                             {inq.title || <span className="text-muted-foreground italic font-normal">Untitled</span>}
