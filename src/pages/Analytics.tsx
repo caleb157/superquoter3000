@@ -8,11 +8,17 @@ import { SalesDashboard } from '@/components/analytics/SalesDashboard';
 import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
+import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
+
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
+
+type View = 'sales' | 'ops' | 'projections';
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
-  const view = (params.get('view') === 'ops' ? 'ops' : 'sales') as 'sales' | 'ops';
+  const viewRaw = params.get('view');
+  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : 'sales';
   const presetRaw = params.get('range') as RangePreset | null;
   const preset: RangePreset = presetRaw && VALID_PRESETS.includes(presetRaw) ? presetRaw : '30d';
   const customFrom = params.get('from') || undefined;
