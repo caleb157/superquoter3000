@@ -144,6 +144,7 @@ const Dashboard = () => {
   );
   const activeInquiries = inquiries.filter(i => i.status !== 'cancelled' && i.status !== 'complete').length;
   const poInquiries = inquiries.filter(i => i.status === 'po').length;
+  const projectedPoCount = inquiries.filter(i => i.status === 'projected_po').length;
   const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
   const totalProducts = products.length;
 
