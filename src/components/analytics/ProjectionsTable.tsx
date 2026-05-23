@@ -442,10 +442,54 @@ export function ProjectionsTable() {
 
         <div className="flex-1" />
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={pushToSheets}
+          disabled={pushDisabled}
+          className="gap-1"
+          title={!sheetConfigured ? 'Configure the Sheet ID in Settings → Integrations first.' : undefined}
+        >
+          {pushing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SheetIcon className="h-3.5 w-3.5" />}
+          {pushing
+            ? 'Pushing…'
+            : cooldownLeft > 0
+            ? `Wait ${cooldownLeft}s`
+            : 'Push to Google Sheets'}
+        </Button>
+
         <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Add projection
         </Button>
       </div>
+
+      {(lastPush || !sheetConfigured) && (
+        <div className="text-xs text-muted-foreground -mt-2 flex items-center gap-2">
+          {!sheetConfigured && (
+            <span>Configure the Google Sheet in Settings → Integrations to enable push.</span>
+          )}
+          {lastPush && sheetConfigured && (
+            <span>
+              Last pushed: {formatDistanceToNow(new Date(lastPush.at), { addSuffix: true })}
+              {lastPush.email ? ` by ${lastPush.email}` : ''}
+              {!lastPush.success && ' (failed)'}
+              {sheetId && (
+                <>
+                  {' · '}
+                  <a
+                    className="underline hover:text-foreground"
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Sheet
+                  </a>
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       {mobile}
 
