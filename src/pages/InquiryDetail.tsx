@@ -233,13 +233,13 @@ export default function InquiryDetail() {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('gap-1.5 capitalize', statusKnown && STATUS_COLOR[inquiry.status])}>
-                  {inquiry.status} <ChevronDown className="h-3.5 w-3.5" />
+                <Button variant="outline" size="sm" className={cn('gap-1.5', statusKnown && STATUS_COLOR[inquiry.status])}>
+                  {statusLabel(inquiry.status)} <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {STATUS_OPTIONS.map(s => (
-                  <DropdownMenuItem key={s} className="capitalize" onClick={() => updateField({ status: s })}>{s}</DropdownMenuItem>
+                  <DropdownMenuItem key={s} onClick={() => updateField({ status: s })}>{statusLabel(s)}</DropdownMenuItem>
                 ))}
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="border-t mt-1 pt-1.5">
                   <History className="h-3.5 w-3.5 mr-2" /> Edit history…
