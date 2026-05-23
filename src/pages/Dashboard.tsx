@@ -330,14 +330,20 @@ const Dashboard = () => {
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="projected_po">Projected PO</SelectItem>
                 <SelectItem value="po">PO</SelectItem>
                 <SelectItem value="complete">Complete</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Button size="sm" className="h-9 gap-1.5 ml-auto" onClick={() => setShowNewInquiry(true)}>
-              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => { setNewInquiryStatus('projected_po'); setShowNewInquiry(true); }}>
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Projected PO</span><span className="sm:hidden">Proj. PO</span>
+              </Button>
+              <Button size="sm" className="h-9 gap-1.5" onClick={() => { setNewInquiryStatus('active'); setShowNewInquiry(true); }}>
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Inquiry</span><span className="sm:hidden">New</span>
+              </Button>
+            </div>
           </div>
 
           {/* Mobile: card list */}
