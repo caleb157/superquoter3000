@@ -103,6 +103,10 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
 
   const create = async () => {
     if (!customerId) { toast.error('Please select a customer'); return; }
+    if (defaultStatus === 'projected_po') {
+      if (!projFobUsd || Number(projFobUsd) <= 0) { toast.error('Projected FOB revenue is required'); return; }
+      if (!projStartMonth) { toast.error('Start month is required'); return; }
+    }
     setSaving(true);
     const { data, error } = await supabase
       .from('customer_rfqs')
@@ -110,12 +114,25 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
         customer_id: customerId,
         title: title.trim() || null,
         priority,
+        status: defaultStatus,
         requirements: requirements.trim() || null,
       })
       .select('id, rfq_number')
       .single();
+    if (error || !data) { setSaving(false); toast.error(error?.message ?? 'Failed'); return; }
+    if (defaultStatus === 'projected_po') {
+      const { suggestDefaultMonths } = await import('@/lib/projections');
+      const months = suggestDefaultMonths('sea');
+      const startDate = `${projStartMonth}-01`;
+      await (supabase as any).from('inquiry_projections').insert({
+        inquiry_id: data.id,
+        projected_fob_revenue_usd: Number(projFobUsd),
+        start_month: startDate,
+        shipping_month: months.shipping_month,
+        delivery_month: months.delivery_month,
+      });
+    }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
     toast.success(`Inquiry ${data.rfq_number} created`);
     if (copyAfterCreate) {
       // Keep inquiry id, open copy dialog. Navigate after copy completes.
