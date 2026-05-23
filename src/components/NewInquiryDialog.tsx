@@ -148,11 +148,13 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
-          <DialogTitle>{showNewCustomer ? 'Add Customer' : 'New Inquiry'}</DialogTitle>
+          <DialogTitle>{showNewCustomer ? 'Add Customer' : defaultStatus === 'projected_po' ? 'New Projected PO' : 'New Inquiry'}</DialogTitle>
           <DialogDescription>
             {showNewCustomer
               ? 'New customer will be saved and selected for this inquiry.'
-              : 'Create a new customer inquiry. You can add products right after.'}
+              : defaultStatus === 'projected_po'
+                ? 'Forecast a repeat order before the PO is signed. You can flesh out details on the Projection tab.'
+                : 'Create a new customer inquiry. You can add products right after.'}
           </DialogDescription>
         </DialogHeader>
 
