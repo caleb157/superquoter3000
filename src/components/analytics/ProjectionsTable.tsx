@@ -119,6 +119,92 @@ export function ProjectionsTable() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<{ id: string; field: EditableField } | null>(null);
   const [editVal, setEditVal] = useState<string>('');
+  const [pushing, setPushing] = useState(false);
+  const [pushCooldownUntil, setPushCooldownUntil] = useState<number>(0);
+  const [, forceTick] = useState(0);
+  const [sheetConfigured, setSheetConfigured] = useState<boolean>(false);
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const [lastPush, setLastPush] = useState<{ at: string; email: string | null; success: boolean } | null>(null);
+
+  // tick every second while in cooldown so the button label updates
+  useEffect(() => {
+    if (pushCooldownUntil <= Date.now()) return;
+    const t = setInterval(() => forceTick((x) => x + 1), 500);
+    return () => clearInterval(t);
+  }, [pushCooldownUntil]);
+
+  const refreshIntegrationState = useCallback(async () => {
+    const [{ data: gs }, { data: log }] = await Promise.all([
+      supabase.from('global_settings').select('projections_sheet_id').limit(1).maybeSingle(),
+      supabase
+        .from('projection_push_log')
+        .select('triggered_at, success, triggered_by')
+        .order('triggered_at', { ascending: false })
+        .limit(1),
+    ]);
+    const sid = (gs as any)?.projections_sheet_id || null;
+    setSheetId(sid);
+    setSheetConfigured(!!sid);
+    if (log && log[0]) {
+      // Resolve email
+      let email: string | null = null;
+      if ((log[0] as any).triggered_by) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', (log[0] as any).triggered_by)
+          .maybeSingle();
+        email = (prof as any)?.display_name || null;
+      }
+      setLastPush({
+        at: (log[0] as any).triggered_at,
+        email,
+        success: (log[0] as any).success,
+      });
+    } else {
+      setLastPush(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshIntegrationState();
+  }, [refreshIntegrationState]);
+
+  const pushToSheets = async () => {
+    if (!sheetConfigured) {
+      toast.error('Configure the Sheet ID in Settings → Integrations first.');
+      return;
+    }
+    setPushing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-projections-to-sheets', {
+        body: {
+          starting_month: format(startMonth, 'yyyy-MM-dd'),
+          months_count: monthsCount,
+          status_filter: STATUS_FILTERS[statusKey],
+        },
+      });
+      if (error || !data?.ok) {
+        const msg = (data as any)?.error || error?.message || 'Push failed';
+        toast.error(msg);
+      } else {
+        toast.success(`Updated Google Sheet · ${data.rows_written} rows`, {
+          action: data.sheet_url
+            ? { label: 'Open Sheet', onClick: () => window.open(data.sheet_url, '_blank') }
+            : undefined,
+        });
+        setPushCooldownUntil(Date.now() + 30_000);
+        refreshIntegrationState();
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Push failed');
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const cooldownLeft = Math.max(0, Math.ceil((pushCooldownUntil - Date.now()) / 1000));
+  const pushDisabled = pushing || cooldownLeft > 0 || !sheetConfigured;
 
   const setUrl = (next: Record<string, string | null>) => {
     const np = new URLSearchParams(params);
