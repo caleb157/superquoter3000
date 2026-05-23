@@ -1,14 +1,14 @@
 // Canonical inquiry status constants — shared across Dashboard, InquiryDetail,
 // CustomerDetail, and anywhere else status pills / dropdowns appear.
 
-export const STATUS_OPTIONS = [
+export const STATUS_OPTIONS: string[] = [
   'active',
   'paused',
   'projected_po',
   'po',
   'complete',
   'cancelled',
-] as const;
+];
 
 export type InquiryStatus = typeof STATUS_OPTIONS[number];
 
