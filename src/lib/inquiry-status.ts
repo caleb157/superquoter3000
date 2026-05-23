@@ -10,7 +10,7 @@ export const STATUS_OPTIONS: string[] = [
   'cancelled',
 ];
 
-export type InquiryStatus = typeof STATUS_OPTIONS[number];
+export type InquiryStatus = 'active' | 'paused' | 'projected_po' | 'po' | 'complete' | 'cancelled';
 
 export const INQUIRY_STATUS_LABEL: Record<string, string> = {
   active: 'Active',
