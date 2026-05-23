@@ -23,9 +23,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   onCreated?: (inquiryId: string) => void;
   defaultCustomerId?: string;
+  defaultStatus?: 'active' | 'projected_po';
 }
 
-export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustomerId }: Props) {
+export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustomerId, defaultStatus = 'active' }: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>('');
   const [title, setTitle] = useState('');
