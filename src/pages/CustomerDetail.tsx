@@ -23,12 +23,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
-const INQUIRY_STATUS_COLORS: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700',
-  paused: 'bg-amber-100 text-amber-700',
-  cancelled: 'bg-gray-200 text-gray-600',
-  po: 'bg-emerald-100 text-emerald-700',
-};
+import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
 type Customer = {
   id: string;
