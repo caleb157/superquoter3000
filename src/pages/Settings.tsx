@@ -215,7 +215,134 @@ function GeneralSettings() {
   );
 }
 
-// Wrapping settings (subset of global_settings)
+// Integrations: Google Sheets push target
+function IntegrationsSettings() {
+  const [settings, setSettings] = useState<any>(null);
+  const [sheetId, setSheetId] = useState('');
+  const [tabName, setTabName] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    supabase.from('global_settings').select('*').limit(1).single().then(({ data }) => {
+      if (data) {
+        setSettings(data);
+        setSheetId((data as any).projections_sheet_id || '');
+        setTabName((data as any).projections_sheet_tab_name || 'Projections');
+      }
+    });
+  }, []);
+
+  const save = async (field: string, value: any) => {
+    if (!settings) return;
+    const { error } = await supabase
+      .from('global_settings')
+      .update({ [field]: value } as any)
+      .eq('id', settings.id);
+    if (error) { toast.error(error.message); return; }
+    setSettings({ ...settings, [field]: value });
+    toast.success('Saved');
+  };
+
+  const testConnection = async () => {
+    if (!sheetId.trim()) { toast.error('Enter a Sheet ID first'); return; }
+    setTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('push-projections-to-sheets', {
+        body: { test_only: true },
+      });
+      if (error || !data?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Test failed');
+      } else {
+        toast.success('Connection OK — Sheet is reachable');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Test failed');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      <div>
+        <h3 className="text-sm font-semibold mb-1">Google Sheets — Projections push</h3>
+        <p className="text-xs text-muted-foreground">
+          One-way export from Analytics → Projections. The target tab is cleared and rewritten on each push.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-medium block mb-1">Google Sheet ID</label>
+          <Input
+            className="h-8 text-sm font-mono"
+            value={sheetId}
+            onChange={(e) => setSheetId(e.target.value)}
+            onBlur={() => sheetId !== (settings.projections_sheet_id || '') && save('projections_sheet_id', sheetId.trim() || null)}
+            placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz..."
+          />
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            From the URL: docs.google.com/spreadsheets/d/<span className="font-semibold">THIS_PART</span>/edit
+          </p>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium block mb-1">Sheet tab name</label>
+          <Input
+            className="h-8 text-sm"
+            value={tabName}
+            onChange={(e) => setTabName(e.target.value)}
+            onBlur={() => tabName !== (settings.projections_sheet_tab_name || '') && save('projections_sheet_tab_name', tabName.trim() || 'Projections')}
+            placeholder="Projections"
+          />
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Tab will be created if it doesn't exist.
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={testConnection} disabled={testing || !sheetId.trim()}>
+            {testing ? 'Testing…' : 'Test connection'}
+          </Button>
+          {sheetId.trim() && (
+            <Button size="sm" variant="ghost" asChild>
+              <a href={`https://docs.google.com/spreadsheets/d/${sheetId.trim()}`} target="_blank" rel="noreferrer">
+                Open Sheet
+              </a>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="border rounded-md">
+        <button
+          type="button"
+          onClick={() => setHelpOpen((o) => !o)}
+          className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-muted/40"
+        >
+          {helpOpen ? '▾' : '▸'} How to set up
+        </button>
+        {helpOpen && (
+          <div className="px-3 pb-3 text-xs text-muted-foreground space-y-2">
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Open the Google Sheet you want this app to push to.</li>
+              <li>Copy the Sheet ID from the URL (the part between <code>/d/</code> and <code>/edit</code>).</li>
+              <li>Paste it into the field above.</li>
+              <li>
+                Make sure the Google account connected to Lovable's Google Sheets integration has
+                Editor access to this Sheet (it's the account that authorized the connector).
+              </li>
+              <li>Click "Test connection" to verify.</li>
+              <li>Go to Analytics → Projections → "Push to Google Sheets".</li>
+            </ol>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 function WrappingSettings() {
   const [settings, setSettings] = useState<any>(null);
   useEffect(() => {
