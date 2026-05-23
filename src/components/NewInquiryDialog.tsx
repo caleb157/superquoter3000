@@ -34,6 +34,11 @@ export function NewInquiryDialog({ open, onOpenChange, onCreated, defaultCustome
   const [requirements, setRequirements] = useState('');
   const [saving, setSaving] = useState(false);
   const [copyAfterCreate, setCopyAfterCreate] = useState(false);
+  // Projected-PO quick fields (only shown when defaultStatus === 'projected_po')
+  const [projFobUsd, setProjFobUsd] = useState('');
+  const [projStartMonth, setProjStartMonth] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [createdInquiryId, setCreatedInquiryId] = useState<string | null>(null);
 
   // Inline new-customer panel
