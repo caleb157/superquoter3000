@@ -403,7 +403,7 @@ export default function InquiryDetail() {
                   <Select value={settingsDraft?.status ?? 'active'} onValueChange={v => setSettingsDraft({ ...settingsDraft, status: v })}>
                     <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                      {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}
                       {!STATUS_OPTIONS.includes(settingsDraft?.status) && settingsDraft?.status && (
                         <SelectItem value={settingsDraft.status} className="capitalize">{settingsDraft.status}</SelectItem>
                       )}
