@@ -8,11 +8,16 @@ import { SalesDashboard } from '@/components/analytics/SalesDashboard';
 import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
+import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
+
+type View = 'sales' | 'ops' | 'projections';
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
-  const view = (params.get('view') === 'ops' ? 'ops' : 'sales') as 'sales' | 'ops';
+  const viewRaw = params.get('view');
+  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : 'sales';
   const presetRaw = params.get('range') as RangePreset | null;
   const preset: RangePreset = presetRaw && VALID_PRESETS.includes(presetRaw) ? presetRaw : '30d';
   const customFrom = params.get('from') || undefined;
@@ -40,7 +45,7 @@ const Analytics = () => {
     })();
   }, []);
 
-  const setView = (v: 'sales' | 'ops') => {
+  const setView = (v: View) => {
     const next = new URLSearchParams(params);
     next.set('view', v);
     setParams(next, { replace: true });
@@ -63,24 +68,30 @@ const Analytics = () => {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-xl font-serif font-medium tracking-tight">Analytics</h1>
-          <DateRangePicker
-            preset={preset}
-            customFrom={customFrom}
-            customTo={customTo}
-            onChange={setRange}
-          />
+          {view !== 'projections' && (
+            <DateRangePicker
+              preset={preset}
+              customFrom={customFrom}
+              customTo={customTo}
+              onChange={setRange}
+            />
+          )}
         </div>
 
-        <Tabs value={view} onValueChange={(v) => setView(v as 'sales' | 'ops')}>
+        <Tabs value={view} onValueChange={(v) => setView(v as View)}>
           <TabsList>
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="ops">Operations</TabsTrigger>
+            <TabsTrigger value="projections">Projections</TabsTrigger>
           </TabsList>
           <TabsContent value="sales" className="mt-4">
             <SalesDashboard range={range} />
           </TabsContent>
           <TabsContent value="ops" className="mt-4">
             <OpsDashboard range={range} slowQuoteDays={slowQuoteDays} slowSampleDays={slowSampleDays} />
+          </TabsContent>
+          <TabsContent value="projections" className="mt-4">
+            <ProjectionsTable />
           </TabsContent>
         </Tabs>
       </div>
