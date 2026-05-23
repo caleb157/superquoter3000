@@ -491,9 +491,9 @@ const Dashboard = () => {
                           </TableCell>
                           <TableCell>
                             <span className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium capitalize',
+                              'px-2 py-0.5 rounded text-[11px] font-medium',
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{inq.status}</span>
+                            )}>{statusLabel(inq.status)}</span>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Select
