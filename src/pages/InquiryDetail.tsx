@@ -29,14 +29,7 @@ import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
-const STATUS_OPTIONS = ['active', 'paused', 'po', 'complete', 'cancelled'];
-const STATUS_COLOR: Record<string, string> = {
-  active: 'bg-blue-100 text-blue-700',
-  paused: 'bg-amber-100 text-amber-700',
-  cancelled: 'bg-gray-200 text-gray-600',
-  complete: 'bg-slate-200 text-slate-700',
-  po: 'bg-emerald-100 text-emerald-700',
-};
+import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
 const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
