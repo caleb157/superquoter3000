@@ -82,6 +82,7 @@ const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showNewInquiry, setShowNewInquiry] = useState(false);
+  const [newInquiryStatus, setNewInquiryStatus] = useState<'active' | 'projected_po'>('active');
 
   const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
   
