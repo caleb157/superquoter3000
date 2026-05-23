@@ -379,6 +379,7 @@ const Settings = () => {
   const renderSection = () => {
     switch (section) {
       case 'general': return <GeneralSettings />;
+      case 'integrations': return <IntegrationsSettings />;
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'team': return <TeamManagementContent />;
