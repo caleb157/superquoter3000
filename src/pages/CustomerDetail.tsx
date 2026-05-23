@@ -321,8 +321,8 @@ export default function CustomerDetail() {
                             <div className="font-mono text-[11px] text-muted-foreground">{i.rfq_number}</div>
                             <div className="text-sm font-medium truncate">{i.title || <span className="italic text-muted-foreground">Untitled</span>}</div>
                           </div>
-                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium capitalize shrink-0',
-                            INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{i.status}</span>
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-medium shrink-0',
+                            INQUIRY_STATUS_COLORS[i.status] || 'bg-muted')}>{statusLabel(i.status)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{productCounts[i.id] ?? 0} product{(productCounts[i.id] ?? 0) === 1 ? '' : 's'}</span>
