@@ -675,7 +675,7 @@ export function ProjectionsTable() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        * Certainty derived from product stages. Click any value to edit. Month cells show weighted customer payments only (revenue side).
+        * Auto-populated from the costing sheet (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Click any value to override. Month cells show weighted customer payments only (revenue side).
       </p>
 
       <NewInquiryDialog
