@@ -35,6 +35,8 @@ type Row = {
   customer_company: string | null;
   projection: Partial<InquiryProjection> | null;
   products: Array<{ design_stage: string | null; quote_stage: string | null; sample_stage: string | null }>;
+  autoFob: number;
+  autoGpm: number;
 };
 
 const STATUS_FILTERS: Record<string, string[]> = {
