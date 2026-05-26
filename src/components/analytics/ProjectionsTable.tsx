@@ -223,10 +223,10 @@ export function ProjectionsTable() {
     const { data, error } = await supabase
       .from('customer_rfqs')
       .select(
-        `id, rfq_number, title, status, customer_id,
+        `id, rfq_number, title, status, customer_id, exchange_rate_override,
          customers:customer_id ( id, name, company ),
          inquiry_projections ( * ),
-         products ( design_stage, quote_stage, sample_stage )`,
+         products ( id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd )`,
       )
       .in('status', statuses)
       .order('created_at', { ascending: false });
@@ -237,10 +237,49 @@ export function ProjectionsTable() {
       setLoading(false);
       return;
     }
+
+    // Collect all product IDs for batched cost queries
+    const allProductIds: string[] = [];
+    (data || []).forEach((r: any) => (r.products || []).forEach((p: any) => allProductIds.push(p.id)));
+
+    const [{ data: cogsRows }, { data: nonUnitRows }, gsRes] = await Promise.all([
+      allProductIds.length
+        ? (supabase as any).from('cogs_items').select('product_id, include, components_per_product, unit_cost_inr, waste_factor').in('product_id', allProductIds)
+        : Promise.resolve({ data: [] as any[] }),
+      allProductIds.length
+        ? (supabase as any).from('non_unit_cogs').select('product_id, include, total_quantity, cost_each_inr').in('product_id', allProductIds)
+        : Promise.resolve({ data: [] as any[] }),
+      (supabase as any).from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+    ]);
+
+    const cogsPerUnitInr: Record<string, number> = {};
+    (cogsRows || []).forEach((r: any) => {
+      if (r.include === 'No') return;
+      const waste = Number(r.waste_factor || 0);
+      const divisor = 1 - waste;
+      const units = divisor > 0 ? Number(r.components_per_product || 0) / divisor : Number(r.components_per_product || 0);
+      cogsPerUnitInr[r.product_id] = (cogsPerUnitInr[r.product_id] || 0) + Number(r.unit_cost_inr || 0) * units;
+    });
+    const nonUnitTotalInr: Record<string, number> = {};
+    (nonUnitRows || []).forEach((r: any) => {
+      if (r.include === 'No') return;
+      nonUnitTotalInr[r.product_id] = (nonUnitTotalInr[r.product_id] || 0) + Number(r.total_quantity || 0) * Number(r.cost_each_inr || 0);
+    });
+    const globalXr = Number((gsRes as any)?.data?.exchange_rate ?? 0);
+
     const mapped: Row[] = (data || []).map((r: any) => {
       const proj = Array.isArray(r.inquiry_projections)
         ? r.inquiry_projections[0]
         : r.inquiry_projections;
+      const xr = Number(r.exchange_rate_override ?? globalXr ?? 0);
+      let totalRev = 0;
+      let totalCogsUsd = 0;
+      (r.products || []).forEach((p: any) => {
+        const qty = Number(p.quantity || 0);
+        totalRev += Number(p.calculated_unit_price_usd || 0) * qty;
+        const cogsInr = (cogsPerUnitInr[p.id] || 0) * qty + (nonUnitTotalInr[p.id] || 0);
+        if (xr > 0) totalCogsUsd += cogsInr / xr;
+      });
       return {
         id: r.id,
         rfq_number: r.rfq_number,
@@ -251,6 +290,8 @@ export function ProjectionsTable() {
         customer_company: r.customers?.company ?? null,
         projection: proj ?? null,
         products: r.products ?? [],
+        autoFob: Math.round(totalRev * 100) / 100,
+        autoGpm: totalRev > 0 ? (totalRev - totalCogsUsd) / totalRev : 0,
       };
     });
     setRows(mapped);
