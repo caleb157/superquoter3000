@@ -41,6 +41,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [inquiryStatus, setInquiryStatus] = useState<string>('active');
   const [products, setProducts] = useState<any[]>([]);
   const [productMh, setProductMh] = useState<Array<{ product_id: string; quantity: number; total_mh_per_unit: number }>>([]);
+  const [autoFob, setAutoFob] = useState<number>(0);
+  const [autoGpm, setAutoGpm] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -48,20 +50,21 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       const [pr, ent, inq, prods] = await Promise.all([
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
         (supabase as any).from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('status').eq('id', inquiryId).maybeSingle(),
-        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage').eq('customer_rfq_id', inquiryId),
+        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId),
       ]);
       setEntities(ent.data || []);
       setInquiryStatus(inq.data?.status ?? 'active');
       setProducts(prods.data || []);
 
-      // Aggregate man-hours per product (sum of included overhead rows)
       const prodIds = (prods.data || []).map((p: any) => p.id);
       if (prodIds.length) {
-        const { data: ohRows } = await (supabase as any)
-          .from('overhead_items')
-          .select('product_id, man_hours_per_unit, include')
-          .in('product_id', prodIds);
+        const [{ data: ohRows }, { data: cogsRows }, { data: nonUnitRows }, gsRes] = await Promise.all([
+          (supabase as any).from('overhead_items').select('product_id, man_hours_per_unit, include').in('product_id', prodIds),
+          (supabase as any).from('cogs_items').select('product_id, include, components_per_product, unit_cost_inr, waste_factor').in('product_id', prodIds),
+          (supabase as any).from('non_unit_cogs').select('product_id, include, total_quantity, cost_each_inr').in('product_id', prodIds),
+          (supabase as any).from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+        ]);
         const sums: Record<string, number> = {};
         (ohRows || []).forEach((r: any) => {
           if (r.include === 'No' || r.include === 'Review') return;
@@ -72,8 +75,36 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
           quantity: Number(p.quantity || 0),
           total_mh_per_unit: sums[p.id] || 0,
         })));
+
+        // Auto FOB revenue + true GPM ((rev - cogs) / rev) from costing sheet
+        const xr = Number(inq.data?.exchange_rate_override ?? (gsRes as any)?.data?.exchange_rate ?? 0);
+        const cogsPerUnitInr: Record<string, number> = {};
+        (cogsRows || []).forEach((r: any) => {
+          if (r.include === 'No') return;
+          const waste = Number(r.waste_factor || 0);
+          const divisor = 1 - waste;
+          const units = divisor > 0 ? Number(r.components_per_product || 0) / divisor : Number(r.components_per_product || 0);
+          cogsPerUnitInr[r.product_id] = (cogsPerUnitInr[r.product_id] || 0) + Number(r.unit_cost_inr || 0) * units;
+        });
+        const nonUnitTotalInr: Record<string, number> = {};
+        (nonUnitRows || []).forEach((r: any) => {
+          if (r.include === 'No') return;
+          nonUnitTotalInr[r.product_id] = (nonUnitTotalInr[r.product_id] || 0) + Number(r.total_quantity || 0) * Number(r.cost_each_inr || 0);
+        });
+        let totalRev = 0;
+        let totalCogsUsd = 0;
+        (prods.data || []).forEach((p: any) => {
+          const qty = Number(p.quantity || 0);
+          totalRev += Number(p.calculated_unit_price_usd || 0) * qty;
+          const cogsInr = (cogsPerUnitInr[p.id] || 0) * qty + (nonUnitTotalInr[p.id] || 0);
+          if (xr > 0) totalCogsUsd += cogsInr / xr;
+        });
+        setAutoFob(Math.round(totalRev * 100) / 100);
+        setAutoGpm(totalRev > 0 ? (totalRev - totalCogsUsd) / totalRev : 0);
       } else {
         setProductMh([]);
+        setAutoFob(0);
+        setAutoGpm(0);
       }
 
       if (pr.data) {
@@ -212,6 +243,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Label className="text-xs">Projected FOB revenue (USD)</Label>
             <Input
               type="number" step="0.01"
+              placeholder={autoFob > 0 ? `Auto: $${fmt.usd(autoFob)}` : undefined}
               value={num(proj?.projected_fob_revenue_usd)}
               onChange={e => setField({ projected_fob_revenue_usd: e.target.value === '' ? null : Number(e.target.value) })}
               onBlur={e => {
@@ -225,6 +257,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Label className="text-xs">Gross profit margin (%)</Label>
             <Input
               type="number" step="0.1" min={0} max={100}
+              placeholder={autoGpm > 0 ? `Auto: ${(autoGpm * 100).toFixed(1)}%` : undefined}
               value={pct(proj?.project_gpm)}
               onChange={e => setField({ project_gpm: parsePct(e.target.value) })}
               onBlur={e => persist({ project_gpm: parsePct(e.target.value) })}
@@ -242,6 +275,24 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               className="h-9 mt-1"
             />
           </div>
+          {(autoFob > 0 || autoGpm > 0) && (
+            <div className="md:col-span-3 flex items-center gap-3 text-xs">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => {
+                  const patch: any = {};
+                  if (autoFob > 0) patch.projected_fob_revenue_usd = autoFob;
+                  if (autoGpm > 0) patch.project_gpm = Math.round(autoGpm * 10000) / 10000;
+                  persist(maybeSuggestMonths(patch));
+                }}
+              >
+                Pull from costing sheet
+              </Button>
+              <span className="text-muted-foreground">
+                Revenue ${fmt.usd(autoFob)} · GPM {(autoGpm * 100).toFixed(1)}% (true GPM = (revenue − COGS) / revenue)
+              </span>
+            </div>
+          )}
           <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t text-xs">
             <div><span className="text-muted-foreground">Effective certainty:</span> <span className="font-medium tabular-nums">{(effCertainty * 100).toFixed(1)}%</span></div>
             <div><span className="text-muted-foreground">Expected revenue:</span> <span className="font-medium tabular-nums">${fmt.usd(expectedRevenue)}</span></div>
