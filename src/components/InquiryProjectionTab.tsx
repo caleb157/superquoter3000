@@ -243,6 +243,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Label className="text-xs">Projected FOB revenue (USD)</Label>
             <Input
               type="number" step="0.01"
+              placeholder={autoFob > 0 ? `Auto: $${fmt.usd(autoFob)}` : undefined}
               value={num(proj?.projected_fob_revenue_usd)}
               onChange={e => setField({ projected_fob_revenue_usd: e.target.value === '' ? null : Number(e.target.value) })}
               onBlur={e => {
@@ -256,6 +257,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Label className="text-xs">Gross profit margin (%)</Label>
             <Input
               type="number" step="0.1" min={0} max={100}
+              placeholder={autoGpm > 0 ? `Auto: ${(autoGpm * 100).toFixed(1)}%` : undefined}
               value={pct(proj?.project_gpm)}
               onChange={e => setField({ project_gpm: parsePct(e.target.value) })}
               onBlur={e => persist({ project_gpm: parsePct(e.target.value) })}
@@ -273,6 +275,24 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               className="h-9 mt-1"
             />
           </div>
+          {(autoFob > 0 || autoGpm > 0) && (
+            <div className="md:col-span-3 flex items-center gap-3 text-xs">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => {
+                  const patch: any = {};
+                  if (autoFob > 0) patch.projected_fob_revenue_usd = autoFob;
+                  if (autoGpm > 0) patch.project_gpm = Math.round(autoGpm * 10000) / 10000;
+                  persist(maybeSuggestMonths(patch));
+                }}
+              >
+                Pull from costing sheet
+              </Button>
+              <span className="text-muted-foreground">
+                Revenue ${fmt.usd(autoFob)} · GPM {(autoGpm * 100).toFixed(1)}% (true GPM = (revenue − COGS) / revenue)
+              </span>
+            </div>
+          )}
           <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t text-xs">
             <div><span className="text-muted-foreground">Effective certainty:</span> <span className="font-medium tabular-nums">{(effCertainty * 100).toFixed(1)}%</span></div>
             <div><span className="text-muted-foreground">Expected revenue:</span> <span className="font-medium tabular-nums">${fmt.usd(expectedRevenue)}</span></div>
