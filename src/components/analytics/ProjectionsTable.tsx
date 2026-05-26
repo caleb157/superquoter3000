@@ -35,6 +35,8 @@ type Row = {
   customer_company: string | null;
   projection: Partial<InquiryProjection> | null;
   products: Array<{ design_stage: string | null; quote_stage: string | null; sample_stage: string | null }>;
+  autoFob: number;
+  autoGpm: number;
 };
 
 const STATUS_FILTERS: Record<string, string[]> = {
@@ -221,10 +223,10 @@ export function ProjectionsTable() {
     const { data, error } = await supabase
       .from('customer_rfqs')
       .select(
-        `id, rfq_number, title, status, customer_id,
+        `id, rfq_number, title, status, customer_id, exchange_rate_override,
          customers:customer_id ( id, name, company ),
          inquiry_projections ( * ),
-         products ( design_stage, quote_stage, sample_stage )`,
+         products ( id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd )`,
       )
       .in('status', statuses)
       .order('created_at', { ascending: false });
@@ -235,10 +237,49 @@ export function ProjectionsTable() {
       setLoading(false);
       return;
     }
+
+    // Collect all product IDs for batched cost queries
+    const allProductIds: string[] = [];
+    (data || []).forEach((r: any) => (r.products || []).forEach((p: any) => allProductIds.push(p.id)));
+
+    const [{ data: cogsRows }, { data: nonUnitRows }, gsRes] = await Promise.all([
+      allProductIds.length
+        ? (supabase as any).from('cogs_items').select('product_id, include, components_per_product, unit_cost_inr, waste_factor').in('product_id', allProductIds)
+        : Promise.resolve({ data: [] as any[] }),
+      allProductIds.length
+        ? (supabase as any).from('non_unit_cogs').select('product_id, include, total_quantity, cost_each_inr').in('product_id', allProductIds)
+        : Promise.resolve({ data: [] as any[] }),
+      (supabase as any).from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+    ]);
+
+    const cogsPerUnitInr: Record<string, number> = {};
+    (cogsRows || []).forEach((r: any) => {
+      if (r.include === 'No') return;
+      const waste = Number(r.waste_factor || 0);
+      const divisor = 1 - waste;
+      const units = divisor > 0 ? Number(r.components_per_product || 0) / divisor : Number(r.components_per_product || 0);
+      cogsPerUnitInr[r.product_id] = (cogsPerUnitInr[r.product_id] || 0) + Number(r.unit_cost_inr || 0) * units;
+    });
+    const nonUnitTotalInr: Record<string, number> = {};
+    (nonUnitRows || []).forEach((r: any) => {
+      if (r.include === 'No') return;
+      nonUnitTotalInr[r.product_id] = (nonUnitTotalInr[r.product_id] || 0) + Number(r.total_quantity || 0) * Number(r.cost_each_inr || 0);
+    });
+    const globalXr = Number((gsRes as any)?.data?.exchange_rate ?? 0);
+
     const mapped: Row[] = (data || []).map((r: any) => {
       const proj = Array.isArray(r.inquiry_projections)
         ? r.inquiry_projections[0]
         : r.inquiry_projections;
+      const xr = Number(r.exchange_rate_override ?? globalXr ?? 0);
+      let totalRev = 0;
+      let totalCogsUsd = 0;
+      (r.products || []).forEach((p: any) => {
+        const qty = Number(p.quantity || 0);
+        totalRev += Number(p.calculated_unit_price_usd || 0) * qty;
+        const cogsInr = (cogsPerUnitInr[p.id] || 0) * qty + (nonUnitTotalInr[p.id] || 0);
+        if (xr > 0) totalCogsUsd += cogsInr / xr;
+      });
       return {
         id: r.id,
         rfq_number: r.rfq_number,
@@ -249,6 +290,8 @@ export function ProjectionsTable() {
         customer_company: r.customers?.company ?? null,
         projection: proj ?? null,
         products: r.products ?? [],
+        autoFob: Math.round(totalRev * 100) / 100,
+        autoGpm: totalRev > 0 ? (totalRev - totalCogsUsd) / totalRev : 0,
       };
     });
     setRows(mapped);
@@ -262,15 +305,23 @@ export function ProjectionsTable() {
   const computedRows = useMemo(() => {
     return rows.map((r) => {
       const cert = effectiveCertainty(r.projection as any, r.products, r.status);
-      const fob = Number(r.projection?.projected_fob_revenue_usd) || 0;
-      const gpm = Number(r.projection?.project_gpm) || 0;
+      const fobOverride = r.projection?.projected_fob_revenue_usd;
+      const gpmOverride = r.projection?.project_gpm;
+      const fob = fobOverride != null ? Number(fobOverride) : r.autoFob;
+      const gpm = gpmOverride != null ? Number(gpmOverride) : r.autoGpm;
+      const fobIsAuto = fobOverride == null && r.autoFob > 0;
+      const gpmIsAuto = gpmOverride == null && r.autoGpm !== 0;
       const expectedRev = fob * cert;
       const expectedGp = fob * gpm * cert;
       const monthCells = months.map((m) => {
         const mEnd = addMonths(m, 1);
-        return cashForMonth(r.projection, cert, m, mEnd);
+        // cashForMonth needs FOB; if no override, synthesize a temp projection with autoFob
+        const projForCash = fobOverride != null
+          ? r.projection
+          : { ...(r.projection || {}), projected_fob_revenue_usd: r.autoFob } as any;
+        return cashForMonth(projForCash, cert, m, mEnd);
       });
-      return { ...r, cert, fob, gpm, expectedRev, expectedGp, monthCells };
+      return { ...r, cert, fob, gpm, fobIsAuto, gpmIsAuto, expectedRev, expectedGp, monthCells };
     });
   }, [rows, months]);
 
@@ -555,20 +606,20 @@ export function ProjectionsTable() {
                           `${Math.round(r.cert * 100)}%${r.projection?.certainty_override == null ? '*' : ''}`,
                         )}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className={cn('px-1 py-1', r.fobIsAuto && 'text-muted-foreground italic')}>
                         {renderEditableCell(
                           r.id,
                           'projected_fob_revenue_usd',
                           r.projection?.projected_fob_revenue_usd,
-                          fmtUsd(r.fob),
+                          `${fmtUsd(r.fob)}${r.fobIsAuto ? '*' : ''}`,
                         )}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className={cn('px-1 py-1', r.gpmIsAuto && 'text-muted-foreground italic')}>
                         {renderEditableCell(
                           r.id,
                           'project_gpm',
                           r.projection?.project_gpm,
-                          r.gpm ? `${Math.round(r.gpm * 100)}%` : '—',
+                          r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsAuto ? '*' : ''}` : '—',
                         )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedRev)}</td>
@@ -624,7 +675,7 @@ export function ProjectionsTable() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        * Certainty derived from product stages. Click any value to edit. Month cells show weighted customer payments only (revenue side).
+        * Auto-populated from the costing sheet (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Click any value to override. Month cells show weighted customer payments only (revenue side).
       </p>
 
       <NewInquiryDialog
