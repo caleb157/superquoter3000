@@ -305,15 +305,23 @@ export function ProjectionsTable() {
   const computedRows = useMemo(() => {
     return rows.map((r) => {
       const cert = effectiveCertainty(r.projection as any, r.products, r.status);
-      const fob = Number(r.projection?.projected_fob_revenue_usd) || 0;
-      const gpm = Number(r.projection?.project_gpm) || 0;
+      const fobOverride = r.projection?.projected_fob_revenue_usd;
+      const gpmOverride = r.projection?.project_gpm;
+      const fob = fobOverride != null ? Number(fobOverride) : r.autoFob;
+      const gpm = gpmOverride != null ? Number(gpmOverride) : r.autoGpm;
+      const fobIsAuto = fobOverride == null && r.autoFob > 0;
+      const gpmIsAuto = gpmOverride == null && r.autoGpm !== 0;
       const expectedRev = fob * cert;
       const expectedGp = fob * gpm * cert;
       const monthCells = months.map((m) => {
         const mEnd = addMonths(m, 1);
-        return cashForMonth(r.projection, cert, m, mEnd);
+        // cashForMonth needs FOB; if no override, synthesize a temp projection with autoFob
+        const projForCash = fobOverride != null
+          ? r.projection
+          : { ...(r.projection || {}), projected_fob_revenue_usd: r.autoFob } as any;
+        return cashForMonth(projForCash, cert, m, mEnd);
       });
-      return { ...r, cert, fob, gpm, expectedRev, expectedGp, monthCells };
+      return { ...r, cert, fob, gpm, fobIsAuto, gpmIsAuto, expectedRev, expectedGp, monthCells };
     });
   }, [rows, months]);
 
