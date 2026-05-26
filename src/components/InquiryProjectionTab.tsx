@@ -41,6 +41,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [inquiryStatus, setInquiryStatus] = useState<string>('active');
   const [products, setProducts] = useState<any[]>([]);
   const [productMh, setProductMh] = useState<Array<{ product_id: string; quantity: number; total_mh_per_unit: number }>>([]);
+  const [autoFob, setAutoFob] = useState<number>(0);
+  const [autoGpm, setAutoGpm] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -48,20 +50,21 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       const [pr, ent, inq, prods] = await Promise.all([
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
         (supabase as any).from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('status').eq('id', inquiryId).maybeSingle(),
-        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage').eq('customer_rfq_id', inquiryId),
+        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId),
       ]);
       setEntities(ent.data || []);
       setInquiryStatus(inq.data?.status ?? 'active');
       setProducts(prods.data || []);
 
-      // Aggregate man-hours per product (sum of included overhead rows)
       const prodIds = (prods.data || []).map((p: any) => p.id);
       if (prodIds.length) {
-        const { data: ohRows } = await (supabase as any)
-          .from('overhead_items')
-          .select('product_id, man_hours_per_unit, include')
-          .in('product_id', prodIds);
+        const [{ data: ohRows }, { data: cogsRows }, { data: nonUnitRows }, gsRes] = await Promise.all([
+          (supabase as any).from('overhead_items').select('product_id, man_hours_per_unit, include').in('product_id', prodIds),
+          (supabase as any).from('cogs_items').select('product_id, include, components_per_product, unit_cost_inr, waste_factor').in('product_id', prodIds),
+          (supabase as any).from('non_unit_cogs').select('product_id, include, total_quantity, cost_each_inr').in('product_id', prodIds),
+          (supabase as any).from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+        ]);
         const sums: Record<string, number> = {};
         (ohRows || []).forEach((r: any) => {
           if (r.include === 'No' || r.include === 'Review') return;
@@ -72,8 +75,36 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
           quantity: Number(p.quantity || 0),
           total_mh_per_unit: sums[p.id] || 0,
         })));
+
+        // Auto FOB revenue + true GPM ((rev - cogs) / rev) from costing sheet
+        const xr = Number(inq.data?.exchange_rate_override ?? (gsRes as any)?.data?.exchange_rate ?? 0);
+        const cogsPerUnitInr: Record<string, number> = {};
+        (cogsRows || []).forEach((r: any) => {
+          if (r.include === 'No') return;
+          const waste = Number(r.waste_factor || 0);
+          const divisor = 1 - waste;
+          const units = divisor > 0 ? Number(r.components_per_product || 0) / divisor : Number(r.components_per_product || 0);
+          cogsPerUnitInr[r.product_id] = (cogsPerUnitInr[r.product_id] || 0) + Number(r.unit_cost_inr || 0) * units;
+        });
+        const nonUnitTotalInr: Record<string, number> = {};
+        (nonUnitRows || []).forEach((r: any) => {
+          if (r.include === 'No') return;
+          nonUnitTotalInr[r.product_id] = (nonUnitTotalInr[r.product_id] || 0) + Number(r.total_quantity || 0) * Number(r.cost_each_inr || 0);
+        });
+        let totalRev = 0;
+        let totalCogsUsd = 0;
+        (prods.data || []).forEach((p: any) => {
+          const qty = Number(p.quantity || 0);
+          totalRev += Number(p.calculated_unit_price_usd || 0) * qty;
+          const cogsInr = (cogsPerUnitInr[p.id] || 0) * qty + (nonUnitTotalInr[p.id] || 0);
+          if (xr > 0) totalCogsUsd += cogsInr / xr;
+        });
+        setAutoFob(Math.round(totalRev * 100) / 100);
+        setAutoGpm(totalRev > 0 ? (totalRev - totalCogsUsd) / totalRev : 0);
       } else {
         setProductMh([]);
+        setAutoFob(0);
+        setAutoGpm(0);
       }
 
       if (pr.data) {
