@@ -606,20 +606,20 @@ export function ProjectionsTable() {
                           `${Math.round(r.cert * 100)}%${r.projection?.certainty_override == null ? '*' : ''}`,
                         )}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className={cn('px-1 py-1', r.fobIsAuto && 'text-muted-foreground italic')}>
                         {renderEditableCell(
                           r.id,
                           'projected_fob_revenue_usd',
                           r.projection?.projected_fob_revenue_usd,
-                          fmtUsd(r.fob),
+                          `${fmtUsd(r.fob)}${r.fobIsAuto ? '*' : ''}`,
                         )}
                       </td>
-                      <td className="px-1 py-1">
+                      <td className={cn('px-1 py-1', r.gpmIsAuto && 'text-muted-foreground italic')}>
                         {renderEditableCell(
                           r.id,
                           'project_gpm',
                           r.projection?.project_gpm,
-                          r.gpm ? `${Math.round(r.gpm * 100)}%` : '—',
+                          r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsAuto ? '*' : ''}` : '—',
                         )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedRev)}</td>
