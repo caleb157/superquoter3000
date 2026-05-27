@@ -227,7 +227,7 @@ export function ProjectionsTable() {
         `id, rfq_number, title, status, customer_id, exchange_rate_override,
          customers:customer_id ( id, name, company ),
          inquiry_projections ( * ),
-         products ( id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd )`,
+         products ( id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd )`,
       )
       .in('status', statuses)
       .order('created_at', { ascending: false });
@@ -239,47 +239,32 @@ export function ProjectionsTable() {
       return;
     }
 
-    // Collect all product IDs for batched cost queries
+    // Collect all product IDs and compute live unit price/cost (matches header in InquiryStatusCards)
     const allProductIds: string[] = [];
     (data || []).forEach((r: any) => (r.products || []).forEach((p: any) => allProductIds.push(p.id)));
-
-    const [{ data: cogsRows }, { data: nonUnitRows }, gsRes] = await Promise.all([
-      allProductIds.length
-        ? (supabase as any).from('cogs_items').select('product_id, include, components_per_product, unit_cost_inr, waste_factor').in('product_id', allProductIds)
-        : Promise.resolve({ data: [] as any[] }),
-      allProductIds.length
-        ? (supabase as any).from('non_unit_cogs').select('product_id, include, total_quantity, cost_each_inr').in('product_id', allProductIds)
-        : Promise.resolve({ data: [] as any[] }),
-      (supabase as any).from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
-    ]);
-
-    const cogsPerUnitInr: Record<string, number> = {};
-    (cogsRows || []).forEach((r: any) => {
-      if (r.include === 'No') return;
-      const waste = Number(r.waste_factor || 0);
-      const divisor = 1 - waste;
-      const units = divisor > 0 ? Number(r.components_per_product || 0) / divisor : Number(r.components_per_product || 0);
-      cogsPerUnitInr[r.product_id] = (cogsPerUnitInr[r.product_id] || 0) + Number(r.unit_cost_inr || 0) * units;
-    });
-    const nonUnitTotalInr: Record<string, number> = {};
-    (nonUnitRows || []).forEach((r: any) => {
-      if (r.include === 'No') return;
-      nonUnitTotalInr[r.product_id] = (nonUnitTotalInr[r.product_id] || 0) + Number(r.total_quantity || 0) * Number(r.cost_each_inr || 0);
-    });
-    const globalXr = Number((gsRes as any)?.data?.exchange_rate ?? 0);
+    const priceMap = allProductIds.length ? await computeProductPriceAndCost(allProductIds) : {};
 
     const mapped: Row[] = (data || []).map((r: any) => {
       const proj = Array.isArray(r.inquiry_projections)
         ? r.inquiry_projections[0]
         : r.inquiry_projections;
-      const xr = Number(r.exchange_rate_override ?? globalXr ?? 0);
       let totalRev = 0;
-      let totalCogsUsd = 0;
+      let totalCost = 0;
       (r.products || []).forEach((p: any) => {
         const qty = Number(p.quantity || 0);
-        totalRev += Number(p.calculated_unit_price_usd || 0) * qty;
-        const cogsInr = (cogsPerUnitInr[p.id] || 0) * qty + (nonUnitTotalInr[p.id] || 0);
-        if (xr > 0) totalCogsUsd += cogsInr / xr;
+        const computed = priceMap[p.id];
+        const price = Number(
+          (computed?.unit_price_usd && computed.unit_price_usd > 0)
+            ? computed.unit_price_usd
+            : p.calculated_unit_price_usd
+        ) || 0;
+        const unitCost = Number(
+          (computed?.unit_cost_usd && computed.unit_cost_usd > 0)
+            ? computed.unit_cost_usd
+            : p.calculated_unit_cost_usd
+        ) || 0;
+        totalRev += price * qty;
+        totalCost += unitCost * qty;
       });
       return {
         id: r.id,
@@ -292,7 +277,7 @@ export function ProjectionsTable() {
         projection: proj ?? null,
         products: r.products ?? [],
         autoFob: Math.round(totalRev * 100) / 100,
-        autoGpm: totalRev > 0 ? (totalRev - totalCogsUsd) / totalRev : 0,
+        autoGpm: totalRev > 0 ? (totalRev - totalCost) / totalRev : 0,
       };
     });
     setRows(mapped);
