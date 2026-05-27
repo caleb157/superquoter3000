@@ -20,6 +20,7 @@ import {
   dateToMonthInput,
   type InquiryProjection,
 } from '@/lib/projections';
+import { computeProductPriceAndCost } from '@/lib/product-pricing';
 
 type Props = { inquiryId: string };
 
