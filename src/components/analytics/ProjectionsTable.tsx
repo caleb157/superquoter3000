@@ -23,6 +23,7 @@ import {
   INQUIRY_STATUS_LABEL,
 } from '@/lib/inquiry-status';
 import { effectiveCertainty, type InquiryProjection } from '@/lib/projections';
+import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 
 type Row = {
