@@ -258,13 +258,13 @@ export function ProjectionsTable() {
             ? computed.unit_price_usd
             : p.calculated_unit_price_usd
         ) || 0;
-        const unitCost = Number(
-          (computed?.unit_cost_usd && computed.unit_cost_usd > 0)
-            ? computed.unit_cost_usd
-            : p.calculated_unit_cost_usd
+        const unitCogs = Number(
+          (computed?.unit_cogs_usd && computed.unit_cogs_usd > 0)
+            ? computed.unit_cogs_usd
+            : 0
         ) || 0;
         totalRev += price * qty;
-        totalCost += unitCost * qty;
+        totalCost += unitCogs * qty;
       });
       return {
         id: r.id,

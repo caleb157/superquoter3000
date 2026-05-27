@@ -13,6 +13,7 @@ let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = nu
 
 export type ProductPriceCostMap = Record<string, {
   unit_cost_usd: number;     // FOB cost, no markup (used by Dashboard pipeline)
+  unit_cogs_usd: number;     // COGS-only (materials + non-unit cogs), no labor/overhead/shipping
   unit_price_usd: number;    // cost + markup (used by quotes)
   unit_price_inr: number;
   exchange_rate: number;
@@ -307,8 +308,12 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       shippingPerUnit, markupPercent, exchangeRate, qty,
     );
 
+    const totalCogsPerUnitInr = cogsPerUnit + nonUnitCogsPerUnit;
+    const unitCogsUsd = exchangeRate > 0 ? totalCogsPerUnitInr / exchangeRate : 0;
+
     out[p.id] = {
       unit_cost_usd: summary.product_cost_per_unit_usd,
+      unit_cogs_usd: unitCogsUsd,
       unit_price_usd: summary.unit_price_usd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
