@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -125,9 +125,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    const live = livePrices[p.id]?.unit_price_usd;
-    if (live && live > 0) return live;
+    const live = livePrices[p.id];
+    // After product-pricing fix, live.unit_price_usd IS the stored costing-sheet value when one exists.
+    if (live?.unit_price_usd && live.unit_price_usd > 0) return live.unit_price_usd;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
+  };
+
+  const priceNeedsRefresh = (p: Product) => {
+    const live = livePrices[p.id];
+    return !!live?.price_is_stored && (live?.price_drift_usd ?? 0) > 0.01;
   };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -553,7 +559,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                      <span
+                        className="inline-flex items-center gap-1 justify-end"
+                        title={priceNeedsRefresh(p) ? "Costing logic changed since this was last saved. Open the product's Costing tab to refresh." : undefined}
+                      >
+                        {priceNeedsRefresh(p) && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       {p.markup_percent && p.markup_percent > 0 ? `${(markupToNpm(p.markup_percent) * 100).toFixed(1)}%` : '—'}

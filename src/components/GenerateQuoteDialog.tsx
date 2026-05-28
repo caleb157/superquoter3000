@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { createQuoteSnapshot, defaultValidUntil, type QuoteProductInput } from '@/lib/quote-creation';
-import { computeProductUnitPrices } from '@/lib/product-pricing';
+import { computeProductUnitPrices, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { AlertTriangle } from 'lucide-react';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
@@ -70,6 +71,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [freightMode, setFreightMode] = useState<FreightMode>('sea');
   const [freightRate, setFreightRate] = useState<string>('');
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
+  const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +106,17 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         : (ents[0]?.id ?? '');
       setEntityId(preferredEntity);
       setCurrency((inq?.quoting_currency as string) || 'USD');
+      // Fetch price map (with stored/drift info) for warning banner
+      const allIds = [
+        ...((prodRes.data ?? []) as any[]).map(p => p.id),
+        ...((asmRes.data ?? []) as any[]).flatMap(a => (a.assembly_components || []).map((c: any) => c.product_id)),
+      ];
+      if (allIds.length > 0) {
+        const pm = await computeProductUnitPrices(Array.from(new Set(allIds)));
+        setPriceMap(pm);
+      } else {
+        setPriceMap({});
+      }
     })();
   }, [open, inquiryId]);
 
@@ -121,6 +134,26 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   };
 
   const totalSelected = selected.size + selectedAsm.size;
+
+  // Collect price-status warnings for selected products + assembly components
+  const priceWarnings = (() => {
+    const ids = new Set<string>();
+    products.filter(p => selected.has(p.id)).forEach(p => ids.add(p.id));
+    assemblies.filter(a => selectedAsm.has(a.id)).forEach(a => a.components.forEach(c => ids.add(c.product_id)));
+    const stale: string[] = [];
+    const never: string[] = [];
+    const nameById = new Map<string, string>();
+    products.forEach(p => nameById.set(p.id, p.name));
+    ids.forEach(id => {
+      const entry = priceMap[id];
+      if (!entry) return;
+      const nm = nameById.get(id) || id;
+      if (!entry.price_is_stored) never.push(nm);
+      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push(nm);
+    });
+    return { stale, never };
+  })();
+  const hasPriceWarning = priceWarnings.stale.length > 0 || priceWarnings.never.length > 0;
 
   const submit = async () => {
     if (totalSelected === 0) return;
@@ -297,6 +330,28 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             </p>
           </div>
         </div>
+        {hasPriceWarning && totalSelected > 0 && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-2.5 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <div className="font-medium text-amber-900 dark:text-amber-200">
+                  {priceWarnings.stale.length + priceWarnings.never.length} product{(priceWarnings.stale.length + priceWarnings.never.length) === 1 ? '' : 's'} may have out-of-date prices. Review their Costing tabs before quoting.
+                </div>
+                {priceWarnings.never.length > 0 && (
+                  <div className="text-amber-800 dark:text-amber-300">
+                    Never costed: {priceWarnings.never.join(', ')}
+                  </div>
+                )}
+                {priceWarnings.stale.length > 0 && (
+                  <div className="text-amber-800 dark:text-amber-300">
+                    Stale (logic changed since save): {priceWarnings.stale.join(', ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
           {products.length === 0 && assemblies.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center">No products or assemblies in this inquiry.</div>
