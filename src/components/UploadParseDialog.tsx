@@ -498,7 +498,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
         const defaultOverhead = [
           { product_id: prod.id, labor_type: 'Manufacturing', sort_order: 0 },
           { product_id: prod.id, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
-          { product_id: prod.id, labor_type: 'Sanding', sort_order: 2 },
+          
           { product_id: prod.id, labor_type: 'Finishing', is_auto_estimated: true, sort_order: 3 },
           { product_id: prod.id, labor_type: 'Assembly', sort_order: 4 },
           { product_id: prod.id, labor_type: 'Packaging', is_auto_estimated: true, sort_order: 5 },
