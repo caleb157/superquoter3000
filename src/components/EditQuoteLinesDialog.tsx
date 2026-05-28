@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Loader2, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
