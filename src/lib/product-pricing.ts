@@ -331,6 +331,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
       recomputed_price_usd: recomputedPriceUsd,
+      recomputed_cost_usd: recomputedCostUsd,
       price_is_stored: hasStoredPrice,
       price_drift_usd: hasStoredPrice ? Math.abs(Number(storedPriceUsd) - recomputedPriceUsd) : 0,
     };
