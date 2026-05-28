@@ -345,6 +345,39 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   const selectedProducts = products.filter(p => selected.has(p.id));
 
+  const handleAutoRefreshCosting = async () => {
+    if (products.length === 0) return;
+    setRefreshingCosting(true);
+    try {
+      const ids = products.map(p => p.id);
+      const prices = await computeProductPriceAndCost(ids);
+      let updated = 0;
+      let drifted = 0;
+      await Promise.all(ids.map(async (id) => {
+        const live = prices[id];
+        if (!live) return;
+        const newPrice = Number(live.recomputed_price_usd.toFixed(4));
+        const newCost = Number(live.recomputed_cost_usd.toFixed(4));
+        const p = products.find(x => x.id === id);
+        const oldPrice = Number(p?.calculated_unit_price_usd ?? 0);
+        if (Math.abs(oldPrice - newPrice) > 0.01) drifted++;
+        const { error } = await (supabase as any).from('products').update({
+          calculated_unit_price_usd: newPrice,
+          calculated_unit_cost_usd: newCost,
+        }).eq('id', id);
+        if (!error) updated++;
+      }));
+      toast.success(`Refreshed ${updated} product${updated === 1 ? '' : 's'}${drifted ? ` — ${drifted} updated` : ' — all in sync'}`);
+      setRefresh(r => r + 1);
+      onChange();
+    } catch (e: any) {
+      toast.error('Auto-refresh failed: ' + (e?.message || e));
+    } finally {
+      setRefreshingCosting(false);
+    }
+  };
+
+
   return (
     <div className="space-y-3">
       <input
