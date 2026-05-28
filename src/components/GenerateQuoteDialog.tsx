@@ -71,6 +71,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [freightMode, setFreightMode] = useState<FreightMode>('sea');
   const [freightRate, setFreightRate] = useState<string>('');
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
+  const [priceMap, setPriceMap] = useState<ProductPriceCostMap>({});
 
   useEffect(() => {
     if (!open) return;
