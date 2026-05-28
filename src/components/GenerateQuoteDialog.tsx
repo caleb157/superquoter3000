@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { createQuoteSnapshot, defaultValidUntil, type QuoteProductInput } from '@/lib/quote-creation';
 import { computeProductUnitPrices, type ProductPriceCostMap } from '@/lib/product-pricing';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
