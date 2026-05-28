@@ -125,9 +125,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    const live = livePrices[p.id]?.unit_price_usd;
-    if (live && live > 0) return live;
+    const live = livePrices[p.id];
+    // After product-pricing fix, live.unit_price_usd IS the stored costing-sheet value when one exists.
+    if (live?.unit_price_usd && live.unit_price_usd > 0) return live.unit_price_usd;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
+  };
+
+  const priceNeedsRefresh = (p: Product) => {
+    const live = livePrices[p.id];
+    return !!live?.price_is_stored && (live?.price_drift_usd ?? 0) > 0.01;
   };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
