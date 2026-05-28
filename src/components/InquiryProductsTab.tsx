@@ -429,6 +429,17 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setCopyOpen(true)}>
             <Copy className="h-4 w-4" /> Copy from existing
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 gap-1.5"
+            onClick={handleAutoRefreshCosting}
+            disabled={refreshingCosting || products.length === 0}
+            title="Recompute every product's price/cost from current costing inputs (chemicals, rates, exchange, etc.) and save."
+          >
+            <RefreshCw className={cn('h-4 w-4', refreshingCosting && 'animate-spin')} />
+            {refreshingCosting ? 'Refreshing...' : 'Auto-refresh costing'}
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" /> Upload & parse
           </Button>
