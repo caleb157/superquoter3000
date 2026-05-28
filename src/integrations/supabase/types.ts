@@ -853,13 +853,13 @@ export type Database = {
           ie_deposit_month: string | null
           ie_deposit_pct: number | null
           inquiry_id: string
-          inter_entity_markup_pct: number | null
           notes: string | null
           producing_entity_id: string | null
           project_gpm: number | null
           projected_fob_revenue_usd: number | null
           repeat_order: boolean | null
           selling_entity_id: string | null
+          selling_retention_pct: number | null
           shipping_method: string | null
           shipping_month: string | null
           start_month: string | null
@@ -888,13 +888,13 @@ export type Database = {
           ie_deposit_month?: string | null
           ie_deposit_pct?: number | null
           inquiry_id: string
-          inter_entity_markup_pct?: number | null
           notes?: string | null
           producing_entity_id?: string | null
           project_gpm?: number | null
           projected_fob_revenue_usd?: number | null
           repeat_order?: boolean | null
           selling_entity_id?: string | null
+          selling_retention_pct?: number | null
           shipping_method?: string | null
           shipping_month?: string | null
           start_month?: string | null
@@ -923,13 +923,13 @@ export type Database = {
           ie_deposit_month?: string | null
           ie_deposit_pct?: number | null
           inquiry_id?: string
-          inter_entity_markup_pct?: number | null
           notes?: string | null
           producing_entity_id?: string | null
           project_gpm?: number | null
           projected_fob_revenue_usd?: number | null
           repeat_order?: boolean | null
           selling_entity_id?: string | null
+          selling_retention_pct?: number | null
           shipping_method?: string | null
           shipping_month?: string | null
           start_month?: string | null
