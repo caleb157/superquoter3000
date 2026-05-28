@@ -191,7 +191,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
-          ) : lines.map(line => (
+          ) : lines.map((line, idx) => (
             <div key={line._key} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2 bg-card">
               <div className="col-span-5">
                 <Label className="text-[10px] text-muted-foreground">Display name</Label>
