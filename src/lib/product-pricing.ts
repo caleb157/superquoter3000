@@ -12,11 +12,15 @@ let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | nul
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
 
 export type ProductPriceCostMap = Record<string, {
-  unit_cost_usd: number;     // FOB cost, no markup (used by Dashboard pipeline)
+  unit_cost_usd: number;     // FOB cost, no markup. Prefers stored calculated_unit_cost_usd.
   unit_cogs_usd: number;     // COGS-only (materials + non-unit cogs), no labor/overhead/shipping
-  unit_price_usd: number;    // cost + markup (used by quotes)
+  unit_price_usd: number;    // cost + markup. Prefers stored calculated_unit_price_usd (costing sheet = source of truth).
   unit_price_inr: number;
   exchange_rate: number;
+  // Drift detection: flag when stored value disagrees with current-logic recompute.
+  recomputed_price_usd: number;
+  price_is_stored: boolean;
+  price_drift_usd: number;
 }>;
 
 // Back-compat alias for older imports
