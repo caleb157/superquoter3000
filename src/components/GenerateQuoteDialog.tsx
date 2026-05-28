@@ -135,6 +135,26 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
 
   const totalSelected = selected.size + selectedAsm.size;
 
+  // Collect price-status warnings for selected products + assembly components
+  const priceWarnings = (() => {
+    const ids = new Set<string>();
+    products.filter(p => selected.has(p.id)).forEach(p => ids.add(p.id));
+    assemblies.filter(a => selectedAsm.has(a.id)).forEach(a => a.components.forEach(c => ids.add(c.product_id)));
+    const stale: string[] = [];
+    const never: string[] = [];
+    const nameById = new Map<string, string>();
+    products.forEach(p => nameById.set(p.id, p.name));
+    ids.forEach(id => {
+      const entry = priceMap[id];
+      if (!entry) return;
+      const nm = nameById.get(id) || id;
+      if (!entry.price_is_stored) never.push(nm);
+      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push(nm);
+    });
+    return { stale, never };
+  })();
+  const hasPriceWarning = priceWarnings.stale.length > 0 || priceWarnings.never.length > 0;
+
   const submit = async () => {
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
