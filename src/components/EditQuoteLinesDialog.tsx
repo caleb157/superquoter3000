@@ -229,10 +229,26 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   disabled={status === 'saving'}
                 />
               </div>
-              <div className="col-span-2 flex items-center justify-end gap-2 pb-0.5">
-                <span className="text-[11px] tabular-nums text-muted-foreground">
+              <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
+                <span className="text-[11px] tabular-nums text-muted-foreground mr-1">
                   {fmtMoney(Number(line.quantity || 0) * Number(line.unit_price_usd || 0))}
                 </span>
+                <Button
+                  type="button" variant="ghost" size="icon" className="h-7 w-7"
+                  title="Move up"
+                  onClick={() => moveLine(line._key, -1)}
+                  disabled={status === 'saving' || idx === 0}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button" variant="ghost" size="icon" className="h-7 w-7"
+                  title="Move down"
+                  onClick={() => moveLine(line._key, 1)}
+                  disabled={status === 'saving' || idx === lines.length - 1}
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
                 <Button
                   type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
                   title="Remove line"
