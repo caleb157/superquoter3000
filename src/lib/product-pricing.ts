@@ -5,8 +5,7 @@
 // in-memory so prices stay consistent with the costing sheet even when the user
 // has not opened the costing tab to flush the latest auto-cost values to DB.
 import { supabase } from '@/integrations/supabase/client';
-import * as calc from '@/lib/calculations';
-import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
+import { computeProductCosting } from '@/lib/costing-engine';
 
 let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
