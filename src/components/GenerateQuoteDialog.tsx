@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { createQuoteSnapshot, defaultValidUntil, type QuoteProductInput } from '@/lib/quote-creation';
 import { computeProductUnitPrices, type ProductPriceCostMap } from '@/lib/product-pricing';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
@@ -140,20 +140,59 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     const ids = new Set<string>();
     products.filter(p => selected.has(p.id)).forEach(p => ids.add(p.id));
     assemblies.filter(a => selectedAsm.has(a.id)).forEach(a => a.components.forEach(c => ids.add(c.product_id)));
-    const stale: string[] = [];
-    const never: string[] = [];
+    const stale: Array<{ id: string; name: string }> = [];
+    const never: Array<{ id: string; name: string }> = [];
     const nameById = new Map<string, string>();
     products.forEach(p => nameById.set(p.id, p.name));
     ids.forEach(id => {
       const entry = priceMap[id];
       if (!entry) return;
       const nm = nameById.get(id) || id;
-      if (!entry.price_is_stored) never.push(nm);
-      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push(nm);
+      if (!entry.price_is_stored) never.push({ id, name: nm });
+      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push({ id, name: nm });
     });
     return { stale, never };
   })();
   const hasPriceWarning = priceWarnings.stale.length > 0 || priceWarnings.never.length > 0;
+
+  const [refreshing, setRefreshing] = useState(false);
+  const reloadPriceMap = async () => {
+    const allIds = [
+      ...products.map(p => p.id),
+      ...assemblies.flatMap(a => a.components.map(c => c.product_id)),
+    ];
+    if (allIds.length === 0) { setPriceMap({}); return; }
+    setRefreshing(true);
+    try {
+      const pm = await computeProductUnitPrices(Array.from(new Set(allIds)));
+      setPriceMap(pm);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const openStaleCostingTabs = () => {
+    const affected = [...priceWarnings.never, ...priceWarnings.stale];
+    if (affected.length === 0) return;
+    affected.forEach(({ id }) => {
+      window.open(`/product/${id}?tab=costing`, `costing-${id}`);
+    });
+    toast.info(`Opened ${affected.length} costing tab${affected.length === 1 ? '' : 's'}. Prices will refresh when you return.`);
+  };
+
+  // Auto-reload priceMap when the user returns to this tab (after editing costing in other tabs)
+  useEffect(() => {
+    if (!open) return;
+    const onFocus = () => { reloadPriceMap(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reloadPriceMap();
+    });
+    return () => {
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, products.length, assemblies.length]);
 
   const submit = async () => {
     if (totalSelected === 0) return;
@@ -334,20 +373,43 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-2.5 text-xs">
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <div className="space-y-1">
+              <div className="space-y-1.5 flex-1 min-w-0">
                 <div className="font-medium text-amber-900 dark:text-amber-200">
                   {priceWarnings.stale.length + priceWarnings.never.length} product{(priceWarnings.stale.length + priceWarnings.never.length) === 1 ? '' : 's'} may have out-of-date prices. Review their Costing tabs before quoting.
                 </div>
                 {priceWarnings.never.length > 0 && (
                   <div className="text-amber-800 dark:text-amber-300">
-                    Never costed: {priceWarnings.never.join(', ')}
+                    Never costed: {priceWarnings.never.map(p => p.name).join(', ')}
                   </div>
                 )}
                 {priceWarnings.stale.length > 0 && (
                   <div className="text-amber-800 dark:text-amber-300">
-                    Stale (logic changed since save): {priceWarnings.stale.join(', ')}
+                    Stale (logic changed since save): {priceWarnings.stale.map(p => p.name).join(', ')}
                   </div>
                 )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] gap-1.5 border-amber-500/50"
+                    onClick={openStaleCostingTabs}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open Costing tabs ({priceWarnings.stale.length + priceWarnings.never.length})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[11px] gap-1.5"
+                    onClick={reloadPriceMap}
+                    disabled={refreshing}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Reloading…' : 'Reload prices'}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
