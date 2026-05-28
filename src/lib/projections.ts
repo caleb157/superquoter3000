@@ -10,7 +10,7 @@ export type InquiryProjection = {
   project_gpm: number | null;
   certainty_override: number | null;
   estimated_man_hours: number | null;
-  inter_entity_markup_pct: number | null;
+  selling_retention_pct: number | null;  // fraction (0..1) that selling entity keeps; producing receives (1 - this) × FOB
   start_month: string | null;
   shipping_month: string | null;
   delivery_month: string | null;

@@ -27,6 +27,10 @@ export const fmt = {
   },
   usd: (v: number | null | undefined) => {
     const n = toFinite(v);
+    return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  },
+  usdPrecise: (v: number | null | undefined) => {
+    const n = toFinite(v);
     return `$${n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`;
   },
   // Multi-currency formatter. Pass the ISO code from the snapshot or inquiry.

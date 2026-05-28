@@ -1,0 +1,1 @@
+ALTER TABLE public.inquiry_projections RENAME COLUMN inter_entity_markup_pct TO selling_retention_pct;
