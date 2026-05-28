@@ -40,7 +40,7 @@ export function CurrenciesSettings() {
     return r.code.toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q);
   });
 
-  const startAdd = () => { setEditing({ code: '', name: '', symbol: '', units_per_inr_base: 1, import_rate: null, export_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
+  const startAdd = () => { setEditing({ code: '', name: '', symbol: '', units_per_inr_base: 1, import_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
   const startEdit = (r: any) => { setEditing({ ...r }); setOpen(true); };
 
   const save = async () => {
@@ -53,7 +53,6 @@ export function CurrenciesSettings() {
       symbol: editing.symbol === '' || editing.symbol == null ? null : String(editing.symbol),
       units_per_inr_base: Number(editing.units_per_inr_base) || 1,
       import_rate: editing.import_rate === '' || editing.import_rate == null ? null : Number(editing.import_rate),
-      export_rate: editing.export_rate === '' || editing.export_rate == null ? null : Number(editing.export_rate),
       effective_start_date: editing.effective_start_date || null,
       sort_priority: Number(editing.sort_priority) || 100,
       is_featured: !!editing.is_featured,
@@ -115,7 +114,6 @@ export function CurrenciesSettings() {
               <TableHead>Featured</TableHead>
               <TableHead>Sort</TableHead>
               <TableHead>Import Rate</TableHead>
-              <TableHead>Export Rate</TableHead>
               <TableHead>Units / INR base</TableHead>
               <TableHead>Effective start</TableHead>
               <TableHead className="w-20" />
@@ -139,10 +137,6 @@ export function CurrenciesSettings() {
                   <Input type="number" step="0.0001" defaultValue={r.import_rate ?? ''} className="h-7 text-xs w-24"
                     onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== r.import_rate) updateInline(r.code, 'import_rate', v); }} />
                 </TableCell>
-                <TableCell>
-                  <Input type="number" step="0.0001" defaultValue={r.export_rate ?? ''} className="h-7 text-xs w-24"
-                    onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== r.export_rate) updateInline(r.code, 'export_rate', v); }} />
-                </TableCell>
                 <TableCell>{r.units_per_inr_base}</TableCell>
                 <TableCell>
                   <Input type="date" defaultValue={r.effective_start_date ?? ''} className="h-7 text-xs w-32"
@@ -160,7 +154,7 @@ export function CurrenciesSettings() {
                 </TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
+            {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
@@ -179,7 +173,6 @@ export function CurrenciesSettings() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div><Label className="text-xs">Import rate</Label><Input type="number" step="0.0001" value={editing.import_rate ?? ''} onChange={e => setEditing({ ...editing, import_rate: e.target.value })} /></div>
-                <div><Label className="text-xs">Export rate</Label><Input type="number" step="0.0001" value={editing.export_rate ?? ''} onChange={e => setEditing({ ...editing, export_rate: e.target.value })} /></div>
                 <div><Label className="text-xs">Units per INR base</Label><Input type="number" step="1" value={editing.units_per_inr_base ?? 1} onChange={e => setEditing({ ...editing, units_per_inr_base: e.target.value })} /></div>
                 <div><Label className="text-xs">Sort priority</Label><Input type="number" value={editing.sort_priority ?? 100} onChange={e => setEditing({ ...editing, sort_priority: e.target.value })} /></div>
                 <div><Label className="text-xs">Effective start</Label><Input type="date" value={editing.effective_start_date ?? ''} onChange={e => setEditing({ ...editing, effective_start_date: e.target.value })} /></div>
