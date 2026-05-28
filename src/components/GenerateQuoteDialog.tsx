@@ -330,6 +330,28 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             </p>
           </div>
         </div>
+        {hasPriceWarning && totalSelected > 0 && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-2.5 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <div className="font-medium text-amber-900 dark:text-amber-200">
+                  {priceWarnings.stale.length + priceWarnings.never.length} product{(priceWarnings.stale.length + priceWarnings.never.length) === 1 ? '' : 's'} may have out-of-date prices. Review their Costing tabs before quoting.
+                </div>
+                {priceWarnings.never.length > 0 && (
+                  <div className="text-amber-800 dark:text-amber-300">
+                    Never costed: {priceWarnings.never.join(', ')}
+                  </div>
+                )}
+                {priceWarnings.stale.length > 0 && (
+                  <div className="text-amber-800 dark:text-amber-300">
+                    Stale (logic changed since save): {priceWarnings.stale.join(', ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
           {products.length === 0 && assemblies.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center">No products or assemblies in this inquiry.</div>
