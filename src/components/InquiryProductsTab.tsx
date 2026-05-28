@@ -559,15 +559,11 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      <span className="inline-flex items-center gap-1 justify-end">
-                        {priceNeedsRefresh(p) && (
-                          <AlertTriangle
-                            className="h-3 w-3 text-amber-500"
-                            aria-label="Costing logic changed since this was last saved. Open the product's Costing tab to refresh."
-                          >
-                            <title>Costing logic changed since this was last saved. Open the product's Costing tab to refresh.</title>
-                          </AlertTriangle>
-                        )}
+                      <span
+                        className="inline-flex items-center gap-1 justify-end"
+                        title={priceNeedsRefresh(p) ? "Costing logic changed since this was last saved. Open the product's Costing tab to refresh." : undefined}
+                      >
+                        {priceNeedsRefresh(p) && <AlertTriangle className="h-3 w-3 text-amber-500" />}
                         {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                       </span>
                     </TableCell>
