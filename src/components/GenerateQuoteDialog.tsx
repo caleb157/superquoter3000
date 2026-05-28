@@ -140,20 +140,59 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     const ids = new Set<string>();
     products.filter(p => selected.has(p.id)).forEach(p => ids.add(p.id));
     assemblies.filter(a => selectedAsm.has(a.id)).forEach(a => a.components.forEach(c => ids.add(c.product_id)));
-    const stale: string[] = [];
-    const never: string[] = [];
+    const stale: Array<{ id: string; name: string }> = [];
+    const never: Array<{ id: string; name: string }> = [];
     const nameById = new Map<string, string>();
     products.forEach(p => nameById.set(p.id, p.name));
     ids.forEach(id => {
       const entry = priceMap[id];
       if (!entry) return;
       const nm = nameById.get(id) || id;
-      if (!entry.price_is_stored) never.push(nm);
-      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push(nm);
+      if (!entry.price_is_stored) never.push({ id, name: nm });
+      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push({ id, name: nm });
     });
     return { stale, never };
   })();
   const hasPriceWarning = priceWarnings.stale.length > 0 || priceWarnings.never.length > 0;
+
+  const [refreshing, setRefreshing] = useState(false);
+  const reloadPriceMap = async () => {
+    const allIds = [
+      ...products.map(p => p.id),
+      ...assemblies.flatMap(a => a.components.map(c => c.product_id)),
+    ];
+    if (allIds.length === 0) { setPriceMap({}); return; }
+    setRefreshing(true);
+    try {
+      const pm = await computeProductUnitPrices(Array.from(new Set(allIds)));
+      setPriceMap(pm);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const openStaleCostingTabs = () => {
+    const affected = [...priceWarnings.never, ...priceWarnings.stale];
+    if (affected.length === 0) return;
+    affected.forEach(({ id }) => {
+      window.open(`/product/${id}?tab=costing`, `costing-${id}`);
+    });
+    toast.info(`Opened ${affected.length} costing tab${affected.length === 1 ? '' : 's'}. Prices will refresh when you return.`);
+  };
+
+  // Auto-reload priceMap when the user returns to this tab (after editing costing in other tabs)
+  useEffect(() => {
+    if (!open) return;
+    const onFocus = () => { reloadPriceMap(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reloadPriceMap();
+    });
+    return () => {
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, products.length, assemblies.length]);
 
   const submit = async () => {
     if (totalSelected === 0) return;
