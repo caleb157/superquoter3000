@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -118,6 +118,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
+  const [refreshingCosting, setRefreshingCosting] = useState(false);
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
     defaultColumn: 'name',
@@ -344,6 +345,39 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   const selectedProducts = products.filter(p => selected.has(p.id));
 
+  const handleAutoRefreshCosting = async () => {
+    if (products.length === 0) return;
+    setRefreshingCosting(true);
+    try {
+      const ids = products.map(p => p.id);
+      const prices = await computeProductPriceAndCost(ids);
+      let updated = 0;
+      let drifted = 0;
+      await Promise.all(ids.map(async (id) => {
+        const live = prices[id];
+        if (!live) return;
+        const newPrice = Number(live.recomputed_price_usd.toFixed(4));
+        const newCost = Number(live.recomputed_cost_usd.toFixed(4));
+        const p = products.find(x => x.id === id);
+        const oldPrice = Number(p?.calculated_unit_price_usd ?? 0);
+        if (Math.abs(oldPrice - newPrice) > 0.01) drifted++;
+        const { error } = await (supabase as any).from('products').update({
+          calculated_unit_price_usd: newPrice,
+          calculated_unit_cost_usd: newCost,
+        }).eq('id', id);
+        if (!error) updated++;
+      }));
+      toast.success(`Refreshed ${updated} product${updated === 1 ? '' : 's'}${drifted ? ` — ${drifted} updated` : ' — all in sync'}`);
+      setRefresh(r => r + 1);
+      onChange();
+    } catch (e: any) {
+      toast.error('Auto-refresh failed: ' + (e?.message || e));
+    } finally {
+      setRefreshingCosting(false);
+    }
+  };
+
+
   return (
     <div className="space-y-3">
       <input
@@ -394,6 +428,17 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setCopyOpen(true)}>
             <Copy className="h-4 w-4" /> Copy from existing
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 gap-1.5"
+            onClick={handleAutoRefreshCosting}
+            disabled={refreshingCosting || products.length === 0}
+            title="Recompute every product's price/cost from current costing inputs (chemicals, rates, exchange, etc.) and save."
+          >
+            <RefreshCw className={cn('h-4 w-4', refreshingCosting && 'animate-spin')} />
+            {refreshingCosting ? 'Refreshing...' : 'Auto-refresh costing'}
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
             <Upload className="h-4 w-4" /> Upload & parse

@@ -19,6 +19,7 @@ export type ProductPriceCostMap = Record<string, {
   exchange_rate: number;
   // Drift detection: flag when stored value disagrees with current-logic recompute.
   recomputed_price_usd: number;
+  recomputed_cost_usd: number;
   price_is_stored: boolean;
   price_drift_usd: number;
 }>;
@@ -330,6 +331,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
       recomputed_price_usd: recomputedPriceUsd,
+      recomputed_cost_usd: recomputedCostUsd,
       price_is_stored: hasStoredPrice,
       price_drift_usd: hasStoredPrice ? Math.abs(Number(storedPriceUsd) - recomputedPriceUsd) : 0,
     };
