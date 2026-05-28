@@ -112,6 +112,19 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     if (status !== 'idle' && status !== 'saving') setStatus('idle');
   };
 
+  const moveLine = (key: string, dir: -1 | 1) => {
+    setLines(prev => {
+      const idx = prev.findIndex(l => l._key === key);
+      if (idx < 0) return prev;
+      const swap = idx + dir;
+      if (swap < 0 || swap >= prev.length) return prev;
+      const next = prev.slice();
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next;
+    });
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
+  };
+
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
     setStatus('saving');
