@@ -214,9 +214,9 @@ const shipTypes = [
   { id: 'sh-kg', cost_inr: 220, per_unit: 'KG' },
 ];
 const employees = [
-  { id: 'e1', designations: ['Finishing'], pay_per_day: 600, working_days_per_month: 26, hours_per_day: 8 },
-  { id: 'e2', designations: ['Packaging'], pay_per_day: 500, working_days_per_month: 26, hours_per_day: 8 },
-  { id: 'e3', designations: ['Joinery'], pay_per_day: 700, working_days_per_month: 26, hours_per_day: 8 },
+  { id: 'e1', designations: ['Finishing'], hourly_rate_inr: 90 },
+  { id: 'e2', designations: ['Packaging'], hourly_rate_inr: 75 },
+  { id: 'e3', designations: ['Joinery'], hourly_rate_inr: 110 },
 ];
 const difficulties = [
   { name: 'Easy', adjustment_factor: 0.8 }, { name: 'Medium', adjustment_factor: 1.0 }, { name: 'Hard', adjustment_factor: 1.3 },
