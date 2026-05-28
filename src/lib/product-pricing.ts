@@ -82,15 +82,6 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   _difficultiesCache = difficulties as any;
   _locationsCache = locations as any;
 
-  // Pre-compute chemical lookups (unit-aware, with legacy fallback)
-  const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
-  const unitOf = (c: any) => (c?.unit_type || 'L') as string;
-  const chemById = new Map<string, any>((chemicalPrices as any[]).map((c: any) => [c.id, c]));
-  const firstByCat = (cat: string) => (chemicalPrices as any[]).find((c: any) => c.category === cat);
-  const lacquerChem = (chemicalPrices as any[]).find((c: any) => c.category === 'Lacquer' && (c.name || '').includes('NC')) || firstByCat('Lacquer');
-  const colorChem = firstByCat('Color');
-  const sealerChem = firstByCat('Sealer');
-  const waxChem = firstByCat('Wax');
 
   for (const p of products as any[]) {
     const inq = p.customer_rfq_id ? inquiryById[p.customer_rfq_id] : null;
