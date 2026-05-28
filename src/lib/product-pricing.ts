@@ -315,12 +315,23 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const totalCogsPerUnitInr = cogsPerUnit + nonUnitCogsPerUnit;
     const unitCogsUsd = exchangeRate > 0 ? totalCogsPerUnitInr / exchangeRate : 0;
 
+    const recomputedPriceUsd = summary.unit_price_usd;
+    const recomputedCostUsd = summary.product_cost_per_unit_usd;
+    const storedPriceUsd = (p as any).calculated_unit_price_usd;
+    const storedCostUsd = (p as any).calculated_unit_cost_usd;
+    const hasStoredPrice = storedPriceUsd != null && Number(storedPriceUsd) > 0;
+    const hasStoredCost = storedCostUsd != null && Number(storedCostUsd) > 0;
+
     out[p.id] = {
-      unit_cost_usd: summary.product_cost_per_unit_usd,
+      // Costing sheet is the source of truth — trust stored value when present.
+      unit_price_usd: hasStoredPrice ? Number(storedPriceUsd) : recomputedPriceUsd,
+      unit_cost_usd: hasStoredCost ? Number(storedCostUsd) : recomputedCostUsd,
       unit_cogs_usd: unitCogsUsd,
-      unit_price_usd: summary.unit_price_usd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
+      recomputed_price_usd: recomputedPriceUsd,
+      price_is_stored: hasStoredPrice,
+      price_drift_usd: hasStoredPrice ? Math.abs(Number(storedPriceUsd) - recomputedPriceUsd) : 0,
     };
   }
 
