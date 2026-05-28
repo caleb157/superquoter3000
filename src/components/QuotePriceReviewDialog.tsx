@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, RotateCcw } from 'lucide-react';
+import { Plus, X, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react';
 import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
@@ -184,14 +184,39 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
           <div className="py-10 text-center text-sm text-muted-foreground">Loading prices…</div>
         ) : (
           <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-            {grouped.map(group => {
+            {grouped.map((group, gi) => {
               const variants = variantsByProduct[group.pid] || [];
               const baseName = selectedProducts.find(p => p.id === group.pid)?.name || '';
               const usedVariantIds = new Set(group.items.map(i => i.variant_id).filter(Boolean) as string[]);
               const availableVariants = variants.filter(v => !usedVariantIds.has(v.id));
+              const moveGroup = (dir: -1 | 1) => {
+                const order = grouped.map(g => g.pid);
+                const swap = gi + dir;
+                if (swap < 0 || swap >= order.length) return;
+                [order[gi], order[swap]] = [order[swap], order[gi]];
+                setLines(prev => {
+                  const buckets: Record<string, typeof prev> = {};
+                  for (const l of prev) {
+                    (buckets[l.product_id] ||= []).push(l);
+                  }
+                  return order.flatMap(pid => buckets[pid] || []);
+                });
+              };
               return (
                 <div key={group.pid} className="rounded-md border p-3 space-y-2 bg-card">
-                  <div className="text-xs font-semibold truncate">{baseName}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold truncate">{baseName}</div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6"
+                        title="Move up" onClick={() => moveGroup(-1)} disabled={gi === 0}>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6"
+                        title="Move down" onClick={() => moveGroup(1)} disabled={gi === grouped.length - 1}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                   {group.items.map(line => (
                     <div key={line.key} className="grid grid-cols-12 gap-2 items-end">
                       <div className="col-span-5">

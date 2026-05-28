@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, Loader2, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
@@ -112,6 +112,19 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     if (status !== 'idle' && status !== 'saving') setStatus('idle');
   };
 
+  const moveLine = (key: string, dir: -1 | 1) => {
+    setLines(prev => {
+      const idx = prev.findIndex(l => l._key === key);
+      if (idx < 0) return prev;
+      const swap = idx + dir;
+      if (swap < 0 || swap >= prev.length) return prev;
+      const next = prev.slice();
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next;
+    });
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
+  };
+
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
     setStatus('saving');
@@ -178,7 +191,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
-          ) : lines.map(line => (
+          ) : lines.map((line, idx) => (
             <div key={line._key} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2 bg-card">
               <div className="col-span-5">
                 <Label className="text-[10px] text-muted-foreground">Display name</Label>
@@ -216,10 +229,26 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   disabled={status === 'saving'}
                 />
               </div>
-              <div className="col-span-2 flex items-center justify-end gap-2 pb-0.5">
-                <span className="text-[11px] tabular-nums text-muted-foreground">
+              <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
+                <span className="text-[11px] tabular-nums text-muted-foreground mr-1">
                   {fmtMoney(Number(line.quantity || 0) * Number(line.unit_price_usd || 0))}
                 </span>
+                <Button
+                  type="button" variant="ghost" size="icon" className="h-7 w-7"
+                  title="Move up"
+                  onClick={() => moveLine(line._key, -1)}
+                  disabled={status === 'saving' || idx === 0}
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button" variant="ghost" size="icon" className="h-7 w-7"
+                  title="Move down"
+                  onClick={() => moveLine(line._key, 1)}
+                  disabled={status === 'saving' || idx === lines.length - 1}
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
                 <Button
                   type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
                   title="Remove line"
