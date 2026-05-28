@@ -19,6 +19,7 @@ export type ProductPriceCostMap = Record<string, {
   exchange_rate: number;
   // Drift detection: flag when stored value disagrees with current-logic recompute.
   recomputed_price_usd: number;
+  recomputed_cost_usd: number;
   price_is_stored: boolean;
   price_drift_usd: number;
 }>;
