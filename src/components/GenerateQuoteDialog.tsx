@@ -106,6 +106,17 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         : (ents[0]?.id ?? '');
       setEntityId(preferredEntity);
       setCurrency((inq?.quoting_currency as string) || 'USD');
+      // Fetch price map (with stored/drift info) for warning banner
+      const allIds = [
+        ...((prodRes.data ?? []) as any[]).map(p => p.id),
+        ...((asmRes.data ?? []) as any[]).flatMap(a => (a.assembly_components || []).map((c: any) => c.product_id)),
+      ];
+      if (allIds.length > 0) {
+        const pm = await computeProductUnitPrices(Array.from(new Set(allIds)));
+        setPriceMap(pm);
+      } else {
+        setPriceMap({});
+      }
     })();
   }, [open, inquiryId]);
 
