@@ -130,9 +130,9 @@ export function computeWeightedPipeline(
   let total = 0;
   let profit = 0;
   let counted = 0;
-  let skippedNoCost = 0;
+  let skippedNoPrice = 0;
   let skippedNoQty = 0;
-  const contributors: Array<{ name: string; qty: number; cost: number; weight: number; value: number; inquiryId: string | null }> = [];
+  const contributors: Array<{ name: string; qty: number; cost: number; price: number; weight: number; value: number; inquiryId: string | null }> = [];
 
   const productsByInquiry: Record<string, typeof products> = {};
   for (const p of products) {
@@ -167,7 +167,8 @@ export function computeWeightedPipeline(
       contributors.push({
         name: `Inquiry ${inqId.slice(0, 8)} (projection)`,
         qty: 1,
-        cost: rev,
+        cost: rev * (1 - gpm),
+        price: rev,
         weight: certainty,
         value,
         inquiryId: inqId,
@@ -184,16 +185,17 @@ export function computeWeightedPipeline(
     if (w === 0) continue;
     const qty = p.quantity ?? 0;
     if (qty === 0) { skippedNoQty += 1; continue; }
-    const cost = pricing[p.id]?.unit_cost_usd ?? 0;
-    if (cost === 0) { skippedNoCost += 1; continue; }
     const price = pricing[p.id]?.unit_price_usd ?? 0;
-    const value = qty * cost * w;
+    if (price === 0) { skippedNoPrice += 1; continue; }
+    const cost = pricing[p.id]?.unit_cost_usd ?? 0;
+    const value = qty * price * w;
     total += value;
     profit += qty * Math.max(0, price - cost) * w;
     counted += 1;
-    contributors.push({ name: p.name, qty, cost, weight: w, value, inquiryId: p.customer_rfq_id });
+    contributors.push({ name: p.name, qty, cost, price, weight: w, value, inquiryId: p.customer_rfq_id });
   }
   contributors.sort((a, b) => b.value - a.value);
-  return { total, profit, counted, skippedNoCost, skippedNoQty, contributors };
+  return { total, profit, counted, skippedNoPrice, skippedNoQty, contributors };
 }
+
 
