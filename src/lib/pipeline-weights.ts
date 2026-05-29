@@ -145,17 +145,15 @@ export function computeWeightedPipeline(
     const inqStatus = inquiryStatusById[inqId];
     if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
     const proj = projectionsByInquiry[inqId];
-    if (proj && proj.projected_fob_revenue_usd != null) {
+    // Only use the stored projection FOB/GPM as authoritative when the inquiry
+    // is a PO (or complete). Otherwise compute live from products below.
+    const useStored = (inqStatus === 'po') && proj && proj.projected_fob_revenue_usd != null;
+    if (useStored) {
       let certainty: number;
       if (proj.certainty_override != null) {
         certainty = Number(proj.certainty_override);
-      } else if (inqStatus === 'po') {
-        certainty = 1.0;
-      } else if (inqStatus === 'projected_po') {
-        certainty = 0.5;
       } else {
-        const sum = inqProducts.reduce((acc, p) => acc + productWeight(p, inqStatus), 0);
-        certainty = inqProducts.length > 0 ? sum / inqProducts.length : 0;
+        certainty = 1.0; // PO
       }
       if (certainty <= 0) continue;
       const rev = Number(proj.projected_fob_revenue_usd);
@@ -165,7 +163,7 @@ export function computeWeightedPipeline(
       profit += rev * gpm * certainty;
       counted += 1;
       contributors.push({
-        name: `Inquiry ${inqId.slice(0, 8)} (projection)`,
+        name: `Inquiry ${inqId.slice(0, 8)} (PO snapshot)`,
         qty: 1,
         cost: rev * (1 - gpm),
         price: rev,
@@ -176,6 +174,7 @@ export function computeWeightedPipeline(
       inquiriesUsingProjection.add(inqId);
     }
   }
+
 
   for (const p of products) {
     if (p.customer_rfq_id && inquiriesUsingProjection.has(p.customer_rfq_id)) continue;
