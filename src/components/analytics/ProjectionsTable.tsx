@@ -70,7 +70,7 @@ function monthLabel(d: Date): string {
 
 function cashForMonth(
   projection: Partial<InquiryProjection> | null,
-  certainty: number,
+  _certainty: number,
   mStart: Date,
   mEnd: Date,
 ): number {
@@ -85,10 +85,11 @@ function cashForMonth(
   for (const m of milestones) {
     if (!m.month || !m.pct) continue;
     const d = new Date(m.month as any);
-    if (d >= mStart && d < mEnd) total += fob * Number(m.pct) * certainty;
+    if (d >= mStart && d < mEnd) total += fob * Number(m.pct);
   }
   return total;
 }
+
 
 const EDITABLE_FIELDS = ['certainty_override', 'projected_fob_revenue_usd', 'project_gpm'] as const;
 type EditableField = (typeof EDITABLE_FIELDS)[number];
