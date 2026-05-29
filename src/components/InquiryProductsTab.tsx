@@ -32,6 +32,8 @@ import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { recostProduct, recostInquiry } from '@/lib/costing-seed';
+import { RefreshCw } from 'lucide-react';
 
 type Product = {
   id: string; name: string; sku: string | null; photo_url: string | null; updated_at: string | null;
