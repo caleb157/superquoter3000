@@ -155,15 +155,19 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const autoMh = useMemo(() => effectiveManHours({ estimated_man_hours: null } as any, productMh), [productMh]);
   const effMh = useMemo(() => effectiveManHours(proj as any, productMh), [proj, productMh]);
 
-  const fob = Number(proj?.projected_fob_revenue_usd || 0);
-  const gpm = Number(proj?.project_gpm || 0);
-  const expectedRevenue = weightedProjectedRevenue(proj as any, effCertainty);
-  const expectedGp = projectedGrossProfit(proj as any) * effCertainty;
+  const locked = projectionIsLocked(inquiryStatus);
+  const effFob = effectiveFobUsd(proj as any, inquiryStatus, autoFob);
+  const effGpmVal = effectiveGpm(proj as any, inquiryStatus, autoGpm);
+  const fob = effFob;
+  const gpm = effGpmVal;
+  const expectedRevenue = weightedProjectedRevenue(effFob, effCertainty);
+  const expectedGp = projectedGrossProfit(effFob, effGpmVal) * effCertainty;
   // Selling entity retains a % of FOB; producing entity receives the rest.
   const sellingRetentionPct = Number(proj?.selling_retention_pct || 0);
   const sellingRetainedAmount = fob * sellingRetentionPct;
   const ieTotal = fob * (1 - sellingRetentionPct);
   const vendorTotal = fob * (1 - gpm);
+
 
   const showIE = proj?.selling_entity_id && proj?.producing_entity_id && proj.selling_entity_id !== proj.producing_entity_id;
 
