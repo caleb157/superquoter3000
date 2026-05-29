@@ -623,14 +623,11 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      <span
-                        className="inline-flex items-center gap-1 justify-end"
-                        title={priceNeedsRefresh(p) ? "Costing logic changed since this was last saved. Open the product's Costing tab to refresh." : undefined}
-                      >
-                        {priceNeedsRefresh(p) && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                      <span className="inline-flex items-center gap-1 justify-end">
                         {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                       </span>
                     </TableCell>
+
                     <TableCell className="text-xs text-right tabular-nums">
                       {p.markup_percent && p.markup_percent > 0 ? `${(markupToNpm(p.markup_percent) * 100).toFixed(1)}%` : '—'}
                     </TableCell>
