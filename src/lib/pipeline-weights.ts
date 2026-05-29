@@ -145,16 +145,11 @@ export function computeWeightedPipeline(
     const inqStatus = inquiryStatusById[inqId];
     if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
     const proj = projectionsByInquiry[inqId];
-    // Only use the stored projection FOB/GPM as authoritative when the inquiry
-    // is a PO (or complete). Otherwise compute live from products below.
-    const useStored = (inqStatus === 'po') && proj && proj.projected_fob_revenue_usd != null;
+    // The stored projection FOB/GPM are authoritative only when PO/complete.
+    // Otherwise we compute live from the products via the loop below.
+    const useStored = inqStatus === 'po' && proj && proj.projected_fob_revenue_usd != null;
     if (useStored) {
-      let certainty: number;
-      if (proj.certainty_override != null) {
-        certainty = Number(proj.certainty_override);
-      } else {
-        certainty = 1.0; // PO
-      }
+      const certainty = proj.certainty_override != null ? Number(proj.certainty_override) : 1.0;
       if (certainty <= 0) continue;
       const rev = Number(proj.projected_fob_revenue_usd);
       const value = rev * certainty;
@@ -166,6 +161,36 @@ export function computeWeightedPipeline(
         name: `Inquiry ${inqId.slice(0, 8)} (PO snapshot)`,
         qty: 1,
         cost: rev * (1 - gpm),
+        price: rev,
+        weight: certainty,
+        value,
+        inquiryId: inqId,
+      });
+      inquiriesUsingProjection.add(inqId);
+      continue;
+    }
+    // Projected POs: weight whole inquiry by override or 0.5, using live FOB
+    // (sum of qty × price across all products regardless of product stage).
+    if (inqStatus === 'projected_po') {
+      const certainty = proj?.certainty_override != null ? Number(proj.certainty_override) : 0.5;
+      if (certainty <= 0) { inquiriesUsingProjection.add(inqId); continue; }
+      let rev = 0, cost = 0;
+      for (const p of inqProducts) {
+        const qty = p.quantity ?? 0;
+        const price = pricing[p.id]?.unit_price_usd ?? 0;
+        const c = pricing[p.id]?.unit_cost_usd ?? 0;
+        rev += qty * price;
+        cost += qty * c;
+      }
+      if (rev <= 0) { inquiriesUsingProjection.add(inqId); continue; }
+      const value = rev * certainty;
+      total += value;
+      profit += Math.max(0, rev - cost) * certainty;
+      counted += 1;
+      contributors.push({
+        name: `Inquiry ${inqId.slice(0, 8)} (projected PO live)`,
+        qty: 1,
+        cost,
         price: rev,
         weight: certainty,
         value,
@@ -196,5 +221,6 @@ export function computeWeightedPipeline(
   contributors.sort((a, b) => b.value - a.value);
   return { total, profit, counted, skippedNoPrice, skippedNoQty, contributors };
 }
+
 
 
