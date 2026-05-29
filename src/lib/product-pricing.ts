@@ -134,7 +134,6 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     };
   }
 
-  }
 
   return out;
 }
