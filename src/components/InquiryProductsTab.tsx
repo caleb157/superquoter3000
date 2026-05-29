@@ -447,7 +447,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <div className="ml-auto flex gap-2 flex-wrap">
+        <div className="ml-auto flex gap-2 flex-wrap items-center">
+          {recosting.active && (
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+              <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Calculating prices… ({recosting.done}/{recosting.total})
+            </span>
+          )}
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleRecostAll} disabled={recostAllBusy || products.length === 0}>
+            <RefreshCw className={cn('h-4 w-4', recostAllBusy && 'animate-spin')} /> Recost all
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
           </Button>
