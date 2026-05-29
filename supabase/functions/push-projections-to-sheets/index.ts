@@ -170,14 +170,14 @@ Deno.serve(async (req) => {
     const startDate = startingMonth ? monthStart(new Date(startingMonth)) : monthStart(new Date());
     const months: Date[] = Array.from({ length: monthsCount }, (_, i) => addMonths(startDate, i));
 
-    // Fetch inquiries + projections + products
+    // Fetch inquiries + projections + products (incl. cached price/cost for live FOB)
     const { data: rows, error: qErr } = await admin
       .from('customer_rfqs')
       .select(`
         id, rfq_number, title, status,
         customers:customer_id ( name, company ),
         inquiry_projections ( * ),
-        products ( design_stage, quote_stage, sample_stage )
+        products ( quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd )
       `)
       .in('status', statusFilter)
       .order('created_at', { ascending: false });
@@ -202,12 +202,25 @@ Deno.serve(async (req) => {
       perMonth: new Array(months.length).fill(0),
     };
 
+    const locked = (s: string) => s === 'po' || s === 'complete';
+
     for (const r of (rows || [])) {
       const proj = Array.isArray(r.inquiry_projections) ? r.inquiry_projections[0] : r.inquiry_projections;
       const products = r.products || [];
       const cert = effectiveCertainty(proj, products, r.status);
-      const fob = Number(proj?.projected_fob_revenue_usd) || 0;
-      const gpm = Number(proj?.project_gpm) || 0;
+
+      // Live financials from cached unit price/cost on the products.
+      let liveRev = 0, liveCost = 0;
+      for (const p of products as any[]) {
+        const qty = Number(p.quantity || 0);
+        liveRev += Number(p.calculated_unit_price_usd || 0) * qty;
+        liveCost += Number(p.calculated_unit_cost_usd || 0) * qty;
+      }
+      const liveGpm = liveRev > 0 ? (liveRev - liveCost) / liveRev : 0;
+
+      const useStored = locked(r.status) && proj?.projected_fob_revenue_usd != null;
+      const fob = useStored ? Number(proj.projected_fob_revenue_usd) : liveRev;
+      const gpm = locked(r.status) && proj?.project_gpm != null ? Number(proj.project_gpm) : liveGpm;
       const expRev = fob * cert;
       const expGp = fob * gpm * cert;
 
@@ -215,8 +228,10 @@ Deno.serve(async (req) => {
       totals.expRev += expRev;
       totals.expGp += expGp;
 
+      // cashForMonth needs the effective FOB; synthesize a temp proj with it.
+      const projForCash = { ...(proj || {}), projected_fob_revenue_usd: fob };
       const monthCells = months.map((m, i) => {
-        const v = cashForMonth(proj, cert, m, addMonths(m, 1));
+        const v = cashForMonth(projForCash, cert, m, addMonths(m, 1));
         totals.perMonth[i] += v;
         return v || 0;
       });
@@ -238,6 +253,7 @@ Deno.serve(async (req) => {
         proj?.notes ?? '',
       ]);
     }
+
 
     // Ensure tab exists (must happen before we try to read existing values)
     const meta = await sheetsCall(

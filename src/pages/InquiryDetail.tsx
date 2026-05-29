@@ -98,7 +98,8 @@ export default function InquiryDetail() {
   const updateField = async (patch: any) => {
     if (patch.status === 'paused') patch = { priority: 'low', ...patch };
     // Auto-populate PO fields the first time the inquiry flips to 'po'
-    if (patch.status === 'po' && inquiry?.status !== 'po' && id) {
+    const isPoTransition = patch.status === 'po' && inquiry?.status !== 'po' && !!id;
+    if (isPoTransition) {
       const fill: any = {};
       if (!inquiry?.po_received_date) {
         fill.po_received_date = new Date().toISOString().slice(0, 10);
@@ -123,7 +124,40 @@ export default function InquiryDetail() {
     if (error) { toast.error(error.message); return; }
     setInquiry((i: any) => ({ ...i, ...patch }));
     setSettingsDraft((d: any) => d ? { ...d, ...patch } : d);
+
+    // Snapshot live FOB/GPM into the projection on PO transition so they
+    // become the locked, editable values from this point on.
+    if (isPoTransition && id) {
+      try {
+        const { computeProductPriceAndCost } = await import('@/lib/product-pricing');
+        const { computeInquiryFinancials } = await import('@/lib/inquiry-financials');
+        const { data: prods } = await (supabase as any)
+          .from('products')
+          .select('id, quantity')
+          .eq('customer_rfq_id', id);
+        const ids = (prods || []).map((p: any) => p.id);
+        if (ids.length) {
+          const priceMap = await computeProductPriceAndCost(ids);
+          const live = computeInquiryFinancials(prods as any, priceMap);
+          if (live.fobRevenueUsd > 0) {
+            await (supabase as any)
+              .from('inquiry_projections')
+              .upsert(
+                {
+                  inquiry_id: id,
+                  projected_fob_revenue_usd: Math.round(live.fobRevenueUsd * 100) / 100,
+                  project_gpm: Math.round(live.gpm * 10000) / 10000,
+                },
+                { onConflict: 'inquiry_id' },
+              );
+          }
+        }
+      } catch (e: any) {
+        console.warn('Failed to snapshot live projection on PO transition', e);
+      }
+    }
   };
+
 
   const saveTitle = async () => {
     const t = titleDraft.trim();

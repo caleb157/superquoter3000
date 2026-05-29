@@ -21,6 +21,12 @@ import {
   type InquiryProjection,
 } from '@/lib/projections';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import {
+  effectiveFobUsd,
+  effectiveGpm,
+  projectionIsLocked,
+} from '@/lib/inquiry-financials';
+import { Lock } from 'lucide-react';
 
 type Props = { inquiryId: string };
 
@@ -149,15 +155,19 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const autoMh = useMemo(() => effectiveManHours({ estimated_man_hours: null } as any, productMh), [productMh]);
   const effMh = useMemo(() => effectiveManHours(proj as any, productMh), [proj, productMh]);
 
-  const fob = Number(proj?.projected_fob_revenue_usd || 0);
-  const gpm = Number(proj?.project_gpm || 0);
-  const expectedRevenue = weightedProjectedRevenue(proj as any, effCertainty);
-  const expectedGp = projectedGrossProfit(proj as any) * effCertainty;
+  const locked = projectionIsLocked(inquiryStatus);
+  const effFob = effectiveFobUsd(proj as any, inquiryStatus, autoFob);
+  const effGpmVal = effectiveGpm(proj as any, inquiryStatus, autoGpm);
+  const fob = effFob;
+  const gpm = effGpmVal;
+  const expectedRevenue = weightedProjectedRevenue(effFob, effCertainty);
+  const expectedGp = projectedGrossProfit(effFob, effGpmVal) * effCertainty;
   // Selling entity retains a % of FOB; producing entity receives the rest.
   const sellingRetentionPct = Number(proj?.selling_retention_pct || 0);
   const sellingRetainedAmount = fob * sellingRetentionPct;
   const ieTotal = fob * (1 - sellingRetentionPct);
   const vendorTotal = fob * (1 - gpm);
+
 
   const showIE = proj?.selling_entity_id && proj?.producing_entity_id && proj.selling_entity_id !== proj.producing_entity_id;
 
@@ -238,29 +248,57 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         <CardHeader className="pb-2"><CardTitle className="text-sm">Financials</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <Label className="text-xs">Projected FOB revenue (USD)</Label>
-            <Input
-              type="number" step="0.01"
-              placeholder={autoFob > 0 ? `Auto: ${fmt.usd(autoFob)}` : undefined}
-              value={num(proj?.projected_fob_revenue_usd)}
-              onChange={e => setField({ projected_fob_revenue_usd: e.target.value === '' ? null : Number(e.target.value) })}
-              onBlur={e => {
-                const val = e.target.value === '' ? null : Number(e.target.value);
-                persist(maybeSuggestMonths({ projected_fob_revenue_usd: val }));
-              }}
-              className="h-9 mt-1"
-            />
+            <Label className="text-xs flex items-center gap-1">
+              Projected FOB revenue (USD)
+              {locked ? <Lock className="h-3 w-3 text-muted-foreground" /> : null}
+            </Label>
+            {locked ? (
+              <Input
+                type="number" step="0.01"
+                placeholder={autoFob > 0 ? `Live: ${fmt.usd(autoFob)}` : undefined}
+                value={num(proj?.projected_fob_revenue_usd ?? (autoFob > 0 ? autoFob : ''))}
+                onChange={e => setField({ projected_fob_revenue_usd: e.target.value === '' ? null : Number(e.target.value) })}
+                onBlur={e => {
+                  const val = e.target.value === '' ? null : Number(e.target.value);
+                  persist(maybeSuggestMonths({ projected_fob_revenue_usd: val }));
+                }}
+                className="h-9 mt-1"
+              />
+            ) : (
+              <div className="h-9 mt-1 px-3 flex items-center rounded-md border bg-muted/30 text-sm tabular-nums">
+                {fmt.usd(autoFob)}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {locked
+                ? 'Locked at PO. Edit to record the actual PO value.'
+                : 'Live from costing — locks when PO.'}
+            </p>
           </div>
           <div>
-            <Label className="text-xs">Gross profit margin (%)</Label>
-            <Input
-              type="number" step="0.1" min={0} max={100}
-              placeholder={autoGpm > 0 ? `Auto: ${(autoGpm * 100).toFixed(1)}%` : undefined}
-              value={pct(proj?.project_gpm)}
-              onChange={e => setField({ project_gpm: parsePct(e.target.value) })}
-              onBlur={e => persist({ project_gpm: parsePct(e.target.value) })}
-              className="h-9 mt-1"
-            />
+            <Label className="text-xs flex items-center gap-1">
+              Gross profit margin (%)
+              {locked ? <Lock className="h-3 w-3 text-muted-foreground" /> : null}
+            </Label>
+            {locked ? (
+              <Input
+                type="number" step="0.1" min={0} max={100}
+                placeholder={autoGpm > 0 ? `Live: ${(autoGpm * 100).toFixed(1)}%` : undefined}
+                value={pct(proj?.project_gpm ?? (autoGpm > 0 ? autoGpm : ''))}
+                onChange={e => setField({ project_gpm: parsePct(e.target.value) })}
+                onBlur={e => persist({ project_gpm: parsePct(e.target.value) })}
+                className="h-9 mt-1"
+              />
+            ) : (
+              <div className="h-9 mt-1 px-3 flex items-center rounded-md border bg-muted/30 text-sm tabular-nums">
+                {(autoGpm * 100).toFixed(1)}%
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {locked
+                ? 'Locked at PO. Edit to record the actual GPM.'
+                : '(revenue − COGS) / revenue, live from costing.'}
+            </p>
           </div>
           <div>
             <Label className="text-xs">Certainty override (%)</Label>
@@ -273,24 +311,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               className="h-9 mt-1"
             />
           </div>
-          {(autoFob > 0 || autoGpm > 0) && (
-            <div className="md:col-span-3 flex items-center gap-3 text-xs">
-              <Button
-                size="sm" variant="outline"
-                onClick={() => {
-                  const patch: any = {};
-                  if (autoFob > 0) patch.projected_fob_revenue_usd = autoFob;
-                  if (autoGpm > 0) patch.project_gpm = Math.round(autoGpm * 10000) / 10000;
-                  persist(maybeSuggestMonths(patch));
-                }}
-              >
-                Pull from costing sheet
-              </Button>
-              <span className="text-muted-foreground">
-                Revenue {fmt.usd(autoFob)} · GPM {(autoGpm * 100).toFixed(1)}% (true GPM = (revenue − COGS) / revenue)
-              </span>
-            </div>
-          )}
+
           <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t text-xs">
             <div><span className="text-muted-foreground">Effective certainty:</span> <span className="font-medium tabular-nums">{(effCertainty * 100).toFixed(1)}%</span></div>
             <div><span className="text-muted-foreground">Expected revenue:</span> <span className="font-medium tabular-nums">{fmt.usd(expectedRevenue)}</span></div>

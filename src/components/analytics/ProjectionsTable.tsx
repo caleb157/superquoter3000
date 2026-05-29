@@ -24,6 +24,8 @@ import {
 } from '@/lib/inquiry-status';
 import { effectiveCertainty, type InquiryProjection } from '@/lib/projections';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { effectiveFobUsd, effectiveGpm, projectionIsLocked } from '@/lib/inquiry-financials';
+import { Lock } from 'lucide-react';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 
 type Row = {
@@ -292,25 +294,24 @@ export function ProjectionsTable() {
   const computedRows = useMemo(() => {
     return rows.map((r) => {
       const cert = effectiveCertainty(r.projection as any, r.products, r.status);
-      const fobOverride = r.projection?.projected_fob_revenue_usd;
-      const gpmOverride = r.projection?.project_gpm;
-      const fob = fobOverride != null ? Number(fobOverride) : r.autoFob;
-      const gpm = gpmOverride != null ? Number(gpmOverride) : r.autoGpm;
-      const fobIsAuto = fobOverride == null && r.autoFob > 0;
-      const gpmIsAuto = gpmOverride == null && r.autoGpm !== 0;
+      const locked = projectionIsLocked(r.status);
+      const fob = effectiveFobUsd(r.projection as any, r.status, r.autoFob);
+      const gpm = effectiveGpm(r.projection as any, r.status, r.autoGpm);
+      // "Live" indicator: we're showing the live computed value (not the stored one).
+      const fobIsLive = !(locked && r.projection?.projected_fob_revenue_usd != null);
+      const gpmIsLive = !(locked && r.projection?.project_gpm != null);
       const expectedRev = fob * cert;
       const expectedGp = fob * gpm * cert;
       const monthCells = months.map((m) => {
         const mEnd = addMonths(m, 1);
-        // cashForMonth needs FOB; if no override, synthesize a temp projection with autoFob
-        const projForCash = fobOverride != null
-          ? r.projection
-          : { ...(r.projection || {}), projected_fob_revenue_usd: r.autoFob } as any;
+        // cashForMonth needs the effective FOB; if locked but no stored, fall back to live.
+        const projForCash = { ...(r.projection || {}), projected_fob_revenue_usd: fob } as any;
         return cashForMonth(projForCash, cert, m, mEnd);
       });
-      return { ...r, cert, fob, gpm, fobIsAuto, gpmIsAuto, expectedRev, expectedGp, monthCells };
+      return { ...r, cert, fob, gpm, fobIsLive, gpmIsLive, locked, expectedRev, expectedGp, monthCells };
     });
   }, [rows, months]);
+
 
   const totals = useMemo(() => {
     const fob = computedRows.reduce((a, r) => a + r.fob, 0);
@@ -593,22 +594,37 @@ export function ProjectionsTable() {
                           `${Math.round(r.cert * 100)}%${r.projection?.certainty_override == null ? '*' : ''}`,
                         )}
                       </td>
-                      <td className={cn('px-1 py-1', r.fobIsAuto && 'text-muted-foreground italic')}>
-                        {renderEditableCell(
-                          r.id,
-                          'projected_fob_revenue_usd',
-                          r.projection?.projected_fob_revenue_usd,
-                          `${fmtUsd(r.fob)}${r.fobIsAuto ? '*' : ''}`,
+                      <td className={cn('px-1 py-1', r.fobIsLive && 'text-muted-foreground italic')}>
+                        {r.locked ? (
+                          renderEditableCell(
+                            r.id,
+                            'projected_fob_revenue_usd',
+                            r.projection?.projected_fob_revenue_usd,
+                            `${fmtUsd(r.fob)}${r.fobIsLive ? '*' : ''}`,
+                          )
+                        ) : (
+                          <div className="inline-flex items-center justify-end gap-1 w-full pr-2" title="Live from costing — locks at PO">
+                            <Lock className="h-3 w-3 opacity-50" />
+                            <span className="tabular-nums">{fmtUsd(r.fob)}*</span>
+                          </div>
                         )}
                       </td>
-                      <td className={cn('px-1 py-1', r.gpmIsAuto && 'text-muted-foreground italic')}>
-                        {renderEditableCell(
-                          r.id,
-                          'project_gpm',
-                          r.projection?.project_gpm,
-                          r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsAuto ? '*' : ''}` : '—',
+                      <td className={cn('px-1 py-1', r.gpmIsLive && 'text-muted-foreground italic')}>
+                        {r.locked ? (
+                          renderEditableCell(
+                            r.id,
+                            'project_gpm',
+                            r.projection?.project_gpm,
+                            r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsLive ? '*' : ''}` : '—',
+                          )
+                        ) : (
+                          <div className="inline-flex items-center justify-end gap-1 w-full pr-2" title="Live from costing — locks at PO">
+                            <Lock className="h-3 w-3 opacity-50" />
+                            <span className="tabular-nums">{r.gpm ? `${Math.round(r.gpm * 100)}%*` : '—'}</span>
+                          </div>
                         )}
                       </td>
+
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedRev)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedGp)}</td>
                       {months.map((m, i) => {
@@ -662,9 +678,9 @@ export function ProjectionsTable() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        * Auto-populated from the costing sheet (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Click any value to override. Month cells show scheduled customer payments (FOB × milestone %, unweighted).
-
+        * Live from the costing engine (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Locked &amp; editable only once the inquiry is a PO. Month cells show scheduled customer payments (FOB × milestone %, unweighted).
       </p>
+
 
       <NewInquiryDialog
         open={dialogOpen}
