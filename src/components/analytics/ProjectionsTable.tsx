@@ -24,6 +24,8 @@ import {
 } from '@/lib/inquiry-status';
 import { effectiveCertainty, type InquiryProjection } from '@/lib/projections';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { effectiveFobUsd, effectiveGpm, projectionIsLocked } from '@/lib/inquiry-financials';
+import { Lock } from 'lucide-react';
 import { NewInquiryDialog } from '@/components/NewInquiryDialog';
 
 type Row = {
