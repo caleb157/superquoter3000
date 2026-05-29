@@ -21,6 +21,12 @@ import {
   type InquiryProjection,
 } from '@/lib/projections';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import {
+  effectiveFobUsd,
+  effectiveGpm,
+  projectionIsLocked,
+} from '@/lib/inquiry-financials';
+import { Lock } from 'lucide-react';
 
 type Props = { inquiryId: string };
 
