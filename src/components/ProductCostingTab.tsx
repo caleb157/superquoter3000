@@ -18,6 +18,7 @@ import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
+import { computeProductCosting } from '@/lib/costing-engine';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
