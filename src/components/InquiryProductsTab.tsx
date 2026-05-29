@@ -32,6 +32,8 @@ import { fmt } from '@/lib/formatters';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { recostProduct, recostInquiry } from '@/lib/costing-seed';
+import { RefreshCw } from 'lucide-react';
 
 type Product = {
   id: string; name: string; sku: string | null; photo_url: string | null; updated_at: string | null;
@@ -118,6 +120,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
+  const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
+  const [recostAllBusy, setRecostAllBusy] = useState(false);
+  const autoRecostRef = useRef<Set<string>>(new Set());
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
     defaultColumn: 'name',
@@ -198,6 +203,60 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       }
     })();
   }, [inquiryId, refresh, refreshKey]);
+
+  // Auto-recost any products that have never been priced. Runs in the background;
+  // only targets null/zero-price products and skips ids it has already processed
+  // in this session to guarantee no loops.
+  useEffect(() => {
+    if (products.length === 0) return;
+    const uncosted = products.filter(
+      (p) => (!p.calculated_unit_price_usd || p.calculated_unit_price_usd <= 0)
+        && !autoRecostRef.current.has(p.id),
+    );
+    if (uncosted.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setRecosting({ active: true, done: 0, total: uncosted.length });
+      for (let i = 0; i < uncosted.length; i++) {
+        if (cancelled) break;
+        autoRecostRef.current.add(uncosted[i].id);
+        try {
+          await recostProduct(uncosted[i].id);
+        } catch (e) {
+          console.error('Auto-recost failed', e);
+        }
+        if (!cancelled) setRecosting((r) => ({ ...r, done: i + 1 }));
+      }
+      if (!cancelled) {
+        setRecosting({ active: false, done: 0, total: 0 });
+        setRefresh((r) => r + 1);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products.map((p) => p.id).join(',')]);
+
+  const handleRecostAll = async () => {
+    if (products.length > 20) {
+      const ok = window.confirm(`Recost all ${products.length} products? This recalculates and overwrites current prices.`);
+      if (!ok) return;
+    }
+    setRecostAllBusy(true);
+    setRecosting({ active: true, done: 0, total: products.length });
+    try {
+      // Mark all current ids as processed so the auto effect doesn't double-run.
+      products.forEach((p) => autoRecostRef.current.add(p.id));
+      await recostInquiry(inquiryId, (done, total) => setRecosting({ active: true, done, total }));
+      toast.success('Prices refreshed for all products');
+      setRefresh((r) => r + 1);
+      onChange();
+    } catch (e: any) {
+      toast.error('Recost failed: ' + (e?.message || 'unknown'));
+    } finally {
+      setRecostAllBusy(false);
+      setRecosting({ active: false, done: 0, total: 0 });
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -388,7 +447,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </Button>
           )}
         </div>
-        <div className="ml-auto flex gap-2 flex-wrap">
+        <div className="ml-auto flex gap-2 flex-wrap items-center">
+          {recosting.active && (
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+              <span className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Calculating prices… ({recosting.done}/{recosting.total})
+            </span>
+          )}
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleRecostAll} disabled={recostAllBusy || products.length === 0}>
+            <RefreshCw className={cn('h-4 w-4', recostAllBusy && 'animate-spin')} /> Recost all
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
           </Button>
