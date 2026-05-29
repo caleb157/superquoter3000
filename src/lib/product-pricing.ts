@@ -11,16 +11,17 @@ let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | nul
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
 
 export type ProductPriceCostMap = Record<string, {
-  unit_cost_usd: number;     // FOB cost, no markup. Prefers stored calculated_unit_cost_usd.
+  unit_cost_usd: number;     // FOB cost, no markup. Authoritative live engine recompute.
   unit_cogs_usd: number;     // COGS-only (materials + non-unit cogs), no labor/overhead/shipping
-  unit_price_usd: number;    // cost + markup. Prefers stored calculated_unit_price_usd (costing sheet = source of truth).
+  unit_price_usd: number;    // cost + markup. Authoritative live engine recompute (= costing sheet).
   unit_price_inr: number;
   exchange_rate: number;
-  // Drift detection: flag when stored value disagrees with current-logic recompute.
-  recomputed_price_usd: number;
-  price_is_stored: boolean;
-  price_drift_usd: number;
+  // For cache healing: the value currently stored in the products table.
+  stored_price_usd: number | null;
+  stored_cost_usd: number | null;
+  cache_is_stale: boolean;
 }>;
+
 
 // Back-compat alias for older imports
 export type ProductUnitPriceMap = ProductPriceCostMap;
@@ -112,23 +113,27 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
 
     const recomputedPriceUsd = summary.unit_price_usd;
     const recomputedCostUsd = summary.product_cost_per_unit_usd;
-    const storedPriceUsd = (p as any).calculated_unit_price_usd;
-    const storedCostUsd = (p as any).calculated_unit_cost_usd;
-    const hasStoredPrice = storedPriceUsd != null && Number(storedPriceUsd) > 0;
-    const hasStoredCost = storedCostUsd != null && Number(storedCostUsd) > 0;
+    const storedPriceRaw = (p as any).calculated_unit_price_usd;
+    const storedCostRaw = (p as any).calculated_unit_cost_usd;
+    const storedPriceUsd = storedPriceRaw == null ? null : Number(storedPriceRaw);
+    const storedCostUsd = storedCostRaw == null ? null : Number(storedCostRaw);
 
     out[p.id] = {
-      // Costing sheet is the source of truth — trust stored value when present.
-      unit_price_usd: hasStoredPrice ? Number(storedPriceUsd) : recomputedPriceUsd,
-      unit_cost_usd: hasStoredCost ? Number(storedCostUsd) : recomputedCostUsd,
+      // Unified engine — the live recompute IS the costing sheet. Use it as authoritative.
+      unit_price_usd: recomputedPriceUsd,
+      unit_cost_usd: recomputedCostUsd,
       unit_cogs_usd: unitCogsUsd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
-      recomputed_price_usd: recomputedPriceUsd,
-      price_is_stored: hasStoredPrice,
-      price_drift_usd: hasStoredPrice ? Math.abs(Number(storedPriceUsd) - recomputedPriceUsd) : 0,
+      stored_price_usd: storedPriceUsd,
+      stored_cost_usd: storedCostUsd,
+      cache_is_stale:
+        storedPriceUsd != null &&
+        Number.isFinite(recomputedPriceUsd) &&
+        Math.abs(storedPriceUsd - recomputedPriceUsd) > 0.01,
     };
   }
+
 
   return out;
 }

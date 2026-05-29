@@ -148,8 +148,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       const entry = priceMap[id];
       if (!entry) return;
       const nm = nameById.get(id) || id;
-      if (!entry.price_is_stored) never.push({ id, name: nm });
-      else if ((entry.price_drift_usd ?? 0) > 0.01) stale.push({ id, name: nm });
+      if (entry.stored_price_usd == null || entry.stored_price_usd <= 0) never.push({ id, name: nm });
+      else if (entry.cache_is_stale) stale.push({ id, name: nm });
+
     });
     return { stale, never };
   })();

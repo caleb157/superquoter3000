@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy } from 'lucide-react';
+
 import { toast } from 'sonner';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -130,16 +131,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   });
 
   const displayPriceUsd = (p: Product) => {
-    const live = livePrices[p.id];
-    // After product-pricing fix, live.unit_price_usd IS the stored costing-sheet value when one exists.
-    if (live?.unit_price_usd && live.unit_price_usd > 0) return live.unit_price_usd;
+    const live = livePrices[p.id]?.unit_price_usd;
+    // Unified engine — live recompute IS the costing sheet, so prefer it.
+    if (live && live > 0) return live;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
-  const priceNeedsRefresh = (p: Product) => {
-    const live = livePrices[p.id];
-    return !!live?.price_is_stored && (live?.price_drift_usd ?? 0) > 0.01;
-  };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
@@ -204,28 +201,64 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     })();
   }, [inquiryId, refresh, refreshKey]);
 
-  // Auto-recost any products that have never been priced. Runs in the background;
-  // only targets null/zero-price products and skips ids it has already processed
-  // in this session to guarantee no loops.
+  // Heal stale/missing price caches in the background after livePrices arrives.
+  // - If the live engine produced a usable price and the stored cache is stale or
+  //   missing, write the live value back (cheap update, no extra engine run).
+  // - If the live engine produced no price (product has no cogs_items / never
+  //   seeded), fall back to full recostProduct (seed + compute + persist).
+  // autoRecostRef tracks processed ids per-session to guarantee no loops.
   useEffect(() => {
     if (products.length === 0) return;
-    const uncosted = products.filter(
-      (p) => (!p.calculated_unit_price_usd || p.calculated_unit_price_usd <= 0)
-        && !autoRecostRef.current.has(p.id),
-    );
-    if (uncosted.length === 0) return;
+    if (Object.keys(livePrices).length === 0) return;
+
+    const lightHeals: Product[] = [];
+    const fullRecosts: Product[] = [];
+    for (const p of products) {
+      if (autoRecostRef.current.has(p.id)) continue;
+      const lp = livePrices[p.id];
+      const stored = p.calculated_unit_price_usd;
+      const storedNum = stored == null ? null : Number(stored);
+      const liveOk = !!lp && Number.isFinite(lp.unit_price_usd) && lp.unit_price_usd > 0;
+      const cacheMissing = storedNum == null || storedNum <= 0;
+      const cacheStale = !!lp?.cache_is_stale;
+      if (liveOk && (cacheStale || cacheMissing)) {
+        lightHeals.push(p);
+      } else if (!liveOk && cacheMissing) {
+        fullRecosts.push(p);
+      }
+    }
+    if (lightHeals.length === 0 && fullRecosts.length === 0) return;
+
     let cancelled = false;
     (async () => {
-      setRecosting({ active: true, done: 0, total: uncosted.length });
-      for (let i = 0; i < uncosted.length; i++) {
+      const total = lightHeals.length + fullRecosts.length;
+      setRecosting({ active: true, done: 0, total });
+      let done = 0;
+      for (const p of lightHeals) {
         if (cancelled) break;
-        autoRecostRef.current.add(uncosted[i].id);
+        autoRecostRef.current.add(p.id);
+        const lp = livePrices[p.id];
         try {
-          await recostProduct(uncosted[i].id);
+          await (supabase as any).from('products').update({
+            calculated_unit_price_usd: +lp.unit_price_usd.toFixed(4),
+            calculated_unit_cost_usd: Number.isFinite(lp.unit_cost_usd) ? +lp.unit_cost_usd.toFixed(4) : null,
+          }).eq('id', p.id);
+        } catch (e) {
+          console.error('Cache heal failed', e);
+        }
+        done++;
+        if (!cancelled) setRecosting((r) => ({ ...r, done }));
+      }
+      for (const p of fullRecosts) {
+        if (cancelled) break;
+        autoRecostRef.current.add(p.id);
+        try {
+          await recostProduct(p.id);
         } catch (e) {
           console.error('Auto-recost failed', e);
         }
-        if (!cancelled) setRecosting((r) => ({ ...r, done: i + 1 }));
+        done++;
+        if (!cancelled) setRecosting((r) => ({ ...r, done }));
       }
       if (!cancelled) {
         setRecosting({ active: false, done: 0, total: 0 });
@@ -234,7 +267,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products.map((p) => p.id).join(',')]);
+  }, [products.map((p) => p.id).join(','), Object.keys(livePrices).length]);
+
 
   const handleRecostAll = async () => {
     if (products.length > 20) {
@@ -627,14 +661,11 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      <span
-                        className="inline-flex items-center gap-1 justify-end"
-                        title={priceNeedsRefresh(p) ? "Costing logic changed since this was last saved. Open the product's Costing tab to refresh." : undefined}
-                      >
-                        {priceNeedsRefresh(p) && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                      <span className="inline-flex items-center gap-1 justify-end">
                         {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
                       </span>
                     </TableCell>
+
                     <TableCell className="text-xs text-right tabular-nums">
                       {p.markup_percent && p.markup_percent > 0 ? `${(markupToNpm(p.markup_percent) * 100).toFixed(1)}%` : '—'}
                     </TableCell>
