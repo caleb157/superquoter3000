@@ -120,6 +120,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
+  const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
+  const [recostAllBusy, setRecostAllBusy] = useState(false);
+  const autoRecostRef = useRef<Set<string>>(new Set());
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Product>({
     storageKey: `inquiry-products-sort:${inquiryId}`,
     defaultColumn: 'name',
