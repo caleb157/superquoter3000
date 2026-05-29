@@ -52,26 +52,32 @@ export function effectiveCertainty(
   return total / products.length;
 }
 
+/**
+ * Weighted projected revenue = effective FOB × certainty.
+ * Pass the *effective* FOB (live for non-PO, stored for PO/complete) — see
+ * `effectiveFobUsd` in `inquiry-financials.ts`.
+ */
 export function weightedProjectedRevenue(
-  projection: Pick<InquiryProjection, 'projected_fob_revenue_usd'> | null,
+  effectiveFobUsd: number,
   certainty: number,
 ): number {
-  if (!projection?.projected_fob_revenue_usd) return 0;
-  return Number(projection.projected_fob_revenue_usd) * certainty;
+  return (effectiveFobUsd || 0) * (certainty || 0);
 }
 
+/** Projected gross profit (unweighted) = effective FOB × effective GPM. */
 export function projectedGrossProfit(
-  projection: Pick<InquiryProjection, 'projected_fob_revenue_usd' | 'project_gpm'> | null,
+  effectiveFobUsd: number,
+  effectiveGpm: number,
 ): number {
-  if (!projection?.projected_fob_revenue_usd || !projection?.project_gpm) return 0;
-  return Number(projection.projected_fob_revenue_usd) * Number(projection.project_gpm);
+  return (effectiveFobUsd || 0) * (effectiveGpm || 0);
 }
 
 export function weightedProjectedGrossProfit(
-  projection: Pick<InquiryProjection, 'projected_fob_revenue_usd' | 'project_gpm'> | null,
+  effectiveFobUsd: number,
+  effectiveGpm: number,
   certainty: number,
 ): number {
-  return projectedGrossProfit(projection) * certainty;
+  return projectedGrossProfit(effectiveFobUsd, effectiveGpm) * (certainty || 0);
 }
 
 export type ProductMhAggregate = { product_id: string; quantity: number; total_mh_per_unit: number };
