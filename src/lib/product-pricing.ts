@@ -113,22 +113,27 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
 
     const recomputedPriceUsd = summary.unit_price_usd;
     const recomputedCostUsd = summary.product_cost_per_unit_usd;
-    const storedPriceUsd = (p as any).calculated_unit_price_usd;
-    const storedCostUsd = (p as any).calculated_unit_cost_usd;
-    const hasStoredPrice = storedPriceUsd != null && Number(storedPriceUsd) > 0;
-    const hasStoredCost = storedCostUsd != null && Number(storedCostUsd) > 0;
+    const storedPriceRaw = (p as any).calculated_unit_price_usd;
+    const storedCostRaw = (p as any).calculated_unit_cost_usd;
+    const storedPriceUsd = storedPriceRaw == null ? null : Number(storedPriceRaw);
+    const storedCostUsd = storedCostRaw == null ? null : Number(storedCostRaw);
 
     out[p.id] = {
-      // Costing sheet is the source of truth — trust stored value when present.
-      unit_price_usd: hasStoredPrice ? Number(storedPriceUsd) : recomputedPriceUsd,
-      unit_cost_usd: hasStoredCost ? Number(storedCostUsd) : recomputedCostUsd,
+      // Unified engine — the live recompute IS the costing sheet. Use it as authoritative.
+      unit_price_usd: recomputedPriceUsd,
+      unit_cost_usd: recomputedCostUsd,
       unit_cogs_usd: unitCogsUsd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
-      recomputed_price_usd: recomputedPriceUsd,
-      price_is_stored: hasStoredPrice,
-      price_drift_usd: hasStoredPrice ? Math.abs(Number(storedPriceUsd) - recomputedPriceUsd) : 0,
+      stored_price_usd: storedPriceUsd,
+      stored_cost_usd: storedCostUsd,
+      cache_is_stale:
+        storedPriceUsd != null &&
+        Number.isFinite(recomputedPriceUsd) &&
+        Math.abs(storedPriceUsd - recomputedPriceUsd) > 0.01,
     };
+  }
+
   }
 
   return out;
