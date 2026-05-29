@@ -238,24 +238,7 @@ Deno.serve(async (req) => {
       ]);
     }
 
-    const totalRow: any[] = [
-      'TOTAL', '', '', '',
-      '', totals.fob, '', totals.expRev, totals.expGp,
-      '', '', '',
-      ...totals.perMonth,
-      '',
-    ];
-
-    const values: any[][] = [
-      [meta1],
-      [meta2],
-      [],
-      headers,
-      ...dataRows,
-      totalRow,
-    ];
-
-    // Ensure tab exists
+    // Ensure tab exists (must happen before we try to read existing values)
     const meta = await sheetsCall(
       `/spreadsheets/${sheetId}?fields=sheets.properties`,
       { method: 'GET' },
@@ -272,7 +255,83 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Clear & write
+    // Upsert by Inquiry # (column A): preserve existing rows not in this push,
+    // update matching ones in place, append brand-new ones.
+    let existingDataRows: any[][] = [];
+    if (exists) {
+      try {
+        const existing = await sheetsCall(
+          `/spreadsheets/${sheetId}/values/${tabName}!A5:ZZ`,
+          { method: 'GET' },
+          LOVABLE_API_KEY,
+          GOOGLE_SHEETS_API_KEY,
+        );
+        const raw: any[][] = existing?.values || [];
+        // Drop trailing TOTAL row and any empty rows
+        existingDataRows = raw.filter(
+          (r) => r && r[0] && String(r[0]).trim() !== '' && String(r[0]).trim() !== 'TOTAL',
+        );
+      } catch { /* tab existed but range empty — ignore */ }
+    }
+
+    const newByKey = new Map<string, any[]>();
+    for (const dr of dataRows) newByKey.set(String(dr[0]), dr);
+
+    const mergedRows: any[][] = [];
+    const usedKeys = new Set<string>();
+    for (const er of existingDataRows) {
+      const key = String(er[0] ?? '').trim();
+      if (newByKey.has(key)) {
+        mergedRows.push(newByKey.get(key)!);
+        usedKeys.add(key);
+      } else {
+        mergedRows.push(er);
+      }
+    }
+    for (const dr of dataRows) {
+      const key = String(dr[0]);
+      if (!usedKeys.has(key)) mergedRows.push(dr);
+    }
+
+    // Recompute totals across merged set (existing + updated + new)
+    // Column layout: 0 Inquiry, 1 Customer, 2 Status, 3 Repeat, 4 Cert, 5 FOB,
+    // 6 GPM, 7 ExpRev, 8 ExpGP, 9-11 month-date cols, 12.. month cells, last Notes
+    const monthStartCol = 12;
+    const num = (v: any) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const mTotals = {
+      fob: 0, expRev: 0, expGp: 0,
+      perMonth: new Array(monthsCount).fill(0),
+    };
+    for (const r of mergedRows) {
+      mTotals.fob    += num(r[5]);
+      mTotals.expRev += num(r[7]);
+      mTotals.expGp  += num(r[8]);
+      for (let i = 0; i < monthsCount; i++) {
+        mTotals.perMonth[i] += num(r[monthStartCol + i]);
+      }
+    }
+
+    const totalRow: any[] = [
+      'TOTAL', '', '', '',
+      '', mTotals.fob, '', mTotals.expRev, mTotals.expGp,
+      '', '', '',
+      ...mTotals.perMonth,
+      '',
+    ];
+
+    const values: any[][] = [
+      [meta1],
+      [meta2],
+      [],
+      headers,
+      ...mergedRows,
+      totalRow,
+    ];
+
+    // Clear & write merged result (clear wipes any leftover stale TOTAL row beyond new length)
     await sheetsCall(
       `/spreadsheets/${sheetId}/values/${tabName}!A:ZZ:clear`,
       { method: 'POST', body: '{}' },
@@ -285,6 +344,7 @@ Deno.serve(async (req) => {
       LOVABLE_API_KEY,
       GOOGLE_SHEETS_API_KEY,
     );
+
 
     const rowsWritten = dataRows.length;
     await admin.from('projection_push_log').insert({
