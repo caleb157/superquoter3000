@@ -294,25 +294,24 @@ export function ProjectionsTable() {
   const computedRows = useMemo(() => {
     return rows.map((r) => {
       const cert = effectiveCertainty(r.projection as any, r.products, r.status);
-      const fobOverride = r.projection?.projected_fob_revenue_usd;
-      const gpmOverride = r.projection?.project_gpm;
-      const fob = fobOverride != null ? Number(fobOverride) : r.autoFob;
-      const gpm = gpmOverride != null ? Number(gpmOverride) : r.autoGpm;
-      const fobIsAuto = fobOverride == null && r.autoFob > 0;
-      const gpmIsAuto = gpmOverride == null && r.autoGpm !== 0;
+      const locked = projectionIsLocked(r.status);
+      const fob = effectiveFobUsd(r.projection as any, r.status, r.autoFob);
+      const gpm = effectiveGpm(r.projection as any, r.status, r.autoGpm);
+      // "Live" indicator: we're showing the live computed value (not the stored one).
+      const fobIsLive = !(locked && r.projection?.projected_fob_revenue_usd != null);
+      const gpmIsLive = !(locked && r.projection?.project_gpm != null);
       const expectedRev = fob * cert;
       const expectedGp = fob * gpm * cert;
       const monthCells = months.map((m) => {
         const mEnd = addMonths(m, 1);
-        // cashForMonth needs FOB; if no override, synthesize a temp projection with autoFob
-        const projForCash = fobOverride != null
-          ? r.projection
-          : { ...(r.projection || {}), projected_fob_revenue_usd: r.autoFob } as any;
+        // cashForMonth needs the effective FOB; if locked but no stored, fall back to live.
+        const projForCash = { ...(r.projection || {}), projected_fob_revenue_usd: fob } as any;
         return cashForMonth(projForCash, cert, m, mEnd);
       });
-      return { ...r, cert, fob, gpm, fobIsAuto, gpmIsAuto, expectedRev, expectedGp, monthCells };
+      return { ...r, cert, fob, gpm, fobIsLive, gpmIsLive, locked, expectedRev, expectedGp, monthCells };
     });
   }, [rows, months]);
+
 
   const totals = useMemo(() => {
     const fob = computedRows.reduce((a, r) => a + r.fob, 0);
