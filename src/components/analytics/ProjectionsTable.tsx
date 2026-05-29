@@ -662,7 +662,8 @@ export function ProjectionsTable() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        * Auto-populated from the costing sheet (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Click any value to override. Month cells show weighted customer payments only (revenue side).
+        * Auto-populated from the costing sheet (FOB = Σ unit price × qty; GPM = (revenue − COGS) / revenue). Click any value to override. Month cells show scheduled customer payments (FOB × milestone %, unweighted).
+
       </p>
 
       <NewInquiryDialog
