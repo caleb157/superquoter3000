@@ -909,29 +909,51 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
   }, [dataLoaded, prePackCbm, product?.source_location_id, locations, globalSettings?.id, cogsItems.length, recalcTick]);
 
+  // === Shared costing engine: single source of truth for final aggregate values ===
+  // The inline IC/MC/wrapping/CBM calculations above still drive the CBM section UI
+  // and CBM persistence effect; for the standard auto-packing path they equal the
+  // engine's internal values exactly (the engine was ported byte-for-byte from this
+  // same code in Part 1). The engine values displayed in the summary now match what
+  // product-pricing.ts uses for the inquiry list, quote generation, and analytics.
+  const engine = useMemo(() => {
+    if (!dataLoaded || !product) return null;
+    return computeProductCosting({
+      product,
+      cogsItems,
+      nonUnitCogs,
+      overheadItems,
+      shippingItems,
+      cbmRow: cbm,
+      productType,
+      boxData,
+      chemicalPrices,
+      shippingTypes,
+      laborEmployees: employees,
+      globalSettings,
+      inquiryOverrides,
+      locations,
+      difficulties,
+    });
+  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties]);
+
+  // Direct overhead breakdown for display (per-row hourly rate × MH × qty).
+  // Kept inline because the per-row breakdown is shown in the Overhead section UI;
+  // the totals below come from the engine.
   const ohItems = overheadItems.map(item => ({
     include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include,
     labor_type: item.labor_type,
     man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : item.man_hours_per_unit || 0,
     hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
   }));
-  const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
   const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
   const indirectOhPerMh = effectiveSettings && globalSettings ? calc.calcIndirectOhPerManHour(effectiveSettings as any) : 0;
-  const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
 
-  // Step 10: Shipping (inquiry override > product's shipping_item)
+  // Shipping selection — UI needs shipItem/shipType for the dropdown and labels
   const shipItem = shippingItems[0];
   const overrideShipType = inquiryOverrides?.shipping_type_id_override
     ? shippingTypes.find(s => s.id === inquiryOverrides.shipping_type_id_override)
     : null;
   const shipType = overrideShipType || shippingTypes.find(s => s.id === shipItem?.shipping_type_id);
-  const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-    cost_inr: shipType.cost_inr,
-    per_unit: shipType.per_unit,
-    final_unit_cbm: finalUnitCbm,
-    weight_kg: product?.weight_kg || 0,
-  }) : 0;
 
   // Auto-assign default shipping type if none set
   useEffect(() => {
@@ -944,33 +966,19 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     }
   }, [dataLoaded, globalSettings?.id, shippingTypes.length, shippingItems.length]);
 
-  // COGS calculations (Step 12)
-  const cogsPerUnit = cogsItems
-    .filter(i => i.include !== 'No' && !(noPackaging && i.cogs_type === 'Packaging'))
-    .reduce((sum, item) => {
-      const c = calc.calcCogsItemCost({
-        include: item.include,
-        components_per_product: item.components_per_product || 0,
-        unit_cost_inr: item.unit_cost_inr || 0,
-        waste_factor: item.waste_factor || 0,
-      });
-      return sum + c.unit_cost;
-    }, 0);
-
   const cogsHasReview = cogsItems.some(i => i.include === 'Review');
   const overheadHasReview = overheadItems.some(i => i.include === 'Review');
 
-  const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
-    nonUnitCogs.map(i => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })),
-    qty
-  );
-
-  // Step 12: Cost summary — apply inquiry-level overrides if present
-  const exchangeRate = inquiryOverrides?.exchange_rate_override ?? globalSettings?.exchange_rate ?? 90;
-  const markupPercent = inquiryOverrides?.markup_percent_override ?? product?.markup_percent ?? 0.2;
-  const summary = calc.calcProductCostSummary(
-    cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
-    shippingPerUnit, markupPercent, exchangeRate, qty
+  // === Engine-sourced final aggregates ===
+  const cogsPerUnit = engine?.cogsPerUnit ?? 0;
+  const nonUnitCogsPerUnit = engine?.nonUnitCogsPerUnit ?? 0;
+  const directOhPerUnit = engine?.directOhPerUnit ?? 0;
+  const indirectOhPerUnit = engine?.indirectOhPerUnit ?? 0;
+  const shippingPerUnit = engine?.shippingPerUnit ?? 0;
+  const exchangeRate = engine?.exchangeRate ?? (globalSettings?.exchange_rate ?? 90);
+  const markupPercent = engine?.markupPercent ?? (product?.markup_percent ?? 0.2);
+  const summary = engine?.summary ?? calc.calcProductCostSummary(
+    0, 0, 0, 0, 0, markupPercent, exchangeRate, qty,
   );
 
   // Report summary up to parent (ProductDetail header)
