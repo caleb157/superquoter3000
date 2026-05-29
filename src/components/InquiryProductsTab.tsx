@@ -204,6 +204,60 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     })();
   }, [inquiryId, refresh, refreshKey]);
 
+  // Auto-recost any products that have never been priced. Runs in the background;
+  // only targets null/zero-price products and skips ids it has already processed
+  // in this session to guarantee no loops.
+  useEffect(() => {
+    if (products.length === 0) return;
+    const uncosted = products.filter(
+      (p) => (!p.calculated_unit_price_usd || p.calculated_unit_price_usd <= 0)
+        && !autoRecostRef.current.has(p.id),
+    );
+    if (uncosted.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setRecosting({ active: true, done: 0, total: uncosted.length });
+      for (let i = 0; i < uncosted.length; i++) {
+        if (cancelled) break;
+        autoRecostRef.current.add(uncosted[i].id);
+        try {
+          await recostProduct(uncosted[i].id);
+        } catch (e) {
+          console.error('Auto-recost failed', e);
+        }
+        if (!cancelled) setRecosting((r) => ({ ...r, done: i + 1 }));
+      }
+      if (!cancelled) {
+        setRecosting({ active: false, done: 0, total: 0 });
+        setRefresh((r) => r + 1);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products.map((p) => p.id).join(',')]);
+
+  const handleRecostAll = async () => {
+    if (products.length > 20) {
+      const ok = window.confirm(`Recost all ${products.length} products? This recalculates and overwrites current prices.`);
+      if (!ok) return;
+    }
+    setRecostAllBusy(true);
+    setRecosting({ active: true, done: 0, total: products.length });
+    try {
+      // Mark all current ids as processed so the auto effect doesn't double-run.
+      products.forEach((p) => autoRecostRef.current.add(p.id));
+      await recostInquiry(inquiryId, (done, total) => setRecosting({ active: true, done, total }));
+      toast.success('Prices refreshed for all products');
+      setRefresh((r) => r + 1);
+      onChange();
+    } catch (e: any) {
+      toast.error('Recost failed: ' + (e?.message || 'unknown'));
+    } finally {
+      setRecostAllBusy(false);
+      setRecosting({ active: false, done: 0, total: 0 });
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = products.filter(p => {
