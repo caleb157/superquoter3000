@@ -56,7 +56,8 @@ function cashForMonth(proj: any, cert: number, mStart: Date, mEnd: Date): number
   for (const [m, p] of ms) {
     if (!m || !p) continue;
     const d = new Date(m as string);
-    if (d >= mStart && d < mEnd) total += fob * Number(p) * cert;
+    if (d >= mStart && d < mEnd) total += fob * Number(p);
+
   }
   return total;
 }

@@ -262,7 +262,8 @@ export function SalesDashboard({ range }: Props) {
         <MetricCard
           label="Weighted Pipeline"
           value={fmt.usd(pipeline.total)}
-          sublabel="Σ qty × FOB cost × stage weight"
+          sublabel="Σ qty × FOB price × stage weight"
+
           onClick={pipeline.contributors.length ? () => setDrill('pipeline') : undefined}
         />
         <MetricCard
