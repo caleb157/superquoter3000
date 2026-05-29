@@ -594,22 +594,37 @@ export function ProjectionsTable() {
                           `${Math.round(r.cert * 100)}%${r.projection?.certainty_override == null ? '*' : ''}`,
                         )}
                       </td>
-                      <td className={cn('px-1 py-1', r.fobIsAuto && 'text-muted-foreground italic')}>
-                        {renderEditableCell(
-                          r.id,
-                          'projected_fob_revenue_usd',
-                          r.projection?.projected_fob_revenue_usd,
-                          `${fmtUsd(r.fob)}${r.fobIsAuto ? '*' : ''}`,
+                      <td className={cn('px-1 py-1', r.fobIsLive && 'text-muted-foreground italic')}>
+                        {r.locked ? (
+                          renderEditableCell(
+                            r.id,
+                            'projected_fob_revenue_usd',
+                            r.projection?.projected_fob_revenue_usd,
+                            `${fmtUsd(r.fob)}${r.fobIsLive ? '*' : ''}`,
+                          )
+                        ) : (
+                          <div className="inline-flex items-center justify-end gap-1 w-full pr-2" title="Live from costing — locks at PO">
+                            <Lock className="h-3 w-3 opacity-50" />
+                            <span className="tabular-nums">{fmtUsd(r.fob)}*</span>
+                          </div>
                         )}
                       </td>
-                      <td className={cn('px-1 py-1', r.gpmIsAuto && 'text-muted-foreground italic')}>
-                        {renderEditableCell(
-                          r.id,
-                          'project_gpm',
-                          r.projection?.project_gpm,
-                          r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsAuto ? '*' : ''}` : '—',
+                      <td className={cn('px-1 py-1', r.gpmIsLive && 'text-muted-foreground italic')}>
+                        {r.locked ? (
+                          renderEditableCell(
+                            r.id,
+                            'project_gpm',
+                            r.projection?.project_gpm,
+                            r.gpm ? `${Math.round(r.gpm * 100)}%${r.gpmIsLive ? '*' : ''}` : '—',
+                          )
+                        ) : (
+                          <div className="inline-flex items-center justify-end gap-1 w-full pr-2" title="Live from costing — locks at PO">
+                            <Lock className="h-3 w-3 opacity-50" />
+                            <span className="tabular-nums">{r.gpm ? `${Math.round(r.gpm * 100)}%*` : '—'}</span>
+                          </div>
                         )}
                       </td>
+
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedRev)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmtUsd(r.expectedGp)}</td>
                       {months.map((m, i) => {
