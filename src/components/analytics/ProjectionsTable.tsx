@@ -22,7 +22,7 @@ import {
   INQUIRY_STATUS_COLORS,
   INQUIRY_STATUS_LABEL,
 } from '@/lib/inquiry-status';
-import { effectiveCertainty, type InquiryProjection } from '@/lib/projections';
+import { effectiveCertainty, shippingEstimateUsd, sameMonth, type InquiryProjection } from '@/lib/projections';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { effectiveFobUsd, effectiveGpm, projectionIsLocked } from '@/lib/inquiry-financials';
 import { Lock } from 'lucide-react';
