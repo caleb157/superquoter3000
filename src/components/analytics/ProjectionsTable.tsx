@@ -89,6 +89,11 @@ function cashForMonth(
     const d = new Date(m.month as any);
     if (d >= mStart && d < mEnd) total += fob * Number(m.pct);
   }
+  // Shipping revenue (when we pay shipping) is billed with the customer final payment.
+  if (projection.paying_shipping && sameMonth(projection.cust_final_month, mStart)) {
+    const ship = shippingEstimateUsd(true, projection.shipping_method ?? null, fob);
+    total += ship.revenue;
+  }
   return total;
 }
 
