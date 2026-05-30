@@ -6,6 +6,8 @@ export type InquiryProjection = {
   producing_entity_id: string | null;
   repeat_order: boolean;
   shipping_method: 'air' | 'sea' | 'ground' | null;
+  paying_shipping: boolean;
+  duration_months: number | null;
   projected_fob_revenue_usd: number | null;
   project_gpm: number | null;
   certainty_override: number | null;
