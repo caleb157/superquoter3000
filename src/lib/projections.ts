@@ -6,6 +6,8 @@ export type InquiryProjection = {
   producing_entity_id: string | null;
   repeat_order: boolean;
   shipping_method: 'air' | 'sea' | 'ground' | null;
+  paying_shipping: boolean;
+  duration_months: number | null;
   projected_fob_revenue_usd: number | null;
   project_gpm: number | null;
   certainty_override: number | null;
@@ -117,4 +119,70 @@ export function monthInputToDate(m: string | null | undefined): string | null {
 export function dateToMonthInput(d: string | null | undefined): string {
   if (!d) return '';
   return d.slice(0, 7);
+}
+
+// ---------- Shipping estimator (pass-through) ----------
+
+/**
+ * Shipping is a pass-through: revenue = cost, net-zero margin.
+ * Estimated as a % of FOB by method.
+ */
+export const SHIPPING_PCT_OF_FOB: Record<string, number> = {
+  sea: 0.20,
+  air: 1.00,
+  ground: 0,
+};
+
+export function shippingEstimateUsd(
+  payingShipping: boolean,
+  method: string | null | undefined,
+  fobUsd: number,
+): { revenue: number; cost: number; pct: number } {
+  if (!payingShipping || !method) return { revenue: 0, cost: 0, pct: 0 };
+  const pct = SHIPPING_PCT_OF_FOB[method] ?? 0;
+  const amt = (fobUsd || 0) * pct;
+  return { revenue: amt, cost: amt, pct };
+}
+
+/** Default duration (months) from start (deposit) to shipping, by ship method. */
+export function defaultDurationMonths(method: string | null | undefined): number {
+  if (method === 'air') return 2;
+  if (method === 'ground') return 4;
+  return 3; // sea or unset
+}
+
+/** Add N months to a 'YYYY-MM-DD' first-of-month date, returning first-of-month YYYY-MM-DD. */
+export function addMonths(monthStr: string, n: number): string {
+  const d = new Date(monthStr);
+  const r = new Date(d.getUTCFullYear(), d.getUTCMonth() + n, 1);
+  return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/**
+ * Derive all schedule months from start (deposit) month + duration.
+ * shipping = start + duration. Deposits at start; balances/finals at shipping.
+ */
+export function deriveScheduleMonths(
+  startMonth: string | null | undefined,
+  durationMonths: number | null | undefined,
+) {
+  if (!startMonth || !durationMonths || durationMonths < 0) return null;
+  const shipping = addMonths(startMonth, durationMonths);
+  return {
+    shipping_month: shipping,
+    delivery_month: shipping,
+    cust_deposit_month: startMonth,
+    cust_final_month: shipping,
+    ie_deposit_month: startMonth,
+    ie_balance_month: shipping,
+    vendor_deposit_month: startMonth,
+    vendor_balance_month: shipping,
+  };
+}
+
+/** Same-month check on two ISO date strings (compares YYYY-MM prefix). */
+export function sameMonth(a: string | null | undefined, b: Date): boolean {
+  if (!a) return false;
+  const ym = `${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, '0')}`;
+  return String(a).slice(0, 7) === ym;
 }

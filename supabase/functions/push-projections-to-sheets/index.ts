@@ -44,6 +44,16 @@ function effectiveCertainty(proj: any, products: any[], status: string): number 
   if (!products?.length) return 0;
   return products.reduce((a, p) => a + productWeight(p, status), 0) / products.length;
 }
+const SHIPPING_PCT_OF_FOB: Record<string, number> = { sea: 0.20, air: 1.00, ground: 0 };
+function shippingRevenue(payingShipping: boolean, method: string | null, fob: number): number {
+  if (!payingShipping || !method) return 0;
+  return (fob || 0) * (SHIPPING_PCT_OF_FOB[method] ?? 0);
+}
+function sameMonthIso(a: string | null | undefined, m: Date): boolean {
+  if (!a) return false;
+  const ym = `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, '0')}`;
+  return String(a).slice(0, 7) === ym;
+}
 function cashForMonth(proj: any, cert: number, mStart: Date, mEnd: Date): number {
   if (!proj?.projected_fob_revenue_usd) return 0;
   const fob = Number(proj.projected_fob_revenue_usd);
@@ -57,7 +67,9 @@ function cashForMonth(proj: any, cert: number, mStart: Date, mEnd: Date): number
     if (!m || !p) continue;
     const d = new Date(m as string);
     if (d >= mStart && d < mEnd) total += fob * Number(p);
-
+  }
+  if (proj.paying_shipping && sameMonthIso(proj.cust_final_month, mStart)) {
+    total += shippingRevenue(true, proj.shipping_method ?? null, fob);
   }
   return total;
 }
