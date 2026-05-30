@@ -847,6 +847,7 @@ export type Database = {
           cust_other_month: string | null
           cust_other_pct: number | null
           delivery_month: string | null
+          duration_months: number | null
           estimated_man_hours: number | null
           ie_balance_month: string | null
           ie_balance_pct: number | null
@@ -854,6 +855,7 @@ export type Database = {
           ie_deposit_pct: number | null
           inquiry_id: string
           notes: string | null
+          paying_shipping: boolean
           producing_entity_id: string | null
           project_gpm: number | null
           projected_fob_revenue_usd: number | null
@@ -882,6 +884,7 @@ export type Database = {
           cust_other_month?: string | null
           cust_other_pct?: number | null
           delivery_month?: string | null
+          duration_months?: number | null
           estimated_man_hours?: number | null
           ie_balance_month?: string | null
           ie_balance_pct?: number | null
@@ -889,6 +892,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id: string
           notes?: string | null
+          paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
           projected_fob_revenue_usd?: number | null
@@ -917,6 +921,7 @@ export type Database = {
           cust_other_month?: string | null
           cust_other_pct?: number | null
           delivery_month?: string | null
+          duration_months?: number | null
           estimated_man_hours?: number | null
           ie_balance_month?: string | null
           ie_balance_pct?: number | null
@@ -924,6 +929,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id?: string
           notes?: string | null
+          paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
           projected_fob_revenue_usd?: number | null
