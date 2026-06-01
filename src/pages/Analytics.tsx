@@ -9,10 +9,11 @@ import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
 import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+import { CapacityChart } from '@/components/analytics/CapacityChart';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
 
-type View = 'sales' | 'ops' | 'projections';
+type View = 'sales' | 'ops' | 'projections' | 'capacity';
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
