@@ -37,6 +37,7 @@ export type CostingEngineResult = {
   directOhPerUnit: number;
   indirectOhPerUnit: number;
   shippingPerUnit: number;
+  manHoursPerUnit: number;
   resolvedCogsRows: any[];
   icDims: { ic_width: number; ic_depth: number; ic_height: number };
   icOd: { ic_od_width: number; ic_od_depth: number; ic_od_height: number };
