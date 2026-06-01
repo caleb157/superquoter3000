@@ -186,3 +186,21 @@ export function sameMonth(a: string | null | undefined, b: Date): boolean {
   const ym = `${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, '0')}`;
   return String(a).slice(0, 7) === ym;
 }
+
+/**
+ * Spread total man-hours evenly across (start_month + 1) .. (start_month + duration_months),
+ * inclusive. The deposit month itself gets zero hours.
+ */
+export function spreadManHours(
+  totalMh: number,
+  startMonth: string | null | undefined,
+  durationMonths: number | null | undefined,
+): Array<{ month: string; mh: number }> {
+  if (!startMonth || !durationMonths || durationMonths < 1 || !(totalMh > 0)) return [];
+  const perMonth = totalMh / durationMonths;
+  const out: Array<{ month: string; mh: number }> = [];
+  for (let i = 1; i <= durationMonths; i++) {
+    out.push({ month: addMonths(startMonth, i), mh: perMonth });
+  }
+  return out;
+}
