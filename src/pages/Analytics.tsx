@@ -18,7 +18,7 @@ type View = 'sales' | 'ops' | 'projections' | 'capacity';
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
   const viewRaw = params.get('view');
-  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : 'sales';
+  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : viewRaw === 'capacity' ? 'capacity' : 'sales';
   const presetRaw = params.get('range') as RangePreset | null;
   const preset: RangePreset = presetRaw && VALID_PRESETS.includes(presetRaw) ? presetRaw : '30d';
   const customFrom = params.get('from') || undefined;
