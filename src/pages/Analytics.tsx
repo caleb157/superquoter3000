@@ -9,15 +9,16 @@ import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
 import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+import { CapacityChart } from '@/components/analytics/CapacityChart';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
 
-type View = 'sales' | 'ops' | 'projections';
+type View = 'sales' | 'ops' | 'projections' | 'capacity';
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
   const viewRaw = params.get('view');
-  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : 'sales';
+  const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : viewRaw === 'capacity' ? 'capacity' : 'sales';
   const presetRaw = params.get('range') as RangePreset | null;
   const preset: RangePreset = presetRaw && VALID_PRESETS.includes(presetRaw) ? presetRaw : '30d';
   const customFrom = params.get('from') || undefined;
@@ -68,7 +69,7 @@ const Analytics = () => {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-xl font-serif font-medium tracking-tight">Analytics</h1>
-          {view !== 'projections' && (
+          {view !== 'projections' && view !== 'capacity' && (
             <DateRangePicker
               preset={preset}
               customFrom={customFrom}
@@ -83,6 +84,7 @@ const Analytics = () => {
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="ops">Operations</TabsTrigger>
             <TabsTrigger value="projections">Projections</TabsTrigger>
+            <TabsTrigger value="capacity">Capacity</TabsTrigger>
           </TabsList>
           <TabsContent value="sales" className="mt-4">
             <SalesDashboard range={range} />
@@ -92,6 +94,9 @@ const Analytics = () => {
           </TabsContent>
           <TabsContent value="projections" className="mt-4">
             <ProjectionsTable />
+          </TabsContent>
+          <TabsContent value="capacity" className="mt-4">
+            <CapacityChart />
           </TabsContent>
         </Tabs>
       </div>
