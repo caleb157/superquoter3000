@@ -84,6 +84,7 @@ const Analytics = () => {
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="ops">Operations</TabsTrigger>
             <TabsTrigger value="projections">Projections</TabsTrigger>
+            <TabsTrigger value="capacity">Capacity</TabsTrigger>
           </TabsList>
           <TabsContent value="sales" className="mt-4">
             <SalesDashboard range={range} />
@@ -93,6 +94,9 @@ const Analytics = () => {
           </TabsContent>
           <TabsContent value="projections" className="mt-4">
             <ProjectionsTable />
+          </TabsContent>
+          <TabsContent value="capacity" className="mt-4">
+            <CapacityChart />
           </TabsContent>
         </Tabs>
       </div>
