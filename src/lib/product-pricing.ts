@@ -16,6 +16,7 @@ export type ProductPriceCostMap = Record<string, {
   unit_price_usd: number;    // cost + markup. Authoritative live engine recompute (= costing sheet).
   unit_price_inr: number;
   exchange_rate: number;
+  man_hours_per_unit: number; // finishing + overhead labor MH per unit (included rows only)
   // For cache healing: the value currently stored in the products table.
   stored_price_usd: number | null;
   stored_cost_usd: number | null;
