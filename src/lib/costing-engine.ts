@@ -302,6 +302,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     directOhPerUnit,
     indirectOhPerUnit,
     shippingPerUnit,
+    manHoursPerUnit: totalDirectMhPerUnit,
     resolvedCogsRows: cogsForCalc,
     icDims,
     icOd,
