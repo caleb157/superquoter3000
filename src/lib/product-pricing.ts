@@ -126,6 +126,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       unit_cogs_usd: unitCogsUsd,
       unit_price_inr: summary.unit_price_inr,
       exchange_rate: exchangeRate,
+      man_hours_per_unit: result.manHoursPerUnit || 0,
       stored_price_usd: storedPriceUsd,
       stored_cost_usd: storedCostUsd,
       cache_is_stale:
