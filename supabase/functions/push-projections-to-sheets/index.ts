@@ -74,6 +74,117 @@ function cashForMonth(proj: any, cert: number, mStart: Date, mEnd: Date): number
   return total;
 }
 
+// Bucket a payment date into one of the window months. Returns the YYYY-MM key
+// or null if outside the window.
+function bucketKey(months: Date[], dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const ym = String(dateStr).slice(0, 7);
+  for (const m of months) {
+    const k = `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, '0')}`;
+    if (k === ym) return k;
+  }
+  return null;
+}
+
+type CashRow = { label: string; kind: 'inflow' | 'outflow' | 'net' | 'cumulative'; byMonth: Record<string, number> };
+
+function computeEntityCashflowGrid(
+  entityId: string,
+  inquiries: any[],
+  months: Date[],
+): CashRow[] {
+  const monthKeys = months.map(
+    (m) => `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, '0')}`,
+  );
+  const mk = (): Record<string, number> => {
+    const o: Record<string, number> = {};
+    for (const k of monthKeys) o[k] = 0;
+    return o;
+  };
+  const buckets = {
+    custReceipts: mk(),
+    shipBilled: mk(),
+    ieReceived: mk(),
+    iePaid: mk(),
+    vendor: mk(),
+    shipCost: mk(),
+  };
+  const add = (m: Record<string, number>, k: string | null, amt: number) => {
+    if (!k || !amt) return;
+    m[k] = (m[k] || 0) + amt;
+  };
+
+  for (const inq of inquiries) {
+    const proj = inq.projection;
+    if (!proj) continue;
+    const sellingId = proj.selling_entity_id ?? null;
+    const producingId = proj.producing_entity_id ?? sellingId;
+    const isSelling = sellingId === entityId;
+    const isProducing = producingId === entityId;
+    if (!isSelling && !isProducing) continue;
+
+    const cert = inq.cert;
+    if (cert <= 0) continue;
+    const fob = inq.fob;
+    const totalCost = inq.totalCost;
+    const retention = proj.selling_retention_pct == null ? 0 : Number(proj.selling_retention_pct);
+    const ieTotal = fob * (1 - retention);
+    const shipAmt = shippingRevenue(!!proj.paying_shipping, proj.shipping_method ?? null, fob);
+
+    if (isSelling) {
+      add(buckets.custReceipts, bucketKey(months, proj.cust_deposit_month), fob * Number(proj.cust_deposit_pct || 0) * cert);
+      add(buckets.custReceipts, bucketKey(months, proj.cust_final_month),   fob * Number(proj.cust_final_pct   || 0) * cert);
+      add(buckets.custReceipts, bucketKey(months, proj.cust_other_month),   fob * Number(proj.cust_other_pct   || 0) * cert);
+      if (shipAmt > 0) {
+        add(buckets.shipBilled, bucketKey(months, proj.cust_final_month), shipAmt * cert);
+      }
+      if (producingId && producingId !== entityId) {
+        add(buckets.iePaid, bucketKey(months, proj.ie_deposit_month), ieTotal * Number(proj.ie_deposit_pct || 0) * cert);
+        add(buckets.iePaid, bucketKey(months, proj.ie_balance_month), ieTotal * Number(proj.ie_balance_pct || 0) * cert);
+      }
+    }
+    if (isProducing) {
+      if (sellingId && sellingId !== entityId) {
+        add(buckets.ieReceived, bucketKey(months, proj.ie_deposit_month), ieTotal * Number(proj.ie_deposit_pct || 0) * cert);
+        add(buckets.ieReceived, bucketKey(months, proj.ie_balance_month), ieTotal * Number(proj.ie_balance_pct || 0) * cert);
+      }
+      add(buckets.vendor, bucketKey(months, proj.vendor_deposit_month), totalCost * Number(proj.vendor_deposit_pct || 0) * cert);
+      add(buckets.vendor, bucketKey(months, proj.vendor_balance_month), totalCost * Number(proj.vendor_balance_pct || 0) * cert);
+      if (shipAmt > 0) {
+        add(buckets.shipCost, bucketKey(months, proj.shipping_month), shipAmt * cert);
+      }
+    }
+  }
+
+  const rows: CashRow[] = [];
+  const allZero = (m: Record<string, number>) => !monthKeys.some((k) => Math.abs(m[k] || 0) > 0.005);
+  const push = (label: string, kind: CashRow['kind'], m: Record<string, number>) => {
+    if (kind !== 'net' && kind !== 'cumulative' && allZero(m)) return;
+    rows.push({ label, kind, byMonth: m });
+  };
+  push('Customer receipts', 'inflow', buckets.custReceipts);
+  push('Inter-entity received', 'inflow', buckets.ieReceived);
+  push('Shipping billed', 'inflow', buckets.shipBilled);
+  push('Inter-entity paid', 'outflow', buckets.iePaid);
+  push('Vendor payments', 'outflow', buckets.vendor);
+  push('Shipping cost', 'outflow', buckets.shipCost);
+
+  const totalIn = mk(), totalOut = mk(), net = mk(), cum = mk();
+  let running = 0;
+  for (const k of monthKeys) {
+    totalIn[k]  = (buckets.custReceipts[k] || 0) + (buckets.ieReceived[k] || 0) + (buckets.shipBilled[k] || 0);
+    totalOut[k] = (buckets.iePaid[k] || 0) + (buckets.vendor[k] || 0) + (buckets.shipCost[k] || 0);
+    net[k] = totalIn[k] - totalOut[k];
+    running += net[k];
+    cum[k] = running;
+  }
+  push('Total inflow', 'inflow', totalIn);
+  push('Total outflow', 'outflow', totalOut);
+  rows.push({ label: 'Net cash', kind: 'net', byMonth: net });
+  rows.push({ label: 'Cumulative cash', kind: 'cumulative', byMonth: cum });
+  return rows;
+}
+
 async function sheetsCall(
   path: string,
   init: RequestInit,
