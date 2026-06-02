@@ -493,6 +493,92 @@ Deno.serve(async (req) => {
     );
 
 
+    // ----- Per-entity cashflow tabs -----
+    // For every entity referenced by some in-window inquiry's selling or producing role,
+    // write a cashflow tab (category rows × month columns).
+    const referencedEntityIds = new Set<string>();
+    for (const inq of inquiriesForCashflow) {
+      const p = inq.projection;
+      if (p?.selling_entity_id) referencedEntityIds.add(p.selling_entity_id);
+      if (p?.producing_entity_id) referencedEntityIds.add(p.producing_entity_id);
+    }
+
+    const entityTabsWritten: string[] = [];
+    if (referencedEntityIds.size > 0) {
+      const { data: ents } = await admin
+        .from('company_entities')
+        .select('id, name')
+        .in('id', Array.from(referencedEntityIds));
+
+      // Refresh sheet metadata (we may have just added the projections tab above)
+      const meta2 = await sheetsCall(
+        `/spreadsheets/${sheetId}?fields=sheets.properties`,
+        { method: 'GET' },
+        LOVABLE_API_KEY,
+        GOOGLE_SHEETS_API_KEY,
+      );
+      const existingTitles = new Set<string>(
+        (meta2.sheets || []).map((s: any) => s.properties?.title).filter(Boolean),
+      );
+
+      // Build month header keys once
+      const monthKeys = months.map(
+        (m) => `${m.getUTCFullYear()}-${String(m.getUTCMonth() + 1).padStart(2, '0')}`,
+      );
+      const monthHeaders = months.map(monthHeader);
+
+      for (const e of (ents || []) as any[]) {
+        const entityTab = `${e.name} Cashflow`;
+        if (!existingTitles.has(entityTab)) {
+          await sheetsCall(
+            `/spreadsheets/${sheetId}:batchUpdate`,
+            { method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: entityTab } } }] }) },
+            LOVABLE_API_KEY,
+            GOOGLE_SHEETS_API_KEY,
+          );
+        }
+
+        const rows = computeEntityCashflowGrid(e.id, inquiriesForCashflow, months);
+        // Skip if no real activity (only the synthetic Net/Cumulative rows present).
+        const hasActivity = rows.some(
+          (r) => (r.kind === 'inflow' || r.kind === 'outflow') && r.label !== 'Total inflow' && r.label !== 'Total outflow',
+        );
+
+        const values: any[][] = [
+          [`Last updated: ${new Date().toISOString()} by ${userEmail}`],
+          [`Entity: ${e.name} · Window: ${startDate.toISOString().slice(0, 10)} for ${monthsCount} months · Basis: expected (certainty-weighted)`],
+          [],
+          ['Category', ...monthHeaders],
+        ];
+        if (!hasActivity) {
+          values.push(['No cashflow activity for this entity in the selected window.']);
+        } else {
+          for (const r of rows) {
+            const cells = monthKeys.map((k) => {
+              const v = r.byMonth[k] || 0;
+              // Outflow rows: write as negative numbers so spreadsheet sums work.
+              return r.kind === 'outflow' ? -v : v;
+            });
+            values.push([r.label, ...cells]);
+          }
+        }
+
+        await sheetsCall(
+          `/spreadsheets/${sheetId}/values/${entityTab}!A:ZZ:clear`,
+          { method: 'POST', body: '{}' },
+          LOVABLE_API_KEY,
+          GOOGLE_SHEETS_API_KEY,
+        );
+        await sheetsCall(
+          `/spreadsheets/${sheetId}/values/${entityTab}!A1?valueInputOption=USER_ENTERED`,
+          { method: 'PUT', body: JSON.stringify({ values }) },
+          LOVABLE_API_KEY,
+          GOOGLE_SHEETS_API_KEY,
+        );
+        entityTabsWritten.push(entityTab);
+      }
+    }
+
     const rowsWritten = dataRows.length;
     await admin.from('projection_push_log').insert({
       triggered_by: userId,
@@ -503,9 +589,11 @@ Deno.serve(async (req) => {
       success: true,
     });
 
+    const tabsWritten = [tabName, ...entityTabsWritten];
     return json(200, {
       ok: true,
       rows_written: rowsWritten,
+      tabs_written: tabsWritten,
       sheet_url: `https://docs.google.com/spreadsheets/d/${sheetId}`,
     });
   } catch (e: any) {
