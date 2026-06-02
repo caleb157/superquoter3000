@@ -199,7 +199,11 @@ export function ProjectionsTable() {
         const msg = (data as any)?.error || error?.message || 'Push failed';
         toast.error(msg);
       } else {
-        toast.success(`Updated Google Sheet · ${data.rows_written} rows`, {
+        const tabs = (data as any)?.tabs_written as string[] | undefined;
+        const msg = tabs && tabs.length > 1
+          ? `Updated ${tabs.length} tabs (${tabs.join(', ')}) · ${data.rows_written} rows`
+          : `Updated Google Sheet · ${data.rows_written} rows`;
+        toast.success(msg, {
           action: data.sheet_url
             ? { label: 'Open Sheet', onClick: () => window.open(data.sheet_url, '_blank') }
             : undefined,

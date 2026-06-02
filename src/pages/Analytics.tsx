@@ -8,7 +8,7 @@ import { SalesDashboard } from '@/components/analytics/SalesDashboard';
 import { OpsDashboard } from '@/components/analytics/OpsDashboard';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
-import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+import { ProjectionsView } from '@/components/analytics/ProjectionsView';
 import { CapacityChart } from '@/components/analytics/CapacityChart';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
@@ -93,7 +93,7 @@ const Analytics = () => {
             <OpsDashboard range={range} slowQuoteDays={slowQuoteDays} slowSampleDays={slowSampleDays} />
           </TabsContent>
           <TabsContent value="projections" className="mt-4">
-            <ProjectionsTable />
+            <ProjectionsView />
           </TabsContent>
           <TabsContent value="capacity" className="mt-4">
             <CapacityChart />
