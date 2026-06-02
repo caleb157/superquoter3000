@@ -324,6 +324,8 @@ Deno.serve(async (req) => {
       fob: 0, expRev: 0, expGp: 0,
       perMonth: new Array(months.length).fill(0),
     };
+    // Captured for per-entity cashflow computation later.
+    const inquiriesForCashflow: Array<{ projection: any; cert: number; fob: number; totalCost: number }> = [];
 
     const locked = (s: string) => s === 'po' || s === 'complete';
 
@@ -350,6 +352,11 @@ Deno.serve(async (req) => {
       totals.fob += fob;
       totals.expRev += expRev;
       totals.expGp += expGp;
+
+      // For per-entity cashflow: vendor outflow is the full live total cost when known,
+      // else fall back to fob*(1-gpm).
+      const totalCost = liveCost > 0 ? liveCost : fob * (1 - gpm);
+      inquiriesForCashflow.push({ projection: proj, cert, fob, totalCost });
 
       // cashForMonth needs the effective FOB; synthesize a temp proj with it.
       const projForCash = { ...(proj || {}), projected_fob_revenue_usd: fob };
