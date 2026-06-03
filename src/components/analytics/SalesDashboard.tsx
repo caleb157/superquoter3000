@@ -16,7 +16,6 @@ import { computeWeightedPipeline } from '@/lib/pipeline-weights';
 import {
   inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
-import { CashflowForecastCard } from './CashflowForecastCard';
 
 type DrillKey = null | 'pipeline' | 'profit' | 'winRate' | 'activeCustomers';
 
@@ -439,7 +438,7 @@ export function SalesDashboard({ range }: Props) {
         </Card>
       </div>
 
-      <CashflowForecastCard />
+      
     </div>
   );
 }
