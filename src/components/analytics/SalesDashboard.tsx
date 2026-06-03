@@ -439,7 +439,7 @@ export function SalesDashboard({ range }: Props) {
         </Card>
       </div>
 
-      <CashflowForecastCard />
+      
     </div>
   );
 }
