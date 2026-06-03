@@ -17,7 +17,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LeadStatusBadge } from '@/components/LeadStatusBadge';
-import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
@@ -381,7 +381,7 @@ export default function CustomerDetail() {
         </Tabs>
       </div>
 
-      <NewInquiryDialog
+      <CreateInquiryDialog
         open={showNewInquiry}
         onOpenChange={setShowNewInquiry}
         defaultCustomerId={customer.id}

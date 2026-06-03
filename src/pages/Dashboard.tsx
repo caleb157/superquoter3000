@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
-import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import {
@@ -566,7 +566,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <NewInquiryDialog
+        <CreateInquiryDialog
           open={showNewInquiry}
           onOpenChange={setShowNewInquiry}
           defaultStatus={newInquiryStatus}
