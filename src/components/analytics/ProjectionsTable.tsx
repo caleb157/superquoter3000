@@ -26,7 +26,7 @@ import { effectiveCertainty, shippingEstimateUsd, sameMonth, type InquiryProject
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { effectiveFobUsd, effectiveGpm, projectionIsLocked } from '@/lib/inquiry-financials';
 import { Lock } from 'lucide-react';
-import { NewInquiryDialog } from '@/components/NewInquiryDialog';
+import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 
 type Row = {
   id: string;
@@ -691,7 +691,7 @@ export function ProjectionsTable() {
       </p>
 
 
-      <NewInquiryDialog
+      <CreateInquiryDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         defaultStatus="projected_po"

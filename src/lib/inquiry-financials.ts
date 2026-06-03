@@ -30,9 +30,13 @@ export function computeInquiryFinancials(
   return { fobRevenueUsd: rev, totalCostUsd: cost, grossProfitUsd, gpm };
 }
 
-/** True when the projection's stored FOB/GPM are authoritative (PO/complete). */
+/**
+ * True when the projection's stored FOB/GPM are authoritative.
+ * - po/complete: locked because the order is real
+ * - projected_po: speculative future order, often has no products yet, so FOB/GPM are manual
+ */
 export function projectionIsLocked(status: string | null | undefined): boolean {
-  return status === 'po' || status === 'complete';
+  return status === 'po' || status === 'complete' || status === 'projected_po';
 }
 
 /** FOB used everywhere: stored (locked) value when PO/complete and present, else live. */
