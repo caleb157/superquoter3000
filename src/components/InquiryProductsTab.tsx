@@ -697,7 +697,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       <span className="inline-flex items-center gap-1 justify-end">
-                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                        {renderUnitPrice(p)}
                       </span>
                     </TableCell>
 
