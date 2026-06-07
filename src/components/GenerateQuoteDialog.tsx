@@ -15,7 +15,7 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
-import { convertFromInr, hasImportRate, loadCurrencyMap } from '@/lib/currency';
+import { convertFromInr, hasImportRate, loadCurrencyMap, getCachedCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import type { FreightInput, FreightMode } from '@/lib/freight';
 
 type Product = {
