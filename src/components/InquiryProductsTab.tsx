@@ -140,6 +140,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
   };
 
+  const displayPriceInr = (p: Product) => {
+    const live = livePrices[p.id];
+    if (live?.unit_price_inr && live.unit_price_inr > 0) return live.unit_price_inr;
+    // Fallback: derive from USD using engine exchange rate if available.
+    const fx = live?.exchange_rate || 0;
+    const usd = displayPriceUsd(p);
+    return fx > 0 ? usd * fx : 0;
+  };
+
+  const renderUnitPrice = (p: Product) => {
+    const usd = displayPriceUsd(p);
+    if (!usd) return '—';
+    if (!quotingCurrency || quotingCurrency === 'USD') return fmt.usd(usd);
+    return formatDualPrice(displayPriceInr(p), usd, quotingCurrency, currencyMap);
+  };
+
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null);
