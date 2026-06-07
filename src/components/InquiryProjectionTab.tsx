@@ -74,11 +74,12 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       const [pr, ent, inq, prods] = await Promise.all([
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
         (supabase as any).from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override, quoting_currency').eq('id', inquiryId).maybeSingle(),
         (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId),
       ]);
       setEntities(ent.data || []);
       setInquiryStatus(inq.data?.status ?? 'active');
+      setQuotingCurrency((inq.data?.quoting_currency as string) || 'USD');
       setProducts(prods.data || []);
 
       const prodIds = (prods.data || []).map((p: any) => p.id);
