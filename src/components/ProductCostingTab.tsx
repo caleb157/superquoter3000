@@ -2135,6 +2135,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <label className="text-[10px] text-muted-foreground">Unit Price ($)</label>
                   <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.usd(summary.unit_price_usd)}</span>
                 </div>
+                {(() => {
+                  const qc = (inquiryOverrides?.quoting_currency as string) || '';
+                  if (!qc || qc === 'USD' || qc === 'INR') return null;
+                  const foreign = convertFromInr(currencyMap, summary.unit_price_inr, qc, 'import');
+                  return (
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Unit Price ({qc})</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{isFinite(foreign) ? fmt.money(foreign, qc) : '—'}</span>
+                    </div>
+                  );
+                })()}
                 <div>
                   <label className="text-[10px] text-muted-foreground">Total Revenue</label>
                   <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.inr(summary.total_revenue_inr)}</span>
