@@ -60,6 +60,13 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [autoFob, setAutoFob] = useState<number>(0);
   const [autoGpm, setAutoGpm] = useState<number>(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
+  const [exchangeRate, setExchangeRate] = useState<number>(90);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  useEffect(() => {
+    loadCurrencyMap().then(setCurrencyMap).catch(() => {});
+    return subscribeCurrencyMap(setCurrencyMap);
+  }, []);
 
   useEffect(() => {
     (async () => {
