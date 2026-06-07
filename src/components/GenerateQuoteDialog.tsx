@@ -210,23 +210,30 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     if (chosenAsm.length === 0) { setReviewItems(prods); return; }
     // Compute component-driven reference price for each assembly (in display currency)
     const allCompIds = Array.from(new Set(chosenAsm.flatMap(a => a.components.map(c => c.product_id))));
-    const priceMap = await computeProductUnitPrices(allCompIds);
-    const fx = (Object.values(priceMap)[0] as any)?.exchange_rate ?? 90;
+    const compPriceMap = await computeProductUnitPrices(allCompIds);
+    const fx = (Object.values(compPriceMap)[0] as any)?.exchange_rate ?? 90;
+    const currencyMap = await loadCurrencyMap();
     const asmItems = chosenAsm.map(a => {
-      const unitCostUsd = a.components.reduce((sum, c) => {
-        const entry = priceMap[c.product_id];
-        const costUsd = entry?.unit_cost_usd ?? 0;
-        return sum + costUsd * (c.quantity_per_assembly || 1);
+      // Compute unit cost in INR directly (exact base for conversion to any currency).
+      const unitCostInr = a.components.reduce((sum, c) => {
+        const entry = compPriceMap[c.product_id];
+        const costInr = entry ? (entry.unit_cost_usd * (entry.exchange_rate || fx)) : 0;
+        return sum + costInr * (c.quantity_per_assembly || 1);
       }, 0);
       const markup = a.markup_percent ?? 0.2;
-      const usdPrice = unitCostUsd * (1 + markup);
-      const refPrice = currency === 'INR' ? usdPrice * fx : usdPrice;
+      const unitPriceInr = unitCostInr * (1 + markup);
+      const unitPriceUsd = fx > 0 ? unitPriceInr / fx : 0;
+      const refPrice = currency === 'USD'
+        ? unitPriceUsd
+        : currency === 'INR'
+          ? unitPriceInr
+          : convertFromInr(currencyMap, unitPriceInr, currency, 'import');
       return {
         id: a.id,
         name: a.name,
         quantity: a.quantity,
         is_assembly: true,
-        reference_price_usd: refPrice, // in display currency
+        reference_price_usd: refPrice, // already in display currency (QuotePriceReviewDialog reads this as-is for assemblies)
       };
     });
     setReviewItems([...prods, ...asmItems]);
