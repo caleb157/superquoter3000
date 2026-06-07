@@ -257,7 +257,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
                       </div>
                       <div className="col-span-3">
                         <Label className="text-[10px] text-muted-foreground">
-                          Unit price ({currency}) <span className="text-muted-foreground/70">· ref {fmtMoney(line.reference_price)}</span>
+                          Unit price ({currency}) <span className="text-muted-foreground/70">· ref {fmtMoney(line.reference_price)}{currency !== 'USD' && line.reference_price_usd > 0 ? ` (${fmt.money(line.reference_price_usd, 'USD')})` : ''}</span>
                         </Label>
                         <Input
                           type="number"
