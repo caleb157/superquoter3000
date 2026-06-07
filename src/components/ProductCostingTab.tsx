@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck, FileText, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFromInr, type CurrencyMap } from '@/lib/currency';
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
