@@ -325,6 +325,13 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   );
 }
 
+function referencePriceUsd(p: SelectedProduct, prices: ProductUnitPriceMap): number {
+  const entry = prices[p.id];
+  const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
+  if (supplied > 0) return supplied;
+  return Number(entry?.unit_price_usd) || 0;
+}
+
 function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: string): number {
   const entry = prices[p.id];
   const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
