@@ -193,6 +193,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
   useEffect(() => {
+    let cancelled = false;
+    loadCurrencyMap().then(m => { if (!cancelled) setCurrencyMap(m); }).catch(() => {});
+    const unsub = subscribeCurrencyMap(m => { if (!cancelled) setCurrencyMap(m); });
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('customer_rfqs')
+        .select('quoting_currency')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      if (!cancelled) setQuotingCurrency((data?.quoting_currency as string) || 'USD');
+    })();
+    return () => { cancelled = true; unsub(); };
+  }, [inquiryId]);
+
+
+  useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('products')
