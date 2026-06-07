@@ -30,6 +30,7 @@ import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
+import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
@@ -111,7 +112,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [hwOpen, setHwOpen] = useState(false);
   const [hwEntityId, setHwEntityId] = useState<string>('');
   const [hwEntityName, setHwEntityName] = useState<string>('');
-  const [hwCurrency, setHwCurrency] = useState<'USD' | 'INR'>('USD');
+  const [hwCurrency, setHwCurrency] = useState<string>('USD');
+  const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
@@ -135,6 +138,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     // Unified engine — live recompute IS the costing sheet, so prefer it.
     if (live && live > 0) return live;
     return Number(p.calculated_unit_price_usd ?? p.target_price_usd ?? 0);
+  };
+
+  const displayPriceInr = (p: Product) => {
+    const live = livePrices[p.id];
+    if (live?.unit_price_inr && live.unit_price_inr > 0) return live.unit_price_inr;
+    // Fallback: derive from USD using engine exchange rate if available.
+    const fx = live?.exchange_rate || 0;
+    const usd = displayPriceUsd(p);
+    return fx > 0 ? usd * fx : 0;
+  };
+
+  const renderUnitPrice = (p: Product) => {
+    const usd = displayPriceUsd(p);
+    if (!usd) return '—';
+    if (!quotingCurrency || quotingCurrency === 'USD') return fmt.usd(usd);
+    return formatDualPrice(displayPriceInr(p), usd, quotingCurrency, currencyMap);
   };
 
 
@@ -172,6 +191,22 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   }, []);
 
   useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCurrencyMap().then(m => { if (!cancelled) setCurrencyMap(m); }).catch(() => {});
+    const unsub = subscribeCurrencyMap(m => { if (!cancelled) setCurrencyMap(m); });
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('customer_rfqs')
+        .select('quoting_currency')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      if (!cancelled) setQuotingCurrency((data?.quoting_currency as string) || 'USD');
+    })();
+    return () => { cancelled = true; unsub(); };
+  }, [inquiryId]);
+
 
   useEffect(() => {
     (async () => {
@@ -372,7 +407,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     const preferredEntity = inq?.quoting_entity_id && entities.find(e => e.id === inq.quoting_entity_id)
       ? entities.find(e => e.id === inq.quoting_entity_id)!
       : entities[0];
-    const cur = (inq?.quoting_currency as 'USD' | 'INR') || 'USD';
+    const cur = (inq?.quoting_currency as string) || 'USD';
     setHwEntityId(preferredEntity.id);
     setHwEntityName(preferredEntity.name);
     setHwCurrency(cur);
@@ -403,7 +438,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     entityName: string,
     plan: HardwareSyncPlan,
     resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
-    currency: 'USD' | 'INR' = 'USD',
+    currency: string = 'USD',
     lines?: QuoteProductInput[],
   ) => {
     if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
@@ -662,7 +697,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       <span className="inline-flex items-center gap-1 justify-end">
-                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                        {renderUnitPrice(p)}
                       </span>
                     </TableCell>
 
@@ -740,7 +775,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t text-[11px]">
                       <span className="font-mono tabular-nums font-medium">
-                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                        {renderUnitPrice(p)}
                       </span>
                       <div onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton

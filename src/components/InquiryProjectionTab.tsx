@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import {
   effectiveCertainty,
   weightedProjectedRevenue,
@@ -59,6 +60,13 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [autoFob, setAutoFob] = useState<number>(0);
   const [autoGpm, setAutoGpm] = useState<number>(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
+  const [exchangeRate, setExchangeRate] = useState<number>(90);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  useEffect(() => {
+    loadCurrencyMap().then(setCurrencyMap).catch(() => {});
+    return subscribeCurrencyMap(setCurrencyMap);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -66,11 +74,12 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       const [pr, ent, inq, prods] = await Promise.all([
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
         (supabase as any).from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('customer_rfqs').select('status, exchange_rate_override, quoting_currency').eq('id', inquiryId).maybeSingle(),
         (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId),
       ]);
       setEntities(ent.data || []);
       setInquiryStatus(inq.data?.status ?? 'active');
+      setQuotingCurrency((inq.data?.quoting_currency as string) || 'USD');
       setProducts(prods.data || []);
 
       const prodIds = (prods.data || []).map((p: any) => p.id);
@@ -110,6 +119,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         });
         setAutoFob(Math.round(totalRev * 100) / 100);
         setAutoGpm(totalRev > 0 ? (totalRev - totalCost) / totalRev : 0);
+        const fx = (Object.values(priceMap)[0] as any)?.exchange_rate;
+        if (fx && fx > 0) setExchangeRate(fx);
       } else {
         setProductMh([]);
         setAutoFob(0);
@@ -179,6 +190,13 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const ship = shippingEstimateUsd(!!proj?.paying_shipping, proj?.shipping_method ?? null, fob);
   const expectedRevenue = weightedProjectedRevenue(effFob, effCertainty);
   const expectedGp = projectedGrossProfit(effFob, effGpmVal) * effCertainty;
+
+  // Render a USD amount alongside the inquiry's quoting currency, when not USD.
+  const dualUsd = (usd: number) => {
+    if (!quotingCurrency || quotingCurrency === 'USD') return fmt.usd(usd);
+    const inrAmt = usd * (exchangeRate || 0);
+    return formatDualPrice(inrAmt, usd, quotingCurrency, currencyMap);
+  };
 
   const sellingRetentionPct = Number(proj?.selling_retention_pct || 0);
   const ieTotal = fob * (1 - sellingRetentionPct);
@@ -441,7 +459,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 />
               ) : (
                 <div className="h-9 mt-1 px-3 flex items-center rounded-md border bg-muted/30 text-sm tabular-nums">
-                  {fmt.usd(autoFob)}
+                  {dualUsd(autoFob)}
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -494,11 +512,11 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             </div>
             <div>
               <div className="text-muted-foreground">Expected revenue</div>
-              <div className="font-medium tabular-nums text-sm">{fmt.usd(expectedRevenue)}</div>
+              <div className="font-medium tabular-nums text-sm">{dualUsd(expectedRevenue)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Expected gross profit</div>
-              <div className="font-medium tabular-nums text-sm">{fmt.usd(expectedGp)}</div>
+              <div className="font-medium tabular-nums text-sm">{dualUsd(expectedGp)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Total man-hours</div>

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck, FileText, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFromInr, type CurrencyMap } from '@/lib/currency';
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
@@ -101,6 +102,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  useEffect(() => {
+    loadCurrencyMap().then(setCurrencyMap).catch(() => {});
+    return subscribeCurrencyMap(setCurrencyMap);
+  }, []);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
@@ -2129,6 +2135,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <label className="text-[10px] text-muted-foreground">Unit Price ($)</label>
                   <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.usd(summary.unit_price_usd)}</span>
                 </div>
+                {(() => {
+                  const qc = (inquiryOverrides?.quoting_currency as string) || '';
+                  if (!qc || qc === 'USD' || qc === 'INR') return null;
+                  const foreign = convertFromInr(currencyMap, summary.unit_price_inr, qc, 'import');
+                  return (
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Unit Price ({qc})</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{isFinite(foreign) ? fmt.money(foreign, qc) : '—'}</span>
+                    </div>
+                  );
+                })()}
                 <div>
                   <label className="text-[10px] text-muted-foreground">Total Revenue</label>
                   <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.inr(summary.total_revenue_inr)}</span>

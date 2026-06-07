@@ -21,6 +21,9 @@ type SelectedProduct = {
   // variant lookup + use the supplied reference price directly.
   is_assembly?: boolean;
   reference_price_usd?: number | null;
+  // For assemblies: the USD-equivalent reference price (so the review dialog can
+  // show "{currency} ({usd})" alongside non-USD references).
+  reference_price_usd_only?: number | null;
 };
 
 type Variant = {
@@ -38,6 +41,7 @@ type LineDraft = {
   quantity: number;
   price: string; // editable price in chosen currency
   reference_price: number; // calculated reference in chosen currency
+  reference_price_usd: number; // calculated reference in USD (for alongside display)
   variant_id?: string | null;
   variant_name?: string | null;
   variant_photo_url?: string | null;
@@ -88,6 +92,9 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
         const ref = p.is_assembly
           ? Number(p.reference_price_usd ?? 0) // already in display currency, set by caller
           : referencePriceFor(p, priceMap, currency);
+        const refUsd = p.is_assembly
+          ? Number(p.reference_price_usd_only ?? 0)
+          : referencePriceUsd(p, priceMap);
         return {
           key: `base-${p.id}`,
           product_id: p.id,
@@ -95,6 +102,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
           quantity: Number(p.quantity ?? 0),
           price: ref ? ref.toFixed(2) : '',
           reference_price: ref,
+          reference_price_usd: refUsd,
           is_assembly: !!p.is_assembly,
         };
       });
@@ -117,9 +125,11 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   const addVariantLine = (productId: string, v: Variant) => {
     const base = lines.find(l => l.product_id === productId && !l.variant_id);
     const baseRef = base?.reference_price || referencePriceFor(selectedProducts.find(p => p.id === productId)!, prices, currency);
+    const baseRefUsd = base?.reference_price_usd || referencePriceUsd(selectedProducts.find(p => p.id === productId)!, prices);
     const factor = v.wood_price_factor ?? 1;
     // Quick estimate: scale base reference by the wood factor. User can adjust.
     const estimated = baseRef ? baseRef * factor : 0;
+    const estimatedUsd = baseRefUsd ? baseRefUsd * factor : 0;
     const baseName = selectedProducts.find(p => p.id === productId)?.name || '';
     setLines(prev => [
       ...prev,
@@ -130,6 +140,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
         quantity: base?.quantity ?? 0,
         price: estimated ? estimated.toFixed(2) : '',
         reference_price: estimated,
+        reference_price_usd: estimatedUsd,
         variant_id: v.id,
         variant_name: v.variant_name,
         variant_photo_url: v.photo_url,
@@ -246,7 +257,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
                       </div>
                       <div className="col-span-3">
                         <Label className="text-[10px] text-muted-foreground">
-                          Unit price ({currency}) <span className="text-muted-foreground/70">· ref {fmtMoney(line.reference_price)}</span>
+                          Unit price ({currency}) <span className="text-muted-foreground/70">· ref {fmtMoney(line.reference_price)}{currency !== 'USD' && line.reference_price_usd > 0 ? ` (${fmt.money(line.reference_price_usd, 'USD')})` : ''}</span>
                         </Label>
                         <Input
                           type="number"
@@ -315,6 +326,13 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
       </DialogContent>
     </Dialog>
   );
+}
+
+function referencePriceUsd(p: SelectedProduct, prices: ProductUnitPriceMap): number {
+  const entry = prices[p.id];
+  const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
+  if (supplied > 0) return supplied;
+  return Number(entry?.unit_price_usd) || 0;
 }
 
 function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: string): number {
