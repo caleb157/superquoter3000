@@ -234,6 +234,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         quantity: a.quantity,
         is_assembly: true,
         reference_price_usd: refPrice, // already in display currency (QuotePriceReviewDialog reads this as-is for assemblies)
+        reference_price_usd_only: unitPriceUsd, // raw USD for dual display
       };
     });
     setReviewItems([...prods, ...asmItems]);
