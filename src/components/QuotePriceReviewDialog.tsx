@@ -92,6 +92,9 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
         const ref = p.is_assembly
           ? Number(p.reference_price_usd ?? 0) // already in display currency, set by caller
           : referencePriceFor(p, priceMap, currency);
+        const refUsd = p.is_assembly
+          ? Number(p.reference_price_usd_only ?? 0)
+          : referencePriceUsd(p, priceMap);
         return {
           key: `base-${p.id}`,
           product_id: p.id,
@@ -99,6 +102,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
           quantity: Number(p.quantity ?? 0),
           price: ref ? ref.toFixed(2) : '',
           reference_price: ref,
+          reference_price_usd: refUsd,
           is_assembly: !!p.is_assembly,
         };
       });
