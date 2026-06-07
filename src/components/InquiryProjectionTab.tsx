@@ -119,6 +119,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         });
         setAutoFob(Math.round(totalRev * 100) / 100);
         setAutoGpm(totalRev > 0 ? (totalRev - totalCost) / totalRev : 0);
+        const fx = (Object.values(priceMap)[0] as any)?.exchange_rate;
+        if (fx && fx > 0) setExchangeRate(fx);
       } else {
         setProductMh([]);
         setAutoFob(0);
