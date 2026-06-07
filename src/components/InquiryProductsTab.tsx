@@ -30,6 +30,7 @@ import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
+import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
