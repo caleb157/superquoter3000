@@ -41,6 +41,7 @@ type LineDraft = {
   quantity: number;
   price: string; // editable price in chosen currency
   reference_price: number; // calculated reference in chosen currency
+  reference_price_usd: number; // calculated reference in USD (for alongside display)
   variant_id?: string | null;
   variant_name?: string | null;
   variant_photo_url?: string | null;
