@@ -21,6 +21,9 @@ type SelectedProduct = {
   // variant lookup + use the supplied reference price directly.
   is_assembly?: boolean;
   reference_price_usd?: number | null;
+  // For assemblies: the USD-equivalent reference price (so the review dialog can
+  // show "{currency} ({usd})" alongside non-USD references).
+  reference_price_usd_only?: number | null;
 };
 
 type Variant = {
