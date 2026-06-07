@@ -459,7 +459,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 />
               ) : (
                 <div className="h-9 mt-1 px-3 flex items-center rounded-md border bg-muted/30 text-sm tabular-nums">
-                  {fmt.usd(autoFob)}
+                  {dualUsd(autoFob)}
                 </div>
               )}
               <p className="text-[11px] text-muted-foreground mt-1">
