@@ -775,7 +775,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t text-[11px]">
                       <span className="font-mono tabular-nums font-medium">
-                        {displayPriceUsd(p) ? fmt.usd(displayPriceUsd(p)) : '—'}
+                        {renderUnitPrice(p)}
                       </span>
                       <div onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
