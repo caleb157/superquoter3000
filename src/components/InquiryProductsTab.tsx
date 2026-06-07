@@ -406,7 +406,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     entityName: string,
     plan: HardwareSyncPlan,
     resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
-    currency: 'USD' | 'INR' = 'USD',
+    currency: string = 'USD',
     lines?: QuoteProductInput[],
   ) => {
     if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
