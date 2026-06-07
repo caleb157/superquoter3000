@@ -191,6 +191,13 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const expectedRevenue = weightedProjectedRevenue(effFob, effCertainty);
   const expectedGp = projectedGrossProfit(effFob, effGpmVal) * effCertainty;
 
+  // Render a USD amount alongside the inquiry's quoting currency, when not USD.
+  const dualUsd = (usd: number) => {
+    if (!quotingCurrency || quotingCurrency === 'USD') return fmt.usd(usd);
+    const inrAmt = usd * (exchangeRate || 0);
+    return formatDualPrice(inrAmt, usd, quotingCurrency, currencyMap);
+  };
+
   const sellingRetentionPct = Number(proj?.selling_retention_pct || 0);
   const ieTotal = fob * (1 - sellingRetentionPct);
   const vendorTotal = fob * (1 - gpm);
