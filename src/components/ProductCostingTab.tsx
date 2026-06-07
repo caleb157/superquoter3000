@@ -102,6 +102,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  useEffect(() => {
+    loadCurrencyMap().then(setCurrencyMap).catch(() => {});
+    return subscribeCurrencyMap(setCurrencyMap);
+  }, []);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
