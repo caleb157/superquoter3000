@@ -512,11 +512,11 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             </div>
             <div>
               <div className="text-muted-foreground">Expected revenue</div>
-              <div className="font-medium tabular-nums text-sm">{fmt.usd(expectedRevenue)}</div>
+              <div className="font-medium tabular-nums text-sm">{dualUsd(expectedRevenue)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Expected gross profit</div>
-              <div className="font-medium tabular-nums text-sm">{fmt.usd(expectedGp)}</div>
+              <div className="font-medium tabular-nums text-sm">{dualUsd(expectedGp)}</div>
             </div>
             <div>
               <div className="text-muted-foreground">Total man-hours</div>
