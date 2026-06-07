@@ -375,7 +375,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     const preferredEntity = inq?.quoting_entity_id && entities.find(e => e.id === inq.quoting_entity_id)
       ? entities.find(e => e.id === inq.quoting_entity_id)!
       : entities[0];
-    const cur = (inq?.quoting_currency as 'USD' | 'INR') || 'USD';
+    const cur = (inq?.quoting_currency as string) || 'USD';
     setHwEntityId(preferredEntity.id);
     setHwEntityName(preferredEntity.name);
     setHwCurrency(cur);
