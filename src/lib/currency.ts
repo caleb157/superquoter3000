@@ -156,3 +156,31 @@ export function unitPriceInCurrency(
   if (code === 'USD') return Number(entry.unit_price_usd) || 0;
   return convertFromInr(map, Number(entry.unit_price_inr) || 0, code, 'import');
 }
+
+/**
+ * Display a price in the inquiry's quoting currency next to USD.
+ * - code === 'USD' (or null): "$9.48"
+ * - code === 'INR': "₹891.46 ($9.48)"
+ * - otherwise:      "€8.10 ($9.48)" — foreign converted from INR, USD in parens
+ * Pass the INR amount (the canonical base) for accurate foreign conversion,
+ * and the USD amount for the parens. Missing rate → falls back to USD only.
+ */
+export function formatDualPrice(
+  inrAmount: number | null | undefined,
+  usdAmount: number | null | undefined,
+  code: string | null | undefined,
+  map: CurrencyMap | null,
+  direction: 'import' | 'export' = 'import',
+): string {
+  const usdNum = Number(usdAmount || 0);
+  const usd = `$${usdNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (!code || code === 'USD') return usd;
+  const inr = Number(inrAmount || 0);
+  if (code === 'INR') {
+    const inrStr = `₹${inr.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${inrStr} (${usd})`;
+  }
+  const foreignAmt = convertFromInr(map, inr, code, direction);
+  if (!isFinite(foreignAmt)) return usd;
+  return `${formatCurrencySync(foreignAmt, code, map)} (${usd})`;
+}
