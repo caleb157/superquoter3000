@@ -125,9 +125,11 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
   const addVariantLine = (productId: string, v: Variant) => {
     const base = lines.find(l => l.product_id === productId && !l.variant_id);
     const baseRef = base?.reference_price || referencePriceFor(selectedProducts.find(p => p.id === productId)!, prices, currency);
+    const baseRefUsd = base?.reference_price_usd || referencePriceUsd(selectedProducts.find(p => p.id === productId)!, prices);
     const factor = v.wood_price_factor ?? 1;
     // Quick estimate: scale base reference by the wood factor. User can adjust.
     const estimated = baseRef ? baseRef * factor : 0;
+    const estimatedUsd = baseRefUsd ? baseRefUsd * factor : 0;
     const baseName = selectedProducts.find(p => p.id === productId)?.name || '';
     setLines(prev => [
       ...prev,
@@ -138,6 +140,7 @@ export function QuotePriceReviewDialog({ open, onOpenChange, selectedProducts, c
         quantity: base?.quantity ?? 0,
         price: estimated ? estimated.toFixed(2) : '',
         reference_price: estimated,
+        reference_price_usd: estimatedUsd,
         variant_id: v.id,
         variant_name: v.variant_name,
         variant_photo_url: v.photo_url,
