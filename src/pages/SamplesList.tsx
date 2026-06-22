@@ -298,7 +298,9 @@ export default function SamplesList() {
                   <Card
                     key={s.id}
                     className="cursor-pointer active:bg-accent/50"
-                    onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                    {...(s.product_id
+                      ? rowNavHandlers(navigate, `/product/${s.product_id}?tab=sample-log`, { from: { label: 'Samples', path: '/samples' } })
+                      : {})}
                   >
                     <CardContent className="p-3 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
