@@ -468,8 +468,8 @@ const Dashboard = () => {
                       const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
 
                       return (
+                        <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
                         <TableRow
-                          key={inq.id}
                           data-row-nav
                           tabIndex={0}
                           role="link"
