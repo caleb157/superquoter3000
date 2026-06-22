@@ -389,6 +389,7 @@ const Products = () => {
                       </div>
                     </div>
                   </Card>
+                  </RowContextMenu>
                 );
               })}
             </div>
