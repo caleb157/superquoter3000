@@ -486,8 +486,8 @@ const Dashboard = () => {
                           <TableCell className="text-sm truncate max-w-[180px]">
                             {cust?.name || cust?.company || '—'}
                           </TableCell>
-                          <TableCell className="text-sm truncate max-w-[260px]">
-                            {inq.title || <span className="text-muted-foreground italic">Untitled</span>}
+                          <TableCell className="text-base font-semibold truncate max-w-[260px]">
+                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
                           </TableCell>
                           <TableCell>
                             <span className={cn(
