@@ -15,6 +15,8 @@ import { differenceInDays, parseISO, format } from 'date-fns';
 import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { rowNavHandlers } from '@/lib/row-nav';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 type Sample = {
   id: string;
@@ -62,9 +64,10 @@ export default function SamplesList() {
   const [showNew, setShowNew] = useState(false);
   useKeyboardShortcuts({ onNewItem: () => setShowNew(true) });
 
-  const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('newest');
+  const [statusFilter, setStatusFilter] = usePersistentState<string>('samples.statusFilter', 'pending');
+  const [search, setSearch] = usePersistentState<string>('samples.search', '');
+  const [sortKey, setSortKey] = usePersistentState<SortKey>('samples.sortKey', 'newest');
+  useScrollRestoration('samples.scroll', !loading);
 
   const fetchAll = async () => {
     const [sampleRes, inqRes, custRes, prodRes] = await Promise.all([
@@ -257,7 +260,9 @@ export default function SamplesList() {
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30"
-                        onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                        {...(s.product_id
+                          ? rowNavHandlers(navigate, `/product/${s.product_id}?tab=sample-log`, { from: { label: 'Samples', path: '/samples' } })
+                          : {})}
                       >
                         <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
                         <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
@@ -293,7 +298,9 @@ export default function SamplesList() {
                   <Card
                     key={s.id}
                     className="cursor-pointer active:bg-accent/50"
-                    onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                    {...(s.product_id
+                      ? rowNavHandlers(navigate, `/product/${s.product_id}?tab=sample-log`, { from: { label: 'Samples', path: '/samples' } })
+                      : {})}
                   >
                     <CardContent className="p-3 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">

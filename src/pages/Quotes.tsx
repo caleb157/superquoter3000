@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
@@ -32,12 +33,13 @@ const Quotes = () => {
   const [editSnap, setEditSnap] = useState<any | null>(null);
 
   // Filters
-  const [search, setSearch] = useState('');
-  const [filterInquiry, setFilterInquiry] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterEntity, setFilterEntity] = useState('all');
+  const [search, setSearch] = usePersistentState<string>('quotes.search', '');
+  const [filterInquiry, setFilterInquiry] = usePersistentState<string>('quotes.filterInquiry', 'all');
+  const [filterStatus, setFilterStatus] = usePersistentState<string>('quotes.filterStatus', 'all');
+  const [filterEntity, setFilterEntity] = usePersistentState<string>('quotes.filterEntity', 'all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  useScrollRestoration('quotes.scroll', !loading);
 
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<any>({
     storageKey: 'quotes-sort',

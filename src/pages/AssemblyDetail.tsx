@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, Trash2, Camera, X, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,7 +45,7 @@ const AssemblyDetail = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const { data: asmData } = await (supabase as any).from('product_assemblies').select('*').eq('id', id).single();
+      const { data: asmData } = await (supabase as any).from('product_assemblies').select('*, customer_rfq:customer_rfqs(rfq_number, title)').eq('id', id).single();
       if (!asmData) return;
       setAssembly(asmData);
 
@@ -181,9 +182,20 @@ const AssemblyDetail = () => {
   const usedProductIds = new Set(components.map(c => c.product_id));
   const availableProducts = inquiryProducts.filter(p => !usedProductIds.has(p.id));
 
+  const canonicalCrumbs: Crumb[] = [
+    { label: 'Inquiries', to: '/inquiries' },
+    ...(assembly.customer_rfq_id
+      ? [{
+          label: assembly.customer_rfq?.title || assembly.customer_rfq?.rfq_number || 'Inquiry',
+          to: `/inquiry/${assembly.customer_rfq_id}`,
+        } as Crumb]
+      : []),
+  ];
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
+        <PageBreadcrumbs canonical={canonicalCrumbs} current={assembly.name} />
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Back" onClick={() => {
@@ -196,9 +208,8 @@ const AssemblyDetail = () => {
           <Package className="h-5 w-5 text-primary" />
           <div className="flex-1">
             <h1 className="text-base font-bold truncate">{assembly.name}</h1>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <Link to={assembly.customer_rfq_id ? `/inquiry/${assembly.customer_rfq_id}` : '/inquiries'} className="hover:text-foreground hover:underline">← Back to Inquiry</Link>
-              <span>Assembly • {components.length} components • {assemblyCost.num_cartons} cartons</span>
+            <div className="text-[10px] text-muted-foreground">
+              Assembly • {components.length} components • {assemblyCost.num_cartons} cartons
             </div>
           </div>
           <span className="text-xs text-muted-foreground">

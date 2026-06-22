@@ -28,6 +28,8 @@ function costingBadge(p: { cbm_done?: boolean; cogs_done?: boolean; overhead_don
 import { useTableSort } from '@/hooks/use-table-sort';
 import { furthestStageBucket, productStageBuckets, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { rowNavHandlers } from '@/lib/row-nav';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 
 const Products = () => {
@@ -42,11 +44,12 @@ const Products = () => {
   const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
   const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterInquiry, setFilterInquiry] = useState('all');
-  const [filterCustomer, setFilterCustomer] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [search, setSearch] = usePersistentState<string>('products.search', '');
+  const [filterInquiry, setFilterInquiry] = usePersistentState<string>('products.filterInquiry', 'all');
+  const [filterCustomer, setFilterCustomer] = usePersistentState<string>('products.filterCustomer', 'all');
+  const [filterType, setFilterType] = usePersistentState<string>('products.filterType', 'all');
+  const [filterStatus, setFilterStatus] = usePersistentState<string>('products.filterStatus', 'all');
+  useScrollRestoration('products.scroll', !loading);
   const [showUploadParse, setShowUploadParse] = useState(false);
   const [uploadInquiryId, setUploadInquiryId] = useState('');
   const [showInquiryPicker, setShowInquiryPicker] = useState(false);
@@ -296,7 +299,7 @@ const Products = () => {
                     const cbm = cbmMap[p.id];
                     const review = hasReview(p.id);
                     return (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                         <TableCell>
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={p.photo_url || ''} />
@@ -356,7 +359,7 @@ const Products = () => {
                 const review = hasReview(p.id);
                 const cb = costingBadge(p, review);
                 return (
-                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                     <div className="p-3 flex gap-3">
                       <Avatar className="h-12 w-12 shrink-0">
                         <AvatarImage src={p.photo_url || ''} />

@@ -28,6 +28,7 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
@@ -223,13 +224,19 @@ export default function InquiryDetail() {
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
-        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => {
-          const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-          if (idx > 0) navigate(-1);
-          else navigate('/inquiries');
-        }}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={() => {
+            const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+            if (idx > 0) navigate(-1);
+            else navigate('/inquiries');
+          }}>
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </Button>
+          <PageBreadcrumbs
+            canonical={[{ label: 'Inquiries', to: '/inquiries' }]}
+            current={inquiry.title || inquiry.rfq_number}
+          />
+        </div>
 
         {/* Header */}
         <div className="flex flex-wrap items-start gap-3">

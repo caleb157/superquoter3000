@@ -19,12 +19,14 @@ import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
+import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 
 type ProductHeader = {
   id: string;
   name: string;
   sku: string | null;
   customer_rfq_id: string | null;
+  customer_rfq?: { rfq_number: string; title: string | null } | null;
   design_stage: string | null;
   quote_stage: string | null;
   sample_stage: string | null;
@@ -83,7 +85,7 @@ const ProductDetail = () => {
     if (!id) return;
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent')
+      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent, customer_rfq:customer_rfqs(rfq_number, title)')
       .eq('id', id)
       .maybeSingle();
     if (error) toast.error(error.message);
@@ -209,9 +211,20 @@ const ProductDetail = () => {
     return <AppLayout><div className="text-center py-12 text-muted-foreground">Product not found</div></AppLayout>;
   }
 
+  const canonicalCrumbs: Crumb[] = [
+    { label: 'Inquiries', to: '/inquiries' },
+    ...(product.customer_rfq_id
+      ? [{
+          label: product.customer_rfq?.title || product.customer_rfq?.rfq_number || 'Inquiry',
+          to: `/inquiry/${product.customer_rfq_id}`,
+        } as Crumb]
+      : []),
+  ];
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-3">
+        <PageBreadcrumbs canonical={canonicalCrumbs} current={product.name} />
         {/* Header */}
         <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
           <Button

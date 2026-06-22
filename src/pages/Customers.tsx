@@ -17,6 +17,8 @@ import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER, type LeadStatus
 import { CustomersKanban } from '@/components/CustomersKanban';
 import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { rowNavHandlers } from '@/lib/row-nav';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 
 const STATUS_TABS = [
@@ -36,11 +38,12 @@ const Customers = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = usePersistentState<string>('customers.search', '');
+  const [statusFilter, setStatusFilter] = usePersistentState<string>('customers.statusFilter', 'all');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [view, setView] = usePersistentState<'list' | 'kanban'>('customers.view', 'list');
+  useScrollRestoration('customers.scroll', !loading);
   const [form, setForm] = useState({
     name: '', email: '', company: '', phone: '',
     linkedin_url: '', source: '', lead_status: 'lead',
@@ -225,12 +228,11 @@ const Customers = () => {
                     {filtered.map((c: any) => {
                       const primary = c.company || c.name;
                       const secondary = c.company && c.name && c.name !== c.company ? c.name : null;
+                      const navHandlers = rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } });
                       return (
-                      <TableRow key={c.id} className="hover:bg-muted/40">
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" {...navHandlers}>
                         <TableCell className="font-medium text-sm">
-                          <button className="hover:underline text-left" onClick={() => navigate(`/customers/${c.id}`)}>
-                            {primary}
-                          </button>
+                          <span className="hover:underline">{primary}</span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
@@ -245,10 +247,10 @@ const Customers = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{secondary || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.email || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.source || '—'}</TableCell>
-                        <TableCell className="text-xs text-right cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{secondary || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
+                        <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
                       );
                     })}
@@ -263,7 +265,7 @@ const Customers = () => {
                 return (
                   <Card key={c.id} className="active:bg-accent/50">
                     <CardContent className="p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
+                      <div className="flex items-start justify-between gap-2 cursor-pointer" {...rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } })}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.company || c.name}</div>
                           {c.company && c.name && c.name !== c.company && (

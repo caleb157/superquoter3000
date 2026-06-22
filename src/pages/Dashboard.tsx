@@ -21,6 +21,8 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { rowNavHandlers } from '@/lib/row-nav';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import {
   furthestStageBucket,
@@ -76,8 +78,9 @@ const Dashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const [search, setSearch] = usePersistentState<string>('dashboard.search', '');
+  const [statusFilter, setStatusFilter] = usePersistentState<StatusFilter>('dashboard.statusFilter', 'open');
+  useScrollRestoration('dashboard.scroll', !loading);
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -371,7 +374,7 @@ const Dashboard = () => {
                       "row-action active:scale-[0.99] transition-transform",
                       reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
                     )}
-                    onClick={() => navigate(`/inquiry/${inq.id}`)}
+                    {...rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } })}
                   >
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start gap-2">
@@ -460,7 +463,7 @@ const Dashboard = () => {
                       const noProducts = !prods || prods.length === 0;
                       const stagesEmpty = isAllStagesEmpty(prods);
 
-                      const goToInquiry = () => navigate(`/inquiry/${inq.id}`);
+                      const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
 
                       return (
                         <TableRow
@@ -473,7 +476,7 @@ const Dashboard = () => {
                             "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
                             reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
                           )}
-                          onClick={goToInquiry}
+                          {...navHandlers}
                         >
                           <TableCell className="font-mono text-xs">
                             <div className="flex items-center gap-1.5">
