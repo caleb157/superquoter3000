@@ -265,7 +265,7 @@ const Customers = () => {
                 return (
                   <Card key={c.id} className="active:bg-accent/50">
                     <CardContent className="p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>
+                      <div className="flex items-start justify-between gap-2 cursor-pointer" {...rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } })}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.company || c.name}</div>
                           {c.company && c.name && c.name !== c.company && (
