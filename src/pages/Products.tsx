@@ -44,11 +44,12 @@ const Products = () => {
   const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
   const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterInquiry, setFilterInquiry] = useState('all');
-  const [filterCustomer, setFilterCustomer] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [search, setSearch] = usePersistentState<string>('products.search', '');
+  const [filterInquiry, setFilterInquiry] = usePersistentState<string>('products.filterInquiry', 'all');
+  const [filterCustomer, setFilterCustomer] = usePersistentState<string>('products.filterCustomer', 'all');
+  const [filterType, setFilterType] = usePersistentState<string>('products.filterType', 'all');
+  const [filterStatus, setFilterStatus] = usePersistentState<string>('products.filterStatus', 'all');
+  useScrollRestoration('products.scroll', !loading);
   const [showUploadParse, setShowUploadParse] = useState(false);
   const [uploadInquiryId, setUploadInquiryId] = useState('');
   const [showInquiryPicker, setShowInquiryPicker] = useState(false);
