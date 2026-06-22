@@ -28,6 +28,7 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
