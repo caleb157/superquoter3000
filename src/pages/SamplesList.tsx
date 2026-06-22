@@ -64,9 +64,10 @@ export default function SamplesList() {
   const [showNew, setShowNew] = useState(false);
   useKeyboardShortcuts({ onNewItem: () => setShowNew(true) });
 
-  const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('newest');
+  const [statusFilter, setStatusFilter] = usePersistentState<string>('samples.statusFilter', 'pending');
+  const [search, setSearch] = usePersistentState<string>('samples.search', '');
+  const [sortKey, setSortKey] = usePersistentState<SortKey>('samples.sortKey', 'newest');
+  useScrollRestoration('samples.scroll', !loading);
 
   const fetchAll = async () => {
     const [sampleRes, inqRes, custRes, prodRes] = await Promise.all([
