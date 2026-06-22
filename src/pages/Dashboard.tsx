@@ -364,8 +364,8 @@ const Dashboard = () => {
                 const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
                 const noProducts = !prods || prods.length === 0;
                 return (
+                  <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
                   <Card
-                    key={inq.id}
                     data-row-nav
                     tabIndex={0}
                     role="link"
