@@ -260,7 +260,9 @@ export default function SamplesList() {
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30"
-                        onClick={() => s.product_id && navigate(`/product/${s.product_id}?tab=sample-log`)}
+                        {...(s.product_id
+                          ? rowNavHandlers(navigate, `/product/${s.product_id}?tab=sample-log`, { from: { label: 'Samples', path: '/samples' } })
+                          : {})}
                       >
                         <TableCell className="text-sm">{product?.name ?? '—'}</TableCell>
                         <TableCell className="text-xs font-mono">{inq?.rfq_number ?? '—'}</TableCell>
