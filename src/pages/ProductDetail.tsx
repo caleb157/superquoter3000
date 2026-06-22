@@ -211,9 +211,20 @@ const ProductDetail = () => {
     return <AppLayout><div className="text-center py-12 text-muted-foreground">Product not found</div></AppLayout>;
   }
 
+  const canonicalCrumbs: Crumb[] = [
+    { label: 'Inquiries', to: '/inquiries' },
+    ...(product.customer_rfq_id
+      ? [{
+          label: product.customer_rfq?.title || product.customer_rfq?.rfq_number || 'Inquiry',
+          to: `/inquiry/${product.customer_rfq_id}`,
+        } as Crumb]
+      : []),
+  ];
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-3">
+        <PageBreadcrumbs canonical={canonicalCrumbs} current={product.name} />
         {/* Header */}
         <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
           <Button
