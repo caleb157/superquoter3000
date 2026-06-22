@@ -45,7 +45,7 @@ const AssemblyDetail = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const { data: asmData } = await (supabase as any).from('product_assemblies').select('*').eq('id', id).single();
+      const { data: asmData } = await (supabase as any).from('product_assemblies').select('*, customer_rfq:customer_rfqs(rfq_number, title)').eq('id', id).single();
       if (!asmData) return;
       setAssembly(asmData);
 
