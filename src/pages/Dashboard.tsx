@@ -562,6 +562,7 @@ const Dashboard = () => {
                             </div>
                           </TableCell>
                         </TableRow>
+                        </RowContextMenu>
                       );
                     })}
                   </TableBody>
