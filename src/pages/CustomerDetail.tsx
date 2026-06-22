@@ -22,6 +22,7 @@ import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
