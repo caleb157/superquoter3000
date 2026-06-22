@@ -463,7 +463,7 @@ const Dashboard = () => {
                       const noProducts = !prods || prods.length === 0;
                       const stagesEmpty = isAllStagesEmpty(prods);
 
-                      const goToInquiry = () => navigate(`/inquiry/${inq.id}`);
+                      const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
 
                       return (
                         <TableRow
