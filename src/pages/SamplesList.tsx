@@ -257,7 +257,7 @@ export default function SamplesList() {
                     const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
                     const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
                     const days = daysToSample(s);
-                    return (
+                    const row = (
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30"
@@ -283,6 +283,9 @@ export default function SamplesList() {
                         </TableCell>
                       </TableRow>
                     );
+                    return s.product_id
+                      ? <RowContextMenu key={s.id} path={`/product/${s.product_id}?tab=sample-log`}>{row}</RowContextMenu>
+                      : row;
                   })}
                 </TableBody>
               </Table>
