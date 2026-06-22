@@ -186,7 +186,11 @@ const AssemblyDetail = () => {
       <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(assembly.customer_rfq_id ? `/inquiry/${assembly.customer_rfq_id}` : '/inquiries')}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Back" onClick={() => {
+            const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+            if (idx > 0) navigate(-1);
+            else navigate(assembly.customer_rfq_id ? `/inquiry/${assembly.customer_rfq_id}` : '/inquiries');
+          }}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <Package className="h-5 w-5 text-primary" />
