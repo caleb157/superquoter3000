@@ -228,12 +228,11 @@ const Customers = () => {
                     {filtered.map((c: any) => {
                       const primary = c.company || c.name;
                       const secondary = c.company && c.name && c.name !== c.company ? c.name : null;
+                      const navHandlers = rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } });
                       return (
-                      <TableRow key={c.id} className="hover:bg-muted/40">
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" {...navHandlers}>
                         <TableCell className="font-medium text-sm">
-                          <button className="hover:underline text-left" onClick={() => navigate(`/customers/${c.id}`)}>
-                            {primary}
-                          </button>
+                          <span className="hover:underline">{primary}</span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
@@ -248,10 +247,10 @@ const Customers = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{secondary || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.email || '—'}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{c.source || '—'}</TableCell>
-                        <TableCell className="text-xs text-right cursor-pointer" onClick={() => navigate(`/customers/${c.id}`)}>{(inquiriesByCustomer[c.id] || []).length}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{secondary || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
+                        <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
                       );
                     })}
