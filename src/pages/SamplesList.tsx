@@ -16,6 +16,7 @@ import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 type Sample = {
