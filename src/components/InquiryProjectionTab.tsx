@@ -182,9 +182,10 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const autoMh = useMemo(() => effectiveManHours({ estimated_man_hours: null } as any, productMh), [productMh]);
   const effMh = useMemo(() => effectiveManHours(proj as any, productMh), [proj, productMh]);
 
-  const locked = projectionIsLocked(inquiryStatus);
+  // Hard lock = real PO/complete; projected_po stays editable and switches to live once products exist.
+  const locked = inquiryStatus === 'po' || inquiryStatus === 'complete';
   const effFob = effectiveFobUsd(proj as any, inquiryStatus, autoFob);
-  const effGpmVal = effectiveGpm(proj as any, inquiryStatus, autoGpm);
+  const effGpmVal = effectiveGpm(proj as any, inquiryStatus, autoGpm, autoFob);
   const fob = effFob;
   const gpm = effGpmVal;
   const ship = shippingEstimateUsd(!!proj?.paying_shipping, proj?.shipping_method ?? null, fob);
