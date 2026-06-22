@@ -21,6 +21,8 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { rowNavHandlers } from '@/lib/row-nav';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import {
   furthestStageBucket,
