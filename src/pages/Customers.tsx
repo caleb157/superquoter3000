@@ -42,7 +42,8 @@ const Customers = () => {
   const [statusFilter, setStatusFilter] = usePersistentState<string>('customers.statusFilter', 'all');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [view, setView] = usePersistentState<'list' | 'kanban'>('customers.view', 'list');
+  useScrollRestoration('customers.scroll', !loading);
   const [form, setForm] = useState({
     name: '', email: '', company: '', phone: '',
     linkedin_url: '', source: '', lead_status: 'lead',
