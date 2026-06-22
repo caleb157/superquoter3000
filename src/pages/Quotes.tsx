@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
