@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE = 'PDHQ';
+const BASE = 'Product HQ';
 
 /**
  * Sets document.title to `${title} · PDHQ` so browser tabs reflect the
