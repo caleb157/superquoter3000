@@ -38,8 +38,8 @@ const Customers = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = usePersistentState<string>('customers.search', '');
+  const [statusFilter, setStatusFilter] = usePersistentState<string>('customers.statusFilter', 'all');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [view, setView] = useState<'list' | 'kanban'>('list');
