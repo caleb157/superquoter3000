@@ -386,8 +386,8 @@ const Dashboard = () => {
                               INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
                             )}>{statusLabel(inq.status)}</span>
                           </div>
-                          <div className="font-semibold text-sm leading-tight mt-1 truncate">
-                            {inq.title || <span className="text-muted-foreground italic font-normal">Untitled</span>}
+                          <div className="font-bold text-base leading-tight mt-1 truncate">
+                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
                             {cust?.name || cust?.company || 'No customer'}
@@ -486,8 +486,8 @@ const Dashboard = () => {
                           <TableCell className="text-sm truncate max-w-[180px]">
                             {cust?.name || cust?.company || '—'}
                           </TableCell>
-                          <TableCell className="text-sm truncate max-w-[260px]">
-                            {inq.title || <span className="text-muted-foreground italic">Untitled</span>}
+                          <TableCell className="text-base font-semibold truncate max-w-[260px]">
+                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
                           </TableCell>
                           <TableCell>
                             <span className={cn(
