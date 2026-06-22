@@ -420,6 +420,7 @@ const Dashboard = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  </RowContextMenu>
                 );
               })
             )}
