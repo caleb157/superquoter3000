@@ -137,7 +137,11 @@ export default function CustomerDetail() {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
-        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate('/customers')}>
+        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => {
+          const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+          if (idx > 0) navigate(-1);
+          else navigate('/customers');
+        }}>
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
 
