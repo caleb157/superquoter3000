@@ -268,6 +268,7 @@ const Customers = () => {
                 return (
                   <Card key={c.id} className="active:bg-accent/50">
                     <CardContent className="p-3 space-y-2">
+                      <RowContextMenu path={`/customers/${c.id}`}>
                       <div className="flex items-start justify-between gap-2 cursor-pointer" {...rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } })}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.company || c.name}</div>
@@ -277,6 +278,7 @@ const Customers = () => {
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
+                      </RowContextMenu>
                       <div className="flex items-center gap-2">
                         <Select
                           value={c.lead_status || 'lead'}
