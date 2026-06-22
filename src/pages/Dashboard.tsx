@@ -78,8 +78,9 @@ const Dashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const [search, setSearch] = usePersistentState<string>('dashboard.search', '');
+  const [statusFilter, setStatusFilter] = usePersistentState<StatusFilter>('dashboard.statusFilter', 'open');
+  useScrollRestoration('dashboard.scroll', !loading);
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
 
