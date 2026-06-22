@@ -374,7 +374,7 @@ const Dashboard = () => {
                       "row-action active:scale-[0.99] transition-transform",
                       reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
                     )}
-                    onClick={() => navigate(`/inquiry/${inq.id}`)}
+                    {...rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } })}
                   >
                     <CardContent className="p-3 space-y-2">
                       <div className="flex items-start gap-2">
