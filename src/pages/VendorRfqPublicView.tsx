@@ -8,10 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download, Package, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const VendorRfqPublicView = () => {
   const { token } = useParams<{ token: string }>();
   const [rfq, setRfq] = useState<any>(null);
+  useDocumentTitle(rfq ? `Vendor RFQ ${rfq.rfq_number || ''}`.trim() : 'Vendor RFQ');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pricingOpen, setPricingOpen] = useState(false);

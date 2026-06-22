@@ -20,6 +20,7 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
 import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 
 const STATUS_TABS = [
@@ -35,6 +36,7 @@ const STATUS_TABS = [
 
 
 const Customers = () => {
+  useDocumentTitle('Customers');
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);

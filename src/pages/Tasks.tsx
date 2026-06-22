@@ -13,8 +13,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export default function Tasks() {
+  useDocumentTitle('Tasks');
   const { assigneeCode } = useAuth();
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);

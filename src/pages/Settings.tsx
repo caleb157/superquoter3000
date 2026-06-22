@@ -15,6 +15,7 @@ import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettings, CogsCategoriesSettings, LocalTransportSettings } from '@/components/Phase2Settings';
 import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefaultChemicalsEditor';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 // Generic editable table component
 function EditableTable<T extends { id: string }>({
@@ -139,6 +140,7 @@ function EditableTable<T extends { id: string }>({
 
 // Global Settings form (single row)
 function GeneralSettings() {
+  useDocumentTitle('Settings');
   const [settings, setSettings] = useState<any>(null);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 

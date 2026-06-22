@@ -20,6 +20,7 @@ import * as calc from '@/lib/calculations';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
 import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 type ProductHeader = {
   id: string;
@@ -45,6 +46,7 @@ const ProductDetail = () => {
   const activeTab: TabKey = (VALID_TABS as readonly string[]).includes(tabParam) ? tabParam : 'costing';
 
   const [product, setProduct] = useState<ProductHeader | null>(null);
+  useDocumentTitle(product?.name || null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState('');

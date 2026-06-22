@@ -10,12 +10,14 @@ import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 
 import { ProjectionsView } from '@/components/analytics/ProjectionsView';
 import { CapacityChart } from '@/components/analytics/CapacityChart';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
 
 type View = 'sales' | 'ops' | 'projections' | 'capacity';
 
 const Analytics = () => {
+  useDocumentTitle('Analytics');
   const [params, setParams] = useSearchParams();
   const viewRaw = params.get('view');
   const view: View = viewRaw === 'ops' ? 'ops' : viewRaw === 'projections' ? 'projections' : viewRaw === 'capacity' ? 'capacity' : 'sales';

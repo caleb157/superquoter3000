@@ -31,9 +31,11 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { rowNavHandlers } from '@/lib/row-nav';
 import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 
 const Products = () => {
+  useDocumentTitle('Products');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<any[]>([]);

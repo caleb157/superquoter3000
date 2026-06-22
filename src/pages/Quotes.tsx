@@ -21,10 +21,12 @@ import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'approved', 'expired'];
 
 const Quotes = () => {
+  useDocumentTitle('Quotes');
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [inquiries, setInquiries] = useState<Record<string, { rfq_number: string; title: string | null }>>({});
   const [entities, setEntities] = useState<Record<string, string>>({});

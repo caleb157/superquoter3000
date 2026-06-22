@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail, Phone, Globe, MapPin, Building2, Landmark } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { loadCurrencyMap } from '@/lib/currency';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 interface QuoteComponent {
   product_id?: string | null;
@@ -140,6 +141,7 @@ function formatDate(iso?: string | null) {
 const CustomerQuote = () => {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<QuoteData | null>(null);
+  useDocumentTitle(data ? `Quote${data.snapshot?.quote_number ? ` ${data.snapshot.quote_number}` : ''}` : 'Quote');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<number, ProductSelection>>({});

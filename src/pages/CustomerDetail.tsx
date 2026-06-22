@@ -23,6 +23,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 
@@ -57,6 +58,7 @@ export default function CustomerDetail() {
   const tab = searchParams.get('tab') || 'inquiries';
 
   const [customer, setCustomer] = useState<Customer | null>(null);
+  useDocumentTitle(customer ? customer.name : null);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [openTaskCount, setOpenTaskCount] = useState(0);

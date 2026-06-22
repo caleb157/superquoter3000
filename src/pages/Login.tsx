@@ -8,8 +8,10 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const Login = () => {
+  useDocumentTitle('Sign in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

@@ -37,6 +37,7 @@ import {
 import { fmt } from '@/lib/formatters';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -588,6 +589,7 @@ const Dashboard = () => {
 };
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
+  useDocumentTitle('Inquiries');
   return (
     <Card>
       <CardContent className="pt-3 pb-2.5 sm:pt-4 sm:pb-3">

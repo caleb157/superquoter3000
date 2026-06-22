@@ -29,6 +29,7 @@ import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
@@ -41,6 +42,7 @@ export default function InquiryDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [inquiry, setInquiry] = useState<any | null>(null);
+  useDocumentTitle(inquiry ? `${inquiry.rfq_number}${inquiry.title ? ` — ${inquiry.title}` : ''}` : null);
   const [customer, setCustomer] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);

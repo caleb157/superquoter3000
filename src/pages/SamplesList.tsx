@@ -18,6 +18,7 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
 import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 type Sample = {
   id: string;
@@ -56,6 +57,7 @@ function daysToSample(s: Sample): number | null {
 }
 
 export default function SamplesList() {
+  useDocumentTitle('Samples');
   const navigate = useNavigate();
   const [samples, setSamples] = useState<Sample[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
