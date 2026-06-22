@@ -338,6 +338,7 @@ const Products = () => {
                           />
                         </TableCell>
                       </TableRow>
+                      </RowContextMenu>
                     );
                   })}
                   {filtered.length === 0 && (
