@@ -22,6 +22,7 @@ import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { useArrowKeyRowNav, useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import {
@@ -364,8 +365,8 @@ const Dashboard = () => {
                 const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
                 const noProducts = !prods || prods.length === 0;
                 return (
+                  <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
                   <Card
-                    key={inq.id}
                     data-row-nav
                     tabIndex={0}
                     role="link"
@@ -420,6 +421,7 @@ const Dashboard = () => {
                       </div>
                     </CardContent>
                   </Card>
+                  </RowContextMenu>
                 );
               })
             )}
@@ -466,8 +468,8 @@ const Dashboard = () => {
                       const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
 
                       return (
+                        <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
                         <TableRow
-                          key={inq.id}
                           data-row-nav
                           tabIndex={0}
                           role="link"
@@ -560,6 +562,7 @@ const Dashboard = () => {
                             </div>
                           </TableCell>
                         </TableRow>
+                        </RowContextMenu>
                       );
                     })}
                   </TableBody>

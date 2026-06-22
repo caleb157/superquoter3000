@@ -29,6 +29,7 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { furthestStageBucket, productStageBuckets, STAGE_BUCKET_LABELS, type StageBucket } from '@/lib/pipeline-weights';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 
@@ -299,7 +300,8 @@ const Products = () => {
                     const cbm = cbmMap[p.id];
                     const review = hasReview(p.id);
                     return (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
+                      <RowContextMenu key={p.id} path={`/product/${p.id}`}>
+                      <TableRow className="cursor-pointer hover:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                         <TableCell>
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={p.photo_url || ''} />
@@ -336,6 +338,7 @@ const Products = () => {
                           />
                         </TableCell>
                       </TableRow>
+                      </RowContextMenu>
                     );
                   })}
                   {filtered.length === 0 && (
@@ -359,7 +362,8 @@ const Products = () => {
                 const review = hasReview(p.id);
                 const cb = costingBadge(p, review);
                 return (
-                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
+                  <RowContextMenu key={p.id} path={`/product/${p.id}`}>
+                  <Card className="cursor-pointer active:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                     <div className="p-3 flex gap-3">
                       <Avatar className="h-12 w-12 shrink-0">
                         <AvatarImage src={p.photo_url || ''} />
@@ -385,6 +389,7 @@ const Products = () => {
                       </div>
                     </div>
                   </Card>
+                  </RowContextMenu>
                 );
               })}
             </div>

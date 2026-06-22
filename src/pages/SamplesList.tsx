@@ -16,6 +16,7 @@ import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
 import { cn } from '@/lib/utils';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 type Sample = {
@@ -256,7 +257,7 @@ export default function SamplesList() {
                     const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
                     const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
                     const days = daysToSample(s);
-                    return (
+                    const row = (
                       <TableRow
                         key={s.id}
                         className="cursor-pointer hover:bg-muted/30"
@@ -282,6 +283,9 @@ export default function SamplesList() {
                         </TableCell>
                       </TableRow>
                     );
+                    return s.product_id
+                      ? <RowContextMenu key={s.id} path={`/product/${s.product_id}?tab=sample-log`}>{row}</RowContextMenu>
+                      : row;
                   })}
                 </TableBody>
               </Table>
@@ -294,7 +298,7 @@ export default function SamplesList() {
                 const inq = s.customer_rfq_id ? inquiryById[s.customer_rfq_id] : null;
                 const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
                 const days = daysToSample(s);
-                return (
+                const card = (
                   <Card
                     key={s.id}
                     className="cursor-pointer active:bg-accent/50"
@@ -324,6 +328,9 @@ export default function SamplesList() {
                     </CardContent>
                   </Card>
                 );
+                return s.product_id
+                  ? <RowContextMenu key={s.id} path={`/product/${s.product_id}?tab=sample-log`}>{card}</RowContextMenu>
+                  : card;
               })}
             </div>
           </>

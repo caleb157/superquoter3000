@@ -18,6 +18,7 @@ import { CustomersKanban } from '@/components/CustomersKanban';
 import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 
@@ -230,7 +231,8 @@ const Customers = () => {
                       const secondary = c.company && c.name && c.name !== c.company ? c.name : null;
                       const navHandlers = rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } });
                       return (
-                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" {...navHandlers}>
+                      <RowContextMenu key={c.id} path={`/customers/${c.id}`}>
+                      <TableRow className="cursor-pointer hover:bg-muted/40" {...navHandlers}>
                         <TableCell className="font-medium text-sm">
                           <span className="hover:underline">{primary}</span>
                         </TableCell>
@@ -252,6 +254,7 @@ const Customers = () => {
                         <TableCell className="text-xs text-muted-foreground">{c.source || '—'}</TableCell>
                         <TableCell className="text-xs text-right">{(inquiriesByCustomer[c.id] || []).length}</TableCell>
                       </TableRow>
+                      </RowContextMenu>
                       );
                     })}
                   </TableBody>
@@ -265,6 +268,7 @@ const Customers = () => {
                 return (
                   <Card key={c.id} className="active:bg-accent/50">
                     <CardContent className="p-3 space-y-2">
+                      <RowContextMenu path={`/customers/${c.id}`}>
                       <div className="flex items-start justify-between gap-2 cursor-pointer" {...rowNavHandlers(navigate, `/customers/${c.id}`, { from: { label: 'Customers', path: '/customers' } })}>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-sm truncate">{c.company || c.name}</div>
@@ -274,6 +278,7 @@ const Customers = () => {
                         </div>
                         <LeadStatusBadge status={c.lead_status} />
                       </div>
+                      </RowContextMenu>
                       <div className="flex items-center gap-2">
                         <Select
                           value={c.lead_status || 'lead'}
