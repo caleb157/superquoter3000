@@ -476,7 +476,7 @@ const Dashboard = () => {
                             "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
                             reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
                           )}
-                          onClick={goToInquiry}
+                          {...navHandlers}
                         >
                           <TableCell className="font-mono text-xs">
                             <div className="flex items-center gap-1.5">
