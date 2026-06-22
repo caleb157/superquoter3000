@@ -32,36 +32,55 @@ export function computeInquiryFinancials(
 
 /**
  * True when the projection's stored FOB/GPM are authoritative.
- * - po/complete: locked because the order is real
- * - projected_po: speculative future order, often has no products yet, so FOB/GPM are manual
+ * - po/complete: hard-locked because the order is real
+ * - projected_po: soft-locked — manual values are a placeholder used only until live
+ *   costing produces a non-zero number (handled in effective* helpers below).
  */
 export function projectionIsLocked(status: string | null | undefined): boolean {
   return status === 'po' || status === 'complete' || status === 'projected_po';
 }
 
-/** FOB used everywhere: stored (locked) value when PO/complete and present, else live. */
+function isHardLocked(status: string | null | undefined): boolean {
+  return status === 'po' || status === 'complete';
+}
+
+/**
+ * FOB used everywhere.
+ * - PO/complete: always the stored value when present.
+ * - projected_po: prefer the live FOB once it's > 0 (products costed); otherwise
+ *   fall back to the manual projected number entered on create.
+ * - everything else: live.
+ */
 export function effectiveFobUsd(
   projection: { projected_fob_revenue_usd: number | null } | null | undefined,
   status: string | null | undefined,
   liveFobUsd: number,
 ): number {
-  if (
-    projectionIsLocked(status) &&
-    projection?.projected_fob_revenue_usd != null
-  ) {
+  if (isHardLocked(status) && projection?.projected_fob_revenue_usd != null) {
     return Number(projection.projected_fob_revenue_usd);
+  }
+  if (status === 'projected_po') {
+    if (liveFobUsd > 0) return liveFobUsd;
+    if (projection?.projected_fob_revenue_usd != null) {
+      return Number(projection.projected_fob_revenue_usd);
+    }
   }
   return liveFobUsd;
 }
 
-/** GPM used everywhere: stored (locked) value when PO/complete and present, else live. */
+/** GPM used everywhere — same precedence as effectiveFobUsd. */
 export function effectiveGpm(
   projection: { project_gpm: number | null } | null | undefined,
   status: string | null | undefined,
   liveGpm: number,
+  liveFobUsd?: number,
 ): number {
-  if (projectionIsLocked(status) && projection?.project_gpm != null) {
+  if (isHardLocked(status) && projection?.project_gpm != null) {
     return Number(projection.project_gpm);
+  }
+  if (status === 'projected_po') {
+    if ((liveFobUsd ?? 0) > 0) return liveGpm;
+    if (projection?.project_gpm != null) return Number(projection.project_gpm);
   }
   return liveGpm;
 }

@@ -111,7 +111,7 @@ export function computeEntityCashflow(
     if (cert <= 0) continue;
 
     const fob = effectiveFobUsd(proj, inq.status, inq.liveFobUsd);
-    const gpm = effectiveGpm(proj, inq.status, inq.liveGpm);
+    const gpm = effectiveGpm(proj, inq.status, inq.liveGpm, inq.liveFobUsd);
     // Producing entity's cash basis for vendor outflow = full COGS USD.
     // Use live total cost when available; fall back to fob*(1-gpm) for locked rows.
     const totalCost = inq.liveTotalCostUsd > 0 ? inq.liveTotalCostUsd : fob * (1 - gpm);
