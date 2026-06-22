@@ -19,12 +19,14 @@ import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
+import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 
 type ProductHeader = {
   id: string;
   name: string;
   sku: string | null;
   customer_rfq_id: string | null;
+  customer_rfq?: { rfq_number: string; title: string | null } | null;
   design_stage: string | null;
   quote_stage: string | null;
   sample_stage: string | null;
