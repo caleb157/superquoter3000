@@ -359,7 +359,7 @@ const Products = () => {
                 const review = hasReview(p.id);
                 const cb = costingBadge(p, review);
                 return (
-                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                  <Card key={p.id} className="cursor-pointer active:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                     <div className="p-3 flex gap-3">
                       <Avatar className="h-12 w-12 shrink-0">
                         <AvatarImage src={p.photo_url || ''} />
