@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Shield, UserX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 type Row = {
   user_id: string;
@@ -26,6 +27,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function TeamManagement() {
+  useDocumentTitle('Team');
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);

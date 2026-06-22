@@ -1,7 +1,9 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const NotFound = () => {
+  useDocumentTitle('Not found');
   const location = useLocation();
 
   useEffect(() => {

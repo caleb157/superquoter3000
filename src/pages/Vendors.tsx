@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Users, Mail, Phone, ExternalLink, Package } from 'lucide-react';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 type Vendor = {
   id: string;
@@ -31,6 +32,7 @@ type VendorWithProducts = Vendor & {
 };
 
 export default function Vendors() {
+  useDocumentTitle('Vendors');
   const [vendors, setVendors] = useState<VendorWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

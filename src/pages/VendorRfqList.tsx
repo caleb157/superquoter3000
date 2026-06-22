@@ -13,6 +13,7 @@ import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -28,6 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const VendorRfqList = () => {
+  useDocumentTitle('Vendor RFQs');
   const navigate = useNavigate();
   const [rfqs, setRfqs] = useState<any[]>([]);
   const [lineItems, setLineItems] = useState<any[]>([]);
