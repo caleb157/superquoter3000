@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ const AssemblyDetail = () => {
   const navigate = useNavigate();
 
   const [assembly, setAssembly] = useState<any>(null);
+  useDocumentTitle(assembly?.name ? `${assembly.name} (Assembly)` : null);
   const [components, setComponents] = useState<any[]>([]);
   const [inquiryProducts, setInquiryProducts] = useState<any[]>([]);
   const [componentCostData, setComponentCostData] = useState<Record<string, any>>({});

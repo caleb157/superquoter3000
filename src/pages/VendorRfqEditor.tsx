@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'responded', 'accepted', 'rejected'];
 const STATUS_COLORS: Record<string, string> = {
@@ -33,6 +34,7 @@ const VendorRfqEditor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [rfq, setRfq] = useState<any>(null);
+  useDocumentTitle(rfq ? `Vendor RFQ ${rfq.rfq_number || ''}`.trim() : null);
   const [items, setItems] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
