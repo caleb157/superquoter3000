@@ -18,6 +18,7 @@ import { CustomersKanban } from '@/components/CustomersKanban';
 import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { rowNavHandlers } from '@/lib/row-nav';
+import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 
