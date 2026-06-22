@@ -141,7 +141,7 @@ function formatDate(iso?: string | null) {
 const CustomerQuote = () => {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<QuoteData | null>(null);
-  useDocumentTitle(data ? `Quote${data.rfq_number ? ` ${data.rfq_number}` : ''}` : 'Quote');
+  useDocumentTitle(data ? `Quote${data.snapshot?.quote_number ? ` ${data.snapshot.quote_number}` : ''}` : 'Quote');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<number, ProductSelection>>({});
