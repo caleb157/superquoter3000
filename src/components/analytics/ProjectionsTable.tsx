@@ -303,12 +303,14 @@ export function ProjectionsTable() {
   const computedRows = useMemo(() => {
     return rows.map((r) => {
       const cert = effectiveCertainty(r.projection as any, r.products, r.status);
-      const locked = projectionIsLocked(r.status);
+      const hardLocked = r.status === 'po' || r.status === 'complete';
       const fob = effectiveFobUsd(r.projection as any, r.status, r.autoFob);
-      const gpm = effectiveGpm(r.projection as any, r.status, r.autoGpm);
-      // "Live" indicator: we're showing the live computed value (not the stored one).
-      const fobIsLive = !(locked && r.projection?.projected_fob_revenue_usd != null);
-      const gpmIsLive = !(locked && r.projection?.project_gpm != null);
+      const gpm = effectiveGpm(r.projection as any, r.status, r.autoGpm, r.autoFob);
+      // projected_po follows live as soon as products produce a non-zero FOB.
+      const projPoLive = r.status === 'projected_po' && r.autoFob > 0;
+      const locked = hardLocked; // UI lock: editing affordance only — projected_po stays editable
+      const fobIsLive = !(hardLocked && r.projection?.projected_fob_revenue_usd != null) || projPoLive;
+      const gpmIsLive = !(hardLocked && r.projection?.project_gpm != null) || projPoLive;
       const expectedRev = fob * cert;
       const expectedGp = fob * gpm * cert;
       const monthCells = months.map((m) => {
