@@ -299,7 +299,7 @@ const Products = () => {
                     const cbm = cbmMap[p.id];
                     const review = hasReview(p.id);
                     return (
-                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/product/${p.id}`)}>
+                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" {...rowNavHandlers(navigate, `/product/${p.id}`, { from: { label: 'Products', path: '/products' } })}>
                         <TableCell>
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={p.photo_url || ''} />
