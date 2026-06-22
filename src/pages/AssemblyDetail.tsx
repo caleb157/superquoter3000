@@ -12,6 +12,7 @@ import { ArrowLeft, Plus, Trash2, Camera, X, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
