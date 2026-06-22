@@ -216,7 +216,8 @@ const ProductDetail = () => {
         <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
           <Button
             variant="ghost" size="icon" className="h-8 w-8 shrink-0"
-            onClick={() => navigate(product.customer_rfq_id ? `/inquiry/${product.customer_rfq_id}` : '/inquiries')}
+            onClick={goBack}
+            aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
