@@ -229,13 +229,13 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     const type = item.cogs_type;
     if (item.is_auto_calculated && type === 'Packaging') {
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-        const defaultIncluded = !noPackaging && !isWrapMode;
+        const defaultIncluded = !noPackaging && !isWrapMode && !isBulkPack;
         return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: defaultIncluded ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
           unit_cost_inr: defaultIncluded ? icCost : 0 };
       }
       if (name.includes('mc box') || name.includes('master carton') || name === 'outer carton') {
-        const useMc = !noPackaging && includeMc && productsPerMc > 0;
+        const useMc = !noPackaging && (includeMc || isBulkPack) && productsPerMc > 0;
         return { ...item, include: useMc && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: useMc ? 1 / productsPerMc : 0,
           unit_cost_inr: useMc ? mcCost : 0 };
@@ -251,6 +251,14 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
         return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
           unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
+      }
+      if (name.includes('foam') || name.includes('bulk pack')) {
+        // Bulk-pack foam: surface area per piece × foam price per sq in (from raw_material_costs).
+        const defaultIncluded = isBulkPack;
+        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
+          components_per_product: defaultIncluded ? foamSurfaceSqInPerPiece : 0,
+          unit_cost_inr: defaultIncluded ? foamPricePerSqIn : 0,
+          units: 'sq in' };
       }
     }
     if (item.include === 'No') return item;
