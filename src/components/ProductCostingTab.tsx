@@ -31,14 +31,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
-type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
 const packagingIncludeForType = (packagingType: string, componentName: string, forceAllOff = false): boolean | null => {
   const name = (componentName || '').toLowerCase();
   if (packagingType === 'no_packaging' || forceAllOff) return false;
   if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return packagingType === 'ic_only' || packagingType === 'ic_mc';
-  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc' || packagingType === 'bulk_pack';
   if (name === 'corrugate wrap' || name === 'bubble wrap') return packagingType === 'corrugate_bubble';
+  if (name.includes('foam') || name.includes('bulk pack')) return packagingType === 'bulk_pack';
   return null;
 };
 
