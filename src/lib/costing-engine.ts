@@ -107,8 +107,9 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
   const icType = cbmRow?.ic_type || '7 ply';
   const mcType = cbmRow?.mc_type || '7 ply';
-  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
+  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack' = p.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
+  const isBulkPack = packagingType === 'bulk_pack';
   const noPackaging = packagingType === 'no_packaging';
   const finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
 
