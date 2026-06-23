@@ -51,6 +51,16 @@ export type CostingEngineResult = {
   ri: number;
   prePackCbm: number;
   difficultyFactor: number;
+  bulkPack?: {
+    pieces_per_mc: number;
+    mc_width: number;
+    mc_depth: number;
+    mc_height: number;
+    mc_volume_cbm: number;
+    column_height_in: number;
+    foam_sq_in_per_piece: number;
+    warning?: string;
+  };
 };
 
 export function computeProductCosting(input: CostingEngineInput): CostingEngineResult {
