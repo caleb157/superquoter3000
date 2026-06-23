@@ -125,6 +125,14 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
       cogsToInsert.push({ product_id: productId, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
     }
   }
+  if (pkgType === 'bulk_pack') {
+    if (!hasCogs((n) => n.includes('foam') || n.includes('bulk pack'))) {
+      cogsToInsert.push({
+        product_id: productId, cogs_type: 'Packaging', component_name: 'Bulk Foam',
+        units: 'sq in', is_auto_calculated: true, include: 'Yes', sort_order: s++,
+      });
+    }
+  }
 
   // External-sourcing freight
   if (product.source_location_id && !hasCogs((n) => n.includes('domestic freight'))) {
