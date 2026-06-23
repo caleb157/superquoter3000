@@ -282,6 +282,67 @@ export function calcCorrugateBubblePackaging(
   };
 }
 
+// ============================================================
+// Bulk Pack packaging (single vertical stack, user-set count)
+// ============================================================
+
+export const FOAM_THICKNESS_IN = 0.0787; // 2 mm per side
+
+/**
+ * Bulk pack: a single vertical stack of `pieces_per_box` foam-wrapped pieces.
+ * The MC box size is DERIVED from the user's chosen count and shrink factor —
+ * it is NOT maximized against mc_max_*.
+ *
+ *   column height = H * (1 + (pieces - 1) * shrink)
+ *
+ * where H already includes 2 mm foam on top and bottom of each piece.
+ */
+export function calcBulkPacking(config: {
+  piece_width: number;
+  piece_depth: number;
+  piece_height: number;
+  pieces_per_box: number;
+  shrink_factor: number;
+  mc_buffer_inch: number;
+  mc_height_buffer_inch?: number;
+}): {
+  pieces_per_mc: number;
+  mc_width: number;
+  mc_depth: number;
+  mc_height: number;
+  mc_volume_cbm: number;
+  column_height_in: number;
+} {
+  const n = Math.max(1, Math.floor(config.pieces_per_box || 1));
+  const shrink = Math.min(1, Math.max(0, config.shrink_factor ?? 1));
+  const wd_buffer = config.mc_buffer_inch ?? 0;
+  const h_buffer = config.mc_height_buffer_inch ?? wd_buffer;
+
+  if (config.piece_width <= 0 || config.piece_depth <= 0 || config.piece_height <= 0) {
+    return { pieces_per_mc: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0, column_height_in: 0 };
+  }
+
+  // Foam adds to each piece footprint (both sides) and to its height contribution.
+  const W = config.piece_width + 2 * FOAM_THICKNESS_IN;
+  const D = config.piece_depth + 2 * FOAM_THICKNESS_IN;
+  const H = config.piece_height + 2 * FOAM_THICKNESS_IN;
+
+  const column_height_in = H * (1 + (n - 1) * shrink);
+  const mc_width = W + wd_buffer;
+  const mc_depth = D + wd_buffer;
+  const mc_height = column_height_in + h_buffer;
+  const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
+
+  return {
+    pieces_per_mc: n,
+    mc_width,
+    mc_depth,
+    mc_height,
+    mc_volume_cbm,
+    column_height_in,
+  };
+}
+
 export function calcFinalUnitCbm(
   includeMc: boolean,
   icVolumeCbm: number,

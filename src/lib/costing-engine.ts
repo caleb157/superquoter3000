@@ -26,6 +26,7 @@ export type CostingEngineInput = {
   inquiryOverrides: any | null; // RAW customer_rfqs row (un-merged)
   locations: any[];             // local_transport_locations
   difficulties: any[];          // finishing_difficulty
+  rawMaterialCosts?: any[];     // for bulk_pack foam lookup
 };
 
 export type CostingEngineResult = {
@@ -50,6 +51,16 @@ export type CostingEngineResult = {
   ri: number;
   prePackCbm: number;
   difficultyFactor: number;
+  bulkPack?: {
+    pieces_per_mc: number;
+    mc_width: number;
+    mc_depth: number;
+    mc_height: number;
+    mc_volume_cbm: number;
+    column_height_in: number;
+    foam_sq_in_per_piece: number;
+    warning?: string;
+  };
 };
 
 export function computeProductCosting(input: CostingEngineInput): CostingEngineResult {
@@ -96,10 +107,11 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
   const icType = cbmRow?.ic_type || '7 ply';
   const mcType = cbmRow?.mc_type || '7 ply';
-  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' = p.packaging_type || 'ic_mc';
+  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack' = p.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
+  const isBulkPack = packagingType === 'bulk_pack';
   const noPackaging = packagingType === 'no_packaging';
-  const finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
+  let finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
 
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   const icDims = {
@@ -158,19 +170,72 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     bubble_price_per_kg: (gs as any)?.bubble_price_per_kg ?? 0,
   });
 
+  // Bulk pack: derive box size from user's chosen pieces-per-box & shrink factor.
+  let bulkPackInfo: CostingEngineResult['bulkPack'] = undefined;
+  const foamSurfaceSqInPerPiece = calc.surfaceAreaSqIn(w, d, h);
+  const rawMatList = (input as any).rawMaterialCosts || [];
+  const foamRow = (rawMatList as any[]).find((r: any) =>
+    r?.active !== false && /foam/i.test(String(r?.name || ''))
+  );
+  const foamPricePerSqIn = Number(foamRow?.cost) || 0;
+  if (isBulkPack) {
+    const bulkRes = calc.calcBulkPacking({
+      piece_width: w,
+      piece_depth: d,
+      piece_height: h,
+      pieces_per_box: p.bulk_pieces_per_box || 1,
+      shrink_factor: p.bulk_shrink_factor ?? 1,
+      mc_buffer_inch: cbmRow?.mc_buffer_inch || 1,
+      mc_height_buffer_inch: cbmRow?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5,
+    });
+    const mcBoxes2 = (boxData as any[]).filter((b: any) => b.box_type === mcType && b.cost_per_sq_in > 0);
+    const avgMcCostPerSqIn2 = mcBoxes2.length > 0
+      ? mcBoxes2.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / mcBoxes2.length
+      : 0;
+    mcCost = calc.calcICCostEstimate(bulkRes.mc_width, bulkRes.mc_depth, bulkRes.mc_height, avgMcCostPerSqIn2);
+    productsPerMc = bulkRes.pieces_per_mc || 1;
+    mcDims = { mc_width: bulkRes.mc_width, mc_depth: bulkRes.mc_depth, mc_height: bulkRes.mc_height };
+    finalUnitCbm = productsPerMc > 0 ? bulkRes.mc_volume_cbm / productsPerMc : 0;
+
+    // Optional non-blocking warning when the user-chosen count exceeds MC max size or weight
+    const maxW = cbmRow?.mc_max_width || 0;
+    const maxD = cbmRow?.mc_max_depth || 0;
+    const maxH = cbmRow?.mc_max_height || 0;
+    const weightLimit = cbmRow?.mc_weight_limit_kg || 0;
+    const mcEmpty = cbmRow?.mc_empty_weight_kg || 0;
+    const stackWeight = productsPerMc * (p.weight_kg || 0) + mcEmpty;
+    const exceedsSize =
+      (maxW > 0 && bulkRes.mc_width > maxW) ||
+      (maxD > 0 && bulkRes.mc_depth > maxD) ||
+      (maxH > 0 && bulkRes.mc_height > maxH);
+    const exceedsWeight = weightLimit > 0 && stackWeight > weightLimit;
+    bulkPackInfo = {
+      pieces_per_mc: bulkRes.pieces_per_mc,
+      mc_width: bulkRes.mc_width,
+      mc_depth: bulkRes.mc_depth,
+      mc_height: bulkRes.mc_height,
+      mc_volume_cbm: bulkRes.mc_volume_cbm,
+      column_height_in: bulkRes.column_height_in,
+      foam_sq_in_per_piece: foamSurfaceSqInPerPiece,
+      warning: exceedsSize || exceedsWeight
+        ? 'This box exceeds your MC max size/weight — adjust pieces per box if needed.'
+        : undefined,
+    };
+  }
+
   // Apply in-memory overrides for auto-calc COGS rows
   const cogsForCalc = productCogs.map((item: any) => {
     const name = (item.component_name || '').toLowerCase();
     const type = item.cogs_type;
     if (item.is_auto_calculated && type === 'Packaging') {
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-        const defaultIncluded = !noPackaging && !isWrapMode;
+        const defaultIncluded = !noPackaging && !isWrapMode && !isBulkPack;
         return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: defaultIncluded ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
           unit_cost_inr: defaultIncluded ? icCost : 0 };
       }
       if (name.includes('mc box') || name.includes('master carton') || name === 'outer carton') {
-        const useMc = !noPackaging && includeMc && productsPerMc > 0;
+        const useMc = !noPackaging && (includeMc || isBulkPack) && productsPerMc > 0;
         return { ...item, include: useMc && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: useMc ? 1 / productsPerMc : 0,
           unit_cost_inr: useMc ? mcCost : 0 };
@@ -186,6 +251,14 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
         return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
           unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
+      }
+      if (name.includes('foam') || name.includes('bulk pack')) {
+        // Bulk-pack foam: surface area per piece × foam price per sq in (from raw_material_costs).
+        const defaultIncluded = isBulkPack;
+        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
+          components_per_product: defaultIncluded ? foamSurfaceSqInPerPiece : 0,
+          unit_cost_inr: defaultIncluded ? foamPricePerSqIn : 0,
+          units: 'sq in' };
       }
     }
     if (item.include === 'No') return item;
@@ -315,5 +388,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     ri,
     prePackCbm,
     difficultyFactor,
+    bulkPack: bulkPackInfo,
   };
 }

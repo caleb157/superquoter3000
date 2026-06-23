@@ -31,14 +31,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
-type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
 const packagingIncludeForType = (packagingType: string, componentName: string, forceAllOff = false): boolean | null => {
   const name = (componentName || '').toLowerCase();
   if (packagingType === 'no_packaging' || forceAllOff) return false;
   if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return packagingType === 'ic_only' || packagingType === 'ic_mc';
-  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return packagingType === 'ic_mc' || packagingType === 'bulk_pack';
   if (name === 'corrugate wrap' || name === 'bubble wrap') return packagingType === 'corrugate_bubble';
+  if (name.includes('foam') || name.includes('bulk pack')) return packagingType === 'bulk_pack';
   return null;
 };
 
@@ -97,6 +98,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
+  const [rawMaterialCosts, setRawMaterialCosts] = useState<any[]>([]);
   const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor: number }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string; cost_per_cbm_inr: number }>>([]);
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
@@ -234,7 +236,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes, rawRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -250,6 +252,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('hardware_prices').select('*').order('name'),
         (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
         (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr, active, sort_order').eq('active', true).order('sort_order'),
+        (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
@@ -317,6 +320,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
+      if ((rawRes as any).data) setRawMaterialCosts((rawRes as any).data);
       if (diffRes.error) {
         const msg = `Could not load finishing difficulty options: ${diffRes.error.message}`;
         setDifficultiesError(msg);
@@ -898,8 +902,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       inquiryOverrides,
       locations,
       difficulties,
+      rawMaterialCosts,
     });
-  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties]);
+  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties, rawMaterialCosts]);
 
   // Direct overhead breakdown for display (per-row hourly rate × MH × qty).
   // Kept inline because the per-row breakdown is shown in the Overhead section UI;
@@ -1178,7 +1183,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <label className="text-[10px] text-muted-foreground">Packaging Type</label>
                 <Select
                   value={packagingType}
-                  onValueChange={(v) => {
+                  onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
                     updateProduct('packaging_type', v);
                     const nextIncludeMc = v === 'ic_mc';
@@ -1205,6 +1210,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
                       }
                     }
+                    if (v === 'bulk_pack') {
+                      // Ensure a Bulk Foam auto-calc row exists
+                      const hasFoam = cogsItems.some(i => i.cogs_type === 'Packaging' && /foam|bulk pack/i.test(i.component_name || ''));
+                      if (!hasFoam) {
+                        const { data: newRow } = await (supabase as any).from('cogs_items').insert({
+                          product_id: id, cogs_type: 'Packaging', component_name: 'Bulk Foam',
+                          is_auto_calculated: true, waste_factor: 0, include: 'Yes', units: 'sq in', sort_order: 99,
+                        }).select().single();
+                        if (newRow) setCogsItems(items => [...items, newRow]);
+                      }
+                    }
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -1212,6 +1228,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <SelectItem value="ic_only">IC only</SelectItem>
                     <SelectItem value="ic_mc">IC + MC</SelectItem>
                     <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                    <SelectItem value="bulk_pack">Bulk Pack (single stack)</SelectItem>
                     <SelectItem value="no_packaging">No packaging</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1369,6 +1386,74 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground">Box-data lookups are skipped in this mode. Wrap quantities flow into COGS as auto-calculated rows.</p>
+                </>
+              ) : packagingType === 'bulk_pack' ? (
+                <>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC Type</label>
+                      <Select value={mcType} onValueChange={v => updateCbm('mc_type', v)}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {uniqueBoxTypes.map(bt => <SelectItem key={bt} value={bt}>{bt}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Pieces per box</label>
+                      <Input className="h-7 text-xs" type="number" min={1} step={1}
+                        defaultValue={product.bulk_pieces_per_box ?? 1}
+                        onBlur={e => updateProduct('bulk_pieces_per_box', Math.max(1, parseInt(e.target.value) || 1))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground" title="% of height each ADDITIONAL piece adds. 100% = no nesting; 25% = each extra piece adds a quarter of its height.">Shrink %</label>
+                      <Input className="h-7 text-xs" type="number" min={0} max={100} step={1}
+                        defaultValue={Math.round(((product.bulk_shrink_factor ?? 1) * 100))}
+                        onBlur={e => updateProduct('bulk_shrink_factor', Math.min(1, Math.max(0, Number(e.target.value) / 100)))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC W/D Buffer (in)</label>
+                      <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_buffer_inch ?? 1} onBlur={e => updateCbm('mc_buffer_inch', Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC H Buffer (in)</label>
+                      <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5} onBlur={e => updateCbm('mc_height_buffer_inch', Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Foam</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">2 mm/piece</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Column Height (in)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{(engine?.bulkPack?.column_height_in ?? 0).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC Inner</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.dim(engine?.bulkPack?.mc_width ?? 0, engine?.bulkPack?.mc_depth ?? 0, engine?.bulkPack?.mc_height ?? 0)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.cbm(engine?.bulkPack?.mc_volume_cbm ?? 0)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Per-unit CBM</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">{fmt.cbm(finalUnitCbm)}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Pieces/MC</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{engine?.bulkPack?.pieces_per_mc ?? 0}</span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">MC Cost</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">{fmt.inr(mcCost)}</span>
+                    </div>
+                  </div>
+                  {engine?.bulkPack?.warning && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15 px-2 py-1 rounded">⚠ {engine.bulkPack.warning}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">Single vertical stack. Box size is derived from your chosen pieces/box and shrink %. Foam (2 mm) is priced from raw_material_costs by name "Foam".</p>
                 </>
               ) : (
               <>
