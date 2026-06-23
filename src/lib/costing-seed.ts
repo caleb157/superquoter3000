@@ -271,10 +271,11 @@ export type SharedRefData = {
   productTypes: any[];
   locations: any[];
   difficulties: any[];
+  rawMaterialCosts: any[];
 };
 
 async function loadSharedRefs(): Promise<SharedRefData> {
-  const [bd, cp, st, emp, gs, pt, loc, diff] = await Promise.all([
+  const [bd, cp, st, emp, gs, pt, loc, diff, raw] = await Promise.all([
     supabase.from('box_data').select('*').limit(100000),
     supabase.from('chemical_prices').select('*').limit(100000),
     supabase.from('shipping_types').select('*').limit(100000),
@@ -283,6 +284,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
     supabase.from('product_types').select('*').limit(100000),
     (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr').limit(100000),
     (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
+    (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
   ]);
   return {
     boxData: (bd.data || []) as any[],
@@ -293,6 +295,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
     productTypes: (pt.data || []) as any[],
     locations: ((loc as any).data || []) as any[],
     difficulties: ((diff as any).data || []) as any[],
+    rawMaterialCosts: ((raw as any).data || []) as any[],
   };
 }
 
