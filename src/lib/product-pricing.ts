@@ -109,6 +109,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       inquiryOverrides: inq,
       locations,
       difficulties,
+      rawMaterialCosts,
     });
 
     const { summary, exchangeRate, cogsPerUnit, nonUnitCogsPerUnit } = result;
