@@ -111,7 +111,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const includeMc = packagingType === 'ic_mc';
   const isBulkPack = packagingType === 'bulk_pack';
   const noPackaging = packagingType === 'no_packaging';
-  const finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
+  let finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
 
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   const icDims = {
