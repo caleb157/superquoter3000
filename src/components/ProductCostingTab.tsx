@@ -902,8 +902,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       inquiryOverrides,
       locations,
       difficulties,
+      rawMaterialCosts,
     });
-  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties]);
+  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties, rawMaterialCosts]);
 
   // Direct overhead breakdown for display (per-row hourly rate × MH × qty).
   // Kept inline because the per-row breakdown is shown in the Overhead section UI;
