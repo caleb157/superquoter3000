@@ -170,6 +170,59 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     bubble_price_per_kg: (gs as any)?.bubble_price_per_kg ?? 0,
   });
 
+  // Bulk pack: derive box size from user's chosen pieces-per-box & shrink factor.
+  let bulkPackInfo: CostingEngineResult['bulkPack'] = undefined;
+  const foamSurfaceSqInPerPiece = calc.surfaceAreaSqIn(w, d, h);
+  const rawMatList = (input as any).rawMaterialCosts || [];
+  const foamRow = (rawMatList as any[]).find((r: any) =>
+    r?.active !== false && /foam/i.test(String(r?.name || ''))
+  );
+  const foamPricePerSqIn = Number(foamRow?.cost) || 0;
+  if (isBulkPack) {
+    const bulkRes = calc.calcBulkPacking({
+      piece_width: w,
+      piece_depth: d,
+      piece_height: h,
+      pieces_per_box: p.bulk_pieces_per_box || 1,
+      shrink_factor: p.bulk_shrink_factor ?? 1,
+      mc_buffer_inch: cbmRow?.mc_buffer_inch || 1,
+      mc_height_buffer_inch: cbmRow?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5,
+    });
+    const mcBoxes2 = (boxData as any[]).filter((b: any) => b.box_type === mcType && b.cost_per_sq_in > 0);
+    const avgMcCostPerSqIn2 = mcBoxes2.length > 0
+      ? mcBoxes2.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / mcBoxes2.length
+      : 0;
+    mcCost = calc.calcICCostEstimate(bulkRes.mc_width, bulkRes.mc_depth, bulkRes.mc_height, avgMcCostPerSqIn2);
+    productsPerMc = bulkRes.pieces_per_mc || 1;
+    mcDims = { mc_width: bulkRes.mc_width, mc_depth: bulkRes.mc_depth, mc_height: bulkRes.mc_height };
+    finalUnitCbm = productsPerMc > 0 ? bulkRes.mc_volume_cbm / productsPerMc : 0;
+
+    // Optional non-blocking warning when the user-chosen count exceeds MC max size or weight
+    const maxW = cbmRow?.mc_max_width || 0;
+    const maxD = cbmRow?.mc_max_depth || 0;
+    const maxH = cbmRow?.mc_max_height || 0;
+    const weightLimit = cbmRow?.mc_weight_limit_kg || 0;
+    const mcEmpty = cbmRow?.mc_empty_weight_kg || 0;
+    const stackWeight = productsPerMc * (p.weight_kg || 0) + mcEmpty;
+    const exceedsSize =
+      (maxW > 0 && bulkRes.mc_width > maxW) ||
+      (maxD > 0 && bulkRes.mc_depth > maxD) ||
+      (maxH > 0 && bulkRes.mc_height > maxH);
+    const exceedsWeight = weightLimit > 0 && stackWeight > weightLimit;
+    bulkPackInfo = {
+      pieces_per_mc: bulkRes.pieces_per_mc,
+      mc_width: bulkRes.mc_width,
+      mc_depth: bulkRes.mc_depth,
+      mc_height: bulkRes.mc_height,
+      mc_volume_cbm: bulkRes.mc_volume_cbm,
+      column_height_in: bulkRes.column_height_in,
+      foam_sq_in_per_piece: foamSurfaceSqInPerPiece,
+      warning: exceedsSize || exceedsWeight
+        ? 'This box exceeds your MC max size/weight — adjust pieces per box if needed.'
+        : undefined,
+    };
+  }
+
   // Apply in-memory overrides for auto-calc COGS rows
   const cogsForCalc = productCogs.map((item: any) => {
     const name = (item.component_name || '').toLowerCase();
