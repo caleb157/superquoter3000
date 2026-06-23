@@ -4,14 +4,15 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 
-type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
 const packagingIncludeForType = (pkg: string, componentName: string): boolean => {
   const name = (componentName || '').toLowerCase();
   if (pkg === 'no_packaging') return false;
   if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
-  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return pkg === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
   if (name === 'corrugate wrap' || name === 'bubble wrap') return pkg === 'corrugate_bubble';
+  if (name.includes('foam') || name.includes('bulk pack')) return pkg === 'bulk_pack';
   return false;
 };
 
