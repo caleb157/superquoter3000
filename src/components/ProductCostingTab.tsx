@@ -98,6 +98,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [boxData, setBoxData] = useState<any[]>([]);
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
+  const [rawMaterialCosts, setRawMaterialCosts] = useState<any[]>([]);
   const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor: number }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string; cost_per_cbm_inr: number }>>([]);
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
