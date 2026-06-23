@@ -236,7 +236,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes] = await Promise.all([
+      const [prodRes, typesRes, cbmRes, cogsRes, nucRes, ohRes, shipRes, stRes, empRes, gsRes, bdRes, chemRes, hwPricesRes, diffRes, locRes, rawRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('id', id).single(),
         (supabase as any).from('product_types').select('*').order('name'),
         (supabase as any).from('cbm_estimates').select('*').eq('product_id', id).single(),
@@ -252,6 +252,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('hardware_prices').select('*').order('name'),
         (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
         (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr, active, sort_order').eq('active', true).order('sort_order'),
+        (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
       ]);
       if (prodRes.data) setProduct(prodRes.data);
       if (typesRes.data) setProductTypes(typesRes.data);
