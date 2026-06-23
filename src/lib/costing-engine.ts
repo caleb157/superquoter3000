@@ -388,5 +388,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     ri,
     prePackCbm,
     difficultyFactor,
+    bulkPack: bulkPackInfo,
   };
 }
