@@ -344,6 +344,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
     inquiryOverrides,
     locations: refs.locations,
     difficulties: refs.difficulties,
+    rawMaterialCosts: refs.rawMaterialCosts,
   });
 
   await persistResolvedCosting(
