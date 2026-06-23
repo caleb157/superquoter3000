@@ -700,7 +700,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (!item.is_auto_calculated) return;
       const name = (item.component_name || '').toLowerCase();
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-        const defaultIncluded = !isNoPackaging && !isWrapMode;
+        const defaultIncluded = !isNoPackaging && !isWrapMode && !isBulkPack;
         updates.push({
           id: item.id,
           components_per_product: defaultIncluded && productsPerIc > 0 ? 1 / productsPerIc : 0,
@@ -709,7 +709,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           waste_factor: 0.05,
         });
       } else if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) {
-        const ppmc = mcResult.products_per_mc || 1;
+        const ppmc = isBulkPack
+          ? (bulkPackLocal?.pieces_per_mc || 1)
+          : (mcResult.products_per_mc || 1);
         const useMc = !isNoPackaging && !isWrapMode && !isIcOnly && ppmc > 0;
         updates.push({
           id: item.id,
@@ -737,6 +739,16 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           include: preserveManualNo(item, defaultIncluded),
           waste_factor: 0,
           units: 'KG',
+        });
+      } else if (name.includes('foam') || name.includes('bulk pack')) {
+        const defaultIncluded = isBulkPack;
+        updates.push({
+          id: item.id,
+          components_per_product: defaultIncluded ? bulkFoamSqInPerPiece : 0,
+          unit_cost_inr: defaultIncluded ? bulkFoamPricePerSqIn : 0,
+          include: preserveManualNo(item, defaultIncluded),
+          waste_factor: 0,
+          units: 'sq in',
         });
       }
     });
