@@ -320,6 +320,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);
       if (hwPricesRes.data) setHardwarePrices(hwPricesRes.data);
+      if ((rawRes as any).data) setRawMaterialCosts((rawRes as any).data);
       if (diffRes.error) {
         const msg = `Could not load finishing difficulty options: ${diffRes.error.message}`;
         setDifficultiesError(msg);
