@@ -47,6 +47,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     boxRes,
     diffRes,
     locRes,
+    rawRes,
   ] = await Promise.all([
     supabase.from('products').select('*').in('id', productIds).limit(100000),
     supabase.from('cogs_items').select('*').in('product_id', productIds).limit(100000),
@@ -63,6 +64,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     supabase.from('box_data').select('*').limit(100000),
     (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
     (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr').limit(100000),
+    (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
   ]);
 
   const products = productsRes.data || [];
