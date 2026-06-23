@@ -1438,6 +1438,8 @@ export type Database = {
       }
       products: {
         Row: {
+          bulk_pieces_per_box: number
+          bulk_shrink_factor: number
           calculated_unit_cost_usd: number | null
           calculated_unit_price_usd: number | null
           cbm_done: boolean | null
@@ -1478,6 +1480,8 @@ export type Database = {
           width_inch: number | null
         }
         Insert: {
+          bulk_pieces_per_box?: number
+          bulk_shrink_factor?: number
           calculated_unit_cost_usd?: number | null
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
@@ -1518,6 +1522,8 @@ export type Database = {
           width_inch?: number | null
         }
         Update: {
+          bulk_pieces_per_box?: number
+          bulk_shrink_factor?: number
           calculated_unit_cost_usd?: number | null
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
