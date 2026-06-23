@@ -4,14 +4,15 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 
-type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble';
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
 const packagingIncludeForType = (pkg: string, componentName: string): boolean => {
   const name = (componentName || '').toLowerCase();
   if (pkg === 'no_packaging') return false;
   if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
-  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return pkg === 'ic_mc';
+  if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
   if (name === 'corrugate wrap' || name === 'bubble wrap') return pkg === 'corrugate_bubble';
+  if (name.includes('foam') || name.includes('bulk pack')) return pkg === 'bulk_pack';
   return false;
 };
 
@@ -122,6 +123,14 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
     }
     if (!hasCogs((n) => n === 'bubble wrap')) {
       cogsToInsert.push({ product_id: productId, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+    }
+  }
+  if (pkgType === 'bulk_pack') {
+    if (!hasCogs((n) => n.includes('foam') || n.includes('bulk pack'))) {
+      cogsToInsert.push({
+        product_id: productId, cogs_type: 'Packaging', component_name: 'Bulk Foam',
+        units: 'sq in', is_auto_calculated: true, include: 'Yes', sort_order: s++,
+      });
     }
   }
 
@@ -262,10 +271,11 @@ export type SharedRefData = {
   productTypes: any[];
   locations: any[];
   difficulties: any[];
+  rawMaterialCosts: any[];
 };
 
 async function loadSharedRefs(): Promise<SharedRefData> {
-  const [bd, cp, st, emp, gs, pt, loc, diff] = await Promise.all([
+  const [bd, cp, st, emp, gs, pt, loc, diff, raw] = await Promise.all([
     supabase.from('box_data').select('*').limit(100000),
     supabase.from('chemical_prices').select('*').limit(100000),
     supabase.from('shipping_types').select('*').limit(100000),
@@ -274,6 +284,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
     supabase.from('product_types').select('*').limit(100000),
     (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr').limit(100000),
     (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
+    (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
   ]);
   return {
     boxData: (bd.data || []) as any[],
@@ -284,6 +295,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
     productTypes: (pt.data || []) as any[],
     locations: ((loc as any).data || []) as any[],
     difficulties: ((diff as any).data || []) as any[],
+    rawMaterialCosts: ((raw as any).data || []) as any[],
   };
 }
 
@@ -332,6 +344,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
     inquiryOverrides,
     locations: refs.locations,
     difficulties: refs.difficulties,
+    rawMaterialCosts: refs.rawMaterialCosts,
   });
 
   await persistResolvedCosting(

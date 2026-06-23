@@ -322,6 +322,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
             <SelectItem value="ic_only">IC only</SelectItem>
             <SelectItem value="ic_mc">IC + MC</SelectItem>
             <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+            <SelectItem value="bulk_pack">Bulk Pack (single stack)</SelectItem>
             <SelectItem value="no_packaging">No packaging</SelectItem>
           </SelectContent>
         </Select>
