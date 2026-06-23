@@ -26,6 +26,7 @@ export type CostingEngineInput = {
   inquiryOverrides: any | null; // RAW customer_rfqs row (un-merged)
   locations: any[];             // local_transport_locations
   difficulties: any[];          // finishing_difficulty
+  rawMaterialCosts?: any[];     // for bulk_pack foam lookup
 };
 
 export type CostingEngineResult = {
