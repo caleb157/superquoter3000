@@ -1183,7 +1183,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <label className="text-[10px] text-muted-foreground">Packaging Type</label>
                 <Select
                   value={packagingType}
-                  onValueChange={(v) => {
+                  onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
                     updateProduct('packaging_type', v);
                     const nextIncludeMc = v === 'ic_mc';
@@ -1210,6 +1210,17 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
                       }
                     }
+                    if (v === 'bulk_pack') {
+                      // Ensure a Bulk Foam auto-calc row exists
+                      const hasFoam = cogsItems.some(i => i.cogs_type === 'Packaging' && /foam|bulk pack/i.test(i.component_name || ''));
+                      if (!hasFoam) {
+                        const { data: newRow } = await (supabase as any).from('cogs_items').insert({
+                          product_id: id, cogs_type: 'Packaging', component_name: 'Bulk Foam',
+                          is_auto_calculated: true, waste_factor: 0, include: 'Yes', units: 'sq in', sort_order: 99,
+                        }).select().single();
+                        if (newRow) setCogsItems(items => [...items, newRow]);
+                      }
+                    }
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -1217,6 +1228,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <SelectItem value="ic_only">IC only</SelectItem>
                     <SelectItem value="ic_mc">IC + MC</SelectItem>
                     <SelectItem value="corrugate_bubble">Corrugate + Bubble Wrap</SelectItem>
+                    <SelectItem value="bulk_pack">Bulk Pack (single stack)</SelectItem>
                     <SelectItem value="no_packaging">No packaging</SelectItem>
                   </SelectContent>
                 </Select>
