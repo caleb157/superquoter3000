@@ -462,7 +462,25 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const avgMcCostPerSqIn = mcBoxes.length > 0
     ? mcBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / mcBoxes.length
     : 0;
-  const mcCost = calc.calcICCostEstimate(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, avgMcCostPerSqIn);
+  let mcCost = calc.calcICCostEstimate(mcResult.mc_width, mcResult.mc_depth, mcResult.mc_height, avgMcCostPerSqIn);
+
+  // Bulk pack: derive MC from pieces/box & shrink so the cost surfaces in COGS
+  const isBulkPack = packagingType === 'bulk_pack';
+  const bulkPackLocal = isBulkPack ? calc.calcBulkPacking({
+    piece_width: w,
+    piece_depth: d,
+    piece_height: h,
+    pieces_per_box: product?.bulk_pieces_per_box || 1,
+    shrink_factor: product?.bulk_shrink_factor ?? 1,
+    mc_buffer_inch: cbm?.mc_buffer_inch || 1,
+    mc_height_buffer_inch: cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5,
+  }) : null;
+  if (bulkPackLocal) {
+    mcCost = calc.calcICCostEstimate(bulkPackLocal.mc_width, bulkPackLocal.mc_depth, bulkPackLocal.mc_height, avgMcCostPerSqIn);
+  }
+  const bulkFoamRow = (rawMaterialCosts as any[]).find((r: any) => r?.active !== false && /foam/i.test(String(r?.name || '')));
+  const bulkFoamPricePerSqIn = Number(bulkFoamRow?.cost) || 0;
+  const bulkFoamSqInPerPiece = isBulkPack ? calc.surfaceAreaSqIn(w, d, h) : 0;
 
   // Corrugate + Bubble Wrap packaging (alternative to IC/MC)
   const wrappingResult = useMemo(() => calc.calcCorrugateBubblePackaging(
