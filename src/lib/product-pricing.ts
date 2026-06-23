@@ -83,6 +83,7 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   const boxData = boxRes.data || [];
   const difficulties: any[] = (diffRes as any).data || [];
   const locations: any[] = (locRes as any).data || [];
+  const rawMaterialCosts: any[] = (rawRes as any).data || [];
   _difficultiesCache = difficulties as any;
   _locationsCache = locations as any;
 
