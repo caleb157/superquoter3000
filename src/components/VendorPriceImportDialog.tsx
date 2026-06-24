@@ -75,7 +75,7 @@ function findHeaderRow(aoa: any[][]): number {
 }
 
 export function VendorPriceImportDialog({
-  open, onOpenChange, products, productRawRows, defaultSlot = 0, visibleRawSlots, onImported,
+  open, onOpenChange, products, productRawRows, defaultSlot = 0, visibleRawSlots, defaultQtyPerSku = 1, onImported,
 }: Props) {
   const [vendor, setVendor] = useState('');
   const [slot, setSlot] = useState<number>(defaultSlot);
