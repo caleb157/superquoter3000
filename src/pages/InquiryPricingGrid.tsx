@@ -497,12 +497,14 @@ export default function InquiryPricingGrid() {
               vendor_name: r.vendor_name,
               include: r.include,
               sort_order: r.sort_order,
+              components_per_product: r.components_per_product,
             })));
           }
           return m;
         })()}
         visibleRawSlots={visibleRawSlots}
         defaultSlot={0}
+        defaultQtyPerSku={defaultQtyPerSku}
         onImported={() => void refetch()}
       />
     </AppLayout>
