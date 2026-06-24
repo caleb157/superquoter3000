@@ -166,16 +166,12 @@ function GeneralSettings() {
 
   const fields = [
     { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number' },
-    { key: 'total_available_mh_per_month', label: 'Total Available MH/Month', type: 'number', hint: 'Total man-hours available per month. Used as the divisor for indirect overhead per MH.' },
-    { key: 'indirect_overhead_monthly', label: 'Indirect Overhead Monthly (₹)', type: 'number' },
+    { key: 'indirect_overhead_per_mh', label: 'Indirect OH / Man-Hour (₹)', type: 'number', hint: 'Indirect overhead allocated to each direct man-hour of work.' },
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
     { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
     { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },
     { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
-
-  const totalMh = Number(settings.total_available_mh_per_month) || 0;
-  const indirectOhPerMh = totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
 
   return (
     <div className="space-y-4 max-w-lg">
@@ -207,11 +203,6 @@ function GeneralSettings() {
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      <div className="flex items-center gap-3 pt-2 border-t">
-        <label className="text-xs font-medium w-52 shrink-0">Indirect OH / Man-Hour (₹)</label>
-        <span className="calc-field px-2 py-1 rounded text-sm">{fmt.inr(indirectOhPerMh)}</span>
       </div>
     </div>
   );

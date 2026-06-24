@@ -513,7 +513,7 @@ export type Database = {
           drive_url: string | null
           exchange_rate_override: number | null
           id: string
-          indirect_overhead_monthly_override: number | null
+          indirect_overhead_per_mh_override: number | null
           local_transport_cost_per_cbm_override: number | null
           markup_percent_override: number | null
           notes: string | null
@@ -535,7 +535,6 @@ export type Database = {
           status: string
           target_completion_date: string | null
           title: string | null
-          total_available_mh_per_month_override: number | null
           updated_at: string
         }
         Insert: {
@@ -546,7 +545,7 @@ export type Database = {
           drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
-          indirect_overhead_monthly_override?: number | null
+          indirect_overhead_per_mh_override?: number | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
@@ -568,7 +567,6 @@ export type Database = {
           status?: string
           target_completion_date?: string | null
           title?: string | null
-          total_available_mh_per_month_override?: number | null
           updated_at?: string
         }
         Update: {
@@ -579,7 +577,7 @@ export type Database = {
           drive_url?: string | null
           exchange_rate_override?: number | null
           id?: string
-          indirect_overhead_monthly_override?: number | null
+          indirect_overhead_per_mh_override?: number | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
@@ -601,7 +599,6 @@ export type Database = {
           status?: string
           target_completion_date?: string | null
           title?: string | null
-          total_available_mh_per_month_override?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -755,7 +752,7 @@ export type Database = {
           default_shipping_type: string | null
           exchange_rate: number
           id: string
-          indirect_overhead_monthly: number
+          indirect_overhead_per_mh: number
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
           packaging_cost_per_cbm: number
@@ -763,7 +760,6 @@ export type Database = {
           projections_sheet_tab_name: string | null
           slow_quote_days: number
           slow_sample_days: number
-          total_available_mh_per_month: number | null
         }
         Insert: {
           auto_transport_cost_per_cbm?: number
@@ -776,7 +772,7 @@ export type Database = {
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
-          indirect_overhead_monthly?: number
+          indirect_overhead_per_mh?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           packaging_cost_per_cbm?: number
@@ -784,7 +780,6 @@ export type Database = {
           projections_sheet_tab_name?: string | null
           slow_quote_days?: number
           slow_sample_days?: number
-          total_available_mh_per_month?: number | null
         }
         Update: {
           auto_transport_cost_per_cbm?: number
@@ -797,7 +792,7 @@ export type Database = {
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
-          indirect_overhead_monthly?: number
+          indirect_overhead_per_mh?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           packaging_cost_per_cbm?: number
@@ -805,7 +800,6 @@ export type Database = {
           projections_sheet_tab_name?: string | null
           slow_quote_days?: number
           slow_sample_days?: number
-          total_available_mh_per_month?: number | null
         }
         Relationships: []
       }

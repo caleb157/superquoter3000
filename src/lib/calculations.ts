@@ -7,8 +7,7 @@
 
 export interface GlobalSettings {
   exchange_rate: number;
-  total_available_mh_per_month?: number | null;
-  indirect_overhead_monthly: number;
+  indirect_overhead_per_mh: number;
   packaging_cost_per_cbm: number;
   default_shipping_type: string;
 }
@@ -522,9 +521,8 @@ export function calcTotalDirectManHoursPerUnit(items: OverheadItem[]): number {
 // Indirect Overhead
 // ============================================================
 
-export function calcIndirectOhPerManHour(settings: GlobalSettings & { total_available_mh_per_month?: number | null }): number {
-  const totalMh = Number(settings.total_available_mh_per_month) || 0;
-  return totalMh > 0 ? settings.indirect_overhead_monthly / totalMh : 0;
+export function calcIndirectOhPerManHour(settings: GlobalSettings & { indirect_overhead_per_mh?: number | null }): number {
+  return Number(settings?.indirect_overhead_per_mh) || 0;
 }
 
 export function calcIndirectOhPerUnit(

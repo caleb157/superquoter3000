@@ -199,8 +199,7 @@ export default function InquiryDetail() {
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
       quoting_entity_id: settingsDraft.quoting_entity_id || null,
       quoting_currency: settingsDraft.quoting_currency || null,
-      indirect_overhead_monthly_override: settingsDraft.indirect_overhead_monthly_override === '' || settingsDraft.indirect_overhead_monthly_override == null ? null : Number(settingsDraft.indirect_overhead_monthly_override),
-      total_available_mh_per_month_override: settingsDraft.total_available_mh_per_month_override === '' || settingsDraft.total_available_mh_per_month_override == null ? null : Number(settingsDraft.total_available_mh_per_month_override),
+      indirect_overhead_per_mh_override: settingsDraft.indirect_overhead_per_mh_override === '' || settingsDraft.indirect_overhead_per_mh_override == null ? null : Number(settingsDraft.indirect_overhead_per_mh_override),
       packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
       auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
       local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
@@ -570,17 +569,10 @@ export default function InquiryDetail() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Indirect overhead / month (₹)</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.indirect_overhead_monthly_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, indirect_overhead_monthly_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Total available MH / month</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.total_available_mh_per_month_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, total_available_mh_per_month_override: e.target.value })}
+                  <Label className="text-xs">Indirect overhead / man-hour (₹)</Label>
+                  <Input type="number" step="0.01" placeholder="Global default"
+                    value={settingsDraft?.indirect_overhead_per_mh_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, indirect_overhead_per_mh_override: e.target.value })}
                     className="h-9 mt-1" />
                 </div>
                 <div>
