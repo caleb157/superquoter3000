@@ -1,44 +1,48 @@
-## Fix 1 — Weighted Pipeline uses revenue, not cost
+## Problem
 
-**File:** `src/lib/pipeline-weights.ts` (`computeWeightedPipeline`)
+Rows created from the Pricing Grid land in `cogs_items` with `components_per_product = 0` (the column default). The costing engine multiplies unit_cost × components_per_product, so a vendor price entered in the grid never shows up on the costing sheet — the row is effectively muted. That defeats the purpose of the grid.
 
-Today the fallback path (products without a projection row) accumulates `qty × unit_cost × stage_weight`. Change it to `qty × unit_price × stage_weight` so every contributor is on the revenue side, identical to the Projections FOB column.
+## Fix
 
-- Replace `cost = pricing[p.id]?.unit_cost_usd` with `price = pricing[p.id]?.unit_price_usd` as the value driver.
-- Keep cost around only for the profit calc: `profit += qty × max(0, price − cost) × weight` (unchanged).
-- Skip products with `price === 0` instead of `cost === 0` (rename `skippedNoCost` → `skippedNoPrice`; update Dashboard usage if it reads that field).
-- Contributor rows: keep `cost` field for the drill-down "Unit cost" column, but `value = qty × price × weight`. Add `price` to the contributor shape so the drill-down can show both if desired (optional — current UI keeps showing cost).
+Default the qty to 1 on every Pricing Grid–created Raw Piece / Subcontracting / Hardware row, and expose a small control so the user can override that default for the whole grid before entering prices.
 
-**File:** `src/components/analytics/SalesDashboard.tsx`
-- Update the Weighted Pipeline card sublabel from `Σ qty × FOB cost × stage weight` → `Σ qty × FOB price × stage weight` (or "Σ FOB revenue × stage weight").
+### 1. Default qty = 1 on row creation
 
-**File:** `src/pages/Dashboard.tsx`
-- Verify the same helper is used and labels match; update any sublabel that still references cost.
+In `src/pages/InquiryPricingGrid.tsx`, `ensureRow()` currently inserts each new row without setting `components_per_product`. Change all three insert paths (raw, subc, hw) to include `components_per_product: defaultQtyPerSku`. This is the only persistence change — existing rows are untouched.
 
-Result: Weighted Pipeline ≈ weighted sum of the FOB column on Projections (for forward inquiries: active / projected_po / po).
+### 2. Backfill qty when a price is written into an existing 0-qty row
 
-## Fix 2 — Monthly cells show unweighted customer payments
+In `writeCell()` (price branch), after persisting `unit_cost_inr`, look up the row in state; if its `components_per_product` is `0` (or null), also patch it to `defaultQtyPerSku`. This handles two cases:
+- Rows that were auto-created by costing seed with qty 0 (so a price typed in the grid actually flows through).
+- Rows added earlier in this session before the user changed the default.
 
-**File:** `src/components/analytics/ProjectionsTable.tsx`
+Vendor-name writes do NOT touch qty.
 
-In `cashForMonth`, drop the `× certainty` factor so each cell is the raw scheduled customer payment: `FOB × pct` per milestone falling in that month, summed across deposit / final / other.
+### 3. "Default qty per SKU" input in the grid header
 
-- Remove `certainty` from the multiplication inside `cashForMonth`.
-- Keep using `projected_fob_revenue_usd` if set, else `autoFob` (already wired in `computedRows`).
-- Update the footer note from "Month cells show weighted customer payments only (revenue side)." → "Month cells show scheduled customer payments (FOB × milestone %, unweighted)."
-- TOTAL row's `perMonth` automatically reflects the new values.
+Add a small numeric input next to the existing action buttons:
 
-**File:** `supabase/functions/push-projections-to-sheets/index.ts`
-- Mirror the same unweighting in the sheet push so the Google Sheet matches the UI. Find the per-month accumulation (uses the same `cust_*_pct × FOB × certainty` pattern) and drop the certainty factor.
+```
+Default qty per SKU: [ 1 ]   (used for new rows created from this grid)
+```
+
+- State: `defaultQtyPerSku`, number, initial `1`, min `0`, step `1`.
+- Persists only in component state (no DB, no localStorage — matches the rest of this page).
+- Used by both (1) and (2) above.
+- Tooltip / helper text: "New raw-piece / subcontract / hardware rows created by typing or pasting into this grid use this quantity. Existing rows are not changed."
+
+### 4. Vendor-price import path
+
+`VendorPriceImportDialog` calls back into the same `ensureRow`/update path? Confirm during build: if the dialog inserts rows directly via Supabase rather than via `ensureRow`, mirror the same `components_per_product: defaultQtyPerSku` default there (pass the value in as a prop). If it only updates existing rows, no change needed.
 
 ## Out of scope
 
-- No schema changes.
-- No changes to `effectiveCertainty`, `projectedGrossProfit`, or the Exp GP column (those stay weighted).
-- No change to CashflowForecastCard unless its labels reference the old behavior — I'll check and only touch labels if needed.
+- Touching rows that already have a non-zero `components_per_product` (never overwrite a real qty).
+- A per-SKU qty column in the grid itself (the user offered this as an alternative; the single header input is simpler and matches "raw piece is almost always 1 per SKU"). Easy to add later if needed.
+- Changing the DB column default (other code paths legitimately create 0-qty rows).
+- Recosting on qty change alone — the existing `recostInBackground(productId)` already fires after winner selection / price changes, which is when the grid actually wants to refresh costing.
 
-## Verification
+## Files touched
 
-- Manually compare: sum of FOB column on Projections (forward statuses only, no override) vs Weighted Pipeline card — should match after weighting by certainty per row.
-- Tableware row: Jun '26 and Aug '26 cells should jump from `$438` (weighted at 25%) to `$1,752` each (unweighted: FOB × 50%) — or whatever pct is configured.
-- Push to Sheets and confirm month columns match the UI.
+- `src/pages/InquiryPricingGrid.tsx` — add state, header input, pass qty into inserts, backfill on price write.
+- `src/components/VendorPriceImportDialog.tsx` — accept + apply `defaultQtyPerSku` when it inserts new rows (verify during build whether it inserts or only updates).

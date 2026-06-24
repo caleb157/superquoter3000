@@ -38,6 +38,7 @@ type CogsRow = {
   component_name: string | null;
   vendor_name: string | null;
   unit_cost_inr: number | null;
+  components_per_product: number | null;
   include: string | null;
   sort_order: number | null;
   created_at: string | null;
@@ -98,6 +99,9 @@ export default function InquiryPricingGrid() {
   const [extraSlots, setExtraSlots] = useState(0); // beyond the default 3
   const [recostingIds, setRecostingIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [defaultQtyPerSku, setDefaultQtyPerSku] = useState<number>(1);
+  const qtyRef = useRef(defaultQtyPerSku);
+  useEffect(() => { qtyRef.current = defaultQtyPerSku; }, [defaultQtyPerSku]);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
@@ -123,7 +127,7 @@ export default function InquiryPricingGrid() {
       const ids = productList.map(p => p.id);
       const { data: cogs } = await supabase
         .from('cogs_items')
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .in('product_id', ids)
         .in('cogs_type', [RAW_TYPE, SUBC_TYPE, HW_TYPE]);
       setRows((cogs || []) as CogsRow[]);
@@ -195,8 +199,9 @@ export default function InquiryPricingGrid() {
             include,
             sort_order,
             waste_factor: 0,
+            components_per_product: qtyRef.current,
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
         if (error || !data) {
           toast.error(`Failed to add row: ${error?.message || 'unknown'}`);
@@ -217,8 +222,9 @@ export default function InquiryPricingGrid() {
             include: 'Yes',
             sort_order: 2,
             waste_factor: 0,
+            components_per_product: qtyRef.current,
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
         if (error || !data) { toast.error(`Failed to add subcontract row: ${error?.message}`); return null; }
         setRows(prev => [...prev, data as CogsRow]);
@@ -236,8 +242,9 @@ export default function InquiryPricingGrid() {
           include: 'Yes',
           sort_order: 10,
           waste_factor: 0.05,
+          components_per_product: qtyRef.current,
         })
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .single();
       if (error || !data) { toast.error(`Failed to add hardware row: ${error?.message}`); return null; }
       setRows(prev => [...prev, data as CogsRow]);
@@ -252,6 +259,10 @@ export default function InquiryPricingGrid() {
     const { error } = await supabase.from('cogs_items').update(patch as any).eq('id', rowId);
     if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); }
   }, [refetch]);
+
+  // Keep a ref to rows so writeCell can read current qty without re-creating callback
+  const rowsRef = useRef<CogsRow[]>(rows);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
 
   const writeCell = useCallback(
     async (
@@ -269,7 +280,17 @@ export default function InquiryPricingGrid() {
       } else {
         const n = parseNumber(trimmed);
         if (n == null) return false;
-        await updateRow(rowId, { unit_cost_inr: n });
+        // If the row currently has qty 0/null, backfill it to the default so the
+        // price actually flows into the costing sheet. Never overwrite a real qty.
+        const existing = rowsRef.current.find(r => r.id === rowId);
+        const currentQty = Number(existing?.components_per_product || 0);
+        const patch: Partial<CogsRow> =
+          currentQty > 0
+            ? { unit_cost_inr: n }
+            : { unit_cost_inr: n, components_per_product: qtyRef.current };
+        await updateRow(rowId, patch);
+        // Recost so the costing sheet picks up the new qty/price
+        void recostInBackground(productId);
       }
       return true;
     },
@@ -401,6 +422,23 @@ export default function InquiryPricingGrid() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <label
+              className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 h-8"
+              title="New raw-piece / subcontract / hardware rows created by typing or pasting into this grid use this quantity. Rows that already have a quantity are never overwritten; rows with qty 0 are backfilled to this when you enter a price."
+            >
+              Default qty/SKU:
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={defaultQtyPerSku}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setDefaultQtyPerSku(Number.isFinite(n) && n >= 0 ? n : 0);
+                }}
+                className="h-6 w-14 text-xs px-1.5 tabular-nums"
+              />
+            </label>
             <Button
               size="sm"
               variant="outline"
@@ -459,12 +497,14 @@ export default function InquiryPricingGrid() {
               vendor_name: r.vendor_name,
               include: r.include,
               sort_order: r.sort_order,
+              components_per_product: r.components_per_product,
             })));
           }
           return m;
         })()}
         visibleRawSlots={visibleRawSlots}
         defaultSlot={0}
+        defaultQtyPerSku={defaultQtyPerSku}
         onImported={() => void refetch()}
       />
     </AppLayout>

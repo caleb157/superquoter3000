@@ -25,7 +25,7 @@ export type PricingProduct = {
   sku: string | null;
 };
 
-export type ProductRawRows = Map<string, { id: string; vendor_name: string | null; include: string | null; sort_order: number | null }[]>;
+export type ProductRawRows = Map<string, { id: string; vendor_name: string | null; include: string | null; sort_order: number | null; components_per_product?: number | null }[]>;
 
 type ParsedRow = {
   product_id?: string | null;
@@ -52,6 +52,7 @@ type Props = {
   productRawRows: ProductRawRows;
   defaultSlot?: number;
   visibleRawSlots: number;
+  defaultQtyPerSku?: number;
   onImported: () => void;
 };
 
@@ -74,7 +75,7 @@ function findHeaderRow(aoa: any[][]): number {
 }
 
 export function VendorPriceImportDialog({
-  open, onOpenChange, products, productRawRows, defaultSlot = 0, visibleRawSlots, onImported,
+  open, onOpenChange, products, productRawRows, defaultSlot = 0, visibleRawSlots, defaultQtyPerSku = 1, onImported,
 }: Props) {
   const [vendor, setVendor] = useState('');
   const [slot, setSlot] = useState<number>(defaultSlot);
@@ -210,9 +211,13 @@ export function VendorPriceImportDialog({
           : (hasWinner ? 'No' : 'Yes');
 
         if (existing) {
+          const currentQty = Number(existing.components_per_product || 0);
+          const patch: { vendor_name: string; unit_cost_inr: number; components_per_product?: number } =
+            { vendor_name: vendor.trim(), unit_cost_inr: m.unit_price_inr };
+          if (currentQty <= 0) patch.components_per_product = defaultQtyPerSku;
           const { error } = await supabase
             .from('cogs_items')
-            .update({ vendor_name: vendor.trim(), unit_cost_inr: m.unit_price_inr })
+            .update(patch)
             .eq('id', existing.id);
           if (error) throw error;
         } else {
@@ -227,6 +232,7 @@ export function VendorPriceImportDialog({
               include,
               sort_order: slot,
               waste_factor: 0,
+              components_per_product: defaultQtyPerSku,
             });
           if (error) throw error;
         }
