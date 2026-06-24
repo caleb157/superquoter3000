@@ -38,6 +38,7 @@ export function BulkStageActions({
   onBulkQuantity,
   onBulkSetNpm,
   onBulkChemicals,
+  onBulkSetSource,
   onLogRfq,
   onLogRfs,
   onCopyToInquiry,
