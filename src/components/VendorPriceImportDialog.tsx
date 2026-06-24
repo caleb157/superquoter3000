@@ -52,6 +52,7 @@ type Props = {
   productRawRows: ProductRawRows;
   defaultSlot?: number;
   visibleRawSlots: number;
+  defaultQtyPerSku?: number;
   onImported: () => void;
 };
 
