@@ -452,13 +452,11 @@ function PricingGridTable({
             <th colSpan={2} className="px-2 py-1 text-center font-medium border-b">Hardware</th>
           </tr>
           <tr>
-            {Array.from({ length: visibleRawSlots }).map((_, slot) => (
-              <>
-                <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
-                <th key={`p-${slot}`} className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>
-                <th key={`w-${slot}`} className="px-1 py-1 text-center font-normal text-muted-foreground border-b border-r w-[36px]">Win</th>
-              </>
-            ))}
+            {Array.from({ length: visibleRawSlots }).flatMap((_, slot) => [
+              <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>,
+              <th key={`p-${slot}`} className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>,
+              <th key={`w-${slot}`} className="px-1 py-1 text-center font-normal text-muted-foreground border-b border-r w-[36px]">Win</th>,
+            ])}
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
