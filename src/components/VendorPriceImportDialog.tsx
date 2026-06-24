@@ -211,9 +211,12 @@ export function VendorPriceImportDialog({
           : (hasWinner ? 'No' : 'Yes');
 
         if (existing) {
+          const currentQty = Number(existing.components_per_product || 0);
+          const patch: Record<string, any> = { vendor_name: vendor.trim(), unit_cost_inr: m.unit_price_inr };
+          if (currentQty <= 0) patch.components_per_product = defaultQtyPerSku;
           const { error } = await supabase
             .from('cogs_items')
-            .update({ vendor_name: vendor.trim(), unit_cost_inr: m.unit_price_inr })
+            .update(patch)
             .eq('id', existing.id);
           if (error) throw error;
         } else {
@@ -228,6 +231,7 @@ export function VendorPriceImportDialog({
               include,
               sort_order: slot,
               waste_factor: 0,
+              components_per_product: defaultQtyPerSku,
             });
           if (error) throw error;
         }
