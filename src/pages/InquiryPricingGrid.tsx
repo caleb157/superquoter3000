@@ -260,6 +260,10 @@ export default function InquiryPricingGrid() {
     if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); }
   }, [refetch]);
 
+  // Keep a ref to rows so writeCell can read current qty without re-creating callback
+  const rowsRef = useRef<CogsRow[]>(rows);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+
   const writeCell = useCallback(
     async (
       productId: string,
@@ -276,7 +280,17 @@ export default function InquiryPricingGrid() {
       } else {
         const n = parseNumber(trimmed);
         if (n == null) return false;
-        await updateRow(rowId, { unit_cost_inr: n });
+        // If the row currently has qty 0/null, backfill it to the default so the
+        // price actually flows into the costing sheet. Never overwrite a real qty.
+        const existing = rowsRef.current.find(r => r.id === rowId);
+        const currentQty = Number(existing?.components_per_product || 0);
+        const patch: Partial<CogsRow> =
+          currentQty > 0
+            ? { unit_cost_inr: n }
+            : { unit_cost_inr: n, components_per_product: qtyRef.current };
+        await updateRow(rowId, patch);
+        // Recost so the costing sheet picks up the new qty/price
+        void recostInBackground(productId);
       }
       return true;
     },
