@@ -27,6 +27,7 @@ import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
+import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
@@ -121,6 +122,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
+  const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
@@ -575,6 +577,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onBulkSetNpm={() => setBulkNpmOpen(true)}
+        onBulkSetSource={() => setBulkSourceOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
@@ -620,6 +623,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         selectedProducts={selectedProducts.map(p => ({ id: p.id, markup_percent: p.markup_percent }))}
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
+
+      <BulkSetSourceLocationDialog
+        open={bulkSourceOpen}
+        onOpenChange={setBulkSourceOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
 
 
       <BulkCostingUpdateDialog
