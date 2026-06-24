@@ -7,8 +7,7 @@ export function productWeight(
   p: Pick<Product, 'design_stage' | 'quote_stage' | 'sample_stage'>,
   inquiryStatus?: string | null,
 ): number {
-  if (inquiryStatus === 'complete' || inquiryStatus === 'cancelled') return 0;
-  if (inquiryStatus === 'po') return 1.0;
+  if (inquiryStatus === 'complete' || inquiryStatus === 'cancelled' || inquiryStatus === 'po') return 0;
   if (p.sample_stage) return 0.75;
   if (p.quote_stage === 'quoted') return 0.5;
   if (
