@@ -179,7 +179,7 @@ export function computeWeightedPipeline(
   for (const p of products) {
     if (p.customer_rfq_id && inquiriesUsingProjection.has(p.customer_rfq_id)) continue;
     const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-    if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
+    if (inqStatus !== 'active' && inqStatus !== 'projected_po') continue;
     const w = productWeight(p, inqStatus);
     if (w === 0) continue;
     const qty = p.quantity ?? 0;
