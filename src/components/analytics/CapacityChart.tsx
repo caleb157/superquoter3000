@@ -105,12 +105,10 @@ export function CapacityChart() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [gsRes, inqRes] = await Promise.all([
+      const [laborRes, inqRes] = await Promise.all([
         supabase
-          .from('global_settings')
-          .select('total_available_mh_per_month')
-          .limit(1)
-          .maybeSingle(),
+          .from('labor_employees')
+          .select('num_laborers, available_hours_per_month'),
         supabase
           .from('customer_rfqs')
           .select(
@@ -121,7 +119,11 @@ export function CapacityChart() {
           )
           .in('status', STATUSES),
       ]);
-      setCapacity(Number((gsRes.data as any)?.total_available_mh_per_month) || 0);
+      const totalMh = (laborRes.data || []).reduce(
+        (s: number, r: any) => s + (Number(r.num_laborers) || 0) * (Number(r.available_hours_per_month) || 0),
+        0,
+      );
+      setCapacity(totalMh);
 
       const data = (inqRes.data || []) as any[];
       const allPids: string[] = [];

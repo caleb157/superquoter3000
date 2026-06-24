@@ -194,7 +194,7 @@ function legacyComputeOne(args: {
 
 // ---- Fixtures: 10 representative products ----
 const gs = {
-  exchange_rate: 83.5, indirect_overhead_monthly: 500000, total_available_mh_per_month: 8000,
+  exchange_rate: 83.5, indirect_overhead_per_mh: 62.5,
   packaging_cost_per_cbm: 1200, auto_transport_cost_per_cbm: 550, local_transport_cost_per_cbm: 400,
   corrugate_kg_per_sq_in: 0.25, bubble_kg_per_sq_in: 0.20,
   corrugate_price_per_kg: 60, bubble_price_per_kg: 90, mc_height_buffer_inch: 2.5,
@@ -293,7 +293,7 @@ const fixtures = [
   { name: 'without finishing chemicals', product: baseProduct('p8'), shipItems: [{ product_id: 'p8', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: { includeFinishing: false } },
   { name: 'hard difficulty large item', product: baseProduct('p9', { finishing_difficulty: 'Hard', width_inch: 72, depth_inch: 24, height_inch: 36, weight_kg: 28 }), shipItems: [{ product_id: 'p9', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: {} },
   { name: 'with inquiry overrides', product: baseProduct('p10'), shipItems: [{ product_id: 'p10', shipping_type_id: 'sh-cbm' }],
-    inq: { id: 'i1', exchange_rate_override: 85, markup_percent_override: 0.4, shipping_type_id_override: 'sh-kg', auto_transport_cost_per_cbm_override: 700, indirect_overhead_monthly_override: null, total_available_mh_per_month_override: null, packaging_cost_per_cbm_override: null, local_transport_cost_per_cbm_override: null },
+    inq: { id: 'i1', exchange_rate_override: 85, markup_percent_override: 0.4, shipping_type_id_override: 'sh-kg', auto_transport_cost_per_cbm_override: 700, indirect_overhead_per_mh_override: null, packaging_cost_per_cbm_override: null, local_transport_cost_per_cbm_override: null },
     cogsOpts: {} },
 ];
 

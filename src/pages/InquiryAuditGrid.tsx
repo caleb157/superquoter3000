@@ -179,7 +179,7 @@ export default function InquiryAuditGrid() {
 
     const { data: inq } = await supabase
       .from('customer_rfqs')
-      .select('id, rfq_number, title, customer_id, shipping_type_id_override, exchange_rate_override, markup_percent_override, indirect_overhead_monthly_override, total_available_mh_per_month_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override')
+      .select('id, rfq_number, title, customer_id, shipping_type_id_override, exchange_rate_override, markup_percent_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override')
       .eq('id', inquiryId)
       .maybeSingle();
     if (!inq) { setLoading(false); return; }
