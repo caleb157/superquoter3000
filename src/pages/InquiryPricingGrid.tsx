@@ -445,6 +445,28 @@ export default function InquiryPricingGrid() {
           />
         )}
       </div>
+
+      <VendorPriceImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        products={products}
+        productRawRows={(() => {
+          const m: ProductRawRows = new Map();
+          for (const p of products) {
+            const bucket = productRows.get(p.id);
+            m.set(p.id, (bucket?.raw || []).map(r => ({
+              id: r.id,
+              vendor_name: r.vendor_name,
+              include: r.include,
+              sort_order: r.sort_order,
+            })));
+          }
+          return m;
+        })()}
+        visibleRawSlots={visibleRawSlots}
+        defaultSlot={0}
+        onImported={() => void refetch()}
+      />
     </AppLayout>
   );
 }
