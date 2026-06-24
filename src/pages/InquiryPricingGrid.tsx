@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Plus, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/AppLayout';
@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { VendorCombobox } from '@/components/VendorCombobox';
+import {
+  VendorPriceImportDialog,
+  buildPriceTemplateXlsx,
+  type ProductRawRows,
+} from '@/components/VendorPriceImportDialog';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +23,14 @@ import { fmt } from '@/lib/formatters';
 // ---------- Types ----------
 
 type Inquiry = { id: string; rfq_number: string; title: string | null };
-type Product = { id: string; name: string; sku: string | null };
+type Product = {
+  id: string;
+  name: string;
+  sku: string | null;
+  width_inch: number | null;
+  depth_inch: number | null;
+  height_inch: number | null;
+};
 type CogsRow = {
   id: string;
   product_id: string;
@@ -85,6 +97,7 @@ export default function InquiryPricingGrid() {
   const [loading, setLoading] = useState(true);
   const [extraSlots, setExtraSlots] = useState(0); // beyond the default 3
   const [recostingIds, setRecostingIds] = useState<Set<string>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
@@ -100,7 +113,7 @@ export default function InquiryPricingGrid() {
 
     const { data: prods } = await supabase
       .from('products')
-      .select('id, name, sku')
+      .select('id, name, sku, width_inch, depth_inch, height_inch')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: true });
     const productList = (prods || []) as Product[];
@@ -388,6 +401,26 @@ export default function InquiryPricingGrid() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => buildPriceTemplateXlsx({
+                inquiryRfqNumber: inquiry.rfq_number,
+                inquiryTitle: inquiry.title,
+                products,
+              })}
+              disabled={products.length === 0}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> Download price template
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+              disabled={products.length === 0}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1" /> Import vendor prices
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setExtraSlots(n => n + 1)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Add vendor column
             </Button>
@@ -412,6 +445,28 @@ export default function InquiryPricingGrid() {
           />
         )}
       </div>
+
+      <VendorPriceImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        products={products}
+        productRawRows={(() => {
+          const m: ProductRawRows = new Map();
+          for (const p of products) {
+            const bucket = productRows.get(p.id);
+            m.set(p.id, (bucket?.raw || []).map(r => ({
+              id: r.id,
+              vendor_name: r.vendor_name,
+              include: r.include,
+              sort_order: r.sort_order,
+            })));
+          }
+          return m;
+        })()}
+        visibleRawSlots={visibleRawSlots}
+        defaultSlot={0}
+        onImported={() => void refetch()}
+      />
     </AppLayout>
   );
 }
