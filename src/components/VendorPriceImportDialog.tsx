@@ -25,7 +25,7 @@ export type PricingProduct = {
   sku: string | null;
 };
 
-export type ProductRawRows = Map<string, { id: string; vendor_name: string | null; include: string | null; sort_order: number | null }[]>;
+export type ProductRawRows = Map<string, { id: string; vendor_name: string | null; include: string | null; sort_order: number | null; components_per_product?: number | null }[]>;
 
 type ParsedRow = {
   product_id?: string | null;
