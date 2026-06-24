@@ -127,7 +127,7 @@ export default function InquiryPricingGrid() {
       const ids = productList.map(p => p.id);
       const { data: cogs } = await supabase
         .from('cogs_items')
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .in('product_id', ids)
         .in('cogs_type', [RAW_TYPE, SUBC_TYPE, HW_TYPE]);
       setRows((cogs || []) as CogsRow[]);
@@ -200,7 +200,7 @@ export default function InquiryPricingGrid() {
             sort_order,
             waste_factor: 0,
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
         if (error || !data) {
           toast.error(`Failed to add row: ${error?.message || 'unknown'}`);
@@ -222,7 +222,7 @@ export default function InquiryPricingGrid() {
             sort_order: 2,
             waste_factor: 0,
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
         if (error || !data) { toast.error(`Failed to add subcontract row: ${error?.message}`); return null; }
         setRows(prev => [...prev, data as CogsRow]);
@@ -241,7 +241,7 @@ export default function InquiryPricingGrid() {
           sort_order: 10,
           waste_factor: 0.05,
         })
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, include, sort_order, created_at')
+        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .single();
       if (error || !data) { toast.error(`Failed to add hardware row: ${error?.message}`); return null; }
       setRows(prev => [...prev, data as CogsRow]);
