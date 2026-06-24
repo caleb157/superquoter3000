@@ -18,7 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { cn } from '@/lib/utils';
-import { fmt } from '@/lib/formatters';
+const fmtNum = (n: number, d = 0) => n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 // ---------- Types ----------
 
@@ -512,7 +512,7 @@ export default function InquiryAuditGrid() {
                         const num = Number(v) || 0;
                         const display = c.kind === 'category'
                           ? (String(v ?? '') || '—')
-                          : (num === 0 ? '—' : isMoney ? `₹${fmt(num, 0)}` : (c.key === 'cbm' ? num.toFixed(4) : fmt(num, c.key === 'npm_pct' ? 1 : 2)));
+                          : (num === 0 ? '—' : isMoney ? `₹${fmtNum(num, 0)}` : (c.key === 'cbm' ? num.toFixed(4) : fmtNum(num, c.key === 'npm_pct' ? 1 : 2)));
                         const cell = (
                           <td
                             key={c.key as string}
