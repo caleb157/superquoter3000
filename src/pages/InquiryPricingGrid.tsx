@@ -242,6 +242,7 @@ export default function InquiryPricingGrid() {
           include: 'Yes',
           sort_order: 10,
           waste_factor: 0.05,
+          components_per_product: qtyRef.current,
         })
         .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .single();
