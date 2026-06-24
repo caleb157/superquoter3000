@@ -43,6 +43,15 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
   return null;
 };
 
+const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', 'Hardware']);
+
+const shouldBackfillPricedQty = (item: any) => (
+  !item?.is_auto_calculated &&
+  PRICED_QTY_DEFAULT_COGS_TYPES.has(item?.cogs_type) &&
+  (Number(item?.unit_cost_inr) || 0) > 0 &&
+  (Number(item?.components_per_product) || 0) <= 0
+);
+
 const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
 
 const SectionHeader = ({ title, open, onToggle, badge, done, hasReview, onDoneChange }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean; onDoneChange?: (next: boolean) => void }) => (
@@ -354,6 +363,24 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     };
     fetchAll();
   }, [id]);
+
+  useEffect(() => {
+    if (!dataLoaded || cogsItems.length === 0) return;
+    const rowsToBackfill = cogsItems.filter(shouldBackfillPricedQty);
+    if (rowsToBackfill.length === 0) return;
+
+    const ids = rowsToBackfill.map(item => item.id);
+    setCogsItems(items => items.map(item => (
+      ids.includes(item.id) ? { ...item, components_per_product: 1 } : item
+    )));
+    void (supabase as any)
+      .from('cogs_items')
+      .update({ components_per_product: 1 })
+      .in('id', ids)
+      .then(({ error }: any) => {
+        if (error) toast.error('Qty/Prod backfill failed: ' + error.message);
+      });
+  }, [dataLoaded, cogsItems]);
 
   // ===== DERIVED CALCULATIONS (Steps 1-12) =====
   // Effective settings = global_settings merged with per-inquiry overrides (if any)
