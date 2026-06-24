@@ -142,33 +142,9 @@ export function computeWeightedPipeline(
 
   for (const [inqId, inqProducts] of Object.entries(productsByInquiry)) {
     const inqStatus = inquiryStatusById[inqId];
-    if (inqStatus !== 'active' && inqStatus !== 'po' && inqStatus !== 'projected_po') continue;
+    // Weighted pipeline excludes PO inquiries — those are in-progress projects, not future pipeline.
+    if (inqStatus !== 'active' && inqStatus !== 'projected_po') continue;
     const proj = projectionsByInquiry[inqId];
-    // The stored projection FOB/GPM are authoritative only when PO/complete.
-    // Otherwise we compute live from the products via the loop below.
-    const useStored = inqStatus === 'po' && proj && proj.projected_fob_revenue_usd != null;
-    if (useStored) {
-      const certainty = proj.certainty_override != null ? Number(proj.certainty_override) : 1.0;
-      if (certainty <= 0) continue;
-      const rev = Number(proj.projected_fob_revenue_usd);
-      const value = rev * certainty;
-      const gpm = proj.project_gpm != null ? Number(proj.project_gpm) : 0;
-      total += value;
-      profit += rev * gpm * certainty;
-      counted += 1;
-      contributors.push({
-        name: `Inquiry ${inqId.slice(0, 8)} (PO snapshot)`,
-        qty: 1,
-        cost: rev * (1 - gpm),
-        price: rev,
-        weight: certainty,
-        value,
-        inquiryId: inqId,
-      });
-      inquiriesUsingProjection.add(inqId);
-      continue;
-    }
-    // Projected POs: weight whole inquiry by override or 0.5, using live FOB
     // (sum of qty × price across all products regardless of product stage).
     if (inqStatus === 'projected_po') {
       const certainty = proj?.certainty_override != null ? Number(proj.certainty_override) : 0.5;
