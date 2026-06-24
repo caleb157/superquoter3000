@@ -526,6 +526,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleRecostAll} disabled={recostAllBusy || products.length === 0}>
             <RefreshCw className={cn('h-4 w-4', recostAllBusy && 'animate-spin')} /> Recost all
           </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
+            <Search className="h-4 w-4" /> Pricing grid
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
           </Button>
