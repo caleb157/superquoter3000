@@ -99,6 +99,9 @@ export default function InquiryPricingGrid() {
   const [extraSlots, setExtraSlots] = useState(0); // beyond the default 3
   const [recostingIds, setRecostingIds] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
+  const [defaultQtyPerSku, setDefaultQtyPerSku] = useState<number>(1);
+  const qtyRef = useRef(defaultQtyPerSku);
+  useEffect(() => { qtyRef.current = defaultQtyPerSku; }, [defaultQtyPerSku]);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
