@@ -624,6 +624,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
+      <BulkSetSourceLocationDialog
+        open={bulkSourceOpen}
+        onOpenChange={setBulkSourceOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+
 
       <BulkCostingUpdateDialog
         open={bulkCostingOpen}
