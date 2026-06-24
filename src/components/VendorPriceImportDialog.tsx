@@ -65,6 +65,10 @@ function parseNumber(raw: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeDefaultQty(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
 function findHeaderRow(aoa: any[][]): number {
   for (let i = 0; i < Math.min(aoa.length, 20); i++) {
     const row = aoa[i] || [];
@@ -202,6 +206,7 @@ export function VendorPriceImportDialog({
     setCommitting(true);
     try {
       const affectedProductIds: string[] = [];
+      const qty = normalizeDefaultQty(defaultQtyPerSku);
       for (const m of matched) {
         const raws = productRawRows.get(m.product.id) || [];
         const existing = raws[slot];
@@ -214,7 +219,7 @@ export function VendorPriceImportDialog({
           const currentQty = Number(existing.components_per_product || 0);
           const patch: { vendor_name: string; unit_cost_inr: number; components_per_product?: number } =
             { vendor_name: vendor.trim(), unit_cost_inr: m.unit_price_inr };
-          if (currentQty <= 0) patch.components_per_product = defaultQtyPerSku;
+          if (currentQty <= 0) patch.components_per_product = qty;
           const { error } = await supabase
             .from('cogs_items')
             .update(patch)
@@ -232,7 +237,7 @@ export function VendorPriceImportDialog({
               include,
               sort_order: slot,
               waste_factor: 0,
-              components_per_product: defaultQtyPerSku,
+              components_per_product: qty,
             });
           if (error) throw error;
         }

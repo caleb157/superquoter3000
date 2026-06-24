@@ -47,6 +47,7 @@ type CogsRow = {
 const RAW_TYPE = 'Raw Piece';
 const SUBC_TYPE = 'Subcontracting';
 const HW_TYPE = 'Hardware';
+const PRICED_QTY_DEFAULT_TYPES = new Set([RAW_TYPE, SUBC_TYPE, HW_TYPE]);
 
 // ---------- Helpers ----------
 
@@ -62,6 +63,18 @@ function parseNumber(raw: string): number | null {
   if (cleaned === '') return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeDefaultQty(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+function shouldBackfillPricedQty(row: Pick<CogsRow, 'cogs_type' | 'unit_cost_inr' | 'components_per_product'>): boolean {
+  return (
+    PRICED_QTY_DEFAULT_TYPES.has(row.cogs_type) &&
+    (Number(row.unit_cost_inr) || 0) > 0 &&
+    (Number(row.components_per_product) || 0) <= 0
+  );
 }
 
 // ---------- Column model ----------
@@ -101,7 +114,7 @@ export default function InquiryPricingGrid() {
   const [importOpen, setImportOpen] = useState(false);
   const [defaultQtyPerSku, setDefaultQtyPerSku] = useState<number>(1);
   const qtyRef = useRef(defaultQtyPerSku);
-  useEffect(() => { qtyRef.current = defaultQtyPerSku; }, [defaultQtyPerSku]);
+  useEffect(() => { qtyRef.current = normalizeDefaultQty(defaultQtyPerSku); }, [defaultQtyPerSku]);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
@@ -199,7 +212,7 @@ export default function InquiryPricingGrid() {
             include,
             sort_order,
             waste_factor: 0,
-            components_per_product: qtyRef.current,
+            components_per_product: normalizeDefaultQty(qtyRef.current),
           })
           .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
@@ -222,7 +235,7 @@ export default function InquiryPricingGrid() {
             include: 'Yes',
             sort_order: 2,
             waste_factor: 0,
-            components_per_product: qtyRef.current,
+            components_per_product: normalizeDefaultQty(qtyRef.current),
           })
           .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
           .single();
@@ -242,7 +255,7 @@ export default function InquiryPricingGrid() {
           include: 'Yes',
           sort_order: 10,
           waste_factor: 0.05,
-          components_per_product: qtyRef.current,
+          components_per_product: normalizeDefaultQty(qtyRef.current),
         })
         .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
         .single();
@@ -287,7 +300,7 @@ export default function InquiryPricingGrid() {
         const patch: Partial<CogsRow> =
           currentQty > 0
             ? { unit_cost_inr: n }
-            : { unit_cost_inr: n, components_per_product: qtyRef.current };
+            : { unit_cost_inr: n, components_per_product: normalizeDefaultQty(qtyRef.current) };
         await updateRow(rowId, patch);
         // Recost so the costing sheet picks up the new qty/price
         void recostInBackground(productId);
@@ -340,6 +353,29 @@ export default function InquiryPricingGrid() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    if (loading || rows.length === 0) return;
+    const qty = normalizeDefaultQty(qtyRef.current);
+    const toBackfill = rows.filter(shouldBackfillPricedQty);
+    if (toBackfill.length === 0) return;
+
+    const ids = toBackfill.map(r => r.id);
+    const productIds = [...new Set(toBackfill.map(r => r.product_id))];
+    setRows(prev => prev.map(r => (ids.includes(r.id) ? { ...r, components_per_product: qty } : r)));
+    void (async () => {
+      const { error } = await supabase
+        .from('cogs_items')
+        .update({ components_per_product: qty })
+        .in('id', ids);
+      if (error) {
+        toast.error(`Qty backfill failed: ${error.message}`);
+        void refetch();
+        return;
+      }
+      await Promise.all(productIds.map(pid => recostInBackground(pid)));
+    })();
+  }, [loading, rows, refetch, recostInBackground]);
 
   // ---------- Paste handling ----------
 
@@ -429,12 +465,12 @@ export default function InquiryPricingGrid() {
               Default qty/SKU:
               <Input
                 type="number"
-                min={0}
+                min={1}
                 step={1}
                 value={defaultQtyPerSku}
                 onChange={(e) => {
                   const n = Number(e.target.value);
-                  setDefaultQtyPerSku(Number.isFinite(n) && n >= 0 ? n : 0);
+                  setDefaultQtyPerSku(normalizeDefaultQty(n));
                 }}
                 className="h-6 w-14 text-xs px-1.5 tabular-nums"
               />
