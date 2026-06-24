@@ -422,6 +422,23 @@ export default function InquiryPricingGrid() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <label
+              className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 h-8"
+              title="New raw-piece / subcontract / hardware rows created by typing or pasting into this grid use this quantity. Rows that already have a quantity are never overwritten; rows with qty 0 are backfilled to this when you enter a price."
+            >
+              Default qty/SKU:
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={defaultQtyPerSku}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setDefaultQtyPerSku(Number.isFinite(n) && n >= 0 ? n : 0);
+                }}
+                className="h-6 w-14 text-xs px-1.5 tabular-nums"
+              />
+            </label>
             <Button
               size="sm"
               variant="outline"
