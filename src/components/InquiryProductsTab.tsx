@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -528,6 +528,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
             <TableIcon className="h-4 w-4" /> Pricing grid
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
+            <AlertTriangle className="h-4 w-4" /> Audit grid
           </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
