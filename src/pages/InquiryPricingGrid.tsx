@@ -38,6 +38,7 @@ type CogsRow = {
   component_name: string | null;
   vendor_name: string | null;
   unit_cost_inr: number | null;
+  components_per_product: number | null;
   include: string | null;
   sort_order: number | null;
   created_at: string | null;
