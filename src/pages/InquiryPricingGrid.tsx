@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Plus, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/AppLayout';
@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { VendorCombobox } from '@/components/VendorCombobox';
+import {
+  VendorPriceImportDialog,
+  buildPriceTemplateXlsx,
+  type ProductRawRows,
+} from '@/components/VendorPriceImportDialog';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +23,14 @@ import { fmt } from '@/lib/formatters';
 // ---------- Types ----------
 
 type Inquiry = { id: string; rfq_number: string; title: string | null };
-type Product = { id: string; name: string; sku: string | null };
+type Product = {
+  id: string;
+  name: string;
+  sku: string | null;
+  width_inch: number | null;
+  depth_inch: number | null;
+  height_inch: number | null;
+};
 type CogsRow = {
   id: string;
   product_id: string;
@@ -100,7 +112,7 @@ export default function InquiryPricingGrid() {
 
     const { data: prods } = await supabase
       .from('products')
-      .select('id, name, sku')
+      .select('id, name, sku, width_inch, depth_inch, height_inch')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: true });
     const productList = (prods || []) as Product[];
