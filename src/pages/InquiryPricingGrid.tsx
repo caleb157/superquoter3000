@@ -401,6 +401,26 @@ export default function InquiryPricingGrid() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => buildPriceTemplateXlsx({
+                inquiryRfqNumber: inquiry.rfq_number,
+                inquiryTitle: inquiry.title,
+                products,
+              })}
+              disabled={products.length === 0}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> Download price template
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+              disabled={products.length === 0}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1" /> Import vendor prices
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setExtraSlots(n => n + 1)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Add vendor column
             </Button>
