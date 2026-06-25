@@ -445,150 +445,25 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Desktop: table */}
-          <Card className="hidden md:block" ref={desktopListRef as any}>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
-              ) : visibleInquiries.length === 0 ? (
-                inquiries.length === 0 ? (
-                  <div className="p-12 text-center space-y-3">
-                    <div className="text-sm text-muted-foreground">No inquiries yet.</div>
-                    <Button size="sm" onClick={() => setShowNewInquiry(true)}>+ New Inquiry</Button>
-                  </div>
-                ) : (
-                  <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
-                )
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableHeader column="rfq" label="#" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[120px]" />
-                      <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                      <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                      <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
-                      <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
-                      <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
-                      <TableHead className="text-xs">Design</TableHead>
-                      <TableHead className="text-xs">Quote</TableHead>
-                      <TableHead className="text-xs">Sample</TableHead>
-                      
-                      <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleInquiries.map(inq => {
-                      const prods = productsByInquiry[inq.id];
-                      const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
-                      const noProducts = !prods || prods.length === 0;
-                      const stagesEmpty = isAllStagesEmpty(prods);
-
-                      const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
-
-                      return (
-                        <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
-                        <TableRow
-                          data-row-nav
-                          tabIndex={0}
-                          role="link"
-                          aria-label={`Open inquiry ${inq.rfq_number}`}
-                          className={cn(
-                            "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
-                            reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
-                          )}
-                          {...navHandlers}
-                        >
-                          <TableCell className="font-mono text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span>{inq.rfq_number}</span>
-                              {reviewInquiryIds.has(inq.id) && (
-                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm truncate max-w-[180px]">
-                            {cust?.name || cust?.company || '—'}
-                          </TableCell>
-                          <TableCell className="text-base font-semibold truncate max-w-[260px]">
-                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium',
-                              INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{statusLabel(inq.status)}</span>
-                          </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Select
-                              value={inq.priority}
-                              onValueChange={async (v) => {
-                                const prev = inq.priority;
-                                setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: v } : x));
-                                const { error } = await supabase.from('customer_rfqs').update({ priority: v }).eq('id', inq.id);
-                                if (error) {
-                                  toast.error(error.message);
-                                  setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: prev } : x));
-                                }
-                              }}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  'h-6 w-[88px] px-2 py-0 text-[11px] font-medium capitalize border-0 focus:ring-0 focus:ring-offset-0 [&>svg]:hidden justify-center',
-                                  PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
-                                )}
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="urgent">Urgent</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="normal">Normal</SelectItem>
-                                <SelectItem value="low">Low</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-right text-sm tabular-nums">
-                            {prods?.length ?? 0}
-                          </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, DESIGN_PILLS, 'design')}
-                          </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, QUOTE_PILLS, 'quote')}
-                          </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                              <ConfirmDeleteButton
-                                itemLabel={`inquiry ${inq.rfq_number}`}
-                                description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
-                                iconOnly
-                                onConfirm={async () => {
-                                  const { error } = await supabase.from('customer_rfqs').delete().eq('id', inq.id);
-                                  if (error) throw error;
-                                  setRefreshKey(k => k + 1);
-                                }}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        </RowContextMenu>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          {/* Desktop: kanban board */}
+          <DesktopKanban
+            loading={loading}
+            inquiries={inquiries}
+            visibleInquiries={visibleInquiries}
+            productsByInquiry={productsByInquiry}
+            customerMap={customerMap}
+            reviewInquiryIds={reviewInquiryIds}
+            statusFilter={statusFilter}
+            navigate={navigate}
+            isAllStagesEmpty={isAllStagesEmpty}
+            renderStagePillsRow={renderStagePillsRow}
+            setInquiries={setInquiries}
+            setRefreshKey={setRefreshKey}
+            setShowNewInquiry={setShowNewInquiry}
+            desktopListRef={desktopListRef}
+          />
         </div>
+
 
         <CreateInquiryDialog
           open={showNewInquiry}
