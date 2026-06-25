@@ -293,7 +293,7 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <TooltipProvider>
-        <div className="w-full mx-auto space-y-3 sm:space-y-4 px-1 sm:px-4">
+        <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
           {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
