@@ -765,14 +765,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           units: 'KG',
         });
       } else if (name.includes('foam') || name.includes('bulk pack')) {
-        const defaultIncluded = isBulkPack;
+        // Foam is no longer used for bulk pack — disable and zero out the row.
         updates.push({
           id: item.id,
-          components_per_product: defaultIncluded ? bulkFoamSqInPerPiece : 0,
-          unit_cost_inr: defaultIncluded ? bulkFoamPricePerSqIn : 0,
-          include: preserveManualNo(item, defaultIncluded),
+          components_per_product: 0,
+          unit_cost_inr: 0,
+          include: 'No',
           waste_factor: 0,
-          units: 'sq in',
         });
       }
     });
