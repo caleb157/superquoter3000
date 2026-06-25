@@ -1263,17 +1263,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
                       }
                     }
-                    if (v === 'bulk_pack') {
-                      // Ensure a Bulk Foam auto-calc row exists
-                      const hasFoam = cogsItems.some(i => i.cogs_type === 'Packaging' && /foam|bulk pack/i.test(i.component_name || ''));
-                      if (!hasFoam) {
-                        const { data: newRow } = await (supabase as any).from('cogs_items').insert({
-                          product_id: id, cogs_type: 'Packaging', component_name: 'Bulk Foam',
-                          is_auto_calculated: true, waste_factor: 0, include: 'Yes', units: 'sq in', sort_order: 99,
-                        }).select().single();
-                        if (newRow) setCogsItems(items => [...items, newRow]);
-                      }
-                    }
+                    // Bulk pack no longer requires a foam row.
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
