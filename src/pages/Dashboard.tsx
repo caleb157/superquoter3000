@@ -123,7 +123,7 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, cbm_done, cogs_done, overhead_done, shipping_done, revenue_done'),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
