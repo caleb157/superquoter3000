@@ -9,18 +9,11 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Search, FileText, Package2, Plus, ChevronRight, MoreVertical, Pin, RotateCcw } from 'lucide-react';
-import {
-  DndContext, DragEndEvent, PointerSensor, useDroppable, useDraggable, useSensor, useSensors,
-} from '@dnd-kit/core';
-
+import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
@@ -43,14 +36,8 @@ import {
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
-import { INQUIRY_STATUS_COLORS, statusLabel, type InquiryStatus } from '@/lib/inquiry-status';
+import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import {
-  ACTIVE_SUBSTAGES, KANBAN_COL_TO_STATUS, KANBAN_LABEL_TO_OVERRIDE, KANBAN_SUBSTAGE_LABEL,
-  inquiryKanbanColumn, visibleKanbanColumns, type KanbanColumn,
-} from '@/lib/inquiry-kanban';
-import { applyInquiryStatusChange } from '@/lib/inquiry-status-transition';
-
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -66,16 +53,12 @@ type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
   priority: string;
   customer_id: string | null; updated_at: string; created_at: string;
-  kanban_substage_override: string | null;
 };
 type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  cbm_done: boolean | null; cogs_done: boolean | null; overhead_done: boolean | null;
-  shipping_done: boolean | null; revenue_done: boolean | null;
 };
-
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
   { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
@@ -123,7 +106,7 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, cbm_done, cogs_done, overhead_done, shipping_done, revenue_done'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
@@ -445,25 +428,150 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Desktop: kanban board */}
-          <DesktopKanban
-            loading={loading}
-            inquiries={inquiries}
-            visibleInquiries={visibleInquiries}
-            productsByInquiry={productsByInquiry}
-            customerMap={customerMap}
-            reviewInquiryIds={reviewInquiryIds}
-            statusFilter={statusFilter}
-            navigate={navigate}
-            isAllStagesEmpty={isAllStagesEmpty}
-            renderStagePillsRow={renderStagePillsRow}
-            setInquiries={setInquiries}
-            setRefreshKey={setRefreshKey}
-            setShowNewInquiry={setShowNewInquiry}
-            desktopListRef={desktopListRef}
-          />
-        </div>
+          {/* Desktop: table */}
+          <Card className="hidden md:block" ref={desktopListRef as any}>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="p-8 text-sm text-muted-foreground text-center">Loading…</div>
+              ) : visibleInquiries.length === 0 ? (
+                inquiries.length === 0 ? (
+                  <div className="p-12 text-center space-y-3">
+                    <div className="text-sm text-muted-foreground">No inquiries yet.</div>
+                    <Button size="sm" onClick={() => setShowNewInquiry(true)}>+ New Inquiry</Button>
+                  </div>
+                ) : (
+                  <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
+                )
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader column="rfq" label="#" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[120px]" />
+                      <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                      <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
+                      <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
+                      <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
+                      <TableHead className="text-xs">Design</TableHead>
+                      <TableHead className="text-xs">Quote</TableHead>
+                      <TableHead className="text-xs">Sample</TableHead>
+                      
+                      <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleInquiries.map(inq => {
+                      const prods = productsByInquiry[inq.id];
+                      const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
+                      const noProducts = !prods || prods.length === 0;
+                      const stagesEmpty = isAllStagesEmpty(prods);
 
+                      const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
+
+                      return (
+                        <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
+                        <TableRow
+                          data-row-nav
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Open inquiry ${inq.rfq_number}`}
+                          className={cn(
+                            "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
+                            reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                          )}
+                          {...navHandlers}
+                        >
+                          <TableCell className="font-mono text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <span>{inq.rfq_number}</span>
+                              {reviewInquiryIds.has(inq.id) && (
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm truncate max-w-[180px]">
+                            {cust?.name || cust?.company || '—'}
+                          </TableCell>
+                          <TableCell className="text-base font-semibold truncate max-w-[260px]">
+                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-medium',
+                              INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
+                            )}>{statusLabel(inq.status)}</span>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={inq.priority}
+                              onValueChange={async (v) => {
+                                const prev = inq.priority;
+                                setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: v } : x));
+                                const { error } = await supabase.from('customer_rfqs').update({ priority: v }).eq('id', inq.id);
+                                if (error) {
+                                  toast.error(error.message);
+                                  setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: prev } : x));
+                                }
+                              }}
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  'h-6 w-[88px] px-2 py-0 text-[11px] font-medium capitalize border-0 focus:ring-0 focus:ring-offset-0 [&>svg]:hidden justify-center',
+                                  PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
+                                )}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="urgent">Urgent</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="normal">Normal</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums">
+                            {prods?.length ?? 0}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, DESIGN_PILLS, 'design')}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, QUOTE_PILLS, 'quote')}
+                          </TableCell>
+                          <TableCell>
+                            {stagesEmpty
+                              ? <span className="text-muted-foreground/60">—</span>
+                              : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                              <ConfirmDeleteButton
+                                itemLabel={`inquiry ${inq.rfq_number}`}
+                                description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
+                                iconOnly
+                                onConfirm={async () => {
+                                  const { error } = await supabase.from('customer_rfqs').delete().eq('id', inq.id);
+                                  if (error) throw error;
+                                  setRefreshKey(k => k + 1);
+                                }}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        </RowContextMenu>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <CreateInquiryDialog
           open={showNewInquiry}
@@ -493,325 +601,4 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 
-// ---------- Desktop Kanban Board ----------
-
-type StatusFilterT = StatusFilter;
-
-const COLUMN_COLOR: Record<KanbanColumn, string> = {
-  Idea: INQUIRY_STATUS_COLORS.active,
-  Costing: INQUIRY_STATUS_COLORS.active,
-  Quoted: INQUIRY_STATUS_COLORS.active,
-  Sampling: INQUIRY_STATUS_COLORS.active,
-  Paused: INQUIRY_STATUS_COLORS.paused,
-  'Projected PO': INQUIRY_STATUS_COLORS.projected_po,
-  PO: INQUIRY_STATUS_COLORS.po,
-  Complete: INQUIRY_STATUS_COLORS.complete,
-  Cancelled: INQUIRY_STATUS_COLORS.cancelled,
-};
-
-type DesktopKanbanProps = {
-  loading: boolean;
-  inquiries: Inquiry[];
-  visibleInquiries: Inquiry[];
-  productsByInquiry: Record<string, Product[]>;
-  customerMap: Record<string, Customer>;
-  reviewInquiryIds: Set<string>;
-  statusFilter: StatusFilterT;
-  navigate: ReturnType<typeof useNavigate>;
-  isAllStagesEmpty: (prods: Product[] | undefined) => boolean;
-  renderStagePillsRow: (prods: Product[] | undefined, inquiryId: string) => React.ReactNode;
-  setInquiries: React.Dispatch<React.SetStateAction<Inquiry[]>>;
-  setRefreshKey: React.Dispatch<React.SetStateAction<number>>;
-  setShowNewInquiry: (open: boolean) => void;
-  desktopListRef: React.RefObject<HTMLDivElement>;
-};
-
-function DesktopKanban(props: DesktopKanbanProps) {
-  const {
-    loading, inquiries, visibleInquiries, productsByInquiry, customerMap, reviewInquiryIds,
-    statusFilter, navigate, isAllStagesEmpty, renderStagePillsRow,
-    setInquiries, setRefreshKey, setShowNewInquiry, desktopListRef,
-  } = props;
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  const columns = useMemo(() => visibleKanbanColumns(statusFilter), [statusFilter]);
-
-  const byColumn = useMemo(() => {
-    const m: Record<string, Inquiry[]> = {};
-    for (const col of columns) m[col] = [];
-    for (const inq of visibleInquiries) {
-      const col = inquiryKanbanColumn(inq, productsByInquiry[inq.id]);
-      if (m[col]) m[col].push(inq);
-    }
-    return m;
-  }, [columns, visibleInquiries, productsByInquiry]);
-
-  const applyOptimistic = (inq: Inquiry, target: KanbanColumn): Inquiry => {
-    if (ACTIVE_SUBSTAGES.includes(target)) {
-      return { ...inq, status: 'active', kanban_substage_override: KANBAN_LABEL_TO_OVERRIDE[target] };
-    }
-    return { ...inq, status: KANBAN_COL_TO_STATUS[target], kanban_substage_override: null };
-  };
-
-  const moveInquiryToColumn = async (inquiryId: string, target: KanbanColumn) => {
-    const inq = inquiries.find(i => i.id === inquiryId);
-    if (!inq) return;
-    const currentColumn = inquiryKanbanColumn(inq, productsByInquiry[inq.id]);
-    if (currentColumn === target) return;
-    const prev = inq;
-    setInquiries(list => list.map(i => i.id === inquiryId ? applyOptimistic(i, target) : i));
-
-    if (ACTIVE_SUBSTAGES.includes(target)) {
-      if (inq.status !== 'active') {
-        const result = await applyInquiryStatusChange(inquiryId, 'active', { previousStatus: inq.status });
-        if (!result.ok) {
-          setInquiries(list => list.map(i => i.id === inquiryId ? prev : i));
-          toast.error(result.error ?? 'Could not move inquiry');
-          return;
-        }
-      }
-      const overrideValue = KANBAN_LABEL_TO_OVERRIDE[target];
-      const { error } = await (supabase as any).from('customer_rfqs')
-        .update({ kanban_substage_override: overrideValue }).eq('id', inquiryId);
-      if (error) {
-        setInquiries(list => list.map(i => i.id === inquiryId ? prev : i));
-        toast.error('Could not move inquiry');
-        return;
-      }
-    } else {
-      const newStatus = KANBAN_COL_TO_STATUS[target];
-      const result = await applyInquiryStatusChange(inquiryId, newStatus, { previousStatus: inq.status });
-      if (!result.ok) {
-        setInquiries(list => list.map(i => i.id === inquiryId ? prev : i));
-        toast.error(result.error ?? 'Could not move inquiry');
-        return;
-      }
-      // Clear override since it only applies within 'active'.
-      await (supabase as any).from('customer_rfqs')
-        .update({ kanban_substage_override: null }).eq('id', inquiryId);
-    }
-    setRefreshKey(k => k + 1);
-  };
-
-  const clearOverride = async (inquiryId: string) => {
-    setInquiries(list => list.map(i => i.id === inquiryId ? { ...i, kanban_substage_override: null } : i));
-    const { error } = await (supabase as any).from('customer_rfqs')
-      .update({ kanban_substage_override: null }).eq('id', inquiryId);
-    if (error) toast.error('Could not reset placement');
-    setRefreshKey(k => k + 1);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-    void moveInquiryToColumn(active.id as string, over.id as KanbanColumn);
-  };
-
-  if (loading) {
-    return <div className="hidden md:block p-8 text-sm text-muted-foreground text-center">Loading…</div>;
-  }
-  if (visibleInquiries.length === 0) {
-    return (
-      <div className="hidden md:block">
-        {inquiries.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <div className="text-sm text-muted-foreground">No inquiries yet.</div>
-            <Button size="sm" onClick={() => setShowNewInquiry(true)}>+ New Inquiry</Button>
-          </div>
-        ) : (
-          <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div ref={desktopListRef} className="hidden md:flex gap-4 overflow-x-auto pb-2">
-        {columns.map(col => {
-          const items = byColumn[col] ?? [];
-          return (
-            <div key={col} className="w-80 shrink-0">
-              <div className="flex items-baseline justify-between px-1 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={cn('px-1.5 py-0.5 rounded text-[11px] font-semibold', COLUMN_COLOR[col])}>{col}</span>
-                </div>
-                <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
-              </div>
-              <KanbanColumnDropzone id={col}>
-                {items.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-6">No inquiries</p>
-                ) : items.map(inq => (
-                  <DraggableKanbanCard key={inq.id} inq={inq}>
-                    <KanbanInquiryCard
-                      inq={inq}
-                      prods={productsByInquiry[inq.id]}
-                      customer={inq.customer_id ? customerMap[inq.customer_id] : null}
-                      hasReview={reviewInquiryIds.has(inq.id)}
-                      navigate={navigate}
-                      isAllStagesEmpty={isAllStagesEmpty}
-                      renderStagePillsRow={renderStagePillsRow}
-                      onMoveTo={(target) => moveInquiryToColumn(inq.id, target)}
-                      onClearOverride={() => clearOverride(inq.id)}
-                      onDelete={async () => {
-                        const { error } = await supabase.from('customer_rfqs').delete().eq('id', inq.id);
-                        if (error) throw error;
-                        setRefreshKey(k => k + 1);
-                      }}
-                    />
-                  </DraggableKanbanCard>
-                ))}
-              </KanbanColumnDropzone>
-            </div>
-          );
-        })}
-      </div>
-    </DndContext>
-  );
-}
-
-function KanbanColumnDropzone({ id, children }: { id: string; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'min-h-[120px] rounded-lg p-1.5 border border-dashed transition-colors',
-        isOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/20',
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-function DraggableKanbanCard({ inq, children }: { inq: Inquiry; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: inq.id });
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
-    : undefined;
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className={cn('mb-2 outline-none', isDragging && 'opacity-60')}
-    >
-      {children}
-    </div>
-  );
-}
-
-type KanbanCardProps = {
-  inq: Inquiry;
-  prods: Product[] | undefined;
-  customer: Customer | null;
-  hasReview: boolean;
-  navigate: ReturnType<typeof useNavigate>;
-  isAllStagesEmpty: (prods: Product[] | undefined) => boolean;
-  renderStagePillsRow: (prods: Product[] | undefined, inquiryId: string) => React.ReactNode;
-  onMoveTo: (target: KanbanColumn) => void;
-  onClearOverride: () => void;
-  onDelete: () => Promise<void>;
-};
-
-function KanbanInquiryCard({
-  inq, prods, customer, hasReview, navigate,
-  isAllStagesEmpty, renderStagePillsRow, onMoveTo, onClearOverride, onDelete,
-}: KanbanCardProps) {
-  const navHandlers = rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } });
-  return (
-    <RowContextMenu path={`/inquiry/${inq.id}`}>
-      <Card
-        data-row-nav
-        tabIndex={0}
-        role="link"
-        aria-label={`Open inquiry ${inq.rfq_number}`}
-        className={cn(
-          'row-action active:scale-[0.99] transition-transform',
-          hasReview && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
-        )}
-        {...navHandlers}
-      >
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-mono text-[11px] text-muted-foreground">{inq.rfq_number}</span>
-                {hasReview && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
-                )}
-                <span className={cn(
-                  'px-1.5 py-0.5 rounded text-[10px] font-medium',
-                  INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                )}>{statusLabel(inq.status)}</span>
-                {inq.kanban_substage_override && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Pin className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Manually placed — may not match product progress below.</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <div className="font-bold text-sm leading-tight mt-1 truncate">
-                {inq.title || <span className="text-muted-foreground italic font-normal text-xs">Untitled</span>}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {customer?.name || customer?.company || 'No customer'}
-              </div>
-            </div>
-            <div onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                    <MoreVertical className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="text-xs">Move to</DropdownMenuLabel>
-                  {(['Idea','Costing','Quoted','Sampling'] as KanbanColumn[]).map(c => (
-                    <DropdownMenuItem key={c} onClick={() => onMoveTo(c)}>{c}</DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  {(['Paused','Projected PO','PO','Complete','Cancelled'] as KanbanColumn[]).map(c => (
-                    <DropdownMenuItem key={c} onClick={() => onMoveTo(c)}>{c}</DropdownMenuItem>
-                  ))}
-                  {inq.kanban_substage_override && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onClearOverride}>
-                        <RotateCcw className="h-3.5 w-3.5 mr-2" /> Reset to automatic
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {!isAllStagesEmpty(prods) && renderStagePillsRow(prods, inq.id)}
-
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
-            <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
-          </div>
-
-          <div className="flex justify-end pt-0.5" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-            <ConfirmDeleteButton
-              itemLabel={`inquiry ${inq.rfq_number}`}
-              description={`This permanently removes inquiry ${inq.rfq_number} and all of its products, quotes, samples, and tasks.`}
-              iconOnly
-              onConfirm={onDelete}
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </RowContextMenu>
-  );
-}
-
 export default Dashboard;
-

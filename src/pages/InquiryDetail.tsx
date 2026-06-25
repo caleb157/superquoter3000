@@ -99,33 +99,67 @@ export default function InquiryDetail() {
   useEffect(() => { fetchInquiry(); }, [id]);
 
   const updateField = async (patch: any) => {
-    // Route status changes through the shared transition function so the PO
-    // snapshot, paused-priority adjust, and any future side effects only live
-    // in one place (also called by the Dashboard kanban drag handler).
-    if (Object.prototype.hasOwnProperty.call(patch, 'status') && patch.status !== inquiry?.status) {
-      const { applyInquiryStatusChange } = await import('@/lib/inquiry-status-transition');
-      const result = await applyInquiryStatusChange(id!, patch.status, { previousStatus: inquiry?.status });
-      if (!result.ok) { toast.error(result.error ?? 'Could not change status'); return; }
-      const applied = result.patch ?? { status: patch.status };
-      // Apply any remaining non-status fields in the same patch.
-      const rest: any = { ...patch };
-      delete rest.status;
-      if (Object.keys(rest).length > 0) {
-        const { error } = await (supabase as any).from('customer_rfqs').update(rest).eq('id', id);
-        if (error) { toast.error(error.message); return; }
+    if (patch.status === 'paused') patch = { priority: 'low', ...patch };
+    // Auto-populate PO fields the first time the inquiry flips to 'po'
+    const isPoTransition = patch.status === 'po' && inquiry?.status !== 'po' && !!id;
+    if (isPoTransition) {
+      const fill: any = {};
+      if (!inquiry?.po_received_date) {
+        fill.po_received_date = new Date().toISOString().slice(0, 10);
       }
-      const merged = { ...applied, ...rest };
-      setInquiry((i: any) => ({ ...i, ...merged }));
-      setSettingsDraft((d: any) => d ? { ...d, ...merged } : d);
-      return;
+      if (inquiry?.po_total_value_usd == null) {
+        const { data: latest } = await (supabase as any)
+          .from('quote_snapshots')
+          .select('totals, currency, created_at')
+          .eq('customer_rfq_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const totalsAny = latest?.totals as any;
+        const grand = totalsAny?.grand_total;
+        if (latest && (latest.currency ?? 'USD') === 'USD' && typeof grand === 'number') {
+          fill.po_total_value_usd = grand;
+        }
+      }
+      patch = { ...fill, ...patch };
     }
-
     const { error } = await (supabase as any).from('customer_rfqs').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setInquiry((i: any) => ({ ...i, ...patch }));
     setSettingsDraft((d: any) => d ? { ...d, ...patch } : d);
-  };
 
+    // Snapshot live FOB/GPM into the projection on PO transition so they
+    // become the locked, editable values from this point on.
+    if (isPoTransition && id) {
+      try {
+        const { computeProductPriceAndCost } = await import('@/lib/product-pricing');
+        const { computeInquiryFinancials } = await import('@/lib/inquiry-financials');
+        const { data: prods } = await (supabase as any)
+          .from('products')
+          .select('id, quantity')
+          .eq('customer_rfq_id', id);
+        const ids = (prods || []).map((p: any) => p.id);
+        if (ids.length) {
+          const priceMap = await computeProductPriceAndCost(ids);
+          const live = computeInquiryFinancials(prods as any, priceMap);
+          if (live.fobRevenueUsd > 0) {
+            await (supabase as any)
+              .from('inquiry_projections')
+              .upsert(
+                {
+                  inquiry_id: id,
+                  projected_fob_revenue_usd: Math.round(live.fobRevenueUsd * 100) / 100,
+                  project_gpm: Math.round(live.gpm * 10000) / 10000,
+                },
+                { onConflict: 'inquiry_id' },
+              );
+          }
+        }
+      } catch (e: any) {
+        console.warn('Failed to snapshot live projection on PO transition', e);
+      }
+    }
+  };
 
 
   const saveTitle = async () => {
