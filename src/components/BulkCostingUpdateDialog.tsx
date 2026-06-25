@@ -373,6 +373,34 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
         </div>
 
+        {packagingType === 'bulk_pack' && (
+          <div className="flex items-center gap-3 rounded-md border p-2 bg-muted/30">
+            <Label className="text-xs whitespace-nowrap">Bulk pack defaults</Label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">Pieces / MC</span>
+              <Input
+                type="number"
+                min={1}
+                value={bulkPiecesPerBox}
+                onChange={e => setBulkPiecesPerBox(Math.max(1, parseInt(e.target.value) || 1))}
+                className="h-8 w-20 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">Height per extra piece (%)</span>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={bulkShrinkPct}
+                onChange={e => setBulkShrinkPct(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                className="h-8 w-20 text-xs"
+              />
+            </div>
+            <span className="text-[11px] text-muted-foreground">100% = no nesting. Applied to every selected SKU.</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 rounded-md border p-2">
           <Label className="text-xs whitespace-nowrap">Shipping type</Label>
           <Select value={shippingTypeId} onValueChange={setShippingTypeId}>
