@@ -43,8 +43,14 @@ import {
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
-import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
+import { INQUIRY_STATUS_COLORS, statusLabel, type InquiryStatus } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import {
+  ACTIVE_SUBSTAGES, KANBAN_COL_TO_STATUS, KANBAN_LABEL_TO_OVERRIDE, KANBAN_SUBSTAGE_LABEL,
+  inquiryKanbanColumn, visibleKanbanColumns, type KanbanColumn,
+} from '@/lib/inquiry-kanban';
+import { applyInquiryStatusChange } from '@/lib/inquiry-status-transition';
+
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
