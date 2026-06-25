@@ -262,8 +262,13 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('cogs_items').insert(inserts)
       : Promise.resolve({ error: null });
 
+    const packagingPatch: any = willUpdatePackaging ? { packaging_type: packagingType } : null;
+    if (willUpdatePackaging && packagingType === 'bulk_pack') {
+      packagingPatch.bulk_pieces_per_box = Math.max(1, Math.floor(Number(bulkPiecesPerBox) || 1));
+      packagingPatch.bulk_shrink_factor = Math.min(1, Math.max(0, (Number(bulkShrinkPct) || 0) / 100));
+    }
     const packagingPromise = willUpdatePackaging
-      ? (supabase as any).from('products').update({ packaging_type: packagingType }).in('id', selectedProductIds)
+      ? (supabase as any).from('products').update(packagingPatch).in('id', selectedProductIds)
       : Promise.resolve({ error: null });
 
     const deletePromise = deleteRawIds.length > 0
