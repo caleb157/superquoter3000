@@ -1463,7 +1463,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         onBlur={e => updateProduct('bulk_pieces_per_box', Math.max(1, parseInt(e.target.value) || 1))} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground" title="% of height each ADDITIONAL piece adds. 100% = no nesting; 25% = each extra piece adds a quarter of its height.">Shrink %</label>
+                      <label className="text-[10px] text-muted-foreground" title="How much height EACH ADDITIONAL piece adds, as a % of one piece's height. 100 = no nesting, each piece stacks fully. 25 = deep nesting, each extra piece only adds a quarter of its height. For NO shrink/nesting, use 100.">Height per extra piece (%)</label>
                       <Input className="h-7 text-xs" type="number" min={0} max={100} step={1}
                         defaultValue={Math.round(((product.bulk_shrink_factor ?? 1) * 100))}
                         onBlur={e => updateProduct('bulk_shrink_factor', Math.min(1, Math.max(0, Number(e.target.value) / 100)))} />
@@ -1511,6 +1511,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15 px-2 py-1 rounded">⚠ {engine.bulkPack.warning}</p>
                   )}
                   <p className="text-[10px] text-muted-foreground">Single vertical stack. Box size is derived from your chosen pieces/box and shrink %. Foam (2 mm) is priced from raw_material_costs by name "Foam".</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    At {Math.round((product.bulk_shrink_factor ?? 1) * 100)}%, {product.bulk_pieces_per_box ?? 1} pieces stack to {(engine?.bulkPack?.column_height_in ?? 0).toFixed(2)}" tall.
+                  </p>
                 </>
               ) : (
               <>
@@ -1672,19 +1675,36 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
               {/* Carton Summary */}
               <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1.5">
-                <div className="text-xs">
-                  <div className="flex items-center gap-2">
-                    <span>📦</span>
-                    <span className="font-medium">Inner Carton OD:</span>
-                    <span>{fmt.dim(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height)}</span>
-                    <span className="text-muted-foreground">({fmt.cbm(icOdVolumeCbm)})</span>
-                    <span className="text-muted-foreground">— {icType}</span>
-                    <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                {!isBulkPack && (
+                  <div className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <span>📦</span>
+                      <span className="font-medium">Inner Carton OD:</span>
+                      <span>{fmt.dim(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height)}</span>
+                      <span className="text-muted-foreground">({fmt.cbm(icOdVolumeCbm)})</span>
+                      <span className="text-muted-foreground">— {icType}</span>
+                      <span className="text-muted-foreground">— {fmt.inr(icCost)}/box</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground ml-6">
+                      (ID: {fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)} — {fmt.cbm(icVolume)})
+                    </div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground ml-6">
-                    (ID: {fmt.dim(icDims.ic_width, icDims.ic_depth, icDims.ic_height)} — {fmt.cbm(icVolume)})
+                )}
+                {isBulkPack && (
+                  <div className="text-xs">
+                    <div className="flex items-center gap-2">
+                      <span>📦</span>
+                      <span className="font-medium">Master Carton:</span>
+                      <span>{fmt.dim(engine?.bulkPack?.mc_width ?? 0, engine?.bulkPack?.mc_depth ?? 0, engine?.bulkPack?.mc_height ?? 0)}</span>
+                      <span className="text-muted-foreground">({fmt.cbm(engine?.bulkPack?.mc_volume_cbm ?? 0)})</span>
+                      <span className="text-muted-foreground">— {mcType}</span>
+                      <span className="text-muted-foreground">— {fmt.inr(mcCost)}/box</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground ml-6">
+                      └── {engine?.bulkPack?.pieces_per_mc ?? 0} piece{(engine?.bulkPack?.pieces_per_mc ?? 0) > 1 ? 's' : ''} per MC (single stack)
+                    </div>
                   </div>
-                </div>
+                )}
                 {includeMc && (
                   <>
                     <div className="text-xs">
