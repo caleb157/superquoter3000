@@ -828,7 +828,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         })();
       }
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id, bulkPackLocal?.pieces_per_mc, bulkFoamSqInPerPiece, bulkFoamPricePerSqIn]);
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id, bulkPackLocal?.pieces_per_mc]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
