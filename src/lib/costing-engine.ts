@@ -172,12 +172,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
 
   // Bulk pack: derive box size from user's chosen pieces-per-box & shrink factor.
   let bulkPackInfo: CostingEngineResult['bulkPack'] = undefined;
-  const foamSurfaceSqInPerPiece = calc.surfaceAreaSqIn(w, d, h);
-  const rawMatList = (input as any).rawMaterialCosts || [];
-  const foamRow = (rawMatList as any[]).find((r: any) =>
-    r?.active !== false && /foam/i.test(String(r?.name || ''))
-  );
-  const foamPricePerSqIn = Number(foamRow?.cost) || 0;
   if (isBulkPack) {
     const bulkRes = calc.calcBulkPacking({
       piece_width: w,
@@ -216,7 +210,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
       mc_height: bulkRes.mc_height,
       mc_volume_cbm: bulkRes.mc_volume_cbm,
       column_height_in: bulkRes.column_height_in,
-      foam_sq_in_per_piece: foamSurfaceSqInPerPiece,
+      foam_sq_in_per_piece: 0,
       warning: exceedsSize || exceedsWeight
         ? 'This box exceeds your MC max size/weight — adjust pieces per box if needed.'
         : undefined,
@@ -253,12 +247,8 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
           unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
       }
       if (name.includes('foam') || name.includes('bulk pack')) {
-        // Bulk-pack foam: surface area per piece × foam price per sq in (from raw_material_costs).
-        const defaultIncluded = isBulkPack;
-        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: defaultIncluded ? foamSurfaceSqInPerPiece : 0,
-          unit_cost_inr: defaultIncluded ? foamPricePerSqIn : 0,
-          units: 'sq in' };
+        // Foam is no longer used for bulk pack — zero it out and disable the row.
+        return { ...item, include: 'No', components_per_product: 0, unit_cost_inr: 0 };
       }
     }
     if (item.include === 'No') return item;

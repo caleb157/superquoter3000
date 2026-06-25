@@ -285,16 +285,15 @@ export function calcCorrugateBubblePackaging(
 // Bulk Pack packaging (single vertical stack, user-set count)
 // ============================================================
 
-export const FOAM_THICKNESS_IN = 0.0787; // 2 mm per side
+export const BULK_PACK_SIDE_PADDING_IN = 0.5; // 0.5" added to every side of the piece
 
 /**
- * Bulk pack: a single vertical stack of `pieces_per_box` foam-wrapped pieces.
- * The MC box size is DERIVED from the user's chosen count and shrink factor —
- * it is NOT maximized against mc_max_*.
+ * Bulk pack: a single vertical stack of `pieces_per_box` pieces.
+ * The MC inner dimensions add 0.5" of padding to every side of the piece
+ * (W/D/H each grow by 1.0"). Box size is DERIVED from the user's chosen
+ * count and shrink factor — it is NOT maximized against mc_max_*.
  *
  *   column height = H * (1 + (pieces - 1) * shrink)
- *
- * where H already includes 2 mm foam on top and bottom of each piece.
  */
 export function calcBulkPacking(config: {
   piece_width: number;
@@ -321,10 +320,10 @@ export function calcBulkPacking(config: {
     return { pieces_per_mc: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0, column_height_in: 0 };
   }
 
-  // Foam adds to each piece footprint (both sides) and to its height contribution.
-  const W = config.piece_width + 2 * FOAM_THICKNESS_IN;
-  const D = config.piece_depth + 2 * FOAM_THICKNESS_IN;
-  const H = config.piece_height + 2 * FOAM_THICKNESS_IN;
+  // Add 0.5" padding to every side of the piece footprint and height.
+  const W = config.piece_width + 2 * BULK_PACK_SIDE_PADDING_IN;
+  const D = config.piece_depth + 2 * BULK_PACK_SIDE_PADDING_IN;
+  const H = config.piece_height + 2 * BULK_PACK_SIDE_PADDING_IN;
 
   const column_height_in = H * (1 + (n - 1) * shrink);
   const mc_width = W + wd_buffer;

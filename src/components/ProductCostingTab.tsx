@@ -505,9 +505,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   if (bulkPackLocal) {
     mcCost = calc.calcICCostEstimate(bulkPackLocal.mc_width, bulkPackLocal.mc_depth, bulkPackLocal.mc_height, avgMcCostPerSqIn);
   }
-  const bulkFoamRow = (rawMaterialCosts as any[]).find((r: any) => r?.active !== false && /foam/i.test(String(r?.name || '')));
-  const bulkFoamPricePerSqIn = Number(bulkFoamRow?.cost) || 0;
-  const bulkFoamSqInPerPiece = isBulkPack ? calc.surfaceAreaSqIn(w, d, h) : 0;
 
   // Corrugate + Bubble Wrap packaging (alternative to IC/MC)
   const wrappingResult = useMemo(() => calc.calcCorrugateBubblePackaging(
@@ -768,14 +765,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           units: 'KG',
         });
       } else if (name.includes('foam') || name.includes('bulk pack')) {
-        const defaultIncluded = isBulkPack;
+        // Foam is no longer used for bulk pack — disable and zero out the row.
         updates.push({
           id: item.id,
-          components_per_product: defaultIncluded ? bulkFoamSqInPerPiece : 0,
-          unit_cost_inr: defaultIncluded ? bulkFoamPricePerSqIn : 0,
-          include: preserveManualNo(item, defaultIncluded),
+          components_per_product: 0,
+          unit_cost_inr: 0,
+          include: 'No',
           waste_factor: 0,
-          units: 'sq in',
         });
       }
     });
@@ -832,7 +828,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         })();
       }
     }
-  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id, bulkPackLocal?.pieces_per_mc, bulkFoamSqInPerPiece, bulkFoamPricePerSqIn]);
+  }, [dataLoaded, icCost, mcCost, productsPerIc, mcResult.products_per_mc, includeMc, packagingType, wrappingResult.corrugate_kg, wrappingResult.bubble_kg, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg, w, cogsItems.length, recalcTick, id, bulkPackLocal?.pieces_per_mc]);
 
   // Step 7: Auto-populate Finishing and Packaging overhead MH
   useEffect(() => {
@@ -1267,17 +1263,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         (supabase as any).from('overhead_items').update({ include: 'No', man_hours_per_unit: 0 }).in('id', packagingOverheadIds);
                       }
                     }
-                    if (v === 'bulk_pack') {
-                      // Ensure a Bulk Foam auto-calc row exists
-                      const hasFoam = cogsItems.some(i => i.cogs_type === 'Packaging' && /foam|bulk pack/i.test(i.component_name || ''));
-                      if (!hasFoam) {
-                        const { data: newRow } = await (supabase as any).from('cogs_items').insert({
-                          product_id: id, cogs_type: 'Packaging', component_name: 'Bulk Foam',
-                          is_auto_calculated: true, waste_factor: 0, include: 'Yes', units: 'sq in', sort_order: 99,
-                        }).select().single();
-                        if (newRow) setCogsItems(items => [...items, newRow]);
-                      }
-                    }
+                    // Bulk pack no longer requires a foam row.
                   }}
                 >
                   <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
@@ -1477,8 +1463,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5} onBlur={e => updateCbm('mc_height_buffer_inch', Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Foam</label>
-                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">2 mm/piece</span>
+                      <label className="text-[10px] text-muted-foreground">Side padding</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">0.5"/side</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-6 gap-2">
@@ -1510,7 +1496,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   {engine?.bulkPack?.warning && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15 px-2 py-1 rounded">⚠ {engine.bulkPack.warning}</p>
                   )}
-                  <p className="text-[10px] text-muted-foreground">Single vertical stack. Box size is derived from your chosen pieces/box and shrink %. Foam (2 mm) is priced from raw_material_costs by name "Foam".</p>
+                  <p className="text-[10px] text-muted-foreground">Single vertical stack. Box size is derived from your chosen pieces/box and height %. MC inner adds 0.5" of padding to every side of the piece.</p>
                   <p className="text-[10px] text-muted-foreground">
                     At {Math.round((product.bulk_shrink_factor ?? 1) * 100)}%, {product.bulk_pieces_per_box ?? 1} pieces stack to {(engine?.bulkPack?.column_height_in ?? 0).toFixed(2)}" tall.
                   </p>
