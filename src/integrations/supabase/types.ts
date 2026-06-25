@@ -514,6 +514,7 @@ export type Database = {
           exchange_rate_override: number | null
           id: string
           indirect_overhead_per_mh_override: number | null
+          kanban_substage_override: string | null
           local_transport_cost_per_cbm_override: number | null
           markup_percent_override: number | null
           notes: string | null
@@ -546,6 +547,7 @@ export type Database = {
           exchange_rate_override?: number | null
           id?: string
           indirect_overhead_per_mh_override?: number | null
+          kanban_substage_override?: string | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
@@ -578,6 +580,7 @@ export type Database = {
           exchange_rate_override?: number | null
           id?: string
           indirect_overhead_per_mh_override?: number | null
+          kanban_substage_override?: string | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
