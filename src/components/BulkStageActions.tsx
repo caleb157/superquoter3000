@@ -107,6 +107,7 @@ export function BulkStageActions({
             {onBulkSetNpm && <DropdownMenuItem onClick={onBulkSetNpm}>Net profit margin</DropdownMenuItem>}
             {onBulkChemicals && <DropdownMenuItem onClick={onBulkChemicals}>Finishing chemicals</DropdownMenuItem>}
             {onBulkSetSource && <DropdownMenuItem onClick={onBulkSetSource}>Source location</DropdownMenuItem>}
+            {onBulkSetProductType && <DropdownMenuItem onClick={onBulkSetProductType}>Product type</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
