@@ -1463,7 +1463,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         onBlur={e => updateProduct('bulk_pieces_per_box', Math.max(1, parseInt(e.target.value) || 1))} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground" title="% of height each ADDITIONAL piece adds. 100% = no nesting; 25% = each extra piece adds a quarter of its height.">Shrink %</label>
+                      <label className="text-[10px] text-muted-foreground" title="How much height EACH ADDITIONAL piece adds, as a % of one piece's height. 100 = no nesting, each piece stacks fully. 25 = deep nesting, each extra piece only adds a quarter of its height. For NO shrink/nesting, use 100.">Height per extra piece (%)</label>
                       <Input className="h-7 text-xs" type="number" min={0} max={100} step={1}
                         defaultValue={Math.round(((product.bulk_shrink_factor ?? 1) * 100))}
                         onBlur={e => updateProduct('bulk_shrink_factor', Math.min(1, Math.max(0, Number(e.target.value) / 100)))} />
