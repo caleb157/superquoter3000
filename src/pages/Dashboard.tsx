@@ -66,12 +66,16 @@ type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
   priority: string;
   customer_id: string | null; updated_at: string; created_at: string;
+  kanban_substage_override: string | null;
 };
 type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+  cbm_done: boolean | null; cogs_done: boolean | null; overhead_done: boolean | null;
+  shipping_done: boolean | null; revenue_done: boolean | null;
 };
+
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
   { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
