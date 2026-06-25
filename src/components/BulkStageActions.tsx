@@ -23,6 +23,7 @@ type Props = {
   onBulkSetNpm?: () => void;
   onBulkChemicals?: () => void;
   onBulkSetSource?: () => void;
+  onBulkSetType?: () => void;
   onLogRfq?: () => void;
   onLogRfs?: () => void;
   onCopyToInquiry?: () => void;
