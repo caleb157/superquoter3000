@@ -1463,8 +1463,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       <Input className="h-7 text-xs" type="number" step="0.1" defaultValue={cbm?.mc_height_buffer_inch ?? globalSettings?.mc_height_buffer_inch ?? 2.5} onBlur={e => updateCbm('mc_height_buffer_inch', Number(e.target.value))} />
                     </div>
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Foam</label>
-                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">2 mm/piece</span>
+                      <label className="text-[10px] text-muted-foreground">Side padding</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs">0.5"/side</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-6 gap-2">
