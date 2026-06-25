@@ -1511,6 +1511,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/15 px-2 py-1 rounded">⚠ {engine.bulkPack.warning}</p>
                   )}
                   <p className="text-[10px] text-muted-foreground">Single vertical stack. Box size is derived from your chosen pieces/box and shrink %. Foam (2 mm) is priced from raw_material_costs by name "Foam".</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    At {Math.round((product.bulk_shrink_factor ?? 1) * 100)}%, {product.bulk_pieces_per_box ?? 1} pieces stack to {(engine?.bulkPack?.column_height_in ?? 0).toFixed(2)}" tall.
+                  </p>
                 </>
               ) : (
               <>
