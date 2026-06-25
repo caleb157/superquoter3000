@@ -18,6 +18,7 @@ const PACKAGING_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'ic_mc', label: 'IC + MC' },
   { value: 'corrugate_bubble', label: 'Corrugate + Bubble Wrap' },
   { value: 'no_packaging', label: 'No packaging' },
+  { value: 'bulk_pack', label: 'Bulk pack' },
 ];
 
 type DraftRow = {
