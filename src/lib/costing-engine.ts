@@ -247,12 +247,8 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
           unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
       }
       if (name.includes('foam') || name.includes('bulk pack')) {
-        // Bulk-pack foam: surface area per piece × foam price per sq in (from raw_material_costs).
-        const defaultIncluded = isBulkPack;
-        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: defaultIncluded ? foamSurfaceSqInPerPiece : 0,
-          unit_cost_inr: defaultIncluded ? foamPricePerSqIn : 0,
-          units: 'sq in' };
+        // Foam is no longer used for bulk pack — zero it out and disable the row.
+        return { ...item, include: 'No', components_per_product: 0, unit_cost_inr: 0 };
       }
     }
     if (item.include === 'No') return item;
