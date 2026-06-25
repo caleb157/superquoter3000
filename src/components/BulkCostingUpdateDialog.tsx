@@ -75,6 +75,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [knownNames, setKnownNames] = useState<string[]>([]);
 
   const [packagingType, setPackagingType] = useState<string>('__keep__');
+  const [bulkPiecesPerBox, setBulkPiecesPerBox] = useState<number>(5);
+  const [bulkShrinkPct, setBulkShrinkPct] = useState<number>(100);
 
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [replaceAllRaw, setReplaceAllRaw] = useState(false);
