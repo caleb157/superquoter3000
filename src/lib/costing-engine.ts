@@ -172,12 +172,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
 
   // Bulk pack: derive box size from user's chosen pieces-per-box & shrink factor.
   let bulkPackInfo: CostingEngineResult['bulkPack'] = undefined;
-  const foamSurfaceSqInPerPiece = calc.surfaceAreaSqIn(w, d, h);
-  const rawMatList = (input as any).rawMaterialCosts || [];
-  const foamRow = (rawMatList as any[]).find((r: any) =>
-    r?.active !== false && /foam/i.test(String(r?.name || ''))
-  );
-  const foamPricePerSqIn = Number(foamRow?.cost) || 0;
   if (isBulkPack) {
     const bulkRes = calc.calcBulkPacking({
       piece_width: w,
@@ -216,7 +210,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
       mc_height: bulkRes.mc_height,
       mc_volume_cbm: bulkRes.mc_volume_cbm,
       column_height_in: bulkRes.column_height_in,
-      foam_sq_in_per_piece: foamSurfaceSqInPerPiece,
+      foam_sq_in_per_piece: 0,
       warning: exceedsSize || exceedsWeight
         ? 'This box exceeds your MC max size/weight — adjust pieces per box if needed.'
         : undefined,
