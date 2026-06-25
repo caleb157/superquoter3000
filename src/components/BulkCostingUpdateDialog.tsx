@@ -116,6 +116,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (open) {
       setRows([newRow()]);
       setPackagingType('__keep__');
+      setBulkPiecesPerBox(5);
+      setBulkShrinkPct(100);
       setRawRows([]);
       setReplaceAllRaw(false);
       setShippingTypeId('__keep__');
