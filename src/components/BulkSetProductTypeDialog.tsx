@@ -99,6 +99,5 @@ export function BulkSetProductTypeDialog({ open, onOpenChange, selectedProductId
         </DialogFooter>
       </DialogContent>
     </Dialog>
-</Dialog>
   );
 }
