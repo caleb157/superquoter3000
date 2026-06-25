@@ -28,6 +28,7 @@ import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
+import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
@@ -123,6 +124,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
+  const [bulkProductTypeOpen, setBulkProductTypeOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
@@ -578,6 +580,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onBulkSetNpm={() => setBulkNpmOpen(true)}
         onBulkSetSource={() => setBulkSourceOpen(true)}
+        onBulkSetProductType={() => setBulkProductTypeOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
@@ -630,6 +633,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         selectedProductIds={Array.from(selected)}
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
+
+      <BulkSetProductTypeDialog
+        open={bulkProductTypeOpen}
+        onOpenChange={setBulkProductTypeOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
 
 
 
