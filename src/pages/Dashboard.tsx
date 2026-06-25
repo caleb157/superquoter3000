@@ -9,11 +9,18 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Search, FileText, Package2, Plus, ChevronRight } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Search, FileText, Package2, Plus, ChevronRight, MoreVertical, Pin, RotateCcw } from 'lucide-react';
+import {
+  DndContext, DragEndEvent, PointerSensor, useDroppable, useDraggable, useSensor, useSensors,
+} from '@dnd-kit/core';
+
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SortableHeader } from '@/components/SortableHeader';
