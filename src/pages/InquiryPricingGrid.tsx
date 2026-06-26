@@ -855,3 +855,33 @@ function PriceCell({
     />
   );
 }
+
+function WasteCell({
+  value, onCommit,
+}: {
+  value: number | null;
+  onCommit: (pct: number) => void;
+}) {
+  const initial = value == null ? '' : String(Math.round((value as number) * 10000) / 100);
+  const [draft, setDraft] = useState<string>(initial);
+  const dirtyRef = useRef(false);
+  useEffect(() => { if (!dirtyRef.current) setDraft(initial); }, [initial]);
+  return (
+    <Input
+      value={draft}
+      onChange={(e) => { dirtyRef.current = true; setDraft(e.target.value); }}
+      onBlur={() => {
+        if (!dirtyRef.current) return;
+        dirtyRef.current = false;
+        if (draft.trim() === initial.trim()) return;
+        const n = Number(draft);
+        if (!Number.isFinite(n) || n < 0) { toast.error('Invalid waste %'); setDraft(initial); return; }
+        onCommit(n);
+      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className="h-7 w-[64px] text-right text-xs px-1.5 tabular-nums mx-auto"
+      placeholder="0"
+      inputMode="decimal"
+    />
+  );
+}
