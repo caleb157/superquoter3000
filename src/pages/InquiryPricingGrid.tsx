@@ -374,6 +374,35 @@ export default function InquiryPricingGrid() {
     }
   }, []);
 
+  // Apply the toolbar waste % to every raw-piece row across all products in the inquiry.
+  const applyDefaultWasteToAllRaw = useCallback(async () => {
+    const factor = Math.max(0, Number(wasteRef.current) || 0) / 100;
+    const rawIds = rowsRef.current.filter(r => r.cogs_type === RAW_TYPE).map(r => r.id);
+    if (rawIds.length === 0) {
+      toast.info('No raw-piece rows to update yet.');
+      return;
+    }
+    setRows(prev => prev.map(r => (r.cogs_type === RAW_TYPE ? { ...r, waste_factor: factor } : r)));
+    const { error } = await supabase.from('cogs_items').update({ waste_factor: factor }).in('id', rawIds);
+    if (error) { toast.error(`Failed: ${error.message}`); void refetch(); return; }
+    const productIds = [...new Set(rowsRef.current.filter(r => r.cogs_type === RAW_TYPE).map(r => r.product_id))];
+    await Promise.all(productIds.map(pid => recostInBackground(pid)));
+    toast.success(`Applied ${wasteRef.current}% waste to ${rawIds.length} raw-piece row${rawIds.length === 1 ? '' : 's'}`);
+  }, [refetch, recostInBackground]);
+
+  // Update waste for all raw-piece rows of a single product (keeps vendor slots in sync).
+  const updateProductRawWaste = useCallback(async (productId: string, pct: number) => {
+    const factor = Math.max(0, Number(pct) || 0) / 100;
+    const targetIds = rowsRef.current
+      .filter(r => r.product_id === productId && r.cogs_type === RAW_TYPE)
+      .map(r => r.id);
+    if (targetIds.length === 0) return;
+    setRows(prev => prev.map(r => (targetIds.includes(r.id) ? { ...r, waste_factor: factor } : r)));
+    const { error } = await supabase.from('cogs_items').update({ waste_factor: factor }).in('id', targetIds);
+    if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return; }
+    void recostInBackground(productId);
+  }, [refetch, recostInBackground]);
+
   useEffect(() => {
     if (loading || rows.length === 0) return;
     const qty = normalizeDefaultQty(qtyRef.current);
