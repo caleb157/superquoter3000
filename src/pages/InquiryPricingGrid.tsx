@@ -648,6 +648,13 @@ function PricingGridTable({
             >
               Product
             </th>
+            <th
+              className="bg-muted/95 backdrop-blur px-2 py-2 text-center font-medium border-b border-r w-[80px]"
+              rowSpan={2}
+              title="Waste % applied to all raw-piece rows for this product."
+            >
+              Waste %
+            </th>
             {Array.from({ length: visibleRawSlots }).map((_, slot) => (
               <th key={`raw-h-${slot}`} colSpan={3} className="px-2 py-1 text-center font-medium border-b border-r">
                 Vendor {slot + 1}
