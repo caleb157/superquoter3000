@@ -127,8 +127,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       setRawRows([]);
       setReplaceAllRaw(false);
       setShippingTypeId('__keep__');
+      setLaborRows([]);
     }
   }, [open]);
+
+  const addLaborRow = () => setLaborRows(prev => [...prev, newLaborRow()]);
+  const removeLaborRow = (key: string) => setLaborRows(prev => prev.filter(r => r._key !== key));
+  const updateLabor = (key: string, patch: Partial<LaborDraft>) =>
+    setLaborRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+  const validLaborRows = useMemo(() => laborRows.filter(r => r.labor_type), [laborRows]);
 
   const addRow = () => setRows(prev => [...prev, newRow()]);
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r._key !== key));
