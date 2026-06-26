@@ -162,8 +162,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     const willUpdatePackaging = packagingType !== '__keep__';
     const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
     const willUpdateShipping = shippingTypeId !== '__keep__';
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping) {
-      toast.error('Add at least one row, raw piece, packaging type, or shipping type');
+    const willUpdateLabor = validLaborRows.length > 0;
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor) {
+      toast.error('Add at least one row, raw piece, packaging type, shipping type, or labor override');
       return;
     }
 
