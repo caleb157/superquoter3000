@@ -631,10 +631,11 @@ type TableProps = {
   onWriteCell: (productId: string, col: ColumnSpec, raw: string) => Promise<boolean>;
   onSetWinner: (productId: string, slot: number) => Promise<void>;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, productIdx: number, colIdx: number) => void;
+  onUpdateWaste: (productId: string, pct: number) => Promise<void>;
 };
 
 function PricingGridTable({
-  products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste,
+  products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
 }: TableProps) {
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
