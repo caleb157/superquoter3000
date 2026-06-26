@@ -245,11 +245,11 @@ export async function generateHardwareRfq(inquiryId: string): Promise<{ title: s
 
 // ---------- Raw Piece RFQ ----------
 export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId);
+  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId);
 
   const productIds = products.map((p: any) => p.id);
   const empty = { data: [] as any[] };
-  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes, inqRes, diffRes] = await Promise.all([
+  const [ohRes, nuRes, shipItemsRes, shipTypesRes, empRes, gsRes, cbmRes, ptRes, inqRes, diffRes, boxRes, locRes, rawRes] = await Promise.all([
     productIds.length ? supabase.from('overhead_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
     productIds.length ? supabase.from('non_unit_cogs').select('*').in('product_id', productIds) : Promise.resolve(empty),
     productIds.length ? supabase.from('shipping_items').select('*').in('product_id', productIds) : Promise.resolve(empty),
@@ -260,6 +260,9 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     supabase.from('product_types').select('*'),
     (supabase as any).from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
     (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+    supabase.from('box_data').select('*'),
+    (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
+    (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
   ]);
 
   const allOh = ohRes.data || [];
@@ -268,12 +271,17 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
   const inq = (inqRes as any).data || null;
-  const gs = mergeSettingsWithInquiry(gsRes.data as any, inq);
+  const gs = gsRes.data as any;
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
   const difficulties = (diffRes as any).data || [];
+  const boxData = boxRes.data || [];
+  const locations = (locRes as any).data || [];
+  const rawMaterialCosts = (rawRes as any).data || [];
 
-  const exchangeRate = gs?.exchange_rate || 90;
+  const { computeProductCosting } = await import('@/lib/costing-engine');
+  const mergedGs = mergeSettingsWithInquiry(gs, inq);
+  const exchangeRate = mergedGs?.exchange_rate || 90;
 
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
@@ -282,72 +290,33 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
     if (rawCogsRows.length === 0) continue;
 
-    const noPackaging = (p as any).packaging_type === 'no_packaging';
-    const productCogs = cogs.filter((c: any) => c.product_id === p.id && c.include !== 'No' && !(noPackaging && c.cogs_type === 'Packaging'));
-    const cogsPerUnit = productCogs.reduce((sum: number, item: any) => {
-      const c = calc.calcCogsItemCost({
-        include: item.include, components_per_product: item.components_per_product || 0,
-        unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0,
-      });
-      return sum + c.unit_cost;
-    }, 0);
-
+    const pCogs = cogs.filter((c: any) => c.product_id === p.id);
     const productNuCogs = allNu.filter((n: any) => n.product_id === p.id);
-    const qty = p.quantity || 100;
-    const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
-      productNuCogs.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity || 0, cost_each_inr: i.cost_each_inr || 0 })),
-      qty
-    );
-
     const productOh = allOh.filter((o: any) => o.product_id === p.id);
-
-    const productType = productTypes.find((pt: any) => pt.id === p.product_type_id);
-    const w = p.width_inch || 0;
-    const d = p.depth_inch || 0;
-    const h = p.height_inch || 0;
-    const ri = calc.runningInches(w, d, h);
-    const difficultyFactor = (difficulties.find((dd: any) => dd.name === (p.finishing_difficulty || 'Medium'))?.adjustment_factor)
-      ?? calc.getDifficultyFactor(p.finishing_difficulty || 'Medium');
-    const cbmRow = allCbm.find((c: any) => c.product_id === p.id);
-    const finalUnitCbm = noPackaging ? calc.prePackagedCbm(w, d, h) : (cbmRow?.final_unit_cbm || 0);
-
-    // Phase 3a/4: new finishing labor formula (MH/100RI × adjustment × %wood × RI/100)
-    const finishingMhPer100Ri = (productType as any)?.finishing_mh_per_100ri || 0;
-    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, p.percent_wood ?? 1, ri);
-    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, (p as any).packaging_type || 'ic_mc');
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
-
-    const ohItems = productOh.map((item: any) => {
-      let mh = item.man_hours_per_unit || 0;
-      if (item.is_auto_estimated) {
-        if (item.labor_type === 'Finishing' && finishingMh > 0) mh = parseFloat(finishingMh.toFixed(4));
-        else if (item.labor_type === 'Packaging' && packagingMh > 0) mh = parseFloat(packagingMh.toFixed(4));
-      }
-      return {
-        include: noPackaging && item.labor_type === 'Packaging' ? 'No' : item.include, labor_type: item.labor_type,
-        man_hours_per_unit: noPackaging && item.labor_type === 'Packaging' ? 0 : mh,
-        hourly_rate: calc.avgRateByDesignation(employees, item.labor_type),
-      };
-    });
-    const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-    const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-    const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
-    const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-
+    const productType = productTypes.find((pt: any) => pt.id === p.product_type_id) || null;
+    const cbmRow = allCbm.find((c: any) => c.product_id === p.id) || null;
     const shipItem = allShipItems.find((s: any) => s.product_id === p.id);
-    const shipType = shipItem ? shipTypes.find((t: any) => t.id === shipItem.shipping_type_id) : null;
-    const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-      cost_inr: shipType.cost_inr, per_unit: shipType.per_unit as 'CBM' | 'KG',
-      final_unit_cbm: finalUnitCbm, weight_kg: p.weight_kg || 0,
-    }) : 0;
 
-    // Phase 7: inquiry-level settings TBD — use the product's own markup.
-    const markupPercent = p.markup_percent || 0.2;
-
-    const summary = calc.calcProductCostSummary(
-      cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
-      shippingPerUnit, markupPercent, exchangeRate, qty
-    );
+    const engineResult = computeProductCosting({
+      product: p,
+      cogsItems: pCogs,
+      nonUnitCogs: productNuCogs,
+      overheadItems: productOh,
+      shippingItems: shipItem ? [shipItem] : [],
+      cbmRow,
+      productType,
+      boxData,
+      chemicalPrices: chemPrices,
+      shippingTypes: shipTypes,
+      laborEmployees: employees,
+      globalSettings: gs,
+      inquiryOverrides: inq,
+      locations,
+      difficulties,
+      rawMaterialCosts,
+    });
+    const summary = engineResult.summary;
+    const markupPercent = engineResult.markupPercent;
 
     const targetUsd = p.target_price_usd || 0;
     const maxTotalCostInr = targetUsd > 0 ? (targetUsd / (1 + markupPercent)) * exchangeRate : 0;
