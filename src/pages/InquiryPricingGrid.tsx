@@ -39,10 +39,13 @@ type CogsRow = {
   vendor_name: string | null;
   unit_cost_inr: number | null;
   components_per_product: number | null;
+  waste_factor: number | null;
   include: string | null;
   sort_order: number | null;
   created_at: string | null;
 };
+
+const COGS_SELECT = 'id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, waste_factor, include, sort_order, created_at';
 
 const RAW_TYPE = 'Raw Piece';
 const SUBC_TYPE = 'Subcontracting';
@@ -115,6 +118,10 @@ export default function InquiryPricingGrid() {
   const [defaultQtyPerSku, setDefaultQtyPerSku] = useState<number>(1);
   const qtyRef = useRef(defaultQtyPerSku);
   useEffect(() => { qtyRef.current = normalizeDefaultQty(defaultQtyPerSku); }, [defaultQtyPerSku]);
+  const [defaultWastePct, setDefaultWastePct] = useState<number>(0);
+  const wasteRef = useRef(defaultWastePct);
+  useEffect(() => { wasteRef.current = defaultWastePct; }, [defaultWastePct]);
+  const wasteSeededRef = useRef(false);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
@@ -140,7 +147,7 @@ export default function InquiryPricingGrid() {
       const ids = productList.map(p => p.id);
       const { data: cogs } = await supabase
         .from('cogs_items')
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
+        .select(COGS_SELECT)
         .in('product_id', ids)
         .in('cogs_type', [RAW_TYPE, SUBC_TYPE, HW_TYPE]);
       setRows((cogs || []) as CogsRow[]);
@@ -151,6 +158,19 @@ export default function InquiryPricingGrid() {
   }, [inquiryId]);
 
   useEffect(() => { void refetch(); }, [refetch]);
+
+  // Seed the toolbar's default waste % from the most common existing raw-piece value
+  useEffect(() => {
+    if (loading || wasteSeededRef.current) return;
+    const rawWastes = rows.filter(r => r.cogs_type === RAW_TYPE).map(r => Number(r.waste_factor) || 0);
+    if (rawWastes.length === 0) { wasteSeededRef.current = true; return; }
+    const counts = new Map<number, number>();
+    for (const w of rawWastes) counts.set(w, (counts.get(w) || 0) + 1);
+    let best = 0; let bestCount = -1;
+    for (const [w, c] of counts) if (c > bestCount) { best = w; bestCount = c; }
+    setDefaultWastePct(Math.round(best * 10000) / 100);
+    wasteSeededRef.current = true;
+  }, [loading, rows]);
 
   // Build per-product indexed maps
   const productRows = useMemo(() => {
@@ -211,10 +231,10 @@ export default function InquiryPricingGrid() {
             component_name,
             include,
             sort_order,
-            waste_factor: 0,
+            waste_factor: Math.max(0, wasteRef.current) / 100,
             components_per_product: normalizeDefaultQty(qtyRef.current),
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
+          .select(COGS_SELECT)
           .single();
         if (error || !data) {
           toast.error(`Failed to add row: ${error?.message || 'unknown'}`);
@@ -237,7 +257,7 @@ export default function InquiryPricingGrid() {
             waste_factor: 0,
             components_per_product: normalizeDefaultQty(qtyRef.current),
           })
-          .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
+          .select(COGS_SELECT)
           .single();
         if (error || !data) { toast.error(`Failed to add subcontract row: ${error?.message}`); return null; }
         setRows(prev => [...prev, data as CogsRow]);
@@ -257,7 +277,7 @@ export default function InquiryPricingGrid() {
           waste_factor: 0.05,
           components_per_product: normalizeDefaultQty(qtyRef.current),
         })
-        .select('id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, include, sort_order, created_at')
+        .select(COGS_SELECT)
         .single();
       if (error || !data) { toast.error(`Failed to add hardware row: ${error?.message}`); return null; }
       setRows(prev => [...prev, data as CogsRow]);
@@ -353,6 +373,35 @@ export default function InquiryPricingGrid() {
       });
     }
   }, []);
+
+  // Apply the toolbar waste % to every raw-piece row across all products in the inquiry.
+  const applyDefaultWasteToAllRaw = useCallback(async () => {
+    const factor = Math.max(0, Number(wasteRef.current) || 0) / 100;
+    const rawIds = rowsRef.current.filter(r => r.cogs_type === RAW_TYPE).map(r => r.id);
+    if (rawIds.length === 0) {
+      toast.info('No raw-piece rows to update yet.');
+      return;
+    }
+    setRows(prev => prev.map(r => (r.cogs_type === RAW_TYPE ? { ...r, waste_factor: factor } : r)));
+    const { error } = await supabase.from('cogs_items').update({ waste_factor: factor }).in('id', rawIds);
+    if (error) { toast.error(`Failed: ${error.message}`); void refetch(); return; }
+    const productIds = [...new Set(rowsRef.current.filter(r => r.cogs_type === RAW_TYPE).map(r => r.product_id))];
+    await Promise.all(productIds.map(pid => recostInBackground(pid)));
+    toast.success(`Applied ${wasteRef.current}% waste to ${rawIds.length} raw-piece row${rawIds.length === 1 ? '' : 's'}`);
+  }, [refetch, recostInBackground]);
+
+  // Update waste for all raw-piece rows of a single product (keeps vendor slots in sync).
+  const updateProductRawWaste = useCallback(async (productId: string, pct: number) => {
+    const factor = Math.max(0, Number(pct) || 0) / 100;
+    const targetIds = rowsRef.current
+      .filter(r => r.product_id === productId && r.cogs_type === RAW_TYPE)
+      .map(r => r.id);
+    if (targetIds.length === 0) return;
+    setRows(prev => prev.map(r => (targetIds.includes(r.id) ? { ...r, waste_factor: factor } : r)));
+    const { error } = await supabase.from('cogs_items').update({ waste_factor: factor }).in('id', targetIds);
+    if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return; }
+    void recostInBackground(productId);
+  }, [refetch, recostInBackground]);
 
   useEffect(() => {
     if (loading || rows.length === 0) return;
@@ -475,6 +524,29 @@ export default function InquiryPricingGrid() {
                 className="h-6 w-14 text-xs px-1.5 tabular-nums"
               />
             </label>
+            <label
+              className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 h-8"
+              title="Default waste % applied to new raw-piece rows created in this grid. Click Apply to overwrite the waste % on every existing raw-piece row across all products."
+            >
+              Raw waste %:
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                value={defaultWastePct}
+                onChange={(e) => setDefaultWastePct(Math.max(0, Number(e.target.value) || 0))}
+                className="h-6 w-14 text-xs px-1.5 tabular-nums"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={() => void applyDefaultWasteToAllRaw()}
+                disabled={products.length === 0}
+              >
+                Apply to all
+              </Button>
+            </label>
             <Button
               size="sm"
               variant="outline"
@@ -516,6 +588,7 @@ export default function InquiryPricingGrid() {
             onWriteCell={writeCell}
             onSetWinner={setWinner}
             onPaste={handlePaste}
+            onUpdateWaste={updateProductRawWaste}
           />
         )}
       </div>
@@ -558,10 +631,11 @@ type TableProps = {
   onWriteCell: (productId: string, col: ColumnSpec, raw: string) => Promise<boolean>;
   onSetWinner: (productId: string, slot: number) => Promise<void>;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, productIdx: number, colIdx: number) => void;
+  onUpdateWaste: (productId: string, pct: number) => Promise<void>;
 };
 
 function PricingGridTable({
-  products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste,
+  products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
 }: TableProps) {
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
@@ -573,6 +647,13 @@ function PricingGridTable({
               rowSpan={2}
             >
               Product
+            </th>
+            <th
+              className="bg-muted/95 backdrop-blur px-2 py-2 text-center font-medium border-b border-r w-[80px]"
+              rowSpan={2}
+              title="Waste % applied to all raw-piece rows for this product."
+            >
+              Waste %
             </th>
             {Array.from({ length: visibleRawSlots }).map((_, slot) => (
               <th key={`raw-h-${slot}`} colSpan={3} className="px-2 py-1 text-center font-medium border-b border-r">
@@ -617,6 +698,14 @@ function PricingGridTable({
                     )}
                   </div>
                 </td>
+                <td className="px-1 py-0.5 align-middle border-r">
+                  <WasteCell
+                    value={bucket.raw[0]?.waste_factor ?? null}
+                    onCommit={(pct) => void onUpdateWaste(p.id, pct)}
+                  />
+                </td>
+
+
 
                 {columns.map((col, cIdx) => {
                   const cellKey = `${p.id}-${col.key}`;
@@ -762,6 +851,36 @@ function PriceCell({
         winner && 'font-semibold',
       )}
       placeholder="—"
+      inputMode="decimal"
+    />
+  );
+}
+
+function WasteCell({
+  value, onCommit,
+}: {
+  value: number | null;
+  onCommit: (pct: number) => void;
+}) {
+  const initial = value == null ? '' : String(Math.round((value as number) * 10000) / 100);
+  const [draft, setDraft] = useState<string>(initial);
+  const dirtyRef = useRef(false);
+  useEffect(() => { if (!dirtyRef.current) setDraft(initial); }, [initial]);
+  return (
+    <Input
+      value={draft}
+      onChange={(e) => { dirtyRef.current = true; setDraft(e.target.value); }}
+      onBlur={() => {
+        if (!dirtyRef.current) return;
+        dirtyRef.current = false;
+        if (draft.trim() === initial.trim()) return;
+        const n = Number(draft);
+        if (!Number.isFinite(n) || n < 0) { toast.error('Invalid waste %'); setDraft(initial); return; }
+        onCommit(n);
+      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className="h-7 w-[64px] text-right text-xs px-1.5 tabular-nums mx-auto"
+      placeholder="0"
       inputMode="decimal"
     />
   );
