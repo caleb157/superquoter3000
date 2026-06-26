@@ -698,6 +698,14 @@ function PricingGridTable({
                     )}
                   </div>
                 </td>
+                <td className="px-1 py-0.5 align-middle border-r">
+                  <WasteCell
+                    value={bucket.raw[0]?.waste_factor ?? null}
+                    onCommit={(pct) => void onUpdateWaste(p.id, pct)}
+                  />
+                </td>
+
+
 
                 {columns.map((col, cIdx) => {
                   const cellKey = `${p.id}-${col.key}`;
