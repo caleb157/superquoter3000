@@ -52,7 +52,15 @@ const shouldBackfillPricedQty = (item: any) => (
   (Number(item?.components_per_product) || 0) <= 0
 );
 
-const preserveManualNo = (item: any, defaultIncluded: boolean) => defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No';
+const preserveManualNo = (item: any, defaultIncluded: boolean) => {
+  if (!defaultIncluded) return 'No';
+  // For auto-calculated rows, always reflect the current packaging mode (so toggling
+  // to e.g. bulk_pack flips the MC Box row back to "Yes" instead of preserving a
+  // stale "No" left over from a previous mode).
+  if (item.is_auto_calculated !== false) return 'Yes';
+  // For manually-managed rows, preserve a user-set "No".
+  return item.include === 'No' ? 'No' : (item.include || 'Yes');
+};
 
 const SectionHeader = ({ title, open, onToggle, badge, done, hasReview, onDoneChange }: { title: string; open: boolean; onToggle: () => void; badge?: string; done?: boolean; hasReview?: boolean; onDoneChange?: (next: boolean) => void }) => (
   <div className={`w-full flex items-center gap-2 py-2 px-3 rounded-md transition-colors ${done ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50' : 'bg-muted/50 hover:bg-muted'}`}>
