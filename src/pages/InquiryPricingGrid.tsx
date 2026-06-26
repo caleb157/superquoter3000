@@ -118,6 +118,10 @@ export default function InquiryPricingGrid() {
   const [defaultQtyPerSku, setDefaultQtyPerSku] = useState<number>(1);
   const qtyRef = useRef(defaultQtyPerSku);
   useEffect(() => { qtyRef.current = normalizeDefaultQty(defaultQtyPerSku); }, [defaultQtyPerSku]);
+  const [defaultWastePct, setDefaultWastePct] = useState<number>(0);
+  const wasteRef = useRef(defaultWastePct);
+  useEffect(() => { wasteRef.current = defaultWastePct; }, [defaultWastePct]);
+  const wasteSeededRef = useRef(false);
 
   useDocumentTitle(inquiry ? `Pricing Grid · ${inquiry.title || inquiry.rfq_number}` : 'Pricing Grid');
 
