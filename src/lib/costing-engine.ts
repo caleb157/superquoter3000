@@ -1,4 +1,7 @@
-// Pure costing engine — single source of truth for per-unit cost/price orchestration.
+// SINGLE SOURCE OF TRUTH for product costing. Do not call calc.calcProductCostSummary
+// directly from any page or component — always go through computeProductCosting()
+// in this file. Direct calls bypass CBM/bulk-pack/markup-override logic and WILL drift
+// from the rest of the app. (This comment exists because it already happened three times.)
 //
 // Convention: pass `inquiryOverrides` RAW (the un-merged customer_rfqs row, or null).
 // The engine internally calls mergeSettingsWithInquiry(globalSettings, inquiryOverrides)
