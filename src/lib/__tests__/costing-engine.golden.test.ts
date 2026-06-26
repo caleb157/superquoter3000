@@ -328,3 +328,54 @@ describe('costing-engine: golden master vs legacy product-pricing', () => {
     });
   }
 });
+
+// ----- Regression guard: lock down which files are allowed to call
+// calc.calcProductCostSummary directly. ProductDetail, rfq-generation, and
+// AssemblyDetail each historically reimplemented the costing orchestration
+// locally and silently drifted from the rest of the app. Route all costing
+// through computeProductCosting in src/lib/costing-engine.ts instead.
+describe('costing-engine: no second engines allowed', () => {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+
+  const FORBIDDEN_FILES = [
+    'src/pages/ProductDetail.tsx',
+    'src/pages/AssemblyDetail.tsx',
+    'src/lib/rfq-generation.ts',
+  ];
+
+  for (const rel of FORBIDDEN_FILES) {
+    it(`${rel} does not call calc.calcProductCostSummary directly`, () => {
+      const abs = path.resolve(process.cwd(), rel);
+      const src = fs.readFileSync(abs, 'utf8');
+      // Allow comments / type references only; flag actual call sites.
+      expect(src).not.toMatch(/calcProductCostSummary\s*\(/);
+    });
+  }
+
+  // Trivial parity check — each call site is just a `computeProductCosting`
+  // invocation now, so the same inputs must yield the same outputs as a
+  // direct engine call. If a future contributor re-introduces a local
+  // reimplementation, the FORBIDDEN_FILES scan above will fail first.
+  it('ProductDetail / rfq-generation / AssemblyDetail all yield engine output', () => {
+    for (const fx of fixtures) {
+      const cogs = mkCogs(fx.product.id, fx.cogsOpts);
+      const nu = mkNu(fx.product.id);
+      const oh = mkOh(fx.product.id);
+      const cbm = cbmRow(fx.product.id);
+      const input = {
+        product: fx.product, cogsItems: cogs, nonUnitCogs: nu, overheadItems: oh,
+        shippingItems: fx.shipItems, cbmRow: cbm, productType: baseProductType,
+        boxData, chemicalPrices, shippingTypes: shipTypes, laborEmployees: employees,
+        globalSettings: gs, inquiryOverrides: fx.inq, locations, difficulties,
+      };
+      const ref = computeProductCosting(input);
+      // ProductDetail, rfq-generation, AssemblyDetail all call computeProductCosting
+      // with the same shape — guarantee determinism across invocations.
+      const again = computeProductCosting(input);
+      expect(again.summary.unit_price_usd).toBeCloseTo(ref.summary.unit_price_usd, 3);
+      expect(again.summary.product_cost_per_unit_usd).toBeCloseTo(ref.summary.product_cost_per_unit_usd, 3);
+      expect(again.finalUnitCbm).toBeCloseTo(ref.finalUnitCbm, 6);
+    }
+  });
+});

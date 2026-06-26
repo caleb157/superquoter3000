@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import * as calc from '@/lib/calculations';
+
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
 import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
@@ -95,97 +95,68 @@ const ProductDetail = () => {
     setLoading(false);
   }, [id]);
 
-  // Fetch costing summary data
+  // Fetch costing summary data — routes through the unified engine.
   const fetchCostingSummary = useCallback(async () => {
     if (!id) return;
-    
-    // Fetch all data needed for costing calculations
+
+    // First, fetch the product so we can resolve its inquiry id.
+    const { data: productData } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
+    if (!productData) return;
+    const inquiryId = (productData as any).customer_rfq_id || null;
+
     const [
-      { data: productData },
-      { data: cogsItemsData },
-      { data: nonUnitCogsData },
-      { data: overheadItemsData },
-      { data: shippingItemsData },
-      { data: shippingTypesData },
-      { data: employeesData },
-      { data: globalSettingsData },
-      { data: inquiryData },
+      cogsRes, nuRes, ohRes, shipRes, shipTypesRes, empRes, gsRes, cbmRes,
+      ptRes, inqRes, chemRes, boxRes, diffRes, locRes, rawRes,
     ] = await Promise.all([
-      supabase.from('products').select('*').eq('id', id).maybeSingle(),
       supabase.from('cogs_items').select('*').eq('product_id', id),
       supabase.from('non_unit_cogs').select('*').eq('product_id', id),
       supabase.from('overhead_items').select('*').eq('product_id', id),
       supabase.from('shipping_items').select('*').eq('product_id', id),
       supabase.from('shipping_types').select('*'),
       supabase.from('labor_employees').select('*'),
-      supabase.from('global_settings').select('*').maybeSingle(),
-      supabase.from('customer_rfqs').select('*').eq('id', (await supabase.from('products').select('customer_rfq_id').eq('id', id).maybeSingle()).data?.customer_rfq_id).maybeSingle(),
+      supabase.from('global_settings').select('*').limit(1).maybeSingle(),
+      supabase.from('cbm_estimates').select('*').eq('product_id', id).maybeSingle(),
+      supabase.from('product_types').select('*'),
+      inquiryId
+        ? (supabase as any).from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from('chemical_prices').select('*'),
+      supabase.from('box_data').select('*'),
+      (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+      (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
+      (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
     ]);
 
-    if (!productData || !globalSettingsData) return;
+    const gs = gsRes.data;
+    if (!gs) return;
 
-    const { mergeSettingsWithInquiry } = await import('@/lib/inquiry-overrides');
-    const settings = mergeSettingsWithInquiry(globalSettingsData as any, inquiryData as any);
-
-    const qty = productData.quantity || 100;
-    const exchangeRate = settings.exchange_rate ?? 90;
-    const markupPercent = (inquiryData as any)?.markup_percent_override ?? productData.markup_percent ?? 0.2;
-
-    // Calculate COGS per unit
-    const cogsPerUnit = (cogsItemsData || []).reduce((sum: number, item: any) => {
-      if (item.include === 'No') return sum;
-      const c = calc.calcCogsItemCost({
-        include: item.include,
-        components_per_product: item.components_per_product || 0,
-        unit_cost_inr: item.unit_cost_inr || 0,
-        waste_factor: item.waste_factor || 0,
-      });
-      return sum + c.unit_cost;
-    }, 0);
-
-    // Calculate non-unit COGS per unit
-    const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
-      (nonUnitCogsData || []).map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })),
-      qty
-    );
-
-    // Calculate overhead
-    const ohItems = (overheadItemsData || []).map((item: any) => ({
-      include: item.include,
-      labor_type: item.labor_type,
-      man_hours_per_unit: item.man_hours_per_unit || 0,
-      hourly_rate: calc.avgRateByDesignation(employeesData || [], item.labor_type),
-    }));
-    const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-    const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-    const indirectOhPerMh = calc.calcIndirectOhPerManHour(settings as any);
-    const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-
-    // Calculate shipping
-    const shipItem = (shippingItemsData || [])[0];
-    const overrideShipType = inquiryData?.shipping_type_id_override
-      ? (shippingTypesData || []).find((s: any) => s.id === inquiryData.shipping_type_id_override)
-      : null;
-    const shipType = overrideShipType || (shippingTypesData || []).find((s: any) => s.id === shipItem?.shipping_type_id);
-    const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-      cost_inr: shipType.cost_inr,
-      per_unit: (shipType.per_unit as 'CBM' | 'KG') || 'CBM',
-      final_unit_cbm: 0,
-      weight_kg: productData.weight_kg || 0,
-    }) : 0;
-
-    // Calculate summary
-    const summary = calc.calcProductCostSummary(
-      cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
-      shippingPerUnit, markupPercent, exchangeRate, qty
-    );
+    const productType = (ptRes.data || []).find((pt: any) => pt.id === (productData as any).product_type_id) || null;
+    const { computeProductCosting } = await import('@/lib/costing-engine');
+    const engineResult = computeProductCosting({
+      product: productData,
+      cogsItems: cogsRes.data || [],
+      nonUnitCogs: nuRes.data || [],
+      overheadItems: ohRes.data || [],
+      shippingItems: shipRes.data || [],
+      cbmRow: cbmRes.data || null,
+      productType,
+      boxData: boxRes.data || [],
+      chemicalPrices: chemRes.data || [],
+      shippingTypes: shipTypesRes.data || [],
+      laborEmployees: empRes.data || [],
+      globalSettings: gs,
+      inquiryOverrides: (inqRes as any).data || null,
+      locations: (locRes as any).data || [],
+      difficulties: (diffRes as any).data || [],
+      rawMaterialCosts: (rawRes as any).data || [],
+    });
 
     setCostingSummary({
-      unitPriceInr: summary.unit_price_inr,
-      unitPriceUsd: summary.unit_price_usd,
-      unitCostInr: summary.product_cost_per_unit_inr,
-      unitCostUsd: summary.product_cost_per_unit_usd,
-      exchangeRate,
+      unitPriceInr: engineResult.summary.unit_price_inr,
+      unitPriceUsd: engineResult.summary.unit_price_usd,
+      unitCostInr: engineResult.summary.product_cost_per_unit_inr,
+      unitCostUsd: engineResult.summary.product_cost_per_unit_usd,
+      exchangeRate: engineResult.exchangeRate,
     });
   }, [id]);
 

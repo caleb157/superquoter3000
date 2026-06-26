@@ -64,10 +64,10 @@ const AssemblyDetail = () => {
 
       // Phase 7: inquiry-level settings TBD — using global settings only.
 
-      // Fetch cost data for each component product
+      // Fetch cost data for each component product — route through the unified engine.
       if (compRes.data && compRes.data.length > 0) {
         const productIds = compRes.data.map((c: any) => c.product_id);
-        const [cbmRes, cogsRes, nucRes, ohRes, shipRes, empRes, stRes] = await Promise.all([
+        const [cbmRes, cogsRes, nucRes, ohRes, shipRes, empRes, stRes, ptRes, chemRes, boxRes, diffRes, locRes, rawRes, inqRes] = await Promise.all([
           (supabase as any).from('cbm_estimates').select('*').in('product_id', productIds),
           (supabase as any).from('cogs_items').select('*').in('product_id', productIds),
           (supabase as any).from('non_unit_cogs').select('*').in('product_id', productIds),
@@ -75,45 +75,65 @@ const AssemblyDetail = () => {
           (supabase as any).from('shipping_items').select('*').in('product_id', productIds),
           (supabase as any).from('labor_employees').select('*'),
           (supabase as any).from('shipping_types').select('*'),
+          (supabase as any).from('product_types').select('*'),
+          (supabase as any).from('chemical_prices').select('*'),
+          (supabase as any).from('box_data').select('*'),
+          (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+          (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
+          (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
+          (supabase as any).from('customer_rfqs').select('*'),
         ]);
 
         const employees = empRes.data || [];
         const shTypes = stRes.data || [];
+        const productTypes = ptRes.data || [];
+        const chemPrices = chemRes.data || [];
+        const boxData = boxRes.data || [];
+        const difficulties = diffRes.data || [];
+        const locations = locRes.data || [];
+        const rawMaterialCosts = rawRes.data || [];
+        const inquiries = inqRes.data || [];
         const gs = gsRes.data;
-        const exchangeRate = gs?.exchange_rate || 90;
+
+        const { computeProductCosting } = await import('@/lib/costing-engine');
 
         const costMap: Record<string, any> = {};
         productIds.forEach((pid: string) => {
           const prod = prods?.find((p: any) => p.id === pid);
           if (!prod) return;
-          const cbmEst = (cbmRes.data || []).find((c: any) => c.product_id === pid);
+          const cbmEst = (cbmRes.data || []).find((c: any) => c.product_id === pid) || null;
           const pCogs = (cogsRes.data || []).filter((c: any) => c.product_id === pid);
           const pNuc = (nucRes.data || []).filter((c: any) => c.product_id === pid);
           const pOh = (ohRes.data || []).filter((c: any) => c.product_id === pid);
           const pShip = (shipRes.data || []).filter((c: any) => c.product_id === pid);
-          const qty = prod.quantity || 100;
-          const unit_cbm = cbmEst?.final_unit_cbm || calc.prePackagedCbm(prod.width_inch || 0, prod.depth_inch || 0, prod.height_inch || 0);
+          const productType = productTypes.find((pt: any) => pt.id === prod.product_type_id) || null;
+          const inq = prod.customer_rfq_id ? inquiries.find((i: any) => i.id === prod.customer_rfq_id) || null : null;
 
-          const cogsPerUnit = pCogs.filter((i: any) => i.include !== 'No').reduce((sum: number, item: any) =>
-            sum + calc.calcCogsItemCost({ include: item.include, components_per_product: item.components_per_product || 0, unit_cost_inr: item.unit_cost_inr || 0, waste_factor: item.waste_factor || 0 }).unit_cost, 0);
-          const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(pNuc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity, cost_each_inr: i.cost_each_inr })), qty);
-          const ohItems = pOh.map((item: any) => ({ include: item.include, labor_type: item.labor_type, man_hours_per_unit: item.man_hours_per_unit || 0, hourly_rate: calc.avgRateByDesignation(employees, item.labor_type) }));
-          const directOhPerUnit = calc.calcTotalDirectOverheadPerUnit(ohItems, qty);
-          const totalDirectMhPerUnit = calc.calcTotalDirectManHoursPerUnit(ohItems);
-          const indirectOhPerMh = gs ? calc.calcIndirectOhPerManHour(gs) : 0;
-          const indirectOhPerUnit = calc.calcIndirectOhPerUnit(totalDirectMhPerUnit, indirectOhPerMh);
-          const shipItem = pShip[0];
-          const shipType = shTypes.find((s: any) => s.id === shipItem?.shipping_type_id);
-          const shippingPerUnit = shipType ? calc.calcShippingPerUnit({ cost_inr: shipType.cost_inr, per_unit: shipType.per_unit, final_unit_cbm: unit_cbm, weight_kg: prod.weight_kg || 0 }) : 0;
-          const markupPercent = prod.markup_percent || 0.2;
-          const summary = calc.calcProductCostSummary(cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit, shippingPerUnit, markupPercent, exchangeRate, qty);
+          const engineResult = computeProductCosting({
+            product: prod,
+            cogsItems: pCogs,
+            nonUnitCogs: pNuc,
+            overheadItems: pOh,
+            shippingItems: pShip,
+            cbmRow: cbmEst,
+            productType,
+            boxData,
+            chemicalPrices: chemPrices,
+            shippingTypes: shTypes,
+            laborEmployees: employees,
+            globalSettings: gs,
+            inquiryOverrides: inq,
+            locations,
+            difficulties,
+            rawMaterialCosts,
+          });
 
           costMap[pid] = {
-            product_cost_per_unit: summary.product_cost_per_unit_inr,
-            final_unit_cbm: unit_cbm,
+            product_cost_per_unit: engineResult.summary.product_cost_per_unit_inr,
+            final_unit_cbm: engineResult.finalUnitCbm,
             weight_kg: prod.weight_kg || 0,
-            total_man_hours_per_unit: totalDirectMhPerUnit,
-            unit_cost_usd: summary.product_cost_per_unit_usd,
+            total_man_hours_per_unit: engineResult.manHoursPerUnit,
+            unit_cost_usd: engineResult.summary.product_cost_per_unit_usd,
             ic_width: cbmEst?.ic_width, ic_depth: cbmEst?.ic_depth, ic_height: cbmEst?.ic_height,
             ic_type: cbmEst?.ic_type,
           };
