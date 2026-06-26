@@ -396,6 +396,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       const label = shippingTypes.find(s => s.id === shippingTypeId)?.name ?? 'shipping';
       parts.push(`shipping → ${label}`);
     }
+    if (willUpdateLabor) {
+      parts.push(`${validLaborRows.length} labor override${validLaborRows.length === 1 ? '' : 's'}`);
+    }
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
