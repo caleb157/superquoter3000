@@ -319,7 +319,57 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       })();
     }
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise]);
+    // Bulk labor man-hours override: upsert overhead_items by (product_id, labor_type)
+    let laborPromise: Promise<any> = Promise.resolve({ error: null });
+    if (willUpdateLabor) {
+      laborPromise = (async () => {
+        const labelTypes = validLaborRows.map(l => l.labor_type);
+        const { data: existingOh, error: fetchOhErr } = await (supabase as any)
+          .from('overhead_items')
+          .select('id, product_id, labor_type, sort_order')
+          .in('product_id', selectedProductIds)
+          .in('labor_type', labelTypes);
+        if (fetchOhErr) return { error: fetchOhErr };
+        const key = (pid: string, lt: string) => `${pid}::${lt}`;
+        const existingByKey = new Map<string, string>();
+        const maxSortByPid = new Map<string, number>();
+        (existingOh || []).forEach((r: any) => {
+          existingByKey.set(key(r.product_id, r.labor_type), r.id);
+        });
+        // Fetch max sort per product for inserts
+        const { data: allOh } = await (supabase as any)
+          .from('overhead_items').select('product_id, sort_order').in('product_id', selectedProductIds);
+        (allOh || []).forEach((r: any) => {
+          const cur = maxSortByPid.get(r.product_id) ?? 0;
+          maxSortByPid.set(r.product_id, Math.max(cur, r.sort_order ?? 0));
+        });
+
+        const ohOps: Promise<any>[] = [];
+        const toInsertOh: any[] = [];
+        for (const pid of selectedProductIds) {
+          let nextSort = (maxSortByPid.get(pid) ?? 0) + 1;
+          for (const l of validLaborRows) {
+            const mh = Math.max(0, Number(l.man_hours_per_unit) || 0);
+            const id = existingByKey.get(key(pid, l.labor_type));
+            if (id) {
+              ohOps.push((supabase as any).from('overhead_items').update({
+                man_hours_per_unit: mh, is_auto_estimated: false, include: 'Yes',
+              }).eq('id', id));
+            } else {
+              toInsertOh.push({
+                product_id: pid, labor_type: l.labor_type, man_hours_per_unit: mh,
+                is_auto_estimated: false, include: 'Yes', sort_order: nextSort++,
+              });
+            }
+          }
+        }
+        if (toInsertOh.length > 0) ohOps.push((supabase as any).from('overhead_items').insert(toInsertOh));
+        const res = await Promise.all(ohOps);
+        return { error: res.find((r: any) => r?.error)?.error ?? null };
+      })();
+    }
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
