@@ -12,6 +12,10 @@ import { toast } from 'sonner';
 
 const COGS_TYPES = ['Raw Piece', 'Subcontracting', 'Finishing Materials', 'Packaging', 'Hardware', 'Accessories', 'Components', 'Wood', 'Other'];
 const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
+const LABOR_TYPE_OPTIONS = ['Manufacturing', 'QC', 'Finishing', 'Assembly', 'Packaging', 'Market'];
+
+type LaborDraft = { _key: string; labor_type: string; man_hours_per_unit: number };
+const newLaborRow = (lt = 'QC'): LaborDraft => ({ _key: `l-${Math.random().toString(36).slice(2, 9)}`, labor_type: lt, man_hours_per_unit: 0 });
 const PACKAGING_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: '__keep__', label: 'Keep current per product' },
   { value: 'ic_only', label: 'IC only' },
@@ -84,6 +88,8 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
 
+  const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
+
   const productCount = selectedProductIds.length;
 
   // Pull existing component names from the selected products to show as suggestions —
@@ -121,8 +127,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       setRawRows([]);
       setReplaceAllRaw(false);
       setShippingTypeId('__keep__');
+      setLaborRows([]);
     }
   }, [open]);
+
+  const addLaborRow = () => setLaborRows(prev => [...prev, newLaborRow()]);
+  const removeLaborRow = (key: string) => setLaborRows(prev => prev.filter(r => r._key !== key));
+  const updateLabor = (key: string, patch: Partial<LaborDraft>) =>
+    setLaborRows(prev => prev.map(r => r._key === key ? { ...r, ...patch } : r));
+  const validLaborRows = useMemo(() => laborRows.filter(r => r.labor_type), [laborRows]);
 
   const addRow = () => setRows(prev => [...prev, newRow()]);
   const removeRow = (key: string) => setRows(prev => prev.filter(r => r._key !== key));
@@ -149,8 +162,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     const willUpdatePackaging = packagingType !== '__keep__';
     const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
     const willUpdateShipping = shippingTypeId !== '__keep__';
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping) {
-      toast.error('Add at least one row, raw piece, packaging type, or shipping type');
+    const willUpdateLabor = validLaborRows.length > 0;
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor) {
+      toast.error('Add at least one row, raw piece, packaging type, shipping type, or labor override');
       return;
     }
 
@@ -305,7 +319,57 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       })();
     }
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise]);
+    // Bulk labor man-hours override: upsert overhead_items by (product_id, labor_type)
+    let laborPromise: Promise<any> = Promise.resolve({ error: null });
+    if (willUpdateLabor) {
+      laborPromise = (async () => {
+        const labelTypes = validLaborRows.map(l => l.labor_type);
+        const { data: existingOh, error: fetchOhErr } = await (supabase as any)
+          .from('overhead_items')
+          .select('id, product_id, labor_type, sort_order')
+          .in('product_id', selectedProductIds)
+          .in('labor_type', labelTypes);
+        if (fetchOhErr) return { error: fetchOhErr };
+        const key = (pid: string, lt: string) => `${pid}::${lt}`;
+        const existingByKey = new Map<string, string>();
+        const maxSortByPid = new Map<string, number>();
+        (existingOh || []).forEach((r: any) => {
+          existingByKey.set(key(r.product_id, r.labor_type), r.id);
+        });
+        // Fetch max sort per product for inserts
+        const { data: allOh } = await (supabase as any)
+          .from('overhead_items').select('product_id, sort_order').in('product_id', selectedProductIds);
+        (allOh || []).forEach((r: any) => {
+          const cur = maxSortByPid.get(r.product_id) ?? 0;
+          maxSortByPid.set(r.product_id, Math.max(cur, r.sort_order ?? 0));
+        });
+
+        const ohOps: Promise<any>[] = [];
+        const toInsertOh: any[] = [];
+        for (const pid of selectedProductIds) {
+          let nextSort = (maxSortByPid.get(pid) ?? 0) + 1;
+          for (const l of validLaborRows) {
+            const mh = Math.max(0, Number(l.man_hours_per_unit) || 0);
+            const id = existingByKey.get(key(pid, l.labor_type));
+            if (id) {
+              ohOps.push((supabase as any).from('overhead_items').update({
+                man_hours_per_unit: mh, is_auto_estimated: false, include: 'Yes',
+              }).eq('id', id));
+            } else {
+              toInsertOh.push({
+                product_id: pid, labor_type: l.labor_type, man_hours_per_unit: mh,
+                is_auto_estimated: false, include: 'Yes', sort_order: nextSort++,
+              });
+            }
+          }
+        }
+        if (toInsertOh.length > 0) ohOps.push((supabase as any).from('overhead_items').insert(toInsertOh));
+        const res = await Promise.all(ohOps);
+        return { error: res.find((r: any) => r?.error)?.error ?? null };
+      })();
+    }
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise]);
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -331,6 +395,9 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willUpdateShipping) {
       const label = shippingTypes.find(s => s.id === shippingTypeId)?.name ?? 'shipping';
       parts.push(`shipping → ${label}`);
+    }
+    if (willUpdateLabor) {
+      parts.push(`${validLaborRows.length} labor override${validLaborRows.length === 1 ? '' : 's'}`);
     }
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
@@ -415,6 +482,50 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
             </SelectContent>
           </Select>
           <span className="text-[11px] text-muted-foreground">Sets shipping type on every selected SKU.</span>
+        </div>
+
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Labor man-hours / unit (manual override)</Label>
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLaborRow}>
+              <Plus className="h-3 w-3" /> Add labor
+            </Button>
+          </div>
+          {laborRows.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No labor overrides — add a row to set man-hours/unit (e.g. 0.1 for QC) on every selected SKU. Marks the row as manual (disables auto-estimate).</div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                <div className="col-span-5">Labor type</div>
+                <div className="col-span-5">Man-hours / unit</div>
+                <div className="col-span-2"></div>
+              </div>
+              {laborRows.map(l => (
+                <div key={l._key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5">
+                    <Select value={l.labor_type} onValueChange={(v) => updateLabor(l._key, { labor_type: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {LABOR_TYPE_OPTIONS.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-5">
+                    <Input type="number" step="any" inputMode="decimal" min={0}
+                      value={l.man_hours_per_unit}
+                      onChange={e => updateLabor(l._key, { man_hours_per_unit: Number(e.target.value) })}
+                      placeholder="e.g. 0.1"
+                      className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeLaborRow(l._key)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="rounded-md border p-2 space-y-2">
           <div className="flex items-center justify-between">
@@ -579,7 +690,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__')} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__' && validLaborRows.length === 0)} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
