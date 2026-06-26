@@ -39,10 +39,13 @@ type CogsRow = {
   vendor_name: string | null;
   unit_cost_inr: number | null;
   components_per_product: number | null;
+  waste_factor: number | null;
   include: string | null;
   sort_order: number | null;
   created_at: string | null;
 };
+
+const COGS_SELECT = 'id, product_id, cogs_type, component_name, vendor_name, unit_cost_inr, components_per_product, waste_factor, include, sort_order, created_at';
 
 const RAW_TYPE = 'Raw Piece';
 const SUBC_TYPE = 'Subcontracting';
