@@ -12,6 +12,10 @@ import { toast } from 'sonner';
 
 const COGS_TYPES = ['Raw Piece', 'Subcontracting', 'Finishing Materials', 'Packaging', 'Hardware', 'Accessories', 'Components', 'Wood', 'Other'];
 const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
+const LABOR_TYPE_OPTIONS = ['Manufacturing', 'QC', 'Finishing', 'Assembly', 'Packaging', 'Market'];
+
+type LaborDraft = { _key: string; labor_type: string; man_hours_per_unit: number };
+const newLaborRow = (lt = 'QC'): LaborDraft => ({ _key: `l-${Math.random().toString(36).slice(2, 9)}`, labor_type: lt, man_hours_per_unit: 0 });
 const PACKAGING_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: '__keep__', label: 'Keep current per product' },
   { value: 'ic_only', label: 'IC only' },
