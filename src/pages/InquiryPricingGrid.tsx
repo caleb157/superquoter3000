@@ -231,7 +231,7 @@ export default function InquiryPricingGrid() {
             component_name,
             include,
             sort_order,
-            waste_factor: 0,
+            waste_factor: Math.max(0, wasteRef.current) / 100,
             components_per_product: normalizeDefaultQty(qtyRef.current),
           })
           .select(COGS_SELECT)
