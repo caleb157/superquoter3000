@@ -588,6 +588,7 @@ export default function InquiryPricingGrid() {
             onWriteCell={writeCell}
             onSetWinner={setWinner}
             onPaste={handlePaste}
+            onUpdateWaste={updateProductRawWaste}
           />
         )}
       </div>
