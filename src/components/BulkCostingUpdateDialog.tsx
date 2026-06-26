@@ -483,6 +483,50 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </Select>
           <span className="text-[11px] text-muted-foreground">Sets shipping type on every selected SKU.</span>
         </div>
+
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Labor man-hours / unit (manual override)</Label>
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLaborRow}>
+              <Plus className="h-3 w-3" /> Add labor
+            </Button>
+          </div>
+          {laborRows.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No labor overrides — add a row to set man-hours/unit (e.g. 0.1 for QC) on every selected SKU. Marks the row as manual (disables auto-estimate).</div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                <div className="col-span-5">Labor type</div>
+                <div className="col-span-5">Man-hours / unit</div>
+                <div className="col-span-2"></div>
+              </div>
+              {laborRows.map(l => (
+                <div key={l._key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-5">
+                    <Select value={l.labor_type} onValueChange={(v) => updateLabor(l._key, { labor_type: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {LABOR_TYPE_OPTIONS.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-5">
+                    <Input type="number" step="any" inputMode="decimal" min={0}
+                      value={l.man_hours_per_unit}
+                      onChange={e => updateLabor(l._key, { man_hours_per_unit: Number(e.target.value) })}
+                      placeholder="e.g. 0.1"
+                      className="h-8 text-xs text-right" />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeLaborRow(l._key)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="rounded-md border p-2 space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
