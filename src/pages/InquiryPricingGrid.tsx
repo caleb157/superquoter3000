@@ -159,6 +159,19 @@ export default function InquiryPricingGrid() {
 
   useEffect(() => { void refetch(); }, [refetch]);
 
+  // Seed the toolbar's default waste % from the most common existing raw-piece value
+  useEffect(() => {
+    if (loading || wasteSeededRef.current) return;
+    const rawWastes = rows.filter(r => r.cogs_type === RAW_TYPE).map(r => Number(r.waste_factor) || 0);
+    if (rawWastes.length === 0) { wasteSeededRef.current = true; return; }
+    const counts = new Map<number, number>();
+    for (const w of rawWastes) counts.set(w, (counts.get(w) || 0) + 1);
+    let best = 0; let bestCount = -1;
+    for (const [w, c] of counts) if (c > bestCount) { best = w; bestCount = c; }
+    setDefaultWastePct(Math.round(best * 10000) / 100);
+    wasteSeededRef.current = true;
+  }, [loading, rows]);
+
   // Build per-product indexed maps
   const productRows = useMemo(() => {
     const map = new Map<string, { raw: CogsRow[]; subc: CogsRow | null; hw: CogsRow | null }>();
