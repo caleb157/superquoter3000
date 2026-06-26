@@ -524,6 +524,29 @@ export default function InquiryPricingGrid() {
                 className="h-6 w-14 text-xs px-1.5 tabular-nums"
               />
             </label>
+            <label
+              className="flex items-center gap-1.5 text-xs text-muted-foreground border rounded-md px-2 h-8"
+              title="Default waste % applied to new raw-piece rows created in this grid. Click Apply to overwrite the waste % on every existing raw-piece row across all products."
+            >
+              Raw waste %:
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                value={defaultWastePct}
+                onChange={(e) => setDefaultWastePct(Math.max(0, Number(e.target.value) || 0))}
+                className="h-6 w-14 text-xs px-1.5 tabular-nums"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={() => void applyDefaultWasteToAllRaw()}
+                disabled={products.length === 0}
+              >
+                Apply to all
+              </Button>
+            </label>
             <Button
               size="sm"
               variant="outline"
