@@ -129,6 +129,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
+  // When set, the next persist of calculated_unit_price_usd skips the debounce
+  // and writes immediately. Used after recost actions and packaging auto-disable
+  // updates so other screens never read a stale cached price.
+  const forceImmediatePersistRef = useRef(false);
 
   // Section open state
   const [sections, setSections] = useState({
@@ -229,7 +233,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         return fresh.map((i) => ohToReset.some((o) => o.id === i.id) ? { ...i, is_auto_estimated: true } : i);
       });
 
-      // Force all auto-calc effects to re-run
+      // Force all auto-calc effects to re-run, and bypass the persist debounce
+      // so the freshly recomputed price lands in the cache immediately.
+      forceImmediatePersistRef.current = true;
       setRecalcTick(t => t + 1);
       void seeded;
       toast.success(restored > 0 ? `Recalculated auto costs (restored ${restored} row${restored === 1 ? '' : 's'})` : 'Recalculated auto costs');
@@ -785,6 +791,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     });
 
     if (updates.length > 0) {
+      // Packaging auto-toggle changed COGS rows — flush the new price right away.
+      forceImmediatePersistRef.current = true;
       setCogsItems(prev => prev.map(item => {
         const upd = updates.find(u => u.id === item.id);
         if (!upd) return item;
@@ -1036,6 +1044,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const writeNow = () => {
       if (written) return;
       written = true;
+      forceImmediatePersistRef.current = false;
       (supabase as any).from('products').update({
         calculated_unit_price_usd: priceUsd,
         calculated_unit_cost_usd: costUsd,
@@ -1043,6 +1052,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         onProductUpdated?.();
       });
     };
+    // After a recost or packaging auto-disable, write straight away so other
+    // screens never observe the stale cached price.
+    if (forceImmediatePersistRef.current) {
+      writeNow();
+      return;
+    }
     const t = setTimeout(writeNow, 600);
     return () => {
       clearTimeout(t);
@@ -1050,6 +1065,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       writeNow();
     };
   }, [summary.unit_price_usd, summary.product_cost_per_unit_usd, dataLoaded, product?.id, onProductUpdated]);
+
 
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
@@ -1246,6 +1262,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   value={packagingType}
                   onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
+                    forceImmediatePersistRef.current = true;
                     updateProduct('packaging_type', v);
                     const nextIncludeMc = v === 'ic_mc';
                     if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
