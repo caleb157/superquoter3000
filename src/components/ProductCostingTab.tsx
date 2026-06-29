@@ -1262,6 +1262,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   value={packagingType}
                   onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
+                    forceImmediatePersistRef.current = true;
                     updateProduct('packaging_type', v);
                     const nextIncludeMc = v === 'ic_mc';
                     if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
