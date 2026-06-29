@@ -233,7 +233,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         return fresh.map((i) => ohToReset.some((o) => o.id === i.id) ? { ...i, is_auto_estimated: true } : i);
       });
 
-      // Force all auto-calc effects to re-run
+      // Force all auto-calc effects to re-run, and bypass the persist debounce
+      // so the freshly recomputed price lands in the cache immediately.
+      forceImmediatePersistRef.current = true;
       setRecalcTick(t => t + 1);
       void seeded;
       toast.success(restored > 0 ? `Recalculated auto costs (restored ${restored} row${restored === 1 ? '' : 's'})` : 'Recalculated auto costs');
