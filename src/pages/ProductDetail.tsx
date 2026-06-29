@@ -34,6 +34,8 @@ type ProductHeader = {
   sample_stage: string | null;
   quantity: number;
   markup_percent: number | null;
+  calculated_unit_price_usd: number | null;
+  calculated_unit_cost_usd: number | null;
 };
 
 const VALID_TABS = ['costing', 'variants', 'sample-log', 'tasks', 'summary'] as const;
