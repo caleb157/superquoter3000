@@ -310,6 +310,27 @@ const ProductDetail = () => {
                 <span className="font-mono font-semibold text-primary">{fmt.inr(costingSummary.unitPriceInr)}</span>
                 <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitPriceUsd)})</span>
               </div>
+              {isStale && (
+                <>
+                  <div className="w-px h-6 bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="gap-1 border-amber-500/60 text-amber-700 dark:text-amber-400 text-[10px] py-0 px-1.5 h-5" title={`Cached: ${cachedPriceUsd != null ? fmt.usd(cachedPriceUsd) : '—'} · Live: ${livePriceUsd != null ? fmt.usd(livePriceUsd) : '—'}`}>
+                      <AlertTriangle className="h-3 w-3" />
+                      Stale
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-[10px] gap-1"
+                      onClick={refreshCachedPrice}
+                      disabled={refreshingPrice}
+                    >
+                      <RefreshCw className={`h-3 w-3 ${refreshingPrice ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
           
