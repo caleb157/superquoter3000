@@ -1251,6 +1251,21 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     if ((cbm?.include_mc ?? true) !== nextIncludeMc) {
                       updateCbm('include_mc', nextIncludeMc);
                     }
+                    // Invalidate the persisted price/cost cache immediately so other screens
+                    // (inquiry list, dashboard, product header) don't show a stale number
+                    // while the packaging-driven recompute settles. The debounced persist
+                    // effect below will write the fresh value once the auto-calc rows update.
+                    setProduct((p: any) => p && ({
+                      ...p,
+                      calculated_unit_price_usd: null,
+                      calculated_unit_cost_usd: null,
+                    }));
+                    if (id) {
+                      (supabase as any).from('products').update({
+                        calculated_unit_price_usd: null,
+                        calculated_unit_cost_usd: null,
+                      }).eq('id', id).then(() => { onProductUpdated?.(); });
+                    }
                     const packagingUpdates = cogsItems
                       .filter(item => item.cogs_type === 'Packaging')
                       .map(item => ({ id: item.id, include: packagingIncludeForType(v, item.component_name, v === 'no_packaging') }));
