@@ -791,6 +791,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     });
 
     if (updates.length > 0) {
+      // Packaging auto-toggle changed COGS rows — flush the new price right away.
+      forceImmediatePersistRef.current = true;
       setCogsItems(prev => prev.map(item => {
         const upd = updates.find(u => u.id === item.id);
         if (!upd) return item;
