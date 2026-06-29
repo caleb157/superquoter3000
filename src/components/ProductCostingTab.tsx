@@ -531,11 +531,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     },
   ), [w, d, h, icAdd, globalSettings?.corrugate_kg_per_sq_in, globalSettings?.bubble_kg_per_sq_in, globalSettings?.corrugate_price_per_kg, globalSettings?.bubble_price_per_kg]);
 
+  const resolvedMcWidth = bulkPackLocal?.mc_width ?? mcResult.mc_width;
+  const resolvedMcDepth = bulkPackLocal?.mc_depth ?? mcResult.mc_depth;
+  const resolvedMcHeight = bulkPackLocal?.mc_height ?? mcResult.mc_height;
+  const resolvedProductsPerMc = bulkPackLocal?.pieces_per_mc ?? mcResult.products_per_mc;
+  const resolvedMcVolumeCbm = bulkPackLocal?.mc_volume_cbm ?? mcResult.mc_volume_cbm;
+
   // Phase 3a: shipping CBM uses MC OD (or IC OD if no MC), not ID.
+  // Bulk pack is the exception: it has no IC layer, so its final CBM must come
+  // directly from the derived master-carton volume / pieces-per-MC. This keeps
+  // the product header, costing sheet, and inquiry list on the same live value.
   const finalUnitCbm = noPackaging
     ? prePackCbm
     : packagingType === 'corrugate_bubble'
     ? wrappingResult.final_unit_cbm
+    : isBulkPack && bulkPackLocal
+    ? (bulkPackLocal.pieces_per_mc > 0 ? bulkPackLocal.mc_volume_cbm / bulkPackLocal.pieces_per_mc : 0)
     : calc.calcFinalUnitCbm(includeMc, icOdVolumeCbm, productsPerIc, mcOdVolumeCbm, mcResult.products_per_mc);
   const totalCbm = calc.calcTotalCbm(finalUnitCbm, qty);
 
@@ -549,15 +560,15 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       ic_height: icDims.ic_height,
       ic_cost_estimate: icCost,
       ic_volume_cbm: icVolume,
-      mc_ics_along_w: mcResult.mc_ics_along_w,
-      mc_ics_along_d: mcResult.mc_ics_along_d,
-      mc_ics_along_h: mcResult.mc_ics_along_h,
-      mc_width: mcResult.mc_width,
-      mc_depth: mcResult.mc_depth,
-      mc_height: mcResult.mc_height,
-      products_per_mc: mcResult.products_per_mc,
+      mc_ics_along_w: isBulkPack && bulkPackLocal ? 1 : mcResult.mc_ics_along_w,
+      mc_ics_along_d: isBulkPack && bulkPackLocal ? 1 : mcResult.mc_ics_along_d,
+      mc_ics_along_h: isBulkPack && bulkPackLocal ? bulkPackLocal.pieces_per_mc : mcResult.mc_ics_along_h,
+      mc_width: resolvedMcWidth,
+      mc_depth: resolvedMcDepth,
+      mc_height: resolvedMcHeight,
+      products_per_mc: resolvedProductsPerMc,
       mc_cost_estimate: mcCost,
-      mc_volume_cbm: mcResult.mc_volume_cbm,
+      mc_volume_cbm: resolvedMcVolumeCbm,
       final_unit_cbm: finalUnitCbm,
       total_cbm: totalCbm,
       total_weight_kg: (product?.weight_kg || 0) * qty,
@@ -581,14 +592,13 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     icDims.ic_height,
     icCost,
     icVolume,
-    mcResult.mc_ics_along_w,
-    mcResult.mc_ics_along_d,
-    mcResult.mc_ics_along_h,
-    mcResult.mc_width,
-    mcResult.mc_depth,
-    mcResult.mc_height,
-    mcResult.products_per_mc,
-    mcResult.mc_volume_cbm,
+    isBulkPack,
+    bulkPackLocal?.pieces_per_mc,
+    resolvedMcWidth,
+    resolvedMcDepth,
+    resolvedMcHeight,
+    resolvedProductsPerMc,
+    resolvedMcVolumeCbm,
     mcCost,
     finalUnitCbm,
     totalCbm,
