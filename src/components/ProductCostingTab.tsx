@@ -1040,6 +1040,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const writeNow = () => {
       if (written) return;
       written = true;
+      forceImmediatePersistRef.current = false;
       (supabase as any).from('products').update({
         calculated_unit_price_usd: priceUsd,
         calculated_unit_cost_usd: costUsd,
@@ -1047,6 +1048,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         onProductUpdated?.();
       });
     };
+    // After a recost or packaging auto-disable, write straight away so other
+    // screens never observe the stale cached price.
+    if (forceImmediatePersistRef.current) {
+      writeNow();
+      return;
+    }
     const t = setTimeout(writeNow, 600);
     return () => {
       clearTimeout(t);
@@ -1054,6 +1061,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       writeNow();
     };
   }, [summary.unit_price_usd, summary.product_cost_per_unit_usd, dataLoaded, product?.id, onProductUpdated]);
+
 
   // COGS item update helper
   const updateCogsItem = async (itemId: string, field: string, value: any) => {
