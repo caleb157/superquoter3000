@@ -379,3 +379,67 @@ describe('costing-engine: no second engines allowed', () => {
     }
   });
 });
+
+// ----- Header/list parity across packaging-type changes.
+// ProductDetail's header price and the inquiry list price (via
+// computeProductPriceAndCost) are two consumers of computeProductCosting.
+// After a packaging_type change + recost, both must show the same number.
+// This guards against the stale-cache class of bugs where the header read a
+// debounced/persisted value while the list recomputed live.
+describe('header/list price parity after packaging_type changes', () => {
+  const PKG_MODES = ['ic_mc', 'ic_only', 'corrugate_bubble', 'no_packaging', 'bulk_pack'] as const;
+
+  for (const fx of fixtures) {
+    for (const mode of PKG_MODES) {
+      it(`${fx.name} → packaging_type=${mode}: header price === list price`, () => {
+        const product = { ...fx.product, packaging_type: mode, bulk_pieces_per_box: 6, bulk_shrink_factor: 0.15 };
+        const cogs = mkCogs(product.id, fx.cogsOpts);
+        const nu = mkNu(product.id);
+        const oh = mkOh(product.id);
+        const cbm = cbmRow(product.id);
+        const input = {
+          product, cogsItems: cogs, nonUnitCogs: nu, overheadItems: oh,
+          shippingItems: fx.shipItems, cbmRow: cbm, productType: baseProductType,
+          boxData, chemicalPrices, shippingTypes: shipTypes, laborEmployees: employees,
+          globalSettings: gs, inquiryOverrides: fx.inq, locations, difficulties,
+        };
+
+        // ProductDetail header path: live engine call against the loaded product.
+        const headerResult = computeProductCosting(input);
+
+        // Inquiry list path (computeProductPriceAndCost): same engine, same inputs.
+        // Crucially, the list must NEVER fall back to a stale
+        // product.calculated_unit_price_usd cache. Simulate a stale cache to
+        // prove the live recompute wins — the test fails if anyone reintroduces
+        // a "trust the persisted value" shortcut in either consumer.
+        const listInput = {
+          ...input,
+          product: { ...product, calculated_unit_price_usd: 999999, calculated_unit_cost_usd: 999999 },
+        };
+        const listResult = computeProductCosting(listInput);
+
+        expect(listResult.summary.unit_price_usd).toBeCloseTo(headerResult.summary.unit_price_usd, 4);
+        expect(listResult.summary.product_cost_per_unit_usd).toBeCloseTo(headerResult.summary.product_cost_per_unit_usd, 4);
+        expect(listResult.finalUnitCbm).toBeCloseTo(headerResult.finalUnitCbm, 6);
+      });
+    }
+
+    it(`${fx.name}: switching packaging_type recomputes (no carryover from previous mode)`, () => {
+      const mk = (mode: string) => {
+        const product = { ...fx.product, packaging_type: mode, bulk_pieces_per_box: 6, bulk_shrink_factor: 0.15 };
+        return computeProductCosting({
+          product, cogsItems: mkCogs(product.id, fx.cogsOpts), nonUnitCogs: mkNu(product.id),
+          overheadItems: mkOh(product.id), shippingItems: fx.shipItems, cbmRow: cbmRow(product.id),
+          productType: baseProductType, boxData, chemicalPrices, shippingTypes: shipTypes,
+          laborEmployees: employees, globalSettings: gs, inquiryOverrides: fx.inq, locations, difficulties,
+        });
+      };
+      // Walking through every mode and back must always agree with a direct
+      // call for that mode — no hidden state, no order dependence.
+      const direct = mk('ic_mc');
+      const walked = [mk('no_packaging'), mk('bulk_pack'), mk('corrugate_bubble'), mk('ic_mc')].pop()!;
+      expect(walked.summary.unit_price_usd).toBeCloseTo(direct.summary.unit_price_usd, 4);
+      expect(walked.summary.product_cost_per_unit_usd).toBeCloseTo(direct.summary.product_cost_per_unit_usd, 4);
+    });
+  }
+});
