@@ -129,6 +129,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [dataLoaded, setDataLoaded] = useState(false);
   const [recalcTick, setRecalcTick] = useState(0);
   const [recalcing, setRecalcing] = useState(false);
+  // When set, the next persist of calculated_unit_price_usd skips the debounce
+  // and writes immediately. Used after recost actions and packaging auto-disable
+  // updates so other screens never read a stale cached price.
+  const forceImmediatePersistRef = useRef(false);
 
   // Section open state
   const [sections, setSections] = useState({
