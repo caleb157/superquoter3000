@@ -94,7 +94,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const h = p.height_inch || 0;
   const ri = calc.runningInches(w, d, h);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
-  const percentWood = p.percent_wood || 1;
+  const percentWood = p.percent_wood ?? 1;
 
   // Chemical lookups (unit-aware, with legacy fallback)
   const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
@@ -224,6 +224,17 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const cogsForCalc = productCogs.map((item: any) => {
     const name = (item.component_name || '').toLowerCase();
     const type = item.cogs_type;
+    if (item.is_auto_calculated && item.component_name === 'Domestic Freight (External Sourcing)') {
+      const loc = p.source_location_id ? locations.find((l: any) => l.id === p.source_location_id) : null;
+      const locRate = Number(loc?.cost_per_cbm_inr) || 0;
+      const enabled = !!p.source_location_id && locRate > 0;
+      return {
+        ...item,
+        include: enabled ? 'Yes' : 'No',
+        components_per_product: enabled ? prePackCbm : 0,
+        unit_cost_inr: enabled ? locRate : 0,
+      };
+    }
     if (item.is_auto_calculated && type === 'Packaging') {
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
         const defaultIncluded = !noPackaging && !isWrapMode && !isBulkPack;
@@ -303,9 +314,9 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   // Non-unit COGS (Auto Transport in-memory override)
   const autoTransportRate = (settings as any)?.auto_transport_cost_per_cbm || 500;
   const nuForCalc = productNuCogs.map((item: any) => {
-    if (item.name === 'Auto Transport') {
+    if (item.name === 'Auto Transport' && !item.manual_override) {
       const totalCbm = +(finalUnitCbm * qty).toFixed(4);
-      return { ...item, total_quantity: totalCbm, cost_each_inr: autoTransportRate };
+      return { ...item, include: 'Yes', total_quantity: totalCbm, cost_each_inr: autoTransportRate };
     }
     return item;
   });

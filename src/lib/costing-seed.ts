@@ -223,14 +223,15 @@ export async function persistResolvedCosting(
     const qty = product.quantity || 100;
     const totalCbm = +(engineResult.finalUnitCbm * qty).toFixed(4);
     const rate = engineResult.summary ? (engineResult.summary as any).__rate ?? null : null;
-    // We can compute the rate the same way the engine does — from globalSettings — but the
-    // engine already used it; reuse via its resolved view: cost_each_inr is what the engine
-    // multiplied. We don't expose rate directly, so recompute from non_unit_cogs in-memory
-    // override (engine does this same compute). To stay simple, only write quantity when
-    // dimensions are known; leave cost_each_inr alone here (Step 7b in the tab handles it).
-    if (Math.abs((transport.total_quantity || 0) - totalCbm) > 0.0001 && engineResult.finalUnitCbm > 0) {
+    // Auto Transport is managed by the engine when manual override is off. If it
+    // was left as `No` from an old packaging toggle, restore it so variant sheets
+    // don't silently exclude the same transport cost.
+    if (engineResult.finalUnitCbm > 0 && (
+      Math.abs((transport.total_quantity || 0) - totalCbm) > 0.0001 ||
+      transport.include !== 'Yes'
+    )) {
       writes.push(
-        (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm }).eq('id', transport.id),
+        (supabase as any).from('non_unit_cogs').update({ include: 'Yes', total_quantity: totalCbm }).eq('id', transport.id),
       );
     }
     void rate;
