@@ -904,10 +904,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     if (!transportItem) return;
     if (transportItem.manual_override) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
+    const include = 'Yes';
     if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
-        Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01) return;
-    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, total_quantity: totalCbm, cost_each_inr: autoTransportRate } : i));
-    void (supabase as any).from('non_unit_cogs').update({ total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id).then(({ error }: any) => { if (error) console.error('Auto Transport update failed:', error); });
+        Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01 &&
+        transportItem.include === include) return;
+    setNonUnitCogs(prev => prev.map(i => i.id === transportItem.id ? { ...i, include, total_quantity: totalCbm, cost_each_inr: autoTransportRate } : i));
+    void (supabase as any).from('non_unit_cogs').update({ include, total_quantity: totalCbm, cost_each_inr: autoTransportRate }).eq('id', transportItem.id).then(({ error }: any) => { if (error) console.error('Auto Transport update failed:', error); });
   }, [dataLoaded, finalUnitCbm, qty, globalSettings?.id, nonUnitCogs.length, recalcTick]);
 
   // Step 7c: Auto-create or update Domestic Freight COGS when product has a source_location_id

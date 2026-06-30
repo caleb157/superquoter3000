@@ -259,6 +259,14 @@ const mkNu = (pid: string) => [
   { product_id: pid, name: 'Auto Transport', include: 'Yes', total_quantity: 0, cost_each_inr: 0 },
   { product_id: pid, name: 'Tooling', include: 'Yes', total_quantity: 1, cost_each_inr: 5000 },
 ];
+const mkNuWithStaleAutoTransportOff = (pid: string) => [
+  { product_id: pid, name: 'Auto Transport', include: 'No', manual_override: false, total_quantity: 0, cost_each_inr: 0 },
+  { product_id: pid, name: 'Tooling', include: 'Yes', total_quantity: 1, cost_each_inr: 5000 },
+];
+const mkNuWithManualAutoTransportOff = (pid: string) => [
+  { product_id: pid, name: 'Auto Transport', include: 'No', manual_override: true, total_quantity: 0, cost_each_inr: 0 },
+  { product_id: pid, name: 'Tooling', include: 'Yes', total_quantity: 1, cost_each_inr: 5000 },
+];
 const mkOh = (pid: string) => [
   { product_id: pid, labor_type: 'Finishing', is_auto_estimated: true, include: 'Yes', man_hours_per_unit: 0 },
   { product_id: pid, labor_type: 'Packaging', is_auto_estimated: true, include: 'Yes', man_hours_per_unit: 0 },
@@ -327,6 +335,59 @@ describe('costing-engine: golden master vs legacy product-pricing', () => {
       expect(engine.shippingPerUnit).toBeCloseTo(legacy.shippingPerUnit, 3);
     });
   }
+});
+
+describe('costing-engine: auto transport include is healed unless manual', () => {
+  it('treats stale Auto Transport include=No as included when manual_override is false', () => {
+    const product = baseProduct('auto-transport-stale', { packaging_type: 'bulk_pack', bulk_pieces_per_box: 5, bulk_shrink_factor: 0.33 });
+    const commonInput = {
+      product,
+      cogsItems: mkCogs(product.id),
+      overheadItems: mkOh(product.id),
+      shippingItems: [{ product_id: product.id, shipping_type_id: 'sh-cbm' }],
+      cbmRow: cbmRow(product.id),
+      productType: baseProductType,
+      boxData,
+      chemicalPrices,
+      shippingTypes: shipTypes,
+      laborEmployees: employees,
+      globalSettings: gs,
+      inquiryOverrides: null,
+      locations,
+      difficulties,
+    };
+
+    const clean = computeProductCosting({ ...commonInput, nonUnitCogs: mkNu(product.id) });
+    const staleOff = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithStaleAutoTransportOff(product.id) });
+
+    expect(staleOff.nonUnitCogsPerUnit).toBeCloseTo(clean.nonUnitCogsPerUnit, 4);
+    expect(staleOff.summary.unit_price_usd).toBeCloseTo(clean.summary.unit_price_usd, 4);
+  });
+
+  it('still respects manually disabled Auto Transport', () => {
+    const product = baseProduct('auto-transport-manual', { packaging_type: 'bulk_pack', bulk_pieces_per_box: 5, bulk_shrink_factor: 0.33 });
+    const commonInput = {
+      product,
+      cogsItems: mkCogs(product.id),
+      overheadItems: mkOh(product.id),
+      shippingItems: [{ product_id: product.id, shipping_type_id: 'sh-cbm' }],
+      cbmRow: cbmRow(product.id),
+      productType: baseProductType,
+      boxData,
+      chemicalPrices,
+      shippingTypes: shipTypes,
+      laborEmployees: employees,
+      globalSettings: gs,
+      inquiryOverrides: null,
+      locations,
+      difficulties,
+    };
+
+    const clean = computeProductCosting({ ...commonInput, nonUnitCogs: mkNu(product.id) });
+    const manualOff = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithManualAutoTransportOff(product.id) });
+
+    expect(manualOff.nonUnitCogsPerUnit).toBeLessThan(clean.nonUnitCogsPerUnit);
+  });
 });
 
 // ----- Regression guard: lock down which files are allowed to call

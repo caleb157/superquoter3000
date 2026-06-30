@@ -303,9 +303,9 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   // Non-unit COGS (Auto Transport in-memory override)
   const autoTransportRate = (settings as any)?.auto_transport_cost_per_cbm || 500;
   const nuForCalc = productNuCogs.map((item: any) => {
-    if (item.name === 'Auto Transport') {
+    if (item.name === 'Auto Transport' && !item.manual_override) {
       const totalCbm = +(finalUnitCbm * qty).toFixed(4);
-      return { ...item, total_quantity: totalCbm, cost_each_inr: autoTransportRate };
+      return { ...item, include: 'Yes', total_quantity: totalCbm, cost_each_inr: autoTransportRate };
     }
     return item;
   });
