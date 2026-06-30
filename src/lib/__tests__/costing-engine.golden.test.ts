@@ -30,7 +30,7 @@ function legacyComputeOne(args: {
   const w = p.width_inch || 0, d = p.depth_inch || 0, h = p.height_inch || 0;
   const ri = calc.runningInches(w, d, h);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
-  const percentWood = p.percent_wood || 1;
+  const percentWood = p.percent_wood ?? 1;
 
   const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
   const unitOf = (c: any) => (c?.unit_type || 'L') as string;

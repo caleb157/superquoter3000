@@ -410,7 +410,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const qty = product?.quantity || 100;
   const ri = calc.runningInches(w, d, h);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
-  const percentWood = product?.percent_wood || 1;
+  const percentWood = product?.percent_wood ?? 1;
   const difficulty = product?.finishing_difficulty || 'Medium';
   // Phase 3a: difficulty factor is sourced from the finishing_difficulty DB table;
   // fall back to hardcoded defaults via getDifficultyFactor if the table is empty.
@@ -954,9 +954,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       return;
     }
     if (Math.abs((freightItem.components_per_product || 0) - prePackCbm) < 0.0001 &&
-        Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01) return;
-    setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
-    (supabase as any).from('cogs_items').update({ components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
+        Math.abs((freightItem.unit_cost_inr || 0) - transportRate) < 0.01 &&
+        freightItem.include === 'Yes') return;
+    setCogsItems(prev => prev.map(i => i.id === freightItem.id ? { ...i, include: 'Yes', components_per_product: prePackCbm, unit_cost_inr: transportRate } : i));
+    (supabase as any).from('cogs_items').update({ include: 'Yes', components_per_product: prePackCbm, unit_cost_inr: transportRate }).eq('id', freightItem.id);
   }, [dataLoaded, prePackCbm, product?.source_location_id, locations, globalSettings?.id, cogsItems.length, recalcTick]);
 
   // === Shared costing engine: single source of truth for final aggregate values ===
