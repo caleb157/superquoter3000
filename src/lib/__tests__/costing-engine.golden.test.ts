@@ -267,6 +267,19 @@ const mkNuWithManualAutoTransportOff = (pid: string) => [
   { product_id: pid, name: 'Auto Transport', include: 'No', manual_override: true, total_quantity: 0, cost_each_inr: 0 },
   { product_id: pid, name: 'Tooling', include: 'Yes', total_quantity: 1, cost_each_inr: 5000 },
 ];
+const mkCogsWithStaleAutoDomesticFreight = (productId: string) => [
+  ...mkCogs(productId),
+  {
+    product_id: productId,
+    component_name: 'Domestic Freight (External Sourcing)',
+    cogs_type: 'Subcontracting',
+    is_auto_calculated: true,
+    include: 'No',
+    components_per_product: 0,
+    unit_cost_inr: 0,
+    waste_factor: 0,
+  },
+];
 const mkOh = (pid: string) => [
   { product_id: pid, labor_type: 'Finishing', is_auto_estimated: true, include: 'Yes', man_hours_per_unit: 0 },
   { product_id: pid, labor_type: 'Packaging', is_auto_estimated: true, include: 'Yes', man_hours_per_unit: 0 },
@@ -387,6 +400,61 @@ describe('costing-engine: auto transport include is healed unless manual', () =>
     const manualOff = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithManualAutoTransportOff(product.id) });
 
     expect(manualOff.nonUnitCogsPerUnit).toBeLessThan(clean.nonUnitCogsPerUnit);
+  });
+});
+
+describe('costing-engine: auto external freight and zero wood handling', () => {
+  it('heals stale auto Domestic Freight rows when source location is set', () => {
+    const product = baseProduct('auto-freight-stale', { source_location_id: 'loc-1' });
+    const result = computeProductCosting({
+      product,
+      cogsItems: mkCogsWithStaleAutoDomesticFreight(product.id),
+      nonUnitCogs: mkNu(product.id),
+      overheadItems: mkOh(product.id),
+      shippingItems: [{ product_id: product.id, shipping_type_id: 'sh-cbm' }],
+      cbmRow: cbmRow(product.id),
+      productType: baseProductType,
+      boxData,
+      chemicalPrices,
+      shippingTypes: shipTypes,
+      laborEmployees: employees,
+      globalSettings: gs,
+      inquiryOverrides: null,
+      locations,
+      difficulties,
+    });
+
+    const freight = result.resolvedCogsRows.find((r: any) => r.component_name === 'Domestic Freight (External Sourcing)');
+    expect(freight.include).toBe('Yes');
+    expect(freight.components_per_product).toBeCloseTo(calc.prePackagedCbm(product.width_inch, product.depth_inch, product.height_inch), 6);
+    expect(freight.unit_cost_inr).toBe(850);
+  });
+
+  it('does not treat percent_wood=0 as 100% wood', () => {
+    const woodProduct = baseProduct('wood-full', { percent_wood: 1 });
+    const metalProduct = baseProduct('wood-zero', { percent_wood: 0 });
+    const make = (product: any) => computeProductCosting({
+      product,
+      cogsItems: mkCogs(product.id),
+      nonUnitCogs: mkNu(product.id),
+      overheadItems: mkOh(product.id),
+      shippingItems: [{ product_id: product.id, shipping_type_id: 'sh-cbm' }],
+      cbmRow: cbmRow(product.id),
+      productType: baseProductType,
+      boxData,
+      chemicalPrices,
+      shippingTypes: shipTypes,
+      laborEmployees: employees,
+      globalSettings: gs,
+      inquiryOverrides: null,
+      locations,
+      difficulties,
+    });
+
+    const wood = make(woodProduct);
+    const zeroWood = make(metalProduct);
+    expect(zeroWood.cogsPerUnit).toBeLessThan(wood.cogsPerUnit);
+    expect(zeroWood.directOhPerUnit).toBeLessThan(wood.directOhPerUnit);
   });
 });
 
