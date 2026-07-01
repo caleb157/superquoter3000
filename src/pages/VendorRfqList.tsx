@@ -14,6 +14,7 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
