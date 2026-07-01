@@ -37,6 +37,7 @@ export default function Vendors() {
   const [vendors, setVendors] = useState<VendorWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  useScrollRestoration('vendors.scroll', !loading);
 
   useEffect(() => {
     let cancel = false;
