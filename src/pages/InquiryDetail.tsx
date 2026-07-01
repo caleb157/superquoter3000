@@ -30,6 +30,7 @@ import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
