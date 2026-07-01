@@ -29,6 +29,7 @@ import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
+import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
