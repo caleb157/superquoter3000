@@ -27,6 +27,7 @@ type Props = {
   onLogRfq?: () => void;
   onLogRfs?: () => void;
   onCopyToInquiry?: () => void;
+  onBulkDeleteCogs?: () => void;
 };
 
 export function BulkStageActions({
