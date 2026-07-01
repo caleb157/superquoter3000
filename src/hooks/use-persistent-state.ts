@@ -35,10 +35,11 @@ export function usePersistentState<T>(key: string, initial: T): [T, (v: T | ((pr
  */
 export function useScrollRestoration(key: string, ready: boolean = true) {
   const storageKey = `pds-scroll:${key}`;
-  const restored = useRef(false);
+  const restoredKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!ready || restored.current) return;
+    if (!ready) return;
+    if (restoredKey.current === storageKey) return;
     try {
       const raw = window.sessionStorage.getItem(storageKey);
       if (raw !== null) {
@@ -46,12 +47,17 @@ export function useScrollRestoration(key: string, ready: boolean = true) {
         if (!Number.isNaN(y)) {
           // wait a frame for content to render
           requestAnimationFrame(() => window.scrollTo(0, y));
+        } else {
+          window.scrollTo(0, 0);
         }
+      } else {
+        // new key with no saved position → reset to top
+        window.scrollTo(0, 0);
       }
     } catch {
       // ignore
     }
-    restored.current = true;
+    restoredKey.current = storageKey;
   }, [ready, storageKey]);
 
   useEffect(() => {
