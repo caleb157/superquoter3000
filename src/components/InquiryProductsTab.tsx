@@ -583,6 +583,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkSetNpm={() => setBulkNpmOpen(true)}
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
+        onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
