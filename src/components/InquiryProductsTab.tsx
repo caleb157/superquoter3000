@@ -655,6 +655,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
+      <BulkDeleteCogsDialog
+        open={bulkDeleteCogsOpen}
+        onOpenChange={setBulkDeleteCogsOpen}
+        selectedProductIds={Array.from(selected)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
       {filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
           No products in this inquiry yet.
