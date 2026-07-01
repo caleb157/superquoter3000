@@ -46,6 +46,7 @@ export default function InquiryDetail() {
   useDocumentTitle(inquiry ? `${inquiry.rfq_number}${inquiry.title ? ` — ${inquiry.title}` : ''}` : null);
   const [customer, setCustomer] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  useScrollRestoration(`inquiry.${id ?? 'none'}.${searchParams.get('tab') ?? 'products'}.scroll`, !loading);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [productFilter, setProductFilter] = useState<ProductFilterKey>('all');
