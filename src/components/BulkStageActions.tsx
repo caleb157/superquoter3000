@@ -45,11 +45,12 @@ export function BulkStageActions({
   onLogRfq,
   onLogRfs,
   onCopyToInquiry,
+  onBulkDeleteCogs,
 }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
 
-  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType);
+  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
   const hasAnyLog = !!(onLogRfq || onLogRfs);
 
   const stageSub = (track: StageTrack, label: string) => (
