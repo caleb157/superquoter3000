@@ -110,6 +110,14 @@ export function BulkStageActions({
             {onBulkChemicals && <DropdownMenuItem onClick={onBulkChemicals}>Finishing chemicals</DropdownMenuItem>}
             {onBulkSetSource && <DropdownMenuItem onClick={onBulkSetSource}>Source location</DropdownMenuItem>}
             {onBulkSetType && <DropdownMenuItem onClick={onBulkSetType}>Product type</DropdownMenuItem>}
+            {onBulkDeleteCogs && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onBulkDeleteCogs} className="text-destructive focus:text-destructive">
+                  Delete COGS rows…
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
