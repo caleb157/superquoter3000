@@ -27,6 +27,7 @@ type Props = {
   onLogRfq?: () => void;
   onLogRfs?: () => void;
   onCopyToInquiry?: () => void;
+  onBulkDeleteCogs?: () => void;
 };
 
 export function BulkStageActions({
@@ -44,11 +45,12 @@ export function BulkStageActions({
   onLogRfq,
   onLogRfs,
   onCopyToInquiry,
+  onBulkDeleteCogs,
 }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
 
-  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType);
+  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
   const hasAnyLog = !!(onLogRfq || onLogRfs);
 
   const stageSub = (track: StageTrack, label: string) => (
@@ -108,6 +110,14 @@ export function BulkStageActions({
             {onBulkChemicals && <DropdownMenuItem onClick={onBulkChemicals}>Finishing chemicals</DropdownMenuItem>}
             {onBulkSetSource && <DropdownMenuItem onClick={onBulkSetSource}>Source location</DropdownMenuItem>}
             {onBulkSetType && <DropdownMenuItem onClick={onBulkSetType}>Product type</DropdownMenuItem>}
+            {onBulkDeleteCogs && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onBulkDeleteCogs} className="text-destructive focus:text-destructive">
+                  Delete COGS rows…
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}

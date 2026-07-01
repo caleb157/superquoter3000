@@ -14,6 +14,7 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -37,6 +38,7 @@ const VendorRfqList = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  useScrollRestoration('vendor-rfqs.scroll', !loading);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
 

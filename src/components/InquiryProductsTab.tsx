@@ -29,6 +29,7 @@ import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
+import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
@@ -125,6 +126,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
+  const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
@@ -581,6 +583,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkSetNpm={() => setBulkNpmOpen(true)}
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
+        onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
@@ -649,6 +652,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onOpenChange={setBulkCostingOpen}
         selectedProductIds={Array.from(selected)}
         selectedProductNames={selectedProducts.map(p => p.name)}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <BulkDeleteCogsDialog
+        open={bulkDeleteCogsOpen}
+        onOpenChange={setBulkDeleteCogsOpen}
+        selectedProductIds={Array.from(selected)}
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 

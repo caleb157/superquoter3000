@@ -14,10 +14,12 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 export default function Tasks() {
   useDocumentTitle('Tasks');
   const { assigneeCode } = useAuth();
+  useScrollRestoration('tasks.scroll', true);
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);

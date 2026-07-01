@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Users, Mail, Phone, ExternalLink, Package } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 type Vendor = {
   id: string;
@@ -36,6 +37,7 @@ export default function Vendors() {
   const [vendors, setVendors] = useState<VendorWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  useScrollRestoration('vendors.scroll', !loading);
 
   useEffect(() => {
     let cancel = false;
