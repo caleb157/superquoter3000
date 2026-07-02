@@ -429,6 +429,7 @@ export function calcWaxGrams(
 // ============================================================
 
 const DIFFICULTY_FACTORS: Record<string, number> = {
+  'Wax': 0.3333,
   'Extremely Easy': 0.5,
   'Very Easy': 0.7,
   'Easy': 0.9,
