@@ -35,28 +35,58 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Build a map of chemical_price_id -> existing finishing-materials row (active include)
+  // Infer a chemical category from a legacy row's name (rows created before
+  // chemical_price_id linkage was added won't have the FK, so match by name).
+  const inferCategory = (name: string | null | undefined): string | null => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('color') || n.includes('stain')) return 'Color';
+    if (n.includes('sealer')) return 'Sealer';
+    if (n.includes('lacquer')) return 'Lacquer';
+    if (n.includes('wax')) return 'Wax';
+    return null;
+  };
+
+  // For each chemical (by id) find the finishing-materials row that represents it.
+  // Match by chemical_price_id first, then fall back to same-category legacy rows.
+  const rowForChem = (chem: Chemical, wantInclude: 'Yes' | 'No' | 'any' = 'any'): CogsItem | undefined => {
+    const finishing = cogsItems.filter(i => i.cogs_type === 'Finishing Materials');
+    const matchInclude = (i: CogsItem) => {
+      const inc = (i.include ?? 'Yes') === 'No' ? 'No' : 'Yes';
+      return wantInclude === 'any' ? true : inc === wantInclude;
+    };
+    const linked = finishing.find(i => i.chemical_price_id === chem.id && matchInclude(i));
+    if (linked) return linked;
+    // Skip legacy fallback if another row already claims this category via id.
+    const claimedCategoryIds = new Set(
+      finishing
+        .filter(i => i.chemical_price_id)
+        .map(i => chemicals.find(c => c.id === i.chemical_price_id)?.category)
+        .filter(Boolean) as string[]
+    );
+    if (claimedCategoryIds.has(chem.category)) return undefined;
+    return finishing.find(i => !i.chemical_price_id && inferCategory(i.component_name) === chem.category && matchInclude(i));
+  };
+
   const activeByChemId = useMemo(() => {
     const m = new Map<string, CogsItem>();
-    cogsItems.forEach(i => {
-      if (i.cogs_type !== 'Finishing Materials') return;
-      const cid = i.chemical_price_id || null;
-      if (!cid) return;
-      if ((i.include ?? 'Yes') !== 'No') m.set(cid, i);
+    chemicals.forEach(c => {
+      const row = rowForChem(c, 'Yes');
+      if (row) m.set(c.id, row);
     });
     return m;
-  }, [cogsItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cogsItems, chemicals]);
 
   const inactiveByChemId = useMemo(() => {
     const m = new Map<string, CogsItem>();
-    cogsItems.forEach(i => {
-      if (i.cogs_type !== 'Finishing Materials') return;
-      const cid = i.chemical_price_id || null;
-      if (!cid) return;
-      if ((i.include ?? 'Yes') === 'No') m.set(cid, i);
+    chemicals.forEach(c => {
+      if (activeByChemId.has(c.id)) return;
+      const row = rowForChem(c, 'No');
+      if (row) m.set(c.id, row);
     });
     return m;
-  }, [cogsItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cogsItems, chemicals, activeByChemId]);
 
   const grouped = useMemo(() => {
     const g = new Map<string, Chemical[]>();
@@ -76,9 +106,11 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
       if (checked) {
         if (active) return;
         if (inactive) {
+          const patch: any = { include: 'Yes' };
+          if (!inactive.chemical_price_id) patch.chemical_price_id = chem.id;
           const { error } = await (supabase as any)
             .from('cogs_items')
-            .update({ include: 'Yes' })
+            .update(patch)
             .eq('id', inactive.id);
           if (error) throw error;
         } else {
@@ -92,8 +124,6 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
             include: 'Yes',
             units: chem.unit_type || 'L',
             components_per_product: 0,
-            // Leave qty + price at 0 so the costing tab's auto-fill effect
-            // populates both (qty from surface area / RI, price from chem table).
             unit_cost_inr: 0,
             sort_order: baseSort,
           });
@@ -101,10 +131,12 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
         }
       } else {
         if (!active) return;
-        // Soft remove: include = 'No' preserves any user edits.
+        // Soft remove; also link chemical_price_id so future toggles find this row.
+        const patch: any = { include: 'No' };
+        if (!active.chemical_price_id) patch.chemical_price_id = chem.id;
         const { error } = await (supabase as any)
           .from('cogs_items')
-          .update({ include: 'No' })
+          .update(patch)
           .eq('id', active.id);
         if (error) throw error;
       }
