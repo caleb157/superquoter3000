@@ -626,8 +626,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const colorQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood) : 0;
     const sealerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood) : 0;
     const lacquerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood) : 0;
+    const waxMode = (product?.finishing_difficulty || '') === 'Wax';
     const waxGramsPerSqIn = Number((productType as any).finishing_wax_g_per_sqin ?? 0);
-    const waxQty = (calc as any).calcWaxGrams ? (calc as any).calcWaxGrams(w, d, h, waxGramsPerSqIn, percentWood) : 0;
+    const waxQty = waxMode
+      ? (ri > 0 ? ri / 8 : 0)
+      : ((calc as any).calcWaxGrams ? (calc as any).calcWaxGrams(w, d, h, waxGramsPerSqIn, percentWood) : 0);
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
 
