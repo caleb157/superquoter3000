@@ -278,9 +278,13 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
       const linked = item.chemical_price_id ? chemById.get(item.chemical_price_id) : null;
       const cat = (linked?.category || '').toLowerCase();
       const useChem = (chem: any, qty: number) => ({ ...item, components_per_product: qty, unit_cost_inr: priceOf(chem), units: unitOf(chem) });
+      const waxMode = (p.finishing_difficulty || '') === 'Wax';
 
       if (cat === 'wax' || (!linked && name.includes('wax'))) {
-        const grams = calc.calcWaxGrams(w, d, h, productType?.finishing_wax_g_per_sqin || 0, percentWood);
+        // Wax finishing difficulty: 1 gram per 8 running inches (overrides product_type surface-area rule).
+        const grams = waxMode
+          ? (ri > 0 ? ri / 8 : 0)
+          : calc.calcWaxGrams(w, d, h, productType?.finishing_wax_g_per_sqin || 0, percentWood);
         return useChem(linked || waxChem, grams);
       }
       if (cat === 'color' || (!linked && (name.includes('color') || name.includes('stain')))) {

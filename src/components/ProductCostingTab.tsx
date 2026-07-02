@@ -626,8 +626,11 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const colorQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_color_per_100ri || 0, ri, percentWood) : 0;
     const sealerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_sealer_l_per_100ri || 0, ri, percentWood) : 0;
     const lacquerQty = ri > 0 ? calc.calcFinishingMaterialQty(productType.finishing_lacquer_per_100ri || 0, ri, percentWood) : 0;
+    const waxMode = (product?.finishing_difficulty || '') === 'Wax';
     const waxGramsPerSqIn = Number((productType as any).finishing_wax_g_per_sqin ?? 0);
-    const waxQty = (calc as any).calcWaxGrams ? (calc as any).calcWaxGrams(w, d, h, waxGramsPerSqIn, percentWood) : 0;
+    const waxQty = waxMode
+      ? (ri > 0 ? ri / 8 : 0)
+      : ((calc as any).calcWaxGrams ? (calc as any).calcWaxGrams(w, d, h, waxGramsPerSqIn, percentWood) : 0);
 
     const autoUpdates: { id: string; components_per_product: number; unit_cost_inr: number; units: string }[] = [];
 
@@ -1349,6 +1352,84 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                         .update({ man_hours_per_unit: mh, is_auto_estimated: true })
                         .eq('id', r.id);
                     });
+                  }
+                  // Wax difficulty mode: disable Color/Sealer/Lacquer finishing rows and
+                  // enable a Wax row (auto-linked to the Wax chemical). Switching away
+                  // re-enables the other chemicals and disables Wax.
+                  const goingWax = v === 'Wax';
+                  const leavingWax = (product.finishing_difficulty === 'Wax') && !goingWax;
+                  if (goingWax || leavingWax) {
+                    const waxChem = chemicalPrices.find((c: any) => c.category === 'Wax');
+                    const catOf = (row: any) => {
+                      const linked = chemicalPrices.find((c: any) => c.id === row.chemical_price_id);
+                      if (linked?.category) return String(linked.category).toLowerCase();
+                      const n = (row.component_name || '').toLowerCase();
+                      if (n.includes('color') || n.includes('stain')) return 'color';
+                      if (n.includes('sealer')) return 'sealer';
+                      if (n.includes('lacquer')) return 'lacquer';
+                      if (n.includes('wax')) return 'wax';
+                      return '';
+                    };
+                    const finishing = cogsItems.filter(i => i.cogs_type === 'Finishing Materials');
+                    const patches: { id: string; include: string; chemical_price_id?: string | null }[] = [];
+                    finishing.forEach(row => {
+                      const c = catOf(row);
+                      if (c === 'color' || c === 'sealer' || c === 'lacquer') {
+                        patches.push({ id: row.id, include: goingWax ? 'No' : 'Yes' });
+                      } else if (c === 'wax') {
+                        const p: any = { id: row.id, include: goingWax ? 'Yes' : 'No' };
+                        if (goingWax && !row.chemical_price_id && waxChem) p.chemical_price_id = waxChem.id;
+                        patches.push(p);
+                      }
+                    });
+                    // If going Wax and no wax row exists, create one.
+                    const hasWaxRow = finishing.some(r => catOf(r) === 'wax');
+                    if (goingWax && !hasWaxRow && waxChem) {
+                      const baseSort = (cogsItems.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)) + 1;
+                      const waxQty = ri > 0 ? ri / 8 : 0;
+                      (supabase as any).from('cogs_items').insert({
+                        product_id: id,
+                        cogs_type: 'Finishing Materials',
+                        component_name: waxChem.name,
+                        chemical_price_id: waxChem.id,
+                        is_auto_calculated: true,
+                        include: 'Yes',
+                        units: waxChem.unit_type || 'g',
+                        components_per_product: waxQty,
+                        unit_cost_inr: Number(waxChem.price_per_unit_inr ?? 1.25),
+                        sort_order: baseSort,
+                      }).select().then(({ data }: any) => {
+                        if (data) setCogsItems(prev => [...prev, ...data]);
+                      });
+                    }
+                    if (patches.length) {
+                      setCogsItems(prev => prev.map(i => {
+                        const p = patches.find(x => x.id === i.id);
+                        if (!p) return i;
+                        const next: any = { ...i, include: p.include };
+                        if (p.chemical_price_id) next.chemical_price_id = p.chemical_price_id;
+                        // If turning Wax on, refresh qty/price/units live.
+                        if (goingWax && catOf(i) === 'wax') {
+                          next.components_per_product = ri > 0 ? ri / 8 : 0;
+                          next.unit_cost_inr = Number(waxChem?.price_per_unit_inr ?? 1.25);
+                          next.units = waxChem?.unit_type || 'g';
+                        }
+                        return next;
+                      }));
+                      patches.forEach(p => {
+                        const upd: any = { include: p.include };
+                        if (p.chemical_price_id) upd.chemical_price_id = p.chemical_price_id;
+                        if (goingWax) {
+                          const row = finishing.find(r => r.id === p.id);
+                          if (row && catOf(row) === 'wax') {
+                            upd.components_per_product = ri > 0 ? ri / 8 : 0;
+                            upd.unit_cost_inr = Number(waxChem?.price_per_unit_inr ?? 1.25);
+                            upd.units = waxChem?.unit_type || 'g';
+                          }
+                        }
+                        (supabase as any).from('cogs_items').update(upd).eq('id', p.id);
+                      });
+                    }
                   }
                 }}>
 
