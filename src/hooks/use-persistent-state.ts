@@ -40,25 +40,41 @@ export function useScrollRestoration(key: string, ready: boolean = true) {
   useEffect(() => {
     if (!ready) return;
     if (restoredKey.current === storageKey) return;
+    let cancelled = false;
     try {
       const raw = window.sessionStorage.getItem(storageKey);
       if (raw !== null) {
         const y = Number(raw);
-        if (!Number.isNaN(y)) {
-          // wait a frame for content to render
-          requestAnimationFrame(() => window.scrollTo(0, y));
+        if (!Number.isNaN(y) && y > 0) {
+          // Content may still be laying out (async lists, images, tabs).
+          // Poll for up to ~1.2s until the document is tall enough, then scroll.
+          const start = performance.now();
+          const tryScroll = () => {
+            if (cancelled) return;
+            const maxY = Math.max(
+              document.documentElement.scrollHeight,
+              document.body.scrollHeight,
+            ) - window.innerHeight;
+            if (maxY >= y - 4 || performance.now() - start > 1200) {
+              window.scrollTo(0, y);
+              return;
+            }
+            requestAnimationFrame(tryScroll);
+          };
+          requestAnimationFrame(tryScroll);
         } else {
           window.scrollTo(0, 0);
         }
       } else {
-        // new key with no saved position → reset to top
         window.scrollTo(0, 0);
       }
     } catch {
       // ignore
     }
     restoredKey.current = storageKey;
+    return () => { cancelled = true; };
   }, [ready, storageKey]);
+
 
   useEffect(() => {
     const save = () => {
