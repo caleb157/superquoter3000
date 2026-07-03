@@ -127,6 +127,41 @@
   .dense-table select {
     @apply h-7 text-xs;
   }
+
+  /* Spreadsheet-style row affordances: consistent hover + focus-within
+     highlight so a keyboard user can always see which row is being edited. */
+  .dense-table tbody tr {
+    @apply transition-colors;
+  }
+  .dense-table tbody tr:hover {
+    background-color: hsl(var(--muted) / 0.4);
+  }
+  .dense-table tbody tr:focus-within {
+    background-color: hsl(var(--primary) / 0.06);
+  }
+  /* Active-cell ring — mirrors Excel/Sheets outline without shifting layout. */
+  .dense-table tbody td:focus-within {
+    box-shadow: inset 0 0 0 1.5px hsl(var(--ring));
+    border-radius: 0.125rem;
+  }
+
+  /* Inline editors sit borderless until you approach them. Reveal a subtle
+     dashed underline at rest so users know a cell is editable, then swap to
+     a solid ring-tinted border on hover/focus for a clear affordance. */
+  .dense-table :is(input, textarea, button[role="combobox"]).border-transparent {
+    border-bottom: 1px dashed hsl(var(--border));
+    transition: border-color 120ms ease;
+  }
+  .dense-table :is(input, textarea, button[role="combobox"]).border-transparent:hover {
+    border-bottom-style: solid;
+    border-bottom-color: hsl(var(--ring) / 0.6);
+  }
+  .dense-table :is(input, textarea, button[role="combobox"]).border-transparent:focus,
+  .dense-table :is(input, textarea, button[role="combobox"]).border-transparent:focus-visible {
+    border-bottom-style: solid;
+    border-bottom-color: hsl(var(--ring));
+  }
+
   .calc-field {
     @apply bg-muted/50 text-muted-foreground font-mono text-xs tabular-nums;
   }
