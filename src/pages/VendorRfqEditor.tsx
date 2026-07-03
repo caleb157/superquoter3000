@@ -20,10 +20,13 @@ import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const STATUS_OPTIONS = ['draft', 'sent', 'responded', 'accepted', 'rejected'];
+import { statusToneClass } from '@/lib/status-tone';
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700', sent: 'bg-blue-100 text-blue-700',
-  responded: 'bg-amber-100 text-amber-700', accepted: 'bg-emerald-100 text-emerald-700',
-  rejected: 'bg-red-100 text-red-700',
+  draft: statusToneClass('idle'),
+  sent: statusToneClass('progress'),
+  responded: statusToneClass('progress'),
+  accepted: statusToneClass('complete'),
+  rejected: statusToneClass('issue'),
 };
 
 const RFQ_TYPE_CATEGORY: Record<string, string> = {
