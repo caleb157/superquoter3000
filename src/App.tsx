@@ -28,6 +28,7 @@ import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
 import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
               } />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
