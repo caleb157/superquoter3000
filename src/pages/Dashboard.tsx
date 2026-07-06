@@ -173,7 +173,7 @@ const Dashboard = () => {
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = inquiries.filter(i => {
-      if (statusFilter === 'open' && (i.status === 'cancelled' || i.status === 'complete')) return false;
+      if (statusFilter === 'open' && (i.status === 'cancelled' || i.status === 'complete' || i.status === 'paused')) return false;
       if (statusFilter !== 'all' && statusFilter !== 'open' && i.status !== statusFilter) return false;
       if (!q) return true;
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
@@ -332,7 +332,7 @@ const Dashboard = () => {
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger className="h-9 flex-1 min-w-[130px] sm:max-w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open (no complete/cancelled)</SelectItem>
+                <SelectItem value="open">Open (excl. paused/complete/cancelled)</SelectItem>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
