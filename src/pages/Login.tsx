@@ -6,20 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Package, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
+// Only allow same-origin relative paths as return targets, so a malicious
+// `?next=https://evil.example` cannot redirect after sign-in.
+function safeNext(raw: string | null): string {
+  if (!raw) return '/';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
+  return raw;
+}
+
 const Login = () => {
   useDocumentTitle('Sign in');
+  const [searchParams] = useSearchParams();
+  const next = safeNext(searchParams.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const { user, isAdminOrTeam } = useAuth();
+  const { user } = useAuth();
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={next} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +40,7 @@ const Login = () => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: `${window.location.origin}${next}` },
       });
       setLoading(false);
       if (error) {
@@ -46,6 +56,7 @@ const Login = () => {
       }
     }
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30">
