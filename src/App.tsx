@@ -28,6 +28,8 @@ import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
 import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
+import Vendors from "./pages/Vendors";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
