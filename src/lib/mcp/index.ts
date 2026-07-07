@@ -4,6 +4,7 @@ import listCustomersTool from "./tools/list-customers";
 import listInquiriesTool from "./tools/list-inquiries";
 import listProductsTool from "./tools/list-products";
 import listTasksTool from "./tools/list-tasks";
+import addCogsItemTool from "./tools/add-cogs-item";
 
 // Build the OAuth issuer from the Supabase project ref so it stays on the
 // direct supabase.co host (not the .lovable.cloud proxy). Vite inlines this
@@ -15,10 +16,10 @@ export default defineMcp({
   title: "Product HQ",
   version: "0.1.0",
   instructions:
-    "Tools for the Product HQ costing & CRM app. Use `whoami` to verify the connection, then `list_customers`, `list_inquiries`, `list_products`, and `list_tasks` to read the signed-in user's data. All tools are read-only and run under the user's Row-Level Security policies.",
+    "Tools for the Product HQ costing & CRM app. Use `whoami` to verify the connection. Read tools: `list_customers`, `list_inquiries`, `list_products`, `list_tasks`. Write tools: `add_cogs_item` (first call `list_products` to resolve the target product's UUID by name, then add the COGS line). All tools run under the signed-in user's Row-Level Security policies.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: [whoamiTool, listCustomersTool, listInquiriesTool, listProductsTool, listTasksTool],
+  tools: [whoamiTool, listCustomersTool, listInquiriesTool, listProductsTool, listTasksTool, addCogsItemTool],
 });
