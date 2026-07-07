@@ -153,6 +153,85 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "add_cogs_item",
+        "title": "Add COGS item to a product",
+        "description": "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "product_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the target product."
+            },
+            "cogs_type": {
+              "type": "string",
+              "enum": [
+                "Raw Piece",
+                "Subcontracting",
+                "Finishing Materials",
+                "Packaging",
+                "Hardware",
+                "Accessories"
+              ],
+              "description": "Category of the COGS line."
+            },
+            "component_name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Display name of the component, e.g. 'Raw Mango Tray'."
+            },
+            "unit_cost_inr": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Unit cost in INR."
+            },
+            "vendor_name": {
+              "type": "string",
+              "description": "Optional vendor name."
+            },
+            "units": {
+              "type": "string",
+              "description": "Unit of measure (default 'pc')."
+            },
+            "components_per_product": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Quantity per product (default 1)."
+            },
+            "waste_factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Waste factor as a decimal (e.g. 0.05 for 5%)."
+            },
+            "include": {
+              "type": "string",
+              "enum": [
+                "Yes",
+                "No"
+              ],
+              "description": "Whether to include this line in totals (default Yes)."
+            }
+          },
+          "required": [
+            "product_id",
+            "cogs_type",
+            "component_name",
+            "unit_cost_inr"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
