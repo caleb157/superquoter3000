@@ -255,18 +255,160 @@ var add_cogs_item_default = defineTool6({
   }
 });
 
+// src/lib/mcp/tools/list-cogs-items.ts
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.108.2";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z6 } from "npm:zod@^3.25.76";
+function supabaseForUser6(ctx) {
+  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_cogs_items_default = defineTool7({
+  name: "list_cogs_items",
+  title: "List COGS items for a product",
+  description: "List the COGS lines on a specific product's costing sheet. Use to look up the id of a line before calling `update_cogs_item`, or to review current unit_cost_inr values.",
+  inputSchema: {
+    product_id: z6.string().uuid().describe("UUID of the product."),
+    search: z6.string().optional().describe("Optional case-insensitive substring match on component_name.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const sb = supabaseForUser6(ctx);
+    let q = sb.from("cogs_items").select("id, cogs_type, component_name, vendor_name, unit_cost_inr, units, components_per_product, waste_factor, include, is_auto_calculated, sort_order").eq("product_id", input.product_id).order("sort_order", { ascending: true });
+    if (input.search) q = q.ilike("component_name", `%${input.search}%`);
+    const { data, error } = await q.limit(500);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: `Found ${data?.length ?? 0} COGS line(s).` }],
+      structuredContent: { cogs_items: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/update-cogs-item.ts
+import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.108.2";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z7 } from "npm:zod@^3.25.76";
+function supabaseForUser7(ctx) {
+  return createClient7(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var COGS_TYPES2 = [
+  "Raw Piece",
+  "Subcontracting",
+  "Finishing Materials",
+  "Packaging",
+  "Hardware",
+  "Accessories"
+];
+var update_cogs_item_default = defineTool8({
+  name: "update_cogs_item",
+  title: "Update COGS item on a product",
+  description: "Update fields (typically unit_cost_inr) on an existing COGS line for a specific product. Identify the row EITHER by `cogs_item_id` OR by (`product_id` + `component_name`, optionally scoped by `cogs_type`). First resolve the product with `list_products`, then optionally call `list_cogs_items` to see current lines. Only provided fields are changed. Refuses to update auto-calculated rows unless `force=true`.",
+  inputSchema: {
+    cogs_item_id: z7.string().uuid().optional().describe("Direct UUID of the cogs_items row to update."),
+    product_id: z7.string().uuid().optional().describe("Product UUID (required if cogs_item_id not given)."),
+    component_name: z7.string().optional().describe("Component name to match (case-insensitive) when cogs_item_id not given."),
+    cogs_type: z7.enum(COGS_TYPES2).optional().describe("Optional category to disambiguate the match."),
+    unit_cost_inr: z7.number().nonnegative().optional().describe("New unit cost in INR."),
+    vendor_name: z7.string().optional().describe("New vendor name."),
+    units: z7.string().optional().describe("New unit of measure."),
+    components_per_product: z7.number().nonnegative().optional().describe("New quantity per product."),
+    waste_factor: z7.number().min(0).max(1).optional().describe("New waste factor (0-1)."),
+    include: z7.enum(["Yes", "No"]).optional().describe("Include in totals."),
+    new_component_name: z7.string().optional().describe("Rename the component."),
+    force: z7.boolean().optional().describe("Allow updating rows flagged is_auto_calculated.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const sb = supabaseForUser7(ctx);
+    let rowId = input.cogs_item_id ?? null;
+    let existing = null;
+    if (rowId) {
+      const { data: data2, error: error2 } = await sb.from("cogs_items").select("*").eq("id", rowId).maybeSingle();
+      if (error2) return { content: [{ type: "text", text: error2.message }], isError: true };
+      existing = data2;
+    } else {
+      if (!input.product_id || !input.component_name) {
+        return {
+          content: [{ type: "text", text: "Provide cogs_item_id, or both product_id and component_name." }],
+          isError: true
+        };
+      }
+      let q = sb.from("cogs_items").select("*").eq("product_id", input.product_id).ilike("component_name", input.component_name);
+      if (input.cogs_type) q = q.eq("cogs_type", input.cogs_type);
+      const { data: data2, error: error2 } = await q.limit(5);
+      if (error2) return { content: [{ type: "text", text: error2.message }], isError: true };
+      if (!data2 || data2.length === 0) {
+        return { content: [{ type: "text", text: `No COGS line matched "${input.component_name}" on that product.` }], isError: true };
+      }
+      if (data2.length > 1) {
+        return {
+          content: [{
+            type: "text",
+            text: `Multiple COGS lines matched "${input.component_name}". Pass cogs_type to disambiguate, or use cogs_item_id. Matches: ${data2.map((r) => `${r.cogs_type}/${r.component_name} (${r.id})`).join("; ")}`
+          }],
+          isError: true
+        };
+      }
+      existing = data2[0];
+      rowId = existing.id;
+    }
+    if (!existing || !rowId) {
+      return { content: [{ type: "text", text: "COGS line not found or not accessible." }], isError: true };
+    }
+    if (existing.is_auto_calculated && !input.force) {
+      return {
+        content: [{
+          type: "text",
+          text: `Refusing to update auto-calculated row "${existing.component_name}". Re-run with force=true to override.`
+        }],
+        isError: true
+      };
+    }
+    const patch = {};
+    if (input.unit_cost_inr !== void 0) patch.unit_cost_inr = input.unit_cost_inr;
+    if (input.vendor_name !== void 0) patch.vendor_name = input.vendor_name;
+    if (input.units !== void 0) patch.units = input.units;
+    if (input.components_per_product !== void 0) patch.components_per_product = input.components_per_product;
+    if (input.waste_factor !== void 0) patch.waste_factor = input.waste_factor;
+    if (input.include !== void 0) patch.include = input.include;
+    if (input.new_component_name !== void 0) patch.component_name = input.new_component_name;
+    if (Object.keys(patch).length === 0) {
+      return { content: [{ type: "text", text: "No fields provided to update." }], isError: true };
+    }
+    const { data, error } = await sb.from("cogs_items").update(patch).eq("id", rowId).select().single();
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const changed = Object.entries(patch).map(([k, v]) => `${k}=${v}`).join(", ");
+    return {
+      content: [{ type: "text", text: `Updated COGS line "${existing.component_name}" (${changed}).` }],
+      structuredContent: { cogs_item: data }
+    };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
   version: "0.1.0",
-  instructions: "Tools for the Product HQ costing & CRM app. Use `whoami` to verify the connection. Read tools: `list_customers`, `list_inquiries`, `list_products`, `list_tasks`. Write tools: `add_cogs_item` (first call `list_products` to resolve the target product's UUID by name, then add the COGS line). All tools run under the signed-in user's Row-Level Security policies.",
+  instructions: "Tools for the Product HQ costing & CRM app. Use `whoami` to verify the connection. Read tools: `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`. Write tools: `add_cogs_item` and `update_cogs_item` (first resolve the product UUID via `list_products`; for updates you can also call `list_cogs_items` to find the specific line). All tools run under the signed-in user's Row-Level Security policies.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [whoami_default, list_customers_default, list_inquiries_default, list_products_default, list_tasks_default, add_cogs_item_default]
+  tools: [whoami_default, list_customers_default, list_inquiries_default, list_products_default, list_tasks_default, list_cogs_items_default, add_cogs_item_default, update_cogs_item_default]
 });
 
 // lovable-mcp-supabase-entry.ts
