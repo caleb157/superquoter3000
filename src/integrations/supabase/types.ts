@@ -2475,7 +2475,6 @@ export type Database = {
         Returns: {
           description: string
           dimensions: string
-          estimated_cost: number
           existing_quoted_lead_time_days: number
           existing_quoted_unit_price: number
           existing_vendor_notes: string
@@ -2489,7 +2488,6 @@ export type Database = {
           sort_order: number
           target_price: number
           units: string
-          vendor_price: number
           vendor_rfq_id: string
         }[]
       }
