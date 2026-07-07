@@ -243,6 +243,10 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Role gate: only admin/team can trigger this push (it reads all financial data).
+    const { data: allowed, error: roleErr } = await admin.rpc('is_admin_or_team', { _user_id: userId });
+    if (roleErr || !allowed) return json(403, { ok: false, error: 'Forbidden' });
+
     const body = await req.json().catch(() => ({}));
     const testOnly = !!body.test_only;
 
@@ -285,7 +289,7 @@ Deno.serve(async (req) => {
     }
 
     const startingMonth: string = body.starting_month;
-    const monthsCount: number = Number(body.months_count) || 6;
+    const monthsCount: number = Math.min(Math.max(Number(body.months_count) || 6, 1), 36);
     const statusFilter: string[] = Array.isArray(body.status_filter) && body.status_filter.length
       ? body.status_filter
       : ['active', 'projected_po', 'po'];
