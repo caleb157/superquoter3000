@@ -155,6 +155,36 @@
         "outputSchema": null
       },
       {
+        "name": "list_cogs_items",
+        "title": "List COGS items for a product",
+        "description": "List the COGS lines on a specific product's costing sheet. Use to look up the id of a line before calling `update_cogs_item`, or to review current unit_cost_inr values.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "product_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the product."
+            },
+            "search": {
+              "type": "string",
+              "description": "Optional case-insensitive substring match on component_name."
+            }
+          },
+          "required": [
+            "product_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "add_cogs_item",
         "title": "Add COGS item to a product",
         "description": "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
@@ -228,6 +258,91 @@
             "component_name",
             "unit_cost_inr"
           ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_cogs_item",
+        "title": "Update COGS item on a product",
+        "description": "Update fields (typically unit_cost_inr) on an existing COGS line for a specific product. Identify the row EITHER by `cogs_item_id` OR by (`product_id` + `component_name`, optionally scoped by `cogs_type`). First resolve the product with `list_products`, then optionally call `list_cogs_items` to see current lines. Only provided fields are changed. Refuses to update auto-calculated rows unless `force=true`.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cogs_item_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Direct UUID of the cogs_items row to update."
+            },
+            "product_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Product UUID (required if cogs_item_id not given)."
+            },
+            "component_name": {
+              "type": "string",
+              "description": "Component name to match (case-insensitive) when cogs_item_id not given."
+            },
+            "cogs_type": {
+              "type": "string",
+              "enum": [
+                "Raw Piece",
+                "Subcontracting",
+                "Finishing Materials",
+                "Packaging",
+                "Hardware",
+                "Accessories"
+              ],
+              "description": "Optional category to disambiguate the match."
+            },
+            "unit_cost_inr": {
+              "type": "number",
+              "minimum": 0,
+              "description": "New unit cost in INR."
+            },
+            "vendor_name": {
+              "type": "string",
+              "description": "New vendor name."
+            },
+            "units": {
+              "type": "string",
+              "description": "New unit of measure."
+            },
+            "components_per_product": {
+              "type": "number",
+              "minimum": 0,
+              "description": "New quantity per product."
+            },
+            "waste_factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "New waste factor (0-1)."
+            },
+            "include": {
+              "type": "string",
+              "enum": [
+                "Yes",
+                "No"
+              ],
+              "description": "Include in totals."
+            },
+            "new_component_name": {
+              "type": "string",
+              "description": "Rename the component."
+            },
+            "force": {
+              "type": "boolean",
+              "description": "Allow updating rows flagged is_auto_calculated."
+            }
+          },
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
