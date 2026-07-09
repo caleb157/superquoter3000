@@ -321,6 +321,14 @@ const QuotePdfDocument = ({
           </View>
         </View>
 
+        {/* Incoterm */}
+        {incoterm ? (
+          <View style={[s.termsBand, { backgroundColor: '#F8FAFC', borderColor: C.border }]} wrap={false}>
+            <Text style={[s.termsLabel, { color: C.light }]}>Incoterm</Text>
+            <Text style={[s.termsText, { color: '#0F172A' }]}>{incoterm}</Text>
+          </View>
+        ) : null}
+
         {/* Payment terms */}
         {paymentTerms ? (
           <View style={s.termsBand} wrap={false}>
