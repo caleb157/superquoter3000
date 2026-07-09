@@ -181,6 +181,7 @@ export default function Tasks() {
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
               productId={filterProduct !== 'all' ? filterProduct : undefined}
+              customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
               assignee={filterAssignee}
               status={filterStatus}
               dueWindow={filterDue}
