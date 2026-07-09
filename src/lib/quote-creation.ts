@@ -456,6 +456,11 @@ export async function updateQuoteLineItems(
   if (meta && Object.prototype.hasOwnProperty.call(meta, 'payment_terms')) {
     updatePayload.payment_terms = meta.payment_terms?.toString().trim() || null;
   }
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'incoterm')) {
+    const trimmed = meta.incoterm?.toString().trim();
+    if (!trimmed) return { error: 'Incoterm is required' };
+    updatePayload.incoterm = trimmed;
+  }
 
   const { error } = await (supabase as any)
     .from('quote_snapshots')
@@ -463,5 +468,5 @@ export async function updateQuoteLineItems(
     .eq('id', snapshotId);
 
   if (error) return { error: error.message };
-  return { products: productsJson, totals, payment_terms: updatePayload.payment_terms };
+  return { products: productsJson, totals, payment_terms: updatePayload.payment_terms, incoterm: updatePayload.incoterm };
 }
