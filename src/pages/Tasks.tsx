@@ -20,10 +20,12 @@ export default function Tasks() {
   useDocumentTitle('Tasks');
   const { assigneeCode } = useAuth();
   useScrollRestoration('tasks.scroll', true);
-  const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
+  const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null; customer_id: string | null }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
 
+  const [filterCustomer, setFilterCustomer] = useState<string>('all');
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
   const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
