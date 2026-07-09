@@ -99,6 +99,7 @@ interface QuoteData {
     approved_at?: string;
     notes?: string | null;
     payment_terms?: string | null;
+    incoterm?: string | null;
     created_at?: string | null;
   };
   entity: EntitySnap | null;
