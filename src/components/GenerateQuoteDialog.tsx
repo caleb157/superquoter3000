@@ -96,7 +96,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           .order('name'),
         supabase.from('company_entities').select('id, name').order('name'),
         (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
+        supabase.from('shipping_types').select('id, name').order('name'),
       ]);
+      setShippingTypes(((shipRes as any).data ?? []) as ShippingType[]);
       setProducts((prodRes.data ?? []) as Product[]);
       setAssemblies(((asmRes.data ?? []) as any[]).map(a => ({
         id: a.id, name: a.name, sku: a.sku, quantity: a.quantity, markup_percent: a.markup_percent,
