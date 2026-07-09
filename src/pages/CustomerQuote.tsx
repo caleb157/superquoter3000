@@ -544,6 +544,13 @@ const CustomerQuote = () => {
           </div>
         </header>
 
+        {snapshot.incoterm && (
+          <section className="bg-slate-50 border-x border-b border-slate-200 px-6 py-3 text-sm text-slate-900 flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-1 print-border-light">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 shrink-0">Incoterm</span>
+            <span className="font-medium">{snapshot.incoterm}</span>
+          </section>
+        )}
+
         {snapshot.payment_terms && (
           <section className="bg-amber-50 border-x border-b border-amber-200 px-6 py-3 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-1 print-border-light">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 shrink-0">Payment Terms</span>
