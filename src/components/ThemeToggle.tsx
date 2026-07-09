@@ -29,12 +29,6 @@ export function ThemeToggle({ className }: { className?: string }) {
         <DropdownMenuItem onClick={() => setTheme('dark')} className={cn('text-xs gap-2', theme === 'dark' && 'bg-secondary')}>
           <Moon className="h-3.5 w-3.5" /> Parker Mode
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')} className={cn('text-xs gap-2', theme === 'system' && 'bg-secondary')}>
-          <Monitor className="h-3.5 w-3.5" /> System
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')} className={cn('text-xs gap-2', theme === 'system' && 'bg-secondary')}>
-          <Monitor className="h-3.5 w-3.5" /> System
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
