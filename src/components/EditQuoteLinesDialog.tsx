@@ -140,6 +140,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
+    if (!incoterm.trim()) {
+      setStatus('error');
+      setErrorMsg('Incoterm is required');
+      toast.error('Incoterm is required');
+      return;
+    }
     setStatus('saving');
     setErrorMsg(null);
 
@@ -148,7 +154,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const freight: FreightInput | null = freightRateNum > 0
       ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
       : null;
-    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight });
+    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight, incoterm });
 
     if (result.error) {
       setStatus('error');
@@ -160,6 +166,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
     initialPaymentTermsRef.current = paymentTerms;
+    initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
     setStatus('saved');
     toast.success('Quote updated');
@@ -175,6 +182,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         total_cbm: totals.cbm,
       },
       payment_terms: result.payment_terms ?? (paymentTerms.trim() || null),
+      incoterm: result.incoterm ?? (incoterm.trim() || null),
     });
 
     closeTimerRef.current = setTimeout(() => onOpenChange(false), 700);
