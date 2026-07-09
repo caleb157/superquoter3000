@@ -77,6 +77,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
     initialPaymentTermsRef.current = pt;
+    const ic = ((snapshot as any).incoterm ?? '') as string;
+    setIncoterm(ic);
+    initialIncotermRef.current = ic;
     const f = snapshot?.totals?.freight ?? null;
     const fm = (f?.mode === 'air' ? 'air' : 'sea') as FreightMode;
     const fr = f?.rate != null ? String(f.rate) : '';
@@ -87,6 +90,10 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     initialFreightRef.current = `${fm}|${fr}|${fd}`;
     setStatus('idle');
     setErrorMsg(null);
+    (async () => {
+      const { data } = await supabase.from('shipping_types').select('id, name').order('name');
+      setShippingTypes((data ?? []) as any);
+    })();
   }, [open, snapshot]);
 
   // Cancel a pending auto-close if the user reopens or unmounts.
