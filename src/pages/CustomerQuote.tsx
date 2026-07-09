@@ -366,6 +366,7 @@ const CustomerQuote = () => {
           createdAt={data.snapshot.created_at ?? null}
           status={data.snapshot.status}
           paymentTerms={data.snapshot.payment_terms ?? null}
+          incoterm={data.snapshot.incoterm ?? null}
           notes={data.snapshot.notes ?? null}
           products={productsForPdf}
           selections={selections}
