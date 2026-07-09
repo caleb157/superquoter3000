@@ -125,11 +125,21 @@ export default function Tasks() {
             </Tabs>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
+              <Select value={filterCustomer} onValueChange={setFilterCustomer}>
+                <SelectTrigger className="h-9 text-sm lg:w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All customers</SelectItem>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={filterInquiry} onValueChange={setFilterInquiry}>
                 <SelectTrigger className="h-9 text-sm lg:w-56"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All inquiries</SelectItem>
-                  {inquiries.map(i => (
+                  {visibleInquiries.map(i => (
                     <SelectItem key={i.id} value={i.id}>{i.rfq_number} — {i.title || 'Untitled'}</SelectItem>
                   ))}
                 </SelectContent>
