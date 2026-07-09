@@ -296,6 +296,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       validUntil,
       currency,
       freight,
+      incoterm: incoterm.trim() || null,
     });
     setSaving(false);
     setHwOpen(false);
