@@ -81,8 +81,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setSelected(new Set());
     setSelectedAsm(new Set());
     setValidUntil(defaultValidUntil());
+    setIncoterm('');
     (async () => {
-      const [prodRes, asmRes, entRes, inqRes] = await Promise.all([
+      const [prodRes, asmRes, entRes, inqRes, shipRes] = await Promise.all([
         supabase
           .from('products')
           .select('id, name, sku, quantity, quote_stage, target_price_usd, markup_percent')
