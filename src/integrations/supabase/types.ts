@@ -1663,6 +1663,7 @@ export type Database = {
           entity: Json | null
           entity_id: string | null
           id: string
+          incoterm: string | null
           inquiry: Json | null
           notes: string | null
           payment_terms: string | null
@@ -1687,6 +1688,7 @@ export type Database = {
           entity?: Json | null
           entity_id?: string | null
           id?: string
+          incoterm?: string | null
           inquiry?: Json | null
           notes?: string | null
           payment_terms?: string | null
@@ -1711,6 +1713,7 @@ export type Database = {
           entity?: Json | null
           entity_id?: string | null
           id?: string
+          incoterm?: string | null
           inquiry?: Json | null
           notes?: string | null
           payment_terms?: string | null

@@ -25,6 +25,7 @@ export type CreateQuoteParams = {
   validUntil: string; // YYYY-MM-DD
   currency?: string;
   freight?: FreightInput | null;
+  incoterm?: string | null;
 };
 
 export type CreateQuoteResult = {
@@ -44,9 +45,10 @@ export type CreateQuoteResult = {
  * The snapshot is the source of truth for the customer-facing quote page.
  */
 export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<CreateQuoteResult> {
-  const { inquiryId, selectedProducts, entityId, validUntil, currency } = params;
+  const { inquiryId, selectedProducts, entityId, validUntil, currency, incoterm } = params;
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
+  if (!incoterm || !incoterm.trim()) return { error: 'Incoterm is required' };
 
   // Split inputs: regular product lines vs. assembly lines
   const assemblyInputs = selectedProducts.filter(p => !!p.assembly_id);
@@ -334,6 +336,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     valid_until: validUntil,
     currency: code,
     currency_rate_inr_per_unit: frozenInrPerUnit,
+    incoterm: incoterm.trim(),
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,
@@ -384,8 +387,8 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean },
-): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any }; payment_terms?: string | null }> {
+  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null },
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -453,6 +456,11 @@ export async function updateQuoteLineItems(
   if (meta && Object.prototype.hasOwnProperty.call(meta, 'payment_terms')) {
     updatePayload.payment_terms = meta.payment_terms?.toString().trim() || null;
   }
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'incoterm')) {
+    const trimmed = meta.incoterm?.toString().trim();
+    if (!trimmed) return { error: 'Incoterm is required' };
+    updatePayload.incoterm = trimmed;
+  }
 
   const { error } = await (supabase as any)
     .from('quote_snapshots')
@@ -460,5 +468,5 @@ export async function updateQuoteLineItems(
     .eq('id', snapshotId);
 
   if (error) return { error: error.message };
-  return { products: productsJson, totals, payment_terms: updatePayload.payment_terms };
+  return { products: productsJson, totals, payment_terms: updatePayload.payment_terms, incoterm: updatePayload.incoterm };
 }

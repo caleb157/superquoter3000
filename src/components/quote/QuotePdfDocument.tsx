@@ -74,6 +74,7 @@ export interface QuotePdfProps {
   createdAt: string | null;
   status: string;
   paymentTerms?: string | null;
+  incoterm?: string | null;
   notes?: string | null;
   products: QuotePdfProduct[];
   selections: Record<number, { quantity: number }>;
@@ -255,6 +256,7 @@ const QuotePdfDocument = ({
   createdAt,
   status,
   paymentTerms,
+  incoterm,
   products,
   selections,
   entity,
@@ -318,6 +320,14 @@ const QuotePdfDocument = ({
             </Text>
           </View>
         </View>
+
+        {/* Incoterm */}
+        {incoterm ? (
+          <View style={[s.termsBand, { backgroundColor: '#F8FAFC', borderColor: C.border }]} wrap={false}>
+            <Text style={[s.termsLabel, { color: C.light }]}>Incoterm</Text>
+            <Text style={[s.termsText, { color: '#0F172A' }]}>{incoterm}</Text>
+          </View>
+        ) : null}
 
         {/* Payment terms */}
         {paymentTerms ? (

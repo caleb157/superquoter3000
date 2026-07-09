@@ -10,6 +10,7 @@ import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FreightInput, FreightMode } from '@/lib/freight';
+import { supabase } from '@/integrations/supabase/client';
 
 type SnapshotLine = {
   product_id?: string | null;
@@ -33,6 +34,7 @@ type SavedPatch = {
   products: any[];
   totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any };
   payment_terms?: string | null;
+  incoterm?: string | null;
 };
 
 type Props = {
@@ -49,6 +51,8 @@ type Status = 'idle' | 'saving' | 'saved' | 'error';
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
   const [paymentTerms, setPaymentTerms] = useState<string>('');
+  const [incoterm, setIncoterm] = useState<string>('');
+  const [shippingTypes, setShippingTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [freightMode, setFreightMode] = useState<FreightMode>('sea');
   const [freightRate, setFreightRate] = useState<string>('');
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
@@ -56,6 +60,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const initialSerialRef = useRef<string>('');
   const initialPaymentTermsRef = useRef<string>('');
+  const initialIncotermRef = useRef<string>('');
   const initialFreightRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,6 +77,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
     initialPaymentTermsRef.current = pt;
+    const ic = ((snapshot as any).incoterm ?? '') as string;
+    setIncoterm(ic);
+    initialIncotermRef.current = ic;
     const f = snapshot?.totals?.freight ?? null;
     const fm = (f?.mode === 'air' ? 'air' : 'sea') as FreightMode;
     const fr = f?.rate != null ? String(f.rate) : '';
@@ -82,6 +90,10 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     initialFreightRef.current = `${fm}|${fr}|${fd}`;
     setStatus('idle');
     setErrorMsg(null);
+    (async () => {
+      const { data } = await supabase.from('shipping_types').select('id, name').order('name');
+      setShippingTypes((data ?? []) as any);
+    })();
   }, [open, snapshot]);
 
   // Cancel a pending auto-close if the user reopens or unmounts.
@@ -98,8 +110,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const dirty = useMemo(
     () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
       || paymentTerms !== initialPaymentTermsRef.current
+      || incoterm !== initialIncotermRef.current
       || freightSerial !== initialFreightRef.current,
-    [lines, paymentTerms, freightSerial],
+    [lines, paymentTerms, incoterm, freightSerial],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
@@ -127,6 +140,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
+    if (!incoterm.trim()) {
+      setStatus('error');
+      setErrorMsg('Incoterm is required');
+      toast.error('Incoterm is required');
+      return;
+    }
     setStatus('saving');
     setErrorMsg(null);
 
@@ -135,7 +154,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const freight: FreightInput | null = freightRateNum > 0
       ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
       : null;
-    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight });
+    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight, incoterm });
 
     if (result.error) {
       setStatus('error');
@@ -147,6 +166,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
     initialPaymentTermsRef.current = paymentTerms;
+    initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
     setStatus('saved');
     toast.success('Quote updated');
@@ -162,6 +182,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         total_cbm: totals.cbm,
       },
       payment_terms: result.payment_terms ?? (paymentTerms.trim() || null),
+      incoterm: result.incoterm ?? (incoterm.trim() || null),
     });
 
     closeTimerRef.current = setTimeout(() => onOpenChange(false), 700);
@@ -260,6 +281,25 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-destructive">*</span></Label>
+          <Select
+            value={incoterm}
+            onValueChange={(v) => { setIncoterm(v); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            disabled={status === 'saving'}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" /></SelectTrigger>
+            <SelectContent>
+              {shippingTypes.length === 0 ? (
+                <SelectItem value="__none__" disabled>No shipping types configured</SelectItem>
+              ) : shippingTypes.map(s => (
+                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">Required. Shown at the top of the quote.</p>
         </div>
 
         <div className="rounded-md border p-3 bg-card space-y-1.5">

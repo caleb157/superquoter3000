@@ -99,6 +99,7 @@ interface QuoteData {
     approved_at?: string;
     notes?: string | null;
     payment_terms?: string | null;
+    incoterm?: string | null;
     created_at?: string | null;
   };
   entity: EntitySnap | null;
@@ -365,6 +366,7 @@ const CustomerQuote = () => {
           createdAt={data.snapshot.created_at ?? null}
           status={data.snapshot.status}
           paymentTerms={data.snapshot.payment_terms ?? null}
+          incoterm={data.snapshot.incoterm ?? null}
           notes={data.snapshot.notes ?? null}
           products={productsForPdf}
           selections={selections}
@@ -542,6 +544,13 @@ const CustomerQuote = () => {
             </div>
           </div>
         </header>
+
+        {snapshot.incoterm && (
+          <section className="bg-slate-50 border-x border-b border-slate-200 px-6 py-3 text-sm text-slate-900 flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-1 print-border-light">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 shrink-0">Incoterm</span>
+            <span className="font-medium">{snapshot.incoterm}</span>
+          </section>
+        )}
 
         {snapshot.payment_terms && (
           <section className="bg-amber-50 border-x border-b border-amber-200 px-6 py-3 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-baseline gap-x-3 gap-y-1 print-border-light">

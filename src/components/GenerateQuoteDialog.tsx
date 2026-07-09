@@ -38,6 +38,7 @@ type AssemblyLite = {
 };
 
 type Entity = { id: string; name: string };
+type ShippingType = { id: string; name: string };
 
 type Props = {
   open: boolean;
@@ -60,6 +61,8 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [selectedAsm, setSelectedAsm] = useState<Set<string>>(new Set()); // assemblies
   const [entities, setEntities] = useState<Entity[]>([]);
   const [entityId, setEntityId] = useState<string>('');
+  const [shippingTypes, setShippingTypes] = useState<ShippingType[]>([]);
+  const [incoterm, setIncoterm] = useState<string>('');
   const [currency, setCurrency] = useState<string>('USD');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
@@ -78,8 +81,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setSelected(new Set());
     setSelectedAsm(new Set());
     setValidUntil(defaultValidUntil());
+    setIncoterm('');
     (async () => {
-      const [prodRes, asmRes, entRes, inqRes] = await Promise.all([
+      const [prodRes, asmRes, entRes, inqRes, shipRes] = await Promise.all([
         supabase
           .from('products')
           .select('id, name, sku, quantity, quote_stage, target_price_usd, markup_percent')
@@ -92,7 +96,9 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           .order('name'),
         supabase.from('company_entities').select('id, name').order('name'),
         (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
+        supabase.from('shipping_types').select('id, name').order('name'),
       ]);
+      setShippingTypes(((shipRes as any).data ?? []) as ShippingType[]);
       setProducts((prodRes.data ?? []) as Product[]);
       setAssemblies(((asmRes.data ?? []) as any[]).map(a => ({
         id: a.id, name: a.name, sku: a.sku, quantity: a.quantity, markup_percent: a.markup_percent,
@@ -198,6 +204,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const submit = async () => {
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
+    if (!incoterm.trim()) { toast.error('Select an incoterm'); return; }
     setReviewOpen(true);
   };
 
@@ -289,6 +296,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
       validUntil,
       currency,
       freight,
+      incoterm: incoterm.trim() || null,
     });
     setSaving(false);
     setHwOpen(false);
@@ -327,6 +335,20 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             <div className="mt-1">
               <CurrencyCombobox value={currency} onChange={(v) => setCurrency(v as any)} />
             </div>
+          </div>
+          <div className="col-span-3">
+            <Label className="text-xs">Incoterm <span className="text-destructive">*</span></Label>
+            <Select value={incoterm} onValueChange={setIncoterm}>
+              <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" /></SelectTrigger>
+              <SelectContent>
+                {shippingTypes.length === 0 ? (
+                  <SelectItem value="__none__" disabled>No shipping types configured in Settings</SelectItem>
+                ) : shippingTypes.map(s => (
+                  <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">Required. Manage options in Settings → Shipping types.</p>
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
@@ -475,7 +497,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <span className="text-xs text-muted-foreground">{totalSelected} selected</span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId}>
+            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId || !incoterm.trim()}>
               {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
