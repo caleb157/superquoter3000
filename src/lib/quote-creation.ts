@@ -336,6 +336,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     valid_until: validUntil,
     currency: code,
     currency_rate_inr_per_unit: frozenInrPerUnit,
+    incoterm: incoterm.trim(),
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,
