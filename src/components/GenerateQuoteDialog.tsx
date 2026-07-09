@@ -38,6 +38,7 @@ type AssemblyLite = {
 };
 
 type Entity = { id: string; name: string };
+type ShippingType = { id: string; name: string };
 
 type Props = {
   open: boolean;
