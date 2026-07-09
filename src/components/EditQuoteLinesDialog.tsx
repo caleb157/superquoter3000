@@ -10,6 +10,7 @@ import { updateQuoteLineItems } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FreightInput, FreightMode } from '@/lib/freight';
+import { supabase } from '@/integrations/supabase/client';
 
 type SnapshotLine = {
   product_id?: string | null;
