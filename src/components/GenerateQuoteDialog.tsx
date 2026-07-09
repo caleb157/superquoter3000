@@ -204,6 +204,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const submit = async () => {
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
+    if (!incoterm.trim()) { toast.error('Select an incoterm'); return; }
     setReviewOpen(true);
   };
 
