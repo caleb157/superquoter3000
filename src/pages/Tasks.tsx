@@ -20,10 +20,12 @@ export default function Tasks() {
   useDocumentTitle('Tasks');
   const { assigneeCode } = useAuth();
   useScrollRestoration('tasks.scroll', true);
-  const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
+  const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null; customer_id: string | null }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
 
+  const [filterCustomer, setFilterCustomer] = useState<string>('all');
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
   const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
@@ -63,12 +65,14 @@ export default function Tasks() {
 
   useEffect(() => {
     (async () => {
-      const [iRes, aRes, pRes] = await Promise.all([
-        supabase.from('customer_rfqs').select('id, rfq_number, title').order('updated_at', { ascending: false }),
+      const [iRes, cRes, aRes, pRes] = await Promise.all([
+        supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id').order('updated_at', { ascending: false }),
+        supabase.from('customers').select('id, name').order('name'),
         supabase.from('tasks').select('assignee'),
         (supabase as any).from('profiles').select('assignee_code'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
+      if (cRes.data) setCustomers(cRes.data as any);
       const set = new Set<string>();
       if (aRes.data) (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
       if (pRes.data) (pRes.data as any[]).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
@@ -86,6 +90,18 @@ export default function Tasks() {
       setFilterProduct('all');
     })();
   }, [filterInquiry]);
+
+  // Clear inquiry/product if the selected customer doesn't own them
+  const visibleInquiries = filterCustomer === 'all'
+    ? inquiries
+    : inquiries.filter(i => i.customer_id === filterCustomer);
+
+  useEffect(() => {
+    if (filterCustomer !== 'all' && filterInquiry !== 'all') {
+      const belongs = visibleInquiries.some(i => i.id === filterInquiry);
+      if (!belongs) { setFilterInquiry('all'); setFilterProduct('all'); }
+    }
+  }, [filterCustomer]);
 
   return (
     <AppLayout>
@@ -109,11 +125,21 @@ export default function Tasks() {
             </Tabs>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
+              <Select value={filterCustomer} onValueChange={setFilterCustomer}>
+                <SelectTrigger className="h-9 text-sm lg:w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All customers</SelectItem>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={filterInquiry} onValueChange={setFilterInquiry}>
                 <SelectTrigger className="h-9 text-sm lg:w-56"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All inquiries</SelectItem>
-                  {inquiries.map(i => (
+                  {visibleInquiries.map(i => (
                     <SelectItem key={i.id} value={i.id}>{i.rfq_number} — {i.title || 'Untitled'}</SelectItem>
                   ))}
                 </SelectContent>
@@ -155,6 +181,7 @@ export default function Tasks() {
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
               productId={filterProduct !== 'all' ? filterProduct : undefined}
+              customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
               assignee={filterAssignee}
               status={filterStatus}
               dueWindow={filterDue}
