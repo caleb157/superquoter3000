@@ -74,6 +74,7 @@ export interface QuotePdfProps {
   createdAt: string | null;
   status: string;
   paymentTerms?: string | null;
+  incoterm?: string | null;
   notes?: string | null;
   products: QuotePdfProduct[];
   selections: Record<number, { quantity: number }>;
