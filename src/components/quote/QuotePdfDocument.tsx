@@ -256,6 +256,7 @@ const QuotePdfDocument = ({
   createdAt,
   status,
   paymentTerms,
+  incoterm,
   products,
   selections,
   entity,
