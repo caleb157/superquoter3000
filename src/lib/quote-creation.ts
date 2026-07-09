@@ -45,9 +45,10 @@ export type CreateQuoteResult = {
  * The snapshot is the source of truth for the customer-facing quote page.
  */
 export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<CreateQuoteResult> {
-  const { inquiryId, selectedProducts, entityId, validUntil, currency } = params;
+  const { inquiryId, selectedProducts, entityId, validUntil, currency, incoterm } = params;
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
+  if (!incoterm || !incoterm.trim()) return { error: 'Incoterm is required' };
 
   // Split inputs: regular product lines vs. assembly lines
   const assemblyInputs = selectedProducts.filter(p => !!p.assembly_id);
