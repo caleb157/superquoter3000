@@ -65,12 +65,14 @@ export default function Tasks() {
 
   useEffect(() => {
     (async () => {
-      const [iRes, aRes, pRes] = await Promise.all([
-        supabase.from('customer_rfqs').select('id, rfq_number, title').order('updated_at', { ascending: false }),
+      const [iRes, cRes, aRes, pRes] = await Promise.all([
+        supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id').order('updated_at', { ascending: false }),
+        supabase.from('customers').select('id, name').order('name'),
         supabase.from('tasks').select('assignee'),
         (supabase as any).from('profiles').select('assignee_code'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
+      if (cRes.data) setCustomers(cRes.data as any);
       const set = new Set<string>();
       if (aRes.data) (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
       if (pRes.data) (pRes.data as any[]).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
