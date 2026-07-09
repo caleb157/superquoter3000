@@ -91,6 +91,18 @@ export default function Tasks() {
     })();
   }, [filterInquiry]);
 
+  // Clear inquiry/product if the selected customer doesn't own them
+  const visibleInquiries = filterCustomer === 'all'
+    ? inquiries
+    : inquiries.filter(i => i.customer_id === filterCustomer);
+
+  useEffect(() => {
+    if (filterCustomer !== 'all' && filterInquiry !== 'all') {
+      const belongs = visibleInquiries.some(i => i.id === filterInquiry);
+      if (!belongs) { setFilterInquiry('all'); setFilterProduct('all'); }
+    }
+  }, [filterCustomer]);
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
