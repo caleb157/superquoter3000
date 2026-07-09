@@ -497,7 +497,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <span className="text-xs text-muted-foreground">{totalSelected} selected</span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId}>
+            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId || !incoterm.trim()}>
               {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
