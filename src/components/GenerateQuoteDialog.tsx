@@ -337,6 +337,20 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             </div>
           </div>
           <div className="col-span-3">
+            <Label className="text-xs">Incoterm <span className="text-destructive">*</span></Label>
+            <Select value={incoterm} onValueChange={setIncoterm}>
+              <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" /></SelectTrigger>
+              <SelectContent>
+                {shippingTypes.length === 0 ? (
+                  <SelectItem value="__none__" disabled>No shipping types configured in Settings</SelectItem>
+                ) : shippingTypes.map(s => (
+                  <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">Required. Manage options in Settings → Shipping types.</p>
+          </div>
+          <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
             <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-9 mt-1" />
           </div>
