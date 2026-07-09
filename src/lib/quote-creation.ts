@@ -25,6 +25,7 @@ export type CreateQuoteParams = {
   validUntil: string; // YYYY-MM-DD
   currency?: string;
   freight?: FreightInput | null;
+  incoterm?: string | null;
 };
 
 export type CreateQuoteResult = {
