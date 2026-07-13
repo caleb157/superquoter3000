@@ -583,6 +583,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onBulkSetNpm={() => setBulkNpmOpen(true)}
+        onBulkTargetPrice={() => setBulkTargetPriceOpen(true)}
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
