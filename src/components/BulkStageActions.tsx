@@ -21,6 +21,7 @@ type Props = {
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
   onBulkSetNpm?: () => void;
+  onBulkTargetPrice?: () => void;
   onBulkChemicals?: () => void;
   onBulkSetSource?: () => void;
   onBulkSetType?: () => void;
@@ -39,6 +40,7 @@ export function BulkStageActions({
   onBulkCosting,
   onBulkQuantity,
   onBulkSetNpm,
+  onBulkTargetPrice,
   onBulkChemicals,
   onBulkSetSource,
   onBulkSetType,
@@ -50,7 +52,7 @@ export function BulkStageActions({
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
 
-  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
+  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkTargetPrice || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
   const hasAnyLog = !!(onLogRfq || onLogRfs);
 
   const stageSub = (track: StageTrack, label: string) => (
@@ -107,6 +109,7 @@ export function BulkStageActions({
             {onBulkQuantity && <DropdownMenuItem onClick={onBulkQuantity}>Quantity</DropdownMenuItem>}
             {onBulkCosting && <DropdownMenuItem onClick={onBulkCosting}>Costing</DropdownMenuItem>}
             {onBulkSetNpm && <DropdownMenuItem onClick={onBulkSetNpm}>Net profit margin</DropdownMenuItem>}
+            {onBulkTargetPrice && <DropdownMenuItem onClick={onBulkTargetPrice}>Target price</DropdownMenuItem>}
             {onBulkChemicals && <DropdownMenuItem onClick={onBulkChemicals}>Finishing chemicals</DropdownMenuItem>}
             {onBulkSetSource && <DropdownMenuItem onClick={onBulkSetSource}>Source location</DropdownMenuItem>}
             {onBulkSetType && <DropdownMenuItem onClick={onBulkSetType}>Product type</DropdownMenuItem>}

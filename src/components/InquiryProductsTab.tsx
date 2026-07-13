@@ -27,6 +27,7 @@ import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
+import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
 import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
@@ -124,6 +125,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
+  const [bulkTargetPriceOpen, setBulkTargetPriceOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
@@ -581,6 +583,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onBulkSetNpm={() => setBulkNpmOpen(true)}
+        onBulkTargetPrice={() => setBulkTargetPriceOpen(true)}
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
@@ -627,6 +630,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         open={bulkNpmOpen}
         onOpenChange={setBulkNpmOpen}
         selectedProducts={selectedProducts.map(p => ({ id: p.id, markup_percent: p.markup_percent }))}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <BulkTargetPriceDialog
+        open={bulkTargetPriceOpen}
+        onOpenChange={setBulkTargetPriceOpen}
+        selectedProducts={selectedProducts.map(p => ({ id: p.id, target_price_usd: p.target_price_usd }))}
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
