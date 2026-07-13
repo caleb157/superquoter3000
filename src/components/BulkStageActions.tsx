@@ -52,7 +52,7 @@ export function BulkStageActions({
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
 
-  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
+  const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkTargetPrice || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
   const hasAnyLog = !!(onLogRfq || onLogRfs);
 
   const stageSub = (track: StageTrack, label: string) => (
