@@ -136,11 +136,11 @@ export default function InquiryTargetGrid() {
     <AppLayout>
       <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
         <PageBreadcrumbs
-          items={[
+          canonical={[
             { label: 'Inquiries', to: '/' },
             { label: inquiry?.rfq_number || 'Inquiry', to: `/inquiry/${inquiryId}` },
-            { label: 'Target grid' },
           ]}
+          current="Target grid"
         />
         <div className="flex items-center gap-2 flex-wrap">
           <Button asChild variant="ghost" size="sm">
