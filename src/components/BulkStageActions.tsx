@@ -21,6 +21,7 @@ type Props = {
   onBulkCosting?: () => void;
   onBulkQuantity?: () => void;
   onBulkSetNpm?: () => void;
+  onBulkTargetPrice?: () => void;
   onBulkChemicals?: () => void;
   onBulkSetSource?: () => void;
   onBulkSetType?: () => void;
