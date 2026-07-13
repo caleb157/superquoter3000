@@ -75,6 +75,9 @@ const App = () => (
               <Route path="/inquiry/:id/pricing" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPricingGrid /></ProtectedRoute>
               } />
+              <Route path="/inquiry/:id/targets" element={
+                <ProtectedRoute requireAdminOrTeam><InquiryTargetGrid /></ProtectedRoute>
+              } />
               <Route path="/inquiry/:id/audit" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryAuditGrid /></ProtectedRoute>
               } />
