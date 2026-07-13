@@ -27,6 +27,7 @@ import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
+import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
 import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
