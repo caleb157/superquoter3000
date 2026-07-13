@@ -197,7 +197,7 @@ export default function InquiryTargetGrid() {
                     <td className="p-2 text-xs text-muted-foreground">{p.sku || '—'}</td>
                     <td className="p-2 text-right tabular-nums">{p.quantity ?? '—'}</td>
                     <td className="p-2 text-right tabular-nums text-muted-foreground">
-                      {calc && calc > 0 ? `$${fmt(calc, 2)}` : '—'}
+                      {calc && calc > 0 ? `$${fmt.usd(calc)}` : '—'}
                     </td>
                     <td className="p-2">
                       <Input
