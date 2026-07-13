@@ -22,6 +22,7 @@ import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
 import InquiryDetail from "./pages/InquiryDetail";
 import InquiryPricingGrid from "./pages/InquiryPricingGrid";
+import InquiryTargetGrid from "./pages/InquiryTargetGrid";
 import InquiryAuditGrid from "./pages/InquiryAuditGrid";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
