@@ -125,6 +125,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
+  const [bulkTargetPriceOpen, setBulkTargetPriceOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
