@@ -22,6 +22,7 @@ import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
 import InquiryDetail from "./pages/InquiryDetail";
 import InquiryPricingGrid from "./pages/InquiryPricingGrid";
+import InquiryTargetGrid from "./pages/InquiryTargetGrid";
 import InquiryAuditGrid from "./pages/InquiryAuditGrid";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
@@ -73,6 +74,9 @@ const App = () => (
               } />
               <Route path="/inquiry/:id/pricing" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPricingGrid /></ProtectedRoute>
+              } />
+              <Route path="/inquiry/:id/targets" element={
+                <ProtectedRoute requireAdminOrTeam><InquiryTargetGrid /></ProtectedRoute>
               } />
               <Route path="/inquiry/:id/audit" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryAuditGrid /></ProtectedRoute>
