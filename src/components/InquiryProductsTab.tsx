@@ -633,6 +633,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
+      <BulkTargetPriceDialog
+        open={bulkTargetPriceOpen}
+        onOpenChange={setBulkTargetPriceOpen}
+        selectedProducts={selectedProducts.map(p => ({ id: p.id, target_price_usd: p.target_price_usd }))}
+        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
       <BulkSetSourceLocationDialog
         open={bulkSourceOpen}
         onOpenChange={setBulkSourceOpen}
