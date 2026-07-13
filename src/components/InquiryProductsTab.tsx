@@ -537,6 +537,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
             <TableIcon className="h-4 w-4" /> Pricing grid
           </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/targets`)}>
+            <TableIcon className="h-4 w-4" /> Target grid
+          </Button>
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
             <AlertTriangle className="h-4 w-4" /> Audit grid
           </Button>
