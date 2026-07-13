@@ -109,6 +109,7 @@ export function BulkStageActions({
             {onBulkQuantity && <DropdownMenuItem onClick={onBulkQuantity}>Quantity</DropdownMenuItem>}
             {onBulkCosting && <DropdownMenuItem onClick={onBulkCosting}>Costing</DropdownMenuItem>}
             {onBulkSetNpm && <DropdownMenuItem onClick={onBulkSetNpm}>Net profit margin</DropdownMenuItem>}
+            {onBulkTargetPrice && <DropdownMenuItem onClick={onBulkTargetPrice}>Target price</DropdownMenuItem>}
             {onBulkChemicals && <DropdownMenuItem onClick={onBulkChemicals}>Finishing chemicals</DropdownMenuItem>}
             {onBulkSetSource && <DropdownMenuItem onClick={onBulkSetSource}>Source location</DropdownMenuItem>}
             {onBulkSetType && <DropdownMenuItem onClick={onBulkSetType}>Product type</DropdownMenuItem>}
