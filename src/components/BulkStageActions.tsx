@@ -40,6 +40,7 @@ export function BulkStageActions({
   onBulkCosting,
   onBulkQuantity,
   onBulkSetNpm,
+  onBulkTargetPrice,
   onBulkChemicals,
   onBulkSetSource,
   onBulkSetType,
