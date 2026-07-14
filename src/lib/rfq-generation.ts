@@ -151,8 +151,8 @@ export async function generateBoxRfq(inquiryId: string, productIds?: string[]): 
 }
 
 // ---------- Chemical RFQ ----------
-export async function generateChemicalRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, chemPrices, discount } = await fetchInquiryContext(inquiryId);
+export async function generateChemicalRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, chemPrices, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
