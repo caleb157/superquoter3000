@@ -320,7 +320,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const nuForCalc = productNuCogs.map((item: any) => {
     if (item.name === 'Auto Transport' && !item.manual_override) {
       const totalCbm = +(finalUnitCbm * qty).toFixed(4);
-      return { ...item, include: 'Yes', total_quantity: totalCbm, cost_each_inr: autoTransportRate };
+      return { ...item, include: item.include === 'No' ? 'No' : 'Yes', total_quantity: totalCbm, cost_each_inr: autoTransportRate };
     }
     return item;
   });

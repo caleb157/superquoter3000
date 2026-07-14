@@ -907,7 +907,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     if (!transportItem) return;
     if (transportItem.manual_override) return;
     const totalCbm = +(finalUnitCbm * qty).toFixed(4);
-    const include = 'Yes';
+    // Preserve the user's include choice — Auto Transport can be toggled off.
+    const include = transportItem.include === 'No' ? 'No' : 'Yes';
     if (Math.abs((transportItem.total_quantity || 0) - totalCbm) < 0.0001 &&
         Math.abs((transportItem.cost_each_inr || 0) - autoTransportRate) < 0.01 &&
         transportItem.include === include) return;
@@ -2161,7 +2162,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   return (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Select value={item.include || 'Yes'} disabled={locked} onValueChange={async v => {
+                      <Select value={item.include || 'Yes'} onValueChange={async v => {
                         setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, include: v } : i));
                         const { error } = await (supabase as any).from('non_unit_cogs').update({ include: v }).eq('id', item.id);
                         if (error) toast.error(`Could not save include: ${error.message}`);
