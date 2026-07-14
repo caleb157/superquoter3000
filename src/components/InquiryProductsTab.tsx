@@ -593,7 +593,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
+        onGenerateRfq={() => setGenerateRfqOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
+      />
+
+      <GenerateRfqDialog
+        open={generateRfqOpen}
+        onOpenChange={setGenerateRfqOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        onCreated={() => { setSelected(new Set()); }}
       />
 
       <CopyProductsToInquiryDialog
