@@ -196,8 +196,8 @@ export async function generateChemicalRfq(inquiryId: string, productIds?: string
 }
 
 // ---------- Hardware RFQ ----------
-export async function generateHardwareRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId);
+export async function generateHardwareRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
