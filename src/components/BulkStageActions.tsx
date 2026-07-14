@@ -47,6 +47,7 @@ export function BulkStageActions({
   onBulkSetType,
   onLogRfq,
   onLogRfs,
+  onGenerateRfq,
   onCopyToInquiry,
   onBulkDeleteCogs,
 }: Props) {
