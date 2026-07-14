@@ -136,6 +136,8 @@ export function BulkStageActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            {onGenerateRfq && <DropdownMenuItem onClick={onGenerateRfq}>Generate RFQ from selection…</DropdownMenuItem>}
+            {onGenerateRfq && (onLogRfq || onLogRfs) && <DropdownMenuSeparator />}
             {onLogRfq && <DropdownMenuItem onClick={onLogRfq}>RFQ received</DropdownMenuItem>}
             {onLogRfs && <DropdownMenuItem onClick={onLogRfs}>RFS received</DropdownMenuItem>}
           </DropdownMenuContent>
