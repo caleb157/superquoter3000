@@ -2162,7 +2162,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   return (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Select value={item.include || 'Yes'} disabled={locked} onValueChange={async v => {
+                      <Select value={item.include || 'Yes'} onValueChange={async v => {
                         setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, include: v } : i));
                         const { error } = await (supabase as any).from('non_unit_cogs').update({ include: v }).eq('id', item.id);
                         if (error) toast.error(`Could not save include: ${error.message}`);
