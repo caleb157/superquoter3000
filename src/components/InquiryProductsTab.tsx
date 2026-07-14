@@ -130,6 +130,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
+  const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
   const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
