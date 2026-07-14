@@ -31,8 +31,12 @@ export async function generateRfqNumber(): Promise<string> {
 }
 
 // ---------- Fetch inquiry context ----------
-async function fetchInquiryContext(inquiryId: string) {
-  const productsRes = await supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
+async function fetchInquiryContext(inquiryId: string, filterProductIds?: string[]) {
+  let productsQuery = supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
+  if (filterProductIds && filterProductIds.length > 0) {
+    productsQuery = productsQuery.in('id', filterProductIds);
+  }
+  const productsRes = await productsQuery;
   const products = (productsRes.data || []).filter((p: any) => !p.is_component);
   const productIds = products.map((p: any) => p.id);
 
