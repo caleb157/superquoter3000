@@ -74,8 +74,8 @@ async function fetchInquiryContext(inquiryId: string, filterProductIds?: string[
 }
 
 // ---------- Box RFQ ----------
-export async function generateBoxRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cbm, project, discount } = await fetchInquiryContext(inquiryId);
+export async function generateBoxRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cbm, project, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
