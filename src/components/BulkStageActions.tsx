@@ -27,6 +27,7 @@ type Props = {
   onBulkSetType?: () => void;
   onLogRfq?: () => void;
   onLogRfs?: () => void;
+  onGenerateRfq?: () => void;
   onCopyToInquiry?: () => void;
   onBulkDeleteCogs?: () => void;
 };
