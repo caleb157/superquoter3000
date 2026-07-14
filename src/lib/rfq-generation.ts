@@ -249,8 +249,8 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
 }
 
 // ---------- Raw Piece RFQ ----------
-export async function generateRawPieceRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId, productIds);
+export async function generateRawPieceRfq(inquiryId: string, filterProductIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId, filterProductIds);
 
   const productIds = products.map((p: any) => p.id);
   const empty = { data: [] as any[] };
