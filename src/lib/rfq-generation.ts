@@ -319,14 +319,30 @@ export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: s
     const summary = engineResult.summary;
     const markupPercent = engineResult.markupPercent;
 
+    // IMPORTANT: product_cost_per_unit_inr already includes the CURRENT raw piece cost.
+    // To back-solve a target raw piece price, subtract raw piece out of the total first
+    // (costExcludingRawPiece), THEN compute the budget against the target. Do not subtract
+    // product_cost_per_unit_inr directly against maxTotalCostInr — that double-counts
+    // today's raw piece price and silently produces wrong (usually understated) targets.
+    const currentRawPieceCostPerUnit = rawCogsRows.reduce((sum: number, item: any) => {
+      const c = calc.calcCogsItemCost({
+        include: item.include,
+        components_per_product: item.components_per_product || 0,
+        unit_cost_inr: item.unit_cost_inr || 0,
+        waste_factor: item.waste_factor || 0,
+      });
+      return sum + c.unit_cost;
+    }, 0);
+    const costExcludingRawPiece = summary.product_cost_per_unit_inr - currentRawPieceCostPerUnit;
+
     const targetUsd = p.target_price_usd || 0;
     const maxTotalCostInr = targetUsd > 0 ? (targetUsd / (1 + markupPercent)) * exchangeRate : 0;
-    const rawPieceBudgetLeft = targetUsd > 0 ? maxTotalCostInr - summary.product_cost_per_unit_inr : 0;
+    const rawPieceBudget = targetUsd > 0 ? maxTotalCostInr - costExcludingRawPiece : 0;
 
-    const estCost = rawPieceBudgetLeft > 0 ? +rawPieceBudgetLeft.toFixed(2) : undefined;
+    const estCost = rawPieceBudget > 0 ? +rawPieceBudget.toFixed(2) : undefined;
     const discountPercent = discount * 100;
     const targetPrice = (estCost && estCost > 0)
-      ? Math.round((rawPieceBudgetLeft * (1 - discountPercent / 100)) / 10) * 10
+      ? Math.round((rawPieceBudget * (1 - discountPercent / 100)) / 10) * 10
       : undefined;
 
     const dims = (p.width_inch && p.depth_inch && p.height_inch)
