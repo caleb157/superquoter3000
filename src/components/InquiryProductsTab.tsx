@@ -26,6 +26,7 @@ import { QuotePriceReviewDialog } from '@/components/QuotePriceReviewDialog';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
+import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
@@ -130,6 +131,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
+  const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
   const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
@@ -592,7 +594,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
+        onGenerateRfq={() => setGenerateRfqOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
+      />
+
+      <GenerateRfqDialog
+        open={generateRfqOpen}
+        onOpenChange={setGenerateRfqOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        onCreated={() => { setSelected(new Set()); }}
       />
 
       <CopyProductsToInquiryDialog

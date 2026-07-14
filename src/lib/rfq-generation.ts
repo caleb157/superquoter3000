@@ -31,8 +31,12 @@ export async function generateRfqNumber(): Promise<string> {
 }
 
 // ---------- Fetch inquiry context ----------
-async function fetchInquiryContext(inquiryId: string) {
-  const productsRes = await supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
+async function fetchInquiryContext(inquiryId: string, filterProductIds?: string[]) {
+  let productsQuery = supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
+  if (filterProductIds && filterProductIds.length > 0) {
+    productsQuery = productsQuery.in('id', filterProductIds);
+  }
+  const productsRes = await productsQuery;
   const products = (productsRes.data || []).filter((p: any) => !p.is_component);
   const productIds = products.map((p: any) => p.id);
 
@@ -70,8 +74,8 @@ async function fetchInquiryContext(inquiryId: string) {
 }
 
 // ---------- Box RFQ ----------
-export async function generateBoxRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cbm, project, discount } = await fetchInquiryContext(inquiryId);
+export async function generateBoxRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cbm, project, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
@@ -147,8 +151,8 @@ export async function generateBoxRfq(inquiryId: string): Promise<{ title: string
 }
 
 // ---------- Chemical RFQ ----------
-export async function generateChemicalRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, chemPrices, discount } = await fetchInquiryContext(inquiryId);
+export async function generateChemicalRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, chemPrices, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
@@ -192,8 +196,8 @@ export async function generateChemicalRfq(inquiryId: string): Promise<{ title: s
 }
 
 // ---------- Hardware RFQ ----------
-export async function generateHardwareRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId);
+export async function generateHardwareRfq(inquiryId: string, productIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount } = await fetchInquiryContext(inquiryId, productIds);
   const items: RfqLineItem[] = [];
   let sortOrder = 0;
 
@@ -245,8 +249,8 @@ export async function generateHardwareRfq(inquiryId: string): Promise<{ title: s
 }
 
 // ---------- Raw Piece RFQ ----------
-export async function generateRawPieceRfq(inquiryId: string): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId);
+export async function generateRawPieceRfq(inquiryId: string, filterProductIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId, filterProductIds);
 
   const productIds = products.map((p: any) => p.id);
   const empty = { data: [] as any[] };
