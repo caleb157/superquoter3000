@@ -53,6 +53,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
+    { to: '/vendor-rfqs', label: 'RFQs', icon: FileText },
   ].filter(i => visibleItems.find(v => v.to === i.to));
 
   const showSettings = !!visibleItems.find(v => v.to === '/settings');
