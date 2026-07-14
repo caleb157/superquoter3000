@@ -55,7 +55,7 @@ export function BulkStageActions({
   if (selectedIds.length === 0) return null;
 
   const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkTargetPrice || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
-  const hasAnyLog = !!(onLogRfq || onLogRfs);
+  const hasAnyLog = !!(onLogRfq || onLogRfs || onGenerateRfq);
 
   const stageSub = (track: StageTrack, label: string) => (
     <DropdownMenuSub>
