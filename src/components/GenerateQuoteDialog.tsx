@@ -83,6 +83,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setSelectedAsm(new Set());
     setValidUntil(defaultValidUntil());
     setIncoterm('');
+    setIncotermError(false);
     (async () => {
       const [prodRes, asmRes, entRes, inqRes, shipRes] = await Promise.all([
         supabase
