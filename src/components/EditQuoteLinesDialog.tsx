@@ -209,7 +209,26 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-destructive">*</span></Label>
+          <Select
+            value={incoterm}
+            onValueChange={(v) => { setIncoterm(v); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            disabled={status === 'saving'}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" /></SelectTrigger>
+            <SelectContent>
+              {shippingTypes.length === 0 ? (
+                <SelectItem value="__none__" disabled>No shipping types configured</SelectItem>
+              ) : shippingTypes.map(s => (
+                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">Required. Shown at the top of the quote.</p>
+        </div>
+
+        <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
           ) : lines.map((line, idx) => (
