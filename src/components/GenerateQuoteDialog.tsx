@@ -345,8 +345,14 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Incoterm <span className="text-destructive">*</span></Label>
-            <Select value={incoterm} onValueChange={setIncoterm}>
-              <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" /></SelectTrigger>
+            <Select value={incoterm} onValueChange={(v) => { setIncoterm(v); setIncotermError(false); }}>
+              <SelectTrigger
+                id="incoterm-trigger"
+                className={`h-9 mt-1 ${incotermError ? 'border-destructive ring-2 ring-destructive/30' : ''}`}
+                aria-invalid={incotermError}
+              >
+                <SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" />
+              </SelectTrigger>
               <SelectContent>
                 {shippingTypes.length === 0 ? (
                   <SelectItem value="__none__" disabled>No shipping types configured in Settings</SelectItem>
@@ -355,7 +361,13 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground mt-1">Required. Manage options in Settings → Shipping types.</p>
+            {incotermError ? (
+              <p className="text-[11px] text-destructive mt-1 font-medium">
+                Incoterm is required — pick one before generating the quote.
+              </p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground mt-1">Required. Manage options in Settings → Shipping types.</p>
+            )}
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
