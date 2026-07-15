@@ -63,6 +63,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const [entityId, setEntityId] = useState<string>('');
   const [shippingTypes, setShippingTypes] = useState<ShippingType[]>([]);
   const [incoterm, setIncoterm] = useState<string>('');
+  const [incotermError, setIncotermError] = useState(false);
   const [currency, setCurrency] = useState<string>('USD');
   const [validUntil, setValidUntil] = useState<string>(defaultValidUntil());
   const [saving, setSaving] = useState(false);
