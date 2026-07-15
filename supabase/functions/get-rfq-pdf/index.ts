@@ -63,25 +63,21 @@ Deno.serve(async (req) => {
     project = data;
   }
 
-  // Fetch entity (for company header)
+  // Fetch entity (for company header). RFQs go to Indian vendors, so prefer the
+  // India entity (Parable Ventures) over the US quoting entity.
   let entity = null;
-  if (rfq.project_id) {
-    const { data: ps } = await supabase
-      .from("project_settings")
-      .select("quoting_entity_id")
-      .eq("project_id", rfq.project_id)
+  {
+    const { data } = await supabase
+      .from("company_entities")
+      .select("*")
+      .eq("entity_type", "India")
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
-    if (ps?.quoting_entity_id) {
-      const { data } = await supabase
-        .from("company_entities")
-        .select("*")
-        .eq("id", ps.quoting_entity_id)
-        .single();
-      entity = data;
-    }
+    entity = data;
   }
 
-  // If no entity found, get the first one
+  // Fallback: any entity
   if (!entity) {
     const { data } = await supabase
       .from("company_entities")
