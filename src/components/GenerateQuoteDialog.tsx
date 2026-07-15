@@ -204,7 +204,14 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const submit = async () => {
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
-    if (!incoterm.trim()) { toast.error('Select an incoterm'); return; }
+    if (!incoterm.trim()) {
+      toast.error('Incoterm is required', {
+        description: shippingTypes.length === 0
+          ? 'No shipping types configured. Add one in Settings → Shipping types, then try again.'
+          : 'Pick an Incoterm (FOB, CIF, EXW, …) from the dropdown at the top of the dialog before generating the quote.',
+      });
+      return;
+    }
     setReviewOpen(true);
   };
 
