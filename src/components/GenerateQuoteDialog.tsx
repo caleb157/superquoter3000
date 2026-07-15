@@ -206,10 +206,16 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
     if (!incoterm.trim()) {
+      setIncotermError(true);
       toast.error('Incoterm is required', {
         description: shippingTypes.length === 0
           ? 'No shipping types configured. Add one in Settings → Shipping types, then try again.'
-          : 'Pick an Incoterm (FOB, CIF, EXW, …) from the dropdown at the top of the dialog before generating the quote.',
+          : 'Pick an Incoterm (FOB, CIF, EXW, …) from the highlighted dropdown before generating the quote.',
+      });
+      requestAnimationFrame(() => {
+        const el = document.getElementById('incoterm-trigger');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.focus();
       });
       return;
     }
