@@ -269,6 +269,7 @@ const Quotes = () => {
                       <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                       <SortableHeader column="total" label="Total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                       <TableHead className="text-xs">Currency</TableHead>
+                      <TableHead className="text-xs">Incoterm</TableHead>
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <TableHead className="text-xs">Viewed</TableHead>
                       <TableHead className="text-xs">Actions</TableHead>
