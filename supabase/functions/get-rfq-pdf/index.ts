@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
       <p><strong>${h(rfq.rfq_number || '')}</strong></p>
       <p>Date: ${h(new Date(rfq.created_at).toLocaleDateString())}</p>
       ${rfq.response_due ? `<p>Response Due: ${h(new Date(rfq.response_due).toLocaleDateString())}</p>` : ''}
+      ${incoterm ? `<p><strong>Incoterm:</strong> ${h(incoterm)}</p>` : ''}
     </div>
   </div>
 
