@@ -95,6 +95,9 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     <TableCell>
                       <Badge className={STATUS_COLOR[q.status ?? 'draft'] ?? ''} variant="secondary">{q.status ?? 'draft'}</Badge>
                     </TableCell>
+                    <TableCell className="text-xs">
+                      {q.incoterm ? <Badge variant="outline" className="font-mono text-[10px]">{q.incoterm}</Badge> : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="text-xs text-right">{q.totals?.sku_count ?? '—'}</TableCell>
                     <TableCell className="text-xs text-right">
                       {q.totals?.grand_total ? `$${Number(q.totals.grand_total).toLocaleString()}` : '—'}
