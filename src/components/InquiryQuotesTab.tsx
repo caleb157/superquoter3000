@@ -20,6 +20,7 @@ function toLocalInput(iso: string): string {
 type Quote = {
   id: string; quote_number: string | null; status: string | null;
   totals: any; created_at: string | null; sent_at: string | null; share_token: string | null;
+  incoterm: string | null;
 };
 
 const STATUS_COLOR: Record<string, string> = {
