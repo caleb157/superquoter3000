@@ -20,6 +20,7 @@ function toLocalInput(iso: string): string {
 type Quote = {
   id: string; quote_number: string | null; status: string | null;
   totals: any; created_at: string | null; sent_at: string | null; share_token: string | null;
+  incoterm: string | null;
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -35,7 +36,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
   const load = async () => {
     const { data } = await (supabase as any)
       .from('quote_snapshots')
-      .select('id, quote_number, status, totals, created_at, sent_at, share_token')
+      .select('id, quote_number, status, totals, created_at, sent_at, share_token, incoterm')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setQuotes(data ?? []);
@@ -79,6 +80,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                 <TableRow>
                   <TableHead className="text-xs">Quote #</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Incoterm</TableHead>
                   <TableHead className="text-xs text-right">SKUs</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
                   <TableHead className="text-xs">Created</TableHead>
@@ -92,6 +94,9 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     <TableCell className="font-mono text-xs">{q.quote_number ?? q.id.slice(0, 8)}</TableCell>
                     <TableCell>
                       <Badge className={STATUS_COLOR[q.status ?? 'draft'] ?? ''} variant="secondary">{q.status ?? 'draft'}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {q.incoterm ? <Badge variant="outline" className="font-mono text-[10px]">{q.incoterm}</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs text-right">{q.totals?.sku_count ?? '—'}</TableCell>
                     <TableCell className="text-xs text-right">

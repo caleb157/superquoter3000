@@ -269,6 +269,7 @@ const Quotes = () => {
                       <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                       <SortableHeader column="total" label="Total" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                       <TableHead className="text-xs">Currency</TableHead>
+                      <TableHead className="text-xs">Incoterm</TableHead>
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <TableHead className="text-xs">Viewed</TableHead>
                       <TableHead className="text-xs">Actions</TableHead>
@@ -307,6 +308,9 @@ const Quotes = () => {
                               : '—'}
                           </TableCell>
                           <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
+                          <TableCell className="text-xs">
+                            {snap.incoterm ? <Badge variant="outline" className="font-mono text-[10px]">{snap.incoterm}</Badge> : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
                           <TableCell>
                             <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
                               <SelectTrigger className="h-7 w-24 text-[10px] p-1">
@@ -396,6 +400,9 @@ const Quotes = () => {
                           )}
                           {snap.entity_id && (
                             <div className="text-[10px] text-muted-foreground truncate">{entities[snap.entity_id]}</div>
+                          )}
+                          {snap.incoterm && (
+                            <div className="text-[10px] font-mono text-muted-foreground truncate">Incoterm: {snap.incoterm}</div>
                           )}
                         </div>
                         <Badge variant={statusVariant(snap.status) as any} className="text-[10px] shrink-0">
