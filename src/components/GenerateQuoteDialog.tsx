@@ -97,10 +97,11 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           .eq('customer_rfq_id', inquiryId)
           .order('name'),
         supabase.from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency, customer_id').eq('id', inquiryId).maybeSingle(),
         supabase.from('shipping_types').select('id, name').order('name'),
       ]);
-      setShippingTypes(((shipRes as any).data ?? []) as ShippingType[]);
+      const shipList = ((shipRes as any).data ?? []) as ShippingType[];
+      setShippingTypes(shipList);
       setProducts((prodRes.data ?? []) as Product[]);
       setAssemblies(((asmRes.data ?? []) as any[]).map(a => ({
         id: a.id, name: a.name, sku: a.sku, quantity: a.quantity, markup_percent: a.markup_percent,
@@ -114,6 +115,39 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
         : (ents[0]?.id ?? '');
       setEntityId(preferredEntity);
       setCurrency((inq?.quoting_currency as string) || 'USD');
+
+      // Preselect Incoterm: last used on this inquiry, else last used by this customer.
+      const validIncoterm = (val: string | null | undefined) =>
+        !!val && shipList.some(s => s.name === val);
+      const { data: inqQuote } = await (supabase as any)
+        .from('quote_snapshots')
+        .select('incoterm')
+        .eq('customer_rfq_id', inquiryId)
+        .not('incoterm', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      let preselect: string | null = validIncoterm(inqQuote?.incoterm) ? inqQuote!.incoterm : null;
+      if (!preselect && inq?.customer_id) {
+        const { data: custInqs } = await (supabase as any)
+          .from('customer_rfqs')
+          .select('id')
+          .eq('customer_id', inq.customer_id);
+        const ids = ((custInqs ?? []) as any[]).map(r => r.id);
+        if (ids.length > 0) {
+          const { data: custQuote } = await (supabase as any)
+            .from('quote_snapshots')
+            .select('incoterm')
+            .in('customer_rfq_id', ids)
+            .not('incoterm', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (validIncoterm(custQuote?.incoterm)) preselect = custQuote!.incoterm;
+        }
+      }
+      if (preselect) setIncoterm(preselect);
+
       // Fetch price map (with stored/drift info) for warning banner
       const allIds = [
         ...((prodRes.data ?? []) as any[]).map(p => p.id),
