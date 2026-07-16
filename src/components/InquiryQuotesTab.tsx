@@ -36,7 +36,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
   const load = async () => {
     const { data } = await (supabase as any)
       .from('quote_snapshots')
-      .select('id, quote_number, status, totals, created_at, sent_at, share_token')
+      .select('id, quote_number, status, totals, created_at, sent_at, share_token, incoterm')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: false });
     setQuotes(data ?? []);
