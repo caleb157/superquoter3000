@@ -63,6 +63,24 @@ Deno.serve(async (req) => {
     project = data;
   }
 
+  // Fetch inquiry-level incoterm (shipping_type_id_override -> shipping_types.name)
+  let incoterm: string | null = null;
+  if (rfq.customer_rfq_id) {
+    const { data: inq } = await supabase
+      .from("customer_rfqs")
+      .select("shipping_type_id_override")
+      .eq("id", rfq.customer_rfq_id)
+      .maybeSingle();
+    if (inq?.shipping_type_id_override) {
+      const { data: st } = await supabase
+        .from("shipping_types")
+        .select("name")
+        .eq("id", inq.shipping_type_id_override)
+        .maybeSingle();
+      incoterm = st?.name ?? null;
+    }
+  }
+
   // Fetch entity (for company header). RFQs go to Indian vendors, so prefer the
   // India entity (Parable Ventures) over the US quoting entity.
   let entity = null;
@@ -157,6 +175,7 @@ Deno.serve(async (req) => {
       <p><strong>${h(rfq.rfq_number || '')}</strong></p>
       <p>Date: ${h(new Date(rfq.created_at).toLocaleDateString())}</p>
       ${rfq.response_due ? `<p>Response Due: ${h(new Date(rfq.response_due).toLocaleDateString())}</p>` : ''}
+      ${incoterm ? `<p><strong>Incoterm:</strong> ${h(incoterm)}</p>` : ''}
     </div>
   </div>
 

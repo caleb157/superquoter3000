@@ -318,6 +318,7 @@ const QuotePdfDocument = ({
             <Text style={isExpired ? s.metaLineExpired : s.metaLine}>
               Valid until: {formatDate(validUntil)}{isExpired ? ' (expired)' : ''}
             </Text>
+            {incoterm ? <Text style={s.metaLine}>Incoterm: {incoterm}</Text> : null}
           </View>
         </View>
 
