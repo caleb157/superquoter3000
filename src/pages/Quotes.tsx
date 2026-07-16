@@ -401,6 +401,9 @@ const Quotes = () => {
                           {snap.entity_id && (
                             <div className="text-[10px] text-muted-foreground truncate">{entities[snap.entity_id]}</div>
                           )}
+                          {snap.incoterm && (
+                            <div className="text-[10px] font-mono text-muted-foreground truncate">Incoterm: {snap.incoterm}</div>
+                          )}
                         </div>
                         <Badge variant={statusVariant(snap.status) as any} className="text-[10px] shrink-0">
                           {snap.status || 'draft'}
