@@ -80,6 +80,7 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                 <TableRow>
                   <TableHead className="text-xs">Quote #</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Incoterm</TableHead>
                   <TableHead className="text-xs text-right">SKUs</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
                   <TableHead className="text-xs">Created</TableHead>
