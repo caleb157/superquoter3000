@@ -308,6 +308,9 @@ const Quotes = () => {
                               : '—'}
                           </TableCell>
                           <TableCell className="text-xs">{snap.currency || 'USD'}</TableCell>
+                          <TableCell className="text-xs">
+                            {snap.incoterm ? <Badge variant="outline" className="font-mono text-[10px]">{snap.incoterm}</Badge> : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
                           <TableCell>
                             <Select value={snap.status || 'draft'} onValueChange={v => updateStatus(snap.id, v)}>
                               <SelectTrigger className="h-7 w-24 text-[10px] p-1">
