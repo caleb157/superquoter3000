@@ -390,6 +390,11 @@ export default function InquiryDetail() {
                 <div><Label className="text-xs text-muted-foreground">Priority</Label><div className="capitalize">{inquiry.priority}</div></div>
                 <div><Label className="text-xs text-muted-foreground">Assigned to</Label><div>{inquiry.assigned_to ?? '—'}</div></div>
                 <div><Label className="text-xs text-muted-foreground">Received</Label><div>{inquiry.received_date}</div></div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Incoterm</Label>
+                  <div>{shippingTypes.find(s => s.id === inquiry.shipping_type_id_override)?.name ?? <span className="text-muted-foreground italic">Not set</span>}</div>
+                </div>
+                <div><Label className="text-xs text-muted-foreground">Quoting currency</Label><div>{inquiry.quoting_currency ?? 'USD'}</div></div>
                 <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Requirements</Label><div className="whitespace-pre-wrap">{inquiry.requirements ?? '—'}</div></div>
                 <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Notes</Label><div className="whitespace-pre-wrap">{inquiry.notes ?? '—'}</div></div>
               </CardContent>
