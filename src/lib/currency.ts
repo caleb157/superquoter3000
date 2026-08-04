@@ -184,3 +184,44 @@ export function formatDualPrice(
   if (!isFinite(foreignAmt)) return usd;
   return `${formatCurrencySync(foreignAmt, code, map)} (${usd})`;
 }
+
+/**
+ * Convert an amount entered in the inquiry's quoting currency into USD, which is
+ * how target prices are stored. INR uses the costing sheet's INR-per-USD rate so
+ * the value lines up with the rest of the costing math; other currencies go
+ * foreign -> INR (import rate) -> USD.
+ */
+export function quoteAmountToUsd(
+  amount: number | null | undefined,
+  code: string | null | undefined,
+  map: CurrencyMap | null,
+  inrPerUsd: number,
+): number | null {
+  if (amount == null || !isFinite(Number(amount))) return null;
+  const amt = Number(amount);
+  if (!code || code === 'USD') return amt;
+  const rate = inrPerUsd > 0 ? inrPerUsd : NaN;
+  if (!isFinite(rate)) return null;
+  if (code === 'INR') return amt / rate;
+  const inr = convertToInr(map, amt, code, 'import');
+  if (!isFinite(inr) || inr === 0) return null;
+  return inr / rate;
+}
+
+/** Inverse of quoteAmountToUsd: show a stored USD target in the quoting currency. */
+export function usdToQuoteAmount(
+  usd: number | null | undefined,
+  code: string | null | undefined,
+  map: CurrencyMap | null,
+  inrPerUsd: number,
+): number | null {
+  if (usd == null || !isFinite(Number(usd))) return null;
+  const amt = Number(usd);
+  if (!code || code === 'USD') return amt;
+  const rate = inrPerUsd > 0 ? inrPerUsd : NaN;
+  if (!isFinite(rate)) return null;
+  const inr = amt * rate;
+  if (code === 'INR') return inr;
+  const out = convertFromInr(map, inr, code, 'import');
+  return isFinite(out) ? out : null;
+}
