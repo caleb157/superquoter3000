@@ -651,6 +651,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         open={bulkTargetPriceOpen}
         onOpenChange={setBulkTargetPriceOpen}
         selectedProducts={selectedProducts.map(p => ({ id: p.id, target_price_usd: p.target_price_usd }))}
+        currency={quotingCurrency}
+        inrPerUsd={Number(Object.values(livePrices).find((v: any) => v?.exchange_rate)?.exchange_rate || 0)}
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 

@@ -12,8 +12,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { getCachedCurrencyMap, loadCurrencyMap, quoteAmountToUsd, usdToQuoteAmount, type CurrencyMap } from '@/lib/currency';
 
-type Inquiry = { id: string; rfq_number: string; title: string | null };
+type Inquiry = { id: string; rfq_number: string; title: string | null; quoting_currency: string | null; exchange_rate_override: number | null };
 type Product = {
   id: string;
   name: string;
@@ -38,25 +39,35 @@ export default function InquiryTargetGrid() {
   const [calcPrices, setCalcPrices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [globalRate, setGlobalRate] = useState<number>(90);
+
+  const currency = inquiry?.quoting_currency || 'USD';
+  const inrPerUsd = Number(inquiry?.exchange_rate_override ?? globalRate) || 90;
+  const toUsd = (v: number | null) => (v == null ? null : quoteAmountToUsd(v, currency, currencyMap, inrPerUsd));
+  const fromUsd = (v: number | null) => (v == null ? null : usdToQuoteAmount(v, currency, currencyMap, inrPerUsd));
+
+  useEffect(() => { loadCurrencyMap().then(setCurrencyMap).catch(() => {}); }, []);
 
   useDocumentTitle(inquiry ? `Target grid · ${inquiry.rfq_number}` : 'Target grid');
 
   const load = useCallback(async () => {
     if (!inquiryId) return;
     setLoading(true);
-    const [inqRes, prodRes] = await Promise.all([
-      supabase.from('customer_rfqs').select('id, rfq_number, title').eq('id', inquiryId).single(),
+    const [inqRes, prodRes, gsRes] = await Promise.all([
+      supabase.from('customer_rfqs').select('id, rfq_number, title, quoting_currency, exchange_rate_override').eq('id', inquiryId).single(),
       supabase
         .from('products')
         .select('id, name, sku, quantity, target_price_usd, markup_percent')
         .eq('customer_rfq_id', inquiryId)
         .order('created_at', { ascending: true }),
+      supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
     ]);
+    if (gsRes?.data?.exchange_rate) setGlobalRate(Number(gsRes.data.exchange_rate));
     if (inqRes.error) toast.error(inqRes.error.message);
     else setInquiry(inqRes.data as any);
     const list = (prodRes.data || []) as Product[];
     setProducts(list);
-    setDrafts(Object.fromEntries(list.map(p => [p.id, p.target_price_usd == null ? '' : String(p.target_price_usd)])));
     // Live calculated prices for reference
     if (list.length) {
       const map = await computeProductPriceAndCost(list.map(p => p.id));
@@ -69,16 +80,27 @@ export default function InquiryTargetGrid() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Seed drafts in the inquiry's quoting currency (stored value is USD).
+  useEffect(() => {
+    setDrafts(Object.fromEntries(products.map(p => {
+      const v = currency === 'USD' ? p.target_price_usd : fromUsd(p.target_price_usd);
+      return [p.id, v == null ? '' : String(Number(v.toFixed(2)))];
+    })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, currency, inrPerUsd, currencyMap]);
+
   const dirty = useMemo(() => {
     const changed: { id: string; value: number | null }[] = [];
     for (const p of products) {
       const raw = drafts[p.id] ?? '';
-      const parsed = raw === '' ? null : parseNumber(raw);
-      const current = p.target_price_usd == null ? null : Number(p.target_price_usd);
+      const entered = raw === '' ? null : parseNumber(raw);
+      const parsed = entered == null ? null : (() => { const u = toUsd(entered); return u == null ? null : Number(u.toFixed(4)); })();
+      const current = p.target_price_usd == null ? null : Number(Number(p.target_price_usd).toFixed(4));
       if (parsed !== current) changed.push({ id: p.id, value: parsed });
     }
     return changed;
-  }, [products, drafts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, drafts, currency, inrPerUsd, currencyMap]);
 
   const saveAll = async () => {
     if (dirty.length === 0) { toast.info('No changes'); return; }
@@ -120,8 +142,11 @@ export default function InquiryTargetGrid() {
     setDrafts(d => {
       const next = { ...d };
       for (const p of products) {
-        const calc = calcPrices[p.id];
-        if (calc && calc > 0) next[p.id] = calc.toFixed(2);
+        const calcUsd = calcPrices[p.id];
+        if (calcUsd && calcUsd > 0) {
+          const shown = currency === 'USD' ? calcUsd : fromUsd(calcUsd);
+          if (shown != null) next[p.id] = shown.toFixed(2);
+        }
       }
       return next;
     });
@@ -149,7 +174,8 @@ export default function InquiryTargetGrid() {
           <div className="flex-1">
             <h1 className="text-xl font-semibold tracking-tight">Target price grid</h1>
             <p className="text-xs text-muted-foreground">
-              Bulk edit customer-facing target prices (USD) for every product in this inquiry.
+              Bulk edit customer-facing target prices in this inquiry's quoting currency ({currency}) for every product.
+              Values are stored in USD using the inquiry's exchange rate.
               Paste a column from a spreadsheet to fill multiple rows at once.
             </p>
           </div>
@@ -173,8 +199,8 @@ export default function InquiryTargetGrid() {
                 <th className="text-left p-2 font-medium">Product</th>
                 <th className="text-left p-2 font-medium w-28">SKU</th>
                 <th className="text-right p-2 font-medium w-20">Qty</th>
-                <th className="text-right p-2 font-medium w-32">Calculated (USD)</th>
-                <th className="text-right p-2 font-medium w-40">Target price (USD)</th>
+                <th className="text-right p-2 font-medium w-32">Calculated ({currency})</th>
+                <th className="text-right p-2 font-medium w-40">Target price ({currency})</th>
               </tr>
             </thead>
             <tbody>
@@ -184,9 +210,10 @@ export default function InquiryTargetGrid() {
                 <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No products in this inquiry.</td></tr>
               ) : products.map((p, idx) => {
                 const raw = drafts[p.id] ?? '';
-                const parsed = raw === '' ? null : parseNumber(raw);
-                const current = p.target_price_usd == null ? null : Number(p.target_price_usd);
-                const isDirty = parsed !== current;
+                const entered = raw === '' ? null : parseNumber(raw);
+                const parsedUsd = entered == null ? null : (() => { const u = toUsd(entered); return u == null ? null : Number(u.toFixed(4)); })();
+                const current = p.target_price_usd == null ? null : Number(Number(p.target_price_usd).toFixed(4));
+                const isDirty = parsedUsd !== current;
                 const calc = calcPrices[p.id];
                 return (
                   <tr key={p.id} className={cn('border-t hover:bg-muted/30', isDirty && 'bg-amber-50 dark:bg-amber-950/20')}>
@@ -197,7 +224,9 @@ export default function InquiryTargetGrid() {
                     <td className="p-2 text-xs text-muted-foreground">{p.sku || '—'}</td>
                     <td className="p-2 text-right tabular-nums">{p.quantity ?? '—'}</td>
                     <td className="p-2 text-right tabular-nums text-muted-foreground">
-                      {calc && calc > 0 ? `$${fmt.usd(calc)}` : '—'}
+                      {calc && calc > 0
+                        ? (currency === 'USD' ? fmt.usd(calc) : (() => { const v = fromUsd(calc); return v == null ? fmt.usd(calc) : fmt.money(v, currency); })())
+                        : '—'}
                     </td>
                     <td className="p-2">
                       <Input

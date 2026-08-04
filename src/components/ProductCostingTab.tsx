@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck, FileText, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFromInr, type CurrencyMap } from '@/lib/currency';
+import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFromInr, usdToQuoteAmount, quoteAmountToUsd, type CurrencyMap } from '@/lib/currency';
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
@@ -1458,10 +1458,33 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
-                <Input className="h-7 text-xs" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
-              </div>
+              {(() => {
+                const qc = ((inquiryOverrides?.quoting_currency as string) || 'USD');
+                const shown = qc === 'USD'
+                  ? (product.target_price_usd ?? null)
+                  : usdToQuoteAmount(product.target_price_usd, qc, currencyMap, exchangeRate);
+                return (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">Target Price ({qc})</label>
+                    <Input
+                      className="h-7 text-xs"
+                      type="number"
+                      key={`tp-${qc}-${product.target_price_usd ?? ''}-${exchangeRate}`}
+                      defaultValue={shown == null ? '' : Number(shown.toFixed(qc === 'INR' ? 2 : 2))}
+                      onBlur={e => {
+                        const raw = e.target.value === '' ? null : Number(e.target.value);
+                        const usd = raw == null ? null : quoteAmountToUsd(raw, qc, currencyMap, exchangeRate);
+                        updateProduct('target_price_usd', usd || null);
+                      }}
+                    />
+                    {qc !== 'USD' && (
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {product.target_price_usd ? `= ${fmt.usd(product.target_price_usd)}` : `entered in ${qc}`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="col-span-2 pt-2">
                 <label className="text-[10px] text-muted-foreground">Source Location</label>
                 <Select
@@ -2480,10 +2503,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 return (
                   <div className="border-t pt-3 space-y-2">
                     <div className="flex items-center gap-4 text-xs">
-                      <span className="text-muted-foreground">Target: <strong>{fmt.usd(targetUsd)}</strong></span>
-                      <span className={isUnder ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                        {isUnder ? '✓ Under target' : '✗ Over target'} by {fmt.usd(Math.abs(deltaUsd))}
-                      </span>
+                      {(() => {
+                        const qc = ((inquiryOverrides?.quoting_currency as string) || 'USD');
+                        const tq = qc === 'USD' ? null : usdToQuoteAmount(targetUsd, qc, currencyMap, exchangeRate);
+                        const dq = qc === 'USD' ? null : usdToQuoteAmount(Math.abs(deltaUsd), qc, currencyMap, exchangeRate);
+                        return (
+                          <>
+                            <span className="text-muted-foreground">
+                              Target: <strong>{tq != null ? fmt.money(tq, qc) : fmt.usd(targetUsd)}</strong>
+                              {tq != null && <span className="ml-1">({fmt.usd(targetUsd)})</span>}
+                            </span>
+                            <span className={isUnder ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                              {isUnder ? '✓ Under target' : '✗ Over target'} by {dq != null ? fmt.money(dq, qc) : fmt.usd(Math.abs(deltaUsd))}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="grid grid-cols-4 gap-3 text-xs">
                       <div>
