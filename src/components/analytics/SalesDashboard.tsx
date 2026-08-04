@@ -108,7 +108,7 @@ export function SalesDashboard({ range }: Props) {
     return { netMargin, avgGpm, gpmCount: gpms.length };
   }, [pipeline]);
 
-
+  // Win rate over the range, based on inquiry status:
   // denominator = all inquiries created in range (every live inquiry counts)
   // numerator = those whose current status is 'po' (won)
   // 'cancelled' inquiries count as losses (in denominator, not in numerator).
