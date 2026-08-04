@@ -2503,10 +2503,22 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 return (
                   <div className="border-t pt-3 space-y-2">
                     <div className="flex items-center gap-4 text-xs">
-                      <span className="text-muted-foreground">Target: <strong>{fmt.usd(targetUsd)}</strong></span>
-                      <span className={isUnder ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                        {isUnder ? '✓ Under target' : '✗ Over target'} by {fmt.usd(Math.abs(deltaUsd))}
-                      </span>
+                      {(() => {
+                        const qc = ((inquiryOverrides?.quoting_currency as string) || 'USD');
+                        const tq = qc === 'USD' ? null : usdToQuoteAmount(targetUsd, qc, currencyMap, exchangeRate);
+                        const dq = qc === 'USD' ? null : usdToQuoteAmount(Math.abs(deltaUsd), qc, currencyMap, exchangeRate);
+                        return (
+                          <>
+                            <span className="text-muted-foreground">
+                              Target: <strong>{tq != null ? fmt.money(tq, qc) : fmt.usd(targetUsd)}</strong>
+                              {tq != null && <span className="ml-1">({fmt.usd(targetUsd)})</span>}
+                            </span>
+                            <span className={isUnder ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                              {isUnder ? '✓ Under target' : '✗ Over target'} by {dq != null ? fmt.money(dq, qc) : fmt.usd(Math.abs(deltaUsd))}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="grid grid-cols-4 gap-3 text-xs">
                       <div>
