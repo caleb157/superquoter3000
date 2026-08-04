@@ -12,8 +12,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { getCachedCurrencyMap, loadCurrencyMap, quoteAmountToUsd, usdToQuoteAmount, type CurrencyMap } from '@/lib/currency';
 
-type Inquiry = { id: string; rfq_number: string; title: string | null };
+type Inquiry = { id: string; rfq_number: string; title: string | null; quoting_currency: string | null; exchange_rate_override: number | null };
 type Product = {
   id: string;
   name: string;
@@ -38,20 +39,31 @@ export default function InquiryTargetGrid() {
   const [calcPrices, setCalcPrices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [globalRate, setGlobalRate] = useState<number>(90);
+
+  const currency = inquiry?.quoting_currency || 'USD';
+  const inrPerUsd = Number(inquiry?.exchange_rate_override ?? globalRate) || 90;
+  const toUsd = (v: number | null) => (v == null ? null : quoteAmountToUsd(v, currency, currencyMap, inrPerUsd));
+  const fromUsd = (v: number | null) => (v == null ? null : usdToQuoteAmount(v, currency, currencyMap, inrPerUsd));
+
+  useEffect(() => { loadCurrencyMap().then(setCurrencyMap).catch(() => {}); }, []);
 
   useDocumentTitle(inquiry ? `Target grid · ${inquiry.rfq_number}` : 'Target grid');
 
   const load = useCallback(async () => {
     if (!inquiryId) return;
     setLoading(true);
-    const [inqRes, prodRes] = await Promise.all([
-      supabase.from('customer_rfqs').select('id, rfq_number, title').eq('id', inquiryId).single(),
+    const [inqRes, prodRes, gsRes] = await Promise.all([
+      supabase.from('customer_rfqs').select('id, rfq_number, title, quoting_currency, exchange_rate_override').eq('id', inquiryId).single(),
       supabase
         .from('products')
         .select('id, name, sku, quantity, target_price_usd, markup_percent')
         .eq('customer_rfq_id', inquiryId)
         .order('created_at', { ascending: true }),
+      supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
     ]);
+    if (gsRes?.data?.exchange_rate) setGlobalRate(Number(gsRes.data.exchange_rate));
     if (inqRes.error) toast.error(inqRes.error.message);
     else setInquiry(inqRes.data as any);
     const list = (prodRes.data || []) as Product[];
