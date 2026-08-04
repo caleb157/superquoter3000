@@ -96,7 +96,19 @@ export function SalesDashboard({ range }: Props) {
     [products, inquiryStatusById, pricing, projectionsByInquiry],
   );
 
-  // Win rate over the range, based on inquiry status:
+  // Margin metrics derived from the same weighted-pipeline contributors.
+  // Net margin = weighted profit / weighted pipeline revenue.
+  // Avg GPM = simple (unweighted) average of each contributor's (price − cost) / price.
+  const margins = useMemo(() => {
+    const netMargin = pipeline.total > 0 ? pipeline.profit / pipeline.total : null;
+    const gpms = pipeline.contributors
+      .filter(c => c.price > 0)
+      .map(c => (c.price - c.cost) / c.price);
+    const avgGpm = gpms.length ? gpms.reduce((a, b) => a + b, 0) / gpms.length : null;
+    return { netMargin, avgGpm, gpmCount: gpms.length };
+  }, [pipeline]);
+
+
   // denominator = all inquiries created in range (every live inquiry counts)
   // numerator = those whose current status is 'po' (won)
   // 'cancelled' inquiries count as losses (in denominator, not in numerator).
