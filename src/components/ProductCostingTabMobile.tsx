@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronRight, Check, Camera, X, Info, Box, ShoppingBag, Layers, Wrench, Building2, Truck, Receipt, type LucideIcon } from 'lucide-react';
 import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
@@ -69,15 +69,15 @@ export type MobileCostingProps = {
 
 type SectionKey = 'info' | 'cbm' | 'cogs' | 'nonunit' | 'overhead' | 'indirect' | 'shipping' | 'summary';
 
-const SECTION_META: Record<SectionKey, { letter: string; title: string }> = {
-  info: { letter: 'A', title: 'Product Info' },
-  cbm: { letter: 'B', title: 'CBM Calculator' },
-  cogs: { letter: 'C', title: 'COGS (Bill of Materials)' },
-  nonunit: { letter: 'D', title: 'Non-Unit COGS' },
-  overhead: { letter: 'E', title: 'Direct Overhead' },
-  indirect: { letter: 'F', title: 'Indirect Overhead' },
-  shipping: { letter: 'G', title: 'Shipping' },
-  summary: { letter: 'H', title: 'Cost & Revenue Summary' },
+const SECTION_META: Record<SectionKey, { icon: LucideIcon; title: string; shortTitle: string }> = {
+  info: { icon: Info, title: 'Product Info', shortTitle: 'Info' },
+  cbm: { icon: Box, title: 'CBM Calculator', shortTitle: 'CBM' },
+  cogs: { icon: ShoppingBag, title: 'COGS (Bill of Materials)', shortTitle: 'COGS' },
+  nonunit: { icon: Layers, title: 'Non-Unit COGS', shortTitle: 'Non-Unit' },
+  overhead: { icon: Wrench, title: 'Direct Overhead', shortTitle: 'Direct OH' },
+  indirect: { icon: Building2, title: 'Indirect Overhead', shortTitle: 'Indirect OH' },
+  shipping: { icon: Truck, title: 'Shipping', shortTitle: 'Shipping' },
+  summary: { icon: Receipt, title: 'Cost & Revenue Summary', shortTitle: 'Summary' },
 };
 
 export function ProductCostingTabMobile(props: MobileCostingProps) {
@@ -103,15 +103,15 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
   const cogsHasReview = cogsItems.some((i: any) => i.include === 'Review');
   const overheadHasReview = overheadItems.some((i: any) => i.include === 'Review');
 
-  const sections: Array<{ key: SectionKey; metric: string; done: boolean; hasReview?: boolean }> = [
-    { key: 'info', metric: `RI ${ri.toFixed(1)}″ · ${fmt.cbm(prePackCbm)}`, done: false },
-    { key: 'cbm', metric: `Unit ${fmt.cbm(finalUnitCbm)} · Total ${fmt.cbm(totalCbm)}`, done: !!product.cbm_done },
-    { key: 'cogs', metric: `${fmt.inr(cogsPerUnit)}/unit · ${cogsItems.length} items`, done: !!product.cogs_done, hasReview: cogsHasReview },
-    { key: 'nonunit', metric: `${fmt.inr(nonUnitCogsPerUnit)}/unit · ${nonUnitCogs.length} items`, done: !!product.cogs_done },
-    { key: 'overhead', metric: `${fmt.inr(directOhPerUnit)}/unit`, done: !!product.overhead_done, hasReview: overheadHasReview },
-    { key: 'indirect', metric: `${fmt.inr(indirectOhPerUnit)}/unit`, done: !!product.overhead_done },
-    { key: 'shipping', metric: `${shipType?.name ?? '—'} · ${fmt.inr(shippingPerUnit)}/unit`, done: !!product.shipping_done },
-    { key: 'summary', metric: `NPM ${fmt.pct(margin)}`, done: !!product.revenue_done },
+  const sections: Array<{ key: SectionKey; metricValue: string; metricLabel: string; done: boolean; hasReview?: boolean }> = [
+    { key: 'info', metricValue: `RI ${ri.toFixed(1)}″`, metricLabel: fmt.cbm(prePackCbm), done: false },
+    { key: 'cbm', metricValue: fmt.cbm(finalUnitCbm), metricLabel: `unit · ${fmt.cbm(totalCbm)} total`, done: !!product.cbm_done },
+    { key: 'cogs', metricValue: fmt.inr(cogsPerUnit), metricLabel: `/unit · ${cogsItems.length} items`, done: !!product.cogs_done, hasReview: cogsHasReview },
+    { key: 'nonunit', metricValue: fmt.inr(nonUnitCogsPerUnit), metricLabel: `/unit · ${nonUnitCogs.length} items`, done: !!product.cogs_done },
+    { key: 'overhead', metricValue: fmt.inr(directOhPerUnit), metricLabel: '/unit', done: !!product.overhead_done, hasReview: overheadHasReview },
+    { key: 'indirect', metricValue: fmt.inr(indirectOhPerUnit), metricLabel: '/unit', done: !!product.overhead_done },
+    { key: 'shipping', metricValue: fmt.inr(shippingPerUnit), metricLabel: `/unit · ${shipType?.name ?? '—'}`, done: !!product.shipping_done },
+    { key: 'summary', metricValue: fmt.pct(margin), metricLabel: 'NPM', done: !!product.revenue_done },
   ];
 
   return (
@@ -126,16 +126,16 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
           <span className="text-sm text-muted-foreground font-mono">{fmt.inr(summary.unit_price_inr)}</span>
         </div>
         {showCostLine && (
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            Cost: {fmt.usd(summary.product_cost_per_unit_usd)} · {fmt.inr(summary.product_cost_per_unit_inr)}
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Cost: <span className="font-medium text-foreground">{fmt.usd(summary.product_cost_per_unit_usd)}</span> · {fmt.inr(summary.product_cost_per_unit_inr)}
           </div>
         )}
         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-          <span>Qty {qty}</span>
+          <span>Qty <span className="font-medium text-foreground">{qty}</span></span>
           <span className="opacity-50">·</span>
-          <span>Rev {fmt.usd(totalRevenueUsd)}</span>
+          <span>Rev <span className="font-medium text-foreground">{fmt.usd(totalRevenueUsd)}</span></span>
           <span className="opacity-50">·</span>
-          <span>Margin {fmt.pct(margin)}</span>
+          <span>Margin <span className="font-medium text-foreground">{fmt.pct(margin)}</span></span>
         </div>
       </button>
 
@@ -156,15 +156,18 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
               onClick={() => setOpenSection(s.key)}
               className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 active:bg-accent transition-colors text-left min-h-[64px]"
             >
-              <div className={`h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${s.done ? 'bg-green-500/15 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                {meta.letter}
+              <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${s.done ? 'bg-green-500/15 text-green-700 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                <meta.icon className="h-[18px] w-[18px]" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate flex items-center gap-1.5">
                   {meta.title}
                   {s.hasReview && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">⚠ Review</span>}
                 </div>
-                <div className="text-xs text-muted-foreground truncate">{s.metric}</div>
+                <div className="text-sm mt-0.5 flex items-baseline gap-1.5">
+                  <span className="font-semibold tabular-nums text-foreground">{s.metricValue}</span>
+                  <span className="text-xs text-muted-foreground truncate">{s.metricLabel}</span>
+                </div>
               </div>
               {s.done ? (
                 <Check className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
