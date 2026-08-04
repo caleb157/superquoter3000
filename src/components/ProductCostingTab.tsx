@@ -1458,10 +1458,33 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Target Price (USD)</label>
-                <Input className="h-7 text-xs" type="number" defaultValue={product.target_price_usd || ''} onBlur={e => updateProduct('target_price_usd', Number(e.target.value) || null)} />
-              </div>
+              {(() => {
+                const qc = ((inquiryOverrides?.quoting_currency as string) || 'USD');
+                const shown = qc === 'USD'
+                  ? (product.target_price_usd ?? null)
+                  : usdToQuoteAmount(product.target_price_usd, qc, currencyMap, exchangeRate);
+                return (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">Target Price ({qc})</label>
+                    <Input
+                      className="h-7 text-xs"
+                      type="number"
+                      key={`tp-${qc}-${product.target_price_usd ?? ''}-${exchangeRate}`}
+                      defaultValue={shown == null ? '' : Number(shown.toFixed(qc === 'INR' ? 2 : 2))}
+                      onBlur={e => {
+                        const raw = e.target.value === '' ? null : Number(e.target.value);
+                        const usd = raw == null ? null : quoteAmountToUsd(raw, qc, currencyMap, exchangeRate);
+                        updateProduct('target_price_usd', usd || null);
+                      }}
+                    />
+                    {qc !== 'USD' && (
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {product.target_price_usd ? `= ${fmt.usd(product.target_price_usd)}` : `entered in ${qc}`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="col-span-2 pt-2">
                 <label className="text-[10px] text-muted-foreground">Source Location</label>
                 <Select
