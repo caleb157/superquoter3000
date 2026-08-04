@@ -222,6 +222,8 @@ export function SalesDashboard({ range }: Props) {
         rows: [
           ['Weighted Pipeline (USD)', pipeline.total.toFixed(2)],
           ['Expected Net Profit (USD)', pipeline.profit.toFixed(2)],
+          ['Net Profit Margin', margins.netMargin != null ? `${(margins.netMargin * 100).toFixed(1)}%` : '—'],
+          ['Avg Gross Profit Margin', margins.avgGpm != null ? `${(margins.avgGpm * 100).toFixed(1)}%` : '—'],
           ['Win Rate', winRate ? `${(winRate.rate * 100).toFixed(1)}%` : '—'],
           ['Wins / Inquiries in range', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
           ['Active Customers', activeCustomers],
