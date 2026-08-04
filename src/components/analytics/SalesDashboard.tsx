@@ -286,6 +286,18 @@ export function SalesDashboard({ range }: Props) {
           onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
         />
         <MetricCard
+          label="Net Profit Margin"
+          value={margins.netMargin != null ? `${(margins.netMargin * 100).toFixed(1)}%` : '—'}
+          sublabel="Expected net profit ÷ weighted pipeline"
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
+        />
+        <MetricCard
+          label="Avg Gross Profit Margin"
+          value={margins.avgGpm != null ? `${(margins.avgGpm * 100).toFixed(1)}%` : '—'}
+          sublabel={margins.gpmCount ? `Average across ${margins.gpmCount} priced item${margins.gpmCount === 1 ? '' : 's'}` : 'No priced items'}
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
+        />
+        <MetricCard
           label="Win Rate"
           value={winRate ? `${(winRate.rate * 100).toFixed(0)}%` : '—'}
           sublabel={winRate ? `${winRate.wins} won of ${winRate.total} inquiries created in range` : 'No inquiries created in range'}
