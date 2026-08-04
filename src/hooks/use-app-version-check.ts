@@ -4,6 +4,7 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000; // poll every 5 min while app is open
 
 /** Returns true when the deployed build id differs from the running one. */
 export async function checkForNewVersion(currentBuildId: string): Promise<boolean> {
+  if (import.meta.env.DEV) return false;
   try {
     const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return false;

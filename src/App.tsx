@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
@@ -41,6 +42,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <AuthProvider>
+          <UpdateAvailableBanner />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />

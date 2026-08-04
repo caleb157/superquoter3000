@@ -53,6 +53,9 @@ const Login = () => {
       setLoading(false);
       if (error) {
         toast.error(error.message);
+      } else {
+        // Login is a natural interruption point: land the user on the current build.
+        await reloadIfStale();
       }
     }
   };
