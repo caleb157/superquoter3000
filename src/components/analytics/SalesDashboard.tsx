@@ -96,17 +96,25 @@ export function SalesDashboard({ range }: Props) {
     [products, inquiryStatusById, pricing, projectionsByInquiry],
   );
 
-  // Margin metrics derived from the same weighted-pipeline contributors.
-  // Net margin = weighted profit / weighted pipeline revenue.
-  // Avg GPM = simple (unweighted) average of each contributor's (price − cost) / price.
+  // Net margin = weighted profit / weighted pipeline revenue (weighted pipeline contributors).
+  // Avg GPM = cross-inquiry average across EVERY product in a non-cancelled inquiry,
+  // regardless of whether the inquiry contributes to the weighted pipeline.
   const margins = useMemo(() => {
     const netMargin = pipeline.total > 0 ? pipeline.profit / pipeline.total : null;
-    const gpms = pipeline.contributors
-      .filter(c => c.price > 0)
-      .map(c => (c.price - c.cost) / c.price);
+    const gpms: number[] = [];
+    products.forEach(p => {
+      const status = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
+      if (!status || status === 'cancelled') return;
+      const pc = pricing[p.id];
+      const price = pc?.unit_price_usd ?? 0;
+      const cost = pc?.unit_cost_usd ?? 0;
+
+      if (price > 0) gpms.push((price - cost) / price);
+    });
     const avgGpm = gpms.length ? gpms.reduce((a, b) => a + b, 0) / gpms.length : null;
     return { netMargin, avgGpm, gpmCount: gpms.length };
-  }, [pipeline]);
+  }, [pipeline, products, pricing, inquiryStatusById]);
+
 
   // Win rate over the range, based on inquiry status:
   // denominator = all inquiries created in range (every live inquiry counts)
