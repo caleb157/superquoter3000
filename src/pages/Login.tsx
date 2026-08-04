@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { reloadIfStale } from '@/hooks/use-app-version-check';
 
 // Only allow same-origin relative paths as return targets, so a malicious
 // `?next=https://evil.example` cannot redirect after sign-in.
