@@ -106,8 +106,9 @@ export function SalesDashboard({ range }: Props) {
       const status = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
       if (!status || status === 'cancelled') return;
       const pc = pricing[p.id];
-      const price = pc?.price ?? 0;
-      const cost = pc?.cost ?? 0;
+      const price = pc?.unit_price_usd ?? 0;
+      const cost = pc?.unit_cost_usd ?? 0;
+
       if (price > 0) gpms.push((price - cost) / price);
     });
     const avgGpm = gpms.length ? gpms.reduce((a, b) => a + b, 0) / gpms.length : null;
