@@ -96,6 +96,18 @@ export function SalesDashboard({ range }: Props) {
     [products, inquiryStatusById, pricing, projectionsByInquiry],
   );
 
+  // Margin metrics derived from the same weighted-pipeline contributors.
+  // Net margin = weighted profit / weighted pipeline revenue.
+  // Avg GPM = simple (unweighted) average of each contributor's (price − cost) / price.
+  const margins = useMemo(() => {
+    const netMargin = pipeline.total > 0 ? pipeline.profit / pipeline.total : null;
+    const gpms = pipeline.contributors
+      .filter(c => c.price > 0)
+      .map(c => (c.price - c.cost) / c.price);
+    const avgGpm = gpms.length ? gpms.reduce((a, b) => a + b, 0) / gpms.length : null;
+    return { netMargin, avgGpm, gpmCount: gpms.length };
+  }, [pipeline]);
+
   // Win rate over the range, based on inquiry status:
   // denominator = all inquiries created in range (every live inquiry counts)
   // numerator = those whose current status is 'po' (won)
@@ -210,6 +222,8 @@ export function SalesDashboard({ range }: Props) {
         rows: [
           ['Weighted Pipeline (USD)', pipeline.total.toFixed(2)],
           ['Expected Net Profit (USD)', pipeline.profit.toFixed(2)],
+          ['Net Profit Margin', margins.netMargin != null ? `${(margins.netMargin * 100).toFixed(1)}%` : '—'],
+          ['Avg Gross Profit Margin', margins.avgGpm != null ? `${(margins.avgGpm * 100).toFixed(1)}%` : '—'],
           ['Win Rate', winRate ? `${(winRate.rate * 100).toFixed(1)}%` : '—'],
           ['Wins / Inquiries in range', winRate ? `${winRate.wins} / ${winRate.total}` : '—'],
           ['Active Customers', activeCustomers],
@@ -257,7 +271,7 @@ export function SalesDashboard({ range }: Props) {
         </Button>
       </div>
       {/* Top stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <MetricCard
           label="Weighted Pipeline"
           value={fmt.usd(pipeline.total)}
@@ -269,6 +283,18 @@ export function SalesDashboard({ range }: Props) {
           label="Expected Net Profit"
           value={fmt.usd(pipeline.profit)}
           sublabel="(price − cost) × qty × weight"
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
+        />
+        <MetricCard
+          label="Net Profit Margin"
+          value={margins.netMargin != null ? `${(margins.netMargin * 100).toFixed(1)}%` : '—'}
+          sublabel="Expected net profit ÷ weighted pipeline"
+          onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
+        />
+        <MetricCard
+          label="Avg Gross Profit Margin"
+          value={margins.avgGpm != null ? `${(margins.avgGpm * 100).toFixed(1)}%` : '—'}
+          sublabel={margins.gpmCount ? `Average across ${margins.gpmCount} priced item${margins.gpmCount === 1 ? '' : 's'}` : 'No priced items'}
           onClick={pipeline.contributors.length ? () => setDrill('profit') : undefined}
         />
         <MetricCard
@@ -314,6 +340,7 @@ export function SalesDashboard({ range }: Props) {
           { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
           { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
           { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'GPM', align: 'right', cell: (r: any) => r.price > 0 ? `${(((r.price - r.cost) / r.price) * 100).toFixed(1)}%` : '—' },
           { header: 'Pipeline value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
         ]}
       />
