@@ -340,6 +340,7 @@ export function SalesDashboard({ range }: Props) {
           { header: 'Qty', align: 'right', cell: (r: any) => r.qty },
           { header: 'Unit cost', align: 'right', cell: (r: any) => fmt.usd(r.cost) },
           { header: 'Weight', align: 'right', cell: (r: any) => `${(r.weight * 100).toFixed(0)}%` },
+          { header: 'GPM', align: 'right', cell: (r: any) => r.price > 0 ? `${(((r.price - r.cost) / r.price) * 100).toFixed(1)}%` : '—' },
           { header: 'Pipeline value', align: 'right', cell: (r: any) => fmt.usd(r.value) },
         ]}
       />
