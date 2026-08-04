@@ -193,14 +193,22 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
                 <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setOpenSection(null)}>
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate">
-                    {SECTION_META[openSection].letter}. {SECTION_META[openSection].title}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {sections.find(s => s.key === openSection)?.metric}
-                  </div>
-                </div>
+                {(() => {
+                  const SectionIcon = SECTION_META[openSection].icon;
+                  const active = sections.find(s => s.key === openSection);
+                  return (
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate flex items-center gap-2">
+                        <SectionIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {SECTION_META[openSection].title}
+                      </div>
+                      <div className="text-xs truncate mt-0.5">
+                        <span className="font-semibold tabular-nums text-foreground">{active?.metricValue}</span>{' '}
+                        <span className="text-muted-foreground">{active?.metricLabel}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex-1 overflow-y-auto p-3 pb-24">
                 {openSection === 'info' && <InfoSection {...props} />}
