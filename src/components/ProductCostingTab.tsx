@@ -1169,9 +1169,40 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     );
   }
 
+  const floatQc = ((inquiryOverrides?.quoting_currency as string) || 'USD');
+  const floatQcPrice = floatQc === 'USD' || floatQc === 'INR'
+    ? null
+    : convertFromInr(currencyMap, summary.unit_price_inr, floatQc, 'import');
+
   return (
     <div className="space-y-2">
+        {/* Floating live price/cost readout */}
+        <div className="hidden md:block fixed bottom-4 right-4 z-40 pointer-events-none">
+          <div className="pointer-events-auto rounded-lg border bg-card/95 backdrop-blur shadow-lg px-3 py-2 flex items-center gap-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Unit cost</div>
+              <div className="font-mono text-sm font-semibold tabular-nums">{fmt.inr(summary.product_cost_per_unit_inr)}</div>
+              <div className="font-mono text-[10px] text-muted-foreground tabular-nums">{fmt.usd(summary.product_cost_per_unit_usd)}</div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Unit price</div>
+              <div className="font-mono text-sm font-semibold tabular-nums">{fmt.inr(summary.unit_price_inr)}</div>
+              <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                {fmt.usd(summary.unit_price_usd)}
+                {floatQcPrice != null && isFinite(floatQcPrice) ? ` · ${fmt.money(floatQcPrice, floatQc)}` : ''}
+              </div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">GPM</div>
+              <div className="font-mono text-sm font-semibold tabular-nums">{(Number(summary.gpm || 0) * 100).toFixed(1)}%</div>
+            </div>
+          </div>
+        </div>
+
         <ProductVendorsPanel productId={id} />
+
 
         <div className="flex justify-end">
           <Button size="sm" variant="outline" onClick={recalculateAllAutoCosts} disabled={recalcing}>
