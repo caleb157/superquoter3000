@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getCachedCurrencyMap, loadCurrencyMap, quoteAmountToUsd, type CurrencyMap } from '@/lib/currency';
 
 type ProductLite = { id: string; target_price_usd: number | null };
 
@@ -14,9 +15,17 @@ type Props = {
   onOpenChange: (o: boolean) => void;
   selectedProducts: ProductLite[];
   onApplied: () => void;
+  /** Inquiry quoting currency; entry is in this currency and stored as USD. */
+  currency?: string;
+  /** INR per USD from the inquiry's costing settings (needed for non-USD entry). */
+  inrPerUsd?: number;
 };
 
-export function BulkTargetPriceDialog({ open, onOpenChange, selectedProducts, onApplied }: Props) {
+export function BulkTargetPriceDialog({ open, onOpenChange, selectedProducts, onApplied, currency = 'USD', inrPerUsd = 0 }: Props) {
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  useEffect(() => { loadCurrencyMap().then(setCurrencyMap).catch(() => {}); }, []);
+  const canConvert = currency === 'USD' || inrPerUsd > 0;
+  const entryCurrency = canConvert ? currency : 'USD';
   const [priceInput, setPriceInput] = useState('');
   const [overrideExisting, setOverrideExisting] = useState(true);
   const [clearMode, setClearMode] = useState(false);
@@ -37,7 +46,10 @@ export function BulkTargetPriceDialog({ open, onOpenChange, selectedProducts, on
     if (!valid) { toast.error('Enter a valid non-negative number'); return; }
     if (targetIds.length === 0) { toast.info('No products to update.'); return; }
     setSaving(true);
-    const value = clearMode ? null : price;
+    const value = clearMode
+      ? null
+      : (entryCurrency === 'USD' ? price : quoteAmountToUsd(price, entryCurrency, currencyMap, inrPerUsd));
+    if (!clearMode && value == null) { setSaving(false); toast.error(`Missing exchange rate for ${entryCurrency}.`); return; }
     const { error } = await (supabase as any)
       .from('products')
       .update({ target_price_usd: value, updated_at: new Date().toISOString() })
@@ -47,7 +59,7 @@ export function BulkTargetPriceDialog({ open, onOpenChange, selectedProducts, on
     toast.success(
       clearMode
         ? `Cleared target price on ${targetIds.length} product${targetIds.length === 1 ? '' : 's'}.`
-        : `Set target price to $${price.toFixed(2)} on ${targetIds.length} product${targetIds.length === 1 ? '' : 's'}.`
+        : `Set target price to ${entryCurrency === 'USD' ? '$' : entryCurrency + ' '}${price.toFixed(2)} on ${targetIds.length} product${targetIds.length === 1 ? '' : 's'}.`
     );
     onOpenChange(false);
     onApplied();
@@ -59,13 +71,13 @@ export function BulkTargetPriceDialog({ open, onOpenChange, selectedProducts, on
         <DialogHeader>
           <DialogTitle>Set target price for {selectedProducts.length} products</DialogTitle>
           <DialogDescription>
-            Updates <code>target_price_usd</code> on each selected product. This is the customer-facing target, not the calculated cost.
+            Enter the customer-facing target in {entryCurrency}{entryCurrency !== 'USD' ? ' — it is converted and stored in USD using the inquiry exchange rate' : ''}. This is not the calculated cost.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="bulk-tp" className="text-xs">Target price (USD)</Label>
+            <Label htmlFor="bulk-tp" className="text-xs">Target price ({entryCurrency})</Label>
             <Input
               id="bulk-tp"
               type="number"
