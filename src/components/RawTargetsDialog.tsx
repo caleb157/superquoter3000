@@ -70,6 +70,11 @@ export function RawTargetsDialog({
     ['Item', 'Price (INR)'].join('\t'),
     ...rows.map((r) => [r.name, Math.round(discounted(r.target))].join('\t')),
   ].join('\n');
+  // WhatsApp-friendly: no header, one "name<TAB>price" per line, single message
+  const whatsappList = rows
+    .map((r) => `${r.name}\t${Math.round(discounted(r.target))}`)
+    .join('\n');
+
 
 
   return (
