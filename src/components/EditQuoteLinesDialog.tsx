@@ -140,12 +140,6 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
-    if (!incoterm.trim()) {
-      setStatus('error');
-      setErrorMsg('Incoterm is required');
-      toast.error('Incoterm is required');
-      return;
-    }
     setStatus('saving');
     setErrorMsg(null);
 
