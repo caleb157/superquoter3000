@@ -715,7 +715,7 @@ function NonUnitSection(props: MobileCostingProps) {
                       <div className="flex items-center gap-1">
                         <Input key={`c-${item.id}-${item.manual_override}-${item.cost_each_inr}`} className="h-10 flex-1" type="number" defaultValue={item.cost_each_inr || 0}
                           onBlur={e => update(item.id, 'cost_each_inr', Number(e.target.value))} />
-                        {item.include !== 'No' && qty > 0 && (Number(item.total_quantity) || 0) > 0 && (
+                        {!locked && item.include !== 'No' && qty > 0 && (Number(item.total_quantity) || 0) > 0 && (
                           <TargetLineButton
                             size="md"
                             productTargetPriceUsd={product.target_price_usd}
