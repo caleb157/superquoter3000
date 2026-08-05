@@ -113,7 +113,8 @@ describe('Target this line → engine recompute', () => {
 
   it('Non-Unit COGS row: filling the computed cost-each lands unit price on target', () => {
     const before = run(mkCogs(), mkNu());
-    const targetPriceUsd = before.summary.unit_price_usd * 0.97;
+    // Halve this row's 50 INR/unit contribution — well within its available room.
+    const targetPriceUsd = ((before.summary.product_cost_per_unit_inr - 25) * (1 + before.markupPercent)) / before.exchangeRate;
 
     const componentsPerProduct = 1 / QTY; // total_quantity(1) spread over qty
     const rowContributionInr = 5000 / QTY;
