@@ -2300,7 +2300,28 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       )}
                     </TableCell>
                     <TableCell className="text-right calc-field">{qty > 0 ? fmt.inr((item.total_quantity * item.cost_each_inr) / qty) : '—'}</TableCell>
+                    <TableCell className="p-0 text-right">
+                      {!locked && item.include !== 'No' && qty > 0 && (Number(item.total_quantity) || 0) > 0 && (
+                        <TargetLineButton
+                          productTargetPriceUsd={product.target_price_usd}
+                          totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                          markupPercent={markupPercent}
+                          exchangeRate={exchangeRate}
+                          rowContributionInr={(item.total_quantity * item.cost_each_inr) / qty}
+                          currentUnitPriceInr={item.cost_each_inr || 0}
+                          componentsPerProduct={(Number(item.total_quantity) || 0) / qty}
+                          priceLabel="each"
+                          onFill={async (v) => {
+                            const rounded = +v.toFixed(4);
+                            setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: rounded } : i));
+                            const { error } = await (supabase as any).from('non_unit_cogs').update({ cost_each_inr: rounded }).eq('id', item.id);
+                            if (error) toast.error(`Could not save cost: ${error.message}`);
+                          }}
+                        />
+                      )}
+                    </TableCell>
                   </TableRow>
+
                   );
                 })}
               </TableBody>
