@@ -23,6 +23,7 @@ import { computeProductCosting } from '@/lib/costing-engine';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
+import { TargetLineButton } from '@/components/TargetLineButton';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
 import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
@@ -1947,7 +1948,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <ResizableTableHead storageKey="cogs.cost" defaultWidth={112} minWidth={70} align="right">Cost (₹)</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.waste" defaultWidth={68} minWidth={50} align="right">Waste%</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.unitcost" defaultWidth={112} minWidth={70} align="right">Unit Cost</ResizableTableHead>
-                    <TableHead className="w-8" />
+                    <TableHead className="w-16" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2098,8 +2099,29 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
                         <TableCell className="text-right calc-field font-mono text-xs">{fmt.inr(costCalc.unit_cost)}</TableCell>
-                        <TableCell className="p-0 text-right">
+                        <TableCell className="p-0 text-right whitespace-nowrap">
+                          {item.include !== 'No'
+                            && (Number(item.components_per_product) || 0) > 0
+                            && item.cogs_type !== 'Finishing Materials'
+                            && item.cogs_type !== 'Packaging' && (
+                            <TargetLineButton
+                              productTargetPriceUsd={product.target_price_usd}
+                              totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                              markupPercent={markupPercent}
+                              exchangeRate={exchangeRate}
+                              rowContributionInr={costCalc.unit_cost}
+                              currentUnitPriceInr={item.unit_cost_inr || 0}
+                              componentsPerProduct={Number(item.components_per_product) || 0}
+                              wasteFactor={item.waste_factor || 0}
+                              onFill={(v) => {
+                                const rounded = +v.toFixed(4);
+                                setCogsItems(items => items.map(i => i.id === item.id ? { ...i, unit_cost_inr: rounded, is_auto_calculated: false } : i));
+                                updateCogsItem(item.id, 'unit_cost_inr', rounded);
+                              }}
+                            />
+                          )}
                           <Button
+
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
@@ -2201,6 +2223,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <ResizableTableHead storageKey="nonunit.qty" defaultWidth={96} minWidth={70} align="right">Total Qty</ResizableTableHead>
                   <ResizableTableHead storageKey="nonunit.cost" defaultWidth={112} minWidth={70} align="right">Cost Each (₹)</ResizableTableHead>
                   <ResizableTableHead storageKey="nonunit.unitcost" defaultWidth={96} minWidth={70} align="right">Unit Cost</ResizableTableHead>
+                  <TableHead className="w-8" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2268,7 +2291,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       {locked ? (
                         <span className="text-xs text-muted-foreground">{item.cost_each_inr || 0}</span>
                       ) : (
-                        <Input key={`cost-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
+                        <Input key={`cost-${item.id}-${item.manual_override}-${item.cost_each_inr}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
                           onBlur={async e => {
                             const v = Number(e.target.value);
                             setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i));
@@ -2278,7 +2301,28 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       )}
                     </TableCell>
                     <TableCell className="text-right calc-field">{qty > 0 ? fmt.inr((item.total_quantity * item.cost_each_inr) / qty) : '—'}</TableCell>
+                    <TableCell className="p-0 text-right">
+                      {!locked && item.include !== 'No' && qty > 0 && (Number(item.total_quantity) || 0) > 0 && (
+                        <TargetLineButton
+                          productTargetPriceUsd={product.target_price_usd}
+                          totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                          markupPercent={markupPercent}
+                          exchangeRate={exchangeRate}
+                          rowContributionInr={(item.total_quantity * item.cost_each_inr) / qty}
+                          currentUnitPriceInr={item.cost_each_inr || 0}
+                          componentsPerProduct={(Number(item.total_quantity) || 0) / qty}
+                          priceLabel="each"
+                          onFill={async (v) => {
+                            const rounded = +v.toFixed(4);
+                            setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: rounded } : i));
+                            const { error } = await (supabase as any).from('non_unit_cogs').update({ cost_each_inr: rounded }).eq('id', item.id);
+                            if (error) toast.error(`Could not save cost: ${error.message}`);
+                          }}
+                        />
+                      )}
+                    </TableCell>
                   </TableRow>
+
                   );
                 })}
               </TableBody>

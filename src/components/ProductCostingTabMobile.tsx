@@ -17,6 +17,7 @@ import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
+import { TargetLineButton } from '@/components/TargetLineButton';
 
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
@@ -458,7 +459,7 @@ function CbmSection(props: MobileCostingProps) {
 
 // ===== Section C: COGS =====
 function CogsSection(props: MobileCostingProps) {
-  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices, chemicalPrices } = props;
+  const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices, chemicalPrices, product, summary, markupPercent, exchangeRate } = props;
 
   const refetchCogs = async () => {
     const { data } = await (supabase as any).from('cogs_items').select('*').eq('product_id', productId).order('sort_order');
@@ -569,9 +570,32 @@ function CogsSection(props: MobileCostingProps) {
                       onBlur={e => updateCogsItem(item.id, 'components_per_product', Number(e.target.value))} />
                   </Field>
                   <Field label="Cost each (₹)">
-                    <Input className="h-10" type="number" step="any"
-                      defaultValue={item.unit_cost_inr ?? 0}
-                      onBlur={e => updateCogsItem(item.id, 'unit_cost_inr', Number(e.target.value))} />
+                    <div className="flex items-center gap-1">
+                      <Input key={`u-${item.id}-${item.unit_cost_inr}`} className="h-10 flex-1" type="number" step="any"
+                        defaultValue={item.unit_cost_inr ?? 0}
+                        onBlur={e => updateCogsItem(item.id, 'unit_cost_inr', Number(e.target.value))} />
+                      {item.include !== 'No'
+                        && (Number(item.components_per_product) || 0) > 0
+                        && item.cogs_type !== 'Finishing Materials'
+                        && item.cogs_type !== 'Packaging' && (
+                        <TargetLineButton
+                          size="md"
+                          productTargetPriceUsd={product.target_price_usd}
+                          totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                          markupPercent={markupPercent}
+                          exchangeRate={exchangeRate}
+                          rowContributionInr={costCalc.unit_cost}
+                          currentUnitPriceInr={item.unit_cost_inr || 0}
+                          componentsPerProduct={Number(item.components_per_product) || 0}
+                          wasteFactor={item.waste_factor || 0}
+                          onFill={(v) => {
+                            const rounded = +v.toFixed(4);
+                            setCogsItems(items => items.map(i => i.id === item.id ? { ...i, unit_cost_inr: rounded, is_auto_calculated: false } : i));
+                            updateCogsItem(item.id, 'unit_cost_inr', rounded);
+                          }}
+                        />
+                      )}
+                    </div>
                   </Field>
                   <Field label="Waste %">
                     <Input className="h-10" type="number"
@@ -605,7 +629,7 @@ function CogsSection(props: MobileCostingProps) {
 
 // ===== Section D: Non-Unit COGS =====
 function NonUnitSection(props: MobileCostingProps) {
-  const { nonUnitCogs, setNonUnitCogs, qty, nonUnitCogsPerUnit, productId } = props;
+  const { nonUnitCogs, setNonUnitCogs, qty, nonUnitCogsPerUnit, productId, product, summary, markupPercent, exchangeRate } = props;
 
   const addRow = async () => {
     const { data } = await (supabase as any).from('non_unit_cogs').insert({
@@ -688,8 +712,24 @@ function NonUnitSection(props: MobileCostingProps) {
                     {locked ? (
                       <div className="h-10 px-3 py-2 text-sm rounded-md border bg-muted/50 font-mono">{item.cost_each_inr || 0}</div>
                     ) : (
-                      <Input key={`c-${item.id}-${item.manual_override}`} className="h-10" type="number" defaultValue={item.cost_each_inr || 0}
-                        onBlur={e => update(item.id, 'cost_each_inr', Number(e.target.value))} />
+                      <div className="flex items-center gap-1">
+                        <Input key={`c-${item.id}-${item.manual_override}-${item.cost_each_inr}`} className="h-10 flex-1" type="number" defaultValue={item.cost_each_inr || 0}
+                          onBlur={e => update(item.id, 'cost_each_inr', Number(e.target.value))} />
+                        {!locked && item.include !== 'No' && qty > 0 && (Number(item.total_quantity) || 0) > 0 && (
+                          <TargetLineButton
+                            size="md"
+                            productTargetPriceUsd={product.target_price_usd}
+                            totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                            markupPercent={markupPercent}
+                            exchangeRate={exchangeRate}
+                            rowContributionInr={unitCost}
+                            currentUnitPriceInr={item.cost_each_inr || 0}
+                            componentsPerProduct={(Number(item.total_quantity) || 0) / qty}
+                            priceLabel="each"
+                            onFill={(v) => update(item.id, 'cost_each_inr', +v.toFixed(4))}
+                          />
+                        )}
+                      </div>
                     )}
                   </Field>
                 </FieldGrid>
