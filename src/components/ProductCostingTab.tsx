@@ -23,6 +23,7 @@ import { computeProductCosting } from '@/lib/costing-engine';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
+import { TargetLineButton } from '@/components/TargetLineButton';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
 import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
