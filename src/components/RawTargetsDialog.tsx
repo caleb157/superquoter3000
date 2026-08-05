@@ -67,7 +67,7 @@ export function RawTargetsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Raw targets</DialogTitle>
           <DialogDescription>
@@ -86,8 +86,9 @@ export function RawTargetsDialog({
           </div>
         ) : (
           <>
-            <div className="max-h-[45vh] overflow-auto border rounded-md">
-              <Table>
+            <div className="w-full min-w-0 max-h-[45vh] overflow-auto border rounded-md">
+              <Table className="w-full min-w-[520px] text-xs">
+
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
@@ -99,7 +100,7 @@ export function RawTargetsDialog({
                 <TableBody>
                   {rows.map((r, i) => (
                     <TableRow key={i}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="font-medium max-w-[240px] truncate">{r.name}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.qty}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{fmt.inr(r.target)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-primary">
@@ -111,7 +112,7 @@ export function RawTargetsDialog({
               </Table>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               <CopyRow label="Product names" value={namesRow} copied={copied} onCopy={copy} />
               <CopyRow label="Raw targets" value={targetsRow} copied={copied} onCopy={copy} />
               <CopyRow
@@ -138,8 +139,9 @@ function CopyRow({
   label, value, copied, onCopy,
 }: { label: string; value: string; copied: string | null; onCopy: (l: string, v: string) => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground w-40 shrink-0">{label}</span>
+    <div className="flex items-center gap-2 w-full min-w-0">
+      <span className="text-xs text-muted-foreground w-24 sm:w-40 shrink-0">{label}</span>
+
       <code className="flex-1 min-w-0 truncate text-xs bg-muted rounded px-2 py-1.5 font-mono">
         {value.replace(/\t/g, '  ')}
       </code>
