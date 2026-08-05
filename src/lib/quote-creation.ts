@@ -48,7 +48,6 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const { inquiryId, selectedProducts, entityId, validUntil, currency, incoterm } = params;
   if (selectedProducts.length === 0) return { error: 'No products selected' };
   if (!entityId) return { error: 'Company entity is required' };
-  if (!incoterm || !incoterm.trim()) return { error: 'Incoterm is required' };
 
   // Split inputs: regular product lines vs. assembly lines
   const assemblyInputs = selectedProducts.filter(p => !!p.assembly_id);
@@ -336,7 +335,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     valid_until: validUntil,
     currency: code,
     currency_rate_inr_per_unit: frozenInrPerUnit,
-    incoterm: incoterm.trim(),
+    incoterm: incoterm?.trim() || null,
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,
@@ -458,8 +457,7 @@ export async function updateQuoteLineItems(
   }
   if (meta && Object.prototype.hasOwnProperty.call(meta, 'incoterm')) {
     const trimmed = meta.incoterm?.toString().trim();
-    if (!trimmed) return { error: 'Incoterm is required' };
-    updatePayload.incoterm = trimmed;
+    updatePayload.incoterm = trimmed || null;
   }
 
   const { error } = await (supabase as any)
