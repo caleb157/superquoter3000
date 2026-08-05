@@ -139,8 +139,9 @@ function CopyRow({
   label, value, copied, onCopy,
 }: { label: string; value: string; copied: string | null; onCopy: (l: string, v: string) => void }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground w-40 shrink-0">{label}</span>
+    <div className="flex items-center gap-2 w-full min-w-0">
+      <span className="text-xs text-muted-foreground w-24 sm:w-40 shrink-0">{label}</span>
+
       <code className="flex-1 min-w-0 truncate text-xs bg-muted rounded px-2 py-1.5 font-mono">
         {value.replace(/\t/g, '  ')}
       </code>
