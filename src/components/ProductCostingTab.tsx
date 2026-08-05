@@ -2223,6 +2223,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <ResizableTableHead storageKey="nonunit.qty" defaultWidth={96} minWidth={70} align="right">Total Qty</ResizableTableHead>
                   <ResizableTableHead storageKey="nonunit.cost" defaultWidth={112} minWidth={70} align="right">Cost Each (₹)</ResizableTableHead>
                   <ResizableTableHead storageKey="nonunit.unitcost" defaultWidth={96} minWidth={70} align="right">Unit Cost</ResizableTableHead>
+                  <TableHead className="w-8" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2290,7 +2291,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       {locked ? (
                         <span className="text-xs text-muted-foreground">{item.cost_each_inr || 0}</span>
                       ) : (
-                        <Input key={`cost-${item.id}-${item.manual_override}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
+                        <Input key={`cost-${item.id}-${item.manual_override}-${item.cost_each_inr}`} className="h-6 text-xs text-right border-transparent w-18" type="number" defaultValue={item.cost_each_inr || 0}
                           onBlur={async e => {
                             const v = Number(e.target.value);
                             setNonUnitCogs(items => items.map(i => i.id === item.id ? { ...i, cost_each_inr: v } : i));
