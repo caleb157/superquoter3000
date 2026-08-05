@@ -545,6 +545,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
             <AlertTriangle className="h-4 w-4" /> Audit grid
           </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setRawTargetsOpen(true)}>
+            <Target className="h-4 w-4" /> Raw targets
+          </Button>
+
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
           </Button>
