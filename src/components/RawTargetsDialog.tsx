@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Copy, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { generateRawPieceRfq } from '@/lib/rfq-generation';
+import { generateRawPieceRfq, type RawTargetMode } from '@/lib/rfq-generation';
 
 type Row = { name: string; qty: number; target: number };
 
