@@ -219,10 +219,6 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             </SelectContent>
           </Select>
           <p className="text-[10px] text-muted-foreground">Optional. Shown at the top of the quote when set.</p>
-
-            </SelectContent>
-          </Select>
-          <p className="text-[10px] text-muted-foreground">Required. Shown at the top of the quote.</p>
         </div>
 
         <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
