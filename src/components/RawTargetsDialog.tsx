@@ -146,11 +146,15 @@ export function RawTargetsDialog({
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copy('Vendor table', vendorTable)}>
                 <Copy className="h-3.5 w-3.5" /> Copy vendor table
               </Button>
+              <Button size="sm" className="gap-1.5" onClick={() => copy('WhatsApp list', whatsappList)}>
+                <Copy className="h-3.5 w-3.5" /> Copy for WhatsApp
+              </Button>
             </div>
+
           </>
         )}
       </DialogContent>
