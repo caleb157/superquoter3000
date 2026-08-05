@@ -74,6 +74,9 @@ export function RawTargetsDialog({
   const whatsappList = rows
     .map((r) => `${r.name}\t${Math.round(discounted(r.target))}`)
     .join('\n');
+  const whatsappListFull = rows
+    .map((r) => `${r.name}\t${Math.round(r.target)}`)
+    .join('\n');
 
 
 
@@ -150,8 +153,11 @@ export function RawTargetsDialog({
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => copy('Vendor table', vendorTable)}>
                 <Copy className="h-3.5 w-3.5" /> Copy vendor table
               </Button>
+              <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => copy('WhatsApp list (full)', whatsappListFull)}>
+                <Copy className="h-3.5 w-3.5" /> WhatsApp (full price)
+              </Button>
               <Button size="sm" className="gap-1.5" onClick={() => copy('WhatsApp list', whatsappList)}>
-                <Copy className="h-3.5 w-3.5" /> Copy for WhatsApp
+                <Copy className="h-3.5 w-3.5" /> WhatsApp (−{Math.round(DISCOUNT * 100)}%)
               </Button>
             </div>
 
