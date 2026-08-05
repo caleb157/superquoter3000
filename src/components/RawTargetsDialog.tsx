@@ -100,7 +100,7 @@ export function RawTargetsDialog({
                 <TableBody>
                   {rows.map((r, i) => (
                     <TableRow key={i}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="font-medium max-w-[240px] truncate">{r.name}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{r.qty}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">{fmt.inr(r.target)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-primary">
