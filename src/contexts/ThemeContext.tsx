@@ -20,12 +20,32 @@ const STORAGE_KEY = 'dkt-theme';
 const getSystem = (): Resolved =>
   window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 
+// Some routes (customer-facing quote pages) must always render light,
+// regardless of the app/system theme. They register here so that any later
+// theme application (provider mount, OS scheme change) can't re-add `dark`.
+let forceLightCount = 0;
+let lastResolved: Resolved = 'light';
+
 const apply = (resolved: Resolved) => {
+  lastResolved = resolved;
+  const effective: Resolved = forceLightCount > 0 ? 'light' : resolved;
   const root = document.documentElement;
-  root.classList.toggle('dark', resolved === 'dark');
+  root.classList.toggle('dark', effective === 'dark');
   // For mobile browser UI / status bar
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#10131a' : '#ffffff');
+  if (meta) meta.setAttribute('content', effective === 'dark' ? '#10131a' : '#ffffff');
+};
+
+/** Force light theme while the calling component is mounted. */
+export const useForceLightTheme = () => {
+  useEffect(() => {
+    forceLightCount += 1;
+    apply(lastResolved);
+    return () => {
+      forceLightCount = Math.max(0, forceLightCount - 1);
+      apply(lastResolved);
+    };
+  }, []);
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
