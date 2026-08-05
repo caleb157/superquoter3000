@@ -67,9 +67,10 @@ export function RawTargetsDialog({
   const targetsRow = rows.map((r) => Math.round(r.target)).join('\t');
   const discountRow = rows.map((r) => Math.round(discounted(r.target))).join('\t');
   const vendorTable = [
-    ['Item', 'Qty', 'Price (INR)'].join('\t'),
-    ...rows.map((r) => [r.name, r.qty, Math.round(discounted(r.target))].join('\t')),
+    ['Item', 'Price (INR)'].join('\t'),
+    ...rows.map((r) => [r.name, Math.round(discounted(r.target))].join('\t')),
   ].join('\n');
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
