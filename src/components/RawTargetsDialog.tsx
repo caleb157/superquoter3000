@@ -112,7 +112,7 @@ export function RawTargetsDialog({
               </Table>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               <CopyRow label="Product names" value={namesRow} copied={copied} onCopy={copy} />
               <CopyRow label="Raw targets" value={targetsRow} copied={copied} onCopy={copy} />
               <CopyRow
