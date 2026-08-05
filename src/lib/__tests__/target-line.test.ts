@@ -88,7 +88,7 @@ describe('Target this line → engine recompute', () => {
       components_per_product: RAW_ROW.components_per_product,
       unit_cost_inr: RAW_ROW.unit_cost_inr,
       waste_factor: RAW_ROW.waste_factor,
-    } as any);
+    } as any).total_cost_per_product;
 
     const res = calcTargetLineUnitPrice({
       targetPriceUsd,
