@@ -350,28 +350,35 @@ export async function generateRawPieceRfq(
       });
       return sum + c.unit_cost;
     }, 0);
-    const costExcludingRawPiece = summary.product_cost_per_unit_inr - currentRawPieceCostPerUnit;
+    // Costs held fixed while back-solving:
+    //  - raw_piece mode: everything except the raw piece rows
+    //  - finishing_packing mode: only shipping (the whole finished product ex-shipping is the budget)
+    const heldCostPerUnit = mode === 'finishing_packing'
+      ? engineResult.shippingPerUnit
+      : summary.product_cost_per_unit_inr - currentRawPieceCostPerUnit;
 
     const targetUsd = p.target_price_usd || 0;
     const maxTotalCostInr = targetUsd > 0 ? (targetUsd / (1 + markupPercent)) * exchangeRate : 0;
-    const rawPieceBudget = targetUsd > 0 ? maxTotalCostInr - costExcludingRawPiece : 0;
+    const budget = targetUsd > 0 ? maxTotalCostInr - heldCostPerUnit : 0;
 
-    const estCost = rawPieceBudget > 0 ? +rawPieceBudget.toFixed(2) : undefined;
+    const estCost = budget > 0 ? +budget.toFixed(2) : undefined;
     const discountPercent = discount * 100;
     const targetPrice = (estCost && estCost > 0)
-      ? Math.round((rawPieceBudget * (1 - discountPercent / 100)) / 10) * 10
+      ? Math.round((budget * (1 - discountPercent / 100)) / 10) * 10
       : undefined;
 
     const dims = (p.width_inch && p.depth_inch && p.height_inch)
       ? `${p.width_inch} × ${p.depth_inch} × ${p.height_inch} inches`
       : undefined;
 
+    const label = mode === 'finishing_packing' ? 'Finished product (ex-shipping)' : 'Raw piece';
+
     items.push({
       product_id: p.id,
       product_name: p.name,
       product_photo_url: p.photo_url || undefined,
       item_name: p.name,
-      description: `Raw piece${dims ? ` — ${dims}` : ''}${p.finishing_difficulty ? `, ${p.finishing_difficulty} finish` : ''}`,
+      description: `${label}${dims ? ` — ${dims}` : ''}${p.finishing_difficulty ? `, ${p.finishing_difficulty} finish` : ''}`,
       dimensions: dims,
       quantity: p.quantity || 0,
       units: 'pc',
@@ -382,8 +389,12 @@ export async function generateRawPieceRfq(
     });
   }
 
-  return { title: `Raw Piece RFQ — ${project.name}`, items, discount };
+  const title = mode === 'finishing_packing'
+    ? `Finishing & Packing RFQ — ${project.name}`
+    : `Raw Piece RFQ — ${project.name}`;
+  return { title, items, discount };
 }
+
 
 // ---------- Create RFQ in database ----------
 export async function createRfq(
