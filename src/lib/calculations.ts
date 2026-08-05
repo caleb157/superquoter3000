@@ -732,3 +732,39 @@ export function markupToNpm(markup: number): number {
   if (!isFinite(markup) || markup <= 0) return 0;
   return markup / (1 + markup);
 }
+
+/**
+ * Given a target unit price for the whole product, back-solve what a SPECIFIC
+ * cost row's unit price would need to be to hit that target — holding every
+ * other cost component, the row's own quantity/waste factor, and markup fixed.
+ *
+ * Inverts calcCogsItemCost: unit_cost = unit_cost_inr * (components_per_product / (1 - waste_factor))
+ * so: unit_cost_inr = targetRowContribution / (components_per_product / (1 - waste_factor))
+ */
+export function calcTargetLineUnitPrice(params: {
+  targetPriceUsd: number;
+  markupPercent: number;
+  exchangeRate: number;
+  totalCostPerUnitInr: number;           // engine summary.product_cost_per_unit_inr
+  thisRowCurrentContributionInr: number; // this row's current per-unit contribution
+  componentsPerProduct: number;
+  wasteFactor: number;
+}): { targetUnitCostInr: number | null; targetRowContributionInr: number; feasible: boolean } {
+  const {
+    targetPriceUsd, markupPercent, exchangeRate, totalCostPerUnitInr,
+    thisRowCurrentContributionInr, componentsPerProduct, wasteFactor,
+  } = params;
+  if (!targetPriceUsd || targetPriceUsd <= 0 || !componentsPerProduct || componentsPerProduct <= 0) {
+    return { targetUnitCostInr: null, targetRowContributionInr: 0, feasible: false };
+  }
+  const maxTotalCostInr = (targetPriceUsd / (1 + markupPercent)) * exchangeRate;
+  const costExcludingThisRow = totalCostPerUnitInr - thisRowCurrentContributionInr;
+  const targetRowContributionInr = maxTotalCostInr - costExcludingThisRow;
+  if (targetRowContributionInr <= 0) {
+    return { targetUnitCostInr: null, targetRowContributionInr, feasible: false };
+  }
+  const wasteDivisor = 1 - (wasteFactor || 0);
+  const totalUnitsPerProduct = wasteDivisor > 0 ? componentsPerProduct / wasteDivisor : componentsPerProduct;
+  const targetUnitCostInr = targetRowContributionInr / totalUnitsPerProduct;
+  return { targetUnitCostInr, targetRowContributionInr, feasible: true };
+}
