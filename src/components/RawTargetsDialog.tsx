@@ -48,7 +48,9 @@ export function RawTargetsDialog({
   }, [open, inquiryId, mode, JSON.stringify(productIds || [])]);
 
 
+  const isFP = mode === 'finishing_packing';
   const discounted = (t: number) => t * (1 - DISCOUNT);
+
 
   const copy = async (label: string, text: string) => {
     try {
