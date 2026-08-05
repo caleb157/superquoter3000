@@ -2098,8 +2098,29 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             onBlur={e => updateCogsItem(item.id, 'waste_factor', Number(e.target.value) / 100)} />
                         </TableCell>
                         <TableCell className="text-right calc-field font-mono text-xs">{fmt.inr(costCalc.unit_cost)}</TableCell>
-                        <TableCell className="p-0 text-right">
+                        <TableCell className="p-0 text-right whitespace-nowrap">
+                          {item.include !== 'No'
+                            && (Number(item.components_per_product) || 0) > 0
+                            && item.cogs_type !== 'Finishing Materials'
+                            && item.cogs_type !== 'Packaging' && (
+                            <TargetLineButton
+                              productTargetPriceUsd={product.target_price_usd}
+                              totalCostPerUnitInr={summary.product_cost_per_unit_inr}
+                              markupPercent={markupPercent}
+                              exchangeRate={exchangeRate}
+                              rowContributionInr={costCalc.unit_cost}
+                              currentUnitPriceInr={item.unit_cost_inr || 0}
+                              componentsPerProduct={Number(item.components_per_product) || 0}
+                              wasteFactor={item.waste_factor || 0}
+                              onFill={(v) => {
+                                const rounded = +v.toFixed(4);
+                                setCogsItems(items => items.map(i => i.id === item.id ? { ...i, unit_cost_inr: rounded, is_auto_calculated: false } : i));
+                                updateCogsItem(item.id, 'unit_cost_inr', rounded);
+                              }}
+                            />
+                          )}
                           <Button
+
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
