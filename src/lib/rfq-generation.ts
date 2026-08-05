@@ -249,8 +249,20 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
 }
 
 // ---------- Raw Piece RFQ ----------
-export async function generateRawPieceRfq(inquiryId: string, filterProductIds?: string[]): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
+// mode 'raw_piece'         → back-solve just the raw piece price (all other costs held fixed)
+// mode 'finishing_packing' → back-solve the whole finished product ex-shipping budget:
+//   all COGS (raw piece, finishing materials, hardware, packing materials, other),
+//   all non-unit COGS, direct + indirect overhead (finishing + packing labour).
+//   Only shipping and margin are excluded.
+export type RawTargetMode = 'raw_piece' | 'finishing_packing';
+
+export async function generateRawPieceRfq(
+  inquiryId: string,
+  filterProductIds?: string[],
+  mode: RawTargetMode = 'raw_piece',
+): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
   const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId, filterProductIds);
+
 
   const productIds = products.map((p: any) => p.id);
   const empty = { data: [] as any[] };
