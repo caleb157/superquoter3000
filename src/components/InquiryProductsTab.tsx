@@ -535,31 +535,62 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               Calculating prices… ({recosting.done}/{recosting.total})
             </span>
           )}
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={handleRecostAll} disabled={recostAllBusy || products.length === 0}>
-            <RefreshCw className={cn('h-4 w-4', recostAllBusy && 'animate-spin')} /> Recost all
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
-            <TableIcon className="h-4 w-4" /> Pricing grid
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/targets`)}>
-            <TableIcon className="h-4 w-4" /> Target grid
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
-            <AlertTriangle className="h-4 w-4" /> Audit grid
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setRawTargetsOpen(true)}>
-            <Target className="h-4 w-4" /> Raw targets
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9 gap-1.5">
+                <TableIcon className="h-4 w-4" /> Views <ChevronDown className="h-3 w-3 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
+                <TableIcon className="h-4 w-4 mr-2" /> Pricing grid
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/targets`)}>
+                <TableIcon className="h-4 w-4 mr-2" /> Target grid
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
+                <AlertTriangle className="h-4 w-4 mr-2" /> Audit grid
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
-            <Plus className="h-4 w-4" /> Add products
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setCopyOpen(true)}>
-            <Copy className="h-4 w-4" /> Copy from existing
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4" /> Upload & parse
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9 gap-1.5">
+                <Wrench className="h-4 w-4" /> Tools <ChevronDown className="h-3 w-3 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleRecostAll} disabled={recostAllBusy || products.length === 0}>
+                <RefreshCw className={cn('h-4 w-4 mr-2', recostAllBusy && 'animate-spin')} /> Recost all
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRawTargetsOpen(true)}>
+                <Target className="h-4 w-4 mr-2" /> Raw price targets
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="flex">
+            <Button size="sm" className="h-9 gap-1.5 rounded-r-none" onClick={() => setQuickAddOpen(true)}>
+              <Plus className="h-4 w-4" /> Add products
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-9 w-8 rounded-l-none border-l border-l-primary-foreground/20 px-0">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setCopyOpen(true)}>
+                  <Copy className="h-4 w-4 mr-2" /> Copy from existing
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setUploadOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" /> Upload & parse
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
         </div>
       </div>
 
