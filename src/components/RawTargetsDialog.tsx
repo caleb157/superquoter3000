@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Copy, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
-import { generateRawPieceRfq } from '@/lib/rfq-generation';
+import { generateRawPieceRfq, type RawTargetMode } from '@/lib/rfq-generation';
 
 type Row = { name: string; qty: number; target: number };
 
@@ -25,12 +27,13 @@ export function RawTargetsDialog({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const [mode, setMode] = useState<RawTargetMode>('raw_piece');
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    generateRawPieceRfq(inquiryId, productIds && productIds.length ? productIds : undefined)
+    generateRawPieceRfq(inquiryId, productIds && productIds.length ? productIds : undefined, mode)
       .then((res) => {
         if (cancelled) return;
         setRows(
@@ -42,9 +45,12 @@ export function RawTargetsDialog({
       .catch((e) => toast.error(e.message || 'Could not compute raw targets'))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [open, inquiryId, JSON.stringify(productIds || [])]);
+  }, [open, inquiryId, mode, JSON.stringify(productIds || [])]);
 
+
+  const isFP = mode === 'finishing_packing';
   const discounted = (t: number) => t * (1 - DISCOUNT);
+
 
   const copy = async (label: string, text: string) => {
     try {
@@ -69,20 +75,30 @@ export function RawTargetsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Raw targets</DialogTitle>
+          <DialogTitle>{isFP ? 'Finishing & packing targets' : 'Raw targets'}</DialogTitle>
           <DialogDescription>
-            Back-solved raw piece price needed to hit each product's target price, plus a vendor-facing
-            row discounted by {Math.round(DISCOUNT * 100)}%.
+            {isFP
+              ? `Back-solved budget for the completed product excluding shipping — all COGS, packing materials, finishing/packing labour and indirect overhead. Excludes shipping and margin. Vendor row discounted by ${Math.round(DISCOUNT * 100)}%.`
+              : `Back-solved raw piece price needed to hit each product's target price, plus a vendor-facing row discounted by ${Math.round(DISCOUNT * 100)}%.`}
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs value={mode} onValueChange={(v) => setMode(v as RawTargetMode)}>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="raw_piece" className="flex-1 sm:flex-none">Raw piece</TabsTrigger>
+            <TabsTrigger value="finishing_packing" className="flex-1 sm:flex-none">Finishing &amp; packing</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {loading ? (
           <div className="py-10 text-center text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Calculating raw targets…
+            <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Calculating targets…
           </div>
         ) : rows.length === 0 ? (
           <div className="py-10 text-center text-muted-foreground text-sm">
-            No raw targets available. Products need a Raw Piece COGS row and a target price.
+            {isFP
+              ? 'No targets available. Products need a target price.'
+              : 'No raw targets available. Products need a Raw Piece COGS row and a target price.'}
           </div>
         ) : (
           <>
@@ -93,7 +109,8 @@ export function RawTargetsDialog({
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Raw target</TableHead>
+                    <TableHead className="text-right">{isFP ? 'F&P target' : 'Raw target'}</TableHead>
+
                     <TableHead className="text-right">−{Math.round(DISCOUNT * 100)}% (vendor)</TableHead>
                   </TableRow>
                 </TableHeader>
