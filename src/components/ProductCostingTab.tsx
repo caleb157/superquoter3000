@@ -1947,7 +1947,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     <ResizableTableHead storageKey="cogs.cost" defaultWidth={112} minWidth={70} align="right">Cost (₹)</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.waste" defaultWidth={68} minWidth={50} align="right">Waste%</ResizableTableHead>
                     <ResizableTableHead storageKey="cogs.unitcost" defaultWidth={112} minWidth={70} align="right">Unit Cost</ResizableTableHead>
-                    <TableHead className="w-8" />
+                    <TableHead className="w-16" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
