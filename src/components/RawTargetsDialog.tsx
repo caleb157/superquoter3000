@@ -25,12 +25,13 @@ export function RawTargetsDialog({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const [mode, setMode] = useState<RawTargetMode>('raw_piece');
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    generateRawPieceRfq(inquiryId, productIds && productIds.length ? productIds : undefined)
+    generateRawPieceRfq(inquiryId, productIds && productIds.length ? productIds : undefined, mode)
       .then((res) => {
         if (cancelled) return;
         setRows(
@@ -42,7 +43,8 @@ export function RawTargetsDialog({
       .catch((e) => toast.error(e.message || 'Could not compute raw targets'))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [open, inquiryId, JSON.stringify(productIds || [])]);
+  }, [open, inquiryId, mode, JSON.stringify(productIds || [])]);
+
 
   const discounted = (t: number) => t * (1 - DISCOUNT);
 
