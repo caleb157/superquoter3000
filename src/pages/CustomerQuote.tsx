@@ -168,12 +168,8 @@ const CustomerQuote = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   // Force light theme on this customer-facing page regardless of app setting.
-  useEffect(() => {
-    const root = document.documentElement;
-    const hadDark = root.classList.contains('dark');
-    if (hadDark) root.classList.remove('dark');
-    return () => { if (hadDark) root.classList.add('dark'); };
-  }, []);
+  useForceLightTheme();
+
 
   useEffect(() => {
     const fetchQuote = async () => {
