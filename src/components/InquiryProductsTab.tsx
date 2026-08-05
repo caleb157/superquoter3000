@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +27,7 @@ import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
+import { RawTargetsDialog } from '@/components/RawTargetsDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
@@ -132,6 +133,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
+  const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
   const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
@@ -545,6 +547,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
             <AlertTriangle className="h-4 w-4" /> Audit grid
           </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setRawTargetsOpen(true)}>
+            <Target className="h-4 w-4" /> Raw targets
+          </Button>
+
           <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => setQuickAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add products
           </Button>
@@ -596,6 +602,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
+      />
+
+      <RawTargetsDialog
+        open={rawTargetsOpen}
+        onOpenChange={setRawTargetsOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
       />
 
       <GenerateRfqDialog
