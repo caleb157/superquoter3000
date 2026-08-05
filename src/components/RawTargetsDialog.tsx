@@ -86,8 +86,9 @@ export function RawTargetsDialog({
           </div>
         ) : (
           <>
-            <div className="max-h-[45vh] overflow-auto border rounded-md">
-              <Table>
+            <div className="w-full min-w-0 max-h-[45vh] overflow-auto border rounded-md">
+              <Table className="w-full min-w-[520px] text-xs">
+
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
