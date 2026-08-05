@@ -305,7 +305,8 @@ export async function generateRawPieceRfq(
 
   for (const p of products) {
     const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
-    if (rawCogsRows.length === 0) continue;
+    if (mode === 'raw_piece' && rawCogsRows.length === 0) continue;
+
 
     const pCogs = cogs.filter((c: any) => c.product_id === p.id);
     const productNuCogs = allNu.filter((n: any) => n.product_id === p.id);
