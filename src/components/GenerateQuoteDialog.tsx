@@ -240,20 +240,6 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
   const submit = async () => {
     if (totalSelected === 0) return;
     if (!entityId) { toast.error('Select a company entity'); return; }
-    if (!incoterm.trim()) {
-      setIncotermError(true);
-      toast.error('Incoterm is required', {
-        description: shippingTypes.length === 0
-          ? 'No shipping types configured. Add one in Settings → Shipping types, then try again.'
-          : 'Pick an Incoterm (FOB, CIF, EXW, …) from the highlighted dropdown before generating the quote.',
-      });
-      requestAnimationFrame(() => {
-        const el = document.getElementById('incoterm-trigger');
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el?.focus();
-      });
-      return;
-    }
     setReviewOpen(true);
   };
 
@@ -386,30 +372,20 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
             </div>
           </div>
           <div className="col-span-3">
-            <Label className="text-xs">Incoterm <span className="text-destructive">*</span></Label>
-            <Select value={incoterm} onValueChange={(v) => { setIncoterm(v); setIncotermError(false); }}>
-              <SelectTrigger
-                id="incoterm-trigger"
-                className={`h-9 mt-1 ${incotermError ? 'border-destructive ring-2 ring-destructive/30' : ''}`}
-                aria-invalid={incotermError}
-              >
-                <SelectValue placeholder="Select incoterm (FOB, CIF, EXW, …)" />
+            <Label className="text-xs">Incoterm <span className="text-muted-foreground">(optional)</span></Label>
+            <Select value={incoterm} onValueChange={(v) => { setIncoterm(v === '__clear__' ? '' : v); setIncotermError(false); }}>
+              <SelectTrigger id="incoterm-trigger" className="h-9 mt-1">
+                <SelectValue placeholder="No incoterm" />
               </SelectTrigger>
               <SelectContent>
-                {shippingTypes.length === 0 ? (
-                  <SelectItem value="__none__" disabled>No shipping types configured in Settings</SelectItem>
-                ) : shippingTypes.map(s => (
+                <SelectItem value="__clear__">No incoterm</SelectItem>
+                {shippingTypes.map(s => (
                   <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {incotermError ? (
-              <p className="text-[11px] text-destructive mt-1 font-medium">
-                Incoterm is required — pick one before generating the quote.
-              </p>
-            ) : (
-              <p className="text-[10px] text-muted-foreground mt-1">Required. Manage options in Settings → Shipping types.</p>
-            )}
+            <p className="text-[10px] text-muted-foreground mt-1">Optional. Manage options in Settings → Shipping types.</p>
+
           </div>
           <div className="col-span-3">
             <Label className="text-xs">Valid until</Label>
@@ -558,7 +534,7 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
           <span className="text-xs text-muted-foreground">{totalSelected} selected</span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId || !incoterm.trim()}>
+            <Button onClick={submit} disabled={totalSelected === 0 || saving || !entityId}>
               {saving ? 'Creating…' : 'Review prices…'}
             </Button>
           </div>
