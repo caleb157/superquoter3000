@@ -1217,6 +1217,47 @@ export type Database = {
           },
         ]
       }
+      pd_checklist_items: {
+        Row: {
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          id: string
+          is_checked: boolean
+          item_key: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          is_checked?: boolean
+          item_key: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          is_checked?: boolean
+          item_key?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pd_checklist_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_assemblies: {
         Row: {
           created_at: string | null
