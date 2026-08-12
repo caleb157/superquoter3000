@@ -373,8 +373,22 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     weight_kg: p.weight_kg || 0,
   }) : 0;
 
+  // ===== Outsourced override =====
+  // A fully outsourced product has no internal buildup: its purchased unit cost (USD)
+  // replaces COGS + overhead + packaging. Shipping still applies (dims/CBM unchanged).
+  const isOutsourced = !!p.is_outsourced;
+  const outsourcedUnitCostUsd = Number(p.outsourced_unit_cost_usd) || 0;
+
+  const effCogsPerUnit = isOutsourced ? outsourcedUnitCostUsd * exchangeRate : cogsPerUnit;
+  const effNonUnitCogsPerUnit = isOutsourced ? 0 : nonUnitCogsPerUnit;
+  const effDirectOhPerUnit = isOutsourced ? 0 : directOhPerUnit;
+  const effIndirectOhPerUnit = isOutsourced ? 0 : indirectOhPerUnit;
+  const effManHoursPerUnit = isOutsourced ? 0 : totalDirectMhPerUnit;
+  const effIcCost = isOutsourced ? 0 : icCost;
+  const effMcCost = isOutsourced ? 0 : mcCost;
+
   const summary = calc.calcProductCostSummary(
-    cogsPerUnit, nonUnitCogsPerUnit, directOhPerUnit, indirectOhPerUnit,
+    effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty,
   );
 
@@ -382,24 +396,26 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     summary,
     exchangeRate,
     markupPercent,
-    cogsPerUnit,
-    nonUnitCogsPerUnit,
-    directOhPerUnit,
-    indirectOhPerUnit,
+    cogsPerUnit: isOutsourced ? 0 : cogsPerUnit,
+    nonUnitCogsPerUnit: effNonUnitCogsPerUnit,
+    directOhPerUnit: effDirectOhPerUnit,
+    indirectOhPerUnit: effIndirectOhPerUnit,
     shippingPerUnit,
-    manHoursPerUnit: totalDirectMhPerUnit,
+    manHoursPerUnit: effManHoursPerUnit,
     resolvedCogsRows: cogsForCalc,
     icDims,
     icOd,
-    icCost,
+    icCost: effIcCost,
     mcDims,
-    mcCost,
+    mcCost: effMcCost,
     productsPerIc,
     productsPerMc,
     finalUnitCbm,
     ri,
     prePackCbm,
     difficultyFactor,
+    isOutsourced,
+    outsourcedUnitCostUsd,
     bulkPack: bulkPackInfo,
   };
 }
