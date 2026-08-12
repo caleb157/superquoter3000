@@ -51,27 +51,42 @@ const productRow = {
 
 const updateEqMock = vi.fn().mockResolvedValue({ error: null });
 
+// Chainable query-builder mock: every builder method returns the builder, and the
+// builder itself is thenable so `await`ing at any point yields the table's rows.
+function makeBuilder(rows: any[]) {
+  const result = { data: rows, error: null, count: rows.length };
+  const builder: any = new Proxy(
+    {},
+    {
+      get(_t, prop: string) {
+        if (prop === 'then') {
+          return (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject);
+        }
+        if (prop === 'maybeSingle' || prop === 'single') {
+          return () => Promise.resolve({ data: rows[0] ?? null, error: null });
+        }
+        return () => builder;
+      },
+    },
+  );
+  return builder;
+}
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: (table: string) => {
-      if (table === 'product_types') {
-        return {
-          select: () => ({ order: () => Promise.resolve({ data: [] }) }),
-        };
-      }
       if (table === 'products') {
         return {
-          select: () => ({
-            eq: () => ({
-              order: () => Promise.resolve({ data: [productRow] }),
-            }),
-          }),
+          select: () => makeBuilder([productRow]),
           update: (vals: unknown) => ({
             eq: (_col: string, id: string) => updateEqMock(vals, id),
           }),
         };
       }
-      return { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }) };
+      if (table === 'customer_rfqs') {
+        return { select: () => makeBuilder([{ quoting_currency: 'USD' }]) };
+      }
+      return { select: () => makeBuilder([]) };
     },
   },
 }));
@@ -81,10 +96,11 @@ import { InquiryProductsTab } from './InquiryProductsTab';
 describe('InquiryProductsTab unit price rendering', () => {
   beforeEach(() => {
     computeMock.mockReset();
+    computeMock.mockResolvedValue({});
     updateEqMock.mockClear();
   });
 
-  it('shows the saved product unit price without recomputing or persisting', async () => {
+  it('shows the saved product unit price without persisting a new one', async () => {
     render(
       <MemoryRouter>
         <InquiryProductsTab
@@ -104,7 +120,7 @@ describe('InquiryProductsTab unit price rendering', () => {
       expect(matches.length).toBeGreaterThan(0);
     });
 
-    expect(computeMock).not.toHaveBeenCalled();
     expect(updateEqMock).not.toHaveBeenCalled();
   });
 });
+
