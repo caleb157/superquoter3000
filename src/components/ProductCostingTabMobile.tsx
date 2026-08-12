@@ -861,17 +861,12 @@ function ShippingSection({ shipItem, shippingTypes, finalUnitCbm, shippingPerUni
 
 // ===== Section H: Cost & Revenue Summary =====
 function SummarySection({ summary, exchangeRate, qty, markupPercent, updateProduct, product }: MobileCostingProps) {
-  const rows = product?.is_outsourced
-    ? [
-        { label: 'Outsourced Cost', value: summary.total_cogs_per_unit },
-        { label: 'Shipping', value: summary.total_shipping_per_unit },
-      ]
-    : [
-        { label: 'COGS', value: summary.total_cogs_per_unit },
-        { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
-        { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
-        { label: 'Shipping', value: summary.total_shipping_per_unit },
-      ];
+  const rows = [
+    { label: 'COGS', value: summary.total_cogs_per_unit },
+    { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
+    { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
+    { label: 'Shipping', value: summary.total_shipping_per_unit },
+  ];
   return (
     <div className="space-y-4">
       <div className="space-y-1">
