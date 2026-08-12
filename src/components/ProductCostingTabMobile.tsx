@@ -313,7 +313,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
       </FieldGrid>
 
       <Field label="Product Type">
-        <Select value={product.product_type_id || ''} onValueChange={v => updateProduct('product_type_id', v)}>
+        <Select value={product.product_type_id || ''} onValueChange={v => updateProduct('product_type_id', v, true)}>
           <SelectTrigger className="h-10"><SelectValue placeholder="Select..." /></SelectTrigger>
           <SelectContent>
             {productTypes.map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name}</SelectItem>)}
@@ -321,26 +321,16 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         </Select>
       </Field>
 
-      <Field label="Outsourced">
-        <div className="flex items-center gap-3 h-10">
-          <Switch
-            checked={!!product.is_outsourced}
-            onCheckedChange={(v) => updateProduct('is_outsourced', v, true)}
-          />
-          <span className="text-xs text-muted-foreground">Bought finished (no internal costing)</span>
-        </div>
-      </Field>
-      {product.is_outsourced && (
-        <Field label="Outsourced Cost ($/unit)">
+      {(!!product.is_outsourced || productTypes.find(pt => pt.id === product.product_type_id)?.name === 'Outsourced') && (
+        <Field label="Outsourced Cost (₹/unit)">
           <Input className="h-10" type="number" step="0.01"
-            defaultValue={product.outsourced_unit_cost_usd ?? ''}
-            onBlur={e => updateProduct('outsourced_unit_cost_usd', e.target.value === '' ? null : Number(e.target.value), true)} />
+            defaultValue={product.outsourced_unit_cost_inr ?? ''}
+            onBlur={e => updateProduct('outsourced_unit_cost_inr', e.target.value === '' ? null : Number(e.target.value), true)} />
         </Field>
       )}
 
       <Field label="Packaging Type">
         <Select
-          disabled={!!product.is_outsourced}
           value={packagingType}
           onValueChange={(v) => {
             updateProduct('packaging_type', v);
@@ -871,17 +861,12 @@ function ShippingSection({ shipItem, shippingTypes, finalUnitCbm, shippingPerUni
 
 // ===== Section H: Cost & Revenue Summary =====
 function SummarySection({ summary, exchangeRate, qty, markupPercent, updateProduct, product }: MobileCostingProps) {
-  const rows = product?.is_outsourced
-    ? [
-        { label: 'Outsourced Cost', value: summary.total_cogs_per_unit },
-        { label: 'Shipping', value: summary.total_shipping_per_unit },
-      ]
-    : [
-        { label: 'COGS', value: summary.total_cogs_per_unit },
-        { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
-        { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
-        { label: 'Shipping', value: summary.total_shipping_per_unit },
-      ];
+  const rows = [
+    { label: 'COGS', value: summary.total_cogs_per_unit },
+    { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
+    { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
+    { label: 'Shipping', value: summary.total_shipping_per_unit },
+  ];
   return (
     <div className="space-y-4">
       <div className="space-y-1">

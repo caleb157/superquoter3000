@@ -452,8 +452,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // Step 4: MC calcs with type-specific cost lookup
   const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
-  // Outsourced products are bought finished: no internal COGS/OH/packaging buildup.
-  const isOutsourced = !!product?.is_outsourced;
+  // Outsourced products are bought finished: their purchased INR unit cost is added on
+  // top of whatever COGS/overhead rows are still switched on.
+  const isOutsourced = !!product?.is_outsourced || productType?.name === 'Outsourced';
   const includeMc = packagingType === 'ic_mc';
   const noPackaging = packagingType === 'no_packaging';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
@@ -1298,7 +1299,37 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Product Type</label>
-                <Select value={product.product_type_id || ''} onValueChange={v => updateProduct('product_type_id', v)}>
+                <Select value={product.product_type_id || ''} onValueChange={async v => {
+                  forceImmediatePersistRef.current = true;
+                  updateProduct('product_type_id', v);
+                  const becomingOutsourced = productTypes.find(pt => pt.id === v)?.name === 'Outsourced';
+                  if (becomingOutsourced) {
+                    // Outsourced items are bought finished: switch every COGS / non-unit COGS /
+                    // overhead row off, then let the user re-enable whatever this order needs.
+                    const cogsIds = cogsItems.map(i => i.id);
+                    const nuIds = nonUnitCogs.map(i => i.id);
+                    const ohIds = overheadItems.map(i => i.id);
+                    if (cogsIds.length) {
+                      setCogsItems(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('cogs_items').update({ include: 'No' }).in('id', cogsIds);
+                    }
+                    if (nuIds.length) {
+                      setNonUnitCogs(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('non_unit_cogs').update({ include: 'No' }).in('id', nuIds);
+                    }
+                    if (ohIds.length) {
+                      setOverheadItems(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('overhead_items').update({ include: 'No' }).in('id', ohIds);
+                    }
+                    toast.success('Outsourced: all COGS and overhead rows set to "No". Re-enable any you need.');
+                  }
+                  setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
+                  if (id) {
+                    (supabase as any).from('products')
+                      .update({ calculated_unit_price_usd: null, calculated_unit_cost_usd: null })
+                      .eq('id', id).then(() => { onProductUpdated?.(); });
+                  }
+                }}>
                   <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {productTypes.map(pt => (
@@ -1310,7 +1341,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <div>
                 <label className="text-[10px] text-muted-foreground">Packaging Type</label>
                 <Select
-                  disabled={isOutsourced}
                   value={packagingType}
                   onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
@@ -1368,37 +1398,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Outsourced</label>
-                <div className="flex items-center gap-2 h-7">
-                  <Switch
-                    checked={isOutsourced}
-                    onCheckedChange={(v) => {
-                      forceImmediatePersistRef.current = true;
-                      updateProduct('is_outsourced', v);
-                      setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
-                      if (id) {
-                        (supabase as any).from('products')
-                          .update({ calculated_unit_price_usd: null, calculated_unit_cost_usd: null })
-                          .eq('id', id).then(() => { onProductUpdated?.(); });
-                      }
-                    }}
-                  />
-                  <span className="text-[10px] text-muted-foreground">Bought finished</span>
-                </div>
-              </div>
               {isOutsourced && (
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Outsourced Cost ($/unit)</label>
+                  <label className="text-[10px] text-muted-foreground">Outsourced Cost (₹/unit)</label>
                   <Input
                     className="h-7 text-xs"
                     type="number"
                     step="0.01"
                     key={`outsourced-${product.id}`}
-                    defaultValue={product.outsourced_unit_cost_usd ?? ''}
+                    defaultValue={product.outsourced_unit_cost_inr ?? ''}
                     onBlur={e => {
                       forceImmediatePersistRef.current = true;
-                      updateProduct('outsourced_unit_cost_usd', e.target.value === '' ? null : Number(e.target.value));
+                      updateProduct('outsourced_unit_cost_inr', e.target.value === '' ? null : Number(e.target.value));
                     }}
                   />
                 </div>
@@ -2501,18 +2512,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(isOutsourced
-                    ? [
-                        { label: 'Outsourced Cost', value: summary.total_cogs_per_unit },
-                        { label: 'Shipping', value: summary.total_shipping_per_unit },
-                      ]
-                    : [
-                        { label: 'COGS', value: summary.total_cogs_per_unit },
-                        { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
-                        { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
-                        { label: 'Shipping', value: summary.total_shipping_per_unit },
-                      ]
-                  ).map(row => (
+                  {([
+                    { label: isOutsourced ? 'COGS (incl. outsourced)' : 'COGS', value: summary.total_cogs_per_unit },
+                    { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
+                    { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
+                    { label: 'Shipping', value: summary.total_shipping_per_unit },
+                  ]).map(row => (
                     <TableRow key={row.label}>
                       <TableCell className="font-medium">{row.label}</TableCell>
                       <TableCell className="text-right font-mono">{fmt.inr(row.value)}</TableCell>
