@@ -440,10 +440,9 @@ const Dashboard = () => {
                   <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
                 )
               ) : (
-                <Table>
+                  <Table>
                   <TableHeader>
                     <TableRow>
-                      <SortableHeader column="rfq" label="#" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[120px]" />
                       <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
