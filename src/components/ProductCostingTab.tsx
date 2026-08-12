@@ -1340,7 +1340,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <div>
                 <label className="text-[10px] text-muted-foreground">Packaging Type</label>
                 <Select
-                  disabled={isOutsourced}
                   value={packagingType}
                   onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
