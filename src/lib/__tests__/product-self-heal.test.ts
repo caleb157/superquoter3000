@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from 'vitest';
 const DEFAULT_OVERHEAD = (id: string) => [
   { product_id: id, labor_type: 'Manufacturing', sort_order: 0 },
   { product_id: id, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
-  
+  { product_id: id, labor_type: 'Sanding', sort_order: 2 },
   { product_id: id, labor_type: 'Finishing', is_auto_estimated: true, sort_order: 3 },
   { product_id: id, labor_type: 'Assembly', sort_order: 4 },
   { product_id: id, labor_type: 'Packaging', is_auto_estimated: true, sort_order: 5 },
@@ -16,20 +16,16 @@ const DEFAULT_OVERHEAD = (id: string) => [
 ];
 
 const DEFAULT_COGS = (id: string) => [
-  { product_id: id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
-  { product_id: id, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
-  { product_id: id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 1', sort_order: 2 },
-  { product_id: id, cogs_type: 'Subcontracting', component_name: 'Subcontracting 2', sort_order: 3 },
+  { product_id: id, cogs_type: 'Raw Piece', component_name: 'Raw Piece', sort_order: 0 },
+  { product_id: id, cogs_type: 'Subcontracting', component_name: 'Subcontracting', sort_order: 1 },
   { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, sort_order: 4 },
   { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, sort_order: 5 },
   { product_id: id, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, sort_order: 6 },
   { product_id: id, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
   { product_id: id, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
   { product_id: id, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-  { product_id: id, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-  { product_id: id, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-  { product_id: id, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
-  { product_id: id, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
+  { product_id: id, cogs_type: 'Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
+  { product_id: id, cogs_type: 'Accessories', component_name: 'Accessory', waste_factor: 0.05, sort_order: 20 },
 ];
 
 /**
@@ -93,7 +89,7 @@ async function runSelfHeal(supabase: any, productId: string) {
 }
 
 describe('product self-heal seeding', () => {
-  it('seeds exactly 7 overhead rows and 14 COGS rows on first load', async () => {
+  it('seeds exactly 7 overhead rows and 10 COGS rows on first load', async () => {
     const sb = makeMockSupabase();
     await runSelfHeal(sb, 'test-product-1');
 
@@ -101,7 +97,7 @@ describe('product self-heal seeding', () => {
     const cogs = sb._state.cogs_items.filter((r: any) => r.product_id === 'test-product-1');
 
     expect(oh).toHaveLength(7);
-    expect(cogs).toHaveLength(14);
+    expect(cogs).toHaveLength(10);
 
     // Spot-check: Finishing/Packaging overhead are auto-estimated; Color/Sealer/Lacquer COGS are auto-calculated.
     expect(oh.find((r: any) => r.labor_type === 'Finishing')?.is_auto_estimated).toBe(true);
@@ -114,14 +110,14 @@ describe('product self-heal seeding', () => {
     // Pre-seed once.
     await runSelfHeal(sb, 'p2');
     expect(sb._inserts.overhead_items).toBe(7);
-    expect(sb._inserts.cogs_items).toBe(14);
+    expect(sb._inserts.cogs_items).toBe(10);
 
     // Run again — simulates second mount / tab switch.
     await runSelfHeal(sb, 'p2');
     expect(sb._inserts.overhead_items).toBe(7); // no extra inserts
-    expect(sb._inserts.cogs_items).toBe(14);
+    expect(sb._inserts.cogs_items).toBe(10);
     expect(sb._state.overhead_items).toHaveLength(7);
-    expect(sb._state.cogs_items).toHaveLength(14);
+    expect(sb._state.cogs_items).toHaveLength(10);
   });
 
   it('seeds independently per product', async () => {
@@ -131,7 +127,7 @@ describe('product self-heal seeding', () => {
 
     expect(sb._state.overhead_items.filter((r: any) => r.product_id === 'pA')).toHaveLength(7);
     expect(sb._state.overhead_items.filter((r: any) => r.product_id === 'pB')).toHaveLength(7);
-    expect(sb._state.cogs_items.filter((r: any) => r.product_id === 'pA')).toHaveLength(14);
-    expect(sb._state.cogs_items.filter((r: any) => r.product_id === 'pB')).toHaveLength(14);
+    expect(sb._state.cogs_items.filter((r: any) => r.product_id === 'pA')).toHaveLength(10);
+    expect(sb._state.cogs_items.filter((r: any) => r.product_id === 'pB')).toHaveLength(10);
   });
 });

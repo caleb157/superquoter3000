@@ -28,7 +28,7 @@ export function clearProductDefaultsCache() {
 }
 
 export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?: number }) {
-  // The DB trigger `trg_seed_product_defaults` now seeds 14 COGS + 7 overhead +
+  // The DB trigger `trg_seed_product_defaults` now seeds 10 COGS + 7 overhead +
   // CBM estimate + 1 non-unit COGS row automatically on product INSERT. This
   // function is kept as a safety-net self-heal for legacy products that were
   // created before the trigger existed (or any product that ended up with
@@ -37,26 +37,22 @@ export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?
     .from('cogs_items').select('id', { count: 'exact', head: true }).eq('product_id', productId);
 
   const defaultCogs = [
-    { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', sort_order: 0 },
-    { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece 2', sort_order: 1 },
-    { product_id: productId, cogs_type: 'Subcontracting', component_name: 'Subcontracting 1', sort_order: 2 },
-    { product_id: productId, cogs_type: 'Subcontracting', component_name: 'Subcontracting 2', sort_order: 3 },
+    { product_id: productId, cogs_type: 'Raw Piece', component_name: 'Raw Piece', sort_order: 0 },
+    { product_id: productId, cogs_type: 'Subcontracting', component_name: 'Subcontracting', sort_order: 1 },
     { product_id: productId, cogs_type: 'Finishing Materials', component_name: 'Color', is_auto_calculated: true, sort_order: 4 },
     { product_id: productId, cogs_type: 'Finishing Materials', component_name: 'Sealer', is_auto_calculated: true, sort_order: 5 },
     { product_id: productId, cogs_type: 'Finishing Materials', component_name: 'Lacquer', is_auto_calculated: true, sort_order: 6 },
     { product_id: productId, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
     { product_id: productId, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
     { product_id: productId, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-    { product_id: productId, cogs_type: 'Hardware', component_name: 'Hardware 1', waste_factor: 0.05, sort_order: 10 },
-    { product_id: productId, cogs_type: 'Hardware', component_name: 'Hardware 2', waste_factor: 0.05, sort_order: 11 },
-    { product_id: productId, cogs_type: 'Accessories', component_name: 'Accessory 1', waste_factor: 0.05, sort_order: 20 },
-    { product_id: productId, cogs_type: 'Accessories', component_name: 'Accessory 2', waste_factor: 0.05, sort_order: 21 },
+    { product_id: productId, cogs_type: 'Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
+    { product_id: productId, cogs_type: 'Accessories', component_name: 'Accessory', waste_factor: 0.05, sort_order: 20 },
   ];
 
   const defaultOverhead = [
     { product_id: productId, labor_type: 'Manufacturing', sort_order: 0 },
     { product_id: productId, labor_type: 'QC', man_hours_per_unit: 0.05, sort_order: 1 },
-    
+    { product_id: productId, labor_type: 'Sanding', sort_order: 2 },
     { product_id: productId, labor_type: 'Finishing', is_auto_estimated: true, sort_order: 3 },
     { product_id: productId, labor_type: 'Assembly', sort_order: 4 },
     { product_id: productId, labor_type: 'Packaging', is_auto_estimated: true, sort_order: 5 },

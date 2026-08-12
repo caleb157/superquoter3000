@@ -163,7 +163,19 @@
   }
 
   .calc-field {
-    @apply bg-muted/50 text-muted-foreground font-mono text-xs tabular-nums;
+    @apply bg-muted/50 text-foreground font-mono text-sm font-semibold tabular-nums;
+  }
+
+  /* Numbers are the primary information in the costing app — make every
+     monospaced figure larger and heavier than surrounding label text. */
+  table td .font-mono,
+  table td.font-mono,
+  table th.font-mono {
+    @apply text-sm font-semibold tabular-nums;
+  }
+  table td input.font-mono,
+  table td input[type="number"] {
+    @apply text-sm font-semibold tabular-nums;
   }
   .status-dot {
     @apply h-2.5 w-2.5 rounded-full inline-block;
