@@ -1458,6 +1458,7 @@ export type Database = {
           notes_finishes: string | null
           notes_issues: string | null
           notes_vendors: string | null
+          outsourced_unit_cost_inr: number | null
           outsourced_unit_cost_usd: number | null
           overhead_done: boolean | null
           packaging_type: string
@@ -1502,6 +1503,7 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          outsourced_unit_cost_inr?: number | null
           outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null
           packaging_type?: string
@@ -1546,6 +1548,7 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          outsourced_unit_cost_inr?: number | null
           outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null
           packaging_type?: string
