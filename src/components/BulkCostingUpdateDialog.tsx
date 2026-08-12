@@ -10,7 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COGS_TYPES = ['Raw Piece', 'Subcontracting', 'Finishing Materials', 'Packaging', 'Hardware', 'Accessories', 'Components', 'Wood', 'Other'];
+import { COGS_CATEGORY_FALLBACK } from '@/lib/cogs-categories';
+
+const COGS_TYPES = COGS_CATEGORY_FALLBACK;
 const UNIT_OPTIONS = ['pc', 'L', 'kg', 'g', 'm', 'ft', 'sq ft', 'cft', 'set'];
 const LABOR_TYPE_OPTIONS = ['Manufacturing', 'QC', 'Finishing', 'Assembly', 'Packaging', 'Market'];
 

@@ -44,7 +44,7 @@ const packagingIncludeForType = (packagingType: string, componentName: string, f
   return null;
 };
 
-const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', 'Hardware']);
+const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', ...HARDWARE_COGS_TYPES_WITH_LEGACY]);
 
 const shouldBackfillPricedQty = (item: any) => (
   !item?.is_auto_calculated &&
@@ -2049,18 +2049,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                             <Select value={item.cogs_type} onValueChange={v => updateCogsItem(item.id, 'cogs_type', v)}>
                               <SelectTrigger className="h-6 text-[10px] w-32 border-transparent hover:border-input"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Raw Piece">Raw Piece</SelectItem>
-                                <SelectItem value="Hardware">Hardware</SelectItem>
-                                <SelectItem value="Accessories">Accessories</SelectItem>
-                                <SelectItem value="Subcontracting">Subcontracting</SelectItem>
-                                <SelectItem value="Finishing Materials">Finishing Materials</SelectItem>
-                                <SelectItem value="Packaging">Packaging</SelectItem>
+                                {cogsCategories.map(c => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                                {item.cogs_type && !cogsCategories.includes(item.cogs_type) && (
+                                  <SelectItem value={item.cogs_type}>{item.cogs_type}</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                           )}
                         </TableCell>
                         <TableCell className="align-middle">
-                          {(item.cogs_type === 'Hardware' || item.cogs_type === 'Accessories') && !item.is_auto_calculated ? (
+                          {isHardwareCogsType(item.cogs_type) && !item.is_auto_calculated ? (
                             <div className="flex flex-col gap-1 w-full">
                               <Select
                                 value={hardwarePrices.some(hp => hp.name === item.component_name) ? (item.component_name || '') : '__custom__'}

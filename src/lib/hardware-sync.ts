@@ -1,3 +1,4 @@
+import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { supabase } from '@/integrations/supabase/client';
 
 export type NewHardwareItem = {
@@ -37,7 +38,7 @@ export async function getHardwareSyncPlan(productIds: string[]): Promise<Hardwar
       .from('cogs_items')
       .select('component_name, unit_cost_inr, units, cogs_type, include')
       .in('product_id', productIds)
-      .in('cogs_type', ['Hardware', 'Accessories']),
+      .in('cogs_type', HARDWARE_COGS_TYPES_WITH_LEGACY),
     (supabase as any).from('hardware_prices').select('id, name, unit_cost_inr, units'),
   ]);
 

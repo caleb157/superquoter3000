@@ -546,11 +546,12 @@ function CogsSection(props: MobileCostingProps) {
                     <Select value={item.cogs_type} onValueChange={v => updateCogsItem(item.id, 'cogs_type', v)}>
                       <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Raw Piece">Raw Piece</SelectItem>
-                        <SelectItem value="Hardware">Hardware</SelectItem>
-                        <SelectItem value="Accessories">Accessories</SelectItem>
-                        <SelectItem value="Subcontracting">Subcontracting</SelectItem>
-                        <SelectItem value="Finishing Materials">Finishing Materials</SelectItem>
+                        {cogsCategories.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                        {item.cogs_type && !cogsCategories.includes(item.cogs_type) && (
+                          <SelectItem value={item.cogs_type}>{item.cogs_type}</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   )}

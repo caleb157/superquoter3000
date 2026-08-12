@@ -202,7 +202,7 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
   let sortOrder = 0;
 
   const hwCogs = cogs.filter((c: any) =>
-    c.cogs_type === 'Hardware' &&
+    isHardwareCogsType(c.cogs_type) &&
     c.include === 'Yes' &&
     c.component_name &&
     c.component_name.trim() !== '' &&

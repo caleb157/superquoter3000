@@ -460,7 +460,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
             );
             hardwareCogs.push({
               product_id: prod.id,
-              cogs_type: 'Hardware',
+              cogs_type: 'Other Hardware',
               component_name: hw.item + (hw.notes ? ` (${hw.notes})` : ''),
               components_per_product: hw.quantity_per_product || 1,
               unit_cost_inr: matchedPrice?.unit_cost_inr || 0,
@@ -473,7 +473,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
           });
 
           const hwRows = hardwareCogs.length > 0 ? hardwareCogs : [
-            { product_id: prod.id, cogs_type: 'Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
+            { product_id: prod.id, cogs_type: 'Other Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
           ];
 
           const defaultCogs = [

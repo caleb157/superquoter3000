@@ -45,7 +45,7 @@ export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?
     { product_id: productId, cogs_type: 'Packaging', component_name: 'IC Box', is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
     { product_id: productId, cogs_type: 'Packaging', component_name: 'MC Box', is_auto_calculated: true, sort_order: 8 },
     { product_id: productId, cogs_type: 'Packaging', component_name: 'Other Packaging', sort_order: 9 },
-    { product_id: productId, cogs_type: 'Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
+    { product_id: productId, cogs_type: 'Other Hardware', component_name: 'Hardware', waste_factor: 0.05, sort_order: 10 },
     { product_id: productId, cogs_type: 'Accessories', component_name: 'Accessory', waste_factor: 0.05, sort_order: 20 },
   ];
 
