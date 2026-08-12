@@ -373,19 +373,25 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     weight_kg: p.weight_kg || 0,
   }) : 0;
 
-  // ===== Outsourced override =====
-  // A fully outsourced product has no internal buildup: its purchased unit cost (USD)
-  // replaces COGS + overhead + packaging. Shipping still applies (dims/CBM unchanged).
-  const isOutsourced = !!p.is_outsourced;
-  const outsourcedUnitCostUsd = Number(p.outsourced_unit_cost_usd) || 0;
+  // ===== Outsourced =====
+  // A product is outsourced when its product type is "Outsourced" (or the legacy
+  // is_outsourced flag is set). The purchased unit cost is entered in INR and is
+  // ADDED to the COGS buildup — the individual COGS/overhead rows stay fully
+  // editable (they're set to include = "No" in the UI when the type is switched),
+  // so accessories/extra labour can be re-enabled per order. Shipping is unchanged.
+  const isOutsourced = !!p.is_outsourced || (productType?.name || '') === 'Outsourced';
+  const outsourcedUnitCostInr = Number(
+    p.outsourced_unit_cost_inr ?? (Number(p.outsourced_unit_cost_usd) || 0) * exchangeRate,
+  ) || 0;
+  const outsourcedUnitCostUsd = exchangeRate > 0 ? outsourcedUnitCostInr / exchangeRate : 0;
 
-  const effCogsPerUnit = isOutsourced ? outsourcedUnitCostUsd * exchangeRate : cogsPerUnit;
-  const effNonUnitCogsPerUnit = isOutsourced ? 0 : nonUnitCogsPerUnit;
-  const effDirectOhPerUnit = isOutsourced ? 0 : directOhPerUnit;
-  const effIndirectOhPerUnit = isOutsourced ? 0 : indirectOhPerUnit;
-  const effManHoursPerUnit = isOutsourced ? 0 : totalDirectMhPerUnit;
-  const effIcCost = isOutsourced ? 0 : icCost;
-  const effMcCost = isOutsourced ? 0 : mcCost;
+  const effCogsPerUnit = cogsPerUnit + (isOutsourced ? outsourcedUnitCostInr : 0);
+  const effNonUnitCogsPerUnit = nonUnitCogsPerUnit;
+  const effDirectOhPerUnit = directOhPerUnit;
+  const effIndirectOhPerUnit = indirectOhPerUnit;
+  const effManHoursPerUnit = totalDirectMhPerUnit;
+  const effIcCost = icCost;
+  const effMcCost = mcCost;
 
   const summary = calc.calcProductCostSummary(
     effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
