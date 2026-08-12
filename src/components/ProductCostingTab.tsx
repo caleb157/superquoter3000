@@ -2512,18 +2512,12 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(isOutsourced
-                    ? [
-                        { label: 'Outsourced Cost', value: summary.total_cogs_per_unit },
-                        { label: 'Shipping', value: summary.total_shipping_per_unit },
-                      ]
-                    : [
-                        { label: 'COGS', value: summary.total_cogs_per_unit },
-                        { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
-                        { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
-                        { label: 'Shipping', value: summary.total_shipping_per_unit },
-                      ]
-                  ).map(row => (
+                  {([
+                    { label: isOutsourced ? 'COGS (incl. outsourced)' : 'COGS', value: summary.total_cogs_per_unit },
+                    { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
+                    { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
+                    { label: 'Shipping', value: summary.total_shipping_per_unit },
+                  ]).map(row => (
                     <TableRow key={row.label}>
                       <TableCell className="font-medium">{row.label}</TableCell>
                       <TableCell className="text-right font-mono">{fmt.inr(row.value)}</TableCell>
