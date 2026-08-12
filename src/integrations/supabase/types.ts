@@ -1435,6 +1435,7 @@ export type Database = {
       }
       products: {
         Row: {
+          archived_at: string | null
           bulk_pieces_per_box: number
           bulk_shrink_factor: number
           calculated_unit_cost_usd: number | null
@@ -1480,6 +1481,7 @@ export type Database = {
           width_inch: number | null
         }
         Insert: {
+          archived_at?: string | null
           bulk_pieces_per_box?: number
           bulk_shrink_factor?: number
           calculated_unit_cost_usd?: number | null
@@ -1525,6 +1527,7 @@ export type Database = {
           width_inch?: number | null
         }
         Update: {
+          archived_at?: string | null
           bulk_pieces_per_box?: number
           bulk_shrink_factor?: number
           calculated_unit_cost_usd?: number | null
