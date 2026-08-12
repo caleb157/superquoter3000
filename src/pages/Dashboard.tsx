@@ -179,7 +179,6 @@ const Dashboard = () => {
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
       const custName = (cust?.name || cust?.company || '').toLowerCase();
       return (
-        i.rfq_number.toLowerCase().includes(q) ||
         (i.title ?? '').toLowerCase().includes(q) ||
         custName.includes(q)
       );
