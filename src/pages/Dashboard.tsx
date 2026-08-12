@@ -179,7 +179,6 @@ const Dashboard = () => {
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
       const custName = (cust?.name || cust?.company || '').toLowerCase();
       return (
-        i.rfq_number.toLowerCase().includes(q) ||
         (i.title ?? '').toLowerCase().includes(q) ||
         custName.includes(q)
       );
@@ -190,7 +189,6 @@ const Dashboard = () => {
       list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     } else {
       const getters: Record<string, (i: Inquiry) => string | number> = {
-        rfq: (i) => i.rfq_number.toLowerCase(),
         customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
         title: (i) => (i.title ?? '').toLowerCase(),
         status: (i) => i.status,
@@ -323,7 +321,7 @@ const Dashboard = () => {
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search # · title · customer"
+                placeholder="Search title · customer"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9 h-9"
@@ -371,7 +369,7 @@ const Dashboard = () => {
                     data-row-nav
                     tabIndex={0}
                     role="link"
-                    aria-label={`Open inquiry ${inq.rfq_number}`}
+                    aria-label={`Open inquiry ${inq.title || 'Untitled'}`}
                     className={cn(
                       "row-action active:scale-[0.99] transition-transform",
                       reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
@@ -382,7 +380,6 @@ const Dashboard = () => {
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[11px] text-muted-foreground">{inq.rfq_number}</span>
                             {reviewInquiryIds.has(inq.id) && (
                               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
                             )}
@@ -443,10 +440,9 @@ const Dashboard = () => {
                   <div className="p-8 text-sm text-muted-foreground text-center">No inquiries match your filters.</div>
                 )
               ) : (
-                <Table>
+                  <Table>
                   <TableHeader>
                     <TableRow>
-                      <SortableHeader column="rfq" label="#" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[120px]" />
                       <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
@@ -470,30 +466,27 @@ const Dashboard = () => {
 
                       return (
                         <RowContextMenu key={inq.id} path={`/inquiry/${inq.id}`}>
-                        <TableRow
+                      <TableRow
                           data-row-nav
                           tabIndex={0}
                           role="link"
-                          aria-label={`Open inquiry ${inq.rfq_number}`}
+                          aria-label={`Open inquiry ${inq.title || 'Untitled'}`}
                           className={cn(
                             "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
                             reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
                           )}
                           {...navHandlers}
                         >
-                          <TableCell className="font-mono text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span>{inq.rfq_number}</span>
-                              {reviewInquiryIds.has(inq.id) && (
-                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠</span>
-                              )}
-                            </div>
-                          </TableCell>
                           <TableCell className="text-sm truncate max-w-[180px]">
                             {cust?.name || cust?.company || '—'}
                           </TableCell>
                           <TableCell className="text-base font-semibold truncate max-w-[260px]">
-                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate">{inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}</span>
+                              {reviewInquiryIds.has(inq.id) && (
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200 shrink-0" title="Contains products that need review">⚠</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span className={cn(
