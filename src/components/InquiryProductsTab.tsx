@@ -53,8 +53,10 @@ type Product = {
   shipping_done: boolean | null; revenue_done: boolean | null;
   calculated_unit_price_usd: number | null;
   quote_notes: string | null;
+  archived_at?: string | null;
   sample_stage_was?: string | null;
 };
+
 
 type FilterKey =
   | 'all' | 'needs_design' | 'in_costing' | 'sampling' | 'needs_review'
