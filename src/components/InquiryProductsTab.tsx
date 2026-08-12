@@ -225,11 +225,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      let query = (supabase as any)
         .from('products')
-        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes')
-        .eq('customer_rfq_id', inquiryId)
-        .order('updated_at', { ascending: false });
+        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes, archived_at')
+        .eq('customer_rfq_id', inquiryId);
+      query = showArchived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+      const [{ data }, { count }] = await Promise.all([
+        query.order('updated_at', { ascending: false }),
+        (supabase as any)
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_rfq_id', inquiryId)
+          .not('archived_at', 'is', null),
+      ]);
+      setArchivedCount(count || 0);
       const rows = data ?? [];
       setProducts(rows);
       if (rows.length > 0) {
@@ -249,7 +258,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         setReviewIds(new Set());
       }
     })();
-  }, [inquiryId, refresh, refreshKey]);
+  }, [inquiryId, refresh, refreshKey, showArchived]);
+
 
   // Heal stale/missing price caches in the background after livePrices arrives.
   // - If the live engine produced a usable price and the stored cache is stale or
