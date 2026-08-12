@@ -20,6 +20,7 @@ import { recostProduct } from '@/lib/costing-seed';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 
+import { HARDWARE_COGS_TYPES_WITH_LEGACY, isHardwareCogsType } from '@/lib/cogs-categories';
 // ---------- Types ----------
 
 type Inquiry = { id: string; rfq_number: string; title: string | null };

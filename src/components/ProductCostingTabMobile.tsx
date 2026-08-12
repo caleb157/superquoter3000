@@ -20,6 +20,7 @@ import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { TargetLineButton } from '@/components/TargetLineButton';
 
+import { useCogsCategories } from '@/lib/cogs-categories';
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
 export type MobileCostingProps = {

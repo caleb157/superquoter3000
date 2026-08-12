@@ -4,6 +4,7 @@ import * as calc from '@/lib/calculations';
 
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
+import { isHardwareCogsType } from '@/lib/cogs-categories';
 interface RfqLineItem {
   product_id?: string;
   product_name?: string;
