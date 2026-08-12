@@ -413,6 +413,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     onChange();
   };
 
+  const setArchived = async (ids: string[], archive: boolean) => {
+    if (ids.length === 0) return;
+    const { error } = await (supabase as any)
+      .from('products')
+      .update({ archived_at: archive ? new Date().toISOString() : null })
+      .in('id', ids);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${archive ? 'Archived' : 'Unarchived'} ${ids.length} product${ids.length === 1 ? '' : 's'}`);
+    setSelected(new Set());
+    setRefresh(r => r + 1);
+    onChange();
+  };
+
+
   const handleSetSinglePill = async (productId: string, track: StageTrack, stage: string | null) => {
     const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, [col]: stage } : p));
