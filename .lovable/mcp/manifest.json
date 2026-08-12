@@ -209,7 +209,11 @@
                 "Subcontracting",
                 "Finishing Materials",
                 "Packaging",
-                "Hardware",
+                "Inserts + Instructions",
+                "Handles + Knobs",
+                "Feet/Buffers",
+                "Handles/Latches",
+                "Other Hardware",
                 "Accessories"
               ],
               "description": "Category of the COGS line."
@@ -297,7 +301,11 @@
                 "Subcontracting",
                 "Finishing Materials",
                 "Packaging",
-                "Hardware",
+                "Inserts + Instructions",
+                "Handles + Knobs",
+                "Feet/Buffers",
+                "Handles/Latches",
+                "Other Hardware",
                 "Accessories"
               ],
               "description": "Optional category to disambiguate the match."

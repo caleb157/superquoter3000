@@ -99,6 +99,7 @@ export type ProductCostingSummary = {
 type Props = { productId: string; onProductUpdated?: () => void; onSummaryChange?: (s: ProductCostingSummary) => void };
 
 export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryChange }: Props) {
+  const cogsCategories = useCogsCategories();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 

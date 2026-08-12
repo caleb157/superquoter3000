@@ -84,6 +84,7 @@ const SECTION_META: Record<SectionKey, { icon: LucideIcon; title: string; shortT
 };
 
 export function ProductCostingTabMobile(props: MobileCostingProps) {
+  const cogsCategories = useCogsCategories();
   const {
     product, productTypes, cbm, cogsItems, nonUnitCogs, overheadItems,
     shippingItems, shippingTypes, employees, globalSettings, hardwarePrices,

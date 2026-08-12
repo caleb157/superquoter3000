@@ -14,7 +14,11 @@ const COGS_TYPES = [
   "Subcontracting",
   "Finishing Materials",
   "Packaging",
-  "Hardware",
+  "Inserts + Instructions",
+  "Handles + Knobs",
+  "Feet/Buffers",
+  "Handles/Latches",
+  "Other Hardware",
   "Accessories",
 ] as const;
 

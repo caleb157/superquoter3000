@@ -194,7 +194,11 @@ var COGS_TYPES = [
   "Subcontracting",
   "Finishing Materials",
   "Packaging",
-  "Hardware",
+  "Inserts + Instructions",
+  "Handles + Knobs",
+  "Feet/Buffers",
+  "Handles/Latches",
+  "Other Hardware",
   "Accessories"
 ];
 var add_cogs_item_default = defineTool6({
@@ -305,7 +309,11 @@ var COGS_TYPES2 = [
   "Subcontracting",
   "Finishing Materials",
   "Packaging",
-  "Hardware",
+  "Inserts + Instructions",
+  "Handles + Knobs",
+  "Feet/Buffers",
+  "Handles/Latches",
+  "Other Hardware",
   "Accessories"
 ];
 var update_cogs_item_default = defineTool8({
