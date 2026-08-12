@@ -452,8 +452,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // Step 4: MC calcs with type-specific cost lookup
   const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
-  // Outsourced products are bought finished: no internal COGS/OH/packaging buildup.
-  const isOutsourced = !!product?.is_outsourced;
+  // Outsourced products are bought finished: their purchased INR unit cost is added on
+  // top of whatever COGS/overhead rows are still switched on.
+  const isOutsourced = !!product?.is_outsourced || productType?.name === 'Outsourced';
   const includeMc = packagingType === 'ic_mc';
   const noPackaging = packagingType === 'no_packaging';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
