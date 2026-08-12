@@ -15,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ArchivedProductsCard } from '@/components/ArchivedProductsCard';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
 import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryProductsTab';
 import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
@@ -665,6 +666,7 @@ export default function InquiryDetail() {
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry history</CardTitle></CardHeader>
               <CardContent><InquiryActivityFeed inquiryId={id!} limit={50} /></CardContent>
             </Card>
+              <ArchivedProductsCard inquiryId={id!} onChange={() => setRefreshKey(k => k + 1)} />
           </TabsContent>
         </Tabs>
       </div>

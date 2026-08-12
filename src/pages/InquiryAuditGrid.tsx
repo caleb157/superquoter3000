@@ -196,10 +196,11 @@ export default function InquiryAuditGrid() {
       setCustomer((c as Customer) || null);
     }
 
-    const { data: prods } = await supabase
+    const { data: prods } = await (supabase as any)
       .from('products')
       .select('*')
       .eq('customer_rfq_id', inquiryId)
+      .is('archived_at', null)
       .order('created_at', { ascending: true });
     const productList = (prods as any[]) || [];
     if (productList.length === 0) { setRows([]); setLoading(false); return; }

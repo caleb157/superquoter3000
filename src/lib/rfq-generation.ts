@@ -32,7 +32,7 @@ export async function generateRfqNumber(): Promise<string> {
 
 // ---------- Fetch inquiry context ----------
 async function fetchInquiryContext(inquiryId: string, filterProductIds?: string[]) {
-  let productsQuery = supabase.from('products').select('*').eq('customer_rfq_id', inquiryId).order('sort_order');
+  let productsQuery = (supabase as any).from('products').select('*').eq('customer_rfq_id', inquiryId).is('archived_at', null).order('sort_order');
   if (filterProductIds && filterProductIds.length > 0) {
     productsQuery = productsQuery.in('id', filterProductIds);
   }

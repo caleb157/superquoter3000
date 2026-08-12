@@ -86,10 +86,11 @@ export function GenerateQuoteDialog({ open, onOpenChange, inquiryId, inquiryNumb
     setIncotermError(false);
     (async () => {
       const [prodRes, asmRes, entRes, inqRes, shipRes] = await Promise.all([
-        supabase
+        (supabase as any)
           .from('products')
           .select('id, name, sku, quantity, quote_stage, target_price_usd, markup_percent')
           .eq('customer_rfq_id', inquiryId)
+          .is('archived_at', null)
           .order('name'),
         (supabase as any)
           .from('product_assemblies')
