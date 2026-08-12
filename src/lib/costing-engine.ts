@@ -54,9 +54,11 @@ export type CostingEngineResult = {
   ri: number;
   prePackCbm: number;
   difficultyFactor: number;
-  /** True when the product is sourced fully finished from an outside supplier. */
+  /** True when the product type is "Outsourced" (bought finished from a supplier). */
   isOutsourced: boolean;
-  /** All-in purchased unit cost (USD) used instead of the internal buildup. 0 when not outsourced. */
+  /** Purchased unit cost in INR, added on top of any enabled COGS rows. 0 when not outsourced. */
+  outsourcedUnitCostInr: number;
+  /** Same value expressed in USD (convenience for display). */
   outsourcedUnitCostUsd: number;
   bulkPack?: {
     pieces_per_mc: number;
