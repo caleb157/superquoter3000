@@ -84,7 +84,6 @@ const SECTION_META: Record<SectionKey, { icon: LucideIcon; title: string; shortT
 };
 
 export function ProductCostingTabMobile(props: MobileCostingProps) {
-  const cogsCategories = useCogsCategories();
   const {
     product, productTypes, cbm, cogsItems, nonUnitCogs, overheadItems,
     shippingItems, shippingTypes, employees, globalSettings, hardwarePrices,
@@ -470,6 +469,7 @@ function CbmSection(props: MobileCostingProps) {
 
 // ===== Section C: COGS =====
 function CogsSection(props: MobileCostingProps) {
+  const cogsCategories = useCogsCategories();
   const { cogsItems, setCogsItems, updateCogsItem, cogsPerUnit, productId, hardwarePrices, chemicalPrices, product, summary, markupPercent, exchangeRate } = props;
 
   const refetchCogs = async () => {
