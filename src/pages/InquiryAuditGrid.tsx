@@ -124,6 +124,7 @@ function detectFlags(rows: AuditRow[]): { flags: FlagMap; colCounts: Record<stri
     colCounts[col.key] = 0;
     if (col.kind === 'money' || col.kind === 'number') {
       // Only flag money buckets for blank — skip outputs (cost/price/cbm/npm), they aren't "missing"
+      if (col.key === 'outsourced') continue;
       if (col.group !== 'Sourced' && col.group !== 'Finishing' && col.group !== 'Packaging' && col.group !== 'Overhead') continue;
       const vals = rows.map(r => Number(r[col.key]) || 0);
       const filled = vals.filter(v => v > 0).length;
