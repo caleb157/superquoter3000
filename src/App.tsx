@@ -25,6 +25,7 @@ import InquiryDetail from "./pages/InquiryDetail";
 import InquiryPricingGrid from "./pages/InquiryPricingGrid";
 import InquiryTargetGrid from "./pages/InquiryTargetGrid";
 import InquiryAuditGrid from "./pages/InquiryAuditGrid";
+import InquiryPdView from "./pages/InquiryPdView";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
@@ -82,6 +83,9 @@ const App = () => (
               } />
               <Route path="/inquiry/:id/audit" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryAuditGrid /></ProtectedRoute>
+              } />
+              <Route path="/inquiry/:id/pd" element={
+                <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>
               } />
               <Route path="/samples" element={
                 <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
