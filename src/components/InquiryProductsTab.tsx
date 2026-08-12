@@ -557,7 +557,19 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               {RAW_STAGE_LABELS[filter]} <X className="h-3 w-3" />
             </Button>
           )}
+          {(archivedCount > 0 || showArchived) && (
+            <Button
+              variant={showArchived ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-8 text-xs gap-1"
+              onClick={() => { setSelected(new Set()); setShowArchived(v => !v); }}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {showArchived ? 'Back to active' : `Archived (${archivedCount})`}
+            </Button>
+          )}
         </div>
+
         <div className="ml-auto flex gap-2 flex-wrap items-center">
           {recosting.active && (
             <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
