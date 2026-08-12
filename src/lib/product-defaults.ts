@@ -28,7 +28,7 @@ export function clearProductDefaultsCache() {
 }
 
 export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?: number }) {
-  // The DB trigger `trg_seed_product_defaults` now seeds 14 COGS + 7 overhead +
+  // The DB trigger `trg_seed_product_defaults` now seeds 10 COGS + 7 overhead +
   // CBM estimate + 1 non-unit COGS row automatically on product INSERT. This
   // function is kept as a safety-net self-heal for legacy products that were
   // created before the trigger existed (or any product that ended up with
