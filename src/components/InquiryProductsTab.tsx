@@ -112,6 +112,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
