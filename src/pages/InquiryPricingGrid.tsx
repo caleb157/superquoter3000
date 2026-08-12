@@ -20,6 +20,7 @@ import { recostProduct } from '@/lib/costing-seed';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 
+import { HARDWARE_COGS_TYPES_WITH_LEGACY, isHardwareCogsType } from '@/lib/cogs-categories';
 // ---------- Types ----------
 
 type Inquiry = { id: string; rfq_number: string; title: string | null };
@@ -50,8 +51,8 @@ const COGS_SELECT = 'id, product_id, cogs_type, component_name, vendor_name, uni
 
 const RAW_TYPE = 'Raw Piece';
 const SUBC_TYPE = 'Subcontracting';
-const HW_TYPE = 'Hardware';
-const PRICED_QTY_DEFAULT_TYPES = new Set([RAW_TYPE, SUBC_TYPE, HW_TYPE]);
+const HW_TYPE = 'Other Hardware';
+const PRICED_QTY_DEFAULT_TYPES = new Set([RAW_TYPE, SUBC_TYPE, ...HARDWARE_COGS_TYPES_WITH_LEGACY]);
 
 // ---------- Helpers ----------
 
@@ -152,7 +153,7 @@ export default function InquiryPricingGrid() {
         .from('cogs_items')
         .select(COGS_SELECT)
         .in('product_id', ids)
-        .in('cogs_type', [RAW_TYPE, SUBC_TYPE, HW_TYPE]);
+        .in('cogs_type', [RAW_TYPE, SUBC_TYPE, ...HARDWARE_COGS_TYPES_WITH_LEGACY]);
       setRows((cogs || []) as CogsRow[]);
     } else {
       setRows([]);
@@ -184,7 +185,7 @@ export default function InquiryPricingGrid() {
       if (!bucket) continue;
       if (r.cogs_type === RAW_TYPE) bucket.raw.push(r);
       else if (r.cogs_type === SUBC_TYPE && !bucket.subc) bucket.subc = r;
-      else if (r.cogs_type === HW_TYPE && !bucket.hw) bucket.hw = r;
+      else if (isHardwareCogsType(r.cogs_type) && !bucket.hw) bucket.hw = r;
     }
     for (const v of map.values()) {
       v.raw.sort((a, b) => {

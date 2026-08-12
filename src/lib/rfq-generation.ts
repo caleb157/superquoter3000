@@ -4,6 +4,7 @@ import * as calc from '@/lib/calculations';
 
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
+import { isHardwareCogsType } from '@/lib/cogs-categories';
 interface RfqLineItem {
   product_id?: string;
   product_name?: string;
@@ -202,7 +203,7 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
   let sortOrder = 0;
 
   const hwCogs = cogs.filter((c: any) =>
-    c.cogs_type === 'Hardware' &&
+    isHardwareCogsType(c.cogs_type) &&
     c.include === 'Yes' &&
     c.component_name &&
     c.component_name.trim() !== '' &&
