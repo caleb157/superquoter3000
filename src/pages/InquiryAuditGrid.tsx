@@ -40,7 +40,12 @@ type AuditRow = {
   // Numeric buckets (INR per unit)
   raw_piece: number;
   subcontract: number;
-  hardware: number;
+  hw_inserts: number;
+  hw_handles_knobs: number;
+  hw_feet: number;
+  hw_latches: number;
+  hw_other: number;
+  accessories: number;
   finishing: number;
   packaging: number;
   non_unit_cogs: number;
@@ -77,7 +82,12 @@ const COLUMNS: ColDef[] = [
   { key: 'outsourced',    label: 'Outsourced',   group: 'Sourced',   kind: 'money' },
   { key: 'raw_piece',     label: 'Raw Piece',    group: 'Sourced',   kind: 'money' },
   { key: 'subcontract',   label: 'Subcontract',  group: 'Sourced',   kind: 'money' },
-  { key: 'hardware',      label: 'Hardware',     group: 'Sourced',   kind: 'money' },
+  { key: 'hw_inserts',      label: 'Inserts + Instr.', group: 'Sourced', kind: 'money' },
+  { key: 'hw_handles_knobs', label: 'Handles + Knobs', group: 'Sourced',  kind: 'money' },
+  { key: 'hw_feet',         label: 'Feet/Buffers',     group: 'Sourced', kind: 'money' },
+  { key: 'hw_latches',      label: 'Handles/Latches',  group: 'Sourced', kind: 'money' },
+  { key: 'hw_other',        label: 'Other Hardware',   group: 'Sourced', kind: 'money' },
+  { key: 'accessories',     label: 'Accessories',      group: 'Sourced', kind: 'money' },
   // Finishing
   { key: 'finishing',     label: 'Finishing',    group: 'Finishing', kind: 'money' },
   // Packaging
@@ -267,7 +277,10 @@ export default function InquiryAuditGrid() {
       });
 
       // Sum buckets from resolvedCogsRows (only include='Yes' rows)
-      const buckets = { raw: 0, subc: 0, hw: 0, finishing: 0, packaging: 0 };
+      const buckets = {
+        raw: 0, subc: 0, finishing: 0, packaging: 0,
+        hw_inserts: 0, hw_handles_knobs: 0, hw_feet: 0, hw_latches: 0, hw_other: 0, accessories: 0,
+      };
       for (const row of r.resolvedCogsRows as any[]) {
         if (row.include !== 'Yes') continue;
         const qty = Number(row.components_per_product) || 0;
@@ -278,7 +291,14 @@ export default function InquiryAuditGrid() {
           case 'Raw Piece':            buckets.raw += v; break;
           case 'COGS':                 buckets.raw += v; break;
           case 'Subcontracting':       buckets.subc += v; break;
-          case 'Hardware':             buckets.hw += v; break;
+          // Hardware sub-categories (legacy 'Hardware' rows fall into Other Hardware)
+          case 'Inserts + Instructions': buckets.hw_inserts += v; break;
+          case 'Handles + Knobs':      buckets.hw_handles_knobs += v; break;
+          case 'Feet/Buffers':         buckets.hw_feet += v; break;
+          case 'Handles/Latches':      buckets.hw_latches += v; break;
+          case 'Other Hardware':       buckets.hw_other += v; break;
+          case 'Hardware':             buckets.hw_other += v; break;
+          case 'Accessories':          buckets.accessories += v; break;
           case 'Finishing Materials':  buckets.finishing += v; break;
           case 'Packaging':            buckets.packaging += v; break;
         }
@@ -301,7 +321,12 @@ export default function InquiryAuditGrid() {
         name: p.name || '',
         raw_piece: buckets.raw,
         subcontract: buckets.subc,
-        hardware: buckets.hw,
+        hw_inserts: buckets.hw_inserts,
+        hw_handles_knobs: buckets.hw_handles_knobs,
+        hw_feet: buckets.hw_feet,
+        hw_latches: buckets.hw_latches,
+        hw_other: buckets.hw_other,
+        accessories: buckets.accessories,
         finishing: buckets.finishing,
         packaging: buckets.packaging,
         non_unit_cogs: r.nonUnitCogsPerUnit,
