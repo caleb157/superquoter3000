@@ -1398,37 +1398,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Outsourced</label>
-                <div className="flex items-center gap-2 h-7">
-                  <Switch
-                    checked={isOutsourced}
-                    onCheckedChange={(v) => {
-                      forceImmediatePersistRef.current = true;
-                      updateProduct('is_outsourced', v);
-                      setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
-                      if (id) {
-                        (supabase as any).from('products')
-                          .update({ calculated_unit_price_usd: null, calculated_unit_cost_usd: null })
-                          .eq('id', id).then(() => { onProductUpdated?.(); });
-                      }
-                    }}
-                  />
-                  <span className="text-[10px] text-muted-foreground">Bought finished</span>
-                </div>
-              </div>
               {isOutsourced && (
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Outsourced Cost ($/unit)</label>
+                  <label className="text-[10px] text-muted-foreground">Outsourced Cost (₹/unit)</label>
                   <Input
                     className="h-7 text-xs"
                     type="number"
                     step="0.01"
                     key={`outsourced-${product.id}`}
-                    defaultValue={product.outsourced_unit_cost_usd ?? ''}
+                    defaultValue={product.outsourced_unit_cost_inr ?? ''}
                     onBlur={e => {
                       forceImmediatePersistRef.current = true;
-                      updateProduct('outsourced_unit_cost_usd', e.target.value === '' ? null : Number(e.target.value));
+                      updateProduct('outsourced_unit_cost_inr', e.target.value === '' ? null : Number(e.target.value));
                     }}
                   />
                 </div>
