@@ -350,8 +350,8 @@ describe('costing-engine: golden master vs legacy product-pricing', () => {
   }
 });
 
-describe('costing-engine: auto transport include is healed unless manual', () => {
-  it('treats stale Auto Transport include=No as included when manual_override is false', () => {
+describe('costing-engine: auto transport include can be toggled off', () => {
+  it('respects Auto Transport include=No even when manual_override is false', () => {
     const product = baseProduct('auto-transport-stale', { packaging_type: 'bulk_pack', bulk_pieces_per_box: 5, bulk_shrink_factor: 0.33 });
     const commonInput = {
       product,
@@ -371,11 +371,13 @@ describe('costing-engine: auto transport include is healed unless manual', () =>
     };
 
     const clean = computeProductCosting({ ...commonInput, nonUnitCogs: mkNu(product.id) });
-    const staleOff = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithStaleAutoTransportOff(product.id) });
+    const off = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithStaleAutoTransportOff(product.id) });
+    const manualOff = computeProductCosting({ ...commonInput, nonUnitCogs: mkNuWithManualAutoTransportOff(product.id) });
 
-    expect(staleOff.nonUnitCogsPerUnit).toBeCloseTo(clean.nonUnitCogsPerUnit, 4);
-    expect(staleOff.summary.unit_price_usd).toBeCloseTo(clean.summary.unit_price_usd, 4);
+    expect(off.nonUnitCogsPerUnit).toBeLessThan(clean.nonUnitCogsPerUnit);
+    expect(off.nonUnitCogsPerUnit).toBeCloseTo(manualOff.nonUnitCogsPerUnit, 4);
   });
+
 
   it('still respects manually disabled Auto Transport', () => {
     const product = baseProduct('auto-transport-manual', { packaging_type: 'bulk_pack', bulk_pieces_per_box: 5, bulk_shrink_factor: 0.33 });
