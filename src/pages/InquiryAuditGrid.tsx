@@ -267,7 +267,7 @@ export default function InquiryAuditGrid() {
 
       // Sum buckets from resolvedCogsRows (only include='Yes' rows)
       const buckets = { raw: 0, subc: 0, hw: 0, finishing: 0, packaging: 0 };
-      for (const row of (r.isOutsourced ? [] : r.resolvedCogsRows) as any[]) {
+      for (const row of r.resolvedCogsRows as any[]) {
         if (row.include !== 'Yes') continue;
         const qty = Number(row.components_per_product) || 0;
         const cost = Number(row.unit_cost_inr) || 0;
@@ -317,7 +317,7 @@ export default function InquiryAuditGrid() {
         source_location: sourceName,
         raw_vendor: rawVendor,
         is_outsourced: r.isOutsourced,
-        outsourced: r.isOutsourced ? r.outsourcedUnitCostUsd * (r.exchangeRate || 0) : 0,
+        outsourced: r.outsourcedUnitCostInr,
       };
     });
 

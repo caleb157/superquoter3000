@@ -7,7 +7,7 @@ export const PRODUCT_COPY_COLS = [
   'finishing_difficulty', 'product_type_id', 'weight_kg', 'height_inch', 'depth_inch',
   'width_inch', 'moq', 'quantity', 'source_location_id', 'packaging_type',
   'calculated_unit_cost_usd', 'calculated_unit_price_usd',
-  'is_outsourced', 'outsourced_unit_cost_usd',
+  'is_outsourced', 'outsourced_unit_cost_usd', 'outsourced_unit_cost_inr',
   'bulk_pieces_per_box', 'bulk_shrink_factor',
 ] as const;
 
