@@ -43,6 +43,8 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { recostProduct, recostInquiry } from '@/lib/costing-seed';
 import { RefreshCw } from 'lucide-react';
+import { RowContextMenu } from '@/components/RowContextMenu';
+import { ContextMenuItem } from '@/components/ui/context-menu';
 
 type Product = {
   id: string; name: string; sku: string | null; photo_url: string | null; updated_at: string | null;
@@ -514,6 +516,18 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   const selectedProducts = products.filter(p => selected.has(p.id));
 
+  const archiveMenuItem = (p: Product) => (
+    p.archived_at ? (
+      <ContextMenuItem onSelect={() => setArchived([p.id], false)}>
+        <ArchiveRestore className="mr-2 h-4 w-4" /> Unarchive
+      </ContextMenuItem>
+    ) : (
+      <ContextMenuItem onSelect={() => setArchived([p.id], true)}>
+        <Archive className="mr-2 h-4 w-4" /> Archive
+      </ContextMenuItem>
+    )
+  );
+
   return (
     <div className="space-y-3">
       <input
@@ -779,7 +793,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
       {filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
-          No products in this inquiry yet.
+          {showArchived ? 'No archived products in this inquiry.' : 'No products in this inquiry yet.'}
         </CardContent></Card>
       ) : (
         <>
@@ -810,7 +824,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 const cb = costingBadge(p, reviewIds.has(p.id));
                 const needsReview = reviewIds.has(p.id);
                 return (
-                  <TableRow key={p.id} className={cn(
+                  <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
+                  <TableRow className={cn(
                     selected.has(p.id) && 'bg-muted/40',
                     needsReview && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
                   )}>
@@ -870,6 +885,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       />
                     </TableCell>
                   </TableRow>
+                  </RowContextMenu>
                 );
               })}
             </TableBody>
@@ -882,8 +898,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               const cb = costingBadge(p, reviewIds.has(p.id));
               const isSelected = selected.has(p.id);
               return (
+                <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
                 <Card
-                  key={p.id}
                   className={cn(
                     'cursor-pointer active:bg-accent/50 transition-colors',
                     isSelected && 'ring-2 ring-primary',
@@ -945,6 +961,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     </div>
                   </CardContent>
                 </Card>
+                </RowContextMenu>
               );
             })}
           </div>
