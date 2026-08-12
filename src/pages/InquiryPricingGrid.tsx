@@ -30,6 +30,7 @@ type Product = {
   width_inch: number | null;
   depth_inch: number | null;
   height_inch: number | null;
+  outsourced_unit_cost_inr: number | null;
 };
 type CogsRow = {
   id: string;
@@ -86,7 +87,8 @@ type CellKind = 'vendor' | 'price';
 type ColumnSpec =
   | { key: string; kind: CellKind; group: 'raw'; slot: number }
   | { key: string; kind: CellKind; group: 'subc' }
-  | { key: string; kind: CellKind; group: 'hw' };
+  | { key: string; kind: CellKind; group: 'hw' }
+  | { key: string; kind: CellKind; group: 'outsourced' };
 
 function buildColumns(rawSlots: number): ColumnSpec[] {
   const cols: ColumnSpec[] = [];
@@ -98,6 +100,7 @@ function buildColumns(rawSlots: number): ColumnSpec[] {
   cols.push({ key: 'subc_p', kind: 'price', group: 'subc' });
   cols.push({ key: 'hw_v', kind: 'vendor', group: 'hw' });
   cols.push({ key: 'hw_p', kind: 'price', group: 'hw' });
+  cols.push({ key: 'outs_p', kind: 'price', group: 'outsourced' });
   return cols;
 }
 
@@ -137,7 +140,7 @@ export default function InquiryPricingGrid() {
 
     const { data: prods } = await supabase
       .from('products')
-      .select('id, name, sku, width_inch, depth_inch, height_inch')
+      .select('id, name, sku, width_inch, depth_inch, height_inch, outsourced_unit_cost_inr')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: true });
     const productList = (prods || []) as Product[];
@@ -305,6 +308,20 @@ export default function InquiryPricingGrid() {
     ): Promise<boolean> => {
       const trimmed = raw.trim();
       if (trimmed === '') return false; // skip empties (paste semantics)
+
+      if (col.group === 'outsourced') {
+        const n = parseNumber(trimmed);
+        if (n == null) return false;
+        setProducts(prev => prev.map(p => (p.id === productId ? { ...p, outsourced_unit_cost_inr: n } : p)));
+        const { error } = await supabase
+          .from('products')
+          .update({ outsourced_unit_cost_inr: n })
+          .eq('id', productId);
+        if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return false; }
+        void recostInBackground(productId);
+        return true;
+      }
+
       const slot = col.group === 'raw' ? col.slot : undefined;
       const rowId = await ensureRow(productId, col.group, slot);
       if (!rowId) return false;
@@ -327,7 +344,7 @@ export default function InquiryPricingGrid() {
       }
       return true;
     },
-    [ensureRow, updateRow],
+    [ensureRow, updateRow, refetch],
   );
 
   const setWinner = useCallback(
@@ -661,7 +678,12 @@ function PricingGridTable({
               </th>
             ))}
             <th colSpan={2} className="px-2 py-1 text-center font-medium border-b border-r">Subcontract</th>
-            <th colSpan={2} className="px-2 py-1 text-center font-medium border-b">Hardware</th>
+            <th colSpan={2} className="px-2 py-1 text-center font-medium border-b border-r">Hardware</th>
+            <th
+              colSpan={1}
+              className="px-2 py-1 text-center font-medium border-b"
+              title="Outsourced finished-goods cost per unit (INR). Used when the product type is Outsourced."
+            >Outsourced</th>
           </tr>
           <tr>
             {Array.from({ length: visibleRawSlots }).flatMap((_, slot) => [
@@ -672,7 +694,8 @@ function PricingGridTable({
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
-            <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>
+            <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
+            <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[110px]">Cost ₹/unit</th>
           </tr>
         </thead>
         <tbody>
@@ -714,7 +737,9 @@ function PricingGridTable({
                       ? bucket.raw[col.slot]
                       : col.group === 'subc'
                         ? bucket.subc
-                        : bucket.hw;
+                        : col.group === 'hw'
+                          ? bucket.hw
+                          : null;
                   const isWinner = col.group === 'raw' && winnerSlot === col.slot;
                   const isLastInGroup = col.kind === 'price' && (col.group !== 'raw'); // subc/hw price ends with border
                   const isWinnerCol = col.group === 'raw';
@@ -746,7 +771,7 @@ function PricingGridTable({
                       )}
                     >
                       <PriceCell
-                        value={row?.unit_cost_inr ?? null}
+                        value={col.group === 'outsourced' ? (p.outsourced_unit_cost_inr ?? null) : (row?.unit_cost_inr ?? null)}
                         winner={isWinnerPrice}
                         onCommit={(raw) => void onWriteCell(p.id, col, raw)}
                         onPaste={(e) => onPaste(e, pIdx, cIdx)}
