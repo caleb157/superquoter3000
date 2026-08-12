@@ -423,7 +423,8 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     prePackCbm,
     difficultyFactor,
     isOutsourced,
-    outsourcedUnitCostUsd,
+    outsourcedUnitCostInr: isOutsourced ? outsourcedUnitCostInr : 0,
+    outsourcedUnitCostUsd: isOutsourced ? outsourcedUnitCostUsd : 0,
     bulkPack: bulkPackInfo,
   };
 }
