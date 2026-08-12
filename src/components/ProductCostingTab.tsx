@@ -1298,7 +1298,37 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Product Type</label>
-                <Select value={product.product_type_id || ''} onValueChange={v => updateProduct('product_type_id', v)}>
+                <Select value={product.product_type_id || ''} onValueChange={async v => {
+                  forceImmediatePersistRef.current = true;
+                  updateProduct('product_type_id', v);
+                  const becomingOutsourced = productTypes.find(pt => pt.id === v)?.name === 'Outsourced';
+                  if (becomingOutsourced) {
+                    // Outsourced items are bought finished: switch every COGS / non-unit COGS /
+                    // overhead row off, then let the user re-enable whatever this order needs.
+                    const cogsIds = cogsItems.map(i => i.id);
+                    const nuIds = nonUnitCogs.map(i => i.id);
+                    const ohIds = overheadItems.map(i => i.id);
+                    if (cogsIds.length) {
+                      setCogsItems(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('cogs_items').update({ include: 'No' }).in('id', cogsIds);
+                    }
+                    if (nuIds.length) {
+                      setNonUnitCogs(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('non_unit_cogs').update({ include: 'No' }).in('id', nuIds);
+                    }
+                    if (ohIds.length) {
+                      setOverheadItems(items => items.map(i => ({ ...i, include: 'No' })));
+                      await (supabase as any).from('overhead_items').update({ include: 'No' }).in('id', ohIds);
+                    }
+                    toast.success('Outsourced: all COGS and overhead rows set to "No". Re-enable any you need.');
+                  }
+                  setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
+                  if (id) {
+                    (supabase as any).from('products')
+                      .update({ calculated_unit_price_usd: null, calculated_unit_cost_usd: null })
+                      .eq('id', id).then(() => { onProductUpdated?.(); });
+                  }
+                }}>
                   <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {productTypes.map(pt => (
