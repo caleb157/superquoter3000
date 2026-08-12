@@ -190,7 +190,6 @@ const Dashboard = () => {
       list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     } else {
       const getters: Record<string, (i: Inquiry) => string | number> = {
-        rfq: (i) => i.rfq_number.toLowerCase(),
         customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
         title: (i) => (i.title ?? '').toLowerCase(),
         status: (i) => i.status,
