@@ -481,7 +481,12 @@ const Dashboard = () => {
                             {cust?.name || cust?.company || '—'}
                           </TableCell>
                           <TableCell className="text-base font-semibold truncate max-w-[260px]">
-                            {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate">{inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}</span>
+                              {reviewInquiryIds.has(inq.id) && (
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200 shrink-0" title="Contains products that need review">⚠</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span className={cn(
