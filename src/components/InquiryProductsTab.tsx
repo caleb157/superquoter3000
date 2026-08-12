@@ -675,6 +675,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
+        onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
+        onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
+
       />
 
       <RawTargetsDialog
