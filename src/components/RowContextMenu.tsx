@@ -52,7 +52,9 @@ export function RowContextMenu({
         >
           <LinkIcon className="mr-2 h-4 w-4" /> Copy link
         </ContextMenuItem>
+        {extraItems}
       </ContextMenuContent>
+
     </ContextMenu>
   );
 }
