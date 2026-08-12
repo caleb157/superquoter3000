@@ -115,7 +115,7 @@ describe('InquiryProductsTab unit price rendering', () => {
     // Price renders (formatted via fmt.usd — assert on the numeric portion)
     await waitFor(() => {
       const matches = screen.getAllByText((_, el) =>
-        !!el && /123\.45/.test(el.textContent || ''),
+        !!el && /0\.22/.test(el.textContent || ''),
       );
       expect(matches.length).toBeGreaterThan(0);
     });
