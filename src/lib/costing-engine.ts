@@ -402,7 +402,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     summary,
     exchangeRate,
     markupPercent,
-    cogsPerUnit: isOutsourced ? 0 : cogsPerUnit,
+    cogsPerUnit: effCogsPerUnit,
     nonUnitCogsPerUnit: effNonUnitCogsPerUnit,
     directOhPerUnit: effDirectOhPerUnit,
     indirectOhPerUnit: effIndirectOhPerUnit,
