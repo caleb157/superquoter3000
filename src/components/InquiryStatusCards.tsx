@@ -25,22 +25,30 @@ type Financials = {
 
 export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: Props) {
   const [counts, setCounts] = useState<Counts>({ needs_design: 0, in_costing: 0, sampling: 0 });
+  const [archivedCount, setArchivedCount] = useState(0);
   const [fin, setFin] = useState<Financials>({
     totalCbm: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
   });
 
   useEffect(() => {
     (async () => {
-      const [{ data: prodData }, { data: cbmData }] = await Promise.all([
-        supabase
+      const [{ data: prodData }, { data: cbmData }, { count: archived }] = await Promise.all([
+        (supabase as any)
           .from('products')
           .select('id, design_stage, quote_stage, sample_stage, quantity, target_price_usd, calculated_unit_price_usd, calculated_unit_cost_usd, width_inch, depth_inch, height_inch')
-          .eq('customer_rfq_id', inquiryId),
+          .eq('customer_rfq_id', inquiryId)
+          .is('archived_at', null),
         supabase
           .from('cbm_estimates')
           .select('product_id, final_unit_cbm')
           .not('final_unit_cbm', 'is', null),
+        (supabase as any)
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_rfq_id', inquiryId)
+          .not('archived_at', 'is', null),
       ]);
+      setArchivedCount(archived || 0);
       const rows = prodData ?? [];
       const cbmMap = new Map<string, number>();
       (cbmData ?? []).forEach((c: any) => {
@@ -147,7 +155,9 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{usd0(fin.totalRevenue)}</div>
             <div className="text-sm font-medium">Order Revenue</div>
-            <div className="text-xs text-muted-foreground mt-0.5">price × quantity</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              price × quantity{archivedCount > 0 ? ` · ${archivedCount} archived excluded` : ''}
+            </div>
           </CardContent>
         </Card>
       </div>

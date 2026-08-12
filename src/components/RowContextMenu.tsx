@@ -17,10 +17,13 @@ import { toast } from 'sonner';
 export function RowContextMenu({
   path,
   children,
+  extraItems,
 }: {
   path: string;
   children: ReactNode;
+  extraItems?: ReactNode;
 }) {
+
   const navigate = useNavigate();
   const absolute = () =>
     typeof window !== 'undefined' ? new URL(path, window.location.origin).toString() : path;
@@ -49,7 +52,9 @@ export function RowContextMenu({
         >
           <LinkIcon className="mr-2 h-4 w-4" /> Copy link
         </ContextMenuItem>
+        {extraItems}
       </ContextMenuContent>
+
     </ContextMenu>
   );
 }

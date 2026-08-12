@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target, ChevronDown, Wrench } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target, ChevronDown, Wrench, Archive, ArchiveRestore } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { toast } from 'sonner';
@@ -43,6 +43,8 @@ import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { recostProduct, recostInquiry } from '@/lib/costing-seed';
 import { RefreshCw } from 'lucide-react';
+import { RowContextMenu } from '@/components/RowContextMenu';
+import { ContextMenuItem } from '@/components/ui/context-menu';
 
 type Product = {
   id: string; name: string; sku: string | null; photo_url: string | null; updated_at: string | null;
@@ -53,8 +55,10 @@ type Product = {
   shipping_done: boolean | null; revenue_done: boolean | null;
   calculated_unit_price_usd: number | null;
   quote_notes: string | null;
+  archived_at?: string | null;
   sample_stage_was?: string | null;
 };
+
 
 type FilterKey =
   | 'all' | 'needs_design' | 'in_costing' | 'sampling' | 'needs_review'
@@ -110,6 +114,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -223,11 +230,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      let query = (supabase as any)
         .from('products')
-        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes')
-        .eq('customer_rfq_id', inquiryId)
-        .order('updated_at', { ascending: false });
+        .select('id, name, sku, photo_url, quantity, updated_at, design_stage, quote_stage, sample_stage, target_price_usd, markup_percent, cogs_done, cbm_done, overhead_done, shipping_done, revenue_done, calculated_unit_price_usd, quote_notes, archived_at')
+        .eq('customer_rfq_id', inquiryId);
+      query = showArchived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+      const [{ data }, { count }] = await Promise.all([
+        query.order('updated_at', { ascending: false }),
+        (supabase as any)
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_rfq_id', inquiryId)
+          .not('archived_at', 'is', null),
+      ]);
+      setArchivedCount(count || 0);
       const rows = data ?? [];
       setProducts(rows);
       if (rows.length > 0) {
@@ -247,7 +263,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         setReviewIds(new Set());
       }
     })();
-  }, [inquiryId, refresh, refreshKey]);
+  }, [inquiryId, refresh, refreshKey, showArchived]);
+
 
   // Heal stale/missing price caches in the background after livePrices arrives.
   // - If the live engine produced a usable price and the stored cache is stale or
@@ -398,6 +415,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     onChange();
   };
 
+  const setArchived = async (ids: string[], archive: boolean) => {
+    if (ids.length === 0) return;
+    const { error } = await (supabase as any)
+      .from('products')
+      .update({ archived_at: archive ? new Date().toISOString() : null })
+      .in('id', ids);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${archive ? 'Archived' : 'Unarchived'} ${ids.length} product${ids.length === 1 ? '' : 's'}`);
+    setSelected(new Set());
+    setRefresh(r => r + 1);
+    onChange();
+  };
+
+
   const handleSetSinglePill = async (productId: string, track: StageTrack, stage: string | null) => {
     const col = track === 'design' ? 'design_stage' : track === 'quote' ? 'quote_stage' : 'sample_stage';
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, [col]: stage } : p));
@@ -485,6 +516,18 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   const selectedProducts = products.filter(p => selected.has(p.id));
 
+  const archiveMenuItem = (p: Product) => (
+    p.archived_at ? (
+      <ContextMenuItem onSelect={() => setArchived([p.id], false)}>
+        <ArchiveRestore className="mr-2 h-4 w-4" /> Unarchive
+      </ContextMenuItem>
+    ) : (
+      <ContextMenuItem onSelect={() => setArchived([p.id], true)}>
+        <Archive className="mr-2 h-4 w-4" /> Archive
+      </ContextMenuItem>
+    )
+  );
+
   return (
     <div className="space-y-3">
       <input
@@ -528,7 +571,19 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               {RAW_STAGE_LABELS[filter]} <X className="h-3 w-3" />
             </Button>
           )}
+          {(archivedCount > 0 || showArchived) && (
+            <Button
+              variant={showArchived ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-8 text-xs gap-1"
+              onClick={() => { setSelected(new Set()); setShowArchived(v => !v); }}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {showArchived ? 'Back to active' : `Archived (${archivedCount})`}
+            </Button>
+          )}
         </div>
+
         <div className="ml-auto flex gap-2 flex-wrap items-center">
           {recosting.active && (
             <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
@@ -634,6 +689,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
+        onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
+        onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
+
       />
 
       <RawTargetsDialog
@@ -735,7 +793,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
       {filtered.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
-          No products in this inquiry yet.
+          {showArchived ? 'No archived products in this inquiry.' : 'No products in this inquiry yet.'}
         </CardContent></Card>
       ) : (
         <>
@@ -766,7 +824,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 const cb = costingBadge(p, reviewIds.has(p.id));
                 const needsReview = reviewIds.has(p.id);
                 return (
-                  <TableRow key={p.id} className={cn(
+                  <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
+                  <TableRow className={cn(
                     selected.has(p.id) && 'bg-muted/40',
                     needsReview && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
                   )}>
@@ -826,6 +885,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       />
                     </TableCell>
                   </TableRow>
+                  </RowContextMenu>
                 );
               })}
             </TableBody>
@@ -838,8 +898,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               const cb = costingBadge(p, reviewIds.has(p.id));
               const isSelected = selected.has(p.id);
               return (
+                <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
                 <Card
-                  key={p.id}
                   className={cn(
                     'cursor-pointer active:bg-accent/50 transition-colors',
                     isSelected && 'ring-2 ring-primary',
@@ -901,6 +961,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     </div>
                   </CardContent>
                 </Card>
+                </RowContextMenu>
               );
             })}
           </div>

@@ -9,7 +9,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, X, CheckCircle2, Copy } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, Copy, Archive, ArchiveRestore } from 'lucide-react';
 import { STAGE_OPTIONS, STAGE_LABEL, type StageTrack } from '@/components/ProductStagePills';
 
 type Props = {
@@ -30,6 +30,8 @@ type Props = {
   onGenerateRfq?: () => void;
   onCopyToInquiry?: () => void;
   onBulkDeleteCogs?: () => void;
+  onArchive?: () => void;
+  onUnarchive?: () => void;
 };
 
 export function BulkStageActions({
@@ -50,6 +52,8 @@ export function BulkStageActions({
   onGenerateRfq,
   onCopyToInquiry,
   onBulkDeleteCogs,
+  onArchive,
+  onUnarchive,
 }: Props) {
   const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
   if (selectedIds.length === 0) return null;
@@ -142,6 +146,18 @@ export function BulkStageActions({
             {onLogRfs && <DropdownMenuItem onClick={onLogRfs}>RFS received</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
+      )}
+
+      {onArchive && (
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={onArchive}>
+          <Archive className="h-3.5 w-3.5" /> Archive
+        </Button>
+      )}
+
+      {onUnarchive && (
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={onUnarchive}>
+          <ArchiveRestore className="h-3.5 w-3.5" /> Unarchive
+        </Button>
       )}
 
       {onCopyToInquiry && (
