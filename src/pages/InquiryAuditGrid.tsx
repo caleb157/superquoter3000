@@ -58,6 +58,8 @@ type AuditRow = {
   shipping_method: string;
   source_location: string;
   raw_vendor: string;
+  is_outsourced: boolean;
+  outsourced: number;
 };
 
 // ---------- Column definition ----------
@@ -72,6 +74,7 @@ type ColDef = {
 
 const COLUMNS: ColDef[] = [
   // Sourced
+  { key: 'outsourced',    label: 'Outsourced',   group: 'Sourced',   kind: 'money' },
   { key: 'raw_piece',     label: 'Raw Piece',    group: 'Sourced',   kind: 'money' },
   { key: 'subcontract',   label: 'Subcontract',  group: 'Sourced',   kind: 'money' },
   { key: 'hardware',      label: 'Hardware',     group: 'Sourced',   kind: 'money' },
@@ -121,12 +124,15 @@ function detectFlags(rows: AuditRow[]): { flags: FlagMap; colCounts: Record<stri
     colCounts[col.key] = 0;
     if (col.kind === 'money' || col.kind === 'number') {
       // Only flag money buckets for blank — skip outputs (cost/price/cbm/npm), they aren't "missing"
+      if (col.key === 'outsourced') continue;
       if (col.group !== 'Sourced' && col.group !== 'Finishing' && col.group !== 'Packaging' && col.group !== 'Overhead') continue;
       const vals = rows.map(r => Number(r[col.key]) || 0);
       const filled = vals.filter(v => v > 0).length;
       const majorityFilled = filled > vals.length / 2;
       if (!majorityFilled) continue;
       for (let i = 0; i < rows.length; i++) {
+        // Outsourced products legitimately have zeroed internal cost buckets.
+        if (rows[i].is_outsourced) continue;
         if (vals[i] <= 0) {
           flags[rows[i].product_id][col.key] = {
             kind: 'blank',
@@ -261,7 +267,7 @@ export default function InquiryAuditGrid() {
 
       // Sum buckets from resolvedCogsRows (only include='Yes' rows)
       const buckets = { raw: 0, subc: 0, hw: 0, finishing: 0, packaging: 0 };
-      for (const row of r.resolvedCogsRows as any[]) {
+      for (const row of (r.isOutsourced ? [] : r.resolvedCogsRows) as any[]) {
         if (row.include !== 'Yes') continue;
         const qty = Number(row.components_per_product) || 0;
         const cost = Number(row.unit_cost_inr) || 0;
@@ -310,6 +316,8 @@ export default function InquiryAuditGrid() {
         shipping_method: shipName,
         source_location: sourceName,
         raw_vendor: rawVendor,
+        is_outsourced: r.isOutsourced,
+        outsourced: r.isOutsourced ? r.outsourcedUnitCostUsd * (r.exchangeRate || 0) : 0,
       };
     });
 

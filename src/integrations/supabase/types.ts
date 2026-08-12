@@ -1450,6 +1450,7 @@ export type Database = {
           height_inch: number | null
           id: string
           is_component: boolean | null
+          is_outsourced: boolean
           markup_percent: number | null
           moq: number | null
           name: string
@@ -1457,6 +1458,7 @@ export type Database = {
           notes_finishes: string | null
           notes_issues: string | null
           notes_vendors: string | null
+          outsourced_unit_cost_usd: number | null
           overhead_done: boolean | null
           packaging_type: string
           percent_wood: number | null
@@ -1492,6 +1494,7 @@ export type Database = {
           height_inch?: number | null
           id?: string
           is_component?: boolean | null
+          is_outsourced?: boolean
           markup_percent?: number | null
           moq?: number | null
           name: string
@@ -1499,6 +1502,7 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null
           packaging_type?: string
           percent_wood?: number | null
@@ -1534,6 +1538,7 @@ export type Database = {
           height_inch?: number | null
           id?: string
           is_component?: boolean | null
+          is_outsourced?: boolean
           markup_percent?: number | null
           moq?: number | null
           name?: string
@@ -1541,6 +1546,7 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null
           packaging_type?: string
           percent_wood?: number | null

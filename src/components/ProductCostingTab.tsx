@@ -452,6 +452,8 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
 
   // Step 4: MC calcs with type-specific cost lookup
   const packagingType: PackagingType = product?.packaging_type || 'ic_mc';
+  // Outsourced products are bought finished: no internal COGS/OH/packaging buildup.
+  const isOutsourced = !!product?.is_outsourced;
   const includeMc = packagingType === 'ic_mc';
   const noPackaging = packagingType === 'no_packaging';
   const mcManualLayout = cbm?.mc_manual_layout ?? false;
@@ -1308,6 +1310,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               <div>
                 <label className="text-[10px] text-muted-foreground">Packaging Type</label>
                 <Select
+                  disabled={isOutsourced}
                   value={packagingType}
                   onValueChange={async (v) => {
                     // Keep legacy include_mc flag in sync for downstream code
@@ -1365,6 +1368,41 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Outsourced</label>
+                <div className="flex items-center gap-2 h-7">
+                  <Switch
+                    checked={isOutsourced}
+                    onCheckedChange={(v) => {
+                      forceImmediatePersistRef.current = true;
+                      updateProduct('is_outsourced', v);
+                      setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
+                      if (id) {
+                        (supabase as any).from('products')
+                          .update({ calculated_unit_price_usd: null, calculated_unit_cost_usd: null })
+                          .eq('id', id).then(() => { onProductUpdated?.(); });
+                      }
+                    }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">Bought finished</span>
+                </div>
+              </div>
+              {isOutsourced && (
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Outsourced Cost ($/unit)</label>
+                  <Input
+                    className="h-7 text-xs"
+                    type="number"
+                    step="0.01"
+                    key={`outsourced-${product.id}`}
+                    defaultValue={product.outsourced_unit_cost_usd ?? ''}
+                    onBlur={e => {
+                      forceImmediatePersistRef.current = true;
+                      updateProduct('outsourced_unit_cost_usd', e.target.value === '' ? null : Number(e.target.value));
+                    }}
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
@@ -2463,12 +2501,18 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[
-                    { label: 'COGS', value: summary.total_cogs_per_unit },
-                    { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
-                    { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
-                    { label: 'Shipping', value: summary.total_shipping_per_unit },
-                  ].map(row => (
+                  {(isOutsourced
+                    ? [
+                        { label: 'Outsourced Cost', value: summary.total_cogs_per_unit },
+                        { label: 'Shipping', value: summary.total_shipping_per_unit },
+                      ]
+                    : [
+                        { label: 'COGS', value: summary.total_cogs_per_unit },
+                        { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
+                        { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
+                        { label: 'Shipping', value: summary.total_shipping_per_unit },
+                      ]
+                  ).map(row => (
                     <TableRow key={row.label}>
                       <TableCell className="font-medium">{row.label}</TableCell>
                       <TableCell className="text-right font-mono">{fmt.inr(row.value)}</TableCell>

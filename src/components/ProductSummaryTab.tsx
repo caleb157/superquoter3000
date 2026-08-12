@@ -15,6 +15,7 @@ type Product = {
   customer_rfq_id: string | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
   notes_finishes: string | null; notes_vendors: string | null; notes_issues: string | null; quote_notes: string | null;
+  is_outsourced: boolean | null; outsourced_unit_cost_usd: number | null;
 };
 type Inquiry = {
   id: string; rfq_number: string; title: string | null;
@@ -38,7 +39,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
     (async () => {
       const { data: p } = await supabase
         .from('products')
-        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues, quote_notes')
+        .select('id, name, updated_at, customer_rfq_id, design_stage, quote_stage, sample_stage, notes_finishes, notes_vendors, notes_issues, quote_notes, is_outsourced, outsourced_unit_cost_usd')
         .eq('id', productId).maybeSingle();
       if (p) setProduct(p as any);
 
@@ -97,6 +98,17 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
             <span className="text-muted-foreground text-xs">Stages:</span>
             <ProductStagePills product={product} onChange={() => {}} />
           </div>
+          {product.is_outsourced && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">Outsourced Cost:</span>
+              <span className="font-mono font-medium">
+                {product.outsourced_unit_cost_usd != null
+                  ? `$${Number(product.outsourced_unit_cost_usd).toFixed(2)}/unit`
+                  : 'Not set'}
+              </span>
+              <span className="text-xs text-muted-foreground">(shipping added separately)</span>
+            </div>
+          )}
           <ProductVendorsPanel productId={product.id} />
           {product.updated_at && (
             <div className="text-xs text-muted-foreground">
