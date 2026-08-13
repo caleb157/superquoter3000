@@ -134,6 +134,13 @@ const App = () => (
               <Route path="/vendors" element={
                 <ProtectedRoute requireAdminOrTeam><Vendors /></ProtectedRoute>
               } />
+              <Route path="/tools" element={
+                <ProtectedRoute requireAdminOrTeam><Tools /></ProtectedRoute>
+              } />
+              <Route path="/tools/master-carton" element={
+                <ProtectedRoute requireAdminOrTeam><MasterCartonSizer /></ProtectedRoute>
+              } />
+
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
               } />
