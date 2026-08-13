@@ -252,18 +252,18 @@ export default function InquiryPdView() {
                     ))}
                     <th rowSpan={2} className="text-center px-2 py-1.5 border-b border-l font-medium whitespace-nowrap">Done</th>
                   </tr>
-                  <tr className="h-[120px]">
+                  <tr className="h-[150px]">
                     {ITEMS.map((it, i) => (
                       <th
                         key={it.key}
                         title={it.label}
                         className={cn(
-                          'relative px-0 py-0 border-b font-medium text-left align-bottom w-[44px] min-w-[44px] max-w-[44px] overflow-visible',
+                          'relative px-0 py-0 border-b font-medium text-left w-[44px] min-w-[44px] max-w-[44px] overflow-visible',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
                         <span
-                          className="absolute left-1/2 bottom-2 -translate-x-1/2 block origin-bottom-left -rotate-45 whitespace-nowrap text-[10px] leading-none"
+                          className="absolute left-3 bottom-3 block origin-bottom-left -rotate-45 whitespace-nowrap text-[10px] leading-none"
                         >
                           {it.label}
                         </span>
