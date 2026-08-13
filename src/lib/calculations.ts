@@ -189,15 +189,16 @@ export function calcMCPacking(config: MCConfig & {
   const actual_h = target < along_w * along_d ? 1 : Math.min(along_h, Math.ceil(target / (along_w * along_d)));
 
   // The expanded layout is the smallest complete box that can hold the target.
-  // If the weight limit is tighter than that layout, clamp the actual packed count
-  // so the gross weight never exceeds the weight limit.
+  // The actual packed count must never exceed the target (weight limit / ICs needed),
+  // even though the box is sized for complete rows/layers.
   const expanded_ics = actual_w * actual_d * actual_h;
-  let packed_ics = expanded_ics;
+  let packed_ics = Math.min(expanded_ics, target);
   if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
     const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
     const maxIcsByWeight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
-    packed_ics = Math.min(expanded_ics, maxIcsByWeight);
+    packed_ics = Math.min(packed_ics, maxIcsByWeight);
   }
+
 
   const products_per_mc = packed_ics * products_per_ic;
 
