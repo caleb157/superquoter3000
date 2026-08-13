@@ -258,13 +258,19 @@ export default function InquiryPdView() {
                     {ITEMS.map((it, i) => (
                       <th
                         key={it.key}
+                        title={it.label}
                         className={cn(
-                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[64px] min-w-[64px] max-w-[64px] text-[10px] leading-tight',
+                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[68px] min-w-[68px] max-w-[68px] text-[10px] leading-[1.15]',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        <span className="block break-words hyphens-auto">{it.label}</span>
+                        <span className="block whitespace-nowrap">
+                          {it.lines.map((line, li) => (
+                            <span key={li} className="block">{line}</span>
+                          ))}
+                        </span>
                       </th>
+
                     ))}
                   </tr>
 
