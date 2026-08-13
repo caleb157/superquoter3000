@@ -209,6 +209,13 @@ export default function InquiryPricingGrid() {
 
   // ---------- Persistence ----------
 
+  // Keep an immediately-current copy of rows. A vendor cell and its adjacent
+  // price cell can blur before React has rendered the first insert; relying on
+  // productRows in that window makes both handlers try to create the same row.
+  const rowsRef = useRef<CogsRow[]>(rows);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+  const pendingRowsRef = useRef<Map<string, Promise<string | null>>>(new Map());
+
   // Returns row id (existing or newly created). For raw pieces, slot is mandatory.
   const ensureRow = useCallback(
     async (
@@ -216,12 +223,28 @@ export default function InquiryPricingGrid() {
       group: 'raw' | 'subc' | 'hw',
       slot?: number,
     ): Promise<string | null> => {
-      const bucket = productRows.get(productId);
-      if (!bucket) return null;
+      const current = rowsRef.current.filter(r => r.product_id === productId);
+      const raw = current
+        .filter(r => r.cogs_type === RAW_TYPE)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.created_at || '').localeCompare(b.created_at || ''));
+      const subc = current.find(r => r.cogs_type === SUBC_TYPE) || null;
+      const hw = current.find(r => isHardwareCogsType(r.cogs_type)) || null;
+      const bucket = { raw, subc, hw };
 
-      if (group === 'raw') {
-        const existing = bucket.raw[slot!];
-        if (existing) return existing.id;
+      const existing = group === 'raw' ? bucket.raw[slot ?? 0] : group === 'subc' ? bucket.subc : bucket.hw;
+      if (existing) return existing.id;
+
+      const pendingKey = `${productId}:${group}:${slot ?? 0}`;
+      const pending = pendingRowsRef.current.get(pendingKey);
+      if (pending) return pending;
+
+      const create = (async (): Promise<string | null> => {
+        const appendRow = (row: CogsRow) => {
+          rowsRef.current = [...rowsRef.current, row];
+          setRows(prev => prev.some(r => r.id === row.id) ? prev : [...prev, row]);
+        };
+
+        if (group === 'raw') {
         // Decide include: if there is no winner yet, this becomes the winner.
         const hasWinner = bucket.raw.some(r => r.include === 'Yes');
         const include = hasWinner ? 'No' : 'Yes';
@@ -244,12 +267,11 @@ export default function InquiryPricingGrid() {
           toast.error(`Failed to add row: ${error?.message || 'unknown'}`);
           return null;
         }
-        setRows(prev => [...prev, data as CogsRow]);
+        appendRow(data as CogsRow);
         return (data as CogsRow).id;
-      }
+        }
 
-      if (group === 'subc') {
-        if (bucket.subc) return bucket.subc.id;
+        if (group === 'subc') {
         const { data, error } = await supabase
           .from('cogs_items')
           .insert({
@@ -264,13 +286,12 @@ export default function InquiryPricingGrid() {
           .select(COGS_SELECT)
           .single();
         if (error || !data) { toast.error(`Failed to add subcontract row: ${error?.message}`); return null; }
-        setRows(prev => [...prev, data as CogsRow]);
+        appendRow(data as CogsRow);
         return (data as CogsRow).id;
-      }
+        }
 
-      // hw
-      if (bucket.hw) return bucket.hw.id;
-      const { data, error } = await supabase
+        // hw
+        const { data, error } = await supabase
         .from('cogs_items')
         .insert({
           product_id: productId,
@@ -283,11 +304,19 @@ export default function InquiryPricingGrid() {
         })
         .select(COGS_SELECT)
         .single();
-      if (error || !data) { toast.error(`Failed to add hardware row: ${error?.message}`); return null; }
-      setRows(prev => [...prev, data as CogsRow]);
-      return (data as CogsRow).id;
+        if (error || !data) { toast.error(`Failed to add hardware row: ${error?.message}`); return null; }
+        appendRow(data as CogsRow);
+        return (data as CogsRow).id;
+      })();
+
+      pendingRowsRef.current.set(pendingKey, create);
+      try {
+        return await create;
+      } finally {
+        pendingRowsRef.current.delete(pendingKey);
+      }
     },
-    [productRows],
+    [],
   );
 
   const updateRow = useCallback(async (rowId: string, patch: Partial<CogsRow>) => {
@@ -296,10 +325,6 @@ export default function InquiryPricingGrid() {
     const { error } = await supabase.from('cogs_items').update(patch as any).eq('id', rowId);
     if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); }
   }, [refetch]);
-
-  // Keep a ref to rows so writeCell can read current qty without re-creating callback
-  const rowsRef = useRef<CogsRow[]>(rows);
-  useEffect(() => { rowsRef.current = rows; }, [rows]);
 
   const writeCell = useCallback(
     async (
