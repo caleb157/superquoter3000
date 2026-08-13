@@ -99,7 +99,7 @@ export default function InquiryPdView() {
         supabase.from('customer_rfqs').select('id, rfq_number, title').eq('id', inquiryId).maybeSingle(),
         supabase
           .from('products')
-          .select('id, sku, name, photo_url, packaging_type')
+          .select('id, sku, name, photo_url, packaging_type, percent_wood')
           .eq('customer_rfq_id', inquiryId)
           .is('archived_at', null)
           .order('sort_order', { ascending: true })
@@ -135,12 +135,16 @@ export default function InquiryPdView() {
   }, [inquiryId]);
 
   const isDisabled = (p: Product, item: ItemDef) => {
+    if (item.requiresWood) return p.percent_wood === 0;
+    if (item.requiresMetal) return p.percent_wood === 1;
     if (item.requiresIcMc) return (p.packaging_type || 'ic_mc') !== 'ic_mc';
     if (item.cogsCategory) return !cogsCats[p.id]?.has(item.cogsCategory);
     return false;
   };
 
   const disabledReason = (p: Product, item: ItemDef) => {
+    if (item.requiresWood) return 'No wood on this product (0% wood).';
+    if (item.requiresMetal) return 'No metal on this product (100% wood).';
     if (item.requiresIcMc) return `No master carton — packaging is "${p.packaging_type || 'ic_mc'}".`;
     if (item.cogsCategory) return `No "${item.cogsCategory}" COGS rows on this product.`;
     return '';
