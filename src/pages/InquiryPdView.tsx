@@ -291,10 +291,16 @@ export default function InquiryPdView() {
                 Product development checklist for every active SKU. Greyed-out cells don't apply to that product.
               </p>
             </div>
-            <div className="rounded-md border px-3 py-1.5 text-sm bg-muted/40">
-              <span className="font-semibold tabular-nums">{overall.done}/{overall.total}</span>
-              <span className="text-muted-foreground text-xs ml-1.5">items done</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={fitColumns}>
+                <Maximize2 className="h-3.5 w-3.5" /> Fit to screen
+              </Button>
+              <div className="rounded-md border px-3 py-1.5 text-sm bg-muted/40">
+                <span className="font-semibold tabular-nums">{overall.done}/{overall.total}</span>
+                <span className="text-muted-foreground text-xs ml-1.5">items done</span>
+              </div>
             </div>
+
           </div>
 
           {products.length === 0 ? (
