@@ -35,8 +35,6 @@ type ItemKey =
 type ItemDef = {
   key: ItemKey;
   label: string;
-  /** Pre-split header lines so words never break mid-word. */
-  lines: string[];
   group: string;
   /** COGS category name this item depends on; item is greyed out when the product has no such rows. */
   cogsCategory?: string;
@@ -49,19 +47,19 @@ type ItemDef = {
 };
 
 const ITEMS: ItemDef[] = [
-  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  lines: ['Finishing', 'Panel', 'Wood'],   group: 'Finishing', requiresWood: true },
-  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', lines: ['Finishing', 'Panel', 'Metal'],  group: 'Finishing', requiresMetal: true },
-  { key: 'ic_size',               label: 'IC SIZE',                 lines: ['IC', 'Size'],                   group: 'Packaging' },
-  { key: 'mc_size',               label: 'MC SIZE',                 lines: ['MC', 'Size'],                   group: 'Packaging', requiresIcMc: true },
-  { key: 'packaging',             label: 'Packaging',               lines: ['Packaging'],                    group: 'Packaging' },
-  { key: 'inserts_instructions',  label: 'Inserts/Instructions',    lines: ['Inserts', '&', 'Instructions'], group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
-  { key: 'handles_knobs',         label: 'Handles/Knobs',           lines: ['Handles', '&', 'Knobs'],        group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
-  { key: 'feet_buffers',          label: 'Feet/Buffers',            lines: ['Feet', '&', 'Buffers'],         group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
-  { key: 'handles_latches',       label: 'Hinges/Latches',          lines: ['Hinges', '&', 'Latches'],       group: 'Hardware',  cogsCategory: 'Handles/Latches' },
-  { key: 'other_hardware',        label: 'Other Hardware',          lines: ['Other', 'Hardware'],            group: 'Hardware',  cogsCategory: 'Other Hardware' },
-  { key: 'accessories',           label: 'Accessories',             lines: ['Accessories'],                  group: 'Accessories', cogsCategory: 'Accessories' },
-  { key: 'qc_sheet',              label: 'QC Sheet',                lines: ['QC', 'Sheet'],                  group: 'QC' },
-  { key: 'final_product_photo',   label: 'Final Product Photo',     lines: ['Final', 'Product', 'Photo'],    group: 'QC' },
+  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',   group: 'Finishing', requiresWood: true },
+  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal',  group: 'Finishing', requiresMetal: true },
+  { key: 'ic_size',               label: 'IC SIZE',                  group: 'Packaging' },
+  { key: 'mc_size',               label: 'MC SIZE',                  group: 'Packaging', requiresIcMc: true },
+  { key: 'packaging',             label: 'Packaging',                group: 'Packaging' },
+  { key: 'inserts_instructions',  label: 'Inserts/Instructions',     group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
+  { key: 'handles_knobs',         label: 'Handles/Knobs',            group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
+  { key: 'feet_buffers',          label: 'Feet/Buffers',             group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
+  { key: 'handles_latches',       label: 'Hinges/Latches',           group: 'Hardware',  cogsCategory: 'Handles/Latches' },
+  { key: 'other_hardware',        label: 'Other Hardware',           group: 'Hardware',  cogsCategory: 'Other Hardware' },
+  { key: 'accessories',           label: 'Accessories',              group: 'Accessories', cogsCategory: 'Accessories' },
+  { key: 'qc_sheet',              label: 'QC Sheet',                 group: 'QC' },
+  { key: 'final_product_photo',   label: 'Final Product Photo',      group: 'QC' },
 ];
 
 
@@ -248,29 +246,28 @@ export default function InquiryPdView() {
                   <tr>
                     <th rowSpan={2} className="sticky left-0 z-30 bg-muted text-left px-2 py-1.5 border-r border-b font-medium min-w-[220px]">SKU / Name</th>
                     {groups.map(g => (
-                      <th key={g.name} colSpan={g.items.length} className="text-center px-2 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th key={g.name} colSpan={g.items.length} className="text-center px-1 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
                         {g.name}
                       </th>
                     ))}
                     <th rowSpan={2} className="text-center px-2 py-1.5 border-b border-l font-medium whitespace-nowrap">Done</th>
                   </tr>
-                  <tr>
+                  <tr className="h-[150px]">
                     {ITEMS.map((it, i) => (
                       <th
                         key={it.key}
                         title={it.label}
                         className={cn(
-                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[68px] min-w-[68px] max-w-[68px] text-[10px] leading-[1.15]',
+                          'relative px-0 py-0 border-b font-medium text-left w-[44px] min-w-[44px] max-w-[44px] overflow-visible',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        <span className="block whitespace-nowrap">
-                          {it.lines.map((line, li) => (
-                            <span key={li} className="block">{line}</span>
-                          ))}
+                        <span
+                          className="absolute left-3 bottom-3 block origin-bottom-left -rotate-45 whitespace-nowrap text-[10px] leading-none"
+                        >
+                          {it.label}
                         </span>
                       </th>
-
                     ))}
                   </tr>
 
@@ -317,7 +314,7 @@ export default function InquiryPdView() {
                             <td
                               key={it.key}
                               className={cn(
-                                'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px] max-w-[64px]',
+                                'px-1 py-1.5 border-b text-center w-[44px] min-w-[44px] max-w-[44px]',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                 disabled && 'bg-muted',
                               )}
