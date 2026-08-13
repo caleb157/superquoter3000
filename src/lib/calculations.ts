@@ -144,17 +144,20 @@ export function calcMCPacking(config: MCConfig & {
   mc_ics_along_d: number;
   mc_ics_along_h: number;
   products_per_mc: number;
+  packed_ics: number;
   mc_width: number;
   mc_depth: number;
   mc_height: number;
   mc_volume_cbm: number;
 } {
+
   if (!config.include_mc) {
     return {
       mc_ics_along_w: 0, mc_ics_along_d: 0, mc_ics_along_h: 0,
-      products_per_mc: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0,
+      products_per_mc: 0, packed_ics: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0,
     };
   }
+
 
   const { mc_max_width, mc_max_depth, mc_max_height, mc_buffer_inch,
     mc_weight_limit_kg, mc_empty_weight_kg, product_weight_kg,
@@ -172,8 +175,9 @@ export function calcMCPacking(config: MCConfig & {
   const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / layoutH));
 
   let max_by_weight = along_w * along_d * along_h;
-  if (mc_weight_limit_kg > 0 && product_weight_kg > 0) {
-    max_by_weight = Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg);
+  if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
+    const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
+    max_by_weight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
   }
 
   const ics_needed = Math.ceil(quantity / products_per_ic);
@@ -184,7 +188,18 @@ export function calcMCPacking(config: MCConfig & {
   const actual_d = target < along_w ? 1 : Math.min(along_d, Math.ceil(target / along_w));
   const actual_h = target < along_w * along_d ? 1 : Math.min(along_h, Math.ceil(target / (along_w * along_d)));
 
-  const products_per_mc = actual_w * actual_d * actual_h * products_per_ic;
+  // The expanded layout is the smallest complete box that can hold the target.
+  // If the weight limit is tighter than that layout, clamp the actual packed count
+  // so the gross weight never exceeds the weight limit.
+  const expanded_ics = actual_w * actual_d * actual_h;
+  let packed_ics = expanded_ics;
+  if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
+    const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
+    const maxIcsByWeight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
+    packed_ics = Math.min(expanded_ics, maxIcsByWeight);
+  }
+
+  const products_per_mc = packed_ics * products_per_ic;
 
   // MC ID dimensions reflect packing of IC ODs (or IC IDs if OD not supplied).
   const mc_width = layoutW * actual_w + wd_buffer;
@@ -194,8 +209,9 @@ export function calcMCPacking(config: MCConfig & {
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
-    products_per_mc, mc_width, mc_depth, mc_height, mc_volume_cbm,
+    products_per_mc, packed_ics, mc_width, mc_depth, mc_height, mc_volume_cbm,
   };
+
 }
 
 // ============================================================
