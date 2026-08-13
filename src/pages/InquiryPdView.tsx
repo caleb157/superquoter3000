@@ -248,29 +248,28 @@ export default function InquiryPdView() {
                   <tr>
                     <th rowSpan={2} className="sticky left-0 z-30 bg-muted text-left px-2 py-1.5 border-r border-b font-medium min-w-[220px]">SKU / Name</th>
                     {groups.map(g => (
-                      <th key={g.name} colSpan={g.items.length} className="text-center px-2 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th key={g.name} colSpan={g.items.length} className="text-center px-1 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
                         {g.name}
                       </th>
                     ))}
                     <th rowSpan={2} className="text-center px-2 py-1.5 border-b border-l font-medium whitespace-nowrap">Done</th>
                   </tr>
-                  <tr>
+                  <tr className="h-[120px]">
                     {ITEMS.map((it, i) => (
                       <th
                         key={it.key}
                         title={it.label}
                         className={cn(
-                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[68px] min-w-[68px] max-w-[68px] text-[10px] leading-[1.15]',
+                          'relative px-0 py-0 border-b font-medium text-left align-bottom w-[44px] min-w-[44px] max-w-[44px] overflow-visible',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        <span className="block whitespace-nowrap">
-                          {it.lines.map((line, li) => (
-                            <span key={li} className="block">{line}</span>
-                          ))}
+                        <span
+                          className="absolute left-1/2 bottom-2 -translate-x-1/2 block origin-bottom-left -rotate-45 whitespace-nowrap text-[10px] leading-none"
+                        >
+                          {it.label}
                         </span>
                       </th>
-
                     ))}
                   </tr>
 
