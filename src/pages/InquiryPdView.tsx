@@ -256,14 +256,15 @@ export default function InquiryPdView() {
                       <th
                         key={it.key}
                         className={cn(
-                          'px-2 py-1.5 border-b font-medium whitespace-nowrap text-center',
+                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[64px] min-w-[64px] max-w-[64px] text-[10px] leading-tight',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        {it.label}
+                        <span className="block break-words hyphens-auto">{it.label}</span>
                       </th>
                     ))}
                   </tr>
+
                 </thead>
                 <tbody>
                   {products.map(p => {
@@ -294,6 +295,12 @@ export default function InquiryPdView() {
                                 disabled={disabled || !!saving[cellKey]}
                                 onCheckedChange={v => toggle(p, it, v === true)}
                                 aria-label={`${it.label} — ${p.sku || p.name}`}
+                                className={cn(
+                                  'border-2',
+                                  disabled
+                                    ? 'opacity-100 border-muted-foreground/70 bg-muted-foreground/25 cursor-not-allowed'
+                                    : 'border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground',
+                                )}
                               />
                             </div>
                           );
@@ -301,9 +308,9 @@ export default function InquiryPdView() {
                             <td
                               key={it.key}
                               className={cn(
-                                'px-2 py-1.5 border-b text-center',
+                                'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px] max-w-[64px]',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
-                                disabled && 'bg-muted/50 opacity-50',
+                                disabled && 'bg-muted',
                               )}
                             >
                               {disabled ? (
@@ -315,6 +322,7 @@ export default function InquiryPdView() {
                             </td>
                           );
                         })}
+
                         <td className="px-2 py-1.5 border-b border-l text-center whitespace-nowrap tabular-nums font-medium">
                           {prog.done}/{prog.total}
                         </td>
