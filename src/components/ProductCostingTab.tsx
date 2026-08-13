@@ -495,9 +495,20 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
     const mc_depth = icOd.ic_od_depth * along_d + wd_buffer;
     const mc_height = icOd.ic_od_height * along_h + h_buffer;
     const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
-    const products_per_mc = along_w * along_d * along_h * productsPerIc;
-    return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
+    const expanded_ics = along_w * along_d * along_h;
+    const mcWeightLimit = cbm?.mc_weight_limit_kg || 20;
+    const mcEmptyWeight = cbm?.mc_empty_weight_kg || 1.5;
+    const productWeight = product?.weight_kg || 0;
+    let packed_ics = expanded_ics;
+    if (mcWeightLimit > 0 && productWeight > 0 && productsPerIc > 0) {
+      const maxPiecesByWeight = Math.max(0, Math.floor((mcWeightLimit - mcEmptyWeight) / productWeight));
+      const maxIcsByWeight = Math.max(0, Math.floor(maxPiecesByWeight / productsPerIc));
+      packed_ics = Math.min(expanded_ics, maxIcsByWeight);
+    }
+    const products_per_mc = packed_ics * productsPerIc;
+    return { ...autoMcResult, mc_ics_along_w: along_w, mc_ics_along_d: along_d, mc_ics_along_h: along_h, packed_ics, mc_width, mc_depth, mc_height, mc_volume_cbm, products_per_mc };
   })();
+
 
   // Phase 3a: MC OD = MC ID + box offsets from the selected MC type.
   const mcBoxOffsets = calc.getBoxOdOffsets(boxData, mcType);
