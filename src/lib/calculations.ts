@@ -154,9 +154,10 @@ export function calcMCPacking(config: MCConfig & {
   if (!config.include_mc) {
     return {
       mc_ics_along_w: 0, mc_ics_along_d: 0, mc_ics_along_h: 0,
-      products_per_mc: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0,
+      products_per_mc: 0, packed_ics: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0,
     };
   }
+
 
   const { mc_max_width, mc_max_depth, mc_max_height, mc_buffer_inch,
     mc_weight_limit_kg, mc_empty_weight_kg, product_weight_kg,
