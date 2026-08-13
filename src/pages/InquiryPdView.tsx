@@ -28,7 +28,9 @@ type ItemKey =
   | 'feet_buffers'
   | 'handles_latches'
   | 'other_hardware'
-  | 'accessories';
+  | 'accessories'
+  | 'qc_sheet'
+  | 'final_product_photo';
 
 type ItemDef = {
   key: ItemKey;
@@ -38,20 +40,26 @@ type ItemDef = {
   cogsCategory?: string;
   /** Greyed out unless the product's packaging_type is 'ic_mc'. */
   requiresIcMc?: boolean;
+  /** Greyed out when the product is 0% wood. */
+  requiresWood?: boolean;
+  /** Greyed out when the product is 100% wood (no metal). */
+  requiresMetal?: boolean;
 };
 
 const ITEMS: ItemDef[] = [
-  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  group: 'Finishing' },
-  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', group: 'Finishing' },
+  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  group: 'Finishing', requiresWood: true },
+  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', group: 'Finishing', requiresMetal: true },
   { key: 'ic_size',               label: 'IC SIZE',                 group: 'Packaging' },
   { key: 'mc_size',               label: 'MC SIZE',                 group: 'Packaging', requiresIcMc: true },
   { key: 'packaging',             label: 'Packaging',               group: 'Packaging' },
-  { key: 'inserts_instructions',  label: 'Inserts + Instructions',  group: 'Hardware', cogsCategory: 'Inserts + Instructions' },
-  { key: 'handles_knobs',         label: 'Handles + Knobs',         group: 'Hardware', cogsCategory: 'Handles + Knobs' },
-  { key: 'feet_buffers',          label: 'Feet/Buffers',            group: 'Hardware', cogsCategory: 'Feet/Buffers' },
-  { key: 'handles_latches',       label: 'Handles/Latches',         group: 'Hardware', cogsCategory: 'Handles/Latches' },
-  { key: 'other_hardware',        label: 'Other Hardware',          group: 'Hardware', cogsCategory: 'Other Hardware' },
-  { key: 'accessories',           label: 'Accessories',             group: 'Hardware', cogsCategory: 'Accessories' },
+  { key: 'inserts_instructions',  label: 'Inserts/Instructions',    group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
+  { key: 'handles_knobs',         label: 'Handles/Knobs',           group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
+  { key: 'feet_buffers',          label: 'Feet/Buffers',            group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
+  { key: 'handles_latches',       label: 'Hinges/Latches',          group: 'Hardware',  cogsCategory: 'Handles/Latches' },
+  { key: 'other_hardware',        label: 'Other Hardware',          group: 'Hardware',  cogsCategory: 'Other Hardware' },
+  { key: 'accessories',           label: 'Accessories',             group: 'Accessories', cogsCategory: 'Accessories' },
+  { key: 'qc_sheet',              label: 'QC Sheet',                group: 'QC' },
+  { key: 'final_product_photo',   label: 'Final Product Photo',     group: 'QC' },
 ];
 
 // Legacy COGS rows still typed 'Hardware' count towards "Other Hardware".
@@ -64,7 +72,9 @@ type Product = {
   name: string;
   photo_url: string | null;
   packaging_type: string | null;
+  percent_wood: number | null;
 };
+
 
 export default function InquiryPdView() {
   const { id: inquiryId } = useParams<{ id: string }>();
