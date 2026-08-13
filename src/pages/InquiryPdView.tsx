@@ -28,7 +28,9 @@ type ItemKey =
   | 'feet_buffers'
   | 'handles_latches'
   | 'other_hardware'
-  | 'accessories';
+  | 'accessories'
+  | 'qc_sheet'
+  | 'final_product_photo';
 
 type ItemDef = {
   key: ItemKey;
@@ -38,20 +40,26 @@ type ItemDef = {
   cogsCategory?: string;
   /** Greyed out unless the product's packaging_type is 'ic_mc'. */
   requiresIcMc?: boolean;
+  /** Greyed out when the product is 0% wood. */
+  requiresWood?: boolean;
+  /** Greyed out when the product is 100% wood (no metal). */
+  requiresMetal?: boolean;
 };
 
 const ITEMS: ItemDef[] = [
-  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  group: 'Finishing' },
-  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', group: 'Finishing' },
+  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  group: 'Finishing', requiresWood: true },
+  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', group: 'Finishing', requiresMetal: true },
   { key: 'ic_size',               label: 'IC SIZE',                 group: 'Packaging' },
   { key: 'mc_size',               label: 'MC SIZE',                 group: 'Packaging', requiresIcMc: true },
   { key: 'packaging',             label: 'Packaging',               group: 'Packaging' },
-  { key: 'inserts_instructions',  label: 'Inserts + Instructions',  group: 'Hardware', cogsCategory: 'Inserts + Instructions' },
-  { key: 'handles_knobs',         label: 'Handles + Knobs',         group: 'Hardware', cogsCategory: 'Handles + Knobs' },
-  { key: 'feet_buffers',          label: 'Feet/Buffers',            group: 'Hardware', cogsCategory: 'Feet/Buffers' },
-  { key: 'handles_latches',       label: 'Handles/Latches',         group: 'Hardware', cogsCategory: 'Handles/Latches' },
-  { key: 'other_hardware',        label: 'Other Hardware',          group: 'Hardware', cogsCategory: 'Other Hardware' },
-  { key: 'accessories',           label: 'Accessories',             group: 'Hardware', cogsCategory: 'Accessories' },
+  { key: 'inserts_instructions',  label: 'Inserts/Instructions',    group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
+  { key: 'handles_knobs',         label: 'Handles/Knobs',           group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
+  { key: 'feet_buffers',          label: 'Feet/Buffers',            group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
+  { key: 'handles_latches',       label: 'Hinges/Latches',          group: 'Hardware',  cogsCategory: 'Handles/Latches' },
+  { key: 'other_hardware',        label: 'Other Hardware',          group: 'Hardware',  cogsCategory: 'Other Hardware' },
+  { key: 'accessories',           label: 'Accessories',             group: 'Accessories', cogsCategory: 'Accessories' },
+  { key: 'qc_sheet',              label: 'QC Sheet',                group: 'QC' },
+  { key: 'final_product_photo',   label: 'Final Product Photo',     group: 'QC' },
 ];
 
 // Legacy COGS rows still typed 'Hardware' count towards "Other Hardware".
@@ -64,7 +72,9 @@ type Product = {
   name: string;
   photo_url: string | null;
   packaging_type: string | null;
+  percent_wood: number | null;
 };
+
 
 export default function InquiryPdView() {
   const { id: inquiryId } = useParams<{ id: string }>();
@@ -89,7 +99,7 @@ export default function InquiryPdView() {
         supabase.from('customer_rfqs').select('id, rfq_number, title').eq('id', inquiryId).maybeSingle(),
         supabase
           .from('products')
-          .select('id, sku, name, photo_url, packaging_type')
+          .select('id, sku, name, photo_url, packaging_type, percent_wood')
           .eq('customer_rfq_id', inquiryId)
           .is('archived_at', null)
           .order('sort_order', { ascending: true })
@@ -125,12 +135,16 @@ export default function InquiryPdView() {
   }, [inquiryId]);
 
   const isDisabled = (p: Product, item: ItemDef) => {
+    if (item.requiresWood) return p.percent_wood === 0;
+    if (item.requiresMetal) return p.percent_wood === 1;
     if (item.requiresIcMc) return (p.packaging_type || 'ic_mc') !== 'ic_mc';
     if (item.cogsCategory) return !cogsCats[p.id]?.has(item.cogsCategory);
     return false;
   };
 
   const disabledReason = (p: Product, item: ItemDef) => {
+    if (item.requiresWood) return 'No wood on this product (0% wood).';
+    if (item.requiresMetal) return 'No metal on this product (100% wood).';
     if (item.requiresIcMc) return `No master carton — packaging is "${p.packaging_type || 'ic_mc'}".`;
     if (item.cogsCategory) return `No "${item.cogsCategory}" COGS rows on this product.`;
     return '';
@@ -242,14 +256,15 @@ export default function InquiryPdView() {
                       <th
                         key={it.key}
                         className={cn(
-                          'px-2 py-1.5 border-b font-medium whitespace-nowrap text-center',
+                          'px-1 py-1.5 border-b font-medium text-center align-bottom w-[64px] min-w-[64px] max-w-[64px] text-[10px] leading-tight',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        {it.label}
+                        <span className="block break-words hyphens-auto">{it.label}</span>
                       </th>
                     ))}
                   </tr>
+
                 </thead>
                 <tbody>
                   {products.map(p => {
@@ -280,6 +295,12 @@ export default function InquiryPdView() {
                                 disabled={disabled || !!saving[cellKey]}
                                 onCheckedChange={v => toggle(p, it, v === true)}
                                 aria-label={`${it.label} — ${p.sku || p.name}`}
+                                className={cn(
+                                  'border-2',
+                                  disabled
+                                    ? 'opacity-100 border-muted-foreground/70 bg-muted-foreground/25 cursor-not-allowed'
+                                    : 'border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground',
+                                )}
                               />
                             </div>
                           );
@@ -287,9 +308,9 @@ export default function InquiryPdView() {
                             <td
                               key={it.key}
                               className={cn(
-                                'px-2 py-1.5 border-b text-center',
+                                'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px] max-w-[64px]',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
-                                disabled && 'bg-muted/50 opacity-50',
+                                disabled && 'bg-muted',
                               )}
                             >
                               {disabled ? (
@@ -301,6 +322,7 @@ export default function InquiryPdView() {
                             </td>
                           );
                         })}
+
                         <td className="px-2 py-1.5 border-b border-l text-center whitespace-nowrap tabular-nums font-medium">
                           {prog.done}/{prog.total}
                         </td>
