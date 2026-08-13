@@ -172,9 +172,11 @@ export function calcMCPacking(config: MCConfig & {
   const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / layoutH));
 
   let max_by_weight = along_w * along_d * along_h;
-  if (mc_weight_limit_kg > 0 && product_weight_kg > 0) {
-    max_by_weight = Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg);
+  if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
+    const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
+    max_by_weight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
   }
+
 
   const ics_needed = Math.ceil(quantity / products_per_ic);
   const target = Math.min(ics_needed, along_w * along_d * along_h, max_by_weight);
