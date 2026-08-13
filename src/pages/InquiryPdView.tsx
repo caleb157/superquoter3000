@@ -91,6 +91,65 @@ export default function InquiryPdView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
+  // ---------- resizable / responsive columns ----------
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const STORAGE_KEY = 'pd-view-col-widths';
+  const MIN_W = 34;
+  const MAX_W = 160;
+  const [widths, setWidths] = useState<Record<ItemKey, number>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Record<string, number>;
+        return Object.fromEntries(ITEMS.map(i => [i.key, saved[i.key] ?? 64])) as Record<ItemKey, number>;
+      }
+    } catch { /* ignore */ }
+    return Object.fromEntries(ITEMS.map(i => [i.key, 64])) as Record<ItemKey, number>;
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch { /* ignore */ }
+  }, [widths]);
+
+  /** Distribute available horizontal space evenly across checklist columns. */
+  const fitColumns = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 200 /* SKU col */ - 64 /* Done col */ - 2;
+    const w = Math.max(MIN_W, Math.min(MAX_W, Math.floor(available / ITEMS.length)));
+    setWidths(Object.fromEntries(ITEMS.map(i => [i.key, w])) as Record<ItemKey, number>);
+  }, []);
+
+  const didAutoFit = useRef(false);
+  useEffect(() => {
+    if (loading || didAutoFit.current || !scrollRef.current) return;
+    didAutoFit.current = true;
+    if (!localStorage.getItem(STORAGE_KEY)) fitColumns();
+  }, [loading, fitColumns]);
+
+  const startResize = (e: React.MouseEvent, key: ItemKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = widths[key];
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(MIN_W, Math.min(MAX_W, startW + (ev.clientX - startX)));
+      setWidths(w => ({ ...w, [key]: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+
+
   useDocumentTitle(inquiry ? `PD View — ${inquiry.title || inquiry.rfq_number}` : 'PD View');
 
   useEffect(() => {
