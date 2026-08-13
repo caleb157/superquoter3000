@@ -35,6 +35,8 @@ type ItemKey =
 type ItemDef = {
   key: ItemKey;
   label: string;
+  /** Pre-split header lines so words never break mid-word. */
+  lines: string[];
   group: string;
   /** COGS category name this item depends on; item is greyed out when the product has no such rows. */
   cogsCategory?: string;
@@ -47,20 +49,21 @@ type ItemDef = {
 };
 
 const ITEMS: ItemDef[] = [
-  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  group: 'Finishing', requiresWood: true },
-  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', group: 'Finishing', requiresMetal: true },
-  { key: 'ic_size',               label: 'IC SIZE',                 group: 'Packaging' },
-  { key: 'mc_size',               label: 'MC SIZE',                 group: 'Packaging', requiresIcMc: true },
-  { key: 'packaging',             label: 'Packaging',               group: 'Packaging' },
-  { key: 'inserts_instructions',  label: 'Inserts/Instructions',    group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
-  { key: 'handles_knobs',         label: 'Handles/Knobs',           group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
-  { key: 'feet_buffers',          label: 'Feet/Buffers',            group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
-  { key: 'handles_latches',       label: 'Hinges/Latches',          group: 'Hardware',  cogsCategory: 'Handles/Latches' },
-  { key: 'other_hardware',        label: 'Other Hardware',          group: 'Hardware',  cogsCategory: 'Other Hardware' },
-  { key: 'accessories',           label: 'Accessories',             group: 'Accessories', cogsCategory: 'Accessories' },
-  { key: 'qc_sheet',              label: 'QC Sheet',                group: 'QC' },
-  { key: 'final_product_photo',   label: 'Final Product Photo',     group: 'QC' },
+  { key: 'finishing_panel_wood',  label: 'Finishing Panel — Wood',  lines: ['Finishing', 'Panel', 'Wood'],   group: 'Finishing', requiresWood: true },
+  { key: 'finishing_panel_metal', label: 'Finishing Panel — Metal', lines: ['Finishing', 'Panel', 'Metal'],  group: 'Finishing', requiresMetal: true },
+  { key: 'ic_size',               label: 'IC SIZE',                 lines: ['IC', 'Size'],                   group: 'Packaging' },
+  { key: 'mc_size',               label: 'MC SIZE',                 lines: ['MC', 'Size'],                   group: 'Packaging', requiresIcMc: true },
+  { key: 'packaging',             label: 'Packaging',               lines: ['Packaging'],                    group: 'Packaging' },
+  { key: 'inserts_instructions',  label: 'Inserts/Instructions',    lines: ['Inserts', '&', 'Instructions'], group: 'Packaging', cogsCategory: 'Inserts + Instructions' },
+  { key: 'handles_knobs',         label: 'Handles/Knobs',           lines: ['Handles', '&', 'Knobs'],        group: 'Hardware',  cogsCategory: 'Handles + Knobs' },
+  { key: 'feet_buffers',          label: 'Feet/Buffers',            lines: ['Feet', '&', 'Buffers'],         group: 'Hardware',  cogsCategory: 'Feet/Buffers' },
+  { key: 'handles_latches',       label: 'Hinges/Latches',          lines: ['Hinges', '&', 'Latches'],       group: 'Hardware',  cogsCategory: 'Handles/Latches' },
+  { key: 'other_hardware',        label: 'Other Hardware',          lines: ['Other', 'Hardware'],            group: 'Hardware',  cogsCategory: 'Other Hardware' },
+  { key: 'accessories',           label: 'Accessories',             lines: ['Accessories'],                  group: 'Accessories', cogsCategory: 'Accessories' },
+  { key: 'qc_sheet',              label: 'QC Sheet',                lines: ['QC', 'Sheet'],                  group: 'QC' },
+  { key: 'final_product_photo',   label: 'Final Product Photo',     lines: ['Final', 'Product', 'Photo'],    group: 'QC' },
 ];
+
 
 // Legacy COGS rows still typed 'Hardware' count towards "Other Hardware".
 const LEGACY_CATEGORY_ALIAS: Record<string, string> = { Hardware: 'Other Hardware' };
