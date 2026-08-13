@@ -1,9 +1,10 @@
 // Inquiry PD View — per-product product-development checklist matrix.
 // Rows = non-archived products in the inquiry, columns = fixed PD items.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Maximize2 } from 'lucide-react';
+
 
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,65 @@ export default function InquiryPdView() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  // ---------- resizable / responsive columns ----------
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const STORAGE_KEY = 'pd-view-col-widths';
+  const MIN_W = 34;
+  const MAX_W = 160;
+  const [widths, setWidths] = useState<Record<ItemKey, number>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Record<string, number>;
+        return Object.fromEntries(ITEMS.map(i => [i.key, saved[i.key] ?? 64])) as Record<ItemKey, number>;
+      }
+    } catch { /* ignore */ }
+    return Object.fromEntries(ITEMS.map(i => [i.key, 64])) as Record<ItemKey, number>;
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch { /* ignore */ }
+  }, [widths]);
+
+  /** Distribute available horizontal space evenly across checklist columns. */
+  const fitColumns = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const available = el.clientWidth - 200 /* SKU col */ - 64 /* Done col */ - 2;
+    const w = Math.max(MIN_W, Math.min(MAX_W, Math.floor(available / ITEMS.length)));
+    setWidths(Object.fromEntries(ITEMS.map(i => [i.key, w])) as Record<ItemKey, number>);
+  }, []);
+
+  const didAutoFit = useRef(false);
+  useEffect(() => {
+    if (loading || didAutoFit.current || !scrollRef.current) return;
+    didAutoFit.current = true;
+    if (!localStorage.getItem(STORAGE_KEY)) fitColumns();
+  }, [loading, fitColumns]);
+
+  const startResize = (e: React.MouseEvent, key: ItemKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = widths[key];
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(MIN_W, Math.min(MAX_W, startW + (ev.clientX - startX)));
+      setWidths(w => ({ ...w, [key]: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+
 
   useDocumentTitle(inquiry ? `PD View — ${inquiry.title || inquiry.rfq_number}` : 'PD View');
 
@@ -231,20 +291,29 @@ export default function InquiryPdView() {
                 Product development checklist for every active SKU. Greyed-out cells don't apply to that product.
               </p>
             </div>
-            <div className="rounded-md border px-3 py-1.5 text-sm bg-muted/40">
-              <span className="font-semibold tabular-nums">{overall.done}/{overall.total}</span>
-              <span className="text-muted-foreground text-xs ml-1.5">items done</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={fitColumns}>
+                <Maximize2 className="h-3.5 w-3.5" /> Fit to screen
+              </Button>
+              <div className="rounded-md border px-3 py-1.5 text-sm bg-muted/40">
+                <span className="font-semibold tabular-nums">{overall.done}/{overall.total}</span>
+                <span className="text-muted-foreground text-xs ml-1.5">items done</span>
+              </div>
             </div>
+
           </div>
 
           {products.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">No active products in this inquiry.</div>
           ) : (
-            <div className="border rounded-md overflow-auto max-h-[calc(100vh-200px)]">
+            <div
+              ref={scrollRef}
+              className="border rounded-md overflow-auto max-h-[calc(100vh-200px)] scroll-smooth snap-x snap-proximity"
+            >
               <table className="text-xs border-collapse">
                 <thead className="sticky top-0 z-20 bg-muted">
                   <tr>
-                    <th rowSpan={2} className="sticky left-0 z-30 bg-muted text-left px-2 py-1.5 border-r border-b font-medium min-w-[220px]">SKU / Name</th>
+                    <th rowSpan={2} className="sticky left-0 z-30 bg-muted text-left px-2 py-1.5 border-r border-b font-medium w-[200px] min-w-[200px]">SKU / Name</th>
                     {groups.map(g => (
                       <th key={g.name} colSpan={g.items.length} className="text-center px-1 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
                         {g.name}
@@ -252,21 +321,27 @@ export default function InquiryPdView() {
                     ))}
                     <th rowSpan={2} className="text-center px-2 py-1.5 border-b border-l font-medium whitespace-nowrap">Done</th>
                   </tr>
-                  <tr className="h-[150px]">
+                  <tr>
                     {ITEMS.map((it, i) => (
                       <th
                         key={it.key}
                         title={it.label}
+                        style={{ width: widths[it.key], minWidth: widths[it.key], maxWidth: widths[it.key] }}
                         className={cn(
-                          'relative px-0 py-0 border-b font-medium text-left w-[44px] min-w-[44px] max-w-[44px] overflow-visible',
+                          'group relative align-bottom px-1 py-1.5 border-b font-medium text-center snap-start',
                           i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                         )}
                       >
-                        <span
-                          className="absolute left-3 bottom-3 block origin-bottom-left -rotate-45 whitespace-nowrap text-[10px] leading-none"
-                        >
+                        <span className="block text-[10px] leading-tight break-words hyphens-none">
                           {it.label}
                         </span>
+                        <span
+                          role="separator"
+                          aria-label={`Resize ${it.label} column`}
+                          onMouseDown={e => startResize(e, it.key)}
+                          onDoubleClick={() => fitColumns()}
+                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-primary/40 group-hover:bg-border"
+                        />
                       </th>
                     ))}
                   </tr>
@@ -277,7 +352,7 @@ export default function InquiryPdView() {
                     const prog = rowProgress(p);
                     return (
                       <tr key={p.id} className="hover:bg-accent/40">
-                        <td className="sticky left-0 z-10 bg-background px-2 py-1.5 border-r border-b min-w-[220px]">
+                        <td className="sticky left-0 z-10 bg-background px-2 py-1.5 border-r border-b w-[200px] min-w-[200px]">
                           <div className="flex items-center gap-2">
                             {p.photo_url && (
                               <img src={p.photo_url} alt={p.name} loading="lazy" className="h-8 w-8 rounded object-cover border shrink-0" />
@@ -286,8 +361,8 @@ export default function InquiryPdView() {
                               className="text-left min-w-0"
                               onClick={() => navigate(`/product/${p.id}`)}
                             >
-                              <div className="font-medium truncate max-w-[220px]">{p.sku || '—'}</div>
-                              <div className="text-muted-foreground text-[11px] truncate max-w-[220px]">{p.name}</div>
+                              <div className="font-medium truncate max-w-[180px]">{p.sku || '—'}</div>
+                              <div className="text-muted-foreground text-[11px] truncate max-w-[180px]">{p.name}</div>
                             </button>
                           </div>
                         </td>
@@ -313,8 +388,9 @@ export default function InquiryPdView() {
                           return (
                             <td
                               key={it.key}
+                              style={{ width: widths[it.key], minWidth: widths[it.key], maxWidth: widths[it.key] }}
                               className={cn(
-                                'px-1 py-1.5 border-b text-center w-[44px] min-w-[44px] max-w-[44px]',
+                                'px-1 py-1.5 border-b text-center snap-start',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                 disabled && 'bg-muted',
                               )}
@@ -339,6 +415,7 @@ export default function InquiryPdView() {
               </table>
             </div>
           )}
+
         </div>
       </TooltipProvider>
     </AppLayout>
