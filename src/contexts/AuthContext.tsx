@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setTimeout(() => { fetchRoles(session.user.id); fetchProfile(session.user.id); }, 0);
+          await Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]);
         } else {
           setRoles([]);
           setAssigneeCode(null);
