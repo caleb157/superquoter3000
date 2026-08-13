@@ -35,8 +35,6 @@ type ItemKey =
 type ItemDef = {
   key: ItemKey;
   label: string;
-  /** Pre-split header lines so words never break mid-word. */
-  lines: string[];
   group: string;
   /** COGS category name this item depends on; item is greyed out when the product has no such rows. */
   cogsCategory?: string;
