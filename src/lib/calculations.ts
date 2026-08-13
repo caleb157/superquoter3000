@@ -144,11 +144,13 @@ export function calcMCPacking(config: MCConfig & {
   mc_ics_along_d: number;
   mc_ics_along_h: number;
   products_per_mc: number;
+  packed_ics: number;
   mc_width: number;
   mc_depth: number;
   mc_height: number;
   mc_volume_cbm: number;
 } {
+
   if (!config.include_mc) {
     return {
       mc_ics_along_w: 0, mc_ics_along_d: 0, mc_ics_along_h: 0,
