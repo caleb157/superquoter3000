@@ -77,9 +77,11 @@ export default function MasterCartonSizer() {
     });
   }, [f]);
 
-  const icsPerMc = result.mc_ics_along_w * result.mc_ics_along_d * result.mc_ics_along_h;
-  const grossWeight = f.mc_empty_weight_kg + icsPerMc * Math.max(1, f.products_per_ic || 1) * (f.product_weight_kg || 0);
+  const icsPerMc = result.packed_ics;
+  const piecesPerMc = result.products_per_mc;
+  const grossWeight = f.mc_empty_weight_kg + piecesPerMc * (f.product_weight_kg || 0);
   const valid = f.ic_w > 0 && f.ic_d > 0 && f.ic_h > 0;
+
 
   const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : '—');
 
