@@ -316,7 +316,7 @@ export default function InquiryPdView() {
                             <td
                               key={it.key}
                               className={cn(
-                                'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px] max-w-[64px]',
+                                'px-1 py-1.5 border-b text-center w-[44px] min-w-[44px] max-w-[44px]',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                 disabled && 'bg-muted',
                               )}
