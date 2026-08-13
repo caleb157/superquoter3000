@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search, BarChart3,
+  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search, BarChart3, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -55,6 +55,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
     { to: '/vendor-rfqs', label: 'RFQs', icon: FileText },
+    { to: '/tools', label: 'Tools', icon: Wrench },
   ].filter(i => visibleItems.find(v => v.to === i.to));
 
   const showSettings = !!visibleItems.find(v => v.to === '/settings');
