@@ -1,9 +1,10 @@
 // Inquiry PD View — per-product product-development checklist matrix.
 // Rows = non-archived products in the inquiry, columns = fixed PD items.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Maximize2 } from 'lucide-react';
+
 
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
