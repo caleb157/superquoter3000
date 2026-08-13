@@ -31,6 +31,8 @@ import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
 import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
+import Tools from "./pages/Tools";
+import MasterCartonSizer from "./pages/MasterCartonSizer";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
@@ -132,6 +134,13 @@ const App = () => (
               <Route path="/vendors" element={
                 <ProtectedRoute requireAdminOrTeam><Vendors /></ProtectedRoute>
               } />
+              <Route path="/tools" element={
+                <ProtectedRoute requireAdminOrTeam><Tools /></ProtectedRoute>
+              } />
+              <Route path="/tools/master-carton" element={
+                <ProtectedRoute requireAdminOrTeam><MasterCartonSizer /></ProtectedRoute>
+              } />
+
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
               } />
