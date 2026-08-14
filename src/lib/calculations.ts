@@ -183,34 +183,21 @@ export function calcMCPacking(config: MCConfig & {
   const ics_needed = Math.ceil(quantity / products_per_ic);
   const target = Math.min(ics_needed, along_w * along_d * along_h, max_by_weight);
 
-  // Complete row/layer rule
-  let actual_w = Math.min(target, along_w);
-  let actual_d = target < along_w ? 1 : Math.min(along_d, Math.ceil(target / along_w));
-  let actual_h = target < along_w * along_d ? 1 : Math.min(along_h, Math.ceil(target / (along_w * along_d)));
-
-  // The expanded layout is the smallest complete box that can hold the target.
-  // The actual packed count must never exceed the target (weight limit / ICs needed),
-  // even though the box is sized for complete rows/layers.
-  const expanded_ics = actual_w * actual_d * actual_h;
-  let packed_ics = Math.min(expanded_ics, target);
-  if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
-    const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
-    const maxIcsByWeight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
-    packed_ics = Math.min(packed_ics, maxIcsByWeight);
-  }
-
-  // Shrink the layout to the smallest complete arrangement that holds packed_ics,
-  // so the reported layout / box size never implies more pieces than actually packed.
-  if (packed_ics > 0) {
+  // Strict complete rows/layers rule: the packed arrangement must be a full
+  // w x d x h block whose total never exceeds the target (ICs needed / weight limit).
+  let actual_w = 1, actual_d = 1, actual_h = 1;
+  let packed_ics = 0;
+  if (target > 0) {
     let best: { w: number; d: number; h: number; cells: number; vol: number } | null = null;
     for (let w = 1; w <= along_w; w++) {
       for (let d = 1; d <= along_d; d++) {
-        const h = Math.ceil(packed_ics / (w * d));
-        if (h > along_h) continue;
-        const cells = w * d * h;
-        const vol = (layoutW * w) * (layoutD * d) * (layoutH * h);
-        if (!best || cells < best.cells || (cells === best.cells && vol < best.vol)) {
-          best = { w, d, h, cells, vol };
+        for (let h = 1; h <= along_h; h++) {
+          const cells = w * d * h;
+          if (cells > target) break;
+          const vol = (layoutW * w) * (layoutD * d) * (layoutH * h);
+          if (!best || cells > best.cells || (cells === best.cells && vol < best.vol)) {
+            best = { w, d, h, cells, vol };
+          }
         }
       }
     }
@@ -218,8 +205,10 @@ export function calcMCPacking(config: MCConfig & {
       actual_w = best.w;
       actual_d = best.d;
       actual_h = best.h;
+      packed_ics = best.cells;
     }
   }
+
 
   const products_per_mc = packed_ics * products_per_ic;
 
