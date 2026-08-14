@@ -184,9 +184,9 @@ export function calcMCPacking(config: MCConfig & {
   const target = Math.min(ics_needed, along_w * along_d * along_h, max_by_weight);
 
   // Complete row/layer rule
-  const actual_w = Math.min(target, along_w);
-  const actual_d = target < along_w ? 1 : Math.min(along_d, Math.ceil(target / along_w));
-  const actual_h = target < along_w * along_d ? 1 : Math.min(along_h, Math.ceil(target / (along_w * along_d)));
+  let actual_w = Math.min(target, along_w);
+  let actual_d = target < along_w ? 1 : Math.min(along_d, Math.ceil(target / along_w));
+  let actual_h = target < along_w * along_d ? 1 : Math.min(along_h, Math.ceil(target / (along_w * along_d)));
 
   // The expanded layout is the smallest complete box that can hold the target.
   // The actual packed count must never exceed the target (weight limit / ICs needed),
@@ -199,6 +199,27 @@ export function calcMCPacking(config: MCConfig & {
     packed_ics = Math.min(packed_ics, maxIcsByWeight);
   }
 
+  // Shrink the layout to the smallest complete arrangement that holds packed_ics,
+  // so the reported layout / box size never implies more pieces than actually packed.
+  if (packed_ics > 0) {
+    let best: { w: number; d: number; h: number; cells: number; vol: number } | null = null;
+    for (let w = 1; w <= along_w; w++) {
+      for (let d = 1; d <= along_d; d++) {
+        const h = Math.ceil(packed_ics / (w * d));
+        if (h > along_h) continue;
+        const cells = w * d * h;
+        const vol = (layoutW * w) * (layoutD * d) * (layoutH * h);
+        if (!best || cells < best.cells || (cells === best.cells && vol < best.vol)) {
+          best = { w, d, h, cells, vol };
+        }
+      }
+    }
+    if (best) {
+      actual_w = best.w;
+      actual_d = best.d;
+      actual_h = best.h;
+    }
+  }
 
   const products_per_mc = packed_ics * products_per_ic;
 
@@ -207,6 +228,7 @@ export function calcMCPacking(config: MCConfig & {
   const mc_depth = layoutD * actual_d + wd_buffer;
   const mc_height = layoutH * actual_h + h_buffer;
   const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
+
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
