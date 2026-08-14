@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Box, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Box, Lock, RotateCcw, Scale } from 'lucide-react';
 import { calcMCPacking } from '@/lib/calculations';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { cn } from '@/lib/utils';
 
 const DEFAULTS = {
   ic_w: 12,
@@ -185,15 +186,88 @@ export default function MasterCartonSizer() {
                     <div className="tabular-nums font-medium">{grossWeight.toFixed(2)} kg</div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Same math as the costing sheet: complete rows/layers only, buffers added once per axis,
-                  and the weight limit caps the count when it bites before the dimensional fit does.
-                </p>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Constraint ceilings
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <ConstraintCeiling
+                      label="Dimensional fit"
+                      value={result.constraint_diagnostics.dimensional_max_ics}
+                      active={result.constraint_diagnostics.active === 'dimensional'}
+                      icon={<Box className="h-3.5 w-3.5" />}
+                    />
+                    <ConstraintCeiling
+                      label="Weight limit"
+                      value={result.constraint_diagnostics.weight_max_ics}
+                      active={result.constraint_diagnostics.active === 'weight'}
+                      icon={<Scale className="h-3.5 w-3.5" />}
+                      cap={result.constraint_diagnostics.cap_by_weight}
+                    />
+                    <ConstraintCeiling
+                      label="Max ICs"
+                      value={result.constraint_diagnostics.quantity_max_ics}
+                      active={result.constraint_diagnostics.active === 'quantity'}
+                      icon={<Lock className="h-3.5 w-3.5" />}
+                      cap={result.constraint_diagnostics.cap_by_quantity}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Same math as the costing sheet: complete rows/layers only, buffers added once per axis,
+                    and the tightest ceiling sets the target. The result may be lower than the active ceiling
+                    because it must form a complete block.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
     </AppLayout>
+  );
+}
+
+function ConstraintCeiling({
+  label,
+  value,
+  active,
+  icon,
+  cap,
+}: {
+  label: string;
+  value: number;
+  active: boolean;
+  icon: React.ReactNode;
+  cap?: number;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-3 py-2 text-sm transition-colors',
+        active
+          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+          : 'border-border bg-muted/40 text-muted-foreground'
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <span className="font-medium">{label}</span>
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-lg font-semibold tabular-nums">{value}</span>
+        <span className="text-xs">ICs</span>
+      </div>
+      {active && cap !== undefined && cap > 0 && (
+        <div className="mt-1 text-xs font-medium">
+          Active — capped by {cap} ICs
+        </div>
+      )}
+      {active && (cap === undefined || cap === 0) && (
+        <div className="mt-1 text-xs font-medium">Active ceiling</div>
+      )}
+    </div>
   );
 }
