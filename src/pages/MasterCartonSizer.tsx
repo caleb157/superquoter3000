@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Box, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Box, Lock, RotateCcw, Scale } from 'lucide-react';
 import { calcMCPacking } from '@/lib/calculations';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { cn } from '@/lib/utils';
 
 const DEFAULTS = {
   ic_w: 12,
