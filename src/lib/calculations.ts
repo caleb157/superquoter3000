@@ -149,12 +149,24 @@ export function calcMCPacking(config: MCConfig & {
   mc_depth: number;
   mc_height: number;
   mc_volume_cbm: number;
+  constraint_diagnostics: {
+    dimensional_max_ics: number;
+    weight_max_ics: number;
+    quantity_max_ics: number;
+    active: 'dimensional' | 'weight' | 'quantity';
+    cap_by_weight: number;
+    cap_by_quantity: number;
+  };
 } {
 
   if (!config.include_mc) {
     return {
       mc_ics_along_w: 0, mc_ics_along_d: 0, mc_ics_along_h: 0,
       products_per_mc: 0, packed_ics: 0, mc_width: 0, mc_depth: 0, mc_height: 0, mc_volume_cbm: 0,
+      constraint_diagnostics: {
+        dimensional_max_ics: 0, weight_max_ics: 0, quantity_max_ics: 0,
+        active: 'dimensional', cap_by_weight: 0, cap_by_quantity: 0,
+      },
     };
   }
 
@@ -174,14 +186,17 @@ export function calcMCPacking(config: MCConfig & {
   const along_d = Math.max(1, Math.floor((mc_max_depth - wd_buffer) / layoutD));
   const along_h = Math.max(1, Math.floor((mc_max_height - h_buffer) / layoutH));
 
-  let max_by_weight = along_w * along_d * along_h;
+  const dimensional_max_ics = along_w * along_d * along_h;
+
+  let weight_max_ics = dimensional_max_ics;
   if (mc_weight_limit_kg > 0 && product_weight_kg > 0 && products_per_ic > 0) {
     const maxPiecesByWeight = Math.max(0, Math.floor((mc_weight_limit_kg - mc_empty_weight_kg) / product_weight_kg));
-    max_by_weight = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
+    weight_max_ics = Math.max(0, Math.floor(maxPiecesByWeight / products_per_ic));
   }
 
   const ics_needed = Math.ceil(quantity / products_per_ic);
-  const target = Math.min(ics_needed, along_w * along_d * along_h, max_by_weight);
+  const quantity_max_ics = Math.max(0, ics_needed);
+  const target = Math.min(quantity_max_ics, dimensional_max_ics, weight_max_ics);
 
   // Strict complete rows/layers rule: the packed arrangement must be a full
   // w x d x h block whose total never exceeds the target (ICs needed / weight limit).
@@ -218,10 +233,28 @@ export function calcMCPacking(config: MCConfig & {
   const mc_height = layoutH * actual_h + h_buffer;
   const mc_volume_cbm = (mc_width * mc_depth * mc_height) / 61020;
 
+  // Determine active constraint. Ties resolve toward the more physical limit:
+  // weight beats quantity, quantity beats dimensional.
+  let active: 'dimensional' | 'weight' | 'quantity' = 'dimensional';
+  const minCeiling = Math.min(dimensional_max_ics, weight_max_ics, quantity_max_ics);
+  if (minCeiling === weight_max_ics) active = 'weight';
+  else if (minCeiling === quantity_max_ics) active = 'quantity';
+
+  // How much each constraint caps the result relative to the dimensional fit.
+  const cap_by_weight = Math.max(0, dimensional_max_ics - weight_max_ics);
+  const cap_by_quantity = Math.max(0, dimensional_max_ics - quantity_max_ics);
 
   return {
     mc_ics_along_w: actual_w, mc_ics_along_d: actual_d, mc_ics_along_h: actual_h,
     products_per_mc, packed_ics, mc_width, mc_depth, mc_height, mc_volume_cbm,
+    constraint_diagnostics: {
+      dimensional_max_ics,
+      weight_max_ics,
+      quantity_max_ics,
+      active,
+      cap_by_weight,
+      cap_by_quantity,
+    },
   };
 
 }
