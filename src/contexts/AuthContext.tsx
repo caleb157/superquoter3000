@@ -53,12 +53,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let cancelled = false;
+
+    // IMPORTANT: never await Supabase calls inside onAuthStateChange — the auth
+    // client holds a lock during the callback and awaiting a request there can
+    // deadlock the app (infinite loading spinner). Defer them instead.
+    const loadUserData = (userId: string) => {
+      setTimeout(() => {
+        if (cancelled) return;
+        void fetchRoles(userId);
+        void fetchProfile(userId);
+      }, 0);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]);
+          loadUserData(session.user.id);
         } else {
           setRoles([]);
           setAssigneeCode(null);
@@ -67,20 +80,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await Promise.all([
-          fetchRoles(session.user.id),
-          fetchProfile(session.user.id),
-        ]);
+        loadUserData(session.user.id);
       }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
-    return () => subscription.unsubscribe();
+    // Safety net: never leave the app stuck on the loading spinner.
+    const failsafe = setTimeout(() => setLoading(false), 8000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(failsafe);
+      subscription.unsubscribe();
+    };
   }, []);
+
 
   const signOut = async () => {
     await supabase.auth.signOut();
