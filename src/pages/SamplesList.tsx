@@ -112,7 +112,7 @@ export default function SamplesList() {
   useEffect(() => { fetchAll(); }, []);
 
   const updateSample = async (id: string, patch: Record<string, any>, successMsg: string) => {
-    const { error } = await supabase.from('samples').update(patch).eq('id', id);
+    const { error } = await (supabase as any).from('samples').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success(successMsg);
     fetchAll();
