@@ -111,6 +111,58 @@ export default function SamplesList() {
 
   useEffect(() => { fetchAll(); }, []);
 
+  const updateSample = async (id: string, patch: Record<string, any>, successMsg: string) => {
+    const { error } = await supabase.from('samples').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(successMsg);
+    fetchAll();
+  };
+
+  const handleNextStage = (s: Sample) => {
+    const next = nextStage(s.status);
+    if (!next) return;
+    const patch: Record<string, any> = { status: next };
+    if (next === 'completed' && !s.completed_at) patch.completed_at = new Date().toISOString();
+    updateSample(s.id, patch, `Moved to ${next}`);
+  };
+
+  const handleComplete = (s: Sample) =>
+    updateSample(s.id, { status: 'completed', completed_at: s.completed_at ?? new Date().toISOString() }, 'Sample marked complete');
+
+  const handleDelete = async (s: Sample) => {
+    if (!confirm('Delete this sample?')) return;
+    const { error } = await supabase.from('samples').delete().eq('id', s.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Sample deleted');
+    fetchAll();
+  };
+
+  const renderActions = (s: Sample) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()} aria-label="Sample actions">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem disabled={!nextStage(s.status)} onSelect={() => handleNextStage(s)}>
+          <ChevronRight className="h-3.5 w-3.5 mr-2" />
+          Move to next stage{nextStage(s.status) ? ` (${nextStage(s.status)})` : ''}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={s.status === 'completed'} onSelect={() => handleComplete(s)}>
+          <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+          Mark as complete
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => handleDelete(s)}>
+          <Trash2 className="h-3.5 w-3.5 mr-2" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+
   const inquiryById = useMemo(() => Object.fromEntries(inquiries.map(i => [i.id, i])), [inquiries]);
   const customerById = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
   const productById = useMemo(() => Object.fromEntries(products.map(p => [p.id, p])), [products]);
