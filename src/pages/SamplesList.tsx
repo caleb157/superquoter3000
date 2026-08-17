@@ -62,6 +62,14 @@ function daysToSample(s: Sample): number | null {
   return differenceInDays(parseISO(s.completed_at), parseISO(s.requested_date));
 }
 
+const STAGE_ORDER = ['pending', 'completed'] as const;
+function nextStage(status: string): string | null {
+  const i = STAGE_ORDER.indexOf(status as typeof STAGE_ORDER[number]);
+  if (i === -1 || i === STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[i + 1];
+}
+
+
 export default function SamplesList() {
   useDocumentTitle('Samples');
   const navigate = useNavigate();
