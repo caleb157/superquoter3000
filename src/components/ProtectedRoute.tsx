@@ -8,9 +8,9 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requireAdminOrTeam, requireAdmin }: ProtectedRouteProps) => {
-  const { user, loading, isAdmin, isAdminOrTeam } = useAuth();
+  const { user, loading, isAdmin, isAdminOrTeam, rolesLoaded } = useAuth();
 
-  if (loading) {
+  if (loading || (user && !rolesLoaded)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -21,6 +21,7 @@ export const ProtectedRoute = ({ children, requireAdminOrTeam, requireAdmin }: P
   if (!user) return <Navigate to="/login" replace />;
   if (requireAdmin && !isAdmin) return <Navigate to="/" replace />;
   if (requireAdminOrTeam && !isAdminOrTeam) return <Navigate to="/" replace />;
+
 
   return <>{children}</>;
 };

@@ -13,6 +13,7 @@ interface AuthContextType {
   isTeam: boolean;
   isAdminOrTeam: boolean;
   isGuest: boolean;
+  rolesLoaded: boolean;
   assigneeCode: string | null;
   signOut: () => Promise<void>;
 }
@@ -20,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null, session: null, roles: [], loading: true,
   isAdmin: false, isTeam: false, isAdminOrTeam: false, isGuest: false,
+  rolesLoaded: false,
   assigneeCode: null,
   signOut: async () => {},
 });
@@ -32,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [assigneeCode, setAssigneeCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   const fetchRoles = async (userId: string) => {
     const { data } = await supabase
@@ -41,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data) {
       setRoles(data.map((r: any) => r.role as AppRole));
     }
+    setRolesLoaded(true);
   };
 
   const fetchProfile = async (userId: string) => {
@@ -53,39 +57,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let cancelled = false;
+
+    // IMPORTANT: never await Supabase calls inside onAuthStateChange — the auth
+    // client holds a lock during the callback and awaiting a request there can
+    // deadlock the app (infinite loading spinner). Defer them instead.
+    const loadUserData = (userId: string) => {
+      setTimeout(() => {
+        if (cancelled) return;
+        void fetchRoles(userId);
+        void fetchProfile(userId);
+      }, 0);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]);
+          loadUserData(session.user.id);
         } else {
           setRoles([]);
           setAssigneeCode(null);
+          setRolesLoaded(true);
         }
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await Promise.all([
-          fetchRoles(session.user.id),
-          fetchProfile(session.user.id),
-        ]);
+        loadUserData(session.user.id);
+      } else {
+        setRolesLoaded(true);
       }
       setLoading(false);
-    });
+    }).catch(() => { setLoading(false); setRolesLoaded(true); });
 
-    return () => subscription.unsubscribe();
+
+    // Safety net: never leave the app stuck on the loading spinner.
+    const failsafe = setTimeout(() => { setLoading(false); setRolesLoaded(true); }, 8000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(failsafe);
+      subscription.unsubscribe();
+    };
   }, []);
+
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoles([]);
     setAssigneeCode(null);
+    setRolesLoaded(false);
   };
 
   const isAdmin = roles.includes('admin');
@@ -96,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       user, session, roles, loading,
-      isAdmin, isTeam, isAdminOrTeam, isGuest,
+      isAdmin, isTeam, isAdminOrTeam, isGuest, rolesLoaded,
       assigneeCode,
       signOut,
     }}>
