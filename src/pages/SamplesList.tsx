@@ -385,6 +385,9 @@ export default function SamplesList() {
                         <TableCell className="text-xs text-right tabular-nums">
                           {days !== null ? `${days}d` : (s.status === 'cancelled' ? '' : '—')}
                         </TableCell>
+                        <TableCell className="w-10 text-right" onClick={e => e.stopPropagation()}>
+                          {renderActions(s)}
+                        </TableCell>
                       </TableRow>
                     );
                     return s.product_id
