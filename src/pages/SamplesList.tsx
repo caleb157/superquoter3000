@@ -10,7 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Package2, Search, Clock, Pencil, X } from 'lucide-react';
+import { Plus, Package2, Search, Clock, Pencil, X, MoreHorizontal, Trash2, ChevronRight, CheckCircle2 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkEditSamplesDialog } from '@/components/BulkEditSamplesDialog';
 import { differenceInDays, parseISO, format } from 'date-fns';
