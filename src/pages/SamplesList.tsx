@@ -431,6 +431,7 @@ export default function SamplesList() {
                           </div>
                         </div>
                         <Badge variant="secondary" className={cn('text-[10px] shrink-0', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                        <div onClick={e => e.stopPropagation()} className="shrink-0">{renderActions(s)}</div>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
                         <span>
