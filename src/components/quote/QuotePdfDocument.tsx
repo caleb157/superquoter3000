@@ -104,6 +104,21 @@ const C = {
   amberLabel: '#b45309',
 };
 
+const CONTAINERS: { key: string; name: string; cbm: number }[] = [
+  { key: '20ft', name: '20ft Standard', cbm: 28 },
+  { key: '40ft', name: '40ft Standard', cbm: 56 },
+  { key: '40fthc', name: '40ft High Cube', cbm: 68 },
+];
+
+function containerFill(totalCbm: number, containerCbm: number) {
+  if (totalCbm <= 0) return { containerCount: 0, fullContainers: 0, lastContainerPct: 0 };
+  const containerCount = Math.ceil(totalCbm / containerCbm);
+  const fullContainers = Math.floor(totalCbm / containerCbm);
+  const remainder = Math.max(0, totalCbm - fullContainers * containerCbm);
+  const lastContainerPct = remainder > 0 ? (remainder / containerCbm) * 100 : 100;
+  return { containerCount, fullContainers, lastContainerPct };
+}
+
 const s = StyleSheet.create({
   page: {
     paddingTop: 28,
@@ -483,6 +498,52 @@ const QuotePdfDocument = ({
             </View>
           ) : null}
         </View>
+
+        {/* Volume & container planning */}
+        {totals.totalCbm > 0 ? (
+          <View style={s.section} wrap={false}>
+            <Text style={s.sectionLabel}>Volume & Container Planning</Text>
+            <View style={s.sumRow}>
+              <Text style={s.sumLabel}>Total shipment volume</Text>
+              <Text style={s.sumValue}>{totals.totalCbm.toFixed(2)} CBM</Text>
+            </View>
+            {totals.freight?.total_chargeable_kg ? (
+              <View style={s.sumRow}>
+                <Text style={s.sumLabel}>Chargeable weight</Text>
+                <Text style={s.sumValue}>{Math.round(totals.freight.total_chargeable_kg).toLocaleString()} kg</Text>
+              </View>
+            ) : null}
+            <View style={s.divider} />
+            <View style={[s.productsHeader, { paddingHorizontal: 0 }]}>
+              <Text style={{ flex: 1 }}>Container</Text>
+              <Text style={{ width: 50, textAlign: 'right' }}>Capacity</Text>
+              <Text style={{ width: 50, textAlign: 'right' }}>Needed</Text>
+              <Text style={{ width: 90, textAlign: 'right' }}>Utilization</Text>
+            </View>
+            {CONTAINERS.map((c) => {
+              const f = containerFill(totals.totalCbm, c.cbm);
+              const util = f.containerCount === 0
+                ? '—'
+                : f.fullContainers === f.containerCount
+                  ? '100% full'
+                  : f.containerCount === 1
+                    ? `${f.lastContainerPct.toFixed(0)}% of 1`
+                    : `${f.fullContainers} full + ${f.lastContainerPct.toFixed(0)}%`;
+              return (
+                <View key={c.key} style={{ flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5, borderColor: C.border }}>
+                  <Text style={{ flex: 1, fontSize: 9 }}>{c.name}</Text>
+                  <Text style={{ width: 50, fontSize: 9, textAlign: 'right', color: C.muted }}>{c.cbm} CBM</Text>
+                  <Text style={{ width: 50, fontSize: 9, textAlign: 'right' }}>{f.containerCount}</Text>
+                  <Text style={{ width: 90, fontSize: 9, textAlign: 'right', color: C.muted }}>{util}</Text>
+                </View>
+              );
+            })}
+            <Text style={{ fontSize: 7, color: C.light, marginTop: 6 }}>
+              Container counts are estimates based on total CBM and do not account for stacking or loading constraints.
+            </Text>
+          </View>
+        ) : null}
+
 
         {/* Footer */}
         <Text style={s.footer} fixed>
