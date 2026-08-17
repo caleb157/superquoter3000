@@ -104,6 +104,21 @@ const C = {
   amberLabel: '#b45309',
 };
 
+const CONTAINERS: { key: string; name: string; cbm: number }[] = [
+  { key: '20ft', name: '20ft Standard', cbm: 28 },
+  { key: '40ft', name: '40ft Standard', cbm: 56 },
+  { key: '40fthc', name: '40ft High Cube', cbm: 68 },
+];
+
+function containerFill(totalCbm: number, containerCbm: number) {
+  if (totalCbm <= 0) return { containerCount: 0, fullContainers: 0, lastContainerPct: 0 };
+  const containerCount = Math.ceil(totalCbm / containerCbm);
+  const fullContainers = Math.floor(totalCbm / containerCbm);
+  const remainder = Math.max(0, totalCbm - fullContainers * containerCbm);
+  const lastContainerPct = remainder > 0 ? (remainder / containerCbm) * 100 : 100;
+  return { containerCount, fullContainers, lastContainerPct };
+}
+
 const s = StyleSheet.create({
   page: {
     paddingTop: 28,
