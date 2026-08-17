@@ -10,7 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Package2, Search, Clock, Pencil, X } from 'lucide-react';
+import { Plus, Package2, Search, Clock, Pencil, X, MoreHorizontal, Trash2, ChevronRight, CheckCircle2 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BulkEditSamplesDialog } from '@/components/BulkEditSamplesDialog';
 import { differenceInDays, parseISO, format } from 'date-fns';
@@ -58,6 +62,14 @@ function daysToSample(s: Sample): number | null {
   return differenceInDays(parseISO(s.completed_at), parseISO(s.requested_date));
 }
 
+const STAGE_ORDER = ['pending', 'completed'] as const;
+function nextStage(status: string): string | null {
+  const i = STAGE_ORDER.indexOf(status as typeof STAGE_ORDER[number]);
+  if (i === -1 || i === STAGE_ORDER.length - 1) return null;
+  return STAGE_ORDER[i + 1];
+}
+
+
 export default function SamplesList() {
   useDocumentTitle('Samples');
   const navigate = useNavigate();
@@ -98,6 +110,58 @@ export default function SamplesList() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  const updateSample = async (id: string, patch: Record<string, any>, successMsg: string) => {
+    const { error } = await (supabase as any).from('samples').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(successMsg);
+    fetchAll();
+  };
+
+  const handleNextStage = (s: Sample) => {
+    const next = nextStage(s.status);
+    if (!next) return;
+    const patch: Record<string, any> = { status: next };
+    if (next === 'completed' && !s.completed_at) patch.completed_at = new Date().toISOString();
+    updateSample(s.id, patch, `Moved to ${next}`);
+  };
+
+  const handleComplete = (s: Sample) =>
+    updateSample(s.id, { status: 'completed', completed_at: s.completed_at ?? new Date().toISOString() }, 'Sample marked complete');
+
+  const handleDelete = async (s: Sample) => {
+    if (!confirm('Delete this sample?')) return;
+    const { error } = await supabase.from('samples').delete().eq('id', s.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Sample deleted');
+    fetchAll();
+  };
+
+  const renderActions = (s: Sample) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()} aria-label="Sample actions">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem disabled={!nextStage(s.status)} onSelect={() => handleNextStage(s)}>
+          <ChevronRight className="h-3.5 w-3.5 mr-2" />
+          Move to next stage{nextStage(s.status) ? ` (${nextStage(s.status)})` : ''}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={s.status === 'completed'} onSelect={() => handleComplete(s)}>
+          <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+          Mark as complete
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => handleDelete(s)}>
+          <Trash2 className="h-3.5 w-3.5 mr-2" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
 
   const inquiryById = useMemo(() => Object.fromEntries(inquiries.map(i => [i.id, i])), [inquiries]);
   const customerById = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
@@ -282,6 +346,7 @@ export default function SamplesList() {
                   <TableHead className="text-xs">Requested</TableHead>
                   <TableHead className="text-xs">Completed</TableHead>
                   <TableHead className="text-xs text-right">Days</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {visible.map(s => {
@@ -319,6 +384,9 @@ export default function SamplesList() {
                         </TableCell>
                         <TableCell className="text-xs text-right tabular-nums">
                           {days !== null ? `${days}d` : (s.status === 'cancelled' ? '' : '—')}
+                        </TableCell>
+                        <TableCell className="w-10 text-right" onClick={e => e.stopPropagation()}>
+                          {renderActions(s)}
                         </TableCell>
                       </TableRow>
                     );
@@ -363,6 +431,7 @@ export default function SamplesList() {
                           </div>
                         </div>
                         <Badge variant="secondary" className={cn('text-[10px] shrink-0', STATUS_COLOR[s.status])}>{s.status}</Badge>
+                        <div onClick={e => e.stopPropagation()} className="shrink-0">{renderActions(s)}</div>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
                         <span>
