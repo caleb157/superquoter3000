@@ -13,6 +13,7 @@ interface AuthContextType {
   isTeam: boolean;
   isAdminOrTeam: boolean;
   isGuest: boolean;
+  rolesLoaded: boolean;
   assigneeCode: string | null;
   signOut: () => Promise<void>;
 }
@@ -20,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null, session: null, roles: [], loading: true,
   isAdmin: false, isTeam: false, isAdminOrTeam: false, isGuest: false,
+  rolesLoaded: false,
   assigneeCode: null,
   signOut: async () => {},
 });
@@ -32,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [assigneeCode, setAssigneeCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   const fetchRoles = async (userId: string) => {
     const { data } = await supabase
@@ -41,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data) {
       setRoles(data.map((r: any) => r.role as AppRole));
     }
+    setRolesLoaded(true);
   };
 
   const fetchProfile = async (userId: string) => {
@@ -75,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setRoles([]);
           setAssigneeCode(null);
+          setRolesLoaded(true);
         }
         setLoading(false);
       }
@@ -91,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }).catch(() => setLoading(false));
 
     // Safety net: never leave the app stuck on the loading spinner.
-    const failsafe = setTimeout(() => setLoading(false), 8000);
+    const failsafe = setTimeout(() => { setLoading(false); setRolesLoaded(true); }, 8000);
 
     return () => {
       cancelled = true;
@@ -105,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
     setRoles([]);
     setAssigneeCode(null);
+    setRolesLoaded(false);
   };
 
   const isAdmin = roles.includes('admin');
@@ -115,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       user, session, roles, loading,
-      isAdmin, isTeam, isAdminOrTeam, isGuest,
+      isAdmin, isTeam, isAdminOrTeam, isGuest, rolesLoaded,
       assigneeCode,
       signOut,
     }}>
