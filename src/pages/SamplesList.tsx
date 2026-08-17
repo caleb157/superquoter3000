@@ -346,6 +346,7 @@ export default function SamplesList() {
                   <TableHead className="text-xs">Requested</TableHead>
                   <TableHead className="text-xs">Completed</TableHead>
                   <TableHead className="text-xs text-right">Days</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {visible.map(s => {
