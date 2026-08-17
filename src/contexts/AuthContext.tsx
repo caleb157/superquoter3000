@@ -91,9 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserData(session.user.id);
+      } else {
+        setRolesLoaded(true);
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => { setLoading(false); setRolesLoaded(true); });
+
 
     // Safety net: never leave the app stuck on the loading spinner.
     const failsafe = setTimeout(() => { setLoading(false); setRolesLoaded(true); }, 8000);
