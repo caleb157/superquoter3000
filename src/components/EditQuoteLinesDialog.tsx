@@ -232,14 +232,15 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
           <DialogTitle>Edit quote line items</DialogTitle>
           <DialogDescription>
             Adjust the name, quantity, or unit price for each line. Totals will be recalculated automatically.
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 space-y-4">
         <div className="rounded-md border p-3 bg-card space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-muted-foreground">(optional)</span></Label>
           <Select
@@ -289,7 +290,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           </Button>
         </div>
 
-        <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+        <div className="space-y-2">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
           ) : lines.map((line, idx) => (
@@ -449,7 +450,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between gap-3">
+        </div>
+
+        <DialogFooter className="shrink-0 border-t bg-background px-6 py-4 flex items-center justify-between sm:justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
