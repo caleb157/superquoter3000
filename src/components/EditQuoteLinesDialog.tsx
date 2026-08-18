@@ -258,14 +258,61 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <p className="text-[10px] text-muted-foreground">Optional. Shown at the top of the quote when set.</p>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sort lines</span>
+          {([
+            { key: 'name', label: 'Name' },
+            { key: 'quantity', label: 'Qty' },
+            { key: 'unit_price_usd', label: 'Price' },
+            { key: 'total', label: 'Line total' },
+          ] as const).map(opt => (
+            <Button
+              key={opt.key}
+              type="button" size="sm" variant="outline"
+              className="h-7 gap-1 text-[11px]"
+              disabled={status === 'saving' || lines.length < 2}
+              onClick={() => sortBy(opt.key)}
+            >
+              {opt.label}
+              <ArrowUpDown className="h-3 w-3 opacity-60" />
+            </Button>
+          ))}
+          <Button
+            type="button" size="sm" variant="ghost"
+            className="h-7 gap-1 text-[11px] ml-auto"
+            disabled={status === 'saving'}
+            onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
+            title="Toggle sort direction"
+          >
+            {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+            {sortDir === 'asc' ? 'Ascending' : 'Descending'}
+          </Button>
+        </div>
+
         <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
           ) : lines.map((line, idx) => (
-            <div key={line._key} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2 bg-card">
+            <div
+              key={line._key}
+              onDragOver={(e) => { if (dragKey) { e.preventDefault(); if (overKey !== line._key) setOverKey(line._key); } }}
+              onDrop={(e) => { e.preventDefault(); if (dragKey) reorder(dragKey, line._key); setDragKey(null); setOverKey(null); }}
+              className={`grid grid-cols-12 gap-2 items-end rounded-md border p-2 bg-card transition-colors ${
+                dragKey === line._key ? 'opacity-50' : ''
+              } ${overKey === line._key && dragKey && dragKey !== line._key ? 'border-primary ring-1 ring-primary/40' : ''}`}
+            >
               <div className="col-span-5">
                 <Label className="text-[10px] text-muted-foreground">Display name</Label>
                 <div className="flex items-center gap-1.5">
+                  <span
+                    draggable={status !== 'saving'}
+                    onDragStart={(e) => { setDragKey(line._key); e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragEnd={() => { setDragKey(null); setOverKey(null); }}
+                    title="Drag to reorder"
+                    className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground px-0.5"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </span>
                   <Input
                     value={line.name}
                     onChange={e => update(line._key, { name: e.target.value })}
@@ -330,6 +377,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
               </div>
             </div>
           ))}
+
         </div>
 
 
