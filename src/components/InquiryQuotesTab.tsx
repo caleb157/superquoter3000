@@ -125,7 +125,11 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
+                        <Button size="sm" variant="ghost" className="h-7" onClick={() => openEdit(q.id)} title="Edit quote">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
                         {q.share_token && (
+
                           <Button asChild size="sm" variant="ghost" className="h-7">
                             <a href={`/quote/${q.share_token}`} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-3 w-3" />
