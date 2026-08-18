@@ -150,6 +150,21 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
           )}
         </CardContent>
       </Card>
+
+      <EditQuoteLinesDialog
+        open={!!editSnap}
+        onOpenChange={(o) => !o && setEditSnap(null)}
+        snapshot={editSnap}
+        onSaved={(patch) => {
+          setQuotes(prev => prev.map(q => q.id === patch.id ? { ...q, totals: patch.totals, incoterm: patch.incoterm ?? q.incoterm } : q));
+          setEditSnap(prev => prev && prev.id === patch.id ? { ...prev, products: patch.products, totals: patch.totals } : prev);
+          load();
+        }}
+      />
+    </div>
+  );
+}
+
     </div>
   );
 }
