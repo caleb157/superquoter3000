@@ -5,11 +5,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ReceivedRfqList } from '@/components/ReceivedRfqList';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { toast } from 'sonner';
+
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -32,6 +34,14 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string; refreshKey: number }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [editSnap, setEditSnap] = useState<any | null>(null);
+
+  const openEdit = async (id: string) => {
+    const { data, error } = await (supabase as any).from('quote_snapshots').select('*').eq('id', id).maybeSingle();
+    if (error || !data) { toast.error(error?.message || 'Quote not found'); return; }
+    setEditSnap(data);
+  };
+
 
   const load = async () => {
     const { data } = await (supabase as any)
@@ -115,7 +125,11 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
+                        <Button size="sm" variant="ghost" className="h-7" onClick={() => openEdit(q.id)} title="Edit quote">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
                         {q.share_token && (
+
                           <Button asChild size="sm" variant="ghost" className="h-7">
                             <a href={`/quote/${q.share_token}`} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-3 w-3" />
@@ -136,6 +150,17 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
           )}
         </CardContent>
       </Card>
+
+      <EditQuoteLinesDialog
+        open={!!editSnap}
+        onOpenChange={(o) => !o && setEditSnap(null)}
+        snapshot={editSnap}
+        onSaved={(patch) => {
+          setQuotes(prev => prev.map(q => q.id === patch.id ? { ...q, totals: patch.totals, incoterm: patch.incoterm ?? q.incoterm } : q));
+          setEditSnap(prev => prev && prev.id === patch.id ? { ...prev, products: patch.products, totals: patch.totals } : prev);
+          load();
+        }}
+      />
     </div>
   );
 }
