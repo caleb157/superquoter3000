@@ -17,6 +17,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { statusToneClass } from '@/lib/status-tone';
+import { customerPrimary } from '@/lib/customer-name';
 const STATUS_COLORS: Record<string, string> = {
   draft: statusToneClass('idle'),
   sent: statusToneClass('progress'),
@@ -83,7 +84,7 @@ const VendorRfqList = () => {
   const customerName = (inquiryId: string | null | undefined) => {
     const inq = inquiryId ? inquiryMap[inquiryId] : null;
     const c = inq?.customer_id ? customerMap[inq.customer_id] : null;
-    return c?.name || '';
+    return customerPrimary(c);
   };
 
   const itemAgg = useMemo(() => {

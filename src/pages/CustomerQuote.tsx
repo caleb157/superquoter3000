@@ -10,6 +10,7 @@ import { Minus, Plus, Package, Ship, Check, Loader2, AlertCircle, Download, Mail
 import { fmt } from '@/lib/formatters';
 import { loadCurrencyMap } from '@/lib/currency';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { customerPrimary, customerSecondary } from '@/lib/customer-name';
 
 interface QuoteComponent {
   product_id?: string | null;
@@ -621,9 +622,9 @@ const CustomerQuote = () => {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-base font-semibold text-slate-900">
-                {customer?.name || data.project?.customer_name || 'Customer'}
+                {customerPrimary(customer) || data.project?.customer_name || 'Customer'}
               </p>
-              {customer?.company && <p className="text-sm text-slate-600">{customer.company}</p>}
+              {customerSecondary(customer) && <p className="text-sm text-slate-600">{customerSecondary(customer)}</p>}
               {customer?.email && (
                 <p className="text-sm text-slate-500 mt-0.5">
                   <a href={`mailto:${customer.email}`} className="hover:underline">{customer.email}</a>

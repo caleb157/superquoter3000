@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { cn } from '@/lib/utils';
+import { customerPrimary } from '@/lib/customer-name';
 const fmtNum = (n: number, d = 0) => n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 // ---------- Types ----------
@@ -380,7 +381,7 @@ export default function InquiryAuditGrid() {
     const meta = [
       ['Inquiry', inquiry.rfq_number],
       ['Title', inquiry.title || ''],
-      ['Customer', customer?.name || ''],
+      ['Customer', customerPrimary(customer)],
       ['Generated', new Date().toISOString()],
       [],
     ];
