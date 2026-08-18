@@ -406,7 +406,28 @@ export default function InquiryPricingGrid() {
     [ensureRow, productRows],
   );
 
+  // Fill a whole vendor column with one vendor name (per-cell edits still possible after).
+  const applyVendorToColumn = useCallback(
+    async (group: 'raw' | 'subc' | 'hw', slot: number | undefined, vendor: string) => {
+      const name = (vendor || '').trim();
+      if (products.length === 0) return;
+      const ids: string[] = [];
+      for (const p of products) {
+        const rowId = await ensureRow(p.id, group, slot);
+        if (rowId) ids.push(rowId);
+      }
+      if (ids.length === 0) return;
+      const patch = { vendor_name: name || null };
+      setRows(prev => prev.map(r => (ids.includes(r.id) ? { ...r, ...patch } : r)));
+      const { error } = await supabase.from('cogs_items').update(patch as any).in('id', ids);
+      if (error) { toast.error(`Failed: ${error.message}`); void refetch(); return; }
+      toast.success(name ? `Set ${name} on ${ids.length} row${ids.length === 1 ? '' : 's'}` : `Cleared vendor on ${ids.length} rows`);
+    },
+    [products, ensureRow, refetch],
+  );
+
   const recostInBackground = useCallback(async (productId: string) => {
+
     setRecostingIds(prev => new Set(prev).add(productId));
     try { await recostProduct(productId); } catch (e: any) {
       console.error('recost failed', e);
@@ -632,6 +653,7 @@ export default function InquiryPricingGrid() {
             onSetWinner={setWinner}
             onPaste={handlePaste}
             onUpdateWaste={updateProductRawWaste}
+            onApplyVendorToColumn={applyVendorToColumn}
           />
         )}
       </div>
@@ -675,10 +697,12 @@ type TableProps = {
   onSetWinner: (productId: string, slot: number) => Promise<void>;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, productIdx: number, colIdx: number) => void;
   onUpdateWaste: (productId: string, pct: number) => Promise<void>;
+  onApplyVendorToColumn: (group: 'raw' | 'subc' | 'hw', slot: number | undefined, vendor: string) => Promise<void>;
 };
 
 function PricingGridTable({
   products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
+  onApplyVendorToColumn,
 }: TableProps) {
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
@@ -713,13 +737,19 @@ function PricingGridTable({
           </tr>
           <tr>
             {Array.from({ length: visibleRawSlots }).flatMap((_, slot) => [
-              <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>,
+              <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
+                <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('raw', slot, v)} />
+              </th>,
               <th key={`p-${slot}`} className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>,
               <th key={`w-${slot}`} className="px-1 py-1 text-center font-normal text-muted-foreground border-b border-r w-[36px]">Win</th>,
             ])}
-            <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
+            <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
+              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('subc', undefined, v)} />
+            </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
-            <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">Vendor</th>
+            <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
+              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
+            </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[110px]">Cost ₹/unit</th>
           </tr>
@@ -836,6 +866,27 @@ function PricingGridTable({
 }
 
 // ---------- Cell components ----------
+
+/** Header control: pick a vendor once and fill the entire column. */
+function ColumnVendorFill({ onApply }: { onApply: (vendor: string) => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[10px] uppercase tracking-wide">Vendor</span>
+      <div className={cn('flex-1 min-w-[110px]', busy && 'opacity-60 pointer-events-none')}>
+        <VendorCombobox
+          value=""
+          onChange={(v) => {
+            setBusy(true);
+            void onApply(v).finally(() => setBusy(false));
+          }}
+          placeholder="Fill column…"
+          className="h-6 text-[11px]"
+        />
+      </div>
+    </div>
+  );
+}
 
 function VendorPasteCell({
   value, onChange, onPaste,
