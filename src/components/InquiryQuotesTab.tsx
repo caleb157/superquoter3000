@@ -164,7 +164,3 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
     </div>
   );
 }
-
-    </div>
-  );
-}
