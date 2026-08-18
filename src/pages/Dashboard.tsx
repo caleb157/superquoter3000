@@ -38,6 +38,7 @@ import { fmt } from '@/lib/formatters';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { customerPrimary } from '@/lib/customer-name';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -177,7 +178,7 @@ const Dashboard = () => {
       if (statusFilter !== 'all' && statusFilter !== 'open' && i.status !== statusFilter) return false;
       if (!q) return true;
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
-      const custName = (cust?.name || cust?.company || '').toLowerCase();
+      const custName = `${cust?.company ?? ''} ${cust?.name ?? ''}`.toLowerCase();
       return (
         (i.title ?? '').toLowerCase().includes(q) ||
         custName.includes(q)
@@ -189,7 +190,7 @@ const Dashboard = () => {
       list = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     } else {
       const getters: Record<string, (i: Inquiry) => string | number> = {
-        customer: (i) => (customerMap[i.customer_id ?? '']?.name || customerMap[i.customer_id ?? '']?.company || '').toLowerCase(),
+        customer: (i) => customerPrimary(customerMap[i.customer_id ?? '']).toLowerCase(),
         title: (i) => (i.title ?? '').toLowerCase(),
         status: (i) => i.status,
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
@@ -392,7 +393,7 @@ const Dashboard = () => {
                             {inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {cust?.name || cust?.company || 'No customer'}
+                            {customerPrimary(cust, 'No customer')}
                           </div>
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
@@ -478,7 +479,7 @@ const Dashboard = () => {
                           {...navHandlers}
                         >
                           <TableCell className="text-sm truncate max-w-[180px]">
-                            {cust?.name || cust?.company || '—'}
+                            {customerPrimary(cust, '—')}
                           </TableCell>
                           <TableCell className="text-base font-semibold truncate max-w-[260px]">
                             <div className="flex items-center gap-1.5">

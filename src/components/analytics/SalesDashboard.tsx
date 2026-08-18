@@ -14,6 +14,7 @@ import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
 import {
+import { customerPrimary } from '@/lib/customer-name';
   inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
 
@@ -148,7 +149,7 @@ export function SalesDashboard({ range }: Props) {
         id,
         rfqNumber: (inq as any)?.rfq_number || id.slice(0, 6),
         title: (inq as any)?.title || '',
-        customerName: cust?.name || cust?.company || '—',
+        customerName: customerPrimary(cust, '—'),
         won,
         lost,
         outcome: won ? 'Won (PO)' : lost ? 'Lost (Cancelled)' : 'Open',
@@ -203,7 +204,7 @@ export function SalesDashboard({ range }: Props) {
         .slice(0, 5)
         .map(([id, value]) => ({
           id,
-          name: customerById[id]?.name || customerById[id]?.company || 'Unknown',
+          name: customerPrimary(customerById[id], 'Unknown'),
           value,
           pct: total > 0 ? value / total : 0,
         })),
@@ -366,7 +367,7 @@ export function SalesDashboard({ range }: Props) {
         rowKey={(r) => r.id}
         onRowClick={(r) => navigate(`/customers/${r.id}`)}
         columns={[
-          { header: 'Customer', cell: (r: any) => r.name || r.company || '—' },
+          { header: 'Customer', cell: (r: any) => customerPrimary(r, '—') },
           { header: 'Company', cell: (r: any) => r.company || '—' },
         ]}
       />

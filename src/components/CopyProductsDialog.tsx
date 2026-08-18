@@ -8,6 +8,7 @@ import { Search, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cloneProductToInquiry } from '@/lib/product-clone';
+import { customerFullLabel } from '@/lib/customer-name';
 
 type SourceProduct = {
   id: string;
@@ -142,7 +143,7 @@ export function CopyProductsDialog({ open, onOpenChange, targetInquiryId, onCopi
                         onClick={() => toggle(p.id, !isOn)}
                       >
                         {p.inquiry?.rfq_number ?? '—'}
-                        {p.inquiry?.customer?.name && <> · {p.inquiry.customer.name}{p.inquiry.customer.company ? ` (${p.inquiry.customer.company})` : ''}</>}
+                        {p.inquiry?.customer && <> · {customerFullLabel(p.inquiry.customer)}</>}
                         {p.updated_at && <> · {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}</>}
                       </div>
                       {isOn && (

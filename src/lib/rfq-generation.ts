@@ -5,6 +5,7 @@ import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { isHardwareCogsType } from '@/lib/cogs-categories';
+import { customerPrimary } from '@/lib/customer-name';
 interface RfqLineItem {
   product_id?: string;
   product_name?: string;
@@ -67,7 +68,7 @@ async function fetchInquiryContext(inquiryId: string, filterProductIds?: string[
   // Phase 7: inquiry-level settings TBD — no per-inquiry logo override yet.
   const project = {
     name: inquiry?.title || inquiry?.rfq_number || 'Inquiry',
-    customer_name: customer?.name || customer?.company || null,
+    customer_name: customerPrimary(customer) || null,
     customer_logo_url: null as string | null,
   };
 

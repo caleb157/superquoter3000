@@ -5,6 +5,7 @@ import {
 } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import {
+import { customerPrimary, customerSecondary } from '@/lib/customer-name';
   Inbox, Users, ShoppingCart, CheckSquare, FileText, Package2, Truck, Settings,
   HelpCircle, ArrowRight,
 } from 'lucide-react';
@@ -75,8 +76,8 @@ export function GlobalSearch({ open, onOpenChange, onShowHelp }: Props) {
         }));
         (cust.data ?? []).forEach((c: any) => r.push({
           type: 'customer', id: c.id,
-          label: c.name || c.company || 'Unnamed',
-          sub: c.name && c.company ? c.company : undefined,
+          label: customerPrimary(c, 'Unnamed'),
+          sub: customerSecondary(c) ?? undefined,
           to: `/customers/${c.id}`,
         }));
         (prod.data ?? []).forEach((p: any) => r.push({

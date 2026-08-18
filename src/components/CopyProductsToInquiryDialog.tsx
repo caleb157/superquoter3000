@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cloneProductToInquiry, cloneAssembliesForProducts } from '@/lib/product-clone';
+import { customerFullLabel } from '@/lib/customer-name';
 
 type Inquiry = {
   id: string;
@@ -250,7 +251,7 @@ export function CopyProductsToInquiryDialog({
                         {i.title && <span className="ml-2 text-muted-foreground font-normal">· {i.title}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {i.customer?.name ?? '—'}{i.customer?.company ? ` (${i.customer.company})` : ''}
+                        {customerFullLabel(i.customer, '—')}
                         {i.updated_at && <> · {formatDistanceToNow(new Date(i.updated_at), { addSuffix: true })}</>}
                       </div>
                     </div>

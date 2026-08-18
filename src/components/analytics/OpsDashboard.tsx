@@ -14,6 +14,7 @@ import {
   inRange, pairRfqsToQuotes, sampleCycleDays, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
 import { STAGE_LABEL } from '@/components/ProductStagePills';
+import { customerPrimary } from '@/lib/customer-name';
 
 type DrillKey = null | 'rfqQuote' | 'sampleCycle' | 'pendingRfqs' | 'pendingSamples';
 
@@ -101,7 +102,7 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
           productId: s.product_id,
           productName: prod?.name || 'Unknown',
           rfqNumber: inq?.rfq_number || '—',
-          customerName: cust?.name || cust?.company || '—',
+          customerName: customerPrimary(cust, '—'),
           vendorName: vendor?.name || 'no vendor',
           requestedDate: s.requested_date,
           completedAt: s.completed_at,
@@ -146,7 +147,7 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
         inquiryId,
         rfqNumber: inq?.rfq_number || '?',
         title: inq?.title || '',
-        customerName: cust?.name || cust?.company || '—',
+        customerName: customerPrimary(cust, '—'),
         days: v.days,
         pendingProductCount,
       };
@@ -170,7 +171,7 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
         productId: s.product_id,
         productName: prod?.name || 'Unknown',
         rfqNumber: inq?.rfq_number || '—',
-        customerName: cust?.name || cust?.company || '—',
+        customerName: customerPrimary(cust, '—'),
         vendorName: vendor?.name || 'no vendor',
         days,
       };
@@ -247,7 +248,7 @@ export function OpsDashboard({ range, slowQuoteDays, slowSampleDays }: Props) {
   const inqLabel = (id: string) => {
     const inq = inquiryById[id];
     const cust = inq?.customer_id ? customerById[inq.customer_id] : null;
-    return `${inq?.rfq_number || id.slice(0, 6)} · ${cust?.name || cust?.company || '—'}`;
+    return `${inq?.rfq_number || id.slice(0, 6)} · ${customerPrimary(cust, '—')}`;
   };
 
   const handleExport = () => {
