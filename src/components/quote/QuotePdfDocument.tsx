@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { customerPrimary, customerSecondary } from '@/lib/customer-name';
 
 // ---- Types (kept loose to mirror CustomerQuote.tsx) ----
 export interface QuotePdfComponent {
@@ -306,7 +307,7 @@ const QuotePdfDocument = ({
     <Document
       title={`Quote ${quoteNumber}`}
       author={entity?.name || 'Quotation'}
-      subject={`Quote ${quoteNumber} for ${customer?.name || 'Customer'}`}
+      subject={`Quote ${quoteNumber} for ${customerPrimary(customer, 'Customer')}`}
     >
       <Page size={size} orientation={orientation} style={s.page} wrap>
         {/* Header */}
@@ -393,8 +394,8 @@ const QuotePdfDocument = ({
           <Text style={s.sectionLabel}>Prepared for</Text>
           <View style={s.spaceBetween}>
             <View style={{ flex: 1 }}>
-              <Text style={s.custName}>{customer?.name || 'Customer'}</Text>
-              {customer?.company ? <Text style={s.custCompany}>{customer.company}</Text> : null}
+              <Text style={s.custName}>{customerPrimary(customer, 'Customer')}</Text>
+              {customerSecondary(customer) ? <Text style={s.custCompany}>{customerSecondary(customer)}</Text> : null}
               {customer?.email ? <Text style={s.custEmail}>{customer.email}</Text> : null}
             </View>
             {(inquiry?.rfq_number || inquiry?.title) ? (

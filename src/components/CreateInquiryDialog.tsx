@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Plus, ArrowLeft, ChevronDown } from 'lucide-react';
 import { defaultDurationMonths, deriveScheduleMonths } from '@/lib/projections';
+import { customerFullLabel } from '@/lib/customer-name';
 
 type Customer = { id: string; name: string; company: string | null };
 type Entity = { id: string; name: string };
@@ -287,7 +288,7 @@ export function CreateInquiryDialog({
                   </SelectItem>
                   {customers.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}{c.company ? ` — ${c.company}` : ''}
+                      {customerFullLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>

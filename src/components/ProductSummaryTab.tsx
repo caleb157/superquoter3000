@@ -9,6 +9,7 @@ import { STAGE_LABEL } from '@/components/ProductStagePills';
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { customerFullLabel } from '@/lib/customer-name';
 
 type Product = {
   id: string; name: string; updated_at: string | null;
@@ -91,7 +92,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
           {inquiry?.customer && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">Customer:</span>
-              <span>{inquiry.customer.name}{inquiry.customer.company ? ` · ${inquiry.customer.company}` : ''}</span>
+              <span>{customerFullLabel(inquiry.customer)}</span>
             </div>
           )}
           <div className="flex items-center gap-2">

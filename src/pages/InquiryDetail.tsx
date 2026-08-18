@@ -34,6 +34,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
+import { customerFullLabel } from '@/lib/customer-name';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
 const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
@@ -274,7 +275,7 @@ export default function InquiryDetail() {
                 className="text-sm text-muted-foreground hover:text-foreground hover:underline mt-1"
                 onClick={() => navigate('/customers')}
               >
-                {customer.name}{customer.company ? ` · ${customer.company}` : ''}
+                {customerFullLabel(customer)}
               </button>
             )}
           </div>

@@ -12,6 +12,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
 import type { TaskWithRefs, DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { PRIORITY_RANK } from '@/lib/task-types';
+import { customerPrimary } from '@/lib/customer-name';
 
 type TaskListProps = {
   inquiryId?: string;
@@ -57,7 +58,7 @@ export function TaskList({
       }
 
       let q = supabase.from('tasks').select(
-        '*, inquiry:customer_rfqs(id, rfq_number, title), customer:customers(id, name), product:products(id, name)'
+        '*, inquiry:customer_rfqs(id, rfq_number, title), customer:customers(id, name, company), product:products(id, name)'
       );
       if (inquiryId) q = q.eq('inquiry_id', inquiryId);
       if (productId) q = q.eq('product_id', productId);
@@ -168,7 +169,7 @@ export function TaskList({
                 <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.product.name}</Badge>
               </Link>
             : t.customer
-            ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.customer.name}</Badge>
+            ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
             : null);
 
           const mobileCard = !compact && (
@@ -234,7 +235,7 @@ export function TaskList({
                     </Link>
                   )}
                   {showAnchorLinks && !t.inquiry && !t.product && t.customer && (
-                    <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.customer.name}</Badge>
+                    <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
                   )}
                 </div>
               )}

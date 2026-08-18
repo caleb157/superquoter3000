@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import type { TaskContext, TaskPriority } from '@/lib/task-types';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
+import { customerSecondary } from '@/lib/customer-name';
 
 type Mode = 'inquiry' | 'customer';
 
@@ -335,7 +336,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                             <Check className={cn('mr-2 h-4 w-4', customerId === c.id ? 'opacity-100' : 'opacity-0')} />
                             <div className="flex flex-col">
                               <span>{c.name}</span>
-                              {c.company && <span className="text-xs text-muted-foreground">{c.company}</span>}
+                              {customerSecondary(c) && <span className="text-xs text-muted-foreground">{customerSecondary(c)}</span>}
                             </div>
                           </CommandItem>
                         ))}
