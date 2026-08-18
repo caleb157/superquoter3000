@@ -34,6 +34,14 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string; refreshKey: number }) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [editSnap, setEditSnap] = useState<any | null>(null);
+
+  const openEdit = async (id: string) => {
+    const { data, error } = await (supabase as any).from('quote_snapshots').select('*').eq('id', id).maybeSingle();
+    if (error || !data) { toast.error(error?.message || 'Quote not found'); return; }
+    setEditSnap(data);
+  };
+
 
   const load = async () => {
     const { data } = await (supabase as any)
