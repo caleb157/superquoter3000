@@ -276,28 +276,42 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             { key: 'quantity', label: 'Qty' },
             { key: 'unit_price_usd', label: 'Price' },
             { key: 'total', label: 'Line total' },
-          ] as const).map(opt => (
-            <Button
-              key={opt.key}
-              type="button" size="sm" variant="outline"
-              className="h-7 gap-1 text-[11px]"
-              disabled={status === 'saving' || lines.length < 2}
-              onClick={() => sortBy(opt.key)}
-            >
-              {opt.label}
-              <ArrowUpDown className="h-3 w-3 opacity-60" />
-            </Button>
-          ))}
+          ] as const).map(opt => {
+            const active = sortField === opt.key;
+            return (
+              <Button
+                key={opt.key}
+                type="button" size="sm" variant={active ? 'secondary' : 'outline'}
+                className="h-7 gap-1 text-[11px]"
+                disabled={status === 'saving' || lines.length < 2}
+                onClick={() => {
+                  if (active) {
+                    const nextDir = sortDir === 'asc' ? 'desc' : 'asc';
+                    setSortDir(nextDir);
+                    sortBy(opt.key, nextDir);
+                  } else {
+                    sortBy(opt.key);
+                  }
+                }}
+              >
+                {opt.label}
+                {active
+                  ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
+                  : <ArrowUpDown className="h-3 w-3 opacity-60" />}
+              </Button>
+            );
+          })}
           <Button
             type="button" size="sm" variant="ghost"
             className="h-7 gap-1 text-[11px] ml-auto"
             disabled={status === 'saving'}
-            onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
+            onClick={toggleSortDir}
             title="Toggle sort direction"
           >
             {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
             {sortDir === 'asc' ? 'Ascending' : 'Descending'}
           </Button>
+
         </div>
 
         <div className="space-y-2">
