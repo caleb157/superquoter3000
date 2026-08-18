@@ -290,7 +290,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           </Button>
         </div>
 
-        <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+        <div className="space-y-2">
           {lines.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">No line items.</div>
           ) : lines.map((line, idx) => (
@@ -450,7 +450,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between gap-3">
+        </div>
+
+        <DialogFooter className="shrink-0 border-t bg-background px-6 py-4 flex items-center justify-between sm:justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
