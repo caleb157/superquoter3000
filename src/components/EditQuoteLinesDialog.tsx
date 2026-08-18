@@ -157,9 +157,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   };
 
   // --- Column sorting ---
+  type SortField = 'name' | 'quantity' | 'unit_price_usd' | 'total';
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const sortBy = (field: 'name' | 'quantity' | 'unit_price_usd' | 'total', dirOverride?: 'asc' | 'desc') => {
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const sortBy = (field: SortField, dirOverride?: 'asc' | 'desc') => {
     const dir = dirOverride ?? sortDir;
+    setSortField(field);
     setLines(prev => {
       const next = prev.slice().sort((a, b) => {
         let cmp = 0;
@@ -173,6 +176,13 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     });
     if (status !== 'idle' && status !== 'saving') setStatus('idle');
   };
+
+  const toggleSortDir = () => {
+    const nextDir = sortDir === 'asc' ? 'desc' : 'asc';
+    setSortDir(nextDir);
+    if (sortField) sortBy(sortField, nextDir);
+  };
+
 
 
   const handleSave = async () => {
