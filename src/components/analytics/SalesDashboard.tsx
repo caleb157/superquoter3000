@@ -14,9 +14,9 @@ import { fmt } from '@/lib/formatters';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { computeWeightedPipeline } from '@/lib/pipeline-weights';
 import {
-import { customerPrimary } from '@/lib/customer-name';
   inRange, lifecycleDurations, avg, median, fmtDays, type DateRange,
 } from '@/lib/analytics-helpers';
+import { customerPrimary } from '@/lib/customer-name';
 
 type DrillKey = null | 'pipeline' | 'profit' | 'winRate' | 'activeCustomers';
 
