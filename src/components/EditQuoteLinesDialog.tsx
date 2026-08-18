@@ -232,14 +232,15 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
           <DialogTitle>Edit quote line items</DialogTitle>
           <DialogDescription>
             Adjust the name, quantity, or unit price for each line. Totals will be recalculated automatically.
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 space-y-4">
         <div className="rounded-md border p-3 bg-card space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-muted-foreground">(optional)</span></Label>
           <Select
