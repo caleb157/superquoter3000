@@ -138,6 +138,43 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     if (status !== 'idle' && status !== 'saving') setStatus('idle');
   };
 
+  // --- Drag & drop reordering ---
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+
+  const reorder = (fromKey: string, toKey: string) => {
+    if (fromKey === toKey) return;
+    setLines(prev => {
+      const from = prev.findIndex(l => l._key === fromKey);
+      const to = prev.findIndex(l => l._key === toKey);
+      if (from < 0 || to < 0) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
+  };
+
+  // --- Column sorting ---
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const sortBy = (field: 'name' | 'quantity' | 'unit_price_usd' | 'total', dirOverride?: 'asc' | 'desc') => {
+    const dir = dirOverride ?? sortDir;
+    setLines(prev => {
+      const next = prev.slice().sort((a, b) => {
+        let cmp = 0;
+        if (field === 'name') cmp = (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+        else if (field === 'total') {
+          cmp = (Number(a.quantity || 0) * Number(a.unit_price_usd || 0)) - (Number(b.quantity || 0) * Number(b.unit_price_usd || 0));
+        } else cmp = Number(a[field] || 0) - Number(b[field] || 0);
+        return dir === 'desc' ? -cmp : cmp;
+      });
+      return next;
+    });
+    if (status !== 'idle' && status !== 'saving') setStatus('idle');
+  };
+
+
   const handleSave = async () => {
     if (!snapshot || !dirty || status === 'saving') return;
     setStatus('saving');
