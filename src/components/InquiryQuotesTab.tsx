@@ -5,11 +5,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ReceivedRfqList } from '@/components/ReceivedRfqList';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { toast } from 'sonner';
+
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
