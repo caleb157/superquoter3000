@@ -406,7 +406,28 @@ export default function InquiryPricingGrid() {
     [ensureRow, productRows],
   );
 
+  // Fill a whole vendor column with one vendor name (per-cell edits still possible after).
+  const applyVendorToColumn = useCallback(
+    async (group: 'raw' | 'subc' | 'hw', slot: number | undefined, vendor: string) => {
+      const name = (vendor || '').trim();
+      if (products.length === 0) return;
+      const ids: string[] = [];
+      for (const p of products) {
+        const rowId = await ensureRow(p.id, group, slot);
+        if (rowId) ids.push(rowId);
+      }
+      if (ids.length === 0) return;
+      const patch = { vendor_name: name || null };
+      setRows(prev => prev.map(r => (ids.includes(r.id) ? { ...r, ...patch } : r)));
+      const { error } = await supabase.from('cogs_items').update(patch as any).in('id', ids);
+      if (error) { toast.error(`Failed: ${error.message}`); void refetch(); return; }
+      toast.success(name ? `Set ${name} on ${ids.length} row${ids.length === 1 ? '' : 's'}` : `Cleared vendor on ${ids.length} rows`);
+    },
+    [products, ensureRow, refetch],
+  );
+
   const recostInBackground = useCallback(async (productId: string) => {
+
     setRecostingIds(prev => new Set(prev).add(productId));
     try { await recostProduct(productId); } catch (e: any) {
       console.error('recost failed', e);
