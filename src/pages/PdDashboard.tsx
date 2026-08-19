@@ -1,7 +1,7 @@
 // PD Dashboard — global product-development checklist across all open inquiries.
 // Read + write: checkboxes write straight to pd_checklist_items, same rules as PD View.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AppLayout } from '@/components/AppLayout';
@@ -22,6 +22,8 @@ import {
 } from '@/lib/pd-items';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+import { STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
 
 const CLOSED_STATUSES = ['complete', 'cancelled'];
 const PAGE_SIZE = 100;
@@ -55,13 +57,16 @@ export default function PdDashboard() {
   const [includeClosed, setIncludeClosed] = useState(false);
   const [search, setSearch] = useState('');
   const [inquiryFilter, setInquiryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('open');
+  const statusFilterRef = useRef(statusFilter);
+  statusFilterRef.current = statusFilter;
   const [customerFilter, setCustomerFilter] = useState('all');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
   const [missingItem, setMissingItem] = useState<'all' | PdItemKey>('all');
   const [sortKey, setSortKey] = useState<SortKey>('inquiry');
   const [page, setPage] = useState(0);
 
-  useEffect(() => { setPage(0); }, [search, inquiryFilter, customerFilter, incompleteOnly, missingItem, sortKey, includeClosed]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, inquiryFilter, customerFilter, incompleteOnly, missingItem, sortKey, includeClosed]);
 
   useEffect(() => {
     (async () => {
@@ -80,7 +85,7 @@ export default function PdDashboard() {
       }
 
       const list: Row[] = ((data || []) as any[])
-        .filter(p => includeClosed || !CLOSED_STATUSES.includes(p.customer_rfqs?.status))
+        .filter(p => includeClosed || CLOSED_STATUSES.includes(statusFilterRef.current) || !CLOSED_STATUSES.includes(p.customer_rfqs?.status))
         .map(p => {
           const inq = p.customer_rfqs;
           const cust = inq?.customers;
@@ -130,7 +135,7 @@ export default function PdDashboard() {
       }
       setLoading(false);
     })();
-  }, [includeClosed]);
+  }, [includeClosed, statusFilter]);
 
   const isDisabled = (p: Row, item: PdItemDef) => pdIsDisabled(p, item, cogsCats);
 
@@ -155,6 +160,8 @@ export default function PdDashboard() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = rows.filter(r => {
+      if (statusFilter === 'open') { if (!['active', 'po'].includes(r.inquiry_status)) return false; }
+      else if (statusFilter !== 'all' && r.inquiry_status !== statusFilter) return false;
       if (inquiryFilter !== 'all' && r.inquiry_id !== inquiryFilter) return false;
       if (customerFilter !== 'all' && r.customer_id !== customerFilter) return false;
       if (q && !(`${r.sku || ''} ${r.name} ${r.inquiry_label} ${r.customer_label}`.toLowerCase().includes(q))) return false;
@@ -181,7 +188,7 @@ export default function PdDashboard() {
     });
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, search, inquiryFilter, customerFilter, incompleteOnly, missingItem, sortKey, checked, cogsCats]);
+  }, [rows, search, statusFilter, inquiryFilter, customerFilter, incompleteOnly, missingItem, sortKey, checked, cogsCats]);
 
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -295,6 +302,14 @@ export default function PdDashboard() {
               onChange={e => setSearch(e.target.value)}
               className="h-8 w-[260px]"
             />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-[170px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open (Active + PO)</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUS_OPTIONS.map(s2 => <SelectItem key={s2} value={s2}>{statusLabel(s2)}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Select value={inquiryFilter} onValueChange={setInquiryFilter}>
               <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Inquiry" /></SelectTrigger>
               <SelectContent>
