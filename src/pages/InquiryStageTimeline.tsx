@@ -273,7 +273,10 @@ export default function InquiryStageTimeline() {
             {loading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">Loading timeline…</div>
             ) : visible.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">No products match these filters.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                {inquiryId ? 'No products match these filters.' : 'Select an inquiry to load its stage timeline.'}
+              </div>
+
             ) : (
               visible.map(p => {
                 const due = dueInfo(p.id);
