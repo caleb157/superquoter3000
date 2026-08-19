@@ -518,3 +518,17 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 function serializeLines(lines: Array<SnapshotLine & { _key: string }>) {
   return lines.map(({ _key, ...rest }) => rest);
 }
+
+/** Snapshot of last-saved line totals, used to show live deltas while editing. */
+function makeBaseline(lines: Array<SnapshotLine & { _key: string }>) {
+  const byKey: Record<string, number> = {};
+  let grand = 0;
+  let qty = 0;
+  for (const l of lines) {
+    const total = Number(l.quantity || 0) * Number(l.unit_price_usd || 0);
+    byKey[l._key] = total;
+    grand += total;
+    qty += Number(l.quantity || 0);
+  }
+  return { byKey, grand, qty };
+}
