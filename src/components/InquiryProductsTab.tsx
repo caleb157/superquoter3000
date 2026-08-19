@@ -610,6 +610,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/pd`)}>
                 <TableIcon className="h-4 w-4 mr-2" /> PD view
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/timeline`)}>
+                <TableIcon className="h-4 w-4 mr-2" /> Sample timeline
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/container-plan`)}>
                 <TableIcon className="h-4 w-4 mr-2" /> Container planner
               </DropdownMenuItem>
