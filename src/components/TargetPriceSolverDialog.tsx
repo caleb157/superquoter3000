@@ -3,12 +3,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { fmt } from '@/lib/formatters';
 import { markupToNpm } from '@/lib/calculations';
 import { solveForMarkup, solveForMaxCost, type CostBucket } from '@/lib/target-price-solver';
+import {
+  getCachedCurrencyMap,
+  loadCurrencyMap,
+  quoteAmountToUsd,
+  usdToQuoteAmount,
+  type CurrencyMap,
+} from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { Target, Check } from 'lucide-react';
+
 
 export type TargetPriceSolverInputs = {
   /** Total unit cost in INR (COGS + non-unit COGS + direct OH + indirect OH + shipping/packaging). */
