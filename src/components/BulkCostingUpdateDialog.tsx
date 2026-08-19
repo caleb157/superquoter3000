@@ -623,6 +623,41 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           )}
         </div>
 
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Remove non-unit COGS</Label>
+            {nuNames.length > 0 && (
+              <Button
+                type="button" variant="ghost" size="sm" className="h-7 text-xs"
+                onClick={() => setNuToRemove(nuToRemove.length === nuNames.length ? [] : nuNames.map(n => n.name))}
+              >
+                {nuToRemove.length === nuNames.length ? 'Clear all' : 'Select all'}
+              </Button>
+            )}
+          </div>
+          {nuNames.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No non-unit COGS rows on the selected SKUs.</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {nuNames.map(n => (
+                  <label key={n.name} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={nuToRemove.includes(n.name)}
+                      onCheckedChange={(v) => setNuToRemove(prev => v ? [...prev, n.name] : prev.filter(x => x !== n.name))}
+                    />
+                    {n.name}
+                    <span className="text-[10px] text-muted-foreground">({n.count})</span>
+                  </label>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Checked rows are deleted from every selected SKU.</div>
+            </>
+          )}
+        </div>
+
+
+
         {knownNames.length > 0 && (
           <div className="text-[11px] text-muted-foreground">
             <span className="font-medium">Existing names in these SKUs:</span>{' '}
