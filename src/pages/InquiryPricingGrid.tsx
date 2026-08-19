@@ -942,10 +942,11 @@ function VendorPasteCell({
 }
 
 function PriceCell({
-  value, winner, onCommit, onPaste,
+  value, winner, onCommit, onPaste, muted,
 }: {
   value: number | null;
   winner: boolean;
+  muted?: boolean;
   onCommit: (raw: string) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }) {
@@ -978,6 +979,7 @@ function PriceCell({
       className={cn(
         'h-7 text-right text-xs px-1.5 tabular-nums',
         winner && 'font-semibold',
+        muted && 'opacity-50',
       )}
       placeholder="—"
       inputMode="decimal"
