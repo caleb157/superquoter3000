@@ -430,13 +430,6 @@ export default function InquiryPricingGrid() {
     [products, ensureRow, refetch],
   );
 
-  const onToggleOutsourced = useCallback(async (productId: string, next: boolean) => {
-    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, is_outsourced: next } : p)));
-    const { error } = await supabase.from('products').update({ is_outsourced: next }).eq('id', productId);
-    if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return; }
-    void recostInBackgroundRef.current?.(productId);
-  }, [refetch]);
-
   const recostInBackground = useCallback(async (productId: string) => {
 
     setRecostingIds(prev => new Set(prev).add(productId));
@@ -448,6 +441,13 @@ export default function InquiryPricingGrid() {
       });
     }
   }, []);
+
+  const onToggleOutsourced = useCallback(async (productId: string, next: boolean) => {
+    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, is_outsourced: next } : p)));
+    const { error } = await supabase.from('products').update({ is_outsourced: next }).eq('id', productId);
+    if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return; }
+    void recostInBackground(productId);
+  }, [refetch, recostInBackground]);
 
   // Apply the toolbar waste % to every raw-piece row across all products in the inquiry.
   const applyDefaultWasteToAllRaw = useCallback(async () => {
