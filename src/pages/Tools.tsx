@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Wrench, Target, ClipboardCheck } from 'lucide-react';
+import { Box, Wrench, Target, ClipboardCheck, GanttChartSquare } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -18,12 +18,19 @@ const tools = [
     description: 'Back-solve the markup, or the maximum unit cost, needed to hit a target sell price.',
   },
   {
+    to: '/tools/sample-timeline',
+    icon: GanttChartSquare,
+    title: 'Sample Timeline',
+    description: 'Pick an inquiry and see every product across the Design, Quote and Sample stage tracks with due dates.',
+  },
+  {
     to: '/pd-dashboard',
     icon: ClipboardCheck,
     title: 'PD Dashboard',
     description: 'Product development checklist status across all active inquiries, with filters and quick edits.',
   },
 ];
+
 
 export default function Tools() {
   useDocumentTitle('Tools');
