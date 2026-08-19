@@ -26,6 +26,7 @@ import InquiryPricingGrid from "./pages/InquiryPricingGrid";
 import InquiryTargetGrid from "./pages/InquiryTargetGrid";
 import InquiryAuditGrid from "./pages/InquiryAuditGrid";
 import InquiryPdView from "./pages/InquiryPdView";
+import InquiryContainerPlanner from "./pages/InquiryContainerPlanner";
 import SamplesList from "./pages/SamplesList";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
