@@ -87,10 +87,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [replaceAllRaw, setReplaceAllRaw] = useState(false);
 
+  // Non-unit COGS removal
+  const [nuNames, setNuNames] = useState<{ name: string; count: number }[]>([]);
+  const [nuToRemove, setNuToRemove] = useState<string[]>([]);
+
   const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
 
   const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
+
 
   const productCount = selectedProductIds.length;
 
