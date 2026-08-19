@@ -1,7 +1,7 @@
 // PD Dashboard — global product-development checklist across all open inquiries.
 // Read + write: checkboxes write straight to pd_checklist_items, same rules as PD View.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AppLayout } from '@/components/AppLayout';
