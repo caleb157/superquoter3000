@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Wrench, Target } from 'lucide-react';
+import { Box, Wrench, Target, ClipboardCheck } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -16,6 +16,12 @@ const tools = [
     icon: Target,
     title: 'Target Price Solver',
     description: 'Back-solve the markup, or the maximum unit cost, needed to hit a target sell price.',
+  },
+  {
+    to: '/pd-dashboard',
+    icon: ClipboardCheck,
+    title: 'PD Dashboard',
+    description: 'Product development checklist status across all active inquiries, with filters and quick edits.',
   },
 ];
 
