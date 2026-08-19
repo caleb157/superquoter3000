@@ -8,7 +8,7 @@
 // populated going forward — deliberately not built in this pass.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, CalendarClock, Search } from 'lucide-react';
 
 import { AppLayout } from '@/components/AppLayout';
