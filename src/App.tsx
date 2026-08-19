@@ -25,7 +25,6 @@ import InquiryDetail from "./pages/InquiryDetail";
 import InquiryPricingGrid from "./pages/InquiryPricingGrid";
 import InquiryTargetGrid from "./pages/InquiryTargetGrid";
 import InquiryAuditGrid from "./pages/InquiryAuditGrid";
-import InquiryStageTimeline from './pages/InquiryStageTimeline';
 import InquiryPdView from "./pages/InquiryPdView";
 import PdDashboard from "./pages/PdDashboard";
 import InquiryContainerPlanner from "./pages/InquiryContainerPlanner";
@@ -92,9 +91,6 @@ const App = () => (
               } />
               <Route path="/inquiry/:id/pd" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>
-              } />
-              <Route path="/tools/sample-timeline" element={
-                <ProtectedRoute requireAdminOrTeam><InquiryStageTimeline /></ProtectedRoute>
               } />
 
               <Route path="/inquiry/:id/container-plan" element={
