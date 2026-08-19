@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
@@ -184,8 +184,8 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
               const isOpen = expanded.has(row.id);
               const over = has && gapUsd > 0.005;
               return (
-                <>
-                  <tr key={row.id} className="border-t hover:bg-muted/30">
+                <Fragment key={row.id}>
+                  <tr className="border-t hover:bg-muted/30">
                     <td className="px-1 py-1 align-middle">
                       <button
                         className="p-1 text-muted-foreground hover:text-foreground"
@@ -274,7 +274,7 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
