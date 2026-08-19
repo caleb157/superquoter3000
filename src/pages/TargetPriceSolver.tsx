@@ -10,6 +10,8 @@ import { Target } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { TargetPriceSolverPanel } from '@/components/TargetPriceSolverDialog';
+import { InquiryTargetSolverTable } from '@/components/InquiryTargetSolverTable';
+import { Button } from '@/components/ui/button';
 
 const BUCKET_FIELDS = [
   { key: 'cogs', label: 'COGS' },
@@ -31,6 +33,7 @@ export default function TargetPriceSolverPage() {
   const [productId, setProductId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [loadedTargetUsd, setLoadedTargetUsd] = useState<number | null>(null);
+  const [mode, setMode] = useState<'single' | 'inquiry'>('single');
 
   useEffect(() => {
     (supabase as any)
@@ -89,15 +92,31 @@ export default function TargetPriceSolverPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
+      <div className={mode === 'inquiry' ? 'p-4 sm:p-6 max-w-[1500px] mx-auto space-y-4' : 'p-4 sm:p-6 max-w-3xl mx-auto space-y-4'}>
         <PageBreadcrumbs canonical={[{ label: 'Tools', to: '/tools' }]} current="Target Price Solver" />
         <h1 className="text-lg font-semibold flex items-center gap-2">
           <Target className="h-4 w-4" /> Target Price Solver
         </h1>
 
+        <div className="inline-flex rounded-md border p-0.5">
+          {(['single', 'inquiry'] as const).map(m => (
+            <Button
+              key={m}
+              size="sm"
+              variant={mode === m ? 'default' : 'ghost'}
+              className="h-7 text-xs"
+              onClick={() => setMode(m)}
+            >
+              {m === 'single' ? 'Single product' : 'Whole inquiry'}
+            </Button>
+          ))}
+        </div>
+
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Load from an inquiry (optional)</CardTitle>
+            <CardTitle className="text-sm">
+              {mode === 'inquiry' ? 'Inquiry' : 'Load from an inquiry (optional)'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -112,6 +131,7 @@ export default function TargetPriceSolverPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {mode === 'single' && (
               <div>
                 <label className="text-xs text-muted-foreground">Product</label>
                 <Select value={productId} onValueChange={loadProduct} disabled={!inquiryId || loading}>
@@ -125,14 +145,20 @@ export default function TargetPriceSolverPage() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
+            {mode === 'single' && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               Picking a product fills the costs, markup and exchange rate below from its live costing sheet.
               You can still edit any value to run what-ifs.
             </p>
+            )}
           </CardContent>
         </Card>
 
+        {mode === 'inquiry' && <InquiryTargetSolverTable inquiryId={inquiryId} />}
+
+        {mode === 'single' && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Cost inputs (₹ per unit)</CardTitle>
@@ -164,7 +190,9 @@ export default function TargetPriceSolverPage() {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {mode === 'single' && (
         <Card>
           <CardContent className="pt-4">
             <TargetPriceSolverPanel
@@ -180,6 +208,7 @@ export default function TargetPriceSolverPage() {
             />
           </CardContent>
         </Card>
+        )}
       </div>
     </AppLayout>
   );
