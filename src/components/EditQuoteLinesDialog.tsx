@@ -58,6 +58,8 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Baseline (last-saved) figures so edits can be shown as live deltas.
+  const [baseline, setBaseline] = useState<{ byKey: Record<string, number>; grand: number; qty: number }>({ byKey: {}, grand: 0, qty: 0 });
   const initialSerialRef = useRef<string>('');
   const initialPaymentTermsRef = useRef<string>('');
   const initialIncotermRef = useRef<string>('');
