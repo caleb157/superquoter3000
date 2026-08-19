@@ -424,6 +424,45 @@ export type Database = {
         }
         Relationships: []
       }
+      container_types: {
+        Row: {
+          created_at: string
+          id: string
+          internal_depth_in: number
+          internal_height_in: number
+          internal_width_in: number
+          max_weight_kg: number
+          name: string
+          sort_order: number
+          updated_at: string
+          usable_volume_factor: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          internal_depth_in?: number
+          internal_height_in?: number
+          internal_width_in?: number
+          max_weight_kg?: number
+          name: string
+          sort_order?: number
+          updated_at?: string
+          usable_volume_factor?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          internal_depth_in?: number
+          internal_height_in?: number
+          internal_width_in?: number
+          max_weight_kg?: number
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          usable_volume_factor?: number
+        }
+        Relationships: []
+      }
       currencies: {
         Row: {
           code: string
