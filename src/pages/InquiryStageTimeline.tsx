@@ -167,7 +167,7 @@ export default function InquiryStageTimeline() {
     const col = trackColumn[track];
     const prev = products;
     setProducts(ps => ps.map(p => (p.id === productId ? { ...p, [col]: stage } as Product : p)));
-    const { error } = await supabase.from('products').update({ [col]: stage }).eq('id', productId);
+    const { error } = await supabase.from('products').update({ [col]: stage } as never).eq('id', productId);
     if (error) {
       setProducts(prev);
       toast.error('Could not update stage');
