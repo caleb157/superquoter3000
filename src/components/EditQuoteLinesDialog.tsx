@@ -499,6 +499,16 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <div className="text-xs text-muted-foreground">
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
+            {Math.abs(totals.grand - baseline.grand) > 0.004 && (
+              <>
+                {' '}
+                <span className={`tabular-nums font-medium ${totals.grand > baseline.grand ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                  {totals.grand > baseline.grand ? '+' : '−'}{fmtMoney(Math.abs(totals.grand - baseline.grand))}
+                  {baseline.grand > 0 && ` (${totals.grand > baseline.grand ? '+' : '−'}${(Math.abs(totals.grand - baseline.grand) / baseline.grand * 100).toFixed(1)}%)`}
+                </span>
+                <span className="ml-1 text-[11px]">vs saved {fmtMoney(baseline.grand)}</span>
+              </>
+            )}
             {dirty && status === 'idle' && (
               <Badge variant="outline" className="ml-2 text-[10px] font-medium">
                 Unsaved
