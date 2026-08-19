@@ -388,7 +388,10 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const outsourcedUnitCostUsd = exchangeRate > 0 ? outsourcedUnitCostInr / exchangeRate : 0;
 
   const effCogsPerUnit = cogsPerUnit + (isOutsourced ? outsourcedUnitCostInr : 0);
-  const effNonUnitCogsPerUnit = nonUnitCogsPerUnit;
+  // Outsourced products are bought finished — order-level (non-unit) COGS such as
+  // auto transport are already inside the supplier's price, so they're dropped.
+  const effNonUnitCogsPerUnit = isOutsourced ? 0 : nonUnitCogsPerUnit;
+
   const effDirectOhPerUnit = directOhPerUnit;
   const effIndirectOhPerUnit = indirectOhPerUnit;
   const effManHoursPerUnit = totalDirectMhPerUnit;

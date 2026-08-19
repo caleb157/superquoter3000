@@ -87,10 +87,15 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [rawRows, setRawRows] = useState<RawRow[]>([]);
   const [replaceAllRaw, setReplaceAllRaw] = useState(false);
 
+  // Non-unit COGS removal
+  const [nuNames, setNuNames] = useState<{ name: string; count: number }[]>([]);
+  const [nuToRemove, setNuToRemove] = useState<string[]>([]);
+
   const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
 
   const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
+
 
   const productCount = selectedProductIds.length;
 
@@ -112,6 +117,23 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     })();
   }, [open, selectedProductIds]);
 
+  // Non-unit COGS names present on the selected products (for removal)
+  useEffect(() => {
+    if (!open || selectedProductIds.length === 0) { setNuNames([]); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('non_unit_cogs')
+        .select('name')
+        .in('product_id', selectedProductIds);
+      const counts = new Map<string, number>();
+      (data || []).forEach((r: any) => {
+        const n = (r.name || '').trim();
+        if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+      });
+      setNuNames(Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)));
+    })();
+  }, [open, selectedProductIds]);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -130,8 +152,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       setReplaceAllRaw(false);
       setShippingTypeId('__keep__');
       setLaborRows([]);
+      setNuToRemove([]);
     }
   }, [open]);
+
 
   const addLaborRow = () => setLaborRows(prev => [...prev, newLaborRow()]);
   const removeLaborRow = (key: string) => setLaborRows(prev => prev.filter(r => r._key !== key));
@@ -165,10 +189,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     const willUpdateRaw = validRawRows.length > 0 || replaceAllRaw;
     const willUpdateShipping = shippingTypeId !== '__keep__';
     const willUpdateLabor = validLaborRows.length > 0;
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor) {
-      toast.error('Add at least one row, raw piece, packaging type, shipping type, or labor override');
+    const willRemoveNonUnit = nuToRemove.length > 0;
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor && !willRemoveNonUnit) {
+      toast.error('Add at least one row, raw piece, packaging type, shipping type, labor override, or non-unit removal');
       return;
     }
+
 
     setSaving(true);
 
@@ -371,7 +397,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       })();
     }
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise]);
+    const nonUnitPromise = willRemoveNonUnit
+      ? (supabase as any).from('non_unit_cogs').delete().in('product_id', selectedProductIds).in('name', nuToRemove)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise]);
+
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
@@ -401,6 +432,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willUpdateLabor) {
       parts.push(`${validLaborRows.length} labor override${validLaborRows.length === 1 ? '' : 's'}`);
     }
+    if (willRemoveNonUnit) {
+      parts.push(`${nuToRemove.length} non-unit COGS removed`);
+    }
+
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
@@ -588,6 +623,41 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           )}
         </div>
 
+        <div className="rounded-md border p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">Remove non-unit COGS</Label>
+            {nuNames.length > 0 && (
+              <Button
+                type="button" variant="ghost" size="sm" className="h-7 text-xs"
+                onClick={() => setNuToRemove(nuToRemove.length === nuNames.length ? [] : nuNames.map(n => n.name))}
+              >
+                {nuToRemove.length === nuNames.length ? 'Clear all' : 'Select all'}
+              </Button>
+            )}
+          </div>
+          {nuNames.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground">No non-unit COGS rows on the selected SKUs.</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {nuNames.map(n => (
+                  <label key={n.name} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={nuToRemove.includes(n.name)}
+                      onCheckedChange={(v) => setNuToRemove(prev => v ? [...prev, n.name] : prev.filter(x => x !== n.name))}
+                    />
+                    {n.name}
+                    <span className="text-[10px] text-muted-foreground">({n.count})</span>
+                  </label>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Checked rows are deleted from every selected SKU.</div>
+            </>
+          )}
+        </div>
+
+
+
         {knownNames.length > 0 && (
           <div className="text-[11px] text-muted-foreground">
             <span className="font-medium">Existing names in these SKUs:</span>{' '}
@@ -692,7 +762,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__' && validLaborRows.length === 0)} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__' && validLaborRows.length === 0 && nuToRemove.length === 0)} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>
