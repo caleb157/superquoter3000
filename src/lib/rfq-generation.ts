@@ -256,7 +256,9 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
 //   all COGS (raw piece, finishing materials, hardware, packing materials, other),
 //   all non-unit COGS, direct + indirect overhead (finishing + packing labour).
 //   Only shipping and margin are excluded.
-export type RawTargetMode = 'raw_piece' | 'finishing_packing';
+// mode 'outsourced'       → back-solve the whole ex-factory INR price for an outsourced
+//   product: only margin and shipping are pulled out; the vendor delivers finished, packed goods.
+export type RawTargetMode = 'raw_piece' | 'finishing_packing' | 'outsourced';
 
 export async function generateRawPieceRfq(
   inquiryId: string,
@@ -355,7 +357,7 @@ export async function generateRawPieceRfq(
     // Costs held fixed while back-solving:
     //  - raw_piece mode: everything except the raw piece rows
     //  - finishing_packing mode: only shipping (the whole finished product ex-shipping is the budget)
-    const heldCostPerUnit = mode === 'finishing_packing'
+    const heldCostPerUnit = (mode === 'finishing_packing' || mode === 'outsourced')
       ? engineResult.shippingPerUnit
       : summary.product_cost_per_unit_inr - currentRawPieceCostPerUnit;
 
@@ -373,7 +375,9 @@ export async function generateRawPieceRfq(
       ? `${p.width_inch} × ${p.depth_inch} × ${p.height_inch} inches`
       : undefined;
 
-    const label = mode === 'finishing_packing' ? 'Finished product (ex-shipping)' : 'Raw piece';
+    const label = mode === 'outsourced'
+      ? 'Ex-factory outsourced product'
+      : mode === 'finishing_packing' ? 'Finished product (ex-shipping)' : 'Raw piece';
 
     items.push({
       product_id: p.id,
@@ -391,9 +395,11 @@ export async function generateRawPieceRfq(
     });
   }
 
-  const title = mode === 'finishing_packing'
-    ? `Finishing & Packing RFQ — ${project.name}`
-    : `Raw Piece RFQ — ${project.name}`;
+  const title = mode === 'outsourced'
+    ? `Outsourced Ex-Factory RFQ — ${project.name}`
+    : mode === 'finishing_packing'
+      ? `Finishing & Packing RFQ — ${project.name}`
+      : `Raw Piece RFQ — ${project.name}`;
   return { title, items, discount };
 }
 

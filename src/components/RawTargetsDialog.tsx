@@ -49,6 +49,9 @@ export function RawTargetsDialog({
 
 
   const isFP = mode === 'finishing_packing';
+  const isOutsourced = mode === 'outsourced';
+  const shipmentTotal = rows.reduce((sum, r) => sum + r.target * (r.qty || 0), 0);
+  const shipmentTotalDiscounted = shipmentTotal * (1 - DISCOUNT);
   const discounted = (t: number) => t * (1 - DISCOUNT);
 
 
@@ -84,9 +87,11 @@ export function RawTargetsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>{isFP ? 'Finishing & packing targets' : 'Raw targets'}</DialogTitle>
+          <DialogTitle>{isOutsourced ? 'Outsourced ex-factory targets' : isFP ? 'Finishing & packing targets' : 'Raw targets'}</DialogTitle>
           <DialogDescription>
-            {isFP
+            {isOutsourced
+              ? `Back-solved ex-factory INR price per unit for a fully outsourced (finished, packed) product — margin and shipping pulled out of each product's target price. Vendor row discounted by ${Math.round(DISCOUNT * 100)}%.`
+              : isFP
               ? `Back-solved budget for the completed product excluding shipping — all COGS, packing materials, finishing/packing labour and indirect overhead. Excludes shipping and margin. Vendor row discounted by ${Math.round(DISCOUNT * 100)}%.`
               : `Back-solved raw piece price needed to hit each product's target price, plus a vendor-facing row discounted by ${Math.round(DISCOUNT * 100)}%.`}
           </DialogDescription>
@@ -96,6 +101,7 @@ export function RawTargetsDialog({
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="raw_piece" className="flex-1 sm:flex-none">Raw piece</TabsTrigger>
             <TabsTrigger value="finishing_packing" className="flex-1 sm:flex-none">Finishing &amp; packing</TabsTrigger>
+            <TabsTrigger value="outsourced" className="flex-1 sm:flex-none">Outsourced</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -105,7 +111,7 @@ export function RawTargetsDialog({
           </div>
         ) : rows.length === 0 ? (
           <div className="py-10 text-center text-muted-foreground text-sm">
-            {isFP
+            {isFP || isOutsourced
               ? 'No targets available. Products need a target price.'
               : 'No raw targets available. Products need a Raw Piece COGS row and a target price.'}
           </div>
@@ -118,7 +124,7 @@ export function RawTargetsDialog({
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">{isFP ? 'F&P target' : 'Raw target'}</TableHead>
+                    <TableHead className="text-right">{isOutsourced ? 'Ex-factory target' : isFP ? 'F&P target' : 'Raw target'}</TableHead>
 
                     <TableHead className="text-right">−{Math.round(DISCOUNT * 100)}% (vendor)</TableHead>
                   </TableRow>
@@ -134,13 +140,23 @@ export function RawTargetsDialog({
                       </TableCell>
                     </TableRow>
                   ))}
+                  <TableRow className="bg-muted/50 font-medium">
+                    <TableCell>Shipment total</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {rows.reduce((s2, r) => s2 + (r.qty || 0), 0)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{fmt.inr(shipmentTotal)}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums text-primary">
+                      {fmt.inr(shipmentTotalDiscounted)}
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
 
             <div className="space-y-2 w-full min-w-0">
               <CopyRow label="Product names" value={namesRow} copied={copied} onCopy={copy} />
-              <CopyRow label="Raw targets" value={targetsRow} copied={copied} onCopy={copy} />
+              <CopyRow label={isOutsourced ? 'Ex-factory targets' : isFP ? 'F&P targets' : 'Raw targets'} value={targetsRow} copied={copied} onCopy={copy} />
               <CopyRow
                 label={`Vendor prices (−${Math.round(DISCOUNT * 100)}%)`}
                 value={discountRow}
