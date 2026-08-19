@@ -135,7 +135,7 @@ export default function PdDashboard() {
       }
       setLoading(false);
     })();
-  }, [includeClosed]);
+  }, [includeClosed, statusFilter]);
 
   const isDisabled = (p: Row, item: PdItemDef) => pdIsDisabled(p, item, cogsCats);
 
