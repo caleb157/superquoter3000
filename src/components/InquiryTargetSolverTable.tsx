@@ -4,10 +4,19 @@ import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  getCachedCurrencyMap,
+  loadCurrencyMap,
+  quoteAmountToUsd,
+  usdToQuoteAmount,
+  type CurrencyMap,
+} from '@/lib/currency';
+
 
 const BUCKETS = [
   { key: 'cogs', label: 'COGS' },
@@ -39,6 +48,48 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
   const [loading, setLoading] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [currency, setCurrency] = useState<string>('USD');
+
+  useEffect(() => { void loadCurrencyMap().then(setCurrencyMap); }, []);
+
+  useEffect(() => {
+    if (!inquiryId) return;
+    (supabase as any)
+      .from('customer_rfqs')
+      .select('quoting_currency')
+      .eq('id', inquiryId)
+      .maybeSingle()
+      .then(({ data }: any) => setCurrency(data?.quoting_currency || 'USD'));
+  }, [inquiryId]);
+
+  const currencyOptions = useMemo(() => {
+    const codes = new Set<string>(['USD', 'INR']);
+    Object.values(currencyMap || {}).forEach(c => codes.add(c.code));
+    return Array.from(codes);
+  }, [currencyMap]);
+
+  const toUsd = useCallback(
+    (v: string, rate: number) => {
+      const t = v.trim();
+      if (t === '') return null;
+      const n = Number(t);
+      if (!Number.isFinite(n)) return NaN;
+      const out = quoteAmountToUsd(n, currency, currencyMap, rate);
+      return out == null ? NaN : out;
+    },
+    [currency, currencyMap],
+  );
+
+  const fromUsd = useCallback(
+    (v: number | null, rate: number) => {
+      if (v == null) return '';
+      const out = currency === 'USD' ? v : usdToQuoteAmount(v, currency, currencyMap, rate);
+      return out == null ? '' : String(+out.toFixed(2));
+    },
+    [currency, currencyMap],
+  );
+
 
   const load = useCallback(async () => {
     if (!inquiryId) { setRows([]); return; }
@@ -71,7 +122,6 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
         };
       });
       setRows(next);
-      setDrafts(Object.fromEntries(next.map(r => [r.id, r.targetUsd == null ? '' : String(r.targetUsd)])));
     } catch (e: any) {
       toast.error(`Could not load inquiry costing: ${e.message || e}`);
     } finally {
@@ -81,10 +131,15 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Seed/reseed the editable targets in the selected currency (stored value is USD).
+  useEffect(() => {
+    setDrafts(Object.fromEntries(rows.map(r => [r.id, fromUsd(r.targetUsd, r.exchangeRate)])));
+  }, [rows, fromUsd]);
+
   const saveTarget = async (row: Row, raw: string) => {
-    const trimmed = raw.trim();
-    const n = trimmed === '' ? null : Number(trimmed);
-    if (n != null && !Number.isFinite(n)) { toast.error('Invalid number'); return; }
+    const converted = toUsd(raw, row.exchangeRate);
+    if (Number.isNaN(converted as number)) { toast.error('Invalid number or missing exchange rate'); return; }
+    const n = converted == null ? null : +Number(converted).toFixed(4);
     if ((row.targetUsd ?? null) === n) return;
     setRows(prev => prev.map(r => (r.id === row.id ? { ...r, targetUsd: n } : r)));
     const { error } = await (supabase as any)
@@ -92,6 +147,7 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
       .update({ target_price_usd: n })
       .eq('id', row.id);
     if (error) { toast.error(`Save failed: ${error.message}`); void load(); }
+
   };
 
   const solved = useMemo(() => rows.map(row => {
@@ -137,14 +193,24 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Targets save straight to each product. Gap = current calculated price minus your target, at live costing.
+          Targets save straight to each product (stored in USD). Gap = current calculated price minus your target, at live costing.
         </p>
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={cn('h-3 w-3 mr-1', loading && 'animate-spin')} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Target currency</span>
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {currencyOptions.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={cn('h-3 w-3 mr-1', loading && 'animate-spin')} /> Refresh
+          </Button>
+        </div>
       </div>
+
 
       <div className="grid gap-3 sm:grid-cols-4">
         <SummaryStat label="Products with a target" value={`${totals.withTarget} / ${rows.length}`} />
@@ -168,18 +234,20 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
               <th className="px-2 py-2 text-right font-medium">Cost $</th>
               <th className="px-2 py-2 text-right font-medium">Markup</th>
               <th className="px-2 py-2 text-right font-medium">Price $</th>
-              <th className="px-2 py-2 text-right font-medium w-[110px]">Target $</th>
+              <th className="px-2 py-2 text-right font-medium w-[120px]">Target ({currency})</th>
               <th className="px-2 py-2 text-right font-medium">Gap $/unit</th>
               <th className="px-2 py-2 text-right font-medium">Gap total</th>
               <th className="px-2 py-2 text-right font-medium">Markup needed</th>
               <th className="px-2 py-2 text-right font-medium">Max cost $</th>
+              <th className="px-2 py-2 text-right font-medium">Max cost ₹</th>
               <th className="px-2 py-2 text-right font-medium">Cut needed $</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading && (
-              <tr><td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">No active products in this inquiry.</td></tr>
+              <tr><td colSpan={13} className="px-3 py-8 text-center text-muted-foreground">No active products in this inquiry.</td></tr>
             )}
+
             {solved.map(({ row, has, gapUsd, markupSolve, costSolve }) => {
               const isOpen = expanded.has(row.id);
               const over = has && gapUsd > 0.005;
@@ -230,6 +298,9 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                     <td className="px-2 py-1.5 text-right tabular-nums">
                       {costSolve?.feasible ? usd(costSolve.maxCostUsd) : '—'}
                     </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {costSolve?.feasible ? inr(costSolve.maxCostInr) : '—'}
+                    </td>
                     <td className={cn('px-2 py-1.5 text-right tabular-nums', costSolve && costSolve.cutRequiredUsd > 0 && 'text-rose-600')}>
                       {costSolve?.feasible ? usd(Math.max(0, costSolve.cutRequiredUsd)) : '—'}
                     </td>
@@ -237,7 +308,8 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                   {isOpen && (
                     <tr key={`${row.id}-detail`} className="bg-muted/20 border-t">
                       <td />
-                      <td colSpan={11} className="px-3 py-2">
+                      <td colSpan={12} className="px-3 py-2">
+
                         {!has ? (
                           <div className="text-muted-foreground">Enter a target price to see the category breakdown.</div>
                         ) : (
@@ -294,7 +366,7 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                 <td className={cn('px-2 py-2 text-right tabular-nums', totals.gapTotal > 0 ? 'text-rose-600' : 'text-emerald-600')}>
                   {usd(totals.gapTotal)}
                 </td>
-                <td colSpan={3} />
+                <td colSpan={4} />
               </tr>
             </tfoot>
           )}
