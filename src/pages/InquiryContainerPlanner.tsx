@@ -176,11 +176,13 @@ export default function InquiryContainerPlanner() {
   return (
     <AppLayout>
       <div className="space-y-4">
-        <PageBreadcrumbs items={[
-          { label: 'Inquiries', to: '/' },
-          { label: baseInquiry?.rfq_number || 'Inquiry', to: `/inquiry/${inquiryId}` },
-          { label: 'Container planner' },
-        ]} />
+        <PageBreadcrumbs
+          canonical={[
+            { label: 'Inquiries', to: '/' },
+            { label: baseInquiry?.rfq_number || 'Inquiry', to: `/inquiry/${inquiryId}` },
+          ]}
+          current="Container planner"
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" variant="ghost" className="gap-1.5">
