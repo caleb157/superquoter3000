@@ -14,9 +14,9 @@ import {
   loadCurrencyMap,
   quoteAmountToUsd,
   usdToQuoteAmount,
-  formatCurrencySync,
   type CurrencyMap,
 } from '@/lib/currency';
+
 
 const BUCKETS = [
   { key: 'cogs', label: 'COGS' },
