@@ -18,6 +18,10 @@ export type ProductPriceCostMap = Record<string, {
   exchange_rate: number;
   man_hours_per_unit: number; // finishing + overhead labor MH per unit (included rows only)
   final_unit_cbm: number;     // packed CBM per unit straight from the costing engine
+  markup_percent: number;     // effective markup used by the engine (inquiry override aware)
+  // Per-unit cost buckets in INR (same split as the costing sheet summary table)
+  buckets_inr: { cogs: number; directOh: number; indirectOh: number; shipping: number };
+  unit_cost_inr: number;
   // For cache healing: the value currently stored in the products table.
   stored_price_usd: number | null;
   stored_cost_usd: number | null;
@@ -133,6 +137,14 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
       exchange_rate: exchangeRate,
       man_hours_per_unit: result.manHoursPerUnit || 0,
       final_unit_cbm: Number(result.finalUnitCbm) || 0,
+      markup_percent: result.markupPercent,
+      unit_cost_inr: summary.product_cost_per_unit_inr,
+      buckets_inr: {
+        cogs: summary.total_cogs_per_unit,
+        directOh: summary.total_direct_oh_per_unit,
+        indirectOh: summary.total_indirect_oh_per_unit,
+        shipping: summary.total_shipping_per_unit,
+      },
       stored_price_usd: storedPriceUsd,
       stored_cost_usd: storedCostUsd,
       cache_is_stale:
