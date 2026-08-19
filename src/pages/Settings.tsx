@@ -459,7 +459,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','data-export'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
