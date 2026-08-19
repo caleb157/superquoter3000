@@ -366,7 +366,7 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                 <td className={cn('px-2 py-2 text-right tabular-nums', totals.gapTotal > 0 ? 'text-rose-600' : 'text-emerald-600')}>
                   {usd(totals.gapTotal)}
                 </td>
-                <td colSpan={3} />
+                <td colSpan={4} />
               </tr>
             </tfoot>
           )}
