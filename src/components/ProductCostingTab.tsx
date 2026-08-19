@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck, FileText, Copy } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Plus, Trash2, Upload, X, Camera, ClipboardCheck, FileText, Copy, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFromInr, usdToQuoteAmount, quoteAmountToUsd, type CurrencyMap } from '@/lib/currency';
@@ -24,6 +24,7 @@ import { computeProductCosting } from '@/lib/costing-engine';
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { TargetLineButton } from '@/components/TargetLineButton';
+import { TargetPriceSolverDialog } from '@/components/TargetPriceSolverDialog';
 import { ResizableTableHead } from '@/components/ResizableTableHead';
 import { ProductCostingTabMobile } from '@/components/ProductCostingTabMobile';
 import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
@@ -125,6 +126,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [solverOpen, setSolverOpen] = useState(false);
   useEffect(() => {
     loadCurrencyMap().then(setCurrencyMap).catch(() => {});
     return subscribeCurrencyMap(setCurrencyMap);
@@ -2554,7 +2556,34 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </Table>
 
               {/* Pricing */}
-              <div className="grid grid-cols-4 gap-3 border-t pt-3">
+              <div className="flex items-center justify-end border-t pt-3">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSolverOpen(true)}>
+                  <Target className="mr-1 h-3.5 w-3.5" /> Solve for Target Price
+                </Button>
+              </div>
+              <TargetPriceSolverDialog
+                open={solverOpen}
+                onOpenChange={setSolverOpen}
+                defaultTargetUsd={product.target_price_usd ?? null}
+                inputs={{
+                  currentCostInr: summary.product_cost_per_unit_inr,
+                  markupPercent,
+                  exchangeRate,
+                  currentUnitPriceUsd: summary.unit_price_usd,
+                  buckets: [
+                    { label: 'COGS', valueInr: summary.total_cogs_per_unit },
+                    { label: 'Direct Overhead', valueInr: summary.total_direct_oh_per_unit },
+                    { label: 'Indirect Overhead', valueInr: summary.total_indirect_oh_per_unit },
+                    { label: 'Shipping', valueInr: summary.total_shipping_per_unit },
+                  ],
+                }}
+                onApplyMarkup={async (markup) => {
+                  updateProduct('markup_percent', markup, true);
+                  toast.success(`Markup set to ${(markup * 100).toFixed(1)}%`);
+                  setSolverOpen(false);
+                }}
+              />
+              <div className="grid grid-cols-4 gap-3 pt-1">
                 <div>
                   <label className="text-[10px] text-muted-foreground">Net Profit Margin %</label>
                   <Input className="h-7 text-xs" type="number" step="0.1"
