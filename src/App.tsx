@@ -90,6 +90,9 @@ const App = () => (
               <Route path="/inquiry/:id/pd" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>
               } />
+              <Route path="/inquiry/:id/container-plan" element={
+                <ProtectedRoute requireAdminOrTeam><InquiryContainerPlanner /></ProtectedRoute>
+              } />
               <Route path="/samples" element={
                 <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
               } />
