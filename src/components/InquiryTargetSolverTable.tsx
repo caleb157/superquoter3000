@@ -298,6 +298,9 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                     <td className="px-2 py-1.5 text-right tabular-nums">
                       {costSolve?.feasible ? usd(costSolve.maxCostUsd) : '—'}
                     </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {costSolve?.feasible ? inr(costSolve.maxCostInr) : '—'}
+                    </td>
                     <td className={cn('px-2 py-1.5 text-right tabular-nums', costSolve && costSolve.cutRequiredUsd > 0 && 'text-rose-600')}>
                       {costSolve?.feasible ? usd(Math.max(0, costSolve.cutRequiredUsd)) : '—'}
                     </td>
@@ -305,7 +308,8 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
                   {isOpen && (
                     <tr key={`${row.id}-detail`} className="bg-muted/20 border-t">
                       <td />
-                      <td colSpan={11} className="px-3 py-2">
+                      <td colSpan={12} className="px-3 py-2">
+
                         {!has ? (
                           <div className="text-muted-foreground">Enter a target price to see the category breakdown.</div>
                         ) : (
