@@ -209,6 +209,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
+    setBaseline(makeBaseline(lines));
     initialPaymentTermsRef.current = paymentTerms;
     initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
