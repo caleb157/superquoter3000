@@ -42,13 +42,37 @@ export function TargetPriceSolverPanel({
 }) {
   const { currentCostInr, buckets, markupPercent, exchangeRate, currentUnitPriceUsd } = inputs;
   const [mode, setMode] = useState<Mode>('markup');
+  const [currency, setCurrency] = useState<string>('USD');
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
   const [targetStr, setTargetStr] = useState<string>(defaultTargetUsd ? String(defaultTargetUsd) : '');
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
 
+  useEffect(() => { void loadCurrencyMap().then(setCurrencyMap); }, []);
   useEffect(() => { setConfirming(false); }, [targetStr, mode]);
 
-  const targetUsd = Number(targetStr) || 0;
+  const currencyOptions = useMemo(() => {
+    const codes = new Set<string>(['USD', 'INR']);
+    Object.values(currencyMap || {}).forEach(c => codes.add(c.code));
+    return Array.from(codes);
+  }, [currencyMap]);
+
+  // Re-express the entered target when the currency changes, so the number keeps its value.
+  const switchCurrency = (next: string) => {
+    const n = Number(targetStr);
+    if (targetStr.trim() !== '' && Number.isFinite(n)) {
+      const asUsd = quoteAmountToUsd(n, currency, currencyMap, exchangeRate);
+      const converted = asUsd == null ? null : usdToQuoteAmount(asUsd, next, currencyMap, exchangeRate);
+      if (converted != null) setTargetStr(String(+converted.toFixed(2)));
+    }
+    setCurrency(next);
+  };
+
+  const targetUsd = useMemo(() => {
+    const n = Number(targetStr);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return quoteAmountToUsd(n, currency, currencyMap, exchangeRate) || 0;
+  }, [targetStr, currency, currencyMap, exchangeRate]);
   const currentCostUsd = exchangeRate > 0 ? currentCostInr / exchangeRate : 0;
 
   const markupSolve = useMemo(() => solveForMarkup({
@@ -64,9 +88,18 @@ export function TargetPriceSolverPanel({
   return (
     <div className="space-y-4">
       {/* Inputs */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="text-xs text-muted-foreground">Target unit price (USD)</label>
+          <label className="text-xs text-muted-foreground">Target currency</label>
+          <Select value={currency} onValueChange={switchCurrency}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {currencyOptions.map(c => <SelectItem key={c} value={c} className="text-sm">{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Target unit price ({currency})</label>
           <Input
             className="h-8 text-sm"
             type="number"
@@ -76,7 +109,11 @@ export function TargetPriceSolverPanel({
             value={targetStr}
             onChange={e => setTargetStr(e.target.value)}
           />
+          {currency !== 'USD' && hasTarget && (
+            <div className="mt-1 text-[10px] text-muted-foreground">= {fmt.usd(targetUsd)}</div>
+          )}
         </div>
+
         <div>
           <label className="text-xs text-muted-foreground">Solve for</label>
           <div className="flex rounded-md border p-0.5">
