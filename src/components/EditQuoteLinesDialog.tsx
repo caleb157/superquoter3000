@@ -58,6 +58,8 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Baseline (last-saved) figures so edits can be shown as live deltas.
+  const [baseline, setBaseline] = useState<{ byKey: Record<string, number>; grand: number; qty: number }>({ byKey: {}, grand: 0, qty: 0 });
   const initialSerialRef = useRef<string>('');
   const initialPaymentTermsRef = useRef<string>('');
   const initialIncotermRef = useRef<string>('');
@@ -73,6 +75,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const initial: SnapshotLine[] = (snapshot.products || []) as SnapshotLine[];
     const seeded = initial.map((l, i) => ({ ...l, _key: `line-${i}-${l.product_id || 'x'}` }));
     setLines(seeded);
+    setBaseline(makeBaseline(seeded));
     initialSerialRef.current = JSON.stringify(serializeLines(seeded));
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
@@ -206,6 +209,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
     // Re-baseline so further edits are detected as dirty again.
     initialSerialRef.current = JSON.stringify(serializeLines(lines));
+    setBaseline(makeBaseline(lines));
     initialPaymentTermsRef.current = paymentTerms;
     initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
@@ -372,9 +376,24 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                 />
               </div>
               <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
-                <span className="text-[11px] tabular-nums text-muted-foreground mr-1">
-                  {fmtMoney(Number(line.quantity || 0) * Number(line.unit_price_usd || 0))}
-                </span>
+                {(() => {
+                  const lineTotal = Number(line.quantity || 0) * Number(line.unit_price_usd || 0);
+                  const base = baseline.byKey[line._key];
+                  const delta = base == null ? 0 : lineTotal - base;
+                  const changed = Math.abs(delta) > 0.004;
+                  return (
+                    <span className="mr-1 text-right leading-tight">
+                      <span className={`block text-[11px] tabular-nums ${changed ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                        {fmtMoney(lineTotal)}
+                      </span>
+                      {changed && (
+                        <span className={`block text-[10px] tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                          {delta > 0 ? '+' : '−'}{fmtMoney(Math.abs(delta))}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
                 <Button
                   type="button" variant="ghost" size="icon" className="h-7 w-7"
                   title="Move up"
@@ -480,6 +499,16 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <div className="text-xs text-muted-foreground">
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
+            {Math.abs(totals.grand - baseline.grand) > 0.004 && (
+              <>
+                {' '}
+                <span className={`tabular-nums font-medium ${totals.grand > baseline.grand ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                  {totals.grand > baseline.grand ? '+' : '−'}{fmtMoney(Math.abs(totals.grand - baseline.grand))}
+                  {baseline.grand > 0 && ` (${totals.grand > baseline.grand ? '+' : '−'}${(Math.abs(totals.grand - baseline.grand) / baseline.grand * 100).toFixed(1)}%)`}
+                </span>
+                <span className="ml-1 text-[11px]">vs saved {fmtMoney(baseline.grand)}</span>
+              </>
+            )}
             {dirty && status === 'idle' && (
               <Badge variant="outline" className="ml-2 text-[10px] font-medium">
                 Unsaved
@@ -514,4 +543,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 // data changes (not re-renders).
 function serializeLines(lines: Array<SnapshotLine & { _key: string }>) {
   return lines.map(({ _key, ...rest }) => rest);
+}
+
+/** Snapshot of last-saved line totals, used to show live deltas while editing. */
+function makeBaseline(lines: Array<SnapshotLine & { _key: string }>) {
+  const byKey: Record<string, number> = {};
+  let grand = 0;
+  let qty = 0;
+  for (const l of lines) {
+    const total = Number(l.quantity || 0) * Number(l.unit_price_usd || 0);
+    byKey[l._key] = total;
+    grand += total;
+    qty += Number(l.quantity || 0);
+  }
+  return { byKey, grand, qty };
 }
