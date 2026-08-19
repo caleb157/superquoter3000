@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Wrench, Target, ClipboardCheck, GanttChartSquare } from 'lucide-react';
+import { Box, Wrench, Target, ClipboardCheck } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -16,12 +16,6 @@ const tools = [
     icon: Target,
     title: 'Target Price Solver',
     description: 'Back-solve the markup, or the maximum unit cost, needed to hit a target sell price.',
-  },
-  {
-    to: '/tools/sample-timeline',
-    icon: GanttChartSquare,
-    title: 'Sample Timeline',
-    description: 'Pick an inquiry and see every product across the Design, Quote and Sample stage tracks with due dates.',
   },
   {
     to: '/pd-dashboard',
