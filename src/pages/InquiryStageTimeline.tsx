@@ -71,9 +71,11 @@ function todayIso() {
 }
 
 export default function InquiryStageTimeline() {
-  const { id: inquiryId } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const inquiryId = searchParams.get('inquiry') || '';
   const navigate = useNavigate();
 
+  const [inquiryOptions, setInquiryOptions] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,7 +87,17 @@ export default function InquiryStageTimeline() {
   useDocumentTitle(inquiry ? `Timeline — ${inquiry.title || inquiry.rfq_number}` : 'Sample Timeline');
 
   useEffect(() => {
-    if (!inquiryId) return;
+    supabase
+      .from('customer_rfqs')
+      .select('id, rfq_number, title')
+      .order('created_at', { ascending: false })
+      .limit(300)
+      .then(({ data }) => setInquiryOptions((data as any[]) || []));
+  }, []);
+
+  useEffect(() => {
+    if (!inquiryId) { setLoading(false); setProducts([]); setInquiry(null); return; }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
