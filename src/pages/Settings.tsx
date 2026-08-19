@@ -485,6 +485,9 @@ const Settings = () => {
   const [woodPrices, setWoodPrices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [containerTypes, setContainerTypes] = useState<any[]>([]);
+  const fetchContainerTypes = () => (supabase as any).from('container_types').select('*').order('sort_order').then(({ data }: any) => data && setContainerTypes(data));
+  useEffect(() => { fetchContainerTypes(); }, []);
 
   const fetchAll = () => {
     supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data));
