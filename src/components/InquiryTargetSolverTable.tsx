@@ -122,7 +122,6 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
         };
       });
       setRows(next);
-      setDrafts(Object.fromEntries(next.map(r => [r.id, r.targetUsd == null ? '' : String(r.targetUsd)])));
     } catch (e: any) {
       toast.error(`Could not load inquiry costing: ${e.message || e}`);
     } finally {
@@ -132,10 +131,15 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Seed/reseed the editable targets in the selected currency (stored value is USD).
+  useEffect(() => {
+    setDrafts(Object.fromEntries(rows.map(r => [r.id, fromUsd(r.targetUsd, r.exchangeRate)])));
+  }, [rows, fromUsd]);
+
   const saveTarget = async (row: Row, raw: string) => {
-    const trimmed = raw.trim();
-    const n = trimmed === '' ? null : Number(trimmed);
-    if (n != null && !Number.isFinite(n)) { toast.error('Invalid number'); return; }
+    const converted = toUsd(raw, row.exchangeRate);
+    if (Number.isNaN(converted as number)) { toast.error('Invalid number or missing exchange rate'); return; }
+    const n = converted == null ? null : +Number(converted).toFixed(4);
     if ((row.targetUsd ?? null) === n) return;
     setRows(prev => prev.map(r => (r.id === row.id ? { ...r, targetUsd: n } : r)));
     const { error } = await (supabase as any)
@@ -143,6 +147,7 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
       .update({ target_price_usd: n })
       .eq('id', row.id);
     if (error) { toast.error(`Save failed: ${error.message}`); void load(); }
+
   };
 
   const solved = useMemo(() => rows.map(row => {
