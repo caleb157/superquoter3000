@@ -117,6 +117,23 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     })();
   }, [open, selectedProductIds]);
 
+  // Non-unit COGS names present on the selected products (for removal)
+  useEffect(() => {
+    if (!open || selectedProductIds.length === 0) { setNuNames([]); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('non_unit_cogs')
+        .select('name')
+        .in('product_id', selectedProductIds);
+      const counts = new Map<string, number>();
+      (data || []).forEach((r: any) => {
+        const n = (r.name || '').trim();
+        if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+      });
+      setNuNames(Array.from(counts.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)));
+    })();
+  }, [open, selectedProductIds]);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -135,8 +152,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       setReplaceAllRaw(false);
       setShippingTypeId('__keep__');
       setLaborRows([]);
+      setNuToRemove([]);
     }
   }, [open]);
+
 
   const addLaborRow = () => setLaborRows(prev => [...prev, newLaborRow()]);
   const removeLaborRow = (key: string) => setLaborRows(prev => prev.filter(r => r._key !== key));
