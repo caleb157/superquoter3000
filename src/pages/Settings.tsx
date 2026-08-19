@@ -441,6 +441,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     items: [
       { id: 'shipping', label: 'Shipping' },
       { id: 'local-transport', label: 'Local transport' },
+      { id: 'container-types', label: 'Container types' },
     ],
   },
   {
