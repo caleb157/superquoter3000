@@ -239,7 +239,7 @@ export default function InquiryStageTimeline() {
           </div>
 
           <div className="border rounded-lg overflow-hidden">
-            <div className="hidden md:grid grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))_150px] gap-2 px-3 py-2 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+            <div className="hidden md:grid grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))_220px] gap-2 px-3 py-2 bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
               <div>Product</div>
               {TRACKS.map(t => <div key={t.track}>{t.label}</div>)}
               <div>Due / stages</div>
@@ -256,7 +256,7 @@ export default function InquiryStageTimeline() {
                   <div
                     key={p.id}
                     className={cn(
-                      'grid md:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))_150px] gap-2 px-3 py-2.5 border-t items-center',
+                      'grid md:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))_220px] gap-2 px-3 py-2.5 border-t items-center',
                       'hover:bg-muted/40 transition-colors',
                       due?.overdue && 'bg-red-50/60 dark:bg-red-500/5',
                     )}
@@ -306,7 +306,7 @@ export default function InquiryStageTimeline() {
                       ) : (
                         <span className="text-[11px] text-muted-foreground">No open tasks</span>
                       )}
-                      <ProductStagePills product={p} onChange={(track, stage) => updateStage(p.id, track, stage)} />
+                      <div className="flex flex-wrap gap-1"><ProductStagePills product={p} onChange={(track, stage) => updateStage(p.id, track, stage)} /></div>
                     </div>
                   </div>
                 );
