@@ -23,6 +23,8 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+import { STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
+
 const CLOSED_STATUSES = ['complete', 'cancelled'];
 const PAGE_SIZE = 100;
 
@@ -56,6 +58,8 @@ export default function PdDashboard() {
   const [search, setSearch] = useState('');
   const [inquiryFilter, setInquiryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('open');
+  const statusFilterRef = useRef(statusFilter);
+  statusFilterRef.current = statusFilter;
   const [customerFilter, setCustomerFilter] = useState('all');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
   const [missingItem, setMissingItem] = useState<'all' | PdItemKey>('all');
@@ -81,7 +85,7 @@ export default function PdDashboard() {
       }
 
       const list: Row[] = ((data || []) as any[])
-        .filter(p => includeClosed || !CLOSED_STATUSES.includes(p.customer_rfqs?.status))
+        .filter(p => includeClosed || CLOSED_STATUSES.includes(statusFilterRef.current) || !CLOSED_STATUSES.includes(p.customer_rfqs?.status))
         .map(p => {
           const inq = p.customer_rfqs;
           const cust = inq?.customers;
