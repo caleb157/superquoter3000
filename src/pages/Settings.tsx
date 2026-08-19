@@ -516,6 +516,29 @@ const Settings = () => {
       case 'local-transport': return <LocalTransportSettings />;
       case 'cogs-categories': return <CogsCategoriesSettings />;
       case 'raw-materials': return <RawMaterialCostsSettings />;
+      case 'container-types':
+        return (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Internal dimensions in inches. Usable volume factor accounts for pallet loss / unusable space (0.85 = 85% of internal volume).
+            </p>
+            <EditableTable
+              tableName="container_types"
+              data={containerTypes} setData={setContainerTypes}
+              fetchData={fetchContainerTypes}
+              defaultRow={{ name: 'New Container', internal_width_in: 0, internal_depth_in: 0, internal_height_in: 0, max_weight_kg: 0, usable_volume_factor: 0.85, sort_order: 99 } as any}
+              columns={[
+                { key: 'name', label: 'Name', width: '160px' },
+                { key: 'internal_width_in', label: 'Int. W (in)', type: 'number', width: '110px' },
+                { key: 'internal_depth_in', label: 'Int. D (in)', type: 'number', width: '110px' },
+                { key: 'internal_height_in', label: 'Int. H (in)', type: 'number', width: '110px' },
+                { key: 'max_weight_kg', label: 'Max weight (kg)', type: 'number', width: '130px' },
+                { key: 'usable_volume_factor', label: 'Usable factor', type: 'number', width: '110px' },
+                { key: 'sort_order', label: 'Sort', type: 'number', width: '70px' },
+              ]}
+            />
+          </div>
+        );
       case 'customers':
         return (
           <EditableTable
