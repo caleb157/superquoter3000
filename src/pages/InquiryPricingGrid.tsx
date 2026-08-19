@@ -32,6 +32,7 @@ type Product = {
   depth_inch: number | null;
   height_inch: number | null;
   outsourced_unit_cost_inr: number | null;
+  is_outsourced: boolean;
 };
 type CogsRow = {
   id: string;
@@ -84,7 +85,7 @@ function shouldBackfillPricedQty(row: Pick<CogsRow, 'cogs_type' | 'unit_cost_inr
 
 // ---------- Column model ----------
 
-type CellKind = 'vendor' | 'price';
+type CellKind = 'vendor' | 'price' | 'flag';
 type ColumnSpec =
   | { key: string; kind: CellKind; group: 'raw'; slot: number }
   | { key: string; kind: CellKind; group: 'subc' }
@@ -101,6 +102,7 @@ function buildColumns(rawSlots: number): ColumnSpec[] {
   cols.push({ key: 'subc_p', kind: 'price', group: 'subc' });
   cols.push({ key: 'hw_v', kind: 'vendor', group: 'hw' });
   cols.push({ key: 'hw_p', kind: 'price', group: 'hw' });
+  cols.push({ key: 'outs_f', kind: 'flag', group: 'outsourced' });
   cols.push({ key: 'outs_p', kind: 'price', group: 'outsourced' });
   return cols;
 }
@@ -141,7 +143,7 @@ export default function InquiryPricingGrid() {
 
     const { data: prods } = await supabase
       .from('products')
-      .select('id, name, sku, width_inch, depth_inch, height_inch, outsourced_unit_cost_inr')
+      .select('id, name, sku, width_inch, depth_inch, height_inch, outsourced_unit_cost_inr, is_outsourced')
       .eq('customer_rfq_id', inquiryId)
       .order('created_at', { ascending: true });
     const productList = (prods || []) as Product[];
@@ -335,6 +337,8 @@ export default function InquiryPricingGrid() {
       const trimmed = raw.trim();
       if (trimmed === '') return false; // skip empties (paste semantics)
 
+      if (col.kind === 'flag') return false;
+
       if (col.group === 'outsourced') {
         const n = parseNumber(trimmed);
         if (n == null) return false;
@@ -437,6 +441,13 @@ export default function InquiryPricingGrid() {
       });
     }
   }, []);
+
+  const onToggleOutsourced = useCallback(async (productId: string, next: boolean) => {
+    setProducts(prev => prev.map(p => (p.id === productId ? { ...p, is_outsourced: next } : p)));
+    const { error } = await supabase.from('products').update({ is_outsourced: next }).eq('id', productId);
+    if (error) { toast.error(`Save failed: ${error.message}`); void refetch(); return; }
+    void recostInBackground(productId);
+  }, [refetch, recostInBackground]);
 
   // Apply the toolbar waste % to every raw-piece row across all products in the inquiry.
   const applyDefaultWasteToAllRaw = useCallback(async () => {
@@ -654,6 +665,7 @@ export default function InquiryPricingGrid() {
             onPaste={handlePaste}
             onUpdateWaste={updateProductRawWaste}
             onApplyVendorToColumn={applyVendorToColumn}
+            onToggleOutsourced={onToggleOutsourced}
           />
         )}
       </div>
@@ -698,11 +710,12 @@ type TableProps = {
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, productIdx: number, colIdx: number) => void;
   onUpdateWaste: (productId: string, pct: number) => Promise<void>;
   onApplyVendorToColumn: (group: 'raw' | 'subc' | 'hw', slot: number | undefined, vendor: string) => Promise<void>;
+  onToggleOutsourced: (productId: string, next: boolean) => Promise<void>;
 };
 
 function PricingGridTable({
   products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
-  onApplyVendorToColumn,
+  onApplyVendorToColumn, onToggleOutsourced,
 }: TableProps) {
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
@@ -730,7 +743,7 @@ function PricingGridTable({
             <th colSpan={2} className="px-2 py-1 text-center font-medium border-b border-r">Subcontract</th>
             <th colSpan={2} className="px-2 py-1 text-center font-medium border-b border-r">Hardware</th>
             <th
-              colSpan={1}
+              colSpan={2}
               className="px-2 py-1 text-center font-medium border-b"
               title="Outsourced finished-goods cost per unit (INR). Used when the product type is Outsourced."
             >Outsourced</th>
@@ -751,6 +764,7 @@ function PricingGridTable({
               <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
+            <th className="px-2 py-1 text-center font-normal text-muted-foreground border-b w-[48px]" title="Mark this product as outsourced">On</th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[110px]">Cost ₹/unit</th>
           </tr>
         </thead>
@@ -800,6 +814,20 @@ function PricingGridTable({
                   const isLastInGroup = col.kind === 'price' && (col.group !== 'raw'); // subc/hw price ends with border
                   const isWinnerCol = col.group === 'raw';
 
+                  if (col.kind === 'flag') {
+                    return (
+                      <td key={cellKey} className="px-1 py-0.5 text-center align-middle border-l">
+                        <input
+                          type="checkbox"
+                          checked={!!p.is_outsourced}
+                          onChange={(e) => void onToggleOutsourced(p.id, e.target.checked)}
+                          className="h-3.5 w-3.5 accent-emerald-600 cursor-pointer"
+                          aria-label={`Mark ${p.name} as outsourced`}
+                        />
+                      </td>
+                    );
+                  }
+
                   if (col.kind === 'vendor') {
                     return (
                       <td
@@ -827,6 +855,7 @@ function PricingGridTable({
                       )}
                     >
                       <PriceCell
+                        muted={col.group === 'outsourced' && !p.is_outsourced}
                         value={col.group === 'outsourced' ? (p.outsourced_unit_cost_inr ?? null) : (row?.unit_cost_inr ?? null)}
                         winner={isWinnerPrice}
                         onCommit={(raw) => void onWriteCell(p.id, col, raw)}
@@ -915,10 +944,11 @@ function VendorPasteCell({
 }
 
 function PriceCell({
-  value, winner, onCommit, onPaste,
+  value, winner, onCommit, onPaste, muted,
 }: {
   value: number | null;
   winner: boolean;
+  muted?: boolean;
   onCommit: (raw: string) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }) {
@@ -951,6 +981,7 @@ function PriceCell({
       className={cn(
         'h-7 text-right text-xs px-1.5 tabular-nums',
         winner && 'font-semibold',
+        muted && 'opacity-50',
       )}
       placeholder="—"
       inputMode="decimal"
