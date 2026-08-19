@@ -4,10 +4,19 @@ import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  getCachedCurrencyMap,
+  loadCurrencyMap,
+  quoteAmountToUsd,
+  usdToQuoteAmount,
+  formatCurrencySync,
+  type CurrencyMap,
+} from '@/lib/currency';
 
 const BUCKETS = [
   { key: 'cogs', label: 'COGS' },
@@ -39,6 +48,48 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
   const [loading, setLoading] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [currency, setCurrency] = useState<string>('USD');
+
+  useEffect(() => { void loadCurrencyMap().then(setCurrencyMap); }, []);
+
+  useEffect(() => {
+    if (!inquiryId) return;
+    (supabase as any)
+      .from('customer_rfqs')
+      .select('quoting_currency')
+      .eq('id', inquiryId)
+      .maybeSingle()
+      .then(({ data }: any) => setCurrency(data?.quoting_currency || 'USD'));
+  }, [inquiryId]);
+
+  const currencyOptions = useMemo(() => {
+    const codes = new Set<string>(['USD', 'INR']);
+    Object.values(currencyMap || {}).forEach(c => codes.add(c.code));
+    return Array.from(codes);
+  }, [currencyMap]);
+
+  const toUsd = useCallback(
+    (v: string, rate: number) => {
+      const t = v.trim();
+      if (t === '') return null;
+      const n = Number(t);
+      if (!Number.isFinite(n)) return NaN;
+      const out = quoteAmountToUsd(n, currency, currencyMap, rate);
+      return out == null ? NaN : out;
+    },
+    [currency, currencyMap],
+  );
+
+  const fromUsd = useCallback(
+    (v: number | null, rate: number) => {
+      if (v == null) return '';
+      const out = currency === 'USD' ? v : usdToQuoteAmount(v, currency, currencyMap, rate);
+      return out == null ? '' : String(+out.toFixed(2));
+    },
+    [currency, currencyMap],
+  );
+
 
   const load = useCallback(async () => {
     if (!inquiryId) { setRows([]); return; }
