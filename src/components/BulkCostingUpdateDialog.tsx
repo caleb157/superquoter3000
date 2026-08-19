@@ -432,6 +432,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willUpdateLabor) {
       parts.push(`${validLaborRows.length} labor override${validLaborRows.length === 1 ? '' : 's'}`);
     }
+    if (willRemoveNonUnit) {
+      parts.push(`${nuToRemove.length} non-unit COGS removed`);
+    }
+
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
     onOpenChange(false);
