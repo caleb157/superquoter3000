@@ -35,6 +35,7 @@ import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
+import TargetPriceSolverPage from "./pages/TargetPriceSolver";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
