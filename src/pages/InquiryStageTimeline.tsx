@@ -8,7 +8,7 @@
 // populated going forward — deliberately not built in this pass.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, CalendarClock, Search } from 'lucide-react';
 
 import { AppLayout } from '@/components/AppLayout';
@@ -71,9 +71,11 @@ function todayIso() {
 }
 
 export default function InquiryStageTimeline() {
-  const { id: inquiryId } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const inquiryId = searchParams.get('inquiry') || '';
   const navigate = useNavigate();
 
+  const [inquiryOptions, setInquiryOptions] = useState<{ id: string; rfq_number: string; title: string | null }[]>([]);
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,7 +87,17 @@ export default function InquiryStageTimeline() {
   useDocumentTitle(inquiry ? `Timeline — ${inquiry.title || inquiry.rfq_number}` : 'Sample Timeline');
 
   useEffect(() => {
-    if (!inquiryId) return;
+    supabase
+      .from('customer_rfqs')
+      .select('id, rfq_number, title')
+      .order('created_at', { ascending: false })
+      .limit(300)
+      .then(({ data }) => setInquiryOptions((data as any[]) || []));
+  }, []);
+
+  useEffect(() => {
+    if (!inquiryId) { setLoading(false); setProducts([]); setInquiry(null); return; }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -179,10 +191,7 @@ export default function InquiryStageTimeline() {
       <TooltipProvider delayDuration={200}>
         <div className="p-4 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
           <PageBreadcrumbs
-            canonical={[
-              { label: 'Inquiries', to: '/inquiries' },
-              ...(inquiry ? [{ label: inquiry.title || inquiry.rfq_number, to: `/inquiry/${inquiry.id}` }] : []),
-            ]}
+            canonical={[{ label: 'Tools', to: '/tools' }]}
             current="Sample Timeline"
           />
 
@@ -194,10 +203,26 @@ export default function InquiryStageTimeline() {
                 {inquiry?.customers ? ` — ${customerPrimary(inquiry.customers)}` : ''}.
               </p>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}`)}>
-              <ArrowLeft className="h-4 w-4" /> Back to inquiry
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select
+                value={inquiryId}
+                onValueChange={v => setSearchParams(v ? { inquiry: v } : {})}
+              >
+                <SelectTrigger className="h-9 w-[260px]"><SelectValue placeholder="Select an inquiry…" /></SelectTrigger>
+                <SelectContent>
+                  {inquiryOptions.map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.rfq_number} — {o.title || 'Untitled'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {inquiryId && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}`)}>
+                  <ArrowLeft className="h-4 w-4" /> Inquiry
+                </Button>
+              )}
+            </div>
           </div>
+
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-72">
@@ -248,7 +273,10 @@ export default function InquiryStageTimeline() {
             {loading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">Loading timeline…</div>
             ) : visible.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">No products match these filters.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                {inquiryId ? 'No products match these filters.' : 'Select an inquiry to load its stage timeline.'}
+              </div>
+
             ) : (
               visible.map(p => {
                 const due = dueInfo(p.id);
