@@ -149,6 +149,9 @@ const App = () => (
               <Route path="/tools/master-carton" element={
                 <ProtectedRoute requireAdminOrTeam><MasterCartonSizer /></ProtectedRoute>
               } />
+              <Route path="/tools/target-price" element={
+                <ProtectedRoute requireAdminOrTeam><TargetPriceSolverPage /></ProtectedRoute>
+              } />
 
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
