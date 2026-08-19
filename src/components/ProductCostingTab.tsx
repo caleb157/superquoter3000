@@ -126,6 +126,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
+  const [solverOpen, setSolverOpen] = useState(false);
   useEffect(() => {
     loadCurrencyMap().then(setCurrencyMap).catch(() => {});
     return subscribeCurrencyMap(setCurrencyMap);
