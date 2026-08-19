@@ -191,10 +191,7 @@ export default function InquiryStageTimeline() {
       <TooltipProvider delayDuration={200}>
         <div className="p-4 sm:p-6 space-y-4 max-w-[1400px] mx-auto">
           <PageBreadcrumbs
-            canonical={[
-              { label: 'Inquiries', to: '/inquiries' },
-              ...(inquiry ? [{ label: inquiry.title || inquiry.rfq_number, to: `/inquiry/${inquiry.id}` }] : []),
-            ]}
+            canonical={[{ label: 'Tools', to: '/tools' }]}
             current="Sample Timeline"
           />
 
@@ -206,10 +203,26 @@ export default function InquiryStageTimeline() {
                 {inquiry?.customers ? ` — ${customerPrimary(inquiry.customers)}` : ''}.
               </p>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}`)}>
-              <ArrowLeft className="h-4 w-4" /> Back to inquiry
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select
+                value={inquiryId}
+                onValueChange={v => setSearchParams(v ? { inquiry: v } : {})}
+              >
+                <SelectTrigger className="h-9 w-[260px]"><SelectValue placeholder="Select an inquiry…" /></SelectTrigger>
+                <SelectContent>
+                  {inquiryOptions.map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.rfq_number} — {o.title || 'Untitled'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {inquiryId && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}`)}>
+                  <ArrowLeft className="h-4 w-4" /> Inquiry
+                </Button>
+              )}
+            </div>
           </div>
+
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-72">
