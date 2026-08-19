@@ -155,21 +155,9 @@ export default function InquiryPdView() {
     })();
   }, [inquiryId]);
 
-  const isDisabled = (p: Product, item: ItemDef) => {
-    if (item.requiresWood) return p.percent_wood === 0;
-    if (item.requiresMetal) return p.percent_wood === 1;
-    if (item.requiresIcMc) return (p.packaging_type || 'ic_mc') !== 'ic_mc';
-    if (item.cogsCategory) return !cogsCats[p.id]?.has(item.cogsCategory);
-    return false;
-  };
+  const isDisabled = (p: Product, item: ItemDef) => pdIsDisabled(p, item, cogsCats);
 
-  const disabledReason = (p: Product, item: ItemDef) => {
-    if (item.requiresWood) return 'No wood on this product (0% wood).';
-    if (item.requiresMetal) return 'No metal on this product (100% wood).';
-    if (item.requiresIcMc) return `No master carton — packaging is "${p.packaging_type || 'ic_mc'}".`;
-    if (item.cogsCategory) return `No "${item.cogsCategory}" COGS rows on this product.`;
-    return '';
-  };
+  const disabledReason = (p: Product, item: ItemDef) => pdDisabledReason(p, item);
 
   const applicableItems = (p: Product) => ITEMS.filter(it => !isDisabled(p, it));
 
