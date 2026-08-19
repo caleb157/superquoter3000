@@ -35,7 +35,7 @@ export default function TargetPriceSolverPage() {
   return (
     <AppLayout>
       <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4">
-        <PageBreadcrumbs items={[{ label: 'Tools', to: '/tools' }, { label: 'Target Price Solver' }]} />
+        <PageBreadcrumbs canonical={[{ label: 'Tools', to: '/tools' }]} current="Target Price Solver" />
         <h1 className="text-lg font-semibold flex items-center gap-2">
           <Target className="h-4 w-4" /> Target Price Solver
         </h1>
