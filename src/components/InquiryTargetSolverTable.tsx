@@ -193,14 +193,24 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Targets save straight to each product. Gap = current calculated price minus your target, at live costing.
+          Targets save straight to each product (stored in USD). Gap = current calculated price minus your target, at live costing.
         </p>
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={cn('h-3 w-3 mr-1', loading && 'animate-spin')} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Target currency</span>
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {currencyOptions.map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={cn('h-3 w-3 mr-1', loading && 'animate-spin')} /> Refresh
+          </Button>
+        </div>
       </div>
+
 
       <div className="grid gap-3 sm:grid-cols-4">
         <SummaryStat label="Products with a target" value={`${totals.withTarget} / ${rows.length}`} />
