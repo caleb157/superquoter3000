@@ -234,18 +234,20 @@ export function InquiryTargetSolverTable({ inquiryId }: { inquiryId: string }) {
               <th className="px-2 py-2 text-right font-medium">Cost $</th>
               <th className="px-2 py-2 text-right font-medium">Markup</th>
               <th className="px-2 py-2 text-right font-medium">Price $</th>
-              <th className="px-2 py-2 text-right font-medium w-[110px]">Target $</th>
+              <th className="px-2 py-2 text-right font-medium w-[120px]">Target ({currency})</th>
               <th className="px-2 py-2 text-right font-medium">Gap $/unit</th>
               <th className="px-2 py-2 text-right font-medium">Gap total</th>
               <th className="px-2 py-2 text-right font-medium">Markup needed</th>
               <th className="px-2 py-2 text-right font-medium">Max cost $</th>
+              <th className="px-2 py-2 text-right font-medium">Max cost ₹</th>
               <th className="px-2 py-2 text-right font-medium">Cut needed $</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading && (
-              <tr><td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">No active products in this inquiry.</td></tr>
+              <tr><td colSpan={13} className="px-3 py-8 text-center text-muted-foreground">No active products in this inquiry.</td></tr>
             )}
+
             {solved.map(({ row, has, gapUsd, markupSolve, costSolve }) => {
               const isOpen = expanded.has(row.id);
               const over = has && gapUsd > 0.005;
