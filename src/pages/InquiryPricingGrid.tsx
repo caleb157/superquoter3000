@@ -665,6 +665,7 @@ export default function InquiryPricingGrid() {
             onPaste={handlePaste}
             onUpdateWaste={updateProductRawWaste}
             onApplyVendorToColumn={applyVendorToColumn}
+            onToggleOutsourced={onToggleOutsourced}
           />
         )}
       </div>
@@ -709,11 +710,12 @@ type TableProps = {
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, productIdx: number, colIdx: number) => void;
   onUpdateWaste: (productId: string, pct: number) => Promise<void>;
   onApplyVendorToColumn: (group: 'raw' | 'subc' | 'hw', slot: number | undefined, vendor: string) => Promise<void>;
+  onToggleOutsourced: (productId: string, next: boolean) => Promise<void>;
 };
 
 function PricingGridTable({
   products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
-  onApplyVendorToColumn,
+  onApplyVendorToColumn, onToggleOutsourced,
 }: TableProps) {
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
