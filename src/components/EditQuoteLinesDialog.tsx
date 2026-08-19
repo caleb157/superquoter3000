@@ -376,9 +376,24 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                 />
               </div>
               <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
-                <span className="text-[11px] tabular-nums text-muted-foreground mr-1">
-                  {fmtMoney(Number(line.quantity || 0) * Number(line.unit_price_usd || 0))}
-                </span>
+                {(() => {
+                  const lineTotal = Number(line.quantity || 0) * Number(line.unit_price_usd || 0);
+                  const base = baseline.byKey[line._key];
+                  const delta = base == null ? 0 : lineTotal - base;
+                  const changed = Math.abs(delta) > 0.004;
+                  return (
+                    <span className="mr-1 text-right leading-tight">
+                      <span className={`block text-[11px] tabular-nums ${changed ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                        {fmtMoney(lineTotal)}
+                      </span>
+                      {changed && (
+                        <span className={`block text-[10px] tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                          {delta > 0 ? '+' : '−'}{fmtMoney(Math.abs(delta))}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
                 <Button
                   type="button" variant="ghost" size="icon" className="h-7 w-7"
                   title="Move up"
