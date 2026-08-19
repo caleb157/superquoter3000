@@ -397,7 +397,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       })();
     }
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise]);
+    const nonUnitPromise = willRemoveNonUnit
+      ? (supabase as any).from('non_unit_cogs').delete().in('product_id', selectedProductIds).in('name', nuToRemove)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise]);
+
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
 
