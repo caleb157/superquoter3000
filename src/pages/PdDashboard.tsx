@@ -407,6 +407,7 @@ export default function PdDashboard() {
                           {PD_ITEMS.map((it, i) => {
                             const cellKey = `${p.id}:${it.key}`;
                             const disabled = isDisabled(p, it);
+                            const isDue = !disabled && !checked[cellKey];
                             const box = (
                               <div className="flex items-center justify-center">
                                 <Checkbox
@@ -430,6 +431,7 @@ export default function PdDashboard() {
                                   'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px]',
                                   i === 0 || PD_ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                   disabled && 'bg-muted',
+                                  isDue && 'bg-amber-100 dark:bg-amber-500/20',
                                 )}
                               >
                                 {disabled ? (

@@ -317,6 +317,7 @@ export default function InquiryPdView() {
                         {ITEMS.map((it, i) => {
                           const cellKey = `${p.id}:${it.key}`;
                           const disabled = isDisabled(p, it);
+                          const isDue = !disabled && !checked[cellKey];
                           const box = (
                             <div className="flex items-center justify-center">
                               <Checkbox
@@ -341,6 +342,7 @@ export default function InquiryPdView() {
                                 'px-1 py-1.5 border-b text-center snap-start',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                 disabled && 'bg-muted',
+                                isDue && 'bg-amber-100 dark:bg-amber-500/20',
                               )}
                             >
                               {disabled ? (
