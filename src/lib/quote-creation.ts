@@ -283,6 +283,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       moq: db.moq ?? null,
       hard_moq: db.hard_moq ?? null,
       box_size: buildBoxSizeStr(cbmRowByProduct.get(sel.id), db),
+      ...buildCarton(cbmRowByProduct.get(sel.id), db),
+
       variant_id: sel.variant_id ?? null,
       variant_name: sel.variant_name ?? null,
     };
