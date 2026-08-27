@@ -87,6 +87,7 @@ export interface QuotePdfProps {
     totalQty: number;
     totalCbm: number;
     totalValue: number;
+    discountPercent?: number | null;
     freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null;
   };
 }
@@ -486,9 +487,23 @@ const QuotePdfDocument = ({
             <View style={s.sumRow}><Text style={s.sumLabel}>Total volume</Text><Text style={s.sumValue}>{totals.totalCbm.toFixed(2)} CBM</Text></View>
           ) : null}
           <View style={s.divider} />
+          {Number(totals.discountPercent || 0) > 0 ? (
+            <>
+              <View style={s.sumRow}>
+                <Text style={s.sumLabel}>Subtotal</Text>
+                <Text style={s.sumValue}>{symbol}{fmt(totals.totalValue)}</Text>
+              </View>
+              <View style={s.sumRow}>
+                <Text style={s.sumLabel}>Discount ({Number(totals.discountPercent)}%)</Text>
+                <Text style={s.sumValue}>-{symbol}{fmt((totals.totalValue * Number(totals.discountPercent)) / 100)}</Text>
+              </View>
+            </>
+          ) : null}
           <View style={s.sumRow}>
             <Text style={s.totalLabel}>Total</Text>
-            <Text style={s.totalValue}>{symbol}{fmt(totals.totalValue)}</Text>
+            <Text style={s.totalValue}>
+              {symbol}{fmt(totals.totalValue - (totals.totalValue * Number(totals.discountPercent || 0)) / 100)}
+            </Text>
           </View>
           {totals.freight && totals.freight.amount > 0 ? (
             <View style={[s.sumRow, { marginTop: 4 }]}>

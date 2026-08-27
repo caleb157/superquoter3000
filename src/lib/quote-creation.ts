@@ -386,8 +386,8 @@ export async function updateQuoteLineItems(
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
-  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null },
-): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
+  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null },
+): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; subtotal?: number; discount_percent?: number | null; discount_amount?: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
   const productsJson = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
@@ -443,10 +443,29 @@ export async function updateQuoteLineItems(
     existingFreight = existing?.totals?.freight ?? null;
   }
 
+  // Discount: stored as a percentage off the line-item subtotal.
+  let discountPercent: number | null = null;
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'discount_percent')) {
+    const d = Number(meta.discount_percent ?? 0);
+    discountPercent = Number.isFinite(d) && d > 0 ? Math.min(d, 100) : null;
+  } else {
+    const { data: existingRow } = await (supabase as any)
+      .from('quote_snapshots')
+      .select('totals')
+      .eq('id', snapshotId)
+      .maybeSingle();
+    const prev = existingRow?.totals?.discount_percent;
+    discountPercent = prev == null ? null : Number(prev);
+  }
+  const discountAmount = discountPercent ? (grandTotal * discountPercent) / 100 : 0;
+
   const totals: any = {
     sku_count: productsJson.length,
     total_qty: totalQty,
-    grand_total: grandTotal,
+    subtotal: grandTotal,
+    discount_percent: discountPercent,
+    discount_amount: discountAmount,
+    grand_total: grandTotal - discountAmount,
     total_cbm: totalCbm,
     freight: freightSnap !== undefined ? freightSnap : existingFreight,
   };
