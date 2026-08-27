@@ -96,7 +96,7 @@ interface QuoteData {
     valid_until: string | null;
     status: string;
     products: QuoteProduct[];
-    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number; freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null };
+    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number; discount_percent?: number | null; freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null };
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
@@ -376,6 +376,7 @@ const CustomerQuote = () => {
             totalQty: summary.totalQty,
             totalCbm: summary.totalCbm,
             totalValue: summary.totalValue,
+            discountPercent: data.snapshot.totals?.discount_percent ?? null,
             freight: data.snapshot.totals?.freight ?? null,
           }}
         />
@@ -785,12 +786,30 @@ const CustomerQuote = () => {
                   <div className="flex justify-between"><span className="text-slate-500">Total volume</span><span className="font-medium text-slate-900 tabular-nums">{summary.totalCbm.toFixed(2)} CBM</span></div>
                 )}
                 <div className="border-t border-slate-100 my-2" />
-                <div className="flex justify-between items-baseline">
-                  <span className="font-semibold text-slate-900">Total</span>
-                  <span className="text-xl font-bold text-slate-900 tabular-nums">
-                    {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
+                {(() => {
+                  const pct = Number(data.snapshot.totals?.discount_percent ?? 0);
+                  if (!(pct > 0)) return (
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-semibold text-slate-900">Total</span>
+                      <span className="text-xl font-bold text-slate-900 tabular-nums">
+                        {symbol}{summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  );
+                  const disc = (summary.totalValue * pct) / 100;
+                  const net = summary.totalValue - disc;
+                  const money = (n: number) => `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return (
+                    <>
+                      <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-900 tabular-nums">{money(summary.totalValue)}</span></div>
+                      <div className="flex justify-between"><span className="text-emerald-700">Discount ({pct}%)</span><span className="font-medium text-emerald-700 tabular-nums">−{money(disc)}</span></div>
+                      <div className="flex justify-between items-baseline pt-1">
+                        <span className="font-semibold text-slate-900">Total</span>
+                        <span className="text-xl font-bold text-slate-900 tabular-nums">{money(net)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 {data.snapshot.totals?.freight && data.snapshot.totals.freight.amount > 0 && (
                   <div className="mt-1 flex justify-between items-baseline text-xs">
                     <span className="text-slate-500">
