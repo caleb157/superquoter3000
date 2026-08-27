@@ -429,13 +429,41 @@ export async function updateQuoteLineItems(
 
   meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null },
 ): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; subtotal?: number; discount_percent?: number | null; discount_amount?: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
-  const productsJson = products.map(p => ({
+  const productsJson: any[] = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
   }));
+
+  // Backfill shipping-carton data on legacy snapshot lines so air freight can use
+  // carton math instead of per-piece dim weight.
+  const needCarton = productsJson.filter(p => p.product_id && !p.units_per_carton).map(p => p.product_id as string);
+  if (needCarton.length > 0) {
+    const { data: cbmRows } = await supabase
+      .from('cbm_estimates')
+      .select('product_id, ic_width, ic_depth, ic_height, mc_width, mc_depth, mc_height, products_per_ic, products_per_mc')
+      .in('product_id', Array.from(new Set(needCarton)));
+    const byProduct = new Map<string, any>((cbmRows ?? []).map((r: any) => [r.product_id, r]));
+    for (const p of productsJson) {
+      const r = p.product_id ? byProduct.get(p.product_id) : null;
+      if (!r) continue;
+      if (r.mc_width && r.mc_depth && r.mc_height) {
+        p.carton_width_inch = Number(r.mc_width);
+        p.carton_depth_inch = Number(r.mc_depth);
+        p.carton_height_inch = Number(r.mc_height);
+        p.units_per_carton = Number(r.products_per_mc || 0) || null;
+      } else if (r.ic_width && r.ic_depth && r.ic_height) {
+        p.carton_width_inch = Number(r.ic_width);
+        p.carton_depth_inch = Number(r.ic_depth);
+        p.carton_height_inch = Number(r.ic_height);
+        p.units_per_carton = Number(r.products_per_ic || 0) || 1;
+      }
+    }
+  }
+
   const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
   const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
   const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
+
 
   // Recompute freight using snapshot line data when caller sends new freight
   // settings; preserve the prior value otherwise.
