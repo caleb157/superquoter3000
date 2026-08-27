@@ -329,6 +329,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
         width_inch: db.width_inch,
         depth_inch: db.depth_inch,
         height_inch: db.height_inch,
+        ...buildCarton(cbmRowByProduct.get(sel.id), db),
+
       };
     });
     freightSnap = computeFreight(freightLines, params.freight);
