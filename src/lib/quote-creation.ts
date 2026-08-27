@@ -460,6 +460,11 @@ export async function updateQuoteLineItems(
           width_inch: p.width_inch,
           depth_inch: p.depth_inch,
           height_inch: p.height_inch,
+          carton_width_inch: p.carton_width_inch,
+          carton_depth_inch: p.carton_depth_inch,
+          carton_height_inch: p.carton_height_inch,
+          units_per_carton: p.units_per_carton,
+
         };
       });
       freightSnap = computeFreight(freightLines, meta.freight);
