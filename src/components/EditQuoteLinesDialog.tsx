@@ -56,6 +56,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const [freightMode, setFreightMode] = useState<FreightMode>('sea');
   const [freightRate, setFreightRate] = useState<string>('');
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
+  const [discountPercent, setDiscountPercent] = useState<string>('');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // Baseline (last-saved) figures so edits can be shown as live deltas.
@@ -64,6 +65,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const initialPaymentTermsRef = useRef<string>('');
   const initialIncotermRef = useRef<string>('');
   const initialFreightRef = useRef<string>('');
+  const initialDiscountRef = useRef<string>('');
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currency: string = snapshot?.currency || 'USD';
@@ -91,6 +93,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     setFreightRate(fr);
     setDimDivisor(fd);
     initialFreightRef.current = `${fm}|${fr}|${fd}`;
+    const dp = snapshot?.totals?.discount_percent != null ? String(snapshot.totals.discount_percent) : '';
+    setDiscountPercent(dp);
+    initialDiscountRef.current = dp;
     setStatus('idle');
     setErrorMsg(null);
     (async () => {
@@ -109,13 +114,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     return { qty, grand, cbm, sku: lines.length };
   }, [lines]);
 
+  const discountPct = Math.max(0, Math.min(100, Number(discountPercent || 0)));
+  const discountAmount = (totals.grand * discountPct) / 100;
+  const netTotal = totals.grand - discountAmount;
+
   const freightSerial = `${freightMode}|${freightRate}|${dimDivisor}`;
   const dirty = useMemo(
     () => JSON.stringify(serializeLines(lines)) !== initialSerialRef.current
       || paymentTerms !== initialPaymentTermsRef.current
       || incoterm !== initialIncotermRef.current
-      || freightSerial !== initialFreightRef.current,
-    [lines, paymentTerms, incoterm, freightSerial],
+      || freightSerial !== initialFreightRef.current
+      || discountPercent !== initialDiscountRef.current,
+    [lines, paymentTerms, incoterm, freightSerial, discountPercent],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
@@ -198,7 +208,10 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const freight: FreightInput | null = freightRateNum > 0
       ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
       : null;
-    const result = await updateQuoteLineItems(snapshot.id, payload, { payment_terms: paymentTerms, freight, incoterm });
+    const result = await updateQuoteLineItems(snapshot.id, payload, {
+      payment_terms: paymentTerms, freight, incoterm,
+      discount_percent: discountPct > 0 ? discountPct : null,
+    });
 
     if (result.error) {
       setStatus('error');
@@ -213,6 +226,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     initialPaymentTermsRef.current = paymentTerms;
     initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
+    initialDiscountRef.current = discountPercent;
     setStatus('saved');
     toast.success('Quote updated');
 
@@ -223,7 +237,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
       totals: result.totals ?? {
         sku_count: payload.length,
         total_qty: totals.qty,
-        grand_total: totals.grand,
+        grand_total: netTotal,
         total_cbm: totals.cbm,
       },
       payment_terms: result.payment_terms ?? (paymentTerms.trim() || null),
@@ -425,6 +439,26 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
         </div>
 
 
+
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Discount</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" step="any" inputMode="decimal" min={0} max={100}
+              value={discountPercent}
+              onChange={e => { setDiscountPercent(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+              className="h-8 w-28 text-xs text-right" placeholder="0"
+              disabled={status === 'saving'}
+            />
+            <span className="text-xs text-muted-foreground">% off subtotal</span>
+            {discountPct > 0 && (
+              <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+                −{fmtMoney(discountAmount)} → <span className="font-semibold text-foreground">{fmtMoney(netTotal)}</span>
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Shown as a discount line on the customer quote and PDF. Leave blank or 0 for no discount.</p>
+        </div>
 
         <div className="rounded-md border p-3 bg-card space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Payment terms</Label>
