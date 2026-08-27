@@ -152,6 +152,37 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     return inr / (frozenInrPerUnit as number);
   };
 
+  // Resolve the actual shipping carton for a product: master carton preferred,
+  // then inner carton, then the bare piece (1 unit per "carton").
+  const buildCarton = (cbmRow: any, db: any) => {
+    if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
+      return {
+        carton_width_inch: Number(cbmRow.mc_width),
+        carton_depth_inch: Number(cbmRow.mc_depth),
+        carton_height_inch: Number(cbmRow.mc_height),
+        units_per_carton: Number(cbmRow.products_per_mc || 0)
+          || (Number(cbmRow.products_per_ic || 0) * 1) || 0,
+      };
+    }
+    if (cbmRow?.ic_width && cbmRow?.ic_depth && cbmRow?.ic_height) {
+      return {
+        carton_width_inch: Number(cbmRow.ic_width),
+        carton_depth_inch: Number(cbmRow.ic_depth),
+        carton_height_inch: Number(cbmRow.ic_height),
+        units_per_carton: Number(cbmRow.products_per_ic || 0) || 1,
+      };
+    }
+    if (db?.width_inch && db?.depth_inch && db?.height_inch) {
+      return {
+        carton_width_inch: Number(db.width_inch),
+        carton_depth_inch: Number(db.depth_inch),
+        carton_height_inch: Number(db.height_inch),
+        units_per_carton: 1,
+      };
+    }
+    return { carton_width_inch: null, carton_depth_inch: null, carton_height_inch: null, units_per_carton: null };
+  };
+
   const buildBoxSizeStr = (cbmRow: any, db: any): string | null => {
     if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
       const ppm = cbmRow.products_per_mc ? ` (${cbmRow.products_per_mc}/MC)` : '';
@@ -166,6 +197,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     }
     return null;
   };
+
 
   // Build line items from DB (single source of truth) merged with caller overrides.
   const productsJson = selectedProducts.map(sel => {
@@ -251,6 +283,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
       moq: db.moq ?? null,
       hard_moq: db.hard_moq ?? null,
       box_size: buildBoxSizeStr(cbmRowByProduct.get(sel.id), db),
+      ...buildCarton(cbmRowByProduct.get(sel.id), db),
+
       variant_id: sel.variant_id ?? null,
       variant_name: sel.variant_name ?? null,
     };
@@ -295,6 +329,8 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
         width_inch: db.width_inch,
         depth_inch: db.depth_inch,
         height_inch: db.height_inch,
+        ...buildCarton(cbmRowByProduct.get(sel.id), db),
+
       };
     });
     freightSnap = computeFreight(freightLines, params.freight);
@@ -382,19 +418,52 @@ export async function updateQuoteLineItems(
     depth_inch?: number | null;
     height_inch?: number | null;
     weight_kg?: number | null;
+    carton_width_inch?: number | null;
+    carton_depth_inch?: number | null;
+    carton_height_inch?: number | null;
+    units_per_carton?: number | null;
     moq?: number | null;
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
+
   meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null },
 ): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; subtotal?: number; discount_percent?: number | null; discount_amount?: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
-  const productsJson = products.map(p => ({
+  const productsJson: any[] = products.map(p => ({
     ...p,
     total: Number(p.quantity || 0) * Number(p.unit_price_usd || 0),
   }));
+
+  // Backfill shipping-carton data on legacy snapshot lines so air freight can use
+  // carton math instead of per-piece dim weight.
+  const needCarton = productsJson.filter(p => p.product_id && !p.units_per_carton).map(p => p.product_id as string);
+  if (needCarton.length > 0) {
+    const { data: cbmRows } = await supabase
+      .from('cbm_estimates')
+      .select('product_id, ic_width, ic_depth, ic_height, mc_width, mc_depth, mc_height, products_per_ic, products_per_mc')
+      .in('product_id', Array.from(new Set(needCarton)));
+    const byProduct = new Map<string, any>((cbmRows ?? []).map((r: any) => [r.product_id, r]));
+    for (const p of productsJson) {
+      const r = p.product_id ? byProduct.get(p.product_id) : null;
+      if (!r) continue;
+      if (r.mc_width && r.mc_depth && r.mc_height) {
+        p.carton_width_inch = Number(r.mc_width);
+        p.carton_depth_inch = Number(r.mc_depth);
+        p.carton_height_inch = Number(r.mc_height);
+        p.units_per_carton = Number(r.products_per_mc || 0) || null;
+      } else if (r.ic_width && r.ic_depth && r.ic_height) {
+        p.carton_width_inch = Number(r.ic_width);
+        p.carton_depth_inch = Number(r.ic_depth);
+        p.carton_height_inch = Number(r.ic_height);
+        p.units_per_carton = Number(r.products_per_ic || 0) || 1;
+      }
+    }
+  }
+
   const totalQty = productsJson.reduce((s, p) => s + Number(p.quantity || 0), 0);
   const grandTotal = productsJson.reduce((s, p) => s + Number(p.total || 0), 0);
   const totalCbm = productsJson.reduce((s, p) => s + Number(p.unit_cbm || 0) * Number(p.quantity || 0), 0);
+
 
   // Recompute freight using snapshot line data when caller sends new freight
   // settings; preserve the prior value otherwise.
@@ -424,6 +493,11 @@ export async function updateQuoteLineItems(
           width_inch: p.width_inch,
           depth_inch: p.depth_inch,
           height_inch: p.height_inch,
+          carton_width_inch: p.carton_width_inch,
+          carton_depth_inch: p.carton_depth_inch,
+          carton_height_inch: p.carton_height_inch,
+          units_per_carton: p.units_per_carton,
+
         };
       });
       freightSnap = computeFreight(freightLines, meta.freight);

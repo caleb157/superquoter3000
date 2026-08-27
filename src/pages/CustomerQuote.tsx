@@ -810,16 +810,35 @@ const CustomerQuote = () => {
                     </>
                   );
                 })()}
-                {data.snapshot.totals?.freight && data.snapshot.totals.freight.amount > 0 && (
-                  <div className="mt-1 flex justify-between items-baseline text-xs">
-                    <span className="text-slate-500">
-                      Freight Estimate (Rough) · {data.snapshot.totals.freight.mode === 'air' ? 'Air' : 'Sea'}
-                    </span>
-                    <span className="font-medium text-slate-700 tabular-nums">
-                      {symbol}{data.snapshot.totals.freight.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )}
+                {data.snapshot.totals?.freight && data.snapshot.totals.freight.amount > 0 && (() => {
+                  const f: any = data.snapshot.totals.freight;
+                  return (
+                    <>
+                      <div className="mt-1 flex justify-between items-baseline text-xs">
+                        <span className="text-slate-500">
+                          Freight Estimate (Rough) · {f.mode === 'air' ? 'Air' : 'Sea'}
+                        </span>
+                        <span className="font-medium text-slate-700 tabular-nums">
+                          {symbol}{f.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                        {f.mode === 'air' ? (
+                          <>
+                            {Math.round(f.total_chargeable_kg || 0).toLocaleString()} kg chargeable × {symbol}{Number(f.rate || 0).toLocaleString()}/kg
+                            {f.total_boxes ? ` · ${f.total_boxes} cartons` : ''}
+                            {f.total_actual_kg != null && f.total_dim_kg != null
+                              ? ` · actual ${Math.round(f.total_actual_kg)} kg vs volumetric ${Math.round(f.total_dim_kg)} kg (÷${f.dim_divisor || 5000})`
+                              : ''}
+                          </>
+                        ) : (
+                          <>{(f.total_cbm || 0).toFixed(2)} CBM × {symbol}{Number(f.rate || 0).toLocaleString()}/CBM</>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+
               </div>
 
               {/* Container fill forecast */}
