@@ -112,7 +112,7 @@ export function BulkStageActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {onBulkQuantity && <DropdownMenuItem onClick={onBulkQuantity}>Quantity</DropdownMenuItem>}
+            {onBulkQuantity && <DropdownMenuItem onClick={onBulkQuantity}>Quantity / MOQ</DropdownMenuItem>}
             {onBulkCosting && <DropdownMenuItem onClick={onBulkCosting}>Costing</DropdownMenuItem>}
             {onBulkSetNpm && <DropdownMenuItem onClick={onBulkSetNpm}>Net profit margin</DropdownMenuItem>}
             {onBulkTargetPrice && <DropdownMenuItem onClick={onBulkTargetPrice}>Target price</DropdownMenuItem>}
