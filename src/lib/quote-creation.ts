@@ -152,6 +152,37 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     return inr / (frozenInrPerUnit as number);
   };
 
+  // Resolve the actual shipping carton for a product: master carton preferred,
+  // then inner carton, then the bare piece (1 unit per "carton").
+  const buildCarton = (cbmRow: any, db: any) => {
+    if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
+      return {
+        carton_width_inch: Number(cbmRow.mc_width),
+        carton_depth_inch: Number(cbmRow.mc_depth),
+        carton_height_inch: Number(cbmRow.mc_height),
+        units_per_carton: Number(cbmRow.products_per_mc || 0)
+          || (Number(cbmRow.products_per_ic || 0) * 1) || 0,
+      };
+    }
+    if (cbmRow?.ic_width && cbmRow?.ic_depth && cbmRow?.ic_height) {
+      return {
+        carton_width_inch: Number(cbmRow.ic_width),
+        carton_depth_inch: Number(cbmRow.ic_depth),
+        carton_height_inch: Number(cbmRow.ic_height),
+        units_per_carton: Number(cbmRow.products_per_ic || 0) || 1,
+      };
+    }
+    if (db?.width_inch && db?.depth_inch && db?.height_inch) {
+      return {
+        carton_width_inch: Number(db.width_inch),
+        carton_depth_inch: Number(db.depth_inch),
+        carton_height_inch: Number(db.height_inch),
+        units_per_carton: 1,
+      };
+    }
+    return { carton_width_inch: null, carton_depth_inch: null, carton_height_inch: null, units_per_carton: null };
+  };
+
   const buildBoxSizeStr = (cbmRow: any, db: any): string | null => {
     if (cbmRow?.mc_width && cbmRow?.mc_depth && cbmRow?.mc_height) {
       const ppm = cbmRow.products_per_mc ? ` (${cbmRow.products_per_mc}/MC)` : '';
@@ -166,6 +197,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     }
     return null;
   };
+
 
   // Build line items from DB (single source of truth) merged with caller overrides.
   const productsJson = selectedProducts.map(sel => {
