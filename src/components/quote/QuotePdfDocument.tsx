@@ -524,11 +524,22 @@ const QuotePdfDocument = ({
               <Text style={s.sumValue}>{totals.totalCbm.toFixed(2)} CBM</Text>
             </View>
             {totals.freight?.total_chargeable_kg ? (
-              <View style={s.sumRow}>
-                <Text style={s.sumLabel}>Chargeable weight</Text>
-                <Text style={s.sumValue}>{Math.round(totals.freight.total_chargeable_kg).toLocaleString()} kg</Text>
-              </View>
+              <>
+                <View style={s.sumRow}>
+                  <Text style={s.sumLabel}>Chargeable weight</Text>
+                  <Text style={s.sumValue}>{Math.round(totals.freight.total_chargeable_kg).toLocaleString()} kg</Text>
+                </View>
+                {(totals.freight as any).total_boxes ? (
+                  <View style={s.sumRow}>
+                    <Text style={s.sumLabel}>Cartons · actual vs volumetric (÷{totals.freight.dim_divisor || 5000})</Text>
+                    <Text style={s.sumValue}>
+                      {(totals.freight as any).total_boxes} · {Math.round((totals.freight as any).total_actual_kg || 0)} kg vs {Math.round((totals.freight as any).total_dim_kg || 0)} kg
+                    </Text>
+                  </View>
+                ) : null}
+              </>
             ) : null}
+
             <View style={s.divider} />
             <View style={[s.productsHeader, { paddingHorizontal: 0 }]}>
               <Text style={{ flex: 1 }}>Container</Text>
