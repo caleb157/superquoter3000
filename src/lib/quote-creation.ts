@@ -418,10 +418,15 @@ export async function updateQuoteLineItems(
     depth_inch?: number | null;
     height_inch?: number | null;
     weight_kg?: number | null;
+    carton_width_inch?: number | null;
+    carton_depth_inch?: number | null;
+    carton_height_inch?: number | null;
+    units_per_carton?: number | null;
     moq?: number | null;
     variant_id?: string | null;
     variant_name?: string | null;
   }>,
+
   meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null },
 ): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; subtotal?: number; discount_percent?: number | null; discount_amount?: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
   const productsJson = products.map(p => ({
