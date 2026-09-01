@@ -409,7 +409,10 @@ const Dashboard = () => {
                       {!isAllStagesEmpty(prods) && renderStagePillsRow(prods, inq.id)}
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
+                        <span>
+                          {prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}
+                          {(mhByInquiry[inq.id] ?? 0) > 0 && ` · ${(mhByInquiry[inq.id]).toFixed(1)} MH`}
+                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
@@ -534,6 +537,13 @@ const Dashboard = () => {
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">
                             {prods?.length ?? 0}
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums" title="Total projected man-hours (qty × live MH per unit)">
+                            {mhLoading
+                              ? <span className="text-muted-foreground/60">…</span>
+                              : (mhByInquiry[inq.id] ?? 0) > 0
+                                ? (mhByInquiry[inq.id]).toFixed(1)
+                                : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
                           <TableCell>
                             {stagesEmpty
