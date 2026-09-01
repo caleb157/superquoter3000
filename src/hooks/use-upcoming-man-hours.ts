@@ -60,7 +60,13 @@ export function useUpcomingManHours(): UpcomingManHours {
           return;
         }
 
-        const prices = await computeProductPriceAndCost(products.map((p) => p.id));
+        // Batch the engine: one huge batch can hit PostgREST row/URL limits and
+        // silently return partial rows, under-reporting man-hours.
+        const allIds = products.map((p: any) => p.id);
+        const prices: Record<string, any> = {};
+        for (let i = 0; i < allIds.length; i += 25) {
+          Object.assign(prices, await computeProductPriceAndCost(allIds.slice(i, i + 25)));
+        }
 
         let totalMh = 0;
         let weightedMh = 0;
