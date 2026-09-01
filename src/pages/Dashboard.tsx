@@ -40,6 +40,7 @@ import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
+import { useInquiryManHours } from '@/hooks/use-inquiry-man-hours';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -135,6 +136,9 @@ const Dashboard = () => {
     });
     return m;
   }, [products]);
+
+  const allInquiryIds = useMemo(() => inquiries.map(i => i.id), [inquiries]);
+  const { mhByInquiry, loading: mhLoading } = useInquiryManHours(allInquiryIds);
 
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
