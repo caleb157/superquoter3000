@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target, ChevronDown, Wrench, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target, ChevronDown, Wrench, Archive, ArchiveRestore, Clock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { toast } from 'sonner';
@@ -110,6 +110,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [products, setProducts] = useState<Product[]>([]);
   const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
+  const [mhPerUnit, setMhPerUnit] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -248,19 +249,27 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       setProducts(rows);
       if (rows.length > 0) {
         const ids = rows.map((p: any) => p.id);
-        const [prices, cogsRes, ohRes] = await Promise.all([
+        const [prices, cogsRes, ohRes, ohMhRes] = await Promise.all([
           computeProductPriceAndCost(ids),
           supabase.from('cogs_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
           supabase.from('overhead_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
+          supabase.from('overhead_items').select('product_id, include, man_hours_per_unit').in('product_id', ids),
         ]);
         setLivePrices(prices);
         const rset = new Set<string>();
         (cogsRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
         (ohRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
         setReviewIds(rset);
+        const mh: Record<string, number> = {};
+        (ohMhRes.data ?? []).forEach((r: any) => {
+          if (!r.product_id || r.include === 'No') return;
+          mh[r.product_id] = (mh[r.product_id] ?? 0) + (Number(r.man_hours_per_unit) || 0);
+        });
+        setMhPerUnit(mh);
       } else {
         setLivePrices({});
         setReviewIds(new Set());
+        setMhPerUnit({});
       }
     })();
   }, [inquiryId, refresh, refreshKey, showArchived]);
@@ -379,13 +388,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
       npm: (p) => p.markup_percent ?? 0,
-      costing: (p) => {
-        if (reviewIds.has(p.id)) return 100;
-        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
-        return flags.filter(Boolean).length;
-      },
+      qty: (p) => p.quantity ?? 0,
+      mh: (p) => (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0),
     });
-  }, [products, search, filter, sortItems, reviewIds]);
+  }, [products, search, filter, sortItems, reviewIds, mhPerUnit]);
+
+  const totalProjectMh = useMemo(
+    () => products.reduce((acc, p) => acc + (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0), 0),
+    [products, mhPerUnit],
+  );
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
@@ -540,6 +551,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           if (file && photoTargetId) handlePhotoUpload(photoTargetId, file);
         }}
       />
+      <Card className="mb-3">
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <Clock className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Project Man-Hours (projected)</div>
+            <div className="text-xl font-bold tabular-nums">{totalProjectMh > 0 ? `${totalProjectMh.toFixed(1)} hrs` : '—'}</div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -819,7 +840,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 <TableHead className="text-xs">Design</TableHead>
                 <TableHead className="text-xs">Quote</TableHead>
                 <TableHead className="text-xs">Sample</TableHead>
-                <SortableHeader column="costing" label="Costing" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
+                <SortableHeader column="qty" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
+                <SortableHeader column="mh" label="MH" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <SortableHeader column="price" label="Unit Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <SortableHeader column="npm" label="NPM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs text-right" />
                 <TableHead className="text-xs text-right">Actions</TableHead>
@@ -827,7 +849,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </TableHeader>
             <TableBody>
               {filtered.map(p => {
-                const cb = costingBadge(p, reviewIds.has(p.id));
                 const needsReview = reviewIds.has(p.id);
                 return (
                   <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
@@ -868,7 +889,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
                     <TableCell><SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
-                    <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{p.quantity != null ? fmt.qty(p.quantity) : '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? mh.toFixed(1) : '—'; })()}
+                    </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       <span className="inline-flex items-center gap-1 justify-end">
                         {renderUnitPrice(p)}
@@ -948,10 +972,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} />
                       <SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} />
                     </div>
-                    <div className="flex items-center justify-between pt-1 border-t text-[11px]">
-                      <span className="font-mono tabular-nums font-medium">
-                        {renderUnitPrice(p)}
-                      </span>
+                     <div className="flex items-center justify-between pt-1 border-t text-[11px]">
+                       <span className="font-mono tabular-nums font-medium">
+                         {renderUnitPrice(p)}
+                         {p.quantity != null && <span className="ml-2 text-muted-foreground font-normal">×{fmt.qty(p.quantity)}</span>}
+                         {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? <span className="ml-2 text-muted-foreground font-normal">{mh.toFixed(1)} MH</span> : null; })()}
+                       </span>
                       <div onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
                           itemLabel={`product "${p.name}"`}
