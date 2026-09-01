@@ -839,7 +839,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </TableHeader>
             <TableBody>
               {filtered.map(p => {
-                const cb = costingBadge(p, reviewIds.has(p.id));
                 const needsReview = reviewIds.has(p.id);
                 return (
                   <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
