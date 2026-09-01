@@ -200,12 +200,13 @@ const Dashboard = () => {
         status: (i) => i.status,
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
+        mh: (i) => mhByInquiry[i.id] ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -455,6 +456,7 @@ const Dashboard = () => {
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
                       <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
+                      <SortableHeader column="mh" label="MH" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs">Design</TableHead>
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
