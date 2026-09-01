@@ -62,7 +62,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}) {
       }
 
       // t — new task (browsers reserve Cmd/Ctrl+T, so plain T is used)
-      if (e.key === 't' && handlersRef.current.onNewTask) {
+      if (e.key === 't' && !goPrefixActive.current && handlersRef.current.onNewTask) {
         e.preventDefault();
         handlersRef.current.onNewTask();
         return;
