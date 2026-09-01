@@ -551,6 +551,16 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           if (file && photoTargetId) handlePhotoUpload(photoTargetId, file);
         }}
       />
+      <Card className="mb-3">
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <Clock className="h-5 w-5 text-primary" />
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Project Man-Hours (projected)</div>
+            <div className="text-xl font-bold tabular-nums">{totalProjectMh > 0 ? `${totalProjectMh.toFixed(1)} hrs` : '—'}</div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
