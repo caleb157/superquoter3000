@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ProjectionsTable } from '@/components/analytics/ProjectionsTable';
+import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
 import { EntityCashflowTable } from '@/components/analytics/EntityCashflowTable';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +76,11 @@ export function ProjectionsView() {
         ))}
       </div>
 
+      {sub === 'all' && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+          <UpcomingManHoursCard />
+        </div>
+      )}
       {sub === 'all' && <ProjectionsTable />}
       {current && (
         <EntityCashflowTable

@@ -39,6 +39,7 @@ import { fmt } from '@/lib/formatters';
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
+import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -277,12 +278,13 @@ const Dashboard = () => {
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
           {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
             <StatCard label="Active Inquiries" value={activeInquiries} />
             <StatCard label="Total Products" value={totalProducts} />
             <StatCard label="Active Products" value={activeProducts} />
             <StatCard label="PO Inquiries" value={poInquiries} />
             <StatCard label="Projected POs" value={projectedPoCount} />
+            <UpcomingManHoursCard />
           </div>
 
           {/* Stage buckets */}
