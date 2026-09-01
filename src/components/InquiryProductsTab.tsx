@@ -881,7 +881,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
                     <TableCell className="text-xs text-right tabular-nums">{p.quantity != null ? fmt.qty(p.quantity) : '—'}</TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
-                      {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? fmt.qty(Math.round(mh * 10) / 10) : '—'; })()}
+                      {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? mh.toFixed(1) : '—'; })()}
                     </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       <span className="inline-flex items-center gap-1 justify-end">
