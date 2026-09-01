@@ -110,6 +110,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [products, setProducts] = useState<Product[]>([]);
   const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
+  const [mhPerUnit, setMhPerUnit] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
