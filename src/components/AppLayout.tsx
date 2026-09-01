@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
+import { TaskDialog } from '@/components/TaskDialog';
+import type { TaskContext } from '@/lib/task-types';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
@@ -22,10 +24,24 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
+
+  // Route-derived context so the global "T" shortcut pre-fills the task dialog
+  const taskContext = useMemo<TaskContext>(() => {
+    const path = location.pathname;
+    const inquiryMatch = path.match(/^\/(?:inquiry|inquiries)\/([^/?#]+)/);
+    if (inquiryMatch) return { inquiryId: inquiryMatch[1] };
+    const productMatch = path.match(/^\/(?:product|products)\/([^/?#]+)/);
+    if (productMatch) return { productId: productMatch[1] };
+    const customerMatch = path.match(/^\/(?:customer|customers)\/([^/?#]+)/);
+    if (customerMatch) return { customerId: customerMatch[1] };
+    return {};
+  }, [location.pathname]);
 
   useKeyboardShortcuts({
     onOpenSearch: () => setSearchOpen(true),
     onOpenHelp: () => setHelpOpen(true),
+    onNewTask: () => setTaskOpen(true),
   });
 
   const navItems = [
@@ -241,6 +257,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         onShowHelp={() => setHelpOpen(true)}
       />
       <KeyboardShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      {taskOpen && (
+        <TaskDialog open={taskOpen} onOpenChange={setTaskOpen} context={taskContext} />
+      )}
     </div>
   );
 };

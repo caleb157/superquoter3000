@@ -43,6 +43,7 @@ const SECTIONS: { title: string; items: { keys: string[]; desc: string }[] }[] =
     title: 'Pages',
     items: [
       { keys: ['N'], desc: 'New item (where supported)' },
+      { keys: ['T'], desc: 'New task (⌘/Ctrl+T is reserved by the browser)' },
     ],
   },
 ];
