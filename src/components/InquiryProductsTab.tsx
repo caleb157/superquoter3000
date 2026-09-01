@@ -879,7 +879,10 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                     <TableCell><SingleStagePill track="design" value={p.design_stage} onChange={(s) => handleSetSinglePill(p.id, 'design', s)} /></TableCell>
                     <TableCell><SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} /></TableCell>
                     <TableCell><SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} /></TableCell>
-                    <TableCell><Badge className={cb.cls} variant="secondary">{cb.label}</Badge></TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{p.quantity != null ? fmt.qty(p.quantity) : '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? fmt.qty(Math.round(mh * 10) / 10) : '—'; })()}
+                    </TableCell>
                     <TableCell className="text-xs text-right tabular-nums">
                       <span className="inline-flex items-center gap-1 justify-end">
                         {renderUnitPrice(p)}
