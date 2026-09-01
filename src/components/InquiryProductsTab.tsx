@@ -388,13 +388,15 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       name: (p) => (p.name || '').toLowerCase(),
       price: displayPriceUsd,
       npm: (p) => p.markup_percent ?? 0,
-      costing: (p) => {
-        if (reviewIds.has(p.id)) return 100;
-        const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
-        return flags.filter(Boolean).length;
-      },
+      qty: (p) => p.quantity ?? 0,
+      mh: (p) => (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0),
     });
-  }, [products, search, filter, sortItems, reviewIds]);
+  }, [products, search, filter, sortItems, reviewIds, mhPerUnit]);
+
+  const totalProjectMh = useMemo(
+    () => products.reduce((acc, p) => acc + (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0), 0),
+    [products, mhPerUnit],
+  );
 
   const toggleAll = (checked: boolean) => {
     setSelected(checked ? new Set(filtered.map(p => p.id)) : new Set());
