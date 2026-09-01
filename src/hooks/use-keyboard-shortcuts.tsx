@@ -17,6 +17,7 @@ export type ShortcutHandlers = {
   onOpenSearch?: () => void;
   onOpenHelp?: () => void;
   onNewItem?: () => void;
+  onNewTask?: () => void;
 };
 
 /**
@@ -57,6 +58,13 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}) {
       if (e.key === '?') {
         e.preventDefault();
         handlersRef.current.onOpenHelp?.();
+        return;
+      }
+
+      // t — new task (browsers reserve Cmd/Ctrl+T, so plain T is used)
+      if (e.key === 't' && !goPrefixActive.current && handlersRef.current.onNewTask) {
+        e.preventDefault();
+        handlersRef.current.onNewTask();
         return;
       }
 
