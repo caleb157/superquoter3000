@@ -972,10 +972,12 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <SingleStagePill track="quote" value={p.quote_stage} onChange={(s) => handleSetSinglePill(p.id, 'quote', s)} />
                       <SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} />
                     </div>
-                    <div className="flex items-center justify-between pt-1 border-t text-[11px]">
-                      <span className="font-mono tabular-nums font-medium">
-                        {renderUnitPrice(p)}
-                      </span>
+                     <div className="flex items-center justify-between pt-1 border-t text-[11px]">
+                       <span className="font-mono tabular-nums font-medium">
+                         {renderUnitPrice(p)}
+                         {p.quantity != null && <span className="ml-2 text-muted-foreground font-normal">×{fmt.qty(p.quantity)}</span>}
+                         {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? <span className="ml-2 text-muted-foreground font-normal">{mh.toFixed(1)} MH</span> : null; })()}
+                       </span>
                       <div onClick={e => e.stopPropagation()}>
                         <ConfirmDeleteButton
                           itemLabel={`product "${p.name}"`}
