@@ -249,22 +249,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       setProducts(rows);
       if (rows.length > 0) {
         const ids = rows.map((p: any) => p.id);
-        const [prices, cogsRes, ohRes, ohMhRes] = await Promise.all([
+        const [prices, cogsRes, ohRes] = await Promise.all([
           computeProductPriceAndCost(ids),
           supabase.from('cogs_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
           supabase.from('overhead_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
-          supabase.from('overhead_items').select('product_id, include, man_hours_per_unit').in('product_id', ids),
         ]);
         setLivePrices(prices);
         const rset = new Set<string>();
         (cogsRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
         (ohRes.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
         setReviewIds(rset);
+        // Man-hours must come from the live costing engine (auto-estimated finishing /
+        // packaging rows are computed in memory and are often stale/zero in the DB).
         const mh: Record<string, number> = {};
-        (ohMhRes.data ?? []).forEach((r: any) => {
-          if (!r.product_id || r.include === 'No') return;
-          mh[r.product_id] = (mh[r.product_id] ?? 0) + (Number(r.man_hours_per_unit) || 0);
-        });
+        Object.entries(prices).forEach(([id, v]: any) => { mh[id] = Number(v?.man_hours_per_unit) || 0; });
         setMhPerUnit(mh);
       } else {
         setLivePrices({});
