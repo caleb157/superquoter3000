@@ -40,6 +40,7 @@ import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
+import { useInquiryManHours } from '@/hooks/use-inquiry-man-hours';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -136,6 +137,9 @@ const Dashboard = () => {
     return m;
   }, [products]);
 
+  const allInquiryIds = useMemo(() => inquiries.map(i => i.id), [inquiries]);
+  const { mhByInquiry, loading: mhLoading } = useInquiryManHours(allInquiryIds);
+
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
     for (const p of products) {
@@ -196,12 +200,13 @@ const Dashboard = () => {
         status: (i) => i.status,
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
+        mh: (i) => mhByInquiry[i.id] ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -404,7 +409,10 @@ const Dashboard = () => {
                       {!isAllStagesEmpty(prods) && renderStagePillsRow(prods, inq.id)}
 
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>{prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}</span>
+                        <span>
+                          {prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}
+                          {(mhByInquiry[inq.id] ?? 0) > 0 && ` · ${(mhByInquiry[inq.id]).toFixed(1)} MH`}
+                        </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
 
@@ -451,6 +459,7 @@ const Dashboard = () => {
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
                       <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
+                      <SortableHeader column="mh" label="MH" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs">Design</TableHead>
                       <TableHead className="text-xs">Quote</TableHead>
                       <TableHead className="text-xs">Sample</TableHead>
@@ -528,6 +537,13 @@ const Dashboard = () => {
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">
                             {prods?.length ?? 0}
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums" title="Total projected man-hours (qty × live MH per unit)">
+                            {mhLoading
+                              ? <span className="text-muted-foreground/60">…</span>
+                              : (mhByInquiry[inq.id] ?? 0) > 0
+                                ? (mhByInquiry[inq.id]).toFixed(1)
+                                : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
                           <TableCell>
                             {stagesEmpty
