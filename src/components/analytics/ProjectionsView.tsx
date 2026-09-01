@@ -75,6 +75,11 @@ export function ProjectionsView() {
         ))}
       </div>
 
+      {sub === 'all' && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+          <UpcomingManHoursCard />
+        </div>
+      )}
       {sub === 'all' && <ProjectionsTable />}
       {current && (
         <EntityCashflowTable
