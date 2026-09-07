@@ -717,6 +717,21 @@ function PricingGridTable({
   products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
   onApplyVendorToColumn, onToggleOutsourced,
 }: TableProps) {
+  // Current vendor shown in each column header: the shared name when every
+  // filled cell in the column agrees, otherwise '' (mixed/blank).
+  const columnVendor = (group: 'raw' | 'subc' | 'hw', slot?: number): string => {
+    const names = new Set<string>();
+    for (const p of products) {
+      const bucket = productRows.get(p.id);
+      if (!bucket) continue;
+      const row = group === 'raw' ? bucket.raw[slot ?? 0] : group === 'subc' ? bucket.subc : bucket.hw;
+      const n = (row?.vendor_name || '').trim();
+      if (n) names.add(n);
+      if (names.size > 1) return '';
+    }
+    return names.size === 1 ? [...names][0] : '';
+  };
+
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
       <table className="text-xs border-collapse" style={{ minWidth: 'max-content' }}>
