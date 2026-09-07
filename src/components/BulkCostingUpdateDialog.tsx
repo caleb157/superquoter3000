@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { COGS_CATEGORY_FALLBACK } from '@/lib/cogs-categories';
@@ -75,6 +75,34 @@ const newRow = (): DraftRow => ({
   include: 'Yes',
 });
 
+// Collapsible section shell — keeps the dialog compact by hiding advanced blocks
+function Section({ title, count, open, onToggle, children }: {
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-muted/40 rounded-md"
+      >
+        <span className="text-xs font-semibold flex items-center gap-1.5">
+          {title}
+          {count != null && count > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{count}</Badge>
+          )}
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-3 pb-3 pt-1 space-y-2 border-t">{children}</div>}
+    </div>
+  );
+}
+
 export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds, selectedProductNames, onApplied }: Props) {
   const [rows, setRows] = useState<DraftRow[]>([newRow()]);
   const [saving, setSaving] = useState(false);
@@ -95,6 +123,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
 
   const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
+
+  // Collapsible advanced sections — labor/raw/non-unit stay closed until needed
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (k: string) => setOpenSections(prev => ({ ...prev, [k]: !prev[k] }));
 
 
   const productCount = selectedProductIds.length;
@@ -443,43 +475,55 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Bulk update costing rows</DialogTitle>
-          <DialogDescription>
-            Apply these COGS rows to {productCount} selected SKU{productCount === 1 ? '' : 's'}. Rows are matched by name
-            (case-insensitive) — existing rows are updated, new ones are added. Each SKU stays editable individually.
+      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col overflow-hidden gap-3 p-4">
+        <DialogHeader className="space-y-0.5">
+          <DialogTitle className="text-base">Bulk update costing — {productCount} SKU{productCount === 1 ? '' : 's'}</DialogTitle>
+          <DialogDescription className="text-xs">
+            Rows match by name (case-insensitive): existing rows update, new ones are added.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-md border bg-muted/30 px-3 py-2 max-h-20 overflow-y-auto">
-          <div className="text-[11px] text-muted-foreground mb-1">Applying to:</div>
-          <div className="flex flex-wrap gap-1">
-            {selectedProductNames.slice(0, 30).map((n, i) => (
-              <Badge key={i} variant="secondary" className="text-[10px]">{n}</Badge>
-            ))}
-            {selectedProductNames.length > 30 && (
-              <Badge variant="outline" className="text-[10px]">+{selectedProductNames.length - 30} more</Badge>
-            )}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
+        <div className="rounded-md border bg-muted/30 px-2.5 py-1.5 flex items-center gap-1.5 flex-wrap max-h-14 overflow-y-auto">
+          <span className="text-[11px] text-muted-foreground shrink-0">Applying to:</span>
+          {selectedProductNames.slice(0, 12).map((n, i) => (
+            <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">{n}</Badge>
+          ))}
+          {selectedProductNames.length > 12 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">+{selectedProductNames.length - 12} more</Badge>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+            <Label className="text-[11px] whitespace-nowrap text-muted-foreground">Packaging</Label>
+            <Select value={packagingType} onValueChange={setPackagingType}>
+              <SelectTrigger className="h-7 text-xs border-0 shadow-none px-1 focus:ring-0"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PACKAGING_TYPE_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 rounded-md border px-2.5 py-1.5">
+            <Label className="text-[11px] whitespace-nowrap text-muted-foreground">Shipping</Label>
+            <Select value={shippingTypeId} onValueChange={setShippingTypeId}>
+              <SelectTrigger className="h-7 text-xs border-0 shadow-none px-1 focus:ring-0"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__keep__" className="text-xs">Keep current per product</SelectItem>
+                {shippingTypes.map(s => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                    {s.name} ({s.per_unit} @ ₹{s.cost_inr})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 rounded-md border p-2">
-          <Label className="text-xs whitespace-nowrap">Packaging type</Label>
-          <Select value={packagingType} onValueChange={setPackagingType}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PACKAGING_TYPE_OPTIONS.map(o => (
-                <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-[11px] text-muted-foreground">Overwrites every selected SKU when not "keep current".</span>
-        </div>
-
         {packagingType === 'bulk_pack' && (
-          <div className="flex items-center gap-3 rounded-md border p-2 bg-muted/30">
-            <Label className="text-xs whitespace-nowrap">Bulk pack defaults</Label>
+          <div className="flex items-center gap-3 rounded-md border px-2.5 py-1.5 bg-muted/30">
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-muted-foreground">Pieces / MC</span>
               <Input
@@ -487,7 +531,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                 min={1}
                 value={bulkPiecesPerBox}
                 onChange={e => setBulkPiecesPerBox(Math.max(1, parseInt(e.target.value) || 1))}
-                className="h-8 w-20 text-xs"
+                className="h-7 w-16 text-xs"
               />
             </div>
             <div className="flex items-center gap-1.5">
@@ -498,50 +542,32 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                 max={100}
                 value={bulkShrinkPct}
                 onChange={e => setBulkShrinkPct(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-                className="h-8 w-20 text-xs"
+                className="h-7 w-16 text-xs"
               />
             </div>
-            <span className="text-[11px] text-muted-foreground">100% = no nesting. Applied to every selected SKU.</span>
+            <span className="text-[11px] text-muted-foreground">100% = no nesting.</span>
           </div>
         )}
 
-        <div className="flex items-center gap-2 rounded-md border p-2">
-          <Label className="text-xs whitespace-nowrap">Shipping type</Label>
-          <Select value={shippingTypeId} onValueChange={setShippingTypeId}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__keep__" className="text-xs">Keep current per product</SelectItem>
-              {shippingTypes.map(s => (
-                <SelectItem key={s.id} value={s.id} className="text-xs">
-                  {s.name} ({s.per_unit} @ ₹{s.cost_inr})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-[11px] text-muted-foreground">Sets shipping type on every selected SKU.</span>
-        </div>
-
-        <div className="rounded-md border p-2 space-y-2">
+        <Section
+          title="Labor man-hours / unit (manual override)"
+          count={laborRows.length}
+          open={!!openSections.labor}
+          onToggle={() => toggleSection('labor')}
+        >
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">Labor man-hours / unit (manual override)</Label>
+            <span className="text-[11px] text-muted-foreground">Sets man-hours/unit on every selected SKU and disables auto-estimate.</span>
             <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLaborRow}>
               <Plus className="h-3 w-3" /> Add labor
             </Button>
           </div>
-          {laborRows.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground">No labor overrides — add a row to set man-hours/unit (e.g. 0.1 for QC) on every selected SKU. Marks the row as manual (disables auto-estimate).</div>
-          ) : (
+          {laborRows.length > 0 && (
             <div className="space-y-1.5">
-              <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
-                <div className="col-span-5">Labor type</div>
-                <div className="col-span-5">Man-hours / unit</div>
-                <div className="col-span-2"></div>
-              </div>
               {laborRows.map(l => (
                 <div key={l._key} className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-5">
+                  <div className="col-span-6">
                     <Select value={l.labor_type} onValueChange={(v) => updateLabor(l._key, { labor_type: v })}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {LABOR_TYPE_OPTIONS.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
                       </SelectContent>
@@ -552,10 +578,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                       value={l.man_hours_per_unit}
                       onChange={e => updateLabor(l._key, { man_hours_per_unit: Number(e.target.value) })}
                       placeholder="e.g. 0.1"
-                      className="h-8 text-xs text-right" />
+                      className="h-7 text-xs text-right" />
                   </div>
-                  <div className="col-span-2 flex justify-end">
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeLaborRow(l._key)}>
+                  <div className="col-span-1 flex justify-end">
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeLaborRow(l._key)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -563,26 +589,26 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
               ))}
             </div>
           )}
-        </div>
-        <div className="rounded-md border p-2 space-y-2">
+        </Section>
+        <Section
+          title="Raw pieces (overwrite by name)"
+          count={rawRows.length}
+          open={!!openSections.raw}
+          onToggle={() => toggleSection('raw')}
+        >
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">Raw pieces (overwrite by name)</Label>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                <Checkbox checked={replaceAllRaw} onCheckedChange={(v) => setReplaceAllRaw(!!v)} />
-                Replace ALL existing raw pieces (delete others)
-              </label>
-              <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addRawRow}>
-                <Plus className="h-3 w-3" /> Add raw
-              </Button>
-            </div>
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+              <Checkbox checked={replaceAllRaw} onCheckedChange={(v) => setReplaceAllRaw(!!v)} />
+              Replace ALL existing raw pieces (delete others)
+            </label>
+            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addRawRow}>
+              <Plus className="h-3 w-3" /> Add raw
+            </Button>
           </div>
-          {rawRows.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground">No raw piece overrides — add a row to overwrite raw pieces in selected SKUs.</div>
-          ) : (
+          {rawRows.length > 0 && (
             <div className="space-y-1.5">
               <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
-                <div className="col-span-3">Raw piece name</div>
+                <div className="col-span-3">Name</div>
                 <div className="col-span-2">Vendor</div>
                 <div className="col-span-2">Qty / unit</div>
                 <div className="col-span-1">Units</div>
@@ -592,28 +618,28 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
               {rawRows.map(r => (
                 <div key={r._key} className="grid grid-cols-12 gap-2 items-center">
                   <div className="col-span-3">
-                    <Input value={r.component_name} onChange={e => updateRaw(r._key, { component_name: e.target.value })} placeholder="e.g. Mango wood seat" className="h-8 text-xs" />
+                    <Input value={r.component_name} onChange={e => updateRaw(r._key, { component_name: e.target.value })} placeholder="e.g. Mango wood seat" className="h-7 text-xs" />
                   </div>
                   <div className="col-span-2">
-                    <Input value={r.vendor_name} onChange={e => updateRaw(r._key, { vendor_name: e.target.value })} placeholder="Vendor (optional)" className="h-8 text-xs" />
+                    <Input value={r.vendor_name} onChange={e => updateRaw(r._key, { vendor_name: e.target.value })} placeholder="Optional" className="h-7 text-xs" />
                   </div>
                   <div className="col-span-2">
-                    <Input type="number" step="any" inputMode="decimal" value={r.components_per_product} onChange={e => updateRaw(r._key, { components_per_product: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                    <Input type="number" step="any" inputMode="decimal" value={r.components_per_product} onChange={e => updateRaw(r._key, { components_per_product: Number(e.target.value) })} className="h-7 text-xs text-right" />
                   </div>
                   <div className="col-span-1">
                     <Select value={r.units} onValueChange={(v) => updateRaw(r._key, { units: v })}>
-                      <SelectTrigger className="h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-7 text-xs px-2"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-2">
-                    <Input type="number" step="any" inputMode="decimal" value={r.unit_cost_inr} onChange={e => updateRaw(r._key, { unit_cost_inr: Number(e.target.value) })} className="h-8 text-xs text-right" />
+                    <Input type="number" step="any" inputMode="decimal" value={r.unit_cost_inr} onChange={e => updateRaw(r._key, { unit_cost_inr: Number(e.target.value) })} className="h-7 text-xs text-right" />
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1">
                     <Checkbox checked={r.include === 'Yes'} onCheckedChange={(v) => updateRaw(r._key, { include: v ? 'Yes' : 'No' })} />
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeRawRow(r._key)}>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeRawRow(r._key)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -621,40 +647,38 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
               ))}
             </div>
           )}
-        </div>
+        </Section>
 
-        <div className="rounded-md border p-2 space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-semibold">Remove non-unit COGS</Label>
-            {nuNames.length > 0 && (
+        {nuNames.length > 0 && (
+          <Section
+            title="Remove non-unit COGS"
+            count={nuToRemove.length}
+            open={!!openSections.nonUnit}
+            onToggle={() => toggleSection('nonUnit')}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">Checked rows are deleted from every selected SKU.</span>
               <Button
                 type="button" variant="ghost" size="sm" className="h-7 text-xs"
                 onClick={() => setNuToRemove(nuToRemove.length === nuNames.length ? [] : nuNames.map(n => n.name))}
               >
                 {nuToRemove.length === nuNames.length ? 'Clear all' : 'Select all'}
               </Button>
-            )}
-          </div>
-          {nuNames.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground">No non-unit COGS rows on the selected SKUs.</div>
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {nuNames.map(n => (
-                  <label key={n.name} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <Checkbox
-                      checked={nuToRemove.includes(n.name)}
-                      onCheckedChange={(v) => setNuToRemove(prev => v ? [...prev, n.name] : prev.filter(x => x !== n.name))}
-                    />
-                    {n.name}
-                    <span className="text-[10px] text-muted-foreground">({n.count})</span>
-                  </label>
-                ))}
-              </div>
-              <div className="text-[11px] text-muted-foreground">Checked rows are deleted from every selected SKU.</div>
-            </>
-          )}
-        </div>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {nuNames.map(n => (
+                <label key={n.name} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={nuToRemove.includes(n.name)}
+                    onCheckedChange={(v) => setNuToRemove(prev => v ? [...prev, n.name] : prev.filter(x => x !== n.name))}
+                  />
+                  {n.name}
+                  <span className="text-[10px] text-muted-foreground">({n.count})</span>
+                </label>
+              ))}
+            </div>
+          </Section>
+        )}
 
 
 
@@ -681,7 +705,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
         )}
 
-        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+        <div className="space-y-1.5">
           <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-1">
             <div className="col-span-3">Type</div>
             <div className="col-span-3">Component name</div>
@@ -691,10 +715,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
             <div className="col-span-1 text-center">Incl.</div>
           </div>
           {rows.map(r => (
-            <div key={r._key} className="grid grid-cols-12 gap-2 items-center rounded-md border p-2 bg-card">
+            <div key={r._key} className="grid grid-cols-12 gap-2 items-center rounded-md border px-2 py-1.5 bg-card">
               <div className="col-span-3">
                 <Select value={r.cogs_type} onValueChange={(v) => update(r._key, { cogs_type: v })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {COGS_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
                   </SelectContent>
@@ -705,7 +729,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                   value={r.component_name}
                   onChange={e => update(r._key, { component_name: e.target.value })}
                   placeholder="e.g. Walnut stain"
-                  className="h-8 text-xs"
+                  className="h-7 text-xs"
                   list={`bulk-name-suggest-${r._key}`}
                 />
                 <datalist id={`bulk-name-suggest-${r._key}`}>
@@ -717,12 +741,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                   type="number" step="any" inputMode="decimal"
                   value={r.components_per_product}
                   onChange={e => update(r._key, { components_per_product: Number(e.target.value) })}
-                  className="h-8 text-xs text-right"
+                  className="h-7 text-xs text-right"
                 />
               </div>
               <div className="col-span-1">
                 <Select value={r.units} onValueChange={(v) => update(r._key, { units: v })}>
-                  <SelectTrigger className="h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-7 text-xs px-2"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {UNIT_OPTIONS.map(u => <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>)}
                   </SelectContent>
@@ -733,7 +757,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                   type="number" step="any" inputMode="decimal"
                   value={r.unit_cost_inr}
                   onChange={e => update(r._key, { unit_cost_inr: Number(e.target.value) })}
-                  className="h-8 text-xs text-right"
+                  className="h-7 text-xs text-right"
                 />
               </div>
               <div className="col-span-1 flex items-center justify-center gap-1">
@@ -742,7 +766,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
                   onCheckedChange={(v) => update(r._key, { include: v ? 'Yes' : 'No' })}
                 />
                 <Button
-                  type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                  type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive"
                   onClick={() => removeRow(r._key)}
                   disabled={rows.length === 1}
                 >
@@ -751,10 +775,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
               </div>
             </div>
           ))}
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={addRow}>
-            <Plus className="h-3.5 w-3.5" /> Add row
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addRow}>
+            <Plus className="h-3 w-3" /> Add row
           </Button>
         </div>
+        </div>{/* end scroll container */}
 
         <DialogFooter className="flex items-center justify-between sm:justify-between gap-3">
           <div className="text-xs text-muted-foreground">
