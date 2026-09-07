@@ -776,7 +776,7 @@ function PricingGridTable({
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
+              <ColumnVendorFill value={columnVendor('hw')} onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-center font-normal text-muted-foreground border-b w-[48px]" title="Mark this product as outsourced">On</th>
@@ -911,15 +911,15 @@ function PricingGridTable({
 
 // ---------- Cell components ----------
 
-/** Header control: pick a vendor once and fill the entire column. */
-function ColumnVendorFill({ onApply }: { onApply: (vendor: string) => Promise<void> }) {
+/** Header control: shows the column's current vendor; picking one fills the entire column. */
+function ColumnVendorFill({ value, onApply }: { value: string; onApply: (vendor: string) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex items-center gap-1">
       <span className="text-[10px] uppercase tracking-wide">Vendor</span>
       <div className={cn('flex-1 min-w-[110px]', busy && 'opacity-60 pointer-events-none')}>
         <VendorCombobox
-          value=""
+          value={value}
           onChange={(v) => {
             setBusy(true);
             void onApply(v).finally(() => setBusy(false));
