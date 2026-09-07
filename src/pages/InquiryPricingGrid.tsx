@@ -717,6 +717,21 @@ function PricingGridTable({
   products, columns, visibleRawSlots, productRows, recostingIds, onWriteCell, onSetWinner, onPaste, onUpdateWaste,
   onApplyVendorToColumn, onToggleOutsourced,
 }: TableProps) {
+  // Current vendor shown in each column header: the shared name when every
+  // filled cell in the column agrees, otherwise '' (mixed/blank).
+  const columnVendor = (group: 'raw' | 'subc' | 'hw', slot?: number): string => {
+    const names = new Set<string>();
+    for (const p of products) {
+      const bucket = productRows.get(p.id);
+      if (!bucket) continue;
+      const row = group === 'raw' ? bucket.raw[slot ?? 0] : group === 'subc' ? bucket.subc : bucket.hw;
+      const n = (row?.vendor_name || '').trim();
+      if (n) names.add(n);
+      if (names.size > 1) return '';
+    }
+    return names.size === 1 ? [...names][0] : '';
+  };
+
   return (
     <div className="border rounded-md overflow-auto max-h-[calc(100vh-180px)] bg-background">
       <table className="text-xs border-collapse" style={{ minWidth: 'max-content' }}>
@@ -751,17 +766,17 @@ function PricingGridTable({
           <tr>
             {Array.from({ length: visibleRawSlots }).flatMap((_, slot) => [
               <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-                <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('raw', slot, v)} />
+                <ColumnVendorFill value={columnVendor('raw', slot)} onApply={(v) => onApplyVendorToColumn('raw', slot, v)} />
               </th>,
               <th key={`p-${slot}`} className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>,
               <th key={`w-${slot}`} className="px-1 py-1 text-center font-normal text-muted-foreground border-b border-r w-[36px]">Win</th>,
             ])}
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('subc', undefined, v)} />
+              <ColumnVendorFill value={columnVendor('subc')} onApply={(v) => onApplyVendorToColumn('subc', undefined, v)} />
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
+              <ColumnVendorFill value={columnVendor('hw')} onApply={(v) => onApplyVendorToColumn('hw', undefined, v)} />
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-center font-normal text-muted-foreground border-b w-[48px]" title="Mark this product as outsourced">On</th>
@@ -896,15 +911,15 @@ function PricingGridTable({
 
 // ---------- Cell components ----------
 
-/** Header control: pick a vendor once and fill the entire column. */
-function ColumnVendorFill({ onApply }: { onApply: (vendor: string) => Promise<void> }) {
+/** Header control: shows the column's current vendor; picking one fills the entire column. */
+function ColumnVendorFill({ value, onApply }: { value: string; onApply: (vendor: string) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex items-center gap-1">
       <span className="text-[10px] uppercase tracking-wide">Vendor</span>
       <div className={cn('flex-1 min-w-[110px]', busy && 'opacity-60 pointer-events-none')}>
         <VendorCombobox
-          value=""
+          value={value}
           onChange={(v) => {
             setBusy(true);
             void onApply(v).finally(() => setBusy(false));
