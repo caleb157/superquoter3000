@@ -766,13 +766,13 @@ function PricingGridTable({
           <tr>
             {Array.from({ length: visibleRawSlots }).flatMap((_, slot) => [
               <th key={`v-${slot}`} className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-                <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('raw', slot, v)} />
+                <ColumnVendorFill value={columnVendor('raw', slot)} onApply={(v) => onApplyVendorToColumn('raw', slot, v)} />
               </th>,
               <th key={`p-${slot}`} className="px-2 py-1 text-right font-normal text-muted-foreground border-b min-w-[100px]">Price ₹</th>,
               <th key={`w-${slot}`} className="px-1 py-1 text-center font-normal text-muted-foreground border-b border-r w-[36px]">Win</th>,
             ])}
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
-              <ColumnVendorFill onApply={(v) => onApplyVendorToColumn('subc', undefined, v)} />
+              <ColumnVendorFill value={columnVendor('subc')} onApply={(v) => onApplyVendorToColumn('subc', undefined, v)} />
             </th>
             <th className="px-2 py-1 text-right font-normal text-muted-foreground border-b border-r min-w-[100px]">Price ₹</th>
             <th className="px-2 py-1 text-left font-normal text-muted-foreground border-b min-w-[140px]">
