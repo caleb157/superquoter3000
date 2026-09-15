@@ -547,6 +547,37 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
         </div>
 
+        <div className="flex items-center gap-3 rounded-md border px-2.5 py-1.5 flex-wrap">
+          <Label className="text-[11px] whitespace-nowrap text-muted-foreground">Cost of capital</Label>
+          <Select value={cocMode} onValueChange={(v: any) => setCocMode(v)}>
+            <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__keep__" className="text-xs">Keep current</SelectItem>
+              <SelectItem value="yes" className="text-xs">Yes — apply</SelectItem>
+              <SelectItem value="no" className="text-xs">No — turn off</SelectItem>
+            </SelectContent>
+          </Select>
+          {cocMode === 'yes' && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Monthly %</span>
+                <Input type="number" step="0.01" min={0} value={cocRate}
+                  onChange={e => setCocRate(e.target.value)} className="h-7 w-16 text-xs" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Months</span>
+                <Input type="number" step="0.1" min={0} value={cocMonths}
+                  onChange={e => setCocMonths(e.target.value)} className="h-7 w-16 text-xs" />
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                = +{((Number(cocRate) || 0) * (Number(cocMonths) || 0)).toFixed(2)}% on product cost
+              </span>
+            </>
+          )}
+        </div>
+
+
+
         {packagingType === 'bulk_pack' && (
           <div className="flex items-center gap-3 rounded-md border px-2.5 py-1.5 bg-muted/30">
             <div className="flex items-center gap-1.5">
