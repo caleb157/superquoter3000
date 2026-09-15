@@ -2532,6 +2532,10 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                     { label: 'Direct Overhead', value: summary.total_direct_oh_per_unit },
                     { label: 'Indirect Overhead', value: summary.total_indirect_oh_per_unit },
                     { label: 'Shipping', value: summary.total_shipping_per_unit },
+                    ...(summary.total_capital_per_unit > 0
+                      ? [{ label: 'Cost of Capital', value: summary.total_capital_per_unit }]
+                      : []),
+
                   ]).map(row => (
                     <TableRow key={row.label}>
                       <TableCell className="font-medium">{row.label}</TableCell>
