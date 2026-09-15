@@ -2560,7 +2560,52 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
               </Table>
 
               {/* Pricing */}
+              {/* Cost of Capital */}
+              <div className="rounded-md border px-3 py-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">Cost of Capital</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {product.cost_of_capital_enabled ? 'On' : 'Off'}
+                    </span>
+                    <Switch
+                      checked={!!product.cost_of_capital_enabled}
+                      onCheckedChange={(v) => updateProduct('cost_of_capital_enabled', !!v, true)}
+                    />
+                  </div>
+                </div>
+                {product.cost_of_capital_enabled && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Monthly rate (%)</label>
+                      <Input className="h-7 text-xs" type="number" step="0.01" min="0"
+                        defaultValue={product.cost_of_capital_monthly_rate ?? 0}
+                        key={`coc-rate-${product.cost_of_capital_monthly_rate}`}
+                        onBlur={e => updateProduct('cost_of_capital_monthly_rate', Number(e.target.value) || 0, true)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Months of capital</label>
+                      <Input className="h-7 text-xs" type="number" step="0.1" min="0"
+                        defaultValue={product.cost_of_capital_months ?? 0}
+                        key={`coc-months-${product.cost_of_capital_months}`}
+                        onBlur={e => updateProduct('cost_of_capital_months', Number(e.target.value) || 0, true)} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Charge / unit (₹)</label>
+                      <span className="calc-field block h-7 px-2 py-1 rounded text-xs font-semibold">
+                        {fmt.inr(summary.total_capital_per_unit)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  Charge = product cost (COGS + overhead + shipping) × monthly rate × months, added before markup.
+                </p>
+              </div>
+
+              {/* Pricing */}
               <div className="flex items-center justify-end border-t pt-3">
+
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSolverOpen(true)}>
                   <Target className="mr-1 h-3.5 w-3.5" /> Solve for Target Price
                 </Button>
