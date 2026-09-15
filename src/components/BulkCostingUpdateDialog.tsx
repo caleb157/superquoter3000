@@ -440,7 +440,21 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('non_unit_cogs').delete().in('product_id', selectedProductIds).in('name', nuToRemove)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise]);
+    // Cost of capital: on (with rate + months) or off, for every selected product
+    const capitalPromise = willUpdateCapital
+      ? (supabase as any).from('products').update(
+          cocMode === 'yes'
+            ? {
+                cost_of_capital_enabled: true,
+                cost_of_capital_monthly_rate: Math.max(0, Number(cocRate) || 0),
+                cost_of_capital_months: Math.max(0, Number(cocMonths) || 0),
+              }
+            : { cost_of_capital_enabled: false },
+        ).in('id', selectedProductIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise, capitalPromise]);
+
 
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
