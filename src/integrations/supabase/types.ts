@@ -1522,6 +1522,9 @@ export type Database = {
           calculated_unit_price_usd: number | null
           cbm_done: boolean | null
           cogs_done: boolean | null
+          cost_of_capital_enabled: boolean
+          cost_of_capital_monthly_rate: number
+          cost_of_capital_months: number
           created_at: string | null
           customer_rfq_id: string | null
           depth_inch: number | null
@@ -1568,6 +1571,9 @@ export type Database = {
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
           cogs_done?: boolean | null
+          cost_of_capital_enabled?: boolean
+          cost_of_capital_monthly_rate?: number
+          cost_of_capital_months?: number
           created_at?: string | null
           customer_rfq_id?: string | null
           depth_inch?: number | null
@@ -1614,6 +1620,9 @@ export type Database = {
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
           cogs_done?: boolean | null
+          cost_of_capital_enabled?: boolean
+          cost_of_capital_monthly_rate?: number
+          cost_of_capital_months?: number
           created_at?: string | null
           customer_rfq_id?: string | null
           depth_inch?: number | null
