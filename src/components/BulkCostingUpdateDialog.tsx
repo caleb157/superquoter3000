@@ -227,10 +227,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     const willUpdateShipping = shippingTypeId !== '__keep__';
     const willUpdateLabor = validLaborRows.length > 0;
     const willRemoveNonUnit = nuToRemove.length > 0;
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor && !willRemoveNonUnit) {
-      toast.error('Add at least one row, raw piece, packaging type, shipping type, labor override, or non-unit removal');
+    const willUpdateCapital = cocMode !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor && !willRemoveNonUnit && !willUpdateCapital) {
+      toast.error('Add at least one row, raw piece, packaging type, shipping type, labor override, non-unit removal, or cost of capital change');
       return;
     }
+
 
 
     setSaving(true);
