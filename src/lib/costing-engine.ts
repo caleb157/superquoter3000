@@ -36,6 +36,13 @@ export type CostingEngineResult = {
   summary: ReturnType<typeof calc.calcProductCostSummary>;
   exchangeRate: number;
   markupPercent: number;
+  /** Cost of capital (working capital carry) */
+  capitalEnabled: boolean;
+  capitalMonthlyRate: number; // percent per month, e.g. 1.5
+  capitalMonths: number;
+  capitalFactor: number;      // rate/100 × months
+  capitalPerUnitInr: number;
+
   cogsPerUnit: number;
   nonUnitCogsPerUnit: number;
   directOhPerUnit: number;
