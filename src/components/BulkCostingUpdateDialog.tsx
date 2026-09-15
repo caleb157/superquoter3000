@@ -121,6 +121,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
+  // Cost of capital: keep / turn on (with rate + months) / turn off
+  const [cocMode, setCocMode] = useState<'__keep__' | 'yes' | 'no'>('__keep__');
+  const [cocRate, setCocRate] = useState<string>('1.5');
+  const [cocMonths, setCocMonths] = useState<string>('3');
+
 
   const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
 
@@ -222,10 +227,12 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     const willUpdateShipping = shippingTypeId !== '__keep__';
     const willUpdateLabor = validLaborRows.length > 0;
     const willRemoveNonUnit = nuToRemove.length > 0;
-    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor && !willRemoveNonUnit) {
-      toast.error('Add at least one row, raw piece, packaging type, shipping type, labor override, or non-unit removal');
+    const willUpdateCapital = cocMode !== '__keep__';
+    if (validRows.length === 0 && !willUpdatePackaging && !willUpdateRaw && !willUpdateShipping && !willUpdateLabor && !willRemoveNonUnit && !willUpdateCapital) {
+      toast.error('Add at least one row, raw piece, packaging type, shipping type, labor override, non-unit removal, or cost of capital change');
       return;
     }
+
 
 
     setSaving(true);
@@ -433,7 +440,21 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
       ? (supabase as any).from('non_unit_cogs').delete().in('product_id', selectedProductIds).in('name', nuToRemove)
       : Promise.resolve({ error: null });
 
-    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise]);
+    // Cost of capital: on (with rate + months) or off, for every selected product
+    const capitalPromise = willUpdateCapital
+      ? (supabase as any).from('products').update(
+          cocMode === 'yes'
+            ? {
+                cost_of_capital_enabled: true,
+                cost_of_capital_monthly_rate: Math.max(0, Number(cocRate) || 0),
+                cost_of_capital_months: Math.max(0, Number(cocMonths) || 0),
+              }
+            : { cost_of_capital_enabled: false },
+        ).in('id', selectedProductIds)
+      : Promise.resolve({ error: null });
+
+    const results = await Promise.all([...updatePromises, insertPromise, packagingPromise, deletePromise, shippingPromise, laborPromise, nonUnitPromise, capitalPromise]);
+
 
     const firstError = results.find((r: any) => r?.error)?.error;
     setSaving(false);
@@ -467,6 +488,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willRemoveNonUnit) {
       parts.push(`${nuToRemove.length} non-unit COGS removed`);
     }
+    if (willUpdateCapital) {
+      parts.push(cocMode === 'yes' ? `cost of capital → ${cocRate}%/mo × ${cocMonths} mo` : 'cost of capital → off');
+    }
+
 
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
@@ -521,6 +546,37 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
             </Select>
           </div>
         </div>
+
+        <div className="flex items-center gap-3 rounded-md border px-2.5 py-1.5 flex-wrap">
+          <Label className="text-[11px] whitespace-nowrap text-muted-foreground">Cost of capital</Label>
+          <Select value={cocMode} onValueChange={(v: any) => setCocMode(v)}>
+            <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__keep__" className="text-xs">Keep current</SelectItem>
+              <SelectItem value="yes" className="text-xs">Yes — apply</SelectItem>
+              <SelectItem value="no" className="text-xs">No — turn off</SelectItem>
+            </SelectContent>
+          </Select>
+          {cocMode === 'yes' && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Monthly %</span>
+                <Input type="number" step="0.01" min={0} value={cocRate}
+                  onChange={e => setCocRate(e.target.value)} className="h-7 w-16 text-xs" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Months</span>
+                <Input type="number" step="0.1" min={0} value={cocMonths}
+                  onChange={e => setCocMonths(e.target.value)} className="h-7 w-16 text-xs" />
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                = +{((Number(cocRate) || 0) * (Number(cocMonths) || 0)).toFixed(2)}% on product cost
+              </span>
+            </>
+          )}
+        </div>
+
+
 
         {packagingType === 'bulk_pack' && (
           <div className="flex items-center gap-3 rounded-md border px-2.5 py-1.5 bg-muted/30">
@@ -787,7 +843,7 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__' && validLaborRows.length === 0 && nuToRemove.length === 0)} className="gap-1.5">
+            <Button onClick={handleApply} disabled={saving || productCount === 0 || (validRows.length === 0 && validRawRows.length === 0 && !replaceAllRaw && packagingType === '__keep__' && shippingTypeId === '__keep__' && validLaborRows.length === 0 && nuToRemove.length === 0 && cocMode === '__keep__')} className="gap-1.5">
               <Check className="h-3.5 w-3.5" /> {saving ? 'Applying…' : 'Apply to selected'}
             </Button>
           </div>

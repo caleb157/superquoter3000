@@ -36,6 +36,13 @@ export type CostingEngineResult = {
   summary: ReturnType<typeof calc.calcProductCostSummary>;
   exchangeRate: number;
   markupPercent: number;
+  /** Cost of capital (working capital carry) */
+  capitalEnabled: boolean;
+  capitalMonthlyRate: number; // percent per month, e.g. 1.5
+  capitalMonths: number;
+  capitalFactor: number;      // rate/100 × months
+  capitalPerUnitInr: number;
+
   cogsPerUnit: number;
   nonUnitCogsPerUnit: number;
   directOhPerUnit: number;
@@ -398,15 +405,29 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const effIcCost = icCost;
   const effMcCost = mcCost;
 
+  // ===== Cost of capital (working capital carry) =====
+  // Monthly % × months, applied to the full product cost (COGS + OH + shipping),
+  // before markup. Stored per product; off unless explicitly enabled.
+  const capitalEnabled = !!p.cost_of_capital_enabled;
+  const capitalMonthlyRate = Number(p.cost_of_capital_monthly_rate) || 0; // percent, e.g. 1.5
+  const capitalMonths = Number(p.cost_of_capital_months) || 0;
+  const capitalFactor = capitalEnabled ? (capitalMonthlyRate / 100) * capitalMonths : 0;
+
   const summary = calc.calcProductCostSummary(
     effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
-    shippingPerUnit, markupPercent, exchangeRate, qty,
+    shippingPerUnit, markupPercent, exchangeRate, qty, capitalFactor,
   );
 
   return {
     summary,
     exchangeRate,
     markupPercent,
+    capitalEnabled,
+    capitalMonthlyRate,
+    capitalMonths,
+    capitalFactor,
+    capitalPerUnitInr: summary.total_capital_per_unit,
+
     cogsPerUnit: effCogsPerUnit,
     nonUnitCogsPerUnit: effNonUnitCogsPerUnit,
     directOhPerUnit: effDirectOhPerUnit,
