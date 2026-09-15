@@ -613,6 +613,8 @@ export interface CostSummary {
   total_direct_oh_per_unit: number;
   total_indirect_oh_per_unit: number;
   total_shipping_per_unit: number;
+  /** Working-capital charge per unit (INR): base cost × monthly rate × months. */
+  total_capital_per_unit: number;
   product_cost_per_unit_inr: number;
   product_cost_per_unit_usd: number;
   unit_price_inr: number;
@@ -633,10 +635,14 @@ export function calcProductCostSummary(
   shippingPerUnit: number,
   markupPercent: number,
   exchangeRate: number,
-  quantity: number
+  quantity: number,
+  /** Total capital factor = monthly rate (0..1) × months. 0 disables the charge. */
+  capitalFactor: number = 0
 ): CostSummary {
   const total_cogs_per_unit = cogsPerUnit + nonUnitCogsPerUnit;
-  const product_cost_per_unit_inr = total_cogs_per_unit + directOhPerUnit + indirectOhPerUnit + shippingPerUnit;
+  const base_cost_per_unit_inr = total_cogs_per_unit + directOhPerUnit + indirectOhPerUnit + shippingPerUnit;
+  const total_capital_per_unit = base_cost_per_unit_inr * (capitalFactor > 0 ? capitalFactor : 0);
+  const product_cost_per_unit_inr = base_cost_per_unit_inr + total_capital_per_unit;
   const product_cost_per_unit_usd = exchangeRate > 0 ? product_cost_per_unit_inr / exchangeRate : 0;
 
   const unit_price_inr = product_cost_per_unit_inr * (1 + markupPercent);
@@ -657,6 +663,7 @@ export function calcProductCostSummary(
     total_direct_oh_per_unit: directOhPerUnit,
     total_indirect_oh_per_unit: indirectOhPerUnit,
     total_shipping_per_unit: shippingPerUnit,
+    total_capital_per_unit,
     product_cost_per_unit_inr,
     product_cost_per_unit_usd,
     unit_price_inr,
@@ -669,6 +676,7 @@ export function calcProductCostSummary(
     npm,
   };
 }
+
 
 // ============================================================
 // Variant Pricing
