@@ -121,6 +121,11 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
 
   const [shippingTypes, setShippingTypes] = useState<{ id: string; name: string; per_unit: string; cost_inr: number }[]>([]);
   const [shippingTypeId, setShippingTypeId] = useState<string>('__keep__');
+  // Cost of capital: keep / turn on (with rate + months) / turn off
+  const [cocMode, setCocMode] = useState<'__keep__' | 'yes' | 'no'>('__keep__');
+  const [cocRate, setCocRate] = useState<string>('1.5');
+  const [cocMonths, setCocMonths] = useState<string>('3');
+
 
   const [laborRows, setLaborRows] = useState<LaborDraft[]>([]);
 
