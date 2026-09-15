@@ -488,6 +488,10 @@ export function BulkCostingUpdateDialog({ open, onOpenChange, selectedProductIds
     if (willRemoveNonUnit) {
       parts.push(`${nuToRemove.length} non-unit COGS removed`);
     }
+    if (willUpdateCapital) {
+      parts.push(cocMode === 'yes' ? `cost of capital → ${cocRate}%/mo × ${cocMonths} mo` : 'cost of capital → off');
+    }
+
 
     toast.success(`Applied ${parts.join(' + ')} to ${productCount} SKU${productCount === 1 ? '' : 's'}`);
     onApplied();
