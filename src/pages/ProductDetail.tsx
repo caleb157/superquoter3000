@@ -36,6 +36,7 @@ type ProductHeader = {
   markup_percent: number | null;
   calculated_unit_price_usd: number | null;
   calculated_unit_cost_usd: number | null;
+  inspiration_url: string | null;
 };
 
 const VALID_TABS = ['costing', 'variants', 'sample-log', 'tasks', 'summary'] as const;
@@ -134,7 +135,7 @@ const ProductDetail = () => {
     if (!id) return;
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent, calculated_unit_price_usd, calculated_unit_cost_usd, customer_rfq:customer_rfqs(rfq_number, title)')
+      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent, calculated_unit_price_usd, calculated_unit_cost_usd, inspiration_url, customer_rfq:customer_rfqs(rfq_number, title)')
       .eq('id', id)
       .maybeSingle();
     if (error) toast.error(error.message);
