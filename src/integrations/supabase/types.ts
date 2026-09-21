@@ -1533,6 +1533,7 @@ export type Database = {
           hard_moq: number | null
           height_inch: number | null
           id: string
+          inspiration_url: string | null
           is_component: boolean | null
           is_outsourced: boolean
           markup_percent: number | null
@@ -1582,6 +1583,7 @@ export type Database = {
           hard_moq?: number | null
           height_inch?: number | null
           id?: string
+          inspiration_url?: string | null
           is_component?: boolean | null
           is_outsourced?: boolean
           markup_percent?: number | null
@@ -1631,6 +1633,7 @@ export type Database = {
           hard_moq?: number | null
           height_inch?: number | null
           id?: string
+          inspiration_url?: string | null
           is_component?: boolean | null
           is_outsourced?: boolean
           markup_percent?: number | null
