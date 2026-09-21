@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, RefreshCw, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
@@ -57,6 +57,20 @@ const ProductDetail = () => {
   const [draftSku, setDraftSku] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [historyTrack, setHistoryTrack] = useState<StageTrack | null>(null);
+  const [inspirationDraft, setInspirationDraft] = useState<string | null>(null);
+  const [inspirationSaving, setInspirationSaving] = useState(false);
+
+  const saveInspirationUrl = async (value: string) => {
+    if (!product) return;
+    const url = value.trim() || null;
+    if (url === (product.inspiration_url ?? null)) return;
+    setInspirationSaving(true);
+    const { error } = await (supabase as any).from('products').update({ inspiration_url: url }).eq('id', product.id);
+    setInspirationSaving(false);
+    if (error) { toast.error(error.message); return; }
+    setProduct({ ...product, inspiration_url: url });
+    toast.success(url ? 'Inspiration link saved' : 'Inspiration link cleared');
+  };
   
   // Costing summary state
   const [costingSummary, setCostingSummary] = useState<{
@@ -352,6 +366,27 @@ const ProductDetail = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        </div>
+
+        {/* Inspiration link */}
+        <div className="flex items-center gap-2">
+          <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <Input
+            value={inspirationDraft ?? product.inspiration_url ?? ''}
+            onChange={(e) => setInspirationDraft(e.target.value)}
+            onBlur={(e) => { saveInspirationUrl(e.target.value); setInspirationDraft(null); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            placeholder="Inspiration URL — link to the original piece…"
+            className="h-8 text-xs flex-1"
+            disabled={inspirationSaving}
+          />
+          {product.inspiration_url && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild title="Open inspiration link">
+              <a href={product.inspiration_url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
