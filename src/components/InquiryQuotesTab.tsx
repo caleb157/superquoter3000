@@ -13,10 +13,21 @@ import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { toast } from 'sonner';
 
 
-function toLocalInput(iso: string): string {
+function toDateInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function todayInput(): string {
+  return toDateInput(new Date().toISOString());
+}
+
+// Store a date-only value as noon local time so timezone shifts never move the day.
+function dateInputToIso(v: string): string | null {
+  if (!v) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0).toISOString();
 }
 
 type Quote = {
