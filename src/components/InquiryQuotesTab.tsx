@@ -8,15 +8,27 @@ import { ReceivedRfqList } from '@/components/ReceivedRfqList';
 import { ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { toast } from 'sonner';
 
 
-function toLocalInput(iso: string): string {
+function toDateInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function todayInput(): string {
+  return toDateInput(new Date().toISOString());
+}
+
+// Store a date-only value as noon local time so timezone shifts never move the day.
+function dateInputToIso(v: string): string | null {
+  if (!v) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0).toISOString();
 }
 
 type Quote = {
@@ -61,16 +73,21 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
     setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
-  const updateSentAt = async (id: string, localValue: string) => {
-    const iso = localValue ? new Date(localValue).toISOString() : null;
+  const updateSentAt = async (id: string, dateValue: string, successMsg = 'Sent date updated') => {
+    const iso = dateInputToIso(dateValue);
     const patch: any = { sent_at: iso };
-    // If marking as sent for the first time, also flip status
     const q = quotes.find(x => x.id === id);
     if (iso && q && (q.status === 'draft' || !q.status)) patch.status = 'sent';
+    if (!iso && q && q.status === 'sent') patch.status = 'draft';
     const { error } = await (supabase as any).from('quote_snapshots').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setQuotes(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
-    toast.success('Sent date updated');
+    toast.success(successMsg);
+  };
+
+  const toggleSent = (q: Quote, checked: boolean) => {
+    if (checked) updateSentAt(q.id, todayInput(), 'Marked as sent');
+    else updateSentAt(q.id, '', 'Marked as not sent');
   };
 
   return (
@@ -116,12 +133,19 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                       {q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}
                     </TableCell>
                     <TableCell className="text-xs">
-                      <Input
-                        type="datetime-local"
-                        className="h-7 text-xs w-[180px]"
-                        value={q.sent_at ? toLocalInput(q.sent_at) : ''}
-                        onChange={(e) => updateSentAt(q.id, e.target.value)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={!!q.sent_at}
+                          onCheckedChange={(c) => toggleSent(q, c === true)}
+                          aria-label="Mark as sent"
+                        />
+                        <Input
+                          type="date"
+                          className="h-7 text-xs w-[140px]"
+                          value={q.sent_at ? toDateInput(q.sent_at) : ''}
+                          onChange={(e) => updateSentAt(q.id, e.target.value)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
