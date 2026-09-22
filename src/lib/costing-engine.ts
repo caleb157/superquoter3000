@@ -13,6 +13,9 @@
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
+/** COGS line that carries the purchased cost of an outsourced (bought finished) product. */
+export const OUTSOURCED_COGS_NAME = 'Outsourced Product';
+
 export type CostingEngineInput = {
   product: any;
   cogsItems: any[];
