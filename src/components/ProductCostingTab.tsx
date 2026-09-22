@@ -19,7 +19,7 @@ import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFro
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeProductCosting } from '@/lib/costing-engine';
+import { computeProductCosting, OUTSOURCED_COGS_NAME } from '@/lib/costing-engine';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
@@ -1336,7 +1336,32 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                       setOverheadItems(items => items.map(i => ({ ...i, include: 'No' })));
                       await (supabase as any).from('overhead_items').update({ include: 'No' }).in('id', ohIds);
                     }
-                    toast.success('Outsourced: all COGS and overhead rows set to "No". Re-enable any you need.');
+                    // Single editable line item for the purchased finished product.
+                    const existingOutsourcedRow = cogsItems.find(
+                      i => (i.component_name || '').toLowerCase() === OUTSOURCED_COGS_NAME.toLowerCase(),
+                    );
+                    if (existingOutsourcedRow) {
+                      setCogsItems(items => items.map(i =>
+                        i.id === existingOutsourcedRow.id ? { ...i, include: 'Yes' } : i));
+                      await (supabase as any).from('cogs_items')
+                        .update({ include: 'Yes' }).eq('id', existingOutsourcedRow.id);
+                    } else {
+                      const { data: newRow } = await (supabase as any).from('cogs_items').insert({
+                        product_id: id,
+                        cogs_type: 'Other',
+                        component_name: OUTSOURCED_COGS_NAME,
+                        include: 'Yes',
+                        components_per_product: 1,
+                        unit_cost_inr: Number(product.outsourced_unit_cost_inr) || 0,
+                        waste_factor: 0,
+                        sort_order: cogsItems.length,
+                      }).select().single();
+                      if (newRow) setCogsItems(items => [...items, newRow]);
+                    }
+                    // The legacy header field is retired — the COGS line owns the cost now.
+                    if (id) await (supabase as any).from('products').update({ outsourced_unit_cost_inr: null, outsourced_unit_cost_usd: null }).eq('id', id);
+                    setProduct((prev: any) => prev && ({ ...prev, outsourced_unit_cost_inr: null, outsourced_unit_cost_usd: null }));
+                    toast.success('Outsourced: all other COGS and overhead set to "No". Enter the purchased cost on the "Outsourced Product" COGS row.');
                   }
                   setProduct((prev: any) => prev && ({ ...prev, calculated_unit_price_usd: null, calculated_unit_cost_usd: null }));
                   if (id) {
@@ -1413,22 +1438,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   </SelectContent>
                 </Select>
               </div>
-              {isOutsourced && (
-                <div>
-                  <label className="text-[10px] text-muted-foreground">Outsourced Cost (₹/unit)</label>
-                  <Input
-                    className="h-7 text-xs"
-                    type="number"
-                    step="0.01"
-                    key={`outsourced-${product.id}`}
-                    defaultValue={product.outsourced_unit_cost_inr ?? ''}
-                    onBlur={e => {
-                      forceImmediatePersistRef.current = true;
-                      updateProduct('outsourced_unit_cost_inr', e.target.value === '' ? null : Number(e.target.value));
-                    }}
-                  />
-                </div>
-              )}
               <div>
                 <label className="text-[10px] text-muted-foreground">Difficulty</label>
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
