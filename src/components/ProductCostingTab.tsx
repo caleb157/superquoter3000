@@ -19,7 +19,7 @@ import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFro
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeProductCosting } from '@/lib/costing-engine';
+import { computeProductCosting, OUTSOURCED_COGS_NAME } from '@/lib/costing-engine';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';

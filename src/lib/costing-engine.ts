@@ -392,12 +392,21 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   // editable (they're set to include = "No" in the UI when the type is switched),
   // so accessories/extra labour can be re-enabled per order. Shipping is unchanged.
   const isOutsourced = !!p.is_outsourced || (productType?.name || '') === 'Outsourced';
-  const outsourcedUnitCostInr = Number(
+  // New model: the purchased cost lives on a normal COGS row ("Outsourced Product"),
+  // so it is already inside cogsPerUnit. The legacy product-level field is only used
+  // for older products that never got that row.
+  const outsourcedRow = (productCogs as any[]).find(
+    (i: any) => (i.component_name || '').toLowerCase() === OUTSOURCED_COGS_NAME.toLowerCase() && i.include !== 'No',
+  );
+  const legacyOutsourcedInr = Number(
     p.outsourced_unit_cost_inr ?? (Number(p.outsourced_unit_cost_usd) || 0) * exchangeRate,
   ) || 0;
+  const outsourcedUnitCostInr = outsourcedRow
+    ? (Number(outsourcedRow.components_per_product) || 0) * (Number(outsourcedRow.unit_cost_inr) || 0)
+    : legacyOutsourcedInr;
   const outsourcedUnitCostUsd = exchangeRate > 0 ? outsourcedUnitCostInr / exchangeRate : 0;
 
-  const effCogsPerUnit = cogsPerUnit + (isOutsourced ? outsourcedUnitCostInr : 0);
+  const effCogsPerUnit = cogsPerUnit + (isOutsourced && !outsourcedRow ? legacyOutsourcedInr : 0);
   // Outsourced products are bought finished — order-level (non-unit) COGS such as
   // auto transport are already inside the supplier's price, so they're dropped.
   const effNonUnitCogsPerUnit = isOutsourced ? 0 : nonUnitCogsPerUnit;
