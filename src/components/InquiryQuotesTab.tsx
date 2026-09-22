@@ -8,6 +8,7 @@ import { ReceivedRfqList } from '@/components/ReceivedRfqList';
 import { ExternalLink, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { toast } from 'sonner';
