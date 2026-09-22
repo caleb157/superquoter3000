@@ -132,12 +132,19 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                       {q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}
                     </TableCell>
                     <TableCell className="text-xs">
-                      <Input
-                        type="datetime-local"
-                        className="h-7 text-xs w-[180px]"
-                        value={q.sent_at ? toLocalInput(q.sent_at) : ''}
-                        onChange={(e) => updateSentAt(q.id, e.target.value)}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={!!q.sent_at}
+                          onCheckedChange={(c) => toggleSent(q, c === true)}
+                          aria-label="Mark as sent"
+                        />
+                        <Input
+                          type="date"
+                          className="h-7 text-xs w-[140px]"
+                          value={q.sent_at ? toDateInput(q.sent_at) : ''}
+                          onChange={(e) => updateSentAt(q.id, e.target.value)}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1 justify-end">
