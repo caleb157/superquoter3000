@@ -72,16 +72,21 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
     setQuotes(prev => prev.filter(q => q.id !== id));
   };
 
-  const updateSentAt = async (id: string, localValue: string) => {
-    const iso = localValue ? new Date(localValue).toISOString() : null;
+  const updateSentAt = async (id: string, dateValue: string, successMsg = 'Sent date updated') => {
+    const iso = dateInputToIso(dateValue);
     const patch: any = { sent_at: iso };
-    // If marking as sent for the first time, also flip status
     const q = quotes.find(x => x.id === id);
     if (iso && q && (q.status === 'draft' || !q.status)) patch.status = 'sent';
+    if (!iso && q && q.status === 'sent') patch.status = 'draft';
     const { error } = await (supabase as any).from('quote_snapshots').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
     setQuotes(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
-    toast.success('Sent date updated');
+    toast.success(successMsg);
+  };
+
+  const toggleSent = (q: Quote, checked: boolean) => {
+    if (checked) updateSentAt(q.id, todayInput(), 'Marked as sent');
+    else updateSentAt(q.id, '', 'Marked as not sent');
   };
 
   return (
