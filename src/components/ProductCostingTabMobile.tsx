@@ -322,13 +322,6 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
         </Select>
       </Field>
 
-      {(!!product.is_outsourced || productTypes.find(pt => pt.id === product.product_type_id)?.name === 'Outsourced') && (
-        <Field label="Outsourced Cost (₹/unit)">
-          <Input className="h-10" type="number" step="0.01"
-            defaultValue={product.outsourced_unit_cost_inr ?? ''}
-            onBlur={e => updateProduct('outsourced_unit_cost_inr', e.target.value === '' ? null : Number(e.target.value), true)} />
-        </Field>
-      )}
 
       <Field label="Packaging Type">
         <Select
