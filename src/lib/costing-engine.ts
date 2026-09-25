@@ -12,6 +12,7 @@
 
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
+import { computeFob, isFobPerUnit, type FobEstimate, type FobMode } from '@/lib/fob';
 
 /** COGS line that carries the purchased cost of an outsourced (bought finished) product. */
 export const OUTSOURCED_COGS_NAME = 'Outsourced Product';
@@ -33,7 +34,11 @@ export type CostingEngineInput = {
   locations: any[];             // local_transport_locations
   difficulties: any[];          // finishing_difficulty
   rawMaterialCosts?: any[];     // for bulk_pack foam lookup
+  /** Inquiry shipment pool for FOB types. Omit for standalone products. */
+  shipmentPool?: ShipmentPool | null;
 };
+
+export type ShipmentPool = { lines: { product_id: string; cbm: number; cartons: number }[] };
 
 export type CostingEngineResult = {
   summary: ReturnType<typeof calc.calcProductCostSummary>;
@@ -70,6 +75,8 @@ export type CostingEngineResult = {
   outsourcedUnitCostInr: number;
   /** Same value expressed in USD (convenience for display). */
   outsourcedUnitCostUsd: number;
+  /** Present only when the shipping type is a calculated FOB type. */
+  fobEstimate?: FobEstimate;
   bulkPack?: {
     pieces_per_mc: number;
     mc_width: number;
@@ -99,6 +106,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     inquiryOverrides: inq,
     locations,
     difficulties,
+    shipmentPool,
   } = input;
 
   const settings = mergeSettingsWithInquiry(gs, inq);
@@ -485,5 +493,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     outsourcedUnitCostInr: isOutsourced ? outsourcedUnitCostInr : 0,
     outsourcedUnitCostUsd: isOutsourced ? outsourcedUnitCostUsd : 0,
     bulkPack: bulkPackInfo,
+    fobEstimate,
   };
 }
