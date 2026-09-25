@@ -201,6 +201,9 @@ export default function InquiryDetail() {
       markup_percent_override: settingsDraft.markup_percent_override === '' || settingsDraft.markup_percent_override == null
         ? null : Number(settingsDraft.markup_percent_override),
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
+      fob_pool_cbm_override: settingsDraft.fob_pool_cbm_override === '' || settingsDraft.fob_pool_cbm_override == null ? null : Number(settingsDraft.fob_pool_cbm_override),
+      fob_pool_cartons_override: settingsDraft.fob_pool_cartons_override === '' || settingsDraft.fob_pool_cartons_override == null ? null : Math.round(Number(settingsDraft.fob_pool_cartons_override)),
+      fob_mode_override: settingsDraft.fob_mode_override || null,
       quoting_entity_id: settingsDraft.quoting_entity_id || null,
       quoting_currency: settingsDraft.quoting_currency || null,
       indirect_overhead_per_mh_override: settingsDraft.indirect_overhead_per_mh_override === '' || settingsDraft.indirect_overhead_per_mh_override == null ? null : Number(settingsDraft.indirect_overhead_per_mh_override),
@@ -521,6 +524,33 @@ export default function InquiryDetail() {
                 <p className="text-xs text-muted-foreground mt-1">Optional. Leave blank to use global defaults / per-product values.</p>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">FOB shipment CBM</Label>
+                  <Input type="number" step="0.01" placeholder="Auto (sum of products)"
+                    value={settingsDraft?.fob_pool_cbm_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_pool_cbm_override: e.target.value })}
+                    className="h-9 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">FOB carton count</Label>
+                  <Input type="number" step="1" placeholder="Auto (sum of products)"
+                    value={settingsDraft?.fob_pool_cartons_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_pool_cartons_override: e.target.value })}
+                    className="h-9 mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">FOB mode</Label>
+                  <select
+                    value={settingsDraft?.fob_mode_override ?? ''}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_mode_override: e.target.value })}
+                    className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="">Auto (cheapest)</option>
+                    <option value="LCL">LCL</option>
+                    <option value="FCL_20">20' FCL</option>
+                    <option value="FCL_40HC">40' HC FCL</option>
+                  </select>
+                  <p className="text-[10px] text-muted-foreground mt-1">Applies to calculated FOB shipping only.</p>
+                </div>
                 <div>
                   <Label className="text-xs">Exchange rate (INR per USD)</Label>
                   <Input

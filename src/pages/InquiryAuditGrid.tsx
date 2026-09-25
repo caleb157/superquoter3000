@@ -255,6 +255,9 @@ export default function InquiryAuditGrid() {
     const shipTypeById = new Map(shipTypes.map(s => [s.id, s]));
     const locById = new Map(locations.map(l => [l.id, l]));
 
+    const { buildShipmentPools } = await import('@/lib/shipment-pool');
+    const shipmentPool = inquiryId ? (await buildShipmentPools([inquiryId]))[inquiryId] ?? null : null;
+
     const out: AuditRow[] = productList.map((p: any) => {
       const productType = productTypes.find(pt => pt.id === p.product_type_id);
       const cbmRow = cbm.find(c => c.product_id === p.id) || null;
@@ -275,6 +278,7 @@ export default function InquiryAuditGrid() {
         locations,
         difficulties,
         rawMaterialCosts,
+        shipmentPool,
       });
 
       // Sum buckets from resolvedCogsRows (only include='Yes' rows)
