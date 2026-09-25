@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArchivedProductsCard } from '@/components/ArchivedProductsCard';
 import { InquiryStatusCards } from '@/components/InquiryStatusCards';
+import { InquiryFobCard } from '@/components/InquiryFobCard';
 import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryProductsTab';
 import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
@@ -369,6 +370,8 @@ export default function InquiryDetail() {
             setActiveTab('products');
           }}
         />
+        <InquiryFobCard inquiryId={id!} refreshKey={refreshKey} />
+
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>

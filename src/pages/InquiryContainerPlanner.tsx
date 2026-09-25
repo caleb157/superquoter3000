@@ -17,6 +17,7 @@ import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { buildCsv, downloadCsv } from '@/lib/csv-export';
+import { InquiryFobCard } from '@/components/InquiryFobCard';
 
 const CUBIC_IN_PER_CBM = 61023.7441;
 
@@ -30,6 +31,7 @@ type Row = {
   quantity: number;
   weight_kg: number;
   unit_cbm: number;
+  products_per_mc: number;
   unit_price_usd: number;
   unit_cost_usd: number;
 };
@@ -92,6 +94,7 @@ export default function InquiryContainerPlanner() {
       quantity: Number(p.quantity) || 0,
       weight_kg: Number(p.weight_kg) || 0,
       unit_cbm: priceMap[p.id]?.final_unit_cbm || 0,
+      products_per_mc: priceMap[p.id]?.products_per_mc || 1,
       unit_price_usd: priceMap[p.id]?.unit_price_usd || 0,
       unit_cost_usd: priceMap[p.id]?.unit_cost_usd || 0,
     }));
@@ -263,6 +266,16 @@ export default function InquiryContainerPlanner() {
             tone="ok"
           />
         </div>
+
+        {inquiryId && (
+          <InquiryFobCard
+            inquiryId={inquiryId}
+            cbm={totals.cbm}
+            cartons={rows.reduce((s, r) => { const q = qtyOf(r.id); return s + (q > 0 ? Math.ceil(q / (r.products_per_mc || 1)) : 0); }, 0)}
+            productCount={rows.filter(r => qtyOf(r.id) > 0).length}
+          />
+        )}
+
 
         <Card>
           <CardHeader className="py-3"><CardTitle className="text-sm">What-if quantities ({rows.length} products)</CardTitle></CardHeader>
