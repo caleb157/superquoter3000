@@ -29,6 +29,7 @@ import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
 import { RawTargetsDialog } from '@/components/RawTargetsDialog';
+import { OutsourceCompareDialog } from '@/components/OutsourceCompareDialog';
 import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
 import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
@@ -143,6 +144,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
   const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
+  const [outsourceCompareOpen, setOutsourceCompareOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
   const [copyToOpen, setCopyToOpen] = useState(false);
   const [recosting, setRecosting] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
@@ -648,6 +650,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               <DropdownMenuItem onClick={() => setRawTargetsOpen(true)}>
                 <Target className="h-4 w-4 mr-2" /> Raw price targets
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setOutsourceCompareOpen(true)}>
+                <RefreshCw className="h-4 w-4 mr-2" /> In-house vs outsourced
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -717,6 +722,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
         onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
 
+      />
+
+      <OutsourceCompareDialog
+        open={outsourceCompareOpen}
+        onOpenChange={setOutsourceCompareOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
       />
 
       <RawTargetsDialog
