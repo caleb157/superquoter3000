@@ -574,6 +574,8 @@ const Settings = () => {
         );
       case 'shipping':
         return (
+          <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_LCL</b> = calculated LCL origin charges · <b>FOB_AUTO</b> = cheapest of LCL / 20' / 40' HC. FOB types ignore Cost and price the whole inquiry shipment.</p>
           <EditableTable
             tableName="shipping_types"
             data={shippingTypes} setData={setShippingTypes}
@@ -585,6 +587,7 @@ const Settings = () => {
               { key: 'per_unit', label: 'Per Unit', width: '100px' },
             ]}
           />
+          </div>
         );
       case 'product-types':
         return (
