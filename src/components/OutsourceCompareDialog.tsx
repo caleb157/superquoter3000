@@ -163,6 +163,9 @@ export function OutsourceCompareDialog({ open, onOpenChange, inquiryId, productI
                       <TableCell className="text-xs">
                         <div className="font-medium">{product.name}</div>
                         {product.sku && <div className="text-muted-foreground">{product.sku}</div>}
+                        {cmp.inhouse.product_cost_per_unit_inr < (oc ?? 0) * 0.15 && (
+                          <div className="text-[10px] text-warning">In-house costing incomplete (no raw / labour entered)</div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{cmp.qty}</TableCell>
                       <TableCell>
