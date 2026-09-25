@@ -19,7 +19,10 @@ import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFro
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeProductCosting, OUTSOURCED_COGS_NAME } from '@/lib/costing-engine';
+import { computeProductCosting, OUTSOURCED_COGS_NAME, type ShipmentPool } from '@/lib/costing-engine';
+import { buildShipmentPools, invalidateShipmentPool } from '@/lib/shipment-pool';
+import { FobEstimatePanel } from '@/components/FobEstimatePanel';
+import { isFobPerUnit } from '@/lib/fob';
 
 import { ProductVendorsPanel } from '@/components/ProductVendorsPanel';
 import { VendorCombobox } from '@/components/VendorCombobox';
@@ -125,6 +128,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
   const [inquiryOverrides, setInquiryOverrides] = useState<any | null>(null);
+  const [shipmentPool, setShipmentPool] = useState<ShipmentPool | null>(null);
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
   const [solverOpen, setSolverOpen] = useState(false);
   useEffect(() => {
@@ -376,6 +380,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
           .eq('id', prodRes.data.customer_rfq_id)
           .maybeSingle();
         if (inqData) setInquiryOverrides(inqData);
+        const rfqId = prodRes.data.customer_rfq_id as string;
+        invalidateShipmentPool(rfqId);
+        buildShipmentPools([rfqId]).then(pools => setShipmentPool(pools[rfqId] || null)).catch(() => {});
       }
 
       setDataLoaded(true);
@@ -1008,8 +1015,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       locations,
       difficulties,
       rawMaterialCosts,
+      shipmentPool,
     });
-  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties, rawMaterialCosts]);
+  }, [dataLoaded, product, cogsItems, nonUnitCogs, overheadItems, shippingItems, cbm, productType, boxData, chemicalPrices, shippingTypes, employees, globalSettings, inquiryOverrides, locations, difficulties, rawMaterialCosts, shipmentPool]);
 
   // Direct overhead breakdown for display (per-row hourly rate × MH × qty).
   // Kept inline because the per-row breakdown is shown in the Overhead section UI;
@@ -2500,7 +2508,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                   <SelectTrigger className="h-7 text-xs w-48"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {shippingTypes.map(st => (
-                      <SelectItem key={st.id} value={st.id}>{st.name} — {fmt.inr(st.cost_inr)}/{st.per_unit}</SelectItem>
+                      <SelectItem key={st.id} value={st.id}>{st.name} — {isFobPerUnit(st.per_unit) ? 'calculated FOB' : `${fmt.inr(st.cost_inr)}/${st.per_unit}`}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -2514,6 +2522,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <span className="font-mono font-semibold">{fmt.inr(shippingPerUnit)}</span>
               </div>
             </div>
+            {engine?.fobEstimate && <FobEstimatePanel estimate={engine.fobEstimate} shippingPerUnit={shippingPerUnit} />}
           </CollapsibleContent>
         </Collapsible>
 
