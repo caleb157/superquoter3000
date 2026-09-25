@@ -551,6 +551,9 @@ export type Database = {
           customer_id: string | null
           drive_url: string | null
           exchange_rate_override: number | null
+          fob_mode_override: string | null
+          fob_pool_cartons_override: number | null
+          fob_pool_cbm_override: number | null
           id: string
           indirect_overhead_per_mh_override: number | null
           kanban_substage_override: string | null
@@ -584,6 +587,9 @@ export type Database = {
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
+          fob_mode_override?: string | null
+          fob_pool_cartons_override?: number | null
+          fob_pool_cbm_override?: number | null
           id?: string
           indirect_overhead_per_mh_override?: number | null
           kanban_substage_override?: string | null
@@ -617,6 +623,9 @@ export type Database = {
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
+          fob_mode_override?: string | null
+          fob_pool_cartons_override?: number | null
+          fob_pool_cbm_override?: number | null
           id?: string
           indirect_overhead_per_mh_override?: number | null
           kanban_substage_override?: string | null
