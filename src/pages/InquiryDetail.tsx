@@ -546,7 +546,7 @@ export default function InquiryDetail() {
                     className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
                     <option value="">Auto (cheapest)</option>
                     <option value="LCL">LCL</option>
-                    <option value="FCL_20">20' FCL</option>
+                    <option value="FCL_20ST">20' FCL</option>
                     <option value="FCL_40HC">40' HC FCL</option>
                   </select>
                   <p className="text-[10px] text-muted-foreground mt-1">Applies to calculated FOB shipping only.</p>
