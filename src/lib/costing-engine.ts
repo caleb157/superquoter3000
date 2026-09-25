@@ -378,12 +378,35 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     ? (shipTypes as any[]).find((s: any) => s.id === inq.shipping_type_id_override)
     : null;
   const shipType = overrideShipType || (shipItem ? (shipTypes as any[]).find((t: any) => t.id === shipItem.shipping_type_id) : null);
-  const shippingPerUnit = shipType ? calc.calcShippingPerUnit({
-    cost_inr: shipType.cost_inr,
-    per_unit: shipType.per_unit as 'CBM' | 'KG',
-    final_unit_cbm: finalUnitCbm,
-    weight_kg: p.weight_kg || 0,
-  }) : 0;
+  let shippingPerUnit = 0;
+  let fobEstimate: FobEstimate | undefined;
+  if (shipType && isFobPerUnit(shipType.per_unit)) {
+    const ownCbm = finalUnitCbm * qty;
+    const ownCartons = qty > 0 ? Math.ceil(qty / (productsPerMc > 0 ? productsPerMc : 1)) : 0;
+    const modeOverride = (inq?.fob_mode_override || null) as FobMode | null;
+    if (shipmentPool && shipmentPool.lines.length > 0) {
+      const lines = shipmentPool.lines.filter(l => l.product_id !== p.id).concat([{ product_id: p.id, cbm: ownCbm, cartons: ownCartons }]);
+      let poolCbm = lines.reduce((s, l) => s + (l.cbm || 0), 0);
+      let poolCartons = lines.reduce((s, l) => s + (l.cartons || 0), 0);
+      if (inq?.fob_pool_cbm_override != null && Number(inq.fob_pool_cbm_override) > 0) poolCbm = Number(inq.fob_pool_cbm_override);
+      if (inq?.fob_pool_cartons_override != null && Number(inq.fob_pool_cartons_override) > 0) poolCartons = Number(inq.fob_pool_cartons_override);
+      const est = computeFob(shipType.per_unit, poolCbm, poolCartons, exchangeRate, modeOverride);
+      const perCbm = poolCbm > 0 ? est.selected.total_inr / poolCbm : 0;
+      shippingPerUnit = perCbm * finalUnitCbm;
+      fobEstimate = { ...est, basis: 'inquiry', pool_cbm: poolCbm, pool_cartons: poolCartons, pool_product_count: lines.filter(l => l.cbm > 0).length, share: poolCbm > 0 ? ownCbm / poolCbm : 0 };
+    } else {
+      const est = computeFob(shipType.per_unit, ownCbm, ownCartons, exchangeRate, modeOverride);
+      shippingPerUnit = qty > 0 ? est.selected.total_inr / qty : 0;
+      fobEstimate = { ...est, basis: 'product', pool_cbm: ownCbm, pool_cartons: ownCartons, pool_product_count: 1, share: 1 };
+    }
+  } else if (shipType) {
+    shippingPerUnit = calc.calcShippingPerUnit({
+      cost_inr: shipType.cost_inr,
+      per_unit: shipType.per_unit as 'CBM' | 'KG',
+      final_unit_cbm: finalUnitCbm,
+      weight_kg: p.weight_kg || 0,
+    });
+  }
 
   // ===== Outsourced =====
   // A product is outsourced when its product type is "Outsourced" (or the legacy
