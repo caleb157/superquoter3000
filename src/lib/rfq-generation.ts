@@ -292,6 +292,8 @@ export async function generateRawPieceRfq(
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
   const inq = (inqRes as any).data || null;
+  const { buildShipmentPools } = await import('@/lib/shipment-pool');
+  const shipmentPool = (await buildShipmentPools([inquiryId]))[inquiryId] ?? null;
   const gs = gsRes.data as any;
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
@@ -336,6 +338,7 @@ export async function generateRawPieceRfq(
       locations,
       difficulties,
       rawMaterialCosts,
+      shipmentPool,
     });
     const summary = engineResult.summary;
     const markupPercent = engineResult.markupPercent;
