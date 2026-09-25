@@ -1172,6 +1172,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         ri={ri}
         prePackCbm={prePackCbm}
         finalUnitCbm={finalUnitCbm}
+        fobEstimate={engine?.fobEstimate}
         totalCbm={totalCbm}
         cogsPerUnit={cogsPerUnit}
         nonUnitCogsPerUnit={nonUnitCogsPerUnit}

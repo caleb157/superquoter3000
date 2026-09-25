@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { FobEstimatePanel } from '@/components/FobEstimatePanel';
+import { isFobPerUnit, type FobEstimate } from '@/lib/fob';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +56,7 @@ export type MobileCostingProps = {
   totalDirectMhPerUnit: number;
   indirectOhPerMh: number;
   shippingPerUnit: number;
+  fobEstimate?: FobEstimate;
   exchangeRate: number;
   markupPercent: number;
   qty: number;
@@ -836,7 +839,7 @@ function IndirectSection({ totalDirectMhPerUnit, indirectOhPerMh, indirectOhPerU
 }
 
 // ===== Section G: Shipping =====
-function ShippingSection({ shipItem, shippingTypes, finalUnitCbm, shippingPerUnit, setShippingType }: MobileCostingProps) {
+function ShippingSection({ shipItem, shippingTypes, finalUnitCbm, shippingPerUnit, setShippingType, fobEstimate }: MobileCostingProps) {
   return (
     <div className="space-y-3">
       <Field label="Shipping Type">
@@ -844,13 +847,14 @@ function ShippingSection({ shipItem, shippingTypes, finalUnitCbm, shippingPerUni
           <SelectTrigger className="h-10"><SelectValue placeholder="Select..." /></SelectTrigger>
           <SelectContent>
             {shippingTypes.map(st => (
-              <SelectItem key={st.id} value={st.id}>{st.name} — {fmt.inr(st.cost_inr)}/{st.per_unit}</SelectItem>
+              <SelectItem key={st.id} value={st.id}>{st.name} — {isFobPerUnit(st.per_unit) ? 'calculated FOB' : `${fmt.inr(st.cost_inr)}/${st.per_unit}`}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
       <Stat label="Unit CBM" value={fmt.cbm(finalUnitCbm)} />
       <Stat label="Unit Cost" value={fmt.inr(shippingPerUnit)} highlight />
+      {fobEstimate && <FobEstimatePanel estimate={fobEstimate} shippingPerUnit={shippingPerUnit} compact />}
     </div>
   );
 }
