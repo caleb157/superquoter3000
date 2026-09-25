@@ -575,7 +575,7 @@ const Settings = () => {
       case 'shipping':
         return (
           <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_LCL</b> = calculated LCL origin charges · <b>FOB_AUTO</b> = cheapest of LCL / 20' / 40' HC. FOB types ignore Cost and price the whole inquiry shipment.</p>
+          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix ex-Jodhpur ICD · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
           <EditableTable
             tableName="shipping_types"
             data={shippingTypes} setData={setShippingTypes}
