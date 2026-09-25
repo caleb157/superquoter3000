@@ -5,6 +5,7 @@
 // in-memory so prices stay consistent with the costing sheet even when the user
 // has not opened the costing tab to flush the latest auto-cost values to DB.
 import { supabase } from '@/integrations/supabase/client';
+import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
 
 let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
@@ -72,6 +73,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
   const out: ProductPriceCostMap = {};
   if (productIds.length === 0) return out;
 
+  await loadFobRates();
   const [
     productsRes,
     cogsRes,
@@ -100,7 +102,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('cbm_estimates').select('*').in('product_id', productIds).limit(100000),
     supabase.from('product_types').select('*').limit(100000),
-    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_mode_override').limit(100000),
+    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc').limit(100000),
     supabase.from('chemical_prices').select('*').limit(100000),
     supabase.from('box_data').select('*').limit(100000),
     (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
