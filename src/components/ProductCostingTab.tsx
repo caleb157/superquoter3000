@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { computeProductCosting, OUTSOURCED_COGS_NAME, type ShipmentPool } from '@/lib/costing-engine';
 import { buildShipmentPools, invalidateShipmentPool } from '@/lib/shipment-pool';
+import { loadFobRates } from '@/lib/fob-rates';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
 import { isFobPerUnit } from '@/lib/fob';
 
@@ -385,6 +386,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         buildShipmentPools([rfqId]).then(pools => setShipmentPool(pools[rfqId] || null)).catch(() => {});
       }
 
+      await loadFobRates();
       setDataLoaded(true);
     };
     fetchAll();

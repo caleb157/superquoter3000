@@ -204,7 +204,8 @@ export default function InquiryDetail() {
       shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
       fob_pool_cbm_override: settingsDraft.fob_pool_cbm_override === '' || settingsDraft.fob_pool_cbm_override == null ? null : Number(settingsDraft.fob_pool_cbm_override),
       fob_pool_cartons_override: settingsDraft.fob_pool_cartons_override === '' || settingsDraft.fob_pool_cartons_override == null ? null : Math.round(Number(settingsDraft.fob_pool_cartons_override)),
-      fob_mode_override: settingsDraft.fob_mode_override || null,
+      fob_fumigation: settingsDraft.fob_fumigation || 'none',
+      fob_wlc: settingsDraft.fob_wlc || 'none',
       quoting_entity_id: settingsDraft.quoting_entity_id || null,
       quoting_currency: settingsDraft.quoting_currency || null,
       indirect_overhead_per_mh_override: settingsDraft.indirect_overhead_per_mh_override === '' || settingsDraft.indirect_overhead_per_mh_override == null ? null : Number(settingsDraft.indirect_overhead_per_mh_override),
@@ -542,17 +543,28 @@ export default function InquiryDetail() {
                     className="h-9 mt-1" />
                 </div>
                 <div>
-                  <Label className="text-xs">FOB mode</Label>
+                  <Label className="text-xs">FOB fumigation</Label>
                   <select
-                    value={settingsDraft?.fob_mode_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_mode_override: e.target.value })}
+                    value={settingsDraft?.fob_fumigation ?? 'none'}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_fumigation: e.target.value })}
                     className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
-                    <option value="">Auto (cheapest)</option>
-                    <option value="LCL">LCL</option>
-                    <option value="FCL_20ST">20' FCL</option>
-                    <option value="FCL_40HC">40' HC FCL</option>
+                    <option value="none">None</option>
+                    <option value="normal">Normal</option>
+                    <option value="ispm">ISPM-15</option>
                   </select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Applies to calculated FOB shipping only.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Per container, FCL only. Australia / New Zealand need ISPM.</p>
+                </div>
+                <div>
+                  <Label className="text-xs">Wildlife certificate</Label>
+                  <select
+                    value={settingsDraft?.fob_wlc ?? 'none'}
+                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_wlc: e.target.value })}
+                    className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="none">None</option>
+                    <option value="leather">Leather</option>
+                    <option value="bone_mop">Bone / mother of pearl</option>
+                  </select>
+                  <p className="text-[10px] text-muted-foreground mt-1">Once per shipment, FCL only.</p>
                 </div>
                 <div>
                   <Label className="text-xs">Exchange rate (INR per USD)</Label>

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Ship } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { computeFob, type FobMode } from '@/lib/fob';
+import { computeFob, isFobPerUnit, type FobPerUnit, type Fumigation, type Wlc } from '@/lib/fob';
+import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
@@ -16,7 +17,7 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
 }) {
   const [open, setOpen] = useState(false);
   const [fx, setFx] = useState(0);
-  const [ov, setOv] = useState<{ cbm: number | null; cartons: number | null; mode: FobMode | null }>({ cbm: null, cartons: null, mode: null });
+  const [ov, setOv] = useState<{ cbm: number | null; cartons: number | null; mode: FobPerUnit | null; fumigation: Fumigation; wlc: Wlc }>({ cbm: null, cartons: null, mode: null, fumigation: 'none', wlc: 'none' });
   const [pool, setPool] = useState<{ cbm: number; cartons: number; count: number } | null>(null);
   const external = cbm != null && cartons != null;
 
@@ -24,14 +25,17 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
     (async () => {
       const [gs, rfq] = await Promise.all([
         supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
-        supabase.from('customer_rfqs').select('fob_pool_cbm_override, fob_pool_cartons_override, fob_mode_override').eq('id', inquiryId).maybeSingle(),
+        (supabase as any).from('customer_rfqs').select('exchange_rate_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc, shipping_types:shipping_type_id_override(per_unit)').eq('id', inquiryId).maybeSingle(),
+        loadFobRates(),
       ]);
-      setFx(Number((gs.data as any)?.exchange_rate) || 0);
       const r: any = rfq.data || {};
+      setFx(Number(r.exchange_rate_override) || Number((gs.data as any)?.exchange_rate) || 0);
       setOv({
         cbm: r.fob_pool_cbm_override != null ? Number(r.fob_pool_cbm_override) : null,
         cartons: r.fob_pool_cartons_override != null ? Number(r.fob_pool_cartons_override) : null,
-        mode: (r.fob_mode_override as FobMode) || null,
+        mode: isFobPerUnit(r.shipping_types?.per_unit) ? r.shipping_types.per_unit : null,
+        fumigation: r.fob_fumigation || 'none',
+        wlc: r.fob_wlc || 'none',
       });
     })();
   }, [inquiryId, refreshKey]);
@@ -59,8 +63,8 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
   const useCartons = ov.cartons ?? baseCartons;
   if (!fx || useCbm <= 0) return null;
 
-  const est = { ...computeFob('FOB_AUTO', useCbm, useCartons, fx, ov.mode), basis: 'product' as const };
-  const hasOv = ov.cbm != null || ov.cartons != null || ov.mode != null;
+  const est = { ...computeFob(ov.mode, useCbm, useCartons, fx, { fumigation: ov.fumigation, wlc: ov.wlc }), basis: 'product' as const };
+  const hasOv = ov.cbm != null || ov.cartons != null || ov.fumigation !== 'none' || ov.wlc !== 'none';
 
   return (
     <Card>
@@ -73,7 +77,7 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
             {fmt.num(useCbm, 2)} CBM · {useCartons} cartons{(productCount ?? pool?.count) ? ` · ${productCount ?? pool?.count} products` : ''}
             {hasOv && ' · overrides applied'}
           </span>
-          <span className="ml-auto font-mono text-xs">{est.selected.label}: {fmt.inr(est.selected.total_inr)} ({fmt.inr(est.selected.per_cbm_inr)}/CBM)</span>
+          <span className="ml-auto font-mono text-xs">{ov.mode ? '' : 'Cheapest '}{est.selected.label}{est.selected.mix ? ` (${est.selected.mix})` : ''}: {fmt.inr(Math.round(est.selected.total_inr))} ({fmt.inr(Math.round(est.selected.per_cbm_inr))}/CBM)</span>
         </button>
         {open && <FobEstimatePanel estimate={est} />}
       </CardContent>

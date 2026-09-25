@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FobRatesSettings } from '@/components/FobRatesSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
@@ -390,7 +391,7 @@ type SectionId =
   | 'general' | 'entities' | 'team' | 'integrations'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'box-data' | 'wrapping'
+  | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
   | 'currencies' | 'finishing-difficulty'
   | 'raw-materials' | 'cogs-categories'
   | 'local-transport' | 'container-types' | 'data-export';
@@ -440,6 +441,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     label: 'Logistics',
     items: [
       { id: 'shipping', label: 'Shipping' },
+      { id: 'fob-rates', label: 'FOB Rates' },
       { id: 'local-transport', label: 'Local transport' },
       { id: 'container-types', label: 'Container types' },
     ],
@@ -459,7 +461,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -572,10 +574,12 @@ const Settings = () => {
             ]}
           />
         );
+      case 'fob-rates':
+        return <FobRatesSettings />;
       case 'shipping':
         return (
           <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_LCL</b> = calculated LCL origin charges · <b>FOB_AUTO</b> = cheapest of LCL / 20' / 40' HC. FOB types ignore Cost and price the whole inquiry shipment.</p>
+          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix ex-Jodhpur ICD · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
           <EditableTable
             tableName="shipping_types"
             data={shippingTypes} setData={setShippingTypes}

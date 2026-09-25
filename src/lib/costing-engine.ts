@@ -12,7 +12,7 @@
 
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeFob, isFobPerUnit, type FobEstimate, type FobMode } from '@/lib/fob';
+import { computeFob, isFobPerUnit, type FobEstimate, type Fumigation, type Wlc } from '@/lib/fob';
 
 /** COGS line that carries the purchased cost of an outsourced (bought finished) product. */
 export const OUTSOURCED_COGS_NAME = 'Outsourced Product';
@@ -391,20 +391,20 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   if (shipType && isFobPerUnit(shipType.per_unit)) {
     const ownCbm = finalUnitCbm * qty;
     const ownCartons = qty > 0 ? Math.ceil(qty / (productsPerMc > 0 ? productsPerMc : 1)) : 0;
-    const modeOverride = (inq?.fob_mode_override || null) as FobMode | null;
+    const fobOpts = { fumigation: (inq?.fob_fumigation || 'none') as Fumigation, wlc: (inq?.fob_wlc || 'none') as Wlc };
     if (shipmentPool && shipmentPool.lines.length > 0) {
       const lines = shipmentPool.lines.filter(l => l.product_id !== p.id).concat([{ product_id: p.id, cbm: ownCbm, cartons: ownCartons }]);
       let poolCbm = lines.reduce((s, l) => s + (l.cbm || 0), 0);
       let poolCartons = lines.reduce((s, l) => s + (l.cartons || 0), 0);
       if (inq?.fob_pool_cbm_override != null && Number(inq.fob_pool_cbm_override) > 0) poolCbm = Number(inq.fob_pool_cbm_override);
       if (inq?.fob_pool_cartons_override != null && Number(inq.fob_pool_cartons_override) > 0) poolCartons = Number(inq.fob_pool_cartons_override);
-      const est = computeFob(shipType.per_unit, poolCbm, poolCartons, exchangeRate, modeOverride);
+      const est = computeFob(shipType.per_unit, poolCbm, poolCartons, exchangeRate, fobOpts);
       const perCbm = poolCbm > 0 ? est.selected.total_inr / poolCbm : 0;
       shippingPerUnit = perCbm * finalUnitCbm;
       fobEstimate = { ...est, basis: 'inquiry', pool_cbm: poolCbm, pool_cartons: poolCartons, pool_product_count: lines.filter(l => l.cbm > 0).length, share: poolCbm > 0 ? ownCbm / poolCbm : 0 };
     } else {
-      const est = computeFob(shipType.per_unit, ownCbm, ownCartons, exchangeRate, modeOverride);
-      shippingPerUnit = qty > 0 ? est.selected.total_inr / qty : 0;
+      const est = computeFob(shipType.per_unit, ownCbm, ownCartons, exchangeRate, fobOpts);
+      shippingPerUnit = ownCbm > 0 ? (est.selected.total_inr / ownCbm) * finalUnitCbm : 0;
       fobEstimate = { ...est, basis: 'product', pool_cbm: ownCbm, pool_cartons: ownCartons, pool_product_count: 1, share: 1 };
     }
   } else if (shipType) {

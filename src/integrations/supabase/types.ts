@@ -551,9 +551,11 @@ export type Database = {
           customer_id: string | null
           drive_url: string | null
           exchange_rate_override: number | null
+          fob_fumigation: string
           fob_mode_override: string | null
           fob_pool_cartons_override: number | null
           fob_pool_cbm_override: number | null
+          fob_wlc: string
           id: string
           indirect_overhead_per_mh_override: number | null
           kanban_substage_override: string | null
@@ -587,9 +589,11 @@ export type Database = {
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
+          fob_fumigation?: string
           fob_mode_override?: string | null
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
+          fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
           kanban_substage_override?: string | null
@@ -623,9 +627,11 @@ export type Database = {
           customer_id?: string | null
           drive_url?: string | null
           exchange_rate_override?: number | null
+          fob_fumigation?: string
           fob_mode_override?: string | null
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
+          fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
           kanban_substage_override?: string | null
@@ -788,6 +794,33 @@ export type Database = {
           name?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      fob_rates: {
+        Row: {
+          created_at: string
+          id: string
+          mode: string
+          rates: Json
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mode: string
+          rates?: Json
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mode?: string
+          rates?: Json
+          updated_at?: string
+          vendor?: string | null
         }
         Relationships: []
       }
