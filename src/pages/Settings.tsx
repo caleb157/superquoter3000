@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FobRatesSettings } from '@/components/FobRatesSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
@@ -390,7 +391,7 @@ type SectionId =
   | 'general' | 'entities' | 'team' | 'integrations'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'box-data' | 'wrapping'
+  | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
   | 'currencies' | 'finishing-difficulty'
   | 'raw-materials' | 'cogs-categories'
   | 'local-transport' | 'container-types' | 'data-export';
@@ -440,6 +441,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     label: 'Logistics',
     items: [
       { id: 'shipping', label: 'Shipping' },
+      { id: 'fob-rates', label: 'FOB Rates' },
       { id: 'local-transport', label: 'Local transport' },
       { id: 'container-types', label: 'Container types' },
     ],
@@ -459,7 +461,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
+const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -572,6 +574,8 @@ const Settings = () => {
             ]}
           />
         );
+      case 'fob-rates':
+        return <FobRatesSettings />;
       case 'shipping':
         return (
           <div className="space-y-2">
