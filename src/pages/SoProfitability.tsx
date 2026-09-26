@@ -13,7 +13,7 @@ import { ChevronDown, ChevronRight, RefreshCw, AlertTriangle, TrendingUp, Packag
 import { statusToneClass } from '@/lib/status-tone';
 import { cn } from '@/lib/utils';
 import {
-  type SoOrder, type DisplayCurrency, summarize, marginTone, groupLabor, toDisplay,
+  type SoOrder, type DisplayCurrency, summarize, marginTone, groupLaborByMo, toDisplay,
 } from '@/lib/so-profitability';
 
 const ALL = '__all__';
