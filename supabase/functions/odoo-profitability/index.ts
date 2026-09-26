@@ -227,9 +227,12 @@ Deno.serve(async (req) => {
           total_inr: actual * price,
         };
       });
-      const laborRows = labor.filter(l => myMoIds.has(m2oId(l.x_studio_mo_id))).map(l => ({
-        mo_id: m2oId(l.x_studio_mo_id),
-        activity: l.x_name || null,
+      const laborRows = labor.map(l => ({ l, mo: moByKey.get(moKeyOf(l.x_studio_mo_id)) }))
+        .filter(x => x.mo && myMoIds.has(x.mo.id))
+        .map(({ l, mo }) => ({
+        mo_id: mo.id,
+        mo_name: mo.name,
+        activity: l.x_studio_work_activity || l.x_name || null,
         category: l.x_studio_work_order_category || 'Uncategorised',
         hours: num(l.x_studio_hours),
         direct_inr: num(l.x_studio_direct_labor_cost),
