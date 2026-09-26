@@ -288,20 +288,34 @@ function OrderDetail({ o, s, fmt, inr }: { o: SoOrder; s: ReturnType<typeof summ
             })}
           </TableBody></Table>
         </TabsContent>
-        <TabsContent value="labor">
+        <TabsContent value="labor" className="space-y-2">
+          <div className="text-[11px] text-muted-foreground">
+            Fully burdened already includes direct labour plus overhead and SG&amp;A — it is never added on top of direct labour.
+          </div>
           <Table><TableHeader><TableRow>
-            {['Category', 'Entries', 'Hours', 'Direct labour', 'Overhead', 'Fully burdened'].map((h, i) => <TableHead key={h} className={cn('h-7 text-xs', i >= 1 && 'text-right')}>{h}</TableHead>)}
+            {['Manufacturing order / work order', 'Entries', 'Hours', 'Direct labour', 'Overhead', 'Fully burdened'].map((h, i) => <TableHead key={h} className={cn('h-7 text-xs', i >= 1 && 'text-right')}>{h}</TableHead>)}
           </TableRow></TableHeader><TableBody>
-            {groups.length === 0 && <TableRow><TableCell colSpan={6} className="text-xs text-muted-foreground text-center py-4">No LaborTrax entries.</TableCell></TableRow>}
-            {groups.map(g => (
-              <TableRow key={g.category}>
-                <TableCell className="py-1 text-xs font-medium">{g.category}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{g.count}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{g.hours.toFixed(2)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.direct)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.overhead)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.burdened)}</TableCell>
-              </TableRow>))}
+            {moGroups.length === 0 && <TableRow><TableCell colSpan={6} className="text-xs text-muted-foreground text-center py-4">No LaborTrax entries.</TableCell></TableRow>}
+            {moGroups.map(mg => (
+              <Fragment key={mg.mo_id}>
+                <TableRow className="bg-muted/40">
+                  <TableCell className="py-1 text-xs font-semibold">{mg.mo_name}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{mg.count}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{mg.hours.toFixed(2)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.direct)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.overhead)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.burdened)}</TableCell>
+                </TableRow>
+                {mg.categories.map(g => (
+                  <TableRow key={`${mg.mo_id}-${g.category}`}>
+                    <TableCell className="py-1 text-xs pl-6 text-muted-foreground">{g.category}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{g.count}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{g.hours.toFixed(2)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.direct)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.overhead)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.burdened)}</TableCell>
+                  </TableRow>))}
+              </Fragment>))}
           </TableBody></Table>
         </TabsContent>
         <TabsContent value="shipping">
