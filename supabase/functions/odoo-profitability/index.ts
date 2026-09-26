@@ -157,21 +157,36 @@ Deno.serve(async (req) => {
     const rawById = new Map(raws.map(p => [p.id, p]));
 
     // --- 4. LaborTrax entries ---
+    // x_studio_mo_id holds the MO display name ("WH/MO/00180"), so match names as
+    // well as ids for older rows that stored the numeric id.
     let labor: any[] = [];
     if (moIds.length) {
+      const fields = ['x_name', 'x_studio_mo_id', 'x_studio_work_activity', 'x_studio_work_order_category',
+        'x_studio_hours', 'x_studio_direct_labor_cost', 'x_studio_allocated_overhead_cost', 'x_studio_fully_burdened_cost'];
       try {
-        labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moIds]],
-          ['x_name', 'x_studio_mo_id', 'x_studio_work_order_category', 'x_studio_hours',
-            'x_studio_direct_labor_cost', 'x_studio_allocated_overhead_cost', 'x_studio_fully_burdened_cost']);
+        labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moNameKeys]], fields);
       } catch (_e) { labor = []; }
+      if (!labor.length) {
+        try { labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moIds]], fields); }
+        catch (_e) { /* ignore */ }
+      }
     }
 
     // --- 5. Analytic lines (shipping & freight) ---
+    // Only expenses booked to the final-product shipping account count.
     const analyticIds = [...new Set(analyticByProject.values())];
-    const aLines = analyticIds.length
-      ? await searchRead('account.analytic.line', [['account_id', 'in', analyticIds]],
-        ['name', 'date', 'amount', 'product_id', 'account_id'], { order: 'date desc' })
-      : [];
+    const aLineFields = ['name', 'date', 'amount', 'product_id', 'account_id', 'general_account_id'];
+    let aLines: any[] = [];
+    if (analyticIds.length) {
+      const base: unknown[] = [['account_id', 'in', analyticIds]];
+      try {
+        aLines = await searchRead('account.analytic.line',
+          [...base, ['general_account_id', '=', shippingAccountId]], aLineFields, { order: 'date desc' });
+      } catch (_e) {
+        aLines = (await searchRead('account.analytic.line', base, aLineFields, { order: 'date desc' }))
+          .filter(a => m2oId(a.general_account_id) === shippingAccountId);
+      }
+    }
 
     // --- USD rate hint (INR per USD) ---
     let inrPerUsd: number | null = null;
