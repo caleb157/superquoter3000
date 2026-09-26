@@ -251,7 +251,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function OrderDetail({ o, s, fmt, inr }: { o: SoOrder; s: ReturnType<typeof summarize>; fmt: (n: number) => string; inr: (n: number) => string }) {
   const share = (v: number) => (s.totalCost > 0 ? `${((v / s.totalCost) * 100).toFixed(1)}%` : '—');
-  const groups = groupLabor(o.labor);
+  const moGroups = groupLaborByMo(o.labor, new Map(o.mos.map(m => [m.id, m.name])));
   const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 3 });
   return (
     <div className="space-y-3">
