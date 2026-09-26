@@ -115,11 +115,28 @@ Deno.serve(async (req) => {
     }
 
     // --- 2. Manufacturing orders ---
-    const mos = projectIds.length
+    const allMos = projectIds.length
       ? await searchRead('mrp.production', [['project_id', 'in', projectIds]],
         ['name', 'product_id', 'product_qty', 'state', 'project_id', 'date_start', 'date_finished'])
       : [];
+
+    // A project is only costable once every one of its MOs is done or cancelled —
+    // Odoo books raw-material stock moves at completion.
+    const projectOpen = new Set<number>();
+    const projectHasDone = new Set<number>();
+    for (const m of allMos) {
+      const pid = m2oId(m.project_id);
+      if (!pid) continue;
+      if (!CLOSED_MO_STATES.has(m.state)) projectOpen.add(pid);
+      if (m.state === 'done') projectHasDone.add(pid);
+    }
+    const projectCostable = (pid: number | null) =>
+      !!pid && !projectOpen.has(pid) && projectHasDone.has(pid);
+
+    // Cancelled MOs are ignored entirely so abandoned work never pollutes the numbers.
+    const mos = allMos.filter(m => m.state === 'done' && projectCostable(m2oId(m.project_id)));
     const moIds = mos.map(m => m.id);
+    const moNameKeys = mos.flatMap(m => [m.name, String(m.id)]);
 
     // Finished product SKUs
     const finishedIds = [...new Set(mos.map(m => m2oId(m.product_id)).filter(Boolean))];
