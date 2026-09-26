@@ -17,6 +17,9 @@ import {
 } from '@/lib/so-profitability';
 
 const ALL = '__all__';
+const DEFAULT_SHIP_ACCT = 170;
+const CACHE_KEY = 'so-profitability-cache';
+const ACCT_KEY = 'so-profitability-shipping-account';
 
 export default function SoProfitability() {
   useDocumentTitle('SO Profitability');
