@@ -38,6 +38,7 @@ import MasterCartonSizer from "./pages/MasterCartonSizer";
 import TargetPriceSolverPage from "./pages/TargetPriceSolver";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
+import SoProfitability from "./pages/SoProfitability";
 
 const queryClient = new QueryClient();
 
@@ -154,6 +155,9 @@ const App = () => (
                 <ProtectedRoute requireAdminOrTeam><TargetPriceSolverPage /></ProtectedRoute>
               } />
 
+              <Route path="/profitability" element={
+                <ProtectedRoute requireAdminOrTeam><SoProfitability /></ProtectedRoute>
+              } />
               <Route path="/team" element={
                 <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
               } />
