@@ -13,7 +13,13 @@ const Body = z.object({
   date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   search: z.string().max(100).optional().nullable(),
   limit: z.number().int().min(1).max(500).optional(),
+  shipping_account_id: z.number().int().positive().optional().nullable(),
 });
+
+const DEFAULT_SHIPPING_ACCOUNT_ID = 170;
+// MO states that mean the job is finished (or abandoned). Anything else means
+// material stock moves have not been booked yet, so the order is not costable.
+const CLOSED_MO_STATES = new Set(['done', 'cancel']);
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
 const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
