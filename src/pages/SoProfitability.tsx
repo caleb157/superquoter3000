@@ -137,7 +137,10 @@ export default function SoProfitability() {
             <Input type="date" className="h-8 w-36" value={from} onChange={e => setFrom(e.target.value)} /></div>
           <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">To</div>
             <Input type="date" className="h-8 w-36" value={to} onChange={e => setTo(e.target.value)} /></div>
-          <Button size="sm" className="h-8" onClick={load} disabled={loading}>Apply dates</Button>
+          <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">Shipping account ID</div>
+            <Input type="number" className="h-8 w-32" value={shipAcct}
+              onChange={e => setShipAcct(Number(e.target.value) || 0)} placeholder={String(DEFAULT_SHIP_ACCT)} /></div>
+          <Button size="sm" className="h-8" onClick={() => load(true)} disabled={loading}>Apply</Button>
           <div className="ml-auto flex items-end gap-2">
             <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">₹ per $</div>
               <Input type="number" step="0.01" className="h-8 w-24" value={fx} onChange={e => setFx(Number(e.target.value) || 0)} /></div>
