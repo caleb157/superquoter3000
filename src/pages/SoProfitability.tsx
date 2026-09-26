@@ -13,10 +13,13 @@ import { ChevronDown, ChevronRight, RefreshCw, AlertTriangle, TrendingUp, Packag
 import { statusToneClass } from '@/lib/status-tone';
 import { cn } from '@/lib/utils';
 import {
-  type SoOrder, type DisplayCurrency, summarize, marginTone, groupLabor, toDisplay,
+  type SoOrder, type DisplayCurrency, summarize, marginTone, groupLaborByMo, toDisplay,
 } from '@/lib/so-profitability';
 
 const ALL = '__all__';
+const DEFAULT_SHIP_ACCT = 170;
+const CACHE_KEY = 'so-profitability-cache';
+const ACCT_KEY = 'so-profitability-shipping-account';
 
 export default function SoProfitability() {
   useDocumentTitle('SO Profitability');
@@ -32,11 +35,25 @@ export default function SoProfitability() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const [shipAcct, setShipAcct] = useState(() => Number(sessionStorage.getItem(ACCT_KEY)) || DEFAULT_SHIP_ACCT);
+  const [skipped, setSkipped] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (force = false) => {
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const c = JSON.parse(cached);
+          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setFetchedAt(c.fetched_at ?? null);
+          if (c.fx > 1) setFx(c.fx);
+          return;
+        }
+      } catch { /* ignore */ }
+    }
     setLoading(true); setError(null);
     const { data, error } = await supabase.functions.invoke('odoo-profitability', {
-      body: { date_from: from || null, date_to: to || null },
+      body: { date_from: from || null, date_to: to || null, shipping_account_id: shipAcct || null },
     });
     setLoading(false);
     if (error || data?.error) {
@@ -45,8 +62,17 @@ export default function SoProfitability() {
       setError(typeof msg === 'string' ? msg : 'Could not load from Odoo');
       return;
     }
+    const nextFx = data.inr_per_usd && data.inr_per_usd > 1 ? Math.round(data.inr_per_usd * 100) / 100 : fx;
     setOrders(data.orders ?? []);
-    if (data.inr_per_usd && data.inr_per_usd > 1) setFx(Math.round(data.inr_per_usd * 100) / 100);
+    setSkipped(data.skipped_open_projects ?? 0);
+    setFetchedAt(data.fetched_at ?? null);
+    setFx(nextFx);
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0, fetched_at: data.fetched_at, fx: nextFx,
+      }));
+      sessionStorage.setItem(ACCT_KEY, String(shipAcct || DEFAULT_SHIP_ACCT));
+    } catch { /* ignore */ }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -91,7 +117,7 @@ export default function SoProfitability() {
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Sales Order Profitability</h1>
-          <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+          <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
             <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from Odoo
           </Button>
         </div>
@@ -111,7 +137,10 @@ export default function SoProfitability() {
             <Input type="date" className="h-8 w-36" value={from} onChange={e => setFrom(e.target.value)} /></div>
           <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">To</div>
             <Input type="date" className="h-8 w-36" value={to} onChange={e => setTo(e.target.value)} /></div>
-          <Button size="sm" className="h-8" onClick={load} disabled={loading}>Apply dates</Button>
+          <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">Shipping account ID</div>
+            <Input type="number" className="h-8 w-32" value={shipAcct}
+              onChange={e => setShipAcct(Number(e.target.value) || 0)} placeholder={String(DEFAULT_SHIP_ACCT)} /></div>
+          <Button size="sm" className="h-8" onClick={() => load(true)} disabled={loading}>Apply</Button>
           <div className="ml-auto flex items-end gap-2">
             <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">₹ per $</div>
               <Input type="number" step="0.01" className="h-8 w-24" value={fx} onChange={e => setFx(Number(e.target.value) || 0)} /></div>
@@ -130,6 +159,12 @@ export default function SoProfitability() {
             <AlertTriangle className="h-4 w-4" /> {error}
           </CardContent></Card>
         )}
+
+        <div className="text-[11px] text-muted-foreground">
+          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion.
+          {skipped > 0 && ` ${skipped} order${skipped === 1 ? '' : 's'} still in production hidden.`}
+          {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Stat label="Orders" value={String(filtered.length)} />
@@ -216,7 +251,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function OrderDetail({ o, s, fmt, inr }: { o: SoOrder; s: ReturnType<typeof summarize>; fmt: (n: number) => string; inr: (n: number) => string }) {
   const share = (v: number) => (s.totalCost > 0 ? `${((v / s.totalCost) * 100).toFixed(1)}%` : '—');
-  const groups = groupLabor(o.labor);
+  const moGroups = groupLaborByMo(o.labor, new Map(o.mos.map(m => [m.id, m.name])));
   const num = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 3 });
   return (
     <div className="space-y-3">
@@ -253,20 +288,34 @@ function OrderDetail({ o, s, fmt, inr }: { o: SoOrder; s: ReturnType<typeof summ
             })}
           </TableBody></Table>
         </TabsContent>
-        <TabsContent value="labor">
+        <TabsContent value="labor" className="space-y-2">
+          <div className="text-[11px] text-muted-foreground">
+            Fully burdened already includes direct labour plus overhead and SG&amp;A — it is never added on top of direct labour.
+          </div>
           <Table><TableHeader><TableRow>
-            {['Category', 'Entries', 'Hours', 'Direct labour', 'Overhead', 'Fully burdened'].map((h, i) => <TableHead key={h} className={cn('h-7 text-xs', i >= 1 && 'text-right')}>{h}</TableHead>)}
+            {['Manufacturing order / work order', 'Entries', 'Hours', 'Direct labour', 'Overhead', 'Fully burdened'].map((h, i) => <TableHead key={h} className={cn('h-7 text-xs', i >= 1 && 'text-right')}>{h}</TableHead>)}
           </TableRow></TableHeader><TableBody>
-            {groups.length === 0 && <TableRow><TableCell colSpan={6} className="text-xs text-muted-foreground text-center py-4">No LaborTrax entries.</TableCell></TableRow>}
-            {groups.map(g => (
-              <TableRow key={g.category}>
-                <TableCell className="py-1 text-xs font-medium">{g.category}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{g.count}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{g.hours.toFixed(2)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.direct)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.overhead)}</TableCell>
-                <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.burdened)}</TableCell>
-              </TableRow>))}
+            {moGroups.length === 0 && <TableRow><TableCell colSpan={6} className="text-xs text-muted-foreground text-center py-4">No LaborTrax entries.</TableCell></TableRow>}
+            {moGroups.map(mg => (
+              <Fragment key={mg.mo_id}>
+                <TableRow className="bg-muted/40">
+                  <TableCell className="py-1 text-xs font-semibold">{mg.mo_name}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{mg.count}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{mg.hours.toFixed(2)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.direct)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.overhead)}</TableCell>
+                  <TableCell className="py-1 text-xs text-right tabular-nums font-semibold">{inr(mg.burdened)}</TableCell>
+                </TableRow>
+                {mg.categories.map(g => (
+                  <TableRow key={`${mg.mo_id}-${g.category}`}>
+                    <TableCell className="py-1 text-xs pl-6 text-muted-foreground">{g.category}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{g.count}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{g.hours.toFixed(2)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.direct)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.overhead)}</TableCell>
+                    <TableCell className="py-1 text-xs text-right tabular-nums">{inr(g.burdened)}</TableCell>
+                  </TableRow>))}
+              </Fragment>))}
           </TableBody></Table>
         </TabsContent>
         <TabsContent value="shipping">
