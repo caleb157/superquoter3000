@@ -6,7 +6,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import type { TaskContext } from '@/lib/task-types';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import {
+import { TrendingUp,
   Settings, LogOut, ShoppingCart, FileText,
   Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Search, BarChart3, Wrench, ClipboardCheck,
 } from 'lucide-react';
@@ -53,6 +53,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/pd-dashboard', label: 'PD Dashboard', icon: ClipboardCheck, show: isAdminOrTeam },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare, show: isAdminOrTeam },
     { to: '/analytics', label: 'Analytics', icon: BarChart3, show: isAdminOrTeam },
+    { to: '/profitability', label: 'Profitability', icon: TrendingUp, show: isAdminOrTeam },
     { to: '/quotes', label: 'Quotes', icon: FileText, show: isAdminOrTeam },
     { to: '/samples', label: 'Samples', icon: Package2, show: isAdminOrTeam },
     { to: '/vendors', label: 'Vendors', icon: Truck, show: isAdminOrTeam },
@@ -71,6 +72,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/pd-dashboard', label: 'PD', icon: ClipboardCheck },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/profitability', label: 'Profit', icon: TrendingUp },
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
