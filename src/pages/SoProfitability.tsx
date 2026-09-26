@@ -160,6 +160,12 @@ export default function SoProfitability() {
           </CardContent></Card>
         )}
 
+        <div className="text-[11px] text-muted-foreground">
+          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion.
+          {skipped > 0 && ` ${skipped} order${skipped === 1 ? '' : 's'} still in production hidden.`}
+          {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Stat label="Orders" value={String(filtered.length)} />
           <Stat label="Revenue" value={fmt(totals.revenue)} />
