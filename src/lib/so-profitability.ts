@@ -74,3 +74,29 @@ export function groupLabor(rows: SoLabor[]) {
   }
   return [...map.values()].sort((a, b) => b.burdened - a.burdened);
 }
+
+export type LaborMoGroup = {
+  mo_id: number; mo_name: string;
+  hours: number; direct: number; overhead: number; burdened: number; count: number;
+  categories: ReturnType<typeof groupLabor>;
+};
+
+/** Labour grouped by manufacturing order, then by work-order category inside each MO. */
+export function groupLaborByMo(rows: SoLabor[], moNames?: Map<number, string>): LaborMoGroup[] {
+  const byMo = new Map<number, SoLabor[]>();
+  for (const r of rows) {
+    const list = byMo.get(r.mo_id) ?? [];
+    list.push(r);
+    byMo.set(r.mo_id, list);
+  }
+  return [...byMo.entries()].map(([mo_id, list]) => ({
+    mo_id,
+    mo_name: list[0]?.mo_name || moNames?.get(mo_id) || `MO ${mo_id}`,
+    hours: list.reduce((s, l) => s + l.hours, 0),
+    direct: list.reduce((s, l) => s + l.direct_inr, 0),
+    overhead: list.reduce((s, l) => s + l.overhead_inr, 0),
+    burdened: list.reduce((s, l) => s + l.burdened_inr, 0),
+    count: list.length,
+    categories: groupLabor(list),
+  })).sort((a, b) => b.burdened - a.burdened);
+}
