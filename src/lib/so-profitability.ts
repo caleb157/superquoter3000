@@ -6,7 +6,7 @@ export type SoMaterial = {
   planned_qty: number; actual_qty: number; uom: string | null; unit_price_inr: number; total_inr: number;
 };
 export type SoLabor = {
-  mo_id: number; activity: string | null; category: string;
+  mo_id: number; mo_name?: string | null; activity: string | null; category: string;
   hours: number; direct_inr: number; overhead_inr: number; burdened_inr: number;
 };
 export type SoShipping = { date: string; name: string; product: string | null; net_inr: number };
