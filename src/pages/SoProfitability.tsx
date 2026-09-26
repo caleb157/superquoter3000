@@ -32,11 +32,25 @@ export default function SoProfitability() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const [shipAcct, setShipAcct] = useState(() => Number(sessionStorage.getItem(ACCT_KEY)) || DEFAULT_SHIP_ACCT);
+  const [skipped, setSkipped] = useState(0);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (force = false) => {
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const c = JSON.parse(cached);
+          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setFetchedAt(c.fetched_at ?? null);
+          if (c.fx > 1) setFx(c.fx);
+          return;
+        }
+      } catch { /* ignore */ }
+    }
     setLoading(true); setError(null);
     const { data, error } = await supabase.functions.invoke('odoo-profitability', {
-      body: { date_from: from || null, date_to: to || null },
+      body: { date_from: from || null, date_to: to || null, shipping_account_id: shipAcct || null },
     });
     setLoading(false);
     if (error || data?.error) {
@@ -45,8 +59,17 @@ export default function SoProfitability() {
       setError(typeof msg === 'string' ? msg : 'Could not load from Odoo');
       return;
     }
+    const nextFx = data.inr_per_usd && data.inr_per_usd > 1 ? Math.round(data.inr_per_usd * 100) / 100 : fx;
     setOrders(data.orders ?? []);
-    if (data.inr_per_usd && data.inr_per_usd > 1) setFx(Math.round(data.inr_per_usd * 100) / 100);
+    setSkipped(data.skipped_open_projects ?? 0);
+    setFetchedAt(data.fetched_at ?? null);
+    setFx(nextFx);
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0, fetched_at: data.fetched_at, fx: nextFx,
+      }));
+      sessionStorage.setItem(ACCT_KEY, String(shipAcct || DEFAULT_SHIP_ACCT));
+    } catch { /* ignore */ }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
