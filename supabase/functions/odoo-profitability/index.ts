@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
     const { date_from, date_to, search, limit } = parsed.data;
+    const shippingAccountId = parsed.data.shipping_account_id ?? DEFAULT_SHIPPING_ACCOUNT_ID;
 
     // --- 1. Sales orders ---
     const soDomain: unknown[] = [['state', 'in', ['sale', 'done']]];
