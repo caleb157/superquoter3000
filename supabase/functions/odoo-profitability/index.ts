@@ -199,9 +199,14 @@ Deno.serve(async (req) => {
       }
     } catch (_e) { /* ignore */ }
 
-    // --- assemble ---
-    const moById = new Map(mos.map(m => [m.id, m]));
-    const out = orders.map(o => {
+    // --- assemble (only fully completed projects) ---
+    const moByKey = new Map<string, any>();
+    for (const m of mos) { moByKey.set(String(m.name), m); moByKey.set(String(m.id), m); }
+    const moKeyOf = (v: any) => {
+      if (Array.isArray(v)) return String(v[1] ?? v[0]);
+      return v == null || v === false ? '' : String(v);
+    };
+    const out = orders.filter(o => projectCostable(m2oId(o.project_id))).map(o => {
       const pid = m2oId(o.project_id);
       const myMos = mos.filter(m => m2oId(m.project_id) === pid && pid);
       const myMoIds = new Set(myMos.map(m => m.id));
