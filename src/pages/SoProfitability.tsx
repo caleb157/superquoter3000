@@ -117,7 +117,7 @@ export default function SoProfitability() {
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Sales Order Profitability</h1>
-          <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+          <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
             <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from Odoo
           </Button>
         </div>
