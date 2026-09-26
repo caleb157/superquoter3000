@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     // --- 2. Manufacturing orders ---
     const allMos = projectIds.length
       ? await searchRead('mrp.production', [['project_id', 'in', projectIds]],
-        ['name', 'product_id', 'product_qty', 'state', 'project_id', 'date_start', 'date_finished'])
+        ['name', 'product_id', 'product_qty', 'qty_produced', 'state', 'project_id', 'date_start', 'date_finished'])
       : [];
 
     // A project is only costable once every one of its MOs is done or cancelled —
@@ -130,8 +130,8 @@ Deno.serve(async (req) => {
       if (!CLOSED_MO_STATES.has(m.state)) projectOpen.add(pid);
       if (m.state === 'done') projectHasDone.add(pid);
     }
-    const projectCostable = (pid: number | null) =>
-      !!pid && !projectOpen.has(pid) && projectHasDone.has(pid);
+    // Orders with no MOs at all are still shown (costed at standard cost).
+    const projectCostable = (pid: number | null) => !pid || !projectOpen.has(pid);
 
     // Cancelled MOs are ignored entirely so abandoned work never pollutes the numbers.
     const mos = allMos.filter(m => m.state === 'done' && projectCostable(m2oId(m.project_id)));
@@ -148,13 +148,38 @@ Deno.serve(async (req) => {
     // --- 3. Raw material moves ---
     const moves = moIds.length
       ? await searchRead('stock.move', [['raw_material_production_id', 'in', moIds], ['state', '!=', 'cancel']],
-        ['product_id', 'raw_material_production_id', 'product_uom_qty', 'quantity', 'quantity_done', 'product_uom', 'standard_price', 'price_unit'])
+        ['product_id', 'raw_material_production_id', 'product_uom_qty', 'quantity', 'quantity_done', 'product_uom', 'standard_price', 'price_unit', 'value'])
       : [];
     const rawIds = [...new Set(moves.map(m => m2oId(m.product_id)).filter(Boolean))];
     const raws = rawIds.length
       ? await searchRead('product.product', [['id', 'in', rawIds]], ['default_code', 'name', 'standard_price', 'type', 'detailed_type'])
       : [];
     const rawById = new Map(raws.map(p => [p.id, p]));
+
+    // Stock valuation value per move (the real booked cost at the time of the move).
+    const valueByMove = new Map<number, number>();
+    if (moves.length) {
+      try {
+        const svl = await searchRead('stock.valuation.layer', [['stock_move_id', 'in', moves.map(m => m.id)]], ['stock_move_id', 'value']);
+        for (const v of svl) {
+          const id = m2oId(v.stock_move_id);
+          if (id) valueByMove.set(id, (valueByMove.get(id) ?? 0) + num(v.value));
+        }
+      } catch (_e) { /* valuation not available */ }
+    }
+
+    // --- Sales order lines + product volume / standard cost ---
+    const orderIds = orders.map(o => o.id);
+    const soLines = orderIds.length
+      ? (await searchRead('sale.order.line', [['order_id', 'in', orderIds]],
+        ['order_id', 'product_id', 'name', 'product_uom_qty', 'price_unit', 'price_subtotal', 'display_type']))
+        .filter(l => !l.display_type && m2oId(l.product_id))
+      : [];
+    const lineProdIds = [...new Set(soLines.map(l => m2oId(l.product_id)))];
+    const lineProds = lineProdIds.length
+      ? await searchRead('product.product', [['id', 'in', lineProdIds]], ['default_code', 'name', 'volume', 'standard_price', 'type', 'detailed_type'])
+      : [];
+    const lineProdById = new Map(lineProds.map(p => [p.id, p]));
 
     // --- 4. LaborTrax entries ---
     // x_studio_mo_id holds the MO display name ("WH/MO/00180"), so match names as
@@ -213,7 +238,10 @@ Deno.serve(async (req) => {
       const materials = moves.filter(mv => myMoIds.has(m2oId(mv.raw_material_production_id))).map(mv => {
         const prod = rawById.get(m2oId(mv.product_id));
         const actual = num(mv.quantity ?? mv.quantity_done);
-        const price = num(mv.standard_price) || num(prod?.standard_price) || Math.abs(num(mv.price_unit));
+        const fallbackPrice = num(mv.standard_price) || num(prod?.standard_price) || Math.abs(num(mv.price_unit));
+        const booked = valueByMove.has(mv.id) ? Math.abs(valueByMove.get(mv.id)!) : (num(mv.value) ? Math.abs(num(mv.value)) : null);
+        const total = booked ?? actual * fallbackPrice;
+        const price = actual > 0 ? total / actual : fallbackPrice;
         return {
           mo_id: m2oId(mv.raw_material_production_id),
           mo_name: m2oName(mv.raw_material_production_id),
@@ -224,7 +252,8 @@ Deno.serve(async (req) => {
           actual_qty: actual,
           uom: m2oName(mv.product_uom),
           unit_price_inr: price,
-          total_inr: actual * price,
+          total_inr: total,
+          valued: booked != null,
         };
       });
       const laborRows = labor.map(l => ({ l, mo: moByKey.get(moKeyOf(l.x_studio_mo_id)) }))
@@ -258,10 +287,24 @@ Deno.serve(async (req) => {
         amount_total: num(o.amount_total),
         state: o.state,
         status: o.state === 'done' || allDone ? 'Completed' : 'In Progress',
+        lines: soLines.filter(l => m2oId(l.order_id) === o.id).map(l => {
+          const p = lineProdById.get(m2oId(l.product_id));
+          return {
+            product_id: m2oId(l.product_id),
+            sku: p?.default_code || null,
+            name: p?.name || m2oName(l.product_id) || l.name,
+            qty: num(l.product_uom_qty),
+            price_unit: num(l.price_unit),
+            subtotal: num(l.price_subtotal),
+            volume: num(p?.volume),
+            standard_price_inr: num(p?.standard_price),
+            type: p?.detailed_type || p?.type || null,
+          };
+        }),
         mos: myMos.map(m => {
           const fp = finishedById.get(m2oId(m.product_id));
           return {
-            id: m.id, name: m.name, state: m.state, qty: num(m.product_qty),
+            id: m.id, name: m.name, state: m.state, qty: num(m.product_qty), qty_produced: num(m.qty_produced),
             product_id: m2oId(m.product_id),
             sku: fp?.default_code || null,
             product_name: fp?.name || m2oName(m.product_id),
