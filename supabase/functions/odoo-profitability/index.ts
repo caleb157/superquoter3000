@@ -273,7 +273,13 @@ Deno.serve(async (req) => {
       };
     });
 
-    return json({ orders: out, inr_per_usd: inrPerUsd, fetched_at: new Date().toISOString() });
+    return json({
+      orders: out,
+      inr_per_usd: inrPerUsd,
+      shipping_account_id: shippingAccountId,
+      skipped_open_projects: orders.filter(o => !projectCostable(m2oId(o.project_id))).length,
+      fetched_at: new Date().toISOString(),
+    });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
