@@ -13,7 +13,13 @@ const Body = z.object({
   date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   search: z.string().max(100).optional().nullable(),
   limit: z.number().int().min(1).max(500).optional(),
+  shipping_account_id: z.number().int().positive().optional().nullable(),
 });
+
+const DEFAULT_SHIPPING_ACCOUNT_ID = 170;
+// MO states that mean the job is finished (or abandoned). Anything else means
+// material stock moves have not been booked yet, so the order is not costable.
+const CLOSED_MO_STATES = new Set(['done', 'cancel']);
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
 const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
@@ -82,6 +88,7 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
     const { date_from, date_to, search, limit } = parsed.data;
+    const shippingAccountId = parsed.data.shipping_account_id ?? DEFAULT_SHIPPING_ACCOUNT_ID;
 
     // --- 1. Sales orders ---
     const soDomain: unknown[] = [['state', 'in', ['sale', 'done']]];
@@ -108,11 +115,28 @@ Deno.serve(async (req) => {
     }
 
     // --- 2. Manufacturing orders ---
-    const mos = projectIds.length
+    const allMos = projectIds.length
       ? await searchRead('mrp.production', [['project_id', 'in', projectIds]],
         ['name', 'product_id', 'product_qty', 'state', 'project_id', 'date_start', 'date_finished'])
       : [];
+
+    // A project is only costable once every one of its MOs is done or cancelled —
+    // Odoo books raw-material stock moves at completion.
+    const projectOpen = new Set<number>();
+    const projectHasDone = new Set<number>();
+    for (const m of allMos) {
+      const pid = m2oId(m.project_id);
+      if (!pid) continue;
+      if (!CLOSED_MO_STATES.has(m.state)) projectOpen.add(pid);
+      if (m.state === 'done') projectHasDone.add(pid);
+    }
+    const projectCostable = (pid: number | null) =>
+      !!pid && !projectOpen.has(pid) && projectHasDone.has(pid);
+
+    // Cancelled MOs are ignored entirely so abandoned work never pollutes the numbers.
+    const mos = allMos.filter(m => m.state === 'done' && projectCostable(m2oId(m.project_id)));
     const moIds = mos.map(m => m.id);
+    const moNameKeys = mos.flatMap(m => [m.name, String(m.id)]);
 
     // Finished product SKUs
     const finishedIds = [...new Set(mos.map(m => m2oId(m.product_id)).filter(Boolean))];
@@ -133,21 +157,36 @@ Deno.serve(async (req) => {
     const rawById = new Map(raws.map(p => [p.id, p]));
 
     // --- 4. LaborTrax entries ---
+    // x_studio_mo_id holds the MO display name ("WH/MO/00180"), so match names as
+    // well as ids for older rows that stored the numeric id.
     let labor: any[] = [];
     if (moIds.length) {
+      const fields = ['x_name', 'x_studio_mo_id', 'x_studio_work_activity', 'x_studio_work_order_category',
+        'x_studio_hours', 'x_studio_direct_labor_cost', 'x_studio_allocated_overhead_cost', 'x_studio_fully_burdened_cost'];
       try {
-        labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moIds]],
-          ['x_name', 'x_studio_mo_id', 'x_studio_work_order_category', 'x_studio_hours',
-            'x_studio_direct_labor_cost', 'x_studio_allocated_overhead_cost', 'x_studio_fully_burdened_cost']);
+        labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moNameKeys]], fields);
       } catch (_e) { labor = []; }
+      if (!labor.length) {
+        try { labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moIds]], fields); }
+        catch (_e) { /* ignore */ }
+      }
     }
 
     // --- 5. Analytic lines (shipping & freight) ---
+    // Only expenses booked to the final-product shipping account count.
     const analyticIds = [...new Set(analyticByProject.values())];
-    const aLines = analyticIds.length
-      ? await searchRead('account.analytic.line', [['account_id', 'in', analyticIds]],
-        ['name', 'date', 'amount', 'product_id', 'account_id'], { order: 'date desc' })
-      : [];
+    const aLineFields = ['name', 'date', 'amount', 'product_id', 'account_id', 'general_account_id'];
+    let aLines: any[] = [];
+    if (analyticIds.length) {
+      const base: unknown[] = [['account_id', 'in', analyticIds]];
+      try {
+        aLines = await searchRead('account.analytic.line',
+          [...base, ['general_account_id', '=', shippingAccountId]], aLineFields, { order: 'date desc' });
+      } catch (_e) {
+        aLines = (await searchRead('account.analytic.line', base, aLineFields, { order: 'date desc' }))
+          .filter(a => m2oId(a.general_account_id) === shippingAccountId);
+      }
+    }
 
     // --- USD rate hint (INR per USD) ---
     let inrPerUsd: number | null = null;
@@ -160,9 +199,14 @@ Deno.serve(async (req) => {
       }
     } catch (_e) { /* ignore */ }
 
-    // --- assemble ---
-    const moById = new Map(mos.map(m => [m.id, m]));
-    const out = orders.map(o => {
+    // --- assemble (only fully completed projects) ---
+    const moByKey = new Map<string, any>();
+    for (const m of mos) { moByKey.set(String(m.name), m); moByKey.set(String(m.id), m); }
+    const moKeyOf = (v: any) => {
+      if (Array.isArray(v)) return String(v[1] ?? v[0]);
+      return v == null || v === false ? '' : String(v);
+    };
+    const out = orders.filter(o => projectCostable(m2oId(o.project_id))).map(o => {
       const pid = m2oId(o.project_id);
       const myMos = mos.filter(m => m2oId(m.project_id) === pid && pid);
       const myMoIds = new Set(myMos.map(m => m.id));
@@ -183,9 +227,12 @@ Deno.serve(async (req) => {
           total_inr: actual * price,
         };
       });
-      const laborRows = labor.filter(l => myMoIds.has(m2oId(l.x_studio_mo_id))).map(l => ({
-        mo_id: m2oId(l.x_studio_mo_id),
-        activity: l.x_name || null,
+      const laborRows = labor.map(l => ({ l, mo: moByKey.get(moKeyOf(l.x_studio_mo_id)) }))
+        .filter(x => x.mo && myMoIds.has(x.mo.id))
+        .map(({ l, mo }) => ({
+        mo_id: mo.id,
+        mo_name: mo.name,
+        activity: l.x_studio_work_activity || l.x_name || null,
         category: l.x_studio_work_order_category || 'Uncategorised',
         hours: num(l.x_studio_hours),
         direct_inr: num(l.x_studio_direct_labor_cost),
@@ -226,7 +273,13 @@ Deno.serve(async (req) => {
       };
     });
 
-    return json({ orders: out, inr_per_usd: inrPerUsd, fetched_at: new Date().toISOString() });
+    return json({
+      orders: out,
+      inr_per_usd: inrPerUsd,
+      shipping_account_id: shippingAccountId,
+      skipped_open_projects: orders.filter(o => !projectCostable(m2oId(o.project_id))).length,
+      fetched_at: new Date().toISOString(),
+    });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
