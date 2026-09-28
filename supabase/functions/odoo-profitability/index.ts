@@ -108,10 +108,12 @@ Deno.serve(async (req) => {
       soDomain.push('|', ['name', 'ilike', search.trim()], ['partner_id.name', 'ilike', search.trim()]);
     }
     const orders = await searchRead('sale.order', soDomain,
-      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state'],
+      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state', 'invoice_status'],
       { order: 'date_order desc', limit: limit ?? 200 });
 
-    const projectIds = [...new Set(orders.map(o => m2oId(o.project_id)).filter(Boolean))] as number[];
+    // Heritage orders carry their project only in the lookup table above.
+    const pidOf = (o: any): number | null => m2oId(o.project_id) ?? HERITAGE_PROJECT_BY_SO[o.name] ?? null;
+    const projectIds = [...new Set(orders.map(pidOf).filter(Boolean))] as number[];
 
     // --- projects + analytic accounts ---
     const projects = projectIds.length
