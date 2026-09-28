@@ -21,6 +21,16 @@ const DEFAULT_SHIPPING_ACCOUNT_ID = 170;
 // material stock moves have not been booked yet, so the order is not costable.
 const CLOSED_MO_STATES = new Set(['done', 'cancel']);
 
+// Heritage sales orders created before projects were linked on the SO itself.
+// Maps the SO number to the Odoo project id that carries its MOs and costs.
+const HERITAGE_PROJECT_BY_SO: Record<string, number> = {
+  S00075: 110,
+  S00076: 109,
+  S00078: 108,
+  S00081: 123,
+  S00082: 123,
+};
+
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
 const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
 const ODOO_USER = Deno.env.get('ODOO_USERNAME') ?? '';
