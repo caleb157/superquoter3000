@@ -42,7 +42,17 @@ export default function SoProfitability() {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [shipAcct, setShipAcct] = useState(() => Number(sessionStorage.getItem(ACCT_KEY)) || DEFAULT_SHIP_ACCT);
   const [skipped, setSkipped] = useState(0);
+  const [uninvoiced, setUninvoiced] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [archived, setArchived] = useState<Set<string>>(loadArchived);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const toggleArchive = (name: string) => setArchived(prev => {
+    const n = new Set(prev);
+    n.has(name) ? n.delete(name) : n.add(name);
+    try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
 
   const load = async (force = false) => {
     if (!force) {
