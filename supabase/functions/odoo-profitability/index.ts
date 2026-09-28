@@ -243,8 +243,16 @@ Deno.serve(async (req) => {
       if (Array.isArray(v)) return String(v[1] ?? v[0]);
       return v == null || v === false ? '' : String(v);
     };
-    const out = orders.filter(o => projectCostable(m2oId(o.project_id))).map(o => {
-      const pid = m2oId(o.project_id);
+    const moProjects = new Set(allMos.map(m => m2oId(m.project_id)).filter(Boolean));
+    // Trading orders (no manufacturing at all) are only costable once fully invoiced.
+    const tradingReady = (o: any) => {
+      const pid = pidOf(o);
+      if (pid && moProjects.has(pid)) return true;
+      return !o.invoice_status || o.invoice_status === 'invoiced';
+    };
+    const included = orders.filter(o => projectCostable(pidOf(o)) && tradingReady(o));
+    const out = included.map(o => {
+      const pid = pidOf(o);
       const myMos = mos.filter(m => m2oId(m.project_id) === pid && pid);
       const myMoIds = new Set(myMos.map(m => m.id));
       const materials = moves.filter(mv => myMoIds.has(m2oId(mv.raw_material_production_id))).map(mv => {
