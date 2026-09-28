@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
 
     // --- projects + analytic accounts ---
     const projects = projectIds.length
-      ? await searchRead('project.project', [['id', 'in', projectIds]], ['name', 'analytic_account_id', 'account_id'])
+      ? await searchRead('project.project', [['id', 'in', projectIds]], ['name', 'analytic_account_id', 'account_id'],
+        { context: { active_test: false } })
       : [];
     const projectById = new Map(projects.map(p => [p.id, p]));
     const analyticByProject = new Map<number, number>();
@@ -301,7 +302,7 @@ Deno.serve(async (req) => {
         date_order: o.date_order,
         customer: m2oName(o.partner_id),
         project_id: pid,
-        project_name: m2oName(o.project_id) || projectById.get(pid)?.name || null,
+        project_name: m2oName(o.project_id) || projectById.get(pid)?.name || (pid ? `Project #${pid}` : null),
         currency: m2oName(o.currency_id) || 'USD',
         amount_untaxed: num(o.amount_untaxed),
         amount_total: num(o.amount_total),
