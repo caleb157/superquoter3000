@@ -186,8 +186,10 @@ export default function SoProfitability() {
         )}
 
         <div className="text-[11px] text-muted-foreground">
-          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion. GPM counts materials only; NPM also counts labour, overhead and shipping.
+          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion. Orders with no manufacturing at all appear once fully invoiced. GPM counts materials only; NPM also counts labour, overhead and shipping.
           {skipped > 0 && ` ${skipped} order${skipped === 1 ? '' : 's'} still in production hidden.`}
+          {uninvoiced > 0 && ` ${uninvoiced} not-yet-invoiced trading order${uninvoiced === 1 ? '' : 's'} hidden.`}
+          {archivedCount > 0 && !showArchived && ` ${archivedCount} archived.`}
           {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
         </div>
 
