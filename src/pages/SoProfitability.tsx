@@ -20,6 +20,11 @@ const ALL = '__all__';
 const DEFAULT_SHIP_ACCT = 170;
 const CACHE_KEY = 'so-profitability-cache';
 const ACCT_KEY = 'so-profitability-shipping-account';
+const ARCHIVE_KEY = 'so-profitability-archived';
+
+function loadArchived(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')); } catch { return new Set(); }
+}
 
 export default function SoProfitability() {
   useDocumentTitle('SO Profitability');
