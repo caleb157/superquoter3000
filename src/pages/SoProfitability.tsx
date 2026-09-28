@@ -102,11 +102,13 @@ export default function SoProfitability() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
+      if (archived.has(o.name) !== showArchived) return false;
       if (q && !(`${o.name} ${o.customer ?? ''} ${o.project_name ?? ''}`.toLowerCase().includes(q))) return false;
       if (sku !== ALL && !o.mos.some(mo => (mo.sku || mo.product_name) === sku)) return false;
       return true;
     });
-  }, [orders, search, sku]);
+  }, [orders, search, sku, archived, showArchived]);
+  const archivedCount = useMemo(() => orders.filter(o => archived.has(o.name)).length, [orders, archived]);
 
   const fmt = (n: number) => `${cur === 'USD' ? '$' : '₹'}${n.toLocaleString(cur === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: cur === 'USD' ? 2 : 0, minimumFractionDigits: cur === 'USD' ? 2 : 0 })}`;
   const inr = (n: number) => fmt(toDisplay(n, 'INR', cur, fx));
