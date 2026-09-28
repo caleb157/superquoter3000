@@ -80,11 +80,13 @@ export default function SoProfitability() {
     const nextFx = data.inr_per_usd && data.inr_per_usd > 1 ? Math.round(data.inr_per_usd * 100) / 100 : fx;
     setOrders(data.orders ?? []);
     setSkipped(data.skipped_open_projects ?? 0);
+    setUninvoiced(data.skipped_uninvoiced ?? 0);
     setFetchedAt(data.fetched_at ?? null);
     setFx(nextFx);
     try {
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0, fetched_at: data.fetched_at, fx: nextFx,
+        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0,
+        uninvoiced: data.skipped_uninvoiced ?? 0, fetched_at: data.fetched_at, fx: nextFx,
       }));
       sessionStorage.setItem(ACCT_KEY, String(shipAcct || DEFAULT_SHIP_ACCT));
     } catch { /* ignore */ }
