@@ -60,7 +60,7 @@ export default function SoProfitability() {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           const c = JSON.parse(cached);
-          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setFetchedAt(c.fetched_at ?? null);
+          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setUninvoiced(c.uninvoiced ?? 0); setFetchedAt(c.fetched_at ?? null);
           if (c.fx > 1) setFx(c.fx);
           return;
         }
