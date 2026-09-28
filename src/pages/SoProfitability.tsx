@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronDown, ChevronRight, RefreshCw, AlertTriangle, TrendingUp, Package, Hammer, Layers, Truck } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, AlertTriangle, TrendingUp, Package, Hammer, Layers, Truck, Archive, ArchiveRestore } from 'lucide-react';
 import { statusToneClass } from '@/lib/status-tone';
 import { cn } from '@/lib/utils';
 import {
@@ -20,6 +20,11 @@ const ALL = '__all__';
 const DEFAULT_SHIP_ACCT = 170;
 const CACHE_KEY = 'so-profitability-cache';
 const ACCT_KEY = 'so-profitability-shipping-account';
+const ARCHIVE_KEY = 'so-profitability-archived';
+
+function loadArchived(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]')); } catch { return new Set(); }
+}
 
 export default function SoProfitability() {
   useDocumentTitle('SO Profitability');
@@ -37,7 +42,17 @@ export default function SoProfitability() {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [shipAcct, setShipAcct] = useState(() => Number(sessionStorage.getItem(ACCT_KEY)) || DEFAULT_SHIP_ACCT);
   const [skipped, setSkipped] = useState(0);
+  const [uninvoiced, setUninvoiced] = useState(0);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [archived, setArchived] = useState<Set<string>>(loadArchived);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const toggleArchive = (name: string) => setArchived(prev => {
+    const n = new Set(prev);
+    n.has(name) ? n.delete(name) : n.add(name);
+    try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify([...n])); } catch { /* ignore */ }
+    return n;
+  });
 
   const load = async (force = false) => {
     if (!force) {
@@ -45,7 +60,7 @@ export default function SoProfitability() {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           const c = JSON.parse(cached);
-          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setFetchedAt(c.fetched_at ?? null);
+          setOrders(c.orders ?? []); setSkipped(c.skipped ?? 0); setUninvoiced(c.uninvoiced ?? 0); setFetchedAt(c.fetched_at ?? null);
           if (c.fx > 1) setFx(c.fx);
           return;
         }
@@ -65,11 +80,13 @@ export default function SoProfitability() {
     const nextFx = data.inr_per_usd && data.inr_per_usd > 1 ? Math.round(data.inr_per_usd * 100) / 100 : fx;
     setOrders(data.orders ?? []);
     setSkipped(data.skipped_open_projects ?? 0);
+    setUninvoiced(data.skipped_uninvoiced ?? 0);
     setFetchedAt(data.fetched_at ?? null);
     setFx(nextFx);
     try {
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0, fetched_at: data.fetched_at, fx: nextFx,
+        orders: data.orders ?? [], skipped: data.skipped_open_projects ?? 0,
+        uninvoiced: data.skipped_uninvoiced ?? 0, fetched_at: data.fetched_at, fx: nextFx,
       }));
       sessionStorage.setItem(ACCT_KEY, String(shipAcct || DEFAULT_SHIP_ACCT));
     } catch { /* ignore */ }
@@ -85,11 +102,13 @@ export default function SoProfitability() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
+      if (archived.has(o.name) !== showArchived) return false;
       if (q && !(`${o.name} ${o.customer ?? ''} ${o.project_name ?? ''}`.toLowerCase().includes(q))) return false;
       if (sku !== ALL && !o.mos.some(mo => (mo.sku || mo.product_name) === sku)) return false;
       return true;
     });
-  }, [orders, search, sku]);
+  }, [orders, search, sku, archived, showArchived]);
+  const archivedCount = useMemo(() => orders.filter(o => archived.has(o.name)).length, [orders, archived]);
 
   const fmt = (n: number) => `${cur === 'USD' ? '$' : '₹'}${n.toLocaleString(cur === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: cur === 'USD' ? 2 : 0, minimumFractionDigits: cur === 'USD' ? 2 : 0 })}`;
   const inr = (n: number) => fmt(toDisplay(n, 'INR', cur, fx));
@@ -118,9 +137,14 @@ export default function SoProfitability() {
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Sales Order Profitability</h1>
-          <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
-            <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from Odoo
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant={showArchived ? 'default' : 'outline'} onClick={() => setShowArchived(v => !v)}>
+              <Archive className="h-3.5 w-3.5 mr-1.5" /> {showArchived ? 'Back to active' : `Archived${archivedCount ? ` (${archivedCount})` : ''}`}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from Odoo
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -162,8 +186,10 @@ export default function SoProfitability() {
         )}
 
         <div className="text-[11px] text-muted-foreground">
-          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion. GPM counts materials only; NPM also counts labour, overhead and shipping.
+          Only orders whose manufacturing orders are all finished or cancelled appear here, because material usage is booked at completion. Orders with no manufacturing at all appear once fully invoiced. GPM counts materials only; NPM also counts labour, overhead and shipping.
           {skipped > 0 && ` ${skipped} order${skipped === 1 ? '' : 's'} still in production hidden.`}
+          {uninvoiced > 0 && ` ${uninvoiced} not-yet-invoiced trading order${uninvoiced === 1 ? '' : 's'} hidden.`}
+          {archivedCount > 0 && !showArchived && ` ${archivedCount} archived.`}
           {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
         </div>
 
@@ -209,10 +235,11 @@ export default function SoProfitability() {
               <TableHead className="h-8 text-xs text-right">Revenue</TableHead><TableHead className="h-8 text-xs text-right">Total cost</TableHead>
               <TableHead className="h-8 text-xs text-right">Net profit</TableHead>
               <TableHead className="h-8 text-xs text-right">GPM</TableHead><TableHead className="h-8 text-xs text-right">NPM</TableHead>
+              <TableHead className="h-8 w-8" />
             </TableRow></TableHeader>
             <TableBody>
-              {loading && orders.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
-              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">No sales orders found.</TableCell></TableRow>}
+              {loading && orders.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
+              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
               {filtered.map(o => {
                 const p = orderPnl(o, cur, fx);
                 const isOpen = open.has(o.id);
@@ -229,9 +256,15 @@ export default function SoProfitability() {
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.net)}</TableCell>
                       <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.gpm)))}>{p.gpm.toFixed(1)}%</Badge></TableCell>
                       <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.npm)))}>{p.npm.toFixed(1)}%</Badge></TableCell>
+                      <TableCell className="py-1 text-right">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title={archived.has(o.name) ? 'Restore' : 'Archive'}
+                          onClick={e => { e.stopPropagation(); toggleArchive(o.name); }}>
+                          {archived.has(o.name) ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     {isOpen && (
-                      <TableRow className="hover:bg-transparent"><TableCell colSpan={10} className="bg-muted/30 p-3">
+                      <TableRow className="hover:bg-transparent"><TableCell colSpan={11} className="bg-muted/30 p-3">
                         <OrderDetail o={o} fmt={fmt} inr={inr} cur={cur} fx={fx} />
                       </TableCell></TableRow>
                     )}

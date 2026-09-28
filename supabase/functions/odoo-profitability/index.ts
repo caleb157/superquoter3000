@@ -21,6 +21,16 @@ const DEFAULT_SHIPPING_ACCOUNT_ID = 170;
 // material stock moves have not been booked yet, so the order is not costable.
 const CLOSED_MO_STATES = new Set(['done', 'cancel']);
 
+// Heritage sales orders created before projects were linked on the SO itself.
+// Maps the SO number to the Odoo project id that carries its MOs and costs.
+const HERITAGE_PROJECT_BY_SO: Record<string, number> = {
+  S00075: 110,
+  S00076: 109,
+  S00078: 108,
+  S00081: 123,
+  S00082: 123,
+};
+
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
 const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
 const ODOO_USER = Deno.env.get('ODOO_USERNAME') ?? '';
@@ -98,10 +108,12 @@ Deno.serve(async (req) => {
       soDomain.push('|', ['name', 'ilike', search.trim()], ['partner_id.name', 'ilike', search.trim()]);
     }
     const orders = await searchRead('sale.order', soDomain,
-      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state'],
+      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state', 'invoice_status'],
       { order: 'date_order desc', limit: limit ?? 200 });
 
-    const projectIds = [...new Set(orders.map(o => m2oId(o.project_id)).filter(Boolean))] as number[];
+    // Heritage orders carry their project only in the lookup table above.
+    const pidOf = (o: any): number | null => m2oId(o.project_id) ?? HERITAGE_PROJECT_BY_SO[o.name] ?? null;
+    const projectIds = [...new Set(orders.map(pidOf).filter(Boolean))] as number[];
 
     // --- projects + analytic accounts ---
     const projects = projectIds.length
@@ -231,8 +243,16 @@ Deno.serve(async (req) => {
       if (Array.isArray(v)) return String(v[1] ?? v[0]);
       return v == null || v === false ? '' : String(v);
     };
-    const out = orders.filter(o => projectCostable(m2oId(o.project_id))).map(o => {
-      const pid = m2oId(o.project_id);
+    const moProjects = new Set(allMos.map(m => m2oId(m.project_id)).filter(Boolean));
+    // Trading orders (no manufacturing at all) are only costable once fully invoiced.
+    const tradingReady = (o: any) => {
+      const pid = pidOf(o);
+      if (pid && moProjects.has(pid)) return true;
+      return !o.invoice_status || o.invoice_status === 'invoiced';
+    };
+    const included = orders.filter(o => projectCostable(pidOf(o)) && tradingReady(o));
+    const out = included.map(o => {
+      const pid = pidOf(o);
       const myMos = mos.filter(m => m2oId(m.project_id) === pid && pid);
       const myMoIds = new Set(myMos.map(m => m.id));
       const materials = moves.filter(mv => myMoIds.has(m2oId(mv.raw_material_production_id))).map(mv => {
@@ -320,7 +340,8 @@ Deno.serve(async (req) => {
       orders: out,
       inr_per_usd: inrPerUsd,
       shipping_account_id: shippingAccountId,
-      skipped_open_projects: orders.filter(o => !projectCostable(m2oId(o.project_id))).length,
+      skipped_open_projects: orders.filter(o => !projectCostable(pidOf(o))).length,
+      skipped_uninvoiced: orders.filter(o => projectCostable(pidOf(o)) && !tradingReady(o)).length,
       fetched_at: new Date().toISOString(),
     });
   } catch (e) {
