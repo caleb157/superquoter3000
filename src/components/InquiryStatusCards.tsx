@@ -111,26 +111,6 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {cards.map(c => {
-          const empty = c.count === 0;
-          return (
-            <Card
-              key={c.key}
-              onClick={() => onCardClick(c.key)}
-              className={cn('cursor-pointer transition hover:bg-muted/50', empty && 'opacity-60')}
-            >
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold">{c.count}</div>
-                <div className="text-sm font-medium">{c.label}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {c.count === 1 ? '1 product' : `${c.count} products`}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card>
