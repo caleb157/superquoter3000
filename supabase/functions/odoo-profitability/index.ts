@@ -340,7 +340,8 @@ Deno.serve(async (req) => {
       orders: out,
       inr_per_usd: inrPerUsd,
       shipping_account_id: shippingAccountId,
-      skipped_open_projects: orders.filter(o => !projectCostable(m2oId(o.project_id))).length,
+      skipped_open_projects: orders.filter(o => !projectCostable(pidOf(o))).length,
+      skipped_uninvoiced: orders.filter(o => projectCostable(pidOf(o)) && !tradingReady(o)).length,
       fetched_at: new Date().toISOString(),
     });
   } catch (e) {
