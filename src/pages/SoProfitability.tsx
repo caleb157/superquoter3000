@@ -235,10 +235,11 @@ export default function SoProfitability() {
               <TableHead className="h-8 text-xs text-right">Revenue</TableHead><TableHead className="h-8 text-xs text-right">Total cost</TableHead>
               <TableHead className="h-8 text-xs text-right">Net profit</TableHead>
               <TableHead className="h-8 text-xs text-right">GPM</TableHead><TableHead className="h-8 text-xs text-right">NPM</TableHead>
+              <TableHead className="h-8 w-8" />
             </TableRow></TableHeader>
             <TableBody>
-              {loading && orders.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
-              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">No sales orders found.</TableCell></TableRow>}
+              {loading && orders.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
+              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
               {filtered.map(o => {
                 const p = orderPnl(o, cur, fx);
                 const isOpen = open.has(o.id);
@@ -255,9 +256,15 @@ export default function SoProfitability() {
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.net)}</TableCell>
                       <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.gpm)))}>{p.gpm.toFixed(1)}%</Badge></TableCell>
                       <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.npm)))}>{p.npm.toFixed(1)}%</Badge></TableCell>
+                      <TableCell className="py-1 text-right">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" title={archived.has(o.name) ? 'Restore' : 'Archive'}
+                          onClick={e => { e.stopPropagation(); toggleArchive(o.name); }}>
+                          {archived.has(o.name) ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     {isOpen && (
-                      <TableRow className="hover:bg-transparent"><TableCell colSpan={10} className="bg-muted/30 p-3">
+                      <TableRow className="hover:bg-transparent"><TableCell colSpan={11} className="bg-muted/30 p-3">
                         <OrderDetail o={o} fmt={fmt} inr={inr} cur={cur} fx={fx} />
                       </TableCell></TableRow>
                     )}
