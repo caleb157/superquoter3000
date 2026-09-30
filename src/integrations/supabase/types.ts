@@ -824,6 +824,366 @@ export type Database = {
         }
         Relationships: []
       }
+      fq_customers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fq_fx_rates: {
+        Row: {
+          created_at: string
+          currency: string
+          effective_date: string
+          id: string
+          owner_id: string | null
+          rate_to_usd: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          effective_date?: string
+          id?: string
+          owner_id?: string | null
+          rate_to_usd: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          effective_date?: string
+          id?: string
+          owner_id?: string | null
+          rate_to_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fq_products: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fq_quote_lines: {
+        Row: {
+          amount_original: number | null
+          amount_usd: number | null
+          applicable: boolean
+          applicable_reason: string | null
+          bucket: string
+          charge_basis: string
+          created_at: string
+          currency: string
+          id: string
+          is_optional: boolean
+          minimum_amount: number | null
+          normalized_name: string | null
+          optional_included: boolean
+          owner_id: string | null
+          quantity_override: number | null
+          quote_id: string
+          rate: number | null
+          raw_label: string | null
+          sort_order: number
+          updated_at: string
+          user_estimate: number | null
+        }
+        Insert: {
+          amount_original?: number | null
+          amount_usd?: number | null
+          applicable?: boolean
+          applicable_reason?: string | null
+          bucket?: string
+          charge_basis?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_optional?: boolean
+          minimum_amount?: number | null
+          normalized_name?: string | null
+          optional_included?: boolean
+          owner_id?: string | null
+          quantity_override?: number | null
+          quote_id: string
+          rate?: number | null
+          raw_label?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_estimate?: number | null
+        }
+        Update: {
+          amount_original?: number | null
+          amount_usd?: number | null
+          applicable?: boolean
+          applicable_reason?: string | null
+          bucket?: string
+          charge_basis?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_optional?: boolean
+          minimum_amount?: number | null
+          normalized_name?: string | null
+          optional_included?: boolean
+          owner_id?: string | null
+          quantity_override?: number | null
+          quote_id?: string
+          rate?: number | null
+          raw_label?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_estimate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fq_quote_lines_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "fq_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fq_quotes: {
+        Row: {
+          cbm: number | null
+          chargeable_wm: number | null
+          cif_usd: number | null
+          container_size: string | null
+          created_at: string
+          customer_id: string | null
+          ddp_usd: number | null
+          declared_invoice_value_usd: number | null
+          destination_city: string | null
+          destination_country: string | null
+          destination_port: string | null
+          direction: string
+          duty_estimate_usd: number | null
+          fob_usd: number | null
+          fx_snapshot: Json
+          gross_weight_kg: number | null
+          has_unpriced: boolean
+          id: string
+          insurance_usd: number | null
+          mode: string
+          notes: string | null
+          origin_city: string | null
+          origin_port: string | null
+          owner_id: string | null
+          pallet_count: number | null
+          product_id: string | null
+          quote_date: string | null
+          raw_text: string | null
+          reference_no: string | null
+          source_file_path: string | null
+          status: string
+          updated_at: string
+          valid_until: string | null
+          vendor_id: string | null
+          wm_kg_per_cbm: number
+        }
+        Insert: {
+          cbm?: number | null
+          chargeable_wm?: number | null
+          cif_usd?: number | null
+          container_size?: string | null
+          created_at?: string
+          customer_id?: string | null
+          ddp_usd?: number | null
+          declared_invoice_value_usd?: number | null
+          destination_city?: string | null
+          destination_country?: string | null
+          destination_port?: string | null
+          direction?: string
+          duty_estimate_usd?: number | null
+          fob_usd?: number | null
+          fx_snapshot?: Json
+          gross_weight_kg?: number | null
+          has_unpriced?: boolean
+          id?: string
+          insurance_usd?: number | null
+          mode?: string
+          notes?: string | null
+          origin_city?: string | null
+          origin_port?: string | null
+          owner_id?: string | null
+          pallet_count?: number | null
+          product_id?: string | null
+          quote_date?: string | null
+          raw_text?: string | null
+          reference_no?: string | null
+          source_file_path?: string | null
+          status?: string
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id?: string | null
+          wm_kg_per_cbm?: number
+        }
+        Update: {
+          cbm?: number | null
+          chargeable_wm?: number | null
+          cif_usd?: number | null
+          container_size?: string | null
+          created_at?: string
+          customer_id?: string | null
+          ddp_usd?: number | null
+          declared_invoice_value_usd?: number | null
+          destination_city?: string | null
+          destination_country?: string | null
+          destination_port?: string | null
+          direction?: string
+          duty_estimate_usd?: number | null
+          fob_usd?: number | null
+          fx_snapshot?: Json
+          gross_weight_kg?: number | null
+          has_unpriced?: boolean
+          id?: string
+          insurance_usd?: number | null
+          mode?: string
+          notes?: string | null
+          origin_city?: string | null
+          origin_port?: string | null
+          owner_id?: string | null
+          pallet_count?: number | null
+          product_id?: string | null
+          quote_date?: string | null
+          raw_text?: string | null
+          reference_no?: string | null
+          source_file_path?: string | null
+          status?: string
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id?: string | null
+          wm_kg_per_cbm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fq_quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "fq_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fq_quotes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "fq_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fq_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "fq_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fq_settings: {
+        Row: {
+          created_at: string
+          default_wm_kg_per_cbm: number
+          id: string
+          keyword_map: Json
+          owner_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_wm_kg_per_cbm?: number
+          id?: string
+          keyword_map?: Json
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_wm_kg_per_cbm?: number
+          id?: string
+          keyword_map?: Json
+          owner_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fq_vendors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       global_settings: {
         Row: {
           auto_transport_cost_per_cbm: number
