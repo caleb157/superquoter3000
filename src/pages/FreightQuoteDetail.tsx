@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { FqHeader } from '@/components/freight-quotes/FqHeader';
 import { QuoteEditor, SourceViewer, type EditableQuote } from '@/components/freight-quotes/QuoteEditor';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { findDuplicate, laneOf, loadQuote, loadRefs } from '@/lib/freight-quotes/data';
@@ -31,8 +32,8 @@ export default function FreightQuoteDetail() {
     catch (e: any) { toast.error(e.message); }
   };
   const del = async () => {
-    if (!confirm('Delete this quote?')) return;
-    await (supabase as any).from('fq_quotes').delete().eq('id', id);
+    const { error } = await (supabase as any).from('fq_quotes').delete().eq('id', id);
+    if (error) throw error;
     nav('/freight-quotes');
   };
 
@@ -41,7 +42,7 @@ export default function FreightQuoteDetail() {
       <div className="p-3 md:p-4 max-w-[1600px] mx-auto">
         <FqHeader title={q ? `${q.vendor_name || 'Quote'} · ${laneOf(q)} · ${q.mode}` : 'Freight quote'}
           actions={q && <>
-            <Button variant="outline" size="sm" onClick={del}>Delete</Button>
+            <ConfirmDeleteButton buttonVariant="outline" className="h-8 px-2 text-xs gap-1 text-destructive" itemLabel="freight quote" onConfirm={del} />
             <Button size="sm" onClick={save} disabled={!dirty}>{dirty ? 'Save changes' : 'Saved'}</Button>
           </>} />
         {dup && <p className="text-xs text-warning mb-2">Possible duplicate: another quote has the same vendor, lane, date and CBM.</p>}
