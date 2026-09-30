@@ -36,7 +36,7 @@ import {
 } from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
-import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
+import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
@@ -61,6 +61,8 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
+  calculated_unit_price_usd?: number | null; calculated_unit_cost_usd?: number | null;
+  archived_at?: string | null; is_component?: boolean | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -109,7 +111,7 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage'),
+        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd, archived_at, is_component'),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
@@ -133,6 +135,17 @@ const Dashboard = () => {
     products.forEach(p => {
       if (!p.customer_rfq_id) return;
       (m[p.customer_rfq_id] ||= []).push(p);
+    });
+    return m;
+  }, [products]);
+  const finByInquiry = useMemo(() => {
+    const m: Record<string, { value: number; cost: number }> = {};
+    products.forEach(p => {
+      if (!p.customer_rfq_id || p.archived_at || p.is_component) return;
+      const q = Number(p.quantity) || 0;
+      const e = (m[p.customer_rfq_id] ||= { value: 0, cost: 0 });
+      e.value += q * (Number(p.calculated_unit_price_usd) || 0);
+      e.cost += q * (Number(p.calculated_unit_cost_usd) || 0);
     });
     return m;
   }, [products]);
@@ -460,9 +473,8 @@ const Dashboard = () => {
                       <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <SortableHeader column="mh" label="MH" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
-                      <TableHead className="text-xs">Design</TableHead>
-                      <TableHead className="text-xs">Quote</TableHead>
-                      <TableHead className="text-xs">Sample</TableHead>
+                      <TableHead className="text-xs text-right w-[110px]">Order value</TableHead>
+                      <TableHead className="text-xs text-right w-[100px]">NPM</TableHead>
                       
                       <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
@@ -500,11 +512,29 @@ const Dashboard = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-medium',
-                              INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
-                            )}>{statusLabel(inq.status)}</span>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={inq.status}
+                              onValueChange={async (v) => {
+                                const prev = inq.status;
+                                setInquiries(list => list.map(x => x.id === inq.id ? { ...x, status: v } : x));
+                                const { error } = await supabase.from('customer_rfqs').update({ status: v }).eq('id', inq.id);
+                                if (error) {
+                                  toast.error(error.message);
+                                  setInquiries(list => list.map(x => x.id === inq.id ? { ...x, status: prev } : x));
+                                } else toast.success(`Status set to ${statusLabel(v)}`);
+                              }}
+                            >
+                              <SelectTrigger className={cn(
+                                'h-6 w-[92px] px-2 py-0 text-[11px] font-medium border-0 focus:ring-0 focus:ring-offset-0 [&>svg]:hidden justify-center',
+                                INQUIRY_STATUS_COLORS[inq.status] || 'bg-muted',
+                              )}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Select
@@ -545,21 +575,25 @@ const Dashboard = () => {
                                 ? (mhByInquiry[inq.id]).toFixed(1)
                                 : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, DESIGN_PILLS, 'design')}
-                          </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, QUOTE_PILLS, 'quote')}
-                          </TableCell>
-                          <TableCell>
-                            {stagesEmpty
-                              ? <span className="text-muted-foreground/60">—</span>
-                              : renderStageCell(prods, inq.id, SAMPLE_PILLS, 'sample')}
-                          </TableCell>
+                          {(() => {
+                            const f = finByInquiry[inq.id];
+                            const npm = f && f.value > 0 ? (f.value - f.cost) / f.value : null;
+                            return (
+                              <>
+                                <TableCell className="text-right text-sm tabular-nums">
+                                  {f && f.value > 0 ? fmt.usd(f.value) : <span className="text-muted-foreground/60">—</span>}
+                                </TableCell>
+                                <TableCell className={cn('text-right text-sm tabular-nums', npm == null ? '' : npm < 0 ? 'text-destructive' : 'text-success')}>
+                                  {npm == null ? <span className="text-muted-foreground/60">—</span> : (
+                                    <div className="leading-tight">
+                                      <div>{fmt.usd(f!.value - f!.cost)}</div>
+                                      <div className="text-[10px]">{(npm * 100).toFixed(1)}%</div>
+                                    </div>
+                                  )}
+                                </TableCell>
+                              </>
+                            );
+                          })()}
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                               <ConfirmDeleteButton
