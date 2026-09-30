@@ -12,6 +12,8 @@ import { Download, Plus } from 'lucide-react';
 import { BUCKETS, BUCKET_LABEL, computeQuote } from '@/lib/freight-quotes/calculations';
 import { laneOf, loadQuotes, loadRefs, usd, type FqQuote } from '@/lib/freight-quotes/data';
 import { buildCsv, downloadCsv } from '@/lib/csv-export';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { supabase } from '@/integrations/supabase/client';
 
 type Row = FqQuote & { id: string };
 const ALL = '__all';
@@ -59,8 +61,14 @@ export default function FreightQuotes() {
     })),
   }]));
 
+  const removeQuotes = async (ids: string[]) => {
+    const { error } = await (supabase as any).from('fq_quotes').delete().in('id', ids);
+    if (error) throw error;
+    setQuotes(qs => qs.filter(q => !ids.includes(q.id)));
+    setSel(s => s.filter(x => !ids.includes(x)));
+  };
   const sel4 = rows.filter(r => sel.includes(r.q.id));
-  const toggle = (id: string) => setSel(s => (s.includes(id) ? s.filter(x => x !== id) : s.length >= 4 ? s : [...s, id]));
+  const toggle = (id: string) => setSel(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
   const F = (k: keyof typeof f, placeholder: string, opts: { v: string; l: string }[]) => (
     <Select value={f[k]} onValueChange={v => setF({ ...f, [k]: v })}>
       <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder={placeholder} /></SelectTrigger>
@@ -72,7 +80,8 @@ export default function FreightQuotes() {
     <AppLayout>
       <div className="p-3 md:p-4 max-w-[1600px] mx-auto">
         <FqHeader title="Freight Quote Tracker" actions={<>
-          <Button variant="outline" size="sm" disabled={sel.length < 2} onClick={() => setCompare(true)}>Compare ({sel.length})</Button>
+          {sel.length > 0 && <ConfirmDeleteButton buttonVariant="outline" className="h-8 px-2 text-xs gap-1 text-destructive" itemLabel={`${sel.length} selected quote${sel.length > 1 ? 's' : ''}`} onConfirm={() => removeQuotes(sel)} />}
+          <Button variant="outline" size="sm" disabled={sel.length < 2 || sel.length > 4} onClick={() => setCompare(true)}>Compare ({sel.length})</Button>
           <Button variant="outline" size="sm" onClick={exportList}><Download className="h-3.5 w-3.5 mr-1" />Quotes CSV</Button>
           <Button variant="outline" size="sm" onClick={exportLines}><Download className="h-3.5 w-3.5 mr-1" />Line items CSV</Button>
           <Button size="sm" onClick={() => nav('/freight-quotes/new')}><Plus className="h-3.5 w-3.5 mr-1" />New quote</Button>
@@ -93,7 +102,7 @@ export default function FreightQuotes() {
         <div className="border rounded overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-muted/50 text-[10px] uppercase text-muted-foreground">
-              <tr><th className="w-8" /><th className="text-left px-2 py-1.5">Date</th><th className="text-left px-2">Vendor</th><th className="text-left px-2">Customer</th><th className="text-left px-2">Product</th><th className="text-left px-2">Lane</th><th className="px-2">Mode</th><th className="px-2">Status</th><th className="text-right px-2">CBM</th><th className="text-right px-2">FOB</th><th className="text-right px-2">CIF</th><th className="text-right px-2">DDP</th><th className="text-right px-2">$/CBM</th></tr>
+              <tr><th className="w-8" /><th className="text-left px-2 py-1.5">Date</th><th className="text-left px-2">Vendor</th><th className="text-left px-2">Customer</th><th className="text-left px-2">Product</th><th className="text-left px-2">Lane</th><th className="px-2">Mode</th><th className="px-2">Status</th><th className="text-right px-2">CBM</th><th className="text-right px-2">FOB</th><th className="text-right px-2">CIF</th><th className="text-right px-2">DDP</th><th className="text-right px-2">$/CBM</th><th className="w-8" /></tr>
             </thead>
             <tbody>
               {filtered.map(r => (
@@ -108,13 +117,14 @@ export default function FreightQuotes() {
                   <td className="px-2 text-right font-mono">{usd(r.t.fob_usd)}</td><td className="px-2 text-right font-mono">{usd(r.t.cif_usd)}</td>
                   <td className="px-2 text-right font-mono">{usd(r.t.ddp_usd)}{r.t.unpriced_count > 0 && <span className="text-warning" title="Has unpriced at-actuals lines">*</span>}</td>
                   <td className="px-2 text-right font-mono">{usd(r.t.per_cbm.ddp, 2)}</td>
+                  <td className="px-1" onClick={e => e.stopPropagation()}><ConfirmDeleteButton iconOnly itemLabel="freight quote" onConfirm={() => removeQuotes([r.q.id])} /></td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={13} className="text-center py-6 text-muted-foreground">No quotes yet.</td></tr>}
+              {!filtered.length && <tr><td colSpan={14} className="text-center py-6 text-muted-foreground">No quotes yet.</td></tr>}
             </tbody>
           </table>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">* has unpriced "at actuals" charges. Select 2–4 quotes to compare.</p>
+        <p className="text-[10px] text-muted-foreground mt-1">* has unpriced "at actuals" charges. Select 2–4 quotes to compare, or select any to delete.</p>
 
         <Dialog open={compare} onOpenChange={setCompare}>
           <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
