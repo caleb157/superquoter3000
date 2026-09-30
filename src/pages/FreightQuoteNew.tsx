@@ -18,7 +18,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 type Refs = Awaited<ReturnType<typeof loadRefs>>;
 
 export default function FreightQuoteNew() {
-  useDocumentTitle?.('New freight quote');
+  useDocumentTitle('New freight quote');
   const nav = useNavigate();
   const [refs, setRefs] = useState<Refs | null>(null);
   const [text, setText] = useState('');
