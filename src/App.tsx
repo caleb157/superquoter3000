@@ -39,6 +39,11 @@ import TargetPriceSolverPage from "./pages/TargetPriceSolver";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import SoProfitability from "./pages/SoProfitability";
+import FreightQuotes from "./pages/FreightQuotes";
+import FreightQuoteNew from "./pages/FreightQuoteNew";
+import FreightQuoteDetail from "./pages/FreightQuoteDetail";
+import FreightQuoteDashboard from "./pages/FreightQuoteDashboard";
+import FreightQuoteSettings from "./pages/FreightQuoteSettings";
 
 const queryClient = new QueryClient();
 
@@ -155,6 +160,11 @@ const App = () => (
                 <ProtectedRoute requireAdminOrTeam><TargetPriceSolverPage /></ProtectedRoute>
               } />
 
+              <Route path="/freight-quotes" element={<ProtectedRoute requireAdminOrTeam><FreightQuotes /></ProtectedRoute>} />
+              <Route path="/freight-quotes/new" element={<ProtectedRoute requireAdminOrTeam><FreightQuoteNew /></ProtectedRoute>} />
+              <Route path="/freight-quotes/dashboard" element={<ProtectedRoute requireAdminOrTeam><FreightQuoteDashboard /></ProtectedRoute>} />
+              <Route path="/freight-quotes/settings" element={<ProtectedRoute requireAdminOrTeam><FreightQuoteSettings /></ProtectedRoute>} />
+              <Route path="/freight-quotes/:id" element={<ProtectedRoute requireAdminOrTeam><FreightQuoteDetail /></ProtectedRoute>} />
               <Route path="/profitability" element={
                 <ProtectedRoute requireAdminOrTeam><SoProfitability /></ProtectedRoute>
               } />
