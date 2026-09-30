@@ -201,13 +201,14 @@ export default function InquiryTargetGrid() {
                 <th className="text-right p-2 font-medium w-20">Qty</th>
                 <th className="text-right p-2 font-medium w-32">Calculated ({currency})</th>
                 <th className="text-right p-2 font-medium w-40">Target price ({currency})</th>
+                <th className="text-right p-2 font-medium w-24">Calc vs target</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Loading…</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading…</td></tr>
               ) : products.length === 0 ? (
-                <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No products in this inquiry.</td></tr>
+                <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No products in this inquiry.</td></tr>
               ) : products.map((p, idx) => {
                 const raw = drafts[p.id] ?? '';
                 const entered = raw === '' ? null : parseNumber(raw);
@@ -215,15 +216,17 @@ export default function InquiryTargetGrid() {
                 const current = p.target_price_usd == null ? null : Number(Number(p.target_price_usd).toFixed(4));
                 const isDirty = parsedUsd !== current;
                 const calc = calcPrices[p.id];
+                const over = calc > 0 && parsedUsd != null && parsedUsd > 0 && calc > parsedUsd;
+                const pct = calc > 0 && parsedUsd != null && parsedUsd > 0 ? (calc - parsedUsd) / parsedUsd : null;
                 return (
-                  <tr key={p.id} className={cn('border-t hover:bg-muted/30', isDirty && 'bg-amber-50 dark:bg-amber-950/20')}>
+                  <tr key={p.id} className={cn('border-t hover:bg-muted/30', over ? 'bg-destructive/10' : isDirty && 'bg-amber-50 dark:bg-amber-950/20')}>
                     <td className="p-2 text-xs text-muted-foreground">{idx + 1}</td>
                     <td className="p-2">
                       <Link to={`/product/${p.id}`} className="hover:underline">{p.name}</Link>
                     </td>
                     <td className="p-2 text-xs text-muted-foreground">{p.sku || '—'}</td>
                     <td className="p-2 text-right tabular-nums">{p.quantity ?? '—'}</td>
-                    <td className="p-2 text-right tabular-nums text-muted-foreground">
+                    <td className={cn('p-2 text-right tabular-nums', over ? 'text-destructive font-medium' : 'text-muted-foreground')}>
                       {calc && calc > 0
                         ? (currency === 'USD' ? fmt.usd(calc) : (() => { const v = fromUsd(calc); return v == null ? fmt.usd(calc) : fmt.money(v, currency); })())
                         : '—'}
@@ -239,6 +242,9 @@ export default function InquiryTargetGrid() {
                         onChange={e => setDrafts(d => ({ ...d, [p.id]: e.target.value }))}
                         onPaste={handlePaste(idx)}
                       />
+                    </td>
+                    <td className={cn('p-2 text-right tabular-nums text-xs', pct == null ? 'text-muted-foreground' : pct > 0 ? 'text-destructive font-medium' : 'text-success')}>
+                      {pct == null ? '—' : `${pct > 0 ? '+' : ''}${(pct * 100).toFixed(1)}%`}
                     </td>
                   </tr>
                 );
