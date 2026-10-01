@@ -142,7 +142,7 @@ export default function SoProfitability() {
               <Archive className="h-3.5 w-3.5 mr-1.5" /> {showArchived ? 'Back to active' : `Archived${archivedCount ? ` (${archivedCount})` : ''}`}
             </Button>
             <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
-              <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from Odoo
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', loading && 'animate-spin')} /> Refresh from LaborTrax
             </Button>
           </div>
         </div>
