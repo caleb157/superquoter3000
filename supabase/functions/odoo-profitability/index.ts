@@ -274,17 +274,17 @@ Deno.serve(async (req) => {
           valued: booked != null,
         };
       });
-      const laborRows = labor.map(l => ({ l, mo: moByKey.get(moKeyOf(l.x_studio_mo_id)) }))
+      const laborRows = labor.map(l => ({ l, mo: moByKey.get(moKeyOf(l.mo_id)) }))
         .filter(x => x.mo && myMoIds.has(x.mo.id))
         .map(({ l, mo }) => ({
         mo_id: mo.id,
         mo_name: mo.name,
-        activity: l.x_studio_work_activity || l.x_name || null,
-        category: l.x_studio_work_order_category || 'Uncategorised',
-        hours: num(l.x_studio_hours),
-        direct_inr: num(l.x_studio_direct_labor_cost),
-        overhead_inr: num(l.x_studio_allocated_overhead_cost),
-        burdened_inr: num(l.x_studio_fully_burdened_cost),
+        activity: l.work_activity || l.entry_type || null,
+        category: l.work_order || 'Uncategorised',
+        hours: num(l.hours),
+        direct_inr: num(l.direct_labor_cost),
+        overhead_inr: num(l.allocated_overhead_cost),
+        burdened_inr: num(l.fully_burdened_cost),
       }));
       const acc = pid ? analyticByProject.get(pid) : null;
       const shipping = acc ? aLines.filter(a => m2oId(a.account_id) === acc).map(a => ({
