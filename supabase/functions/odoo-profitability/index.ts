@@ -194,20 +194,17 @@ Deno.serve(async (req) => {
       : [];
     const lineProdById = new Map(lineProds.map(p => [p.id, p]));
 
-    // --- 4. LaborTrax entries ---
-    // x_studio_mo_id holds the MO display name ("WH/MO/00180"), so match names as
-    // well as ids for older rows that stored the numeric id.
+    // --- 4. LaborTrax entries (from the LaborTrax public API, not Odoo) ---
+    // mo_id holds the MO display name ("WH/MO/00180") or, for older rows, the numeric id.
     let labor: any[] = [];
     if (moIds.length) {
-      const fields = ['x_name', 'x_studio_mo_id', 'x_studio_work_activity', 'x_studio_work_order_category',
-        'x_studio_hours', 'x_studio_direct_labor_cost', 'x_studio_allocated_overhead_cost', 'x_studio_fully_burdened_cost'];
-      try {
-        labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moNameKeys]], fields);
-      } catch (_e) { labor = []; }
-      if (!labor.length) {
-        try { labor = await searchRead('x_labortrax_entry', [['x_studio_mo_id', 'in', moIds]], fields); }
-        catch (_e) { /* ignore */ }
-      }
+      const ltKey = Deno.env.get('LABORTRAX_API_KEY');
+      if (!ltKey) throw new Error('LaborTrax API key is not set (LABORTRAX_API_KEY).');
+      const res = await fetch('https://labor-trax.lovable.app/api/public/labor-entries', { headers: { 'x-api-key': ltKey } });
+      if (!res.ok) throw new Error(`LaborTrax API ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const body = await res.json();
+      const keys = new Set(moNameKeys.map(String));
+      labor = (body?.entries || []).filter((e: any) => e.mo_id != null && keys.has(String(e.mo_id)));
     }
 
     // --- 5. Analytic lines (shipping & freight) ---
