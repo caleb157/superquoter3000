@@ -136,8 +136,9 @@ export function QuoteEditor({ value, onChange, refs }: {
             </tr>
           </thead>
           <tbody>
-            {grouped.filter(g => g.rows.length).map(g => (
-              <GroupRows key={g.b} bucket={g.b} subtotal={t.buckets[g.b]}>
+            {grouped.map(g => (
+              <GroupRows key={g.b} bucket={g.b} subtotal={t.buckets[g.b]}
+                onAdd={() => set({ lines: [...q.lines, { ...blankLine(q.lines.length), bucket: g.b }] })}>
                 {g.rows.map(({ l, i }) => {
                   const r = t.lines[i];
                   const off = r.status === 'not_applicable' || r.status === 'optional_off';
@@ -189,10 +190,13 @@ export function QuoteEditor({ value, onChange, refs }: {
   );
 }
 
-function GroupRows({ bucket, subtotal, children }: { bucket: Bucket; subtotal: number; children: React.ReactNode }) {
+function GroupRows({ bucket, subtotal, onAdd, children }: { bucket: Bucket; subtotal: number; onAdd: () => void; children: React.ReactNode }) {
   return (
     <>
-      <tr className="bg-muted/30 border-t"><td colSpan={9} className="px-1.5 py-0.5 text-[10px] font-semibold uppercase">{BUCKET_LABEL[bucket]}</td>
+      <tr className="bg-muted/30 border-t"><td colSpan={9} className="px-1.5 py-0.5 text-[10px] font-semibold uppercase">
+        {BUCKET_LABEL[bucket]}
+        <Button variant="ghost" size="sm" className="h-5 ml-2 px-1.5 text-[10px] normal-case font-normal" onClick={onAdd}><Plus className="h-3 w-3 mr-0.5" />Add row</Button>
+      </td>
         <td className="px-1.5 text-right font-mono text-[11px] font-semibold">{usd(subtotal, 2)}</td><td colSpan={3} /></tr>
       {children}
     </>
