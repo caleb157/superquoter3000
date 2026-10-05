@@ -80,50 +80,6 @@ const ProductDetail = () => {
     unitCostUsd: number;
     exchangeRate: number;
   } | null>(null);
-  const [refreshingPrice, setRefreshingPrice] = useState(false);
-
-  // Stale-cache detection: live engine vs. value persisted on products row.
-  const cachedPriceUsd = product?.calculated_unit_price_usd ?? null;
-  const cachedCostUsd = product?.calculated_unit_cost_usd ?? null;
-  const livePriceUsd = costingSummary?.unitPriceUsd ?? null;
-  const liveCostUsd = costingSummary?.unitCostUsd ?? null;
-  const priceStale =
-    livePriceUsd != null &&
-    cachedPriceUsd != null &&
-    Math.abs(cachedPriceUsd - livePriceUsd) > 0.01;
-  const costStale =
-    liveCostUsd != null &&
-    cachedCostUsd != null &&
-    Math.abs(cachedCostUsd - liveCostUsd) > 0.01;
-  const isStale = priceStale || costStale;
-
-  const refreshCachedPrice = useCallback(async () => {
-    if (!product?.id || livePriceUsd == null) return;
-    setRefreshingPrice(true);
-    const priceUsd = +Number(livePriceUsd).toFixed(4);
-    const costUsd = liveCostUsd != null ? +Number(liveCostUsd).toFixed(4) : null;
-    const { error } = await (supabase as any)
-      .from('products')
-      .update({ calculated_unit_price_usd: priceUsd, calculated_unit_cost_usd: costUsd })
-      .eq('id', product.id);
-    setRefreshingPrice(false);
-    if (error) { toast.error('Refresh failed: ' + error.message); return; }
-    toast.success('Cached price refreshed');
-    fetchProduct();
-  }, [product?.id, livePriceUsd, liveCostUsd]);
-
-  // Surface the stale state once per detection so it's not just a silent badge.
-  useEffect(() => {
-    if (!isStale || !product?.id) return;
-    const key = `staleNoticeShown:${product.id}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-    toast.warning('Showing a stale cached price for this product.', {
-      description: 'Other screens may still show the old number until you refresh.',
-      action: { label: 'Refresh', onClick: () => refreshCachedPrice() },
-      duration: 8000,
-    });
-  }, [isStale, product?.id, refreshCachedPrice]);
 
   const startEdit = () => {
     if (!product) return;
@@ -325,27 +281,6 @@ const ProductDetail = () => {
                 <span className="font-mono font-semibold text-primary">{fmt.inr(costingSummary.unitPriceInr)}</span>
                 <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitPriceUsd)})</span>
               </div>
-              {isStale && (
-                <>
-                  <div className="w-px h-6 bg-border" />
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="outline" className="gap-1 border-amber-500/60 text-amber-700 dark:text-amber-400 text-[10px] py-0 px-1.5 h-5" title={`Cached: ${cachedPriceUsd != null ? fmt.usd(cachedPriceUsd) : '—'} · Live: ${livePriceUsd != null ? fmt.usd(livePriceUsd) : '—'}`}>
-                      <AlertTriangle className="h-3 w-3" />
-                      Stale
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 px-2 text-[10px] gap-1"
-                      onClick={refreshCachedPrice}
-                      disabled={refreshingPrice}
-                    >
-                      <RefreshCw className={`h-3 w-3 ${refreshingPrice ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
-                  </div>
-                </>
-              )}
             </div>
           )}
           
