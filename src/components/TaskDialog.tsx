@@ -8,15 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown, ImagePlus, Loader2, X } from 'lucide-react';
+import { Check, ChevronsUpDown, ImagePlus, Loader2, X, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { TaskContext, TaskPriority } from '@/lib/task-types';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
 import { customerSecondary } from '@/lib/customer-name';
-
-type Mode = 'inquiry' | 'customer';
+import { ASSOCIATION_TYPES, type AssociationType, associationMeta } from '@/lib/task-association';
+import { parseRule, ruleLabel, type RecurrenceRule, type RecurrenceFreq } from '@/lib/task-recurrence';
 
 type TaskDialogProps = {
   open: boolean;
@@ -27,37 +27,37 @@ type TaskDialogProps = {
 };
 
 type Inquiry = { id: string; rfq_number: string; title: string | null; updated_at: string };
-type Product = { id: string; name: string; customer_rfq_id: string | null };
 type Customer = { id: string; name: string; company: string | null };
+type AssocKind = 'none' | AssociationType;
+
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: TaskDialogProps) {
   const { assigneeCode } = useAuth();
   const isEdit = !!taskId;
 
-  const [mode, setMode] = useState<Mode>('inquiry');
+  const [assocType, setAssocType] = useState<AssocKind>('none');
   const [inquiryId, setInquiryId] = useState<string | null>(null);
-  const [productId, setProductId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [extId, setExtId] = useState('');        // SO / MO number
+  const [extDetail, setExtDetail] = useState(''); // customer/ref or SKU
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignee, setAssignee] = useState<string>('unassigned');
   const [dueDate, setDueDate] = useState<string>('');
   const [priority, setPriority] = useState<TaskPriority>('normal');
   const [status, setStatus] = useState<'open' | 'done'>('open');
+  const [rule, setRule] = useState<RecurrenceRule | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [inquiryOpen, setInquiryOpen] = useState(false);
-  const [productOpen, setProductOpen] = useState(false);
-  const [customerOpen, setCustomerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [assigneeOptions, setAssigneeOptions] = useState<string[]>([]);
 
-  // Load reference data when dialog opens
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -76,63 +76,50 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     })();
   }, [open]);
 
-  // Initialize fields when opening (edit or context-driven create)
   useEffect(() => {
     if (!open) return;
     (async () => {
       if (isEdit && taskId) {
         const { data } = await supabase.from('tasks').select('*').eq('id', taskId).maybeSingle();
         if (data) {
-          if (data.customer_id) setMode('customer'); else setMode('inquiry');
-          setInquiryId(data.inquiry_id);
-          setCustomerId(data.customer_id);
-          setProductId(data.product_id);
-          setTitle(data.title);
-          setDescription(data.description ?? '');
-          setAssignee(data.assignee ?? 'unassigned');
-          setDueDate(data.due_date ?? '');
-          setPriority((data.priority as TaskPriority) ?? 'normal');
-          setStatus((data.status as 'open' | 'done') ?? 'open');
-          setPhotoUrls(Array.isArray((data as any).photo_urls) ? ((data as any).photo_urls as string[]) : []);
+          const d: any = data;
+          const t: AssocKind = d.association_type
+            ?? (d.inquiry_id ? 'inquiry' : d.customer_id ? 'customer' : 'none');
+          setAssocType(t);
+          setInquiryId(d.inquiry_id);
+          setCustomerId(d.customer_id);
+          setExtId(t === 'odoo_so' || t === 'odoo_mo' ? (d.association_id ?? '') : '');
+          setExtDetail(t === 'odoo_so' || t === 'odoo_mo' ? (d.association_label ?? '') : '');
+          setTitle(d.title);
+          setDescription(d.description ?? '');
+          setAssignee(d.assignee ?? 'unassigned');
+          setDueDate(d.due_date ?? '');
+          setPriority((d.priority as TaskPriority) ?? 'normal');
+          setStatus((d.status as 'open' | 'done') ?? 'open');
+          setRule(parseRule(d.recurrence_rule));
+          setPhotoUrls(Array.isArray(d.photo_urls) ? d.photo_urls : []);
         }
         return;
       }
-      // create mode — apply context
       resetForm();
       if (context?.productId) {
         const { data: p } = await supabase
-          .from('products').select('id, name, customer_rfq_id').eq('id', context.productId).maybeSingle();
-        if (p) {
-          setMode('inquiry');
-          setInquiryId(p.customer_rfq_id ?? null);
-          setProductId(p.id);
-        }
+          .from('products').select('customer_rfq_id').eq('id', context.productId).maybeSingle();
+        if (p?.customer_rfq_id) { setAssocType('inquiry'); setInquiryId(p.customer_rfq_id); }
       } else if (context?.inquiryId) {
-        setMode('inquiry');
-        setInquiryId(context.inquiryId);
+        setAssocType('inquiry'); setInquiryId(context.inquiryId);
       } else if (context?.customerId) {
-        setMode('customer');
-        setCustomerId(context.customerId);
+        setAssocType('customer'); setCustomerId(context.customerId);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, taskId]);
 
-  // Load products when inquiry changes
-  useEffect(() => {
-    if (!inquiryId) { setProducts([]); return; }
-    (async () => {
-      const { data } = await supabase
-        .from('products').select('id, name, customer_rfq_id').eq('customer_rfq_id', inquiryId).order('name');
-      setProducts((data as any) ?? []);
-    })();
-  }, [inquiryId]);
-
   const resetForm = () => {
-    setMode('inquiry');
-    setInquiryId(null); setProductId(null); setCustomerId(null);
+    setAssocType('none');
+    setInquiryId(null); setCustomerId(null); setExtId(''); setExtDetail('');
     setTitle(''); setDescription(''); setAssignee(assigneeCode || 'unassigned');
-    setDueDate(''); setPriority('normal'); setStatus('open');
+    setDueDate(''); setPriority('normal'); setStatus('open'); setRule(null);
     setPhotoUrls([]);
   };
 
@@ -164,20 +151,32 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     }
   };
 
-  const removePhoto = (url: string) => {
-    setPhotoUrls(prev => prev.filter(u => u !== url));
+  const changeAssocType = (t: AssocKind) => {
+    setAssocType(t);
+    setInquiryId(null); setCustomerId(null); setExtId(''); setExtDetail('');
   };
 
-  const switchMode = (m: Mode) => {
-    setMode(m);
-    if (m === 'inquiry') { setCustomerId(null); }
-    else { setInquiryId(null); setProductId(null); }
+  const setFreq = (v: string) => {
+    if (v === 'none') { setRule(null); return; }
+    setRule(r => ({ freq: v as RecurrenceFreq, interval: r?.interval ?? 1, mode: r?.mode ?? 'due', weekdays: v === 'weekly' ? (r?.weekdays ?? []) : undefined }));
   };
 
   const handleSave = async (addAnother = false) => {
     if (!title.trim()) { toast.error('Title is required'); return; }
-    if (mode === 'inquiry' && !inquiryId) { toast.error('Inquiry is required'); return; }
-    if (mode === 'customer' && !customerId) { toast.error('Customer is required'); return; }
+    if (assocType === 'inquiry' && !inquiryId) { toast.error('Pick an inquiry or remove the link'); return; }
+    if (assocType === 'customer' && !customerId) { toast.error('Pick a customer or remove the link'); return; }
+    if ((assocType === 'odoo_so' || assocType === 'odoo_mo') && !extId.trim()) {
+      toast.error(`Enter the ${associationMeta(assocType)?.idLabel} or remove the link`); return;
+    }
+    if (rule && !dueDate) { toast.error('Repeating tasks need a first due date'); return; }
+
+    const inq = inquiries.find(i => i.id === inquiryId);
+    const cust = customers.find(c => c.id === customerId);
+    let association_id: string | null = null;
+    let association_label: string | null = null;
+    if (assocType === 'inquiry') { association_id = inquiryId; association_label = inq ? `${inq.rfq_number} ${inq.title ?? ''}`.trim() : null; }
+    if (assocType === 'customer') { association_id = customerId; association_label = cust?.name ?? null; }
+    if (assocType === 'odoo_so' || assocType === 'odoo_mo') { association_id = extId.trim(); association_label = extDetail.trim() || null; }
 
     setSaving(true);
     const payload: any = {
@@ -187,9 +186,13 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
       due_date: dueDate || null,
       priority,
       photo_urls: photoUrls,
-      inquiry_id: mode === 'inquiry' ? inquiryId : null,
-      customer_id: mode === 'customer' ? customerId : null,
-      product_id: mode === 'inquiry' ? productId : null,
+      association_type: assocType === 'none' ? null : assocType,
+      association_id,
+      association_label,
+      inquiry_id: assocType === 'inquiry' ? inquiryId : null,
+      customer_id: assocType === 'customer' ? customerId : null,
+      product_id: null,
+      recurrence_rule: rule,
     };
 
     let error;
@@ -205,18 +208,15 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     toast.success(isEdit ? 'Task updated' : 'Task created');
     onSaved?.();
     if (addAnother && !isEdit) {
-      // Keep context fields (inquiry/product/customer/assignee/priority/due) for fast bulk entry.
-      setTitle('');
-      setDescription('');
-      setPhotoUrls([]);
+      setTitle(''); setDescription(''); setPhotoUrls([]);
     } else {
       onOpenChange(false);
     }
   };
 
   const selectedInquiry = inquiries.find(i => i.id === inquiryId);
-  const selectedProduct = products.find(p => p.id === productId);
   const selectedCustomer = customers.find(c => c.id === customerId);
+  const meta = associationMeta(assocType);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -225,129 +225,6 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           <DialogTitle>{isEdit ? 'Edit task' : 'New task'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          {/* Mode toggle */}
-          <div className="flex rounded-md border p-0.5 bg-muted/30">
-            <button
-              type="button"
-              onClick={() => switchMode('inquiry')}
-              className={cn('flex-1 text-xs py-1.5 rounded-sm transition',
-                mode === 'inquiry' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground')}
-            >Inquiry</button>
-            <button
-              type="button"
-              onClick={() => switchMode('customer')}
-              className={cn('flex-1 text-xs py-1.5 rounded-sm transition',
-                mode === 'customer' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground')}
-            >Customer</button>
-          </div>
-
-          {mode === 'inquiry' && (
-            <>
-              <div>
-                <Label className="text-xs">Inquiry *</Label>
-                <Popover open={inquiryOpen} onOpenChange={setInquiryOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between h-9 text-sm font-normal mt-1">
-                      <span className="truncate">
-                        {selectedInquiry ? `${selectedInquiry.rfq_number} — ${selectedInquiry.title || 'Untitled'}` : 'Select inquiry...'}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search inquiries..." />
-                      <CommandList>
-                        <CommandEmpty>No inquiries.</CommandEmpty>
-                        <CommandGroup>
-                          {inquiries.map(i => (
-                            <CommandItem key={i.id} value={`${i.rfq_number} ${i.title ?? ''}`}
-                              onSelect={() => {
-                                if (inquiryId !== i.id) setProductId(null);
-                                setInquiryId(i.id); setInquiryOpen(false);
-                              }}>
-                              <Check className={cn('mr-2 h-4 w-4', inquiryId === i.id ? 'opacity-100' : 'opacity-0')} />
-                              <span className="truncate">{i.rfq_number} — {i.title || 'Untitled'}</span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {inquiryId && (
-                <div>
-                  <Label className="text-xs">Product (optional)</Label>
-                  <Popover open={productOpen} onOpenChange={setProductOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="w-full justify-between h-9 text-sm font-normal mt-1">
-                        <span className="truncate">{selectedProduct ? selectedProduct.name : 'No product'}</span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search products..." />
-                        <CommandList>
-                          <CommandEmpty>No products in this inquiry.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem value="__none__" onSelect={() => { setProductId(null); setProductOpen(false); }}>
-                              <Check className={cn('mr-2 h-4 w-4', !productId ? 'opacity-100' : 'opacity-0')} />
-                              <span className="text-muted-foreground">No product</span>
-                            </CommandItem>
-                            {products.map(p => (
-                              <CommandItem key={p.id} value={p.name}
-                                onSelect={() => { setProductId(p.id); setProductOpen(false); }}>
-                                <Check className={cn('mr-2 h-4 w-4', productId === p.id ? 'opacity-100' : 'opacity-0')} />
-                                <span className="truncate">{p.name}</span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
-            </>
-          )}
-
-          {mode === 'customer' && (
-            <div>
-              <Label className="text-xs">Customer *</Label>
-              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between h-9 text-sm font-normal mt-1">
-                    <span className="truncate">{selectedCustomer ? selectedCustomer.name : 'Select customer...'}</span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search customers..." />
-                    <CommandList>
-                      <CommandEmpty>No customers.</CommandEmpty>
-                      <CommandGroup>
-                        {customers.map(c => (
-                          <CommandItem key={c.id} value={`${c.name} ${c.company ?? ''}`}
-                            onSelect={() => { setCustomerId(c.id); setCustomerOpen(false); }}>
-                            <Check className={cn('mr-2 h-4 w-4', customerId === c.id ? 'opacity-100' : 'opacity-0')} />
-                            <div className="flex flex-col">
-                              <span>{c.name}</span>
-                              {customerSecondary(c) && <span className="text-xs text-muted-foreground">{customerSecondary(c)}</span>}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
           <div>
             <Label className="text-xs">Title *</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} className="mt-1 h-9" autoFocus={!isEdit} />
@@ -376,10 +253,10 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
                   <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -390,19 +267,142 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               <Label className="text-xs">Due date</Label>
               <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1 h-9 text-sm" />
             </div>
-            {isEdit && (
-              <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as 'open' | 'done')}>
-                  <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div>
+              <Label className="text-xs flex items-center gap-1"><Repeat className="h-3 w-3" />Repeat</Label>
+              <Select value={rule?.freq ?? 'none'} onValueChange={setFreq}>
+                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Does not repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {rule && (
+            <div className="rounded-md border bg-muted/30 p-2.5 space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <span>Every</span>
+                <Input
+                  type="number" min={1} value={rule.interval}
+                  onChange={e => setRule({ ...rule, interval: Math.max(1, Number(e.target.value) || 1) })}
+                  className="h-7 w-14 text-xs"
+                />
+                <span>{{ daily: 'day(s)', weekly: 'week(s)', monthly: 'month(s)', yearly: 'year(s)' }[rule.freq]}</span>
+                {rule.freq === 'monthly' && (
+                  <>
+                    <span>on day</span>
+                    <Input
+                      type="number" min={1} max={31} placeholder={dueDate ? String(Number(dueDate.slice(8, 10))) : '—'}
+                      value={rule.monthDay ?? ''}
+                      onChange={e => setRule({ ...rule, monthDay: e.target.value ? Math.min(31, Math.max(1, Number(e.target.value))) : undefined })}
+                      className="h-7 w-14 text-xs"
+                    />
+                  </>
+                )}
+              </div>
+              {rule.freq === 'weekly' && (
+                <div className="flex gap-1">
+                  {WEEKDAYS.map((w, i) => {
+                    const on = rule.weekdays?.includes(i);
+                    return (
+                      <button key={i} type="button"
+                        onClick={() => setRule({ ...rule, weekdays: on ? rule.weekdays!.filter(d => d !== i) : [...(rule.weekdays ?? []), i] })}
+                        className={cn('h-7 w-7 rounded-full text-[11px] border transition',
+                          on ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground')}
+                      >{w}</button>
+                    );
+                  })}
+                </div>
+              )}
+              <Select value={rule.mode} onValueChange={(v) => setRule({ ...rule, mode: v as any })}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="due">Schedule from the due date</SelectItem>
+                  <SelectItem value="completion">Schedule from when I complete it</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">{ruleLabel(rule, dueDate)}</p>
+            </div>
+          )}
+
+          {/* Single optional association */}
+          <div>
+            <Label className="text-xs">Associate with (optional)</Label>
+            <Select value={assocType} onValueChange={(v) => changeAssocType(v as AssocKind)}>
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nothing — general task</SelectItem>
+                {ASSOCIATION_TYPES.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {(assocType === 'inquiry' || assocType === 'customer') && (
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between h-9 text-sm font-normal mt-1.5">
+                    <span className="truncate">
+                      {assocType === 'inquiry'
+                        ? (selectedInquiry ? `${selectedInquiry.rfq_number} — ${selectedInquiry.title || 'Untitled'}` : 'Select inquiry...')
+                        : (selectedCustomer ? selectedCustomer.name : 'Select customer...')}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={assocType === 'inquiry' ? 'Search inquiries...' : 'Search customers...'} />
+                    <CommandList>
+                      <CommandEmpty>Nothing found.</CommandEmpty>
+                      <CommandGroup>
+                        {assocType === 'inquiry'
+                          ? inquiries.map(i => (
+                            <CommandItem key={i.id} value={`${i.rfq_number} ${i.title ?? ''}`}
+                              onSelect={() => { setInquiryId(i.id); setPickerOpen(false); }}>
+                              <Check className={cn('mr-2 h-4 w-4', inquiryId === i.id ? 'opacity-100' : 'opacity-0')} />
+                              <span className="truncate">{i.rfq_number} — {i.title || 'Untitled'}</span>
+                            </CommandItem>
+                          ))
+                          : customers.map(c => (
+                            <CommandItem key={c.id} value={`${c.name} ${c.company ?? ''}`}
+                              onSelect={() => { setCustomerId(c.id); setPickerOpen(false); }}>
+                              <Check className={cn('mr-2 h-4 w-4', customerId === c.id ? 'opacity-100' : 'opacity-0')} />
+                              <div className="flex flex-col">
+                                <span>{c.name}</span>
+                                {customerSecondary(c) && <span className="text-xs text-muted-foreground">{customerSecondary(c)}</span>}
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {(assocType === 'odoo_so' || assocType === 'odoo_mo') && meta && (
+              <div className="grid grid-cols-[1fr_1.4fr] gap-2 mt-1.5">
+                <Input value={extId} onChange={e => setExtId(e.target.value)} placeholder={meta.idPlaceholder} className="h-9 text-sm" aria-label={meta.idLabel} />
+                <Input value={extDetail} onChange={e => setExtDetail(e.target.value)} placeholder={meta.detailPlaceholder} className="h-9 text-sm" aria-label={meta.detailLabel} />
               </div>
             )}
           </div>
+
+          {isEdit && (
+            <div>
+              <Label className="text-xs">Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as 'open' | 'done')}>
+                <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="done">Done</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Photos */}
           <div>
@@ -435,7 +435,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                     </button>
                     <button
                       type="button"
-                      onClick={() => removePhoto(url)}
+                      onClick={() => setPhotoUrls(prev => prev.filter(u => u !== url))}
                       className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-background/90 border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground transition"
                       aria-label="Remove photo"
                     >
