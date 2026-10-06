@@ -17,6 +17,7 @@ import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
 import { customerSecondary } from '@/lib/customer-name';
 import { ASSOCIATION_TYPES, type AssociationType, associationMeta } from '@/lib/task-association';
 import { parseRule, ruleLabel, type RecurrenceRule, type RecurrenceFreq } from '@/lib/task-recurrence';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 
 type TaskDialogProps = {
   open: boolean;
@@ -448,6 +449,22 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
+          {isEdit && taskId && (
+            <div className="sm:mr-auto">
+              <ConfirmDeleteButton
+                itemLabel="task"
+                description="This permanently removes the task. For a repeating task, it stops all future repeats. Completed history entries are kept."
+                buttonSize="default"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                onConfirm={async () => {
+                  const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+                  if (error) throw error;
+                  onSaved?.();
+                  onOpenChange(false);
+                }}
+              />
+            </div>
+          )}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           {!isEdit && (
             <Button variant="secondary" onClick={() => handleSave(true)} disabled={saving}>
