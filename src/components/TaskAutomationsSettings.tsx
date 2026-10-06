@@ -19,6 +19,7 @@ export default function TaskAutomationsSettings() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [token, setToken] = useState<string | null>(null);
+  const [assignees, setAssignees] = useState<string[]>([]);
 
   const load = async () => {
     const { data, error } = await (supabase as any).from('task_automation_rules').select('*').order('created_at');
@@ -28,7 +29,14 @@ export default function TaskAutomationsSettings() {
     const { data: cfg } = await (supabase as any).from('task_automation_config').select('webhook_token').eq('id', 1).maybeSingle();
     setToken(cfg?.webhook_token ?? null);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    (supabase as any).from('profiles').select('assignee_code').then(({ data }: any) => {
+      const set = new Set<string>();
+      (data ?? []).forEach((r: any) => r.assignee_code && set.add(r.assignee_code));
+      setAssignees([...set].sort());
+    });
+  }, []);
 
   const patch = (id: string, p: Partial<Rule>) => {
     setRules(rs => rs.map(r => r.id === id ? { ...r, ...p } : r));
@@ -93,7 +101,13 @@ export default function TaskAutomationsSettings() {
               {r.tasks.map((t, i) => (
                 <div key={i} className="grid grid-cols-[1fr_90px_100px_90px_32px] gap-2">
                   <Input value={t.title} onChange={e => patchTask(r, i, { title: e.target.value })} className="h-8 text-sm" />
-                  <Input value={t.assignee ?? ''} placeholder="—" onChange={e => patchTask(r, i, { assignee: e.target.value || null })} className="h-8 text-sm" />
+                  <Select value={t.assignee ?? '__none'} onValueChange={v => patchTask(r, i, { assignee: v === '__none' ? null : v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Unassigned</SelectItem>
+                      {[...new Set([...assignees, ...(t.assignee ? [t.assignee] : [])])].map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <Select value={t.priority ?? 'normal'} onValueChange={v => patchTask(r, i, { priority: v as any })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -121,20 +135,20 @@ export default function TaskAutomationsSettings() {
       <Card>
         <CardContent className="pt-4 space-y-2 text-xs">
           <div className="font-semibold text-sm">Connecting Odoo</div>
-          <p className="text-muted-foreground">In Odoo, create an Automation Rule (e.g. on Sales Order when Status becomes "Sales Order") with action "Send Webhook Notification" or a small Python action that POSTs JSON to this address:</p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded bg-muted px-2 py-1">{WEBHOOK_URL}</code>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(WEBHOOK_URL)}><Copy className="h-3.5 w-3.5" /></Button>
-          </div>
-          {token ? (
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground shrink-0">Header <code>x-webhook-token</code>:</span>
-              <code className="flex-1 truncate rounded bg-muted px-2 py-1">{token}</code>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(token)}><Copy className="h-3.5 w-3.5" /></Button>
-            </div>
-          ) : (
-            <p className="text-muted-foreground italic">{isAdmin === false ? 'Only admins can see the webhook token.' : 'Loading token…'}</p>
+          <p className="text-muted-foreground">In Odoo, create an Automation Rule (e.g. Sales Order, trigger "State is set to" Sales Order) with action <b>Send Webhook Notification</b>, and paste the URL for that event. Fields: SO → Order Reference, Customer, Customer Reference; MO → Reference, Product, Source.</p>
+          {token ? TASK_TRIGGERS.map(t => {
+            const url = `${WEBHOOK_URL}?token=${token}&event=${t.value}`;
+            return (
+              <div key={t.value} className="flex items-center gap-2">
+                <span className="w-40 shrink-0 text-muted-foreground">{t.label}</span>
+                <code className="flex-1 truncate rounded bg-muted px-2 py-1">{url}</code>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(url)}><Copy className="h-3.5 w-3.5" /></Button>
+              </div>
+            );
+          }) : (
+            <p className="text-muted-foreground italic">{isAdmin === false ? 'Only admins can see the webhook URLs (they contain the secret token).' : 'Loading…'}</p>
           )}
+          <p className="text-muted-foreground">Keep these URLs private — they contain the token.</p>
           <pre className="rounded bg-muted p-2 text-[11px] overflow-x-auto">{`{
   "event": "so_confirmed",        // ${TASK_TRIGGERS.map(t => t.value).join(' | ')}
   "so_number": "S00108",
