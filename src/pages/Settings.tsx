@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
 import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
+import TaskAutomationsSettings from '@/components/TaskAutomationsSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -388,7 +389,7 @@ function WrappingSettings() {
 }
 
 type SectionId =
-  | 'general' | 'entities' | 'team' | 'integrations'
+  | 'general' | 'entities' | 'team' | 'integrations' | 'task-automations'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
@@ -405,6 +406,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
       { id: 'entities', label: 'Company entities' },
       { id: 'team', label: 'Team' },
       { id: 'integrations', label: 'Integrations' },
+      { id: 'task-automations', label: 'Task automations' },
     ],
   },
   {
@@ -461,7 +463,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
+const VALID_SECTIONS: SectionId[] = ['task-automations','general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -512,6 +514,7 @@ const Settings = () => {
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'team': return <TeamManagementContent />;
+      case 'task-automations': return <TaskAutomationsSettings />;
       case 'currencies': return <CurrenciesSettings />;
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
       case 'data-export': return <DataExportSection />;
