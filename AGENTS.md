@@ -1,0 +1,3 @@
+- Tasks link to at most one thing via association_type/association_id/association_label (inquiry_id/customer_id kept in sync for existing views; product_id deprecated) — new link kinds need no schema change.
+- Recurring tasks are one living row: completing logs a done copy and rolls due_date forward (src/lib/task-recurrence.ts) — keeps the open list clean with history preserved.
+- Odoo-triggered task sets come from task_automation_rules via the odoo-task-webhook function, authenticated by the admin-only token in task_automation_config — Odoo pushes events, HQ never polls.
