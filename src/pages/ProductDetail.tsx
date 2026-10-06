@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingTab } from '@/components/ProductCostingTab';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
-import { ProductTasksTab } from '@/components/ProductTasksTab';
 
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
 import { Input } from '@/components/ui/input';
@@ -39,7 +38,7 @@ type ProductHeader = {
   inspiration_url: string | null;
 };
 
-const VALID_TABS = ['costing', 'variants', 'sample-log', 'tasks', 'summary'] as const;
+const VALID_TABS = ['costing', 'variants', 'sample-log', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 const ProductDetail = () => {
@@ -332,7 +331,6 @@ const ProductDetail = () => {
             options={[
               { value: 'costing', label: 'Costing', icon: DollarSign },
               { value: 'sample-log', label: 'Sample Log', icon: Package2 },
-              { value: 'tasks', label: 'Tasks', icon: ListChecks },
               { value: 'summary', label: 'Summary', icon: FileText },
             ]}
           />
@@ -345,9 +343,6 @@ const ProductDetail = () => {
           </TabsContent>
           <TabsContent value="sample-log">
             {activeTab === 'sample-log' && <ProductSampleLogTab productId={product.id} />}
-          </TabsContent>
-          <TabsContent value="tasks">
-            {activeTab === 'tasks' && <ProductTasksTab productId={product.id} inquiryId={product.customer_rfq_id} />}
           </TabsContent>
         </Tabs>
       </div>

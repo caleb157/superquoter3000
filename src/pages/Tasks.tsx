@@ -22,12 +22,10 @@ export default function Tasks() {
   useScrollRestoration('tasks.scroll', true);
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null; customer_id: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
 
   const [filterCustomer, setFilterCustomer] = useState<string>('all');
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
-  const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const userTouchedAssignee = useRef(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
@@ -81,16 +79,6 @@ export default function Tasks() {
     })();
   }, [refreshKey, assigneeCode]);
 
-  useEffect(() => {
-    if (filterInquiry === 'all') { setProducts([]); setFilterProduct('all'); return; }
-    (async () => {
-      const { data } = await supabase
-        .from('products').select('id, name').eq('customer_rfq_id', filterInquiry).order('name');
-      setProducts((data as any) ?? []);
-      setFilterProduct('all');
-    })();
-  }, [filterInquiry]);
-
   // Clear inquiry/product if the selected customer doesn't own them
   const visibleInquiries = filterCustomer === 'all'
     ? inquiries
@@ -99,7 +87,7 @@ export default function Tasks() {
   useEffect(() => {
     if (filterCustomer !== 'all' && filterInquiry !== 'all') {
       const belongs = visibleInquiries.some(i => i.id === filterInquiry);
-      if (!belongs) { setFilterInquiry('all'); setFilterProduct('all'); }
+      if (!belongs) { setFilterInquiry('all'); }
     }
   }, [filterCustomer]);
 
@@ -145,14 +133,6 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
-              <Select value={filterProduct} onValueChange={setFilterProduct} disabled={filterInquiry === 'all'}>
-                <SelectTrigger className="h-9 text-sm lg:w-48"><SelectValue placeholder="All products" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All products</SelectItem>
-                  {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-
               <Select value={filterAssignee} onValueChange={handleAssigneeChange}>
                 <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -180,7 +160,6 @@ export default function Tasks() {
 
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
-              productId={filterProduct !== 'all' ? filterProduct : undefined}
               customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
               assignee={filterAssignee}
               status={filterStatus}
@@ -201,7 +180,7 @@ export default function Tasks() {
 
 const SORT_COLUMNS: { key: TaskSortKey; label: string; className: string }[] = [
   { key: 'title',      label: 'Title',    className: 'flex-1 min-w-0' },
-  { key: 'inquiry',    label: 'Inquiry',  className: 'hidden md:block w-32 lg:w-40 shrink-0' },
+  { key: 'inquiry',    label: 'Linked to', className: 'hidden md:block w-32 lg:w-40 shrink-0' },
   { key: 'due_date',   label: 'Due',      className: 'w-16 shrink-0 text-right' },
   { key: 'priority',   label: 'Priority', className: 'w-16 shrink-0 text-right' },
   { key: 'status',     label: 'Status',   className: 'w-16 shrink-0 text-right' },
@@ -215,8 +194,7 @@ function SortHeaderBar({
   return (
     <div className="hidden sm:flex items-center gap-2 px-1 py-1.5 border-b text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
       {/* spacers matching row layout: checkbox + priority dot */}
-      <span className="w-4 shrink-0" aria-hidden />
-      <span className="w-2 shrink-0" aria-hidden />
+      <span className="w-[18px] shrink-0" aria-hidden />
       {SORT_COLUMNS.map(col => {
         const active = sort === col.key;
         const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
