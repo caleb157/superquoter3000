@@ -4,10 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Paperclip } from 'lucide-react';
+import { Pencil, Paperclip, Flag, Repeat } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatDueDate, priorityColor } from '@/lib/task-helpers';
+import { formatDueDate, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
+import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
+import { associationMeta } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
 import type { TaskWithRefs, DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
@@ -58,10 +60,9 @@ export function TaskList({
       }
 
       let q = supabase.from('tasks').select(
-        '*, inquiry:customer_rfqs(id, rfq_number, title), customer:customers(id, name, company), product:products(id, name)'
+        '*, inquiry:customer_rfqs(id, rfq_number, title), customer:customers(id, name, company)'
       );
       if (inquiryId) q = q.eq('inquiry_id', inquiryId);
-      if (productId) q = q.eq('product_id', productId);
       if (customerId) q = q.eq('customer_id', customerId);
       if (customerIdIncludingInquiries) {
         if (inquiryIdsForCustomer && inquiryIdsForCustomer.length > 0) {
@@ -136,6 +137,24 @@ export function TaskList({
   }, [tasks, dueWindow, sort, sortDir, maxItems]);
 
   const toggleStatus = async (t: TaskWithRefs) => {
+    const rule = parseRule((t as any).recurrence_rule);
+    // Recurring: log a completed copy, then roll the living task forward.
+    if (rule && t.status === 'open') {
+      const next = nextDueDate(rule, t.due_date);
+      const a: any = t;
+      const { error: logErr } = await supabase.from('tasks').insert({
+        title: t.title, description: t.description, assignee: t.assignee, due_date: t.due_date,
+        priority: t.priority, status: 'done', inquiry_id: t.inquiry_id, customer_id: t.customer_id,
+        association_type: a.association_type, association_id: a.association_id, association_label: a.association_label,
+        photo_urls: a.photo_urls ?? [],
+      } as any);
+      if (logErr) { toast.error(logErr.message); return; }
+      const { error } = await supabase.from('tasks').update({ due_date: next }).eq('id', t.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success(`Done — next due ${formatDueDate(next).text}`);
+      setInternalRefresh(k => k + 1);
+      return;
+    }
     const next = t.status === 'done' ? 'open' : 'done';
     setTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: next } : x));
     const { error } = await supabase.from('tasks').update({ status: next }).eq('id', t.id);
@@ -160,22 +179,28 @@ export function TaskList({
           const createdLabel = t.created_at
             ? new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
             : '';
-          const anchorBadge = showAnchorLinks && (t.inquiry
-            ? <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
-                <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
-              </Link>
-            : t.product
-            ? <Link to={`/product/${t.product.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
-                <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.product.name}</Badge>
-              </Link>
-            : t.customer
-            ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
+          const rule = parseRule((t as any).recurrence_rule);
+          const aType: string | null = (t as any).association_type ?? (t.inquiry ? 'inquiry' : t.customer ? 'customer' : null);
+          const aLabel: string | null = (t as any).association_label;
+          const aId: string | null = (t as any).association_id;
+          const anchorBadge = showAnchorLinks && (
+            aType === 'inquiry' && t.inquiry
+              ? <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                  <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
+                </Link>
+            : aType === 'customer' && t.customer
+              ? <Link to={`/customers/${t.customer.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
+                </Link>
+            : (aType === 'odoo_so' || aType === 'odoo_mo') && aId
+              ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate font-mono" title={[aId, aLabel].filter(Boolean).join(' · ')}>
+                  {associationMeta(aType)?.short} {aId}{aLabel ? ` · ${aLabel}` : ''}
+                </Badge>
             : null);
 
           const mobileCard = !compact && (
-            <div className="sm:hidden flex items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm">
-              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className="shrink-0 mt-0.5" />
-              <span className={cn('h-2 w-2 rounded-full shrink-0 mt-2', priorityColor(t.priority))} />
+            <div className={cn('sm:hidden flex items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
+              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className={cn('shrink-0 mt-0.5 h-5 w-5 rounded-full border-2', priorityRing(t.priority))} />
               <button onClick={() => setEditId(t.id)} className="flex-1 min-w-0 text-left space-y-1">
                 <div className={cn('text-sm font-medium leading-snug break-words', t.status === 'done' && 'line-through text-muted-foreground')}>
                   {t.title}
@@ -189,7 +214,10 @@ export function TaskList({
                     'text-[10px] px-1.5 py-0.5 rounded capitalize',
                     t.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700',
                   )}>{t.status === 'done' ? 'Done' : 'Open'}</span>
-                  <span className="text-[10px] text-muted-foreground capitalize">{t.priority}</span>
+                  <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium', priorityText(t.priority))}>
+                    <Flag className={cn('h-3.5 w-3.5', (t.priority === 'urgent' || t.priority === 'high') && 'fill-current')} />{PRIORITY_LABEL[t.priority] ?? t.priority}
+                  </span>
+                  {rule && <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><Repeat className="h-3 w-3" />{ruleLabel(rule, t.due_date)}</span>}
                   {t.assignee && <span className="text-[10px] text-muted-foreground">· {t.assignee}</span>}
                   {photos.length > 0 && (
                     <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
@@ -203,9 +231,8 @@ export function TaskList({
           );
 
           const rowInner = (
-            <div className={cn('hidden sm:flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm')}>
-              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className="shrink-0" />
-              <span className={cn('h-2 w-2 rounded-full shrink-0', priorityColor(t.priority))} />
+            <div className={cn('hidden sm:flex items-center gap-2 py-2 px-1 group', 'hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
+              <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className={cn('shrink-0 h-[18px] w-[18px] rounded-full border-2', priorityRing(t.priority))} />
 
               {/* Title column */}
               <div className="flex-1 min-w-0 flex items-center gap-1.5">
@@ -213,6 +240,11 @@ export function TaskList({
                   onClick={() => setEditId(t.id)}
                   className={cn('text-sm text-left min-w-0 truncate', t.status === 'done' && 'line-through text-muted-foreground')}
                 >{t.title}</button>
+                {rule && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0" title={ruleLabel(rule, t.due_date)}>
+                    <Repeat className="h-3 w-3" />
+                  </span>
+                )}
                 {photos.length > 0 && (
                   <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0" title={`${photos.length} photo${photos.length === 1 ? '' : 's'} attached`}>
                     <Paperclip className="h-3 w-3" />
@@ -221,22 +253,10 @@ export function TaskList({
                 )}
               </div>
 
-              {/* Inquiry column */}
+              {/* Association column */}
               {!compact && (
                 <div className="hidden md:flex items-center gap-1 w-32 lg:w-40 shrink-0 min-w-0">
-                  {showAnchorLinks && t.inquiry && (
-                    <Link to={`/inquiry/${t.inquiry.id}`} onClick={e => e.stopPropagation()} className="min-w-0">
-                      <Badge variant="secondary" className="text-[10px] h-5 max-w-full truncate">{t.inquiry.title || t.inquiry.rfq_number}</Badge>
-                    </Link>
-                  )}
-                  {showAnchorLinks && !t.inquiry && t.product && (
-                    <Link to={`/product/${t.product.id}`} onClick={e => e.stopPropagation()} className="min-w-0">
-                      <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{t.product.name}</Badge>
-                    </Link>
-                  )}
-                  {showAnchorLinks && !t.inquiry && !t.product && t.customer && (
-                    <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
-                  )}
+                  {anchorBadge}
                 </div>
               )}
 
@@ -249,8 +269,9 @@ export function TaskList({
               </div>
 
               {/* Priority column */}
-              <div className="w-16 shrink-0 text-right">
-                <span className="text-[11px] text-muted-foreground capitalize">{t.priority}</span>
+              <div className="w-16 shrink-0 flex items-center justify-end gap-1">
+                <Flag className={cn('h-4 w-4', priorityText(t.priority), (t.priority === 'urgent' || t.priority === 'high') && 'fill-current')} />
+                <span className={cn('text-[11px] font-medium', priorityText(t.priority))}>{PRIORITY_LABEL[t.priority] ?? t.priority}</span>
               </div>
 
               {/* Status column */}
