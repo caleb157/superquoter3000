@@ -43,8 +43,8 @@ function normalize(raw: any, qEvent: string | null) {
   return { event, so_number: str(raw.name), customer: m2o(raw.partner_id), customer_ref: str(raw.client_order_ref) };
 }
 
-// Looks up res.partner name by id via Odoo JSON-RPC; returns null on any failure (2s budget).
-async function partnerName(id: number): Promise<string | null> {
+// Reads one Odoo record by id via JSON-RPC; returns null on any failure (2s budget).
+async function odooRead(model: string, id: number, fields: string[]): Promise<Record<string, unknown> | null> {
   const url = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
   const db = Deno.env.get('ODOO_DB') ?? 'parableventures';
   const user = Deno.env.get('ODOO_USERNAME') ?? '';
@@ -63,12 +63,24 @@ async function partnerName(id: number): Promise<string | null> {
   try {
     const uid = await rpc('common', 'authenticate', [db, user, key, {}]);
     if (!uid) return null;
-    const res = await rpc('object', 'execute_kw', [db, uid, key, 'res.partner', 'read', [[id]], { fields: ['name'], context: { active_test: false } }]);
-    return res?.[0]?.name ? String(res[0].name) : null;
+    const res = await rpc('object', 'execute_kw', [db, uid, key, model, 'read', [[id]], { fields, context: { active_test: false } }]);
+    return res?.[0] ?? null;
   } catch (e) {
-    console.log('partner lookup failed', String(e));
+    console.log(`${model} lookup failed`, String(e));
     return null;
   }
+}
+
+async function partnerName(id: number): Promise<string | null> {
+  const r = await odooRead('res.partner', id, ['name']);
+  return r?.name ? String(r.name) : null;
+}
+
+// Prefers the product's Internal Reference (short SKU), falling back to its name.
+async function productSku(id: number): Promise<string | null> {
+  const r = await odooRead('product.product', id, ['default_code', 'name']);
+  if (!r) return null;
+  return str(r.default_code) ?? str(r.name);
 }
 
 Deno.serve(async (req) => {
@@ -90,6 +102,11 @@ Deno.serve(async (req) => {
   if (p.customer && /^\d+$/.test(p.customer)) {
     const name = await partnerName(Number(p.customer));
     if (name) p.customer = name;
+  }
+  // Same for product_id on MOs: resolve to the short SKU.
+  if (p.sku && /^\d+$/.test(p.sku)) {
+    const sku = await productSku(Number(p.sku));
+    if (sku) p.sku = sku;
   }
 
   const isMo = p.event.startsWith('mo_');
