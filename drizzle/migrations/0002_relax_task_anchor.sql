@@ -1,0 +1,2 @@
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_anchor_chk;
+ALTER TABLE public.tasks ADD CONSTRAINT tasks_anchor_chk CHECK (NOT (inquiry_id IS NOT NULL AND customer_id IS NOT NULL) OR inquiry_id IS NOT NULL);

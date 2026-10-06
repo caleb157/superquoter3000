@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
 
   let raw: any;
   try { raw = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
+  console.log("odoo-task-webhook payload", JSON.stringify(raw).slice(0, 2000), "event=", new URL(req.url).searchParams.get("event"));
   const parsed = Body.safeParse(normalize(raw, new URL(req.url).searchParams.get('event')));
   if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
   const p = parsed.data;
