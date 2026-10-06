@@ -2446,6 +2446,24 @@ export type Database = {
         }
         Relationships: []
       }
+      task_automation_config: {
+        Row: {
+          id: number
+          updated_at: string
+          webhook_token: string
+        }
+        Insert: {
+          id?: number
+          updated_at?: string
+          webhook_token?: string
+        }
+        Update: {
+          id?: number
+          updated_at?: string
+          webhook_token?: string
+        }
+        Relationships: []
+      }
       task_automation_rules: {
         Row: {
           active: boolean
