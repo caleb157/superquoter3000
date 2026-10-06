@@ -2446,9 +2446,42 @@ export type Database = {
         }
         Relationships: []
       }
+      task_automation_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          tasks: Json
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          tasks?: Json
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          tasks?: Json
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee: string | null
+          association_id: string | null
+          association_label: string | null
+          association_type: string | null
           completed_at: string | null
           created_at: string
           customer_id: string | null
@@ -2459,12 +2492,17 @@ export type Database = {
           photo_urls: Json
           priority: string
           product_id: string | null
+          recurrence_rule: Json | null
+          source_event: string | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
           assignee?: string | null
+          association_id?: string | null
+          association_label?: string | null
+          association_type?: string | null
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
@@ -2475,12 +2513,17 @@ export type Database = {
           photo_urls?: Json
           priority?: string
           product_id?: string | null
+          recurrence_rule?: Json | null
+          source_event?: string | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
           assignee?: string | null
+          association_id?: string | null
+          association_label?: string | null
+          association_type?: string | null
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
@@ -2491,6 +2534,8 @@ export type Database = {
           photo_urls?: Json
           priority?: string
           product_id?: string | null
+          recurrence_rule?: Json | null
+          source_event?: string | null
           status?: string
           title?: string
           updated_at?: string

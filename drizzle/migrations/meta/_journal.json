@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791263274950,
+      "tag": "0000_tasks_association_recurrence_automation",
+      "breakpoints": true
+    }
+  ]
+}
