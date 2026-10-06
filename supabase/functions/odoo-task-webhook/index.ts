@@ -18,6 +18,31 @@ const Body = z.object({
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
+// Odoo many2one values arrive as [id, "Name"], {id, display_name}, or plain strings.
+const m2o = (v: unknown): string | null => {
+  if (v == null || v === false) return null;
+  if (Array.isArray(v)) return v[1] != null ? String(v[1]) : null;
+  if (typeof v === 'object') { const o = v as any; return o.display_name ?? o.name ?? null; }
+  return String(v);
+};
+const str = (v: unknown): string | null => (v == null || v === false || v === '' ? null : String(v));
+
+// Accepts our clean format or Odoo's native "Send Webhook Notification" payload (event via ?event=).
+function normalize(raw: any, qEvent: string | null) {
+  if (!raw || typeof raw !== 'object') return raw;
+  const event = raw.event ?? qEvent;
+  if (raw.so_number || raw.mo_number) return { ...raw, event };
+  const model = String(raw._model ?? '');
+  const isMo = model === 'mrp.production' || String(event ?? '').startsWith('mo_');
+  if (isMo) {
+    // product_id display is often "[SKU] Name"; prefer default_code if sent.
+    const prod = m2o(raw.product_id);
+    const sku = str(raw.default_code) ?? (prod?.match(/^\[([^\]]+)\]/)?.[1] ?? prod);
+    return { event, mo_number: str(raw.name), sku, so_number: str(raw.origin) };
+  }
+  return { event, so_number: str(raw.name), customer: m2o(raw.partner_id), customer_ref: str(raw.client_order_ref) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -27,9 +52,9 @@ Deno.serve(async (req) => {
   const { data: cfg } = await admin.from('task_automation_config').select('webhook_token').eq('id', 1).maybeSingle();
   if (!token || !cfg || token !== cfg.webhook_token) return json({ error: 'Unauthorized' }, 401);
 
-  let raw: unknown;
+  let raw: any;
   try { raw = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
-  const parsed = Body.safeParse(raw);
+  const parsed = Body.safeParse(normalize(raw, new URL(req.url).searchParams.get('event')));
   if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
   const p = parsed.data;
 
