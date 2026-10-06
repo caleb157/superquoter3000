@@ -43,6 +43,34 @@ function normalize(raw: any, qEvent: string | null) {
   return { event, so_number: str(raw.name), customer: m2o(raw.partner_id), customer_ref: str(raw.client_order_ref) };
 }
 
+// Looks up res.partner name by id via Odoo JSON-RPC; returns null on any failure (2s budget).
+async function partnerName(id: number): Promise<string | null> {
+  const url = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
+  const db = Deno.env.get('ODOO_DB') ?? 'parableventures';
+  const user = Deno.env.get('ODOO_USERNAME') ?? '';
+  const key = Deno.env.get('ODOO_API_KEY') ?? '';
+  if (!url || !user || !key) return null;
+  const signal = AbortSignal.timeout(2000);
+  const rpc = async (service: string, method: string, args: unknown[]) => {
+    const r = await fetch(`${url}/jsonrpc`, {
+      method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: 1 }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error?.data?.message ?? 'odoo error');
+    return j.result;
+  };
+  try {
+    const uid = await rpc('common', 'authenticate', [db, user, key, {}]);
+    if (!uid) return null;
+    const res = await rpc('object', 'execute_kw', [db, uid, key, 'res.partner', 'read', [[id]], { fields: ['name'], context: { active_test: false } }]);
+    return res?.[0]?.name ? String(res[0].name) : null;
+  } catch (e) {
+    console.log('partner lookup failed', String(e));
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -58,6 +86,11 @@ Deno.serve(async (req) => {
   const parsed = Body.safeParse(normalize(raw, new URL(req.url).searchParams.get('event')));
   if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
   const p = parsed.data;
+  // Odoo's native webhook sends partner_id as a bare integer; resolve it to the name.
+  if (p.customer && /^\d+$/.test(p.customer)) {
+    const name = await partnerName(Number(p.customer));
+    if (name) p.customer = name;
+  }
 
   const isMo = p.event.startsWith('mo_');
   const vars: Record<string, string> = {
