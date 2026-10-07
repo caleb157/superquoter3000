@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Copy } from 'lucide-react';
+import { Bar, BarChart, Cell, ComposedChart, Line, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Copy, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -78,6 +79,7 @@ export function ProjectionsZone(p: Props) {
     const opening = ccy === 'USD' ? p.openingCash / (snapshot?.inr_per_usd || hqRate) : p.openingCash;
     return cashflowTable(items, months, ccy, oh, opening);
   }, [snapshot, pipe, includePipeline, ccy, hqRate, months, p.openingCash]);
+  const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
   const rows = CASH_ROWS.filter(r => includePipeline || !r.key.startsWith('pipeline'));
 
   const copyCash = () => {
@@ -129,6 +131,33 @@ export function ProjectionsZone(p: Props) {
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
+        <CardContent className="pt-0">
+          <TableToggle label="View monthly capacity breakdown">
+            <Table className="text-xs">
+              <TableHeader><TableRow>
+                <TableHead>Month</TableHead><TableHead className="text-right">Booked MO hrs</TableHead>
+                {includePipeline && <TableHead className="text-right">Pipeline hrs</TableHead>}
+                <TableHead className="text-right">Total demand</TableHead><TableHead className="text-right">Capacity</TableHead><TableHead className="text-right">Utilization</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {capRows.map(r => {
+                  const total = r.booked + (includePipeline ? r.pipeline : 0);
+                  const util = capacity > 0 ? total / capacity : null;
+                  return (
+                    <TableRow key={r.month}>
+                      <TableCell>{r.month}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.booked.toLocaleString()}</TableCell>
+                      {includePipeline && <TableCell className="text-right tabular-nums">{r.pipeline.toLocaleString()}</TableCell>}
+                      <TableCell className="text-right tabular-nums font-medium">{total.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{capacity > 0 ? Math.round(capacity).toLocaleString() : '—'}</TableCell>
+                      <TableCell className={cn('text-right tabular-nums', util != null && util > 1 && 'text-destructive font-medium')}>{util == null ? '—' : `${Math.round(util * 100)}%`}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableToggle>
+        </CardContent>
       </Card>
 
       {/* Cash flow */}
@@ -145,8 +174,26 @@ export function ProjectionsZone(p: Props) {
             <Button size="sm" variant="outline" className="h-7" onClick={copyCash}><Copy className="h-3 w-3 mr-1" />Copy</Button>
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {!snapshot ? <p className="text-sm text-muted-foreground py-6 text-center">Refresh from Odoo & LaborTrax to load actuals.</p> : (
+        <CardContent>
+          {!snapshot ? <p className="text-sm text-muted-foreground py-6 text-center">Refresh from Odoo & LaborTrax to load actuals.</p> : (<>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={cashChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => fmtMoney(v, ccy)} width={70} />
+                <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', fontSize: 12 }} formatter={(v: number) => fmtMoney(v, ccy, false)} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
+                <Bar dataKey="net" name="Net cash flow">
+                  {cashChart.map((d, i) => <Cell key={i} fill={d.net < 0 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />)}
+                </Bar>
+                <Line type="monotone" dataKey="ending" name="Ending cash" stroke="hsl(var(--warning))" strokeWidth={2} dot={{ r: 2 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <TableToggle label="View cash flow breakdown table">
+          <div className="overflow-x-auto">
             <Table className="text-xs">
               <TableHeader><TableRow>
                 <TableHead className="sticky left-0 bg-card min-w-[190px]" />
@@ -181,7 +228,9 @@ export function ProjectionsZone(p: Props) {
                 </TableRow>
               </TableBody>
             </Table>
-          )}
+          </div>
+          </TableToggle>
+          </>)}
           {snapshot && <p className="text-[11px] text-muted-foreground mt-2">
             Overdue items roll to this month (POs to tomorrow). Customer and vendor advances are applied to each partner's earliest items first. Amounts include GST. Click any figure for its line items.
           </p>}
@@ -231,5 +280,19 @@ function Section({ title, rows }: { title: string; rows: (string | null)[][] }) 
         <Table><TableBody>{rows.map((r, i) => <TableRow key={i}>{r.map((c, j) => <TableCell key={j} className={cn('py-1', j === r.length - 1 && 'text-right tabular-nums')}>{c ?? '—'}</TableCell>)}</TableRow>)}</TableBody></Table>
       )}
     </div>
+  );
+}
+
+function TableToggle({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-muted-foreground">
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !open && '-rotate-90')} />{label}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
