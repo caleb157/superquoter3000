@@ -390,7 +390,7 @@ function WrappingSettings() {
 }
 
 type SectionId =
-  | 'general' | 'entities' | 'team' | 'integrations' | 'task-automations'
+  | 'general' | 'entities' | 'team' | 'integrations' | 'task-automations' | 'projections'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
