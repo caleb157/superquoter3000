@@ -234,23 +234,22 @@ const LENSES: { id: string; label: string; hint: string; cols: LensCol[] }[] = [
   {
     id: 'packaging', label: 'Packaging & CBM', hint: 'Piece size, box types and master carton limits → packed CBM',
     cols: [
-      { id: 'pkg_type', label: 'Packaging', width: 'w-[130px]', edit: 'select', flagKey: 'packaging_type', options: () => PACKAGING_OPTS,
+      { id: 'pkg_type', label: 'Packaging', width: 'w-[110px]', edit: 'select', flagKey: 'packaging_type', options: () => PACKAGING_OPTS,
         get: r => r.p.packaging_type || 'ic_mc', target: { kind: 'product', field: 'packaging_type' } },
-      { id: 'piece_dims', label: 'Piece W×D×H"', width: 'w-[130px]', edit: 'dims',
+      { id: 'piece_dims', label: 'Piece W×D×H"', width: 'w-[110px]', edit: 'dims',
         get: r => dimsStr(r.p.width_inch, r.p.depth_inch, r.p.height_inch), target: { kind: 'product_dims', fields: ['width_inch', 'depth_inch', 'height_inch'] } },
       { id: 'weight', label: 'Wt kg', width: 'w-[68px]', edit: 'num', get: r => r.p.weight_kg ?? 0, target: { kind: 'product', field: 'weight_kg' } },
-      { id: 'ic_type', label: 'IC ply', width: 'w-[92px]', edit: 'select', options: boxOpts, get: r => r.cbmRow?.ic_type || '7 ply', target: { kind: 'cbm', field: 'ic_type' } },
+      { id: 'ic_type', label: 'IC ply', width: 'w-[76px]', edit: 'select', options: boxOpts, get: r => r.cbmRow?.ic_type || '7 ply', target: { kind: 'cbm', field: 'ic_type' } },
       { id: 'per_ic', label: 'Pcs/IC', width: 'w-[64px]', edit: 'num', get: r => r.cbmRow?.products_per_ic || 1, target: { kind: 'cbm', field: 'products_per_ic' } },
-      { id: 'mc_type', label: 'MC ply', width: 'w-[92px]', edit: 'select', options: boxOpts, get: r => r.cbmRow?.mc_type || '7 ply', target: { kind: 'cbm', field: 'mc_type' } },
-      { id: 'mc_max', label: 'MC max W×D×H"', width: 'w-[130px]', edit: 'dims',
+      { id: 'mc_type', label: 'MC ply', width: 'w-[76px]', edit: 'select', options: boxOpts, get: r => r.cbmRow?.mc_type || '7 ply', target: { kind: 'cbm', field: 'mc_type' } },
+      { id: 'mc_max', label: 'MC max W×D×H"', width: 'w-[110px]', edit: 'dims',
         get: r => dimsStr(r.cbmRow?.mc_max_width || 25, r.cbmRow?.mc_max_depth || 25, r.cbmRow?.mc_max_height || 25),
         target: { kind: 'cbm_dims', fields: ['mc_max_width', 'mc_max_depth', 'mc_max_height'] } },
-      { id: 'bulk_pcs', label: 'Bulk pcs/box', width: 'w-[80px]', edit: 'num', get: r => r.p.bulk_pieces_per_box ?? 1, target: { kind: 'product', field: 'bulk_pieces_per_box' },
+      { id: 'bulk_pcs', label: 'Bulk pcs', width: 'w-[62px]', edit: 'num', get: r => r.p.bulk_pieces_per_box ?? 1, target: { kind: 'product', field: 'bulk_pieces_per_box' },
         disabled: r => (r.p.packaging_type === 'bulk_pack' ? null : 'Only used for bulk pack') },
-      ro('mc_dims', 'MC size', r => r.r.mcDims.mc_width, r => r.r.mcDims.mc_width ? dimsStr(r.r.mcDims.mc_width, r.r.mcDims.mc_depth, r.r.mcDims.mc_height) : '—', 'w-[120px]'),
+      ro('mc_dims', 'MC size', r => r.r.mcDims.mc_width, r => r.r.mcDims.mc_width ? dimsStr(r.r.mcDims.mc_width, r.r.mcDims.mc_depth, r.r.mcDims.mc_height) : '—', 'w-[100px]'),
       ro('per_mc', 'Pcs/MC', r => r.r.productsPerMc, r => r.r.productsPerMc ? String(r.r.productsPerMc) : '—', 'w-[60px]'),
       ro('cbm', 'Unit CBM', r => r.r.finalUnitCbm, r => r.r.finalUnitCbm ? r.r.finalUnitCbm.toFixed(4) : '—', 'w-[76px]', 'cbm'),
-      bucketCol('packaging', 'Pkg ₹'),
     ],
   },
   {
@@ -273,6 +272,7 @@ const LENSES: { id: string; label: string; hint: string; cols: LensCol[] }[] = [
       { id: 'difficulty', label: 'Finish difficulty', width: 'w-[120px]', edit: 'select',
         options: b => b.difficulties.map((d: any) => ({ value: d.name, label: d.name })), get: r => r.p.finishing_difficulty || 'Medium', target: { kind: 'product', field: 'finishing_difficulty' } },
       bucketCol('finishing', 'Finishing ₹'),
+      bucketCol('packaging', 'Packaging ₹'),
       ro('mh', 'Man-hrs', r => r.r.manHoursPerUnit, r => r.r.manHoursPerUnit ? r.r.manHoursPerUnit.toFixed(2) : '—', 'w-[70px]'),
       ro('nu', 'Non-unit ₹', r => r.r.nonUnitCogsPerUnit, r => money(r.r.nonUnitCogsPerUnit), 'w-[88px]', 'non_unit_cogs'),
       ro('doh', 'Direct OH ₹', r => r.r.directOhPerUnit, r => money(r.r.directOhPerUnit), 'w-[90px]', 'direct_oh'),
@@ -624,13 +624,13 @@ export default function InquiryAuditGrid() {
                 <thead className="sticky top-0 z-20 bg-muted">
                   <tr>
                     <th className="w-[34px] px-2 py-2 border-b"><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" /></th>
-                    <th className="w-[200px] text-left px-2 py-2 border-b border-r font-medium">SKU / Name</th>
+                    <th className="w-[170px] text-left px-2 py-2 border-b border-r font-medium">SKU / Name</th>
                     {lens.cols.map(c => (
                       <th key={c.id} className={cn(c.width, 'text-left px-2 py-2 border-b font-medium whitespace-nowrap overflow-hidden text-ellipsis')}>
                         {c.label}{!c.edit && <span className="ml-1 text-muted-foreground font-normal">·</span>}
                       </th>
                     ))}
-                    <th className="w-[84px] text-right px-2 py-2 border-b border-l font-medium">FOB $</th>
+                    <th className="w-[76px] text-right px-2 py-2 border-b border-l font-medium">FOB $</th>
                   </tr>
                 </thead>
                 <tbody>
