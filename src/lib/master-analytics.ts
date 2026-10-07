@@ -52,50 +52,90 @@ export function otdKpi(sos: SnapshotSO[], from: Date, to: Date) {
   return { rows, scored: scored.length, onTime, rate: scored.length ? onTime / scored.length : null, unscored: rows.length - scored.length };
 }
 
-// ---------- Pipeline ----------
+// ---------- Pipeline (PV perspective) ----------
 export type PipelineInquiry = {
   id: string; rfq_number: string; title: string | null; status: string; customer: string | null;
-  certainty: number; fob_usd: number; gpm: number; man_hours: number;
-  revenue_month: string | null; start_month: string | null; duration_months: number;
+  certainty: number;
+  /** Full order FOB (customer-facing). */
+  fob_usd: number;
+  /** PV's share: FOB × (1 − selling retention) when another entity (DKT) sells; else FOB. */
+  pv_revenue_usd: number;
+  via_other_entity: boolean;
+  gpm: number; man_hours: number;
+  revenue_month: string | null; start_month: string; duration_months: number;
+  /** Inflows to PV (customer payments, or inter-entity payments when DKT sells). */
   cust: { pct: number; month: string | null }[]; vend: { pct: number; month: string | null }[];
+  fob_source: 'projection' | 'live'; mh_source: 'projection' | 'live';
 };
 const BOOKED = new Set(['po', 'complete', 'cancelled', 'paused']);
+const pct = (v: number) => (v > 1 ? v / 100 : v);
+const addMonths = (ym: string, n: number) => { const d = new Date(ym.slice(0, 7) + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 
-export function buildPipeline(inquiries: any[]): PipelineInquiry[] {
+export type PipelineOpts = {
+  today: string;
+  pvEntityId: string | null;
+  defaults: { custDeposit: number; ieDeposit: number };
+  live: Record<string, { fob_usd: number; gpm: number; man_hours: number }>;
+};
+
+export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInquiry[] {
+  const thisMonth = opts.today.slice(0, 7) + '-01';
   return inquiries
-    .filter(i => !BOOKED.has(i.status) && i.inquiry_projections)
+    .filter(i => !BOOKED.has(i.status))
     .map(i => {
-      const p = Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections;
-      if (!p) return null;
+      const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
       const certainty = effectiveCertainty(p, i.products || [], i.status);
-      const fob = Number(p.projected_fob_revenue_usd) || 0;
+      const live = opts.live[i.id] || { fob_usd: 0, gpm: 0, man_hours: 0 };
+      const projFob = Number(p.projected_fob_revenue_usd) || 0;
+      const fob = projFob || live.fob_usd;
+      const projMh = Number(p.estimated_man_hours) || 0;
+      const mh = projMh || live.man_hours;
+      const gpm = p.project_gpm != null ? pct(Number(p.project_gpm)) : live.gpm;
+      const duration = Math.max(1, Number(p.duration_months) || 3);
+      const start = (p.start_month || thisMonth).slice(0, 10);
+      const ship = (p.shipping_month || p.delivery_month || p.cust_final_month || addMonths(start, duration - 1)).slice(0, 10);
+      const viaOther = !!(p.selling_entity_id && opts.pvEntityId && p.selling_entity_id !== opts.pvEntityId);
+      const retention = viaOther ? pct(Number(p.selling_retention_pct) || 0) : 0;
+      const pvRev = fob * (1 - retention);
+      let cust: { pct: number; month: string | null }[];
+      if (viaOther) {
+        const dep = p.ie_deposit_pct != null ? pct(Number(p.ie_deposit_pct)) : opts.defaults.ieDeposit;
+        const bal = p.ie_balance_pct != null && p.ie_deposit_pct != null ? pct(Number(p.ie_balance_pct)) : 1 - dep;
+        cust = [
+          { pct: dep, month: p.ie_deposit_month || p.cust_deposit_month || start },
+          { pct: bal, month: p.ie_balance_month || ship },
+        ];
+      } else {
+        const dep = p.cust_deposit_pct != null ? pct(Number(p.cust_deposit_pct)) : opts.defaults.custDeposit;
+        const fin = p.cust_final_pct != null ? pct(Number(p.cust_final_pct)) : 1 - dep - (Number(p.cust_other_pct) || 0);
+        cust = [
+          { pct: dep, month: p.cust_deposit_month || start },
+          { pct: fin, month: p.cust_final_month || ship },
+          { pct: pct(Number(p.cust_other_pct) || 0), month: p.cust_other_month },
+        ];
+      }
       return {
         id: i.id, rfq_number: i.rfq_number, title: i.title, status: i.status, customer: i.customers?.name ?? null,
-        certainty, fob_usd: fob, gpm: Number(p.project_gpm) || 0, man_hours: Number(p.estimated_man_hours) || 0,
-        revenue_month: p.delivery_month || p.shipping_month || p.cust_final_month || null,
-        start_month: p.start_month, duration_months: Math.max(1, Number(p.duration_months) || 1),
-        cust: [
-          { pct: Number(p.cust_deposit_pct) || 0, month: p.cust_deposit_month },
-          { pct: Number(p.cust_final_pct) || 0, month: p.cust_final_month },
-          { pct: Number(p.cust_other_pct) || 0, month: p.cust_other_month },
-        ],
+        certainty, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
+        revenue_month: ship, start_month: start, duration_months: duration,
+        cust,
         vend: [
-          { pct: Number(p.vendor_deposit_pct) || 0, month: p.vendor_deposit_month },
-          { pct: Number(p.vendor_balance_pct) || 0, month: p.vendor_balance_month },
+          { pct: Number(p.vendor_deposit_pct) || 0, month: p.vendor_deposit_month || null },
+          { pct: Number(p.vendor_balance_pct) || 0, month: p.vendor_balance_month || null },
         ],
+        fob_source: projFob ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
       } as PipelineInquiry;
     })
-    .filter((x): x is PipelineInquiry => !!x && x.certainty > 0);
+    .filter(x => x.certainty > 0 && (x.fob_usd > 0 || x.man_hours > 0));
 }
 
-const pct = (v: number) => (v > 1 ? v / 100 : v);
 const usdMoney = (usd: number, rate: number): Money => ({ amount_usd: usd, amount_inr: usd * rate });
 
 export function pipelineCashItems(pipe: PipelineInquiry[], hqRate: number, today: string): CashItem[] {
   const out: CashItem[] = [];
   const clamp = (m: string | null) => { const d = (m || today).slice(0, 10); return d < today ? today : d; };
   for (const p of pipe) {
-    for (const c of p.cust) if (c.pct && c.month) out.push({ kind: 'pipeline_in', ref: p.rfq_number, partner: p.customer, date: clamp(c.month), sign: 1, ...usdMoney(p.fob_usd * pct(c.pct) * p.certainty, hqRate) });
+    for (const c of p.cust) if (c.pct && c.month) out.push({ kind: 'pipeline_in', ref: p.rfq_number + (p.via_other_entity ? ' (via DKT)' : ''), partner: p.customer, date: clamp(c.month), sign: 1, ...usdMoney(p.pv_revenue_usd * pct(c.pct) * p.certainty, hqRate) });
     const cost = p.fob_usd * (1 - pct(p.gpm));
     for (const v of p.vend) if (v.pct && v.month) out.push({ kind: 'pipeline_out', ref: p.rfq_number, partner: p.customer, date: clamp(v.month), sign: -1, ...usdMoney(cost * pct(v.pct) * p.certainty, hqRate) });
   }
