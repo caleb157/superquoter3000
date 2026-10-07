@@ -1,0 +1,2 @@
+ALTER TABLE public.inquiry_projections ALTER COLUMN ie_deposit_pct SET DEFAULT 0.80, ALTER COLUMN ie_balance_pct SET DEFAULT 0.20;
+UPDATE public.inquiry_projections SET ie_deposit_pct = 0.80, ie_balance_pct = 0.20 WHERE ie_deposit_pct = 0.30 AND ie_balance_pct = 0.70;

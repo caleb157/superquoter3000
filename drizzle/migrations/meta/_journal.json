@@ -50,6 +50,13 @@
       "when": 1791362283844,
       "tag": "0006_projection_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791394913114,
+      "tag": "0007_ie_deposit_default_80",
+      "breakpoints": true
     }
   ]
 }

@@ -61,6 +61,10 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [autoFob, setAutoFob] = useState<number>(0);
   const [autoGpm, setAutoGpm] = useState<number>(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [defaults, setDefaults] = useState({ custDeposit: 0.3, ieDeposit: 0.8 });
+  useEffect(() => {
+    loadProjectionDefaults().then(d => setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit })).catch(() => {});
+  }, []);
   const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(90);
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
@@ -136,6 +140,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         }
       } else {
         const d = await loadProjectionDefaults();
+        setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit });
         setProj({ inquiry_id: inquiryId, ...EMPTY, cust_deposit_pct: d.custDeposit, cust_final_pct: 1 - d.custDeposit, ie_deposit_pct: d.ieDeposit, ie_balance_pct: 1 - d.ieDeposit });
         setExisted(false);
       }
@@ -379,6 +384,27 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">Customer deposit %</Label>
+              <Input
+                type="number" step="1" min={0} max={100}
+                placeholder={`Default: ${Math.round(defaults.custDeposit * 100)}%`}
+                value={pct(proj?.cust_deposit_pct)}
+                onChange={e => setField({ cust_deposit_pct: parsePct(e.target.value) })}
+                onBlur={e => {
+                  const d = parsePct(e.target.value) ?? defaults.custDeposit;
+                  const other = Number(proj?.cust_other_pct) || 0;
+                  persist({ cust_deposit_pct: d, cust_final_pct: Math.max(0, 1 - d - other) });
+                }}
+                className="h-9 mt-1"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Final: {Math.round(Math.max(0, 1 - Number(proj?.cust_deposit_pct ?? defaults.custDeposit) - (Number(proj?.cust_other_pct) || 0)) * 100)}%
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
             <div>
               <div className="text-sm font-medium">We pay shipping</div>
@@ -430,6 +456,25 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                       onBlur={e => persist({ selling_retention_pct: parsePct(e.target.value) })}
                       className="h-9 mt-1"
                     />
+                  </div>
+                )}
+                {showIE && (
+                  <div>
+                    <Label className="text-xs">Inter-entity deposit %</Label>
+                    <Input
+                      type="number" step="1" min={0} max={100}
+                      placeholder={`Default: ${Math.round(defaults.ieDeposit * 100)}%`}
+                      value={pct(proj?.ie_deposit_pct)}
+                      onChange={e => setField({ ie_deposit_pct: parsePct(e.target.value) })}
+                      onBlur={e => {
+                        const d = parsePct(e.target.value) ?? defaults.ieDeposit;
+                        persist({ ie_deposit_pct: d, ie_balance_pct: Math.max(0, 1 - d) });
+                      }}
+                      className="h-9 mt-1"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Balance: {Math.round((1 - Number(proj?.ie_deposit_pct ?? defaults.ieDeposit)) * 100)}%
+                    </p>
                   </div>
                 )}
               </div>
@@ -559,7 +604,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               </div>
             )}
             <p className="text-[11px] text-muted-foreground mt-2">
-              Months auto-derive from start + duration. Percentages use customer 30/70, vendor 30/70 defaults.
+              Months auto-derive from start + duration. Customer and inter-entity deposit % are editable above; balance = 100% − deposit.
             </p>
           </div>
         </CardContent>
