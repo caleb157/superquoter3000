@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TrendingUp,
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, MoreHorizontal, Truck, Ship, Search, BarChart3, Wrench, ClipboardCheck,
+  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, ChevronDown, BarChart3, Wrench, ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -211,8 +211,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             onClick={() => setMobileOpen(true)}
             className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-muted-foreground"
           >
-            <MoreHorizontal className="h-5 w-5" />
-            More
+            <Menu className="h-5 w-5" />
+            Menu
           </button>
         </div>
       </nav>
