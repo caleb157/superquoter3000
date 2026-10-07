@@ -837,3 +837,69 @@ export function calcTargetLineUnitPrice(params: {
   const targetUnitCostInr = targetRowContributionInr / totalUnitsPerProduct;
   return { targetUnitCostInr, targetRowContributionInr, feasible: true };
 }
+
+// ============================================================
+// Single source of truth for packaged (shipping) CBM per unit.
+// Always derived live from outer dimensions (OD) of the packaging used.
+// ============================================================
+export function computePackagedUnitCbm(args: {
+  product: any;
+  cbmRow: any;
+  boxData: any[];
+  productType: any;
+  globalSettings: any;
+}): number {
+  const { product: p, cbmRow: cbm, boxData, productType, globalSettings: gs } = args;
+  const w = Number(p?.width_inch) || 0, d = Number(p?.depth_inch) || 0, h = Number(p?.height_inch) || 0;
+  const packagingType = p?.packaging_type || 'ic_mc';
+  if (packagingType === 'no_packaging') return prePackagedCbm(w, d, h);
+  const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
+  const mcBufferH = cbm?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5;
+  if (packagingType === 'corrugate_bubble') {
+    return calcCorrugateBubblePackaging(w, d, h, icAdd, {
+      corrugate_kg_per_sq_in: gs?.corrugate_kg_per_sq_in ?? 0.25,
+      bubble_kg_per_sq_in: gs?.bubble_kg_per_sq_in ?? 0.2,
+      corrugate_price_per_kg: gs?.corrugate_price_per_kg ?? 0,
+      bubble_price_per_kg: gs?.bubble_price_per_kg ?? 0,
+    }).final_unit_cbm;
+  }
+  if (packagingType === 'bulk_pack') {
+    const b = calcBulkPacking({
+      piece_width: w, piece_depth: d, piece_height: h,
+      pieces_per_box: p?.bulk_pieces_per_box || 1,
+      shrink_factor: p?.bulk_shrink_factor ?? 1,
+      mc_buffer_inch: cbm?.mc_buffer_inch || 1,
+      mc_height_buffer_inch: mcBufferH,
+    });
+    return b.pieces_per_mc > 0 ? b.mc_volume_cbm / b.pieces_per_mc : 0;
+  }
+  const icType = cbm?.ic_type || '7 ply';
+  const mcType = cbm?.mc_type || '7 ply';
+  const includeMc = packagingType === 'ic_mc';
+  const auto = calcICDimensions(w, d, h, icAdd);
+  const icW = cbm?.ic_width ?? auto.ic_width, icD = cbm?.ic_depth ?? auto.ic_depth, icH = cbm?.ic_height ?? auto.ic_height;
+  const icOd = calcIcOd(icW, icD, icH, getBoxOdOffsets(boxData, icType));
+  const icOdVol = calcICVolumeCbm(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height);
+  const productsPerIc = cbm?.products_per_ic || 1;
+  if (!includeMc) return calcFinalUnitCbm(false, icOdVol, productsPerIc, 0, 0);
+  let mc: any = calcMCPacking({
+    include_mc: true, mc_type: mcType,
+    mc_max_width: cbm?.mc_max_width || 25, mc_max_depth: cbm?.mc_max_depth || 25, mc_max_height: cbm?.mc_max_height || 25,
+    mc_buffer_inch: cbm?.mc_buffer_inch || 1, mc_height_buffer_inch: mcBufferH,
+    mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20, mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
+    product_weight_kg: p?.weight_kg || 0, quantity: p?.quantity || 100, products_per_ic: productsPerIc,
+    ic_width: icW, ic_depth: icD, ic_height: icH,
+    ic_od_width: icOd.ic_od_width, ic_od_depth: icOd.ic_od_depth, ic_od_height: icOd.ic_od_height,
+  } as any);
+  if (cbm?.mc_manual_layout) {
+    const aw = cbm?.mc_ics_along_w || mc.mc_ics_along_w, ad = cbm?.mc_ics_along_d || mc.mc_ics_along_d, ah = cbm?.mc_ics_along_h || mc.mc_ics_along_h;
+    const wd = cbm?.mc_buffer_inch || 1;
+    const lim = cbm?.mc_weight_limit_kg || 20, empty = cbm?.mc_empty_weight_kg || 1.5, pw = p?.weight_kg || 0;
+    let packed = aw * ad * ah;
+    if (lim > 0 && pw > 0 && productsPerIc > 0) packed = Math.min(packed, Math.max(0, Math.floor(Math.max(0, Math.floor((lim - empty) / pw)) / productsPerIc)));
+    mc = { mc_width: icOd.ic_od_width * aw + wd, mc_depth: icOd.ic_od_depth * ad + wd, mc_height: icOd.ic_od_height * ah + mcBufferH, products_per_mc: packed * productsPerIc };
+  }
+  const mcOd = calcMcOd(mc.mc_width, mc.mc_depth, mc.mc_height, getBoxOdOffsets(boxData, mcType));
+  const mcOdVol = (mcOd.mc_od_width * mcOd.mc_od_depth * mcOd.mc_od_height) / 61020;
+  return calcFinalUnitCbm(true, icOdVol, productsPerIc, mcOdVol, mc.products_per_mc);
+}
