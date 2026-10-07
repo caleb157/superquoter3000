@@ -3169,6 +3169,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_team: { Args: { _user_id: string }; Returns: boolean }
+      run_hq_task_automation: {
+        Args: {
+          _assoc_id: string
+          _assoc_type: string
+          _event: string
+          _label: string
+          _vars: Json
+        }
+        Returns: undefined
+      }
       submit_vendor_rfq_response: {
         Args: {
           _line_responses: Json
