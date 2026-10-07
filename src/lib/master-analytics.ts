@@ -25,6 +25,9 @@ export type Snapshot = {
   overhead_monthly: { inr: number; months: number; history: Record<string, number> };
   actual_hours_by_month: Record<string, number>;
   booked_hours_by_month: Record<string, number>;
+  /** LaborTrax available capacity per month (holiday-adjusted). */
+  capacity_hours_by_month?: Record<string, number>;
+  lt_weekly_capacity?: number | null;
   labortrax_entry_count: number; labortrax_fields: string[]; warnings: string[];
 };
 
