@@ -126,7 +126,8 @@ Deno.serve(async (req) => {
           leftInr -= take;
         }
       }
-      return items.filter(i => i.amount_inr > 0.5);
+      // Fully advance-covered items stay (amount 0) so they remain visible in drill-downs.
+      return items.map(i => (i.amount_inr <= 0.5 ? { ...i, amount_inr: 0, amount_usd: 0, advance_covered: true } : i));
     }
 
     // ================= SALES ORDERS =================
@@ -232,14 +233,16 @@ Deno.serve(async (req) => {
     // ================= CASH: pending POs (incl. RFQs) =================
     try {
       const pos = await sr('purchase.order', [['state', 'in', ['draft', 'sent', 'to approve', 'purchase']]],
-        ['name', 'partner_id', 'currency_id', 'currency_rate', 'date_planned', 'receipt_status', 'state'], { limit: 2000 });
-      const open = pos.filter(p => p.receipt_status !== 'full');
+        ['name', 'partner_id', 'currency_id', 'currency_rate', 'date_planned', 'receipt_status', 'invoice_status', 'state'], { limit: 2000 });
+      // Goods: open until fully received. Services (blank receipt status): open until fully billed.
+      const open = pos.filter(p => p.receipt_status ? p.receipt_status !== 'full' : p.invoice_status !== 'invoiced');
+      const serviceIds = new Set(open.filter(p => !p.receipt_status).map(p => p.id));
       const lines = open.length ? await sr('purchase.order.line', [['order_id', 'in', open.map(p => p.id)], ['display_type', '=', false]],
-        ['order_id', 'product_qty', 'qty_received', 'price_total', 'date_planned']) : [];
+        ['order_id', 'product_qty', 'qty_received', 'qty_invoiced', 'price_total', 'date_planned']) : [];
       const poById = new Map(open.map(p => [p.id, p]));
       const agg = new Map<number, number>();
       for (const l of lines) {
-        const q = num(l.product_qty), rem = Math.max(0, q - num(l.qty_received));
+        const q = num(l.product_qty), done = serviceIds.has(id(l.order_id)) ? num(l.qty_invoiced) : num(l.qty_received), rem = Math.max(0, q - done);
         if (!q || !rem) continue;
         agg.set(id(l.order_id), (agg.get(id(l.order_id)) || 0) + rem * (num(l.price_total) / q));
       }
@@ -256,20 +259,21 @@ Deno.serve(async (req) => {
 
     // ================= CASH: open invoices & bills (incl. draft) =================
     try {
-      const moves = await sr('account.move', [['move_type', 'in', ['out_invoice', 'out_refund', 'in_invoice', 'in_refund']], ['state', 'in', ['draft', 'posted']],
-        ['payment_state', 'not in', ['paid', 'in_payment', 'reversed']]],
+      const moves = await sr('account.move', [['move_type', 'in', ['out_invoice', 'out_refund', 'in_invoice', 'in_refund']], '|', ['state', '=', 'draft'], '&', ['state', '=', 'posted'], ['payment_state', 'not in', ['paid', 'in_payment', 'reversed']]],
         ['name', 'move_type', 'partner_id', 'invoice_date_due', 'invoice_date', 'state', 'currency_id', 'amount_residual', 'amount_residual_signed', 'amount_total', 'amount_total_signed', 'invoice_origin'], { limit: 3000 });
       for (const mv of moves) {
         const draft = mv.state === 'draft';
-        const inr = Math.abs(num(draft ? mv.amount_total_signed : mv.amount_residual_signed));
         const doc = Math.abs(num(draft ? mv.amount_total : mv.amount_residual));
+        const cur0 = nm(mv.currency_id) || 'INR';
+        let inr = Math.abs(num(draft ? mv.amount_total_signed : mv.amount_residual_signed));
+        if (inr < 0.5 && doc > 0) inr = cur0 === 'INR' ? doc : doc * (inrPerUsd || 0); // drafts may lack signed totals
         if (inr < 0.5) continue;
         const cur = nm(mv.currency_id) || 'INR';
         const usd = cur === 'USD' ? doc : inrPerUsd ? inr / inrPerUsd : 0;
         const customer = mv.move_type.startsWith('out');
         const refund = mv.move_type.endsWith('refund');
         let date = d10(mv.invoice_date_due) || today; if (date < today) date = today;
-        cash.push({ kind: customer ? 'invoice' : 'bill', ref: (mv.name && mv.name !== '/' ? mv.name : 'Draft') + (draft ? ' (draft)' : ''),
+        cash.push({ kind: customer ? 'invoice' : 'bill', ref: (mv.name && mv.name !== '/' ? mv.name : 'Draft') + (draft ? ' (draft)' : '') + (mv.invoice_origin ? ` · ${mv.invoice_origin}` : ''),
           partner: nm(mv.partner_id), date, amount_inr: inr, amount_usd: usd, sign: (customer ? 1 : -1) * (refund ? -1 : 1) });
       }
     } catch (e) { warnings.push('Invoices/bills: ' + e.message); }
@@ -308,6 +312,18 @@ Deno.serve(async (req) => {
       }
     } catch (e) { warnings.push('IGST 178: ' + e.message); }
 
+    // ================= Opening cash (all asset_cash accounts) =================
+    let openingCashInr = 0;
+    try {
+      const accts = await sr('account.account', [['account_type', '=', 'asset_cash']], ['id', 'code', 'name', 'current_balance']);
+      if (accts.length && accts.some(a => a.current_balance != null && a.current_balance !== false)) {
+        openingCashInr = accts.reduce((s, a) => s + num(a.current_balance), 0);
+      } else if (accts.length) {
+        const ls = await sr('account.move.line', [['account_id', 'in', accts.map(a => a.id)], ['parent_state', '=', 'posted']], ['balance'], { limit: 200000 });
+        openingCashInr = ls.reduce((s, l) => s + num(l.balance), 0);
+      } else warnings.push('Opening cash: no asset_cash accounts found');
+    } catch (e) { warnings.push('Opening cash: ' + e.message); }
+
     // ================= Overhead (account tag) =================
     let overheadMonthly = { inr: 0, months: overheadMonths, history: {} as Record<string, number> };
     try {
@@ -342,7 +358,7 @@ Deno.serve(async (req) => {
     } catch (e) { warnings.push('Booked capacity: ' + e.message); }
 
     const payload = {
-      inr_per_usd: inrPerUsd, today, overhead_months: overheadMonths,
+      inr_per_usd: inrPerUsd, today, overhead_months: overheadMonths, opening_cash_inr: openingCashInr,
       sales_orders: salesOrders, cash_items: cash, invoiced, pending_so_revenue: pendingSoRevenue,
       overhead_monthly: overheadMonthly, actual_hours_by_month: actualHoursByMonth, booked_hours_by_month: bookedHoursByMonth,
       labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings,

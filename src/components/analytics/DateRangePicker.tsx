@@ -59,17 +59,17 @@ export function DateRangePicker({ preset, customFrom, customTo, onChange }: Prop
               className={cn('h-9 gap-2', !customFrom && 'text-muted-foreground')}
             >
               {customFrom && customTo
-                ? `${format(new Date(customFrom), 'MMM d')} – ${format(new Date(customTo), 'MMM d')}`
+                ? `${format(new Date(customFrom + 'T00:00:00'), 'MMM d')} – ${format(new Date(customTo + 'T00:00:00'), 'MMM d')}`
                 : 'Pick range'}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
             <Calendar
               mode="range"
-              defaultMonth={customFrom ? new Date(customFrom) : new Date()}
+              defaultMonth={customFrom ? new Date(customFrom + 'T00:00:00') : new Date()}
               selected={{
-                from: customFrom ? new Date(customFrom) : undefined,
-                to: customTo ? new Date(customTo) : undefined,
+                from: customFrom ? new Date(customFrom + 'T00:00:00') : undefined,
+                to: customTo ? new Date(customTo + 'T00:00:00') : undefined,
               }}
               onSelect={(r) => {
                 if (!r) return;

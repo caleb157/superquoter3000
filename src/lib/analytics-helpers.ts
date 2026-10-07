@@ -80,8 +80,8 @@ export function rangeFromPreset(preset: RangePreset, custom?: { from?: string; t
     case 'last_cy':
       return { from: startOfDay(new Date(now.getFullYear() - 1, 0, 1)), to: endOfDay(new Date(now.getFullYear() - 1, 11, 31)) };
     case 'custom': {
-      const from = custom?.from ? startOfDay(new Date(custom.from)) : startOfDay(new Date(now.getTime() - 29 * 86400000));
-      const to = custom?.to ? endOfDay(new Date(custom.to)) : endOfDay(now);
+      const from = custom?.from ? startOfDay(new Date(custom.from + 'T00:00:00')) : startOfDay(new Date(now.getTime() - 29 * 86400000));
+      const to = custom?.to ? endOfDay(new Date(custom.to + 'T00:00:00')) : endOfDay(now);
       return { from, to };
     }
   }
