@@ -35,7 +35,6 @@ import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
-import TargetPriceSolverPage from "./pages/TargetPriceSolver";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import SoProfitability from "./pages/SoProfitability";
@@ -155,9 +154,6 @@ const App = () => (
               } />
               <Route path="/tools/master-carton" element={
                 <ProtectedRoute requireAdminOrTeam><MasterCartonSizer /></ProtectedRoute>
-              } />
-              <Route path="/tools/target-price" element={
-                <ProtectedRoute requireAdminOrTeam><TargetPriceSolverPage /></ProtectedRoute>
               } />
 
               <Route path="/freight-quotes" element={<ProtectedRoute requireAdminOrTeam><FreightQuotes /></ProtectedRoute>} />
