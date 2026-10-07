@@ -1275,6 +1275,7 @@ export type Database = {
       }
       global_settings: {
         Row: {
+          analytics_targets: Json
           auto_transport_cost_per_cbm: number
           below_moq_surcharge_percent: number
           bubble_kg_per_sq_in: number
@@ -1297,6 +1298,7 @@ export type Database = {
           slow_sample_days: number
         }
         Insert: {
+          analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
           below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
@@ -1319,6 +1321,7 @@ export type Database = {
           slow_sample_days?: number
         }
         Update: {
+          analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
           below_moq_surcharge_percent?: number
           bubble_kg_per_sq_in?: number
