@@ -2,3 +2,5 @@
 - Recurring tasks are one living row: completing logs a done copy and rolls due_date forward (src/lib/task-recurrence.ts) — keeps the open list clean with history preserved.
 - Odoo-triggered task sets come from task_automation_rules via the odoo-task-webhook function, authenticated by the admin-only token in task_automation_config — Odoo pushes events, HQ never polls.
 - Master Analytics reads Odoo/LaborTrax actuals only from the latest `analytics_snapshots` row written by the `odoo-analytics-sync` function on manual Refresh; pipeline is computed live client-side in `src/lib/master-analytics.ts` — keeps the page instant and Odoo load on demand.
+- HQ-originated task automations (inquiry created, customer set to Lead) fire from database triggers via run_hq_task_automation, sharing task_automation_rules with Odoo events — catches every insert path (UI, imports, MCP) without client code.
+- App navigation is a single left slide-out menu; reference tables are grouped under an expandable "Directories" section — keeps the header uncluttered.
