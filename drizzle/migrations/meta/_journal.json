@@ -29,6 +29,13 @@
       "when": 1791339062296,
       "tag": "0003_master_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791340603953,
+      "tag": "0004_analytics_targets",
+      "breakpoints": true
     }
   ]
 }

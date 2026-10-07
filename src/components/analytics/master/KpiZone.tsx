@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MetricCard } from '@/components/analytics/MetricCard';
 import { DrillDownDialog } from '@/components/analytics/DrillDownDialog';
+import { Button } from '@/components/ui/button';
+import { Target } from 'lucide-react';
 import { pairRfqsToQuotes, avg, median, fmtDays, type DateRange } from '@/lib/analytics-helpers';
 import { confirmedOrdersKpi, otdKpi, pickAmt, fmtMoney, MIN_ORDER_USD, type Ccy, type Snapshot } from '@/lib/master-analytics';
 import { ComplaintsPanel, useComplaints } from './ComplaintsPanel';
+import { KpiGauge } from './KpiGauge';
+import { TargetsDialog, useKpiTargets } from './TargetsDialog';
 
 type Drill = null | 'orders' | 'rfq' | 'rfs' | 'otd';
 const days = (a: string | null, b: string | null) => (a && b ? (new Date(b).getTime() - new Date(a.length === 10 ? a + 'T00:00:00Z' : a).getTime()) / 86400000 : null);
 
 export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; ccy: Ccy; range: DateRange }) {
   const [drill, setDrill] = useState<Drill>(null);
+  const [targetsOpen, setTargetsOpen] = useState(false);
+  const { targets, save: saveTargets } = useKpiTargets();
   const [hq, setHq] = useState<{ rfqs: any[]; quotes: any[]; samples: any[]; inq: Record<string, string> }>({ rfqs: [], quotes: [], samples: [], inq: {} });
   const complaints = useComplaints();
 
@@ -45,16 +50,33 @@ export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; c
   const rfqDays = rfq.map(p => p.days), rfsDays = rfs.map(s => s.total);
   const stageAvg = (k: 'toInitial' | 'initialToFinal' | 'finalToDone') => fmtDays(avg(rfs.map(s => s[k]).filter((x): x is number => x != null)));
 
+  const scale = Math.max(1, (range.to.getTime() - range.from.getTime()) / 86400000 + 1) / 30.4;
+  const fxRate = snapshot?.inr_per_usd || 0;
+  const revGoal = targets.revenue_usd_monthly * scale * (ccy === 'INR' ? fxRate || 1 : 1);
+  const soGoal = Math.max(1, Math.round(targets.confirmed_sos_monthly * scale));
+  const cGoal = Math.round(targets.complaints_monthly * scale * 10) / 10;
+  const rfqAvg = avg(rfqDays), rfsMed = median(rfsDays);
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <MetricCard label="Confirmed SOs" value={orders ? orders.qualifying.length : '—'} sublabel={`≥ $${MIN_ORDER_USD} · Odoo`} onClick={snapshot ? () => setDrill('orders') : undefined} />
-        <MetricCard label="Booked revenue" value={snapshot ? fmtMoney(revenue, ccy) : '—'} sublabel="untaxed, Odoo rate" onClick={snapshot ? () => setDrill('orders') : undefined} />
-        <MetricCard label="RFQ → quote" value={fmtDays(avg(rfqDays))} subValue={`median ${fmtDays(median(rfqDays))}`} sublabel={`${rfq.length} quotes`} onClick={() => setDrill('rfq')} />
-        <MetricCard label="Sample cycle (RFS)" value={fmtDays(median(rfsDays))} subValue={`avg ${fmtDays(avg(rfsDays))}`} sublabel={`median · ${rfs.length} done`} onClick={() => setDrill('rfs')} />
-        <MetricCard label="On-time delivery" value={otd?.rate != null ? `${Math.round(otd.rate * 100)}%` : '—'} subValue={otd ? `${otd.onTime}/${otd.scored}` : undefined} sublabel="in-house SOs" onClick={snapshot ? () => setDrill('otd') : undefined} />
-        <MetricCard label="Complaints" value={loggedComplaints} subValue={`${openComplaints} open`} sublabel="logged in period" />
+      <div className="flex justify-end -mt-1">
+        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setTargetsOpen(true)}><Target className="h-3 w-3" /> Set targets</Button>
       </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiGauge label="Confirmed SOs" display={orders ? String(orders.qualifying.length) : '—'} actual={orders ? orders.qualifying.length : null}
+          goal={soGoal} goalDisplay={String(soGoal)} higherIsBetter sub={`≥ $${MIN_ORDER_USD}`} onClick={snapshot ? () => setDrill('orders') : undefined} />
+        <KpiGauge label="Booked revenue" display={snapshot ? fmtMoney(revenue, ccy) : '—'} actual={snapshot ? revenue : null}
+          goal={revGoal} goalDisplay={fmtMoney(revGoal, ccy)} higherIsBetter sub="untaxed" onClick={snapshot ? () => setDrill('orders') : undefined} />
+        <KpiGauge label="RFQ → quote" display={fmtDays(rfqAvg)} actual={rfqDays.length ? rfqAvg : null}
+          goal={targets.rfq_days} goalDisplay={`≤ ${targets.rfq_days}d`} higherIsBetter={false} sub={`avg · ${rfq.length} quotes`} onClick={() => setDrill('rfq')} />
+        <KpiGauge label="Sample cycle" display={fmtDays(rfsMed)} actual={rfsDays.length ? rfsMed : null}
+          goal={targets.sample_days} goalDisplay={`≤ ${targets.sample_days}d`} higherIsBetter={false} sub={`median · ${rfs.length} done`} onClick={() => setDrill('rfs')} />
+        <KpiGauge label="On-time delivery" display={otd?.rate != null ? `${Math.round(otd.rate * 100)}%` : '—'} actual={otd?.rate != null ? otd.rate * 100 : null}
+          goal={targets.otd_pct} goalDisplay={`≥ ${targets.otd_pct}%`} higherIsBetter sub={otd ? `${otd.onTime}/${otd.scored} SOs` : undefined} onClick={snapshot ? () => setDrill('otd') : undefined} />
+        <KpiGauge label="Complaints" display={String(loggedComplaints)} actual={loggedComplaints}
+          goal={cGoal} goalDisplay={`≤ ${cGoal}`} higherIsBetter={false} sub={`${openComplaints} open`} />
+      </div>
+      <TargetsDialog open={targetsOpen} onOpenChange={setTargetsOpen} targets={targets} onSave={saveTargets} />
 
       <ComplaintsPanel rows={complaints.rows} reload={complaints.reload} from={range.from} to={range.to} />
 

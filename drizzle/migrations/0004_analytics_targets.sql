@@ -1,0 +1,1 @@
+ALTER TABLE public.global_settings ADD COLUMN IF NOT EXISTS analytics_targets jsonb NOT NULL DEFAULT '{"confirmed_sos_monthly":15,"revenue_usd_monthly":250000,"rfq_days":3,"sample_days":14,"otd_pct":95,"complaints_monthly":2}'::jsonb;
