@@ -81,7 +81,14 @@ export default function TaskAutomationsSettings() {
               <Select value={r.trigger_event} onValueChange={v => patch(r.id, { trigger_event: v })}>
                 <SelectTrigger className="h-8 text-xs w-60"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TASK_TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] uppercase tracking-wide">HQ events</SelectLabel>
+                    {TASK_TRIGGERS.filter(t => t.source === 'hq').map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] uppercase tracking-wide">Odoo events</SelectLabel>
+                    {ODOO_TRIGGERS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
               <label className="flex items-center gap-1.5 text-xs">
@@ -92,7 +99,10 @@ export default function TaskAutomationsSettings() {
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">{TASK_TRIGGERS.find(t => t.value === r.trigger_event)?.hint}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {TASK_TRIGGERS.find(t => t.value === r.trigger_event)?.hint}
+              {HQ_TEMPLATE_VARIABLES[r.trigger_event] && <> · Variables: {HQ_TEMPLATE_VARIABLES[r.trigger_event].map(v => <code key={v} className="mx-0.5 px-1 rounded bg-muted">{`{{${v}}}`}</code>)}</>}
+            </p>
 
             <div className="space-y-1.5">
               <div className="grid grid-cols-[1fr_90px_100px_90px_32px] gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-0.5">
