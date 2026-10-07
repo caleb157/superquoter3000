@@ -339,30 +339,33 @@ Deno.serve(async (req) => {
       overheadMonthly.inr = total / overheadMonths;
     } catch (e) { warnings.push('Overhead tag: ' + e.message); }
 
-    // ================= Booked capacity (open MO work orders) =================
+    // ================= Booked capacity (straight read of LaborTrax forecast) =================
     const bookedHoursByMonth: Record<string, number> = {};
+    const capacityHoursByMonth: Record<string, number> = {};
+    let ltWeeklyCapacity: number | null = null;
+    let ltCapacityWeekly: unknown[] = [];
     try {
-      const openMos = mos.filter(m => !['done', 'cancel'].includes(m.state));
-      if (openMos.length) {
-        const wos = await sr('mrp.workorder', [['production_id', 'in', openMos.map(m => m.id)], ['state', 'not in', ['done', 'cancel']]],
-          ['production_id', 'duration_expected', 'duration', 'date_start', 'date_planned_start'], { limit: 10000 });
-        const moById = new Map(openMos.map(m => [m.id, m]));
-        for (const w of wos) {
-          const remMin = Math.max(0, num(w.duration_expected) - num(w.duration));
-          if (!remMin) continue;
-          const mo = moById.get(id(w.production_id));
-          let dt = d10(w.date_start) || d10(w.date_planned_start) || d10(mo?.date_start) || d10(mo?.date_planned_start) || today;
-          if (dt < today) dt = today;
-          const k = dt.slice(0, 7);
-          bookedHoursByMonth[k] = (bookedHoursByMonth[k] || 0) + remMin / 60;
-        }
+      const ltKey = Deno.env.get('LABORTRAX_API_KEY');
+      if (!ltKey) throw new Error('LABORTRAX_API_KEY not set');
+      const res = await fetch('https://labor-trax.lovable.app/api/public/capacity-forecast', { headers: { 'x-api-key': ltKey } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const cf = await res.json();
+      for (const m of (cf.monthlySeries || [])) {
+        const k = String(m.month ?? m.key ?? '').slice(0, 7);
+        if (!k) continue;
+        bookedHoursByMonth[k] = num(m.booked ?? m.total ?? m.bookedHours);
+        capacityHoursByMonth[k] = num(m.capacity ?? m.availableCapacity ?? m.availableHours);
       }
-    } catch (e) { warnings.push('Booked capacity: ' + e.message); }
+      ltWeeklyCapacity = cf.weeklyCapacity != null ? num(cf.weeklyCapacity) : null;
+      ltCapacityWeekly = Array.isArray(cf.weeklySeries) ? cf.weeklySeries.map((w: any) => ({ week: w.week, total: w.total, capacity: w.capacity })) : [];
+      if (cf.salesOrdersLoaded === false) warnings.push('LaborTrax capacity: Odoo sales-order dates unavailable, fallback dates used');
+    } catch (e) { warnings.push('LaborTrax capacity forecast: ' + e.message); }
 
     const payload = {
       inr_per_usd: inrPerUsd, today, overhead_months: overheadMonths, opening_cash_inr: openingCashInr,
       sales_orders: salesOrders, cash_items: cash, invoiced, pending_so_revenue: pendingSoRevenue,
       overhead_monthly: overheadMonthly, actual_hours_by_month: actualHoursByMonth, booked_hours_by_month: bookedHoursByMonth,
+      capacity_hours_by_month: capacityHoursByMonth, lt_weekly_capacity: ltWeeklyCapacity, lt_capacity_weekly: ltCapacityWeekly,
       labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings,
     };
     const duration = Date.now() - started;
