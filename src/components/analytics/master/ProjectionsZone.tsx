@@ -150,21 +150,21 @@ export function ProjectionsZone(p: Props) {
           <TableToggle label="View monthly capacity breakdown">
             <Table className="text-xs">
               <TableHeader><TableRow>
-                <TableHead>Month</TableHead><TableHead className="text-right">Booked MO hrs</TableHead>
+                <TableHead>Month</TableHead><TableHead className="text-right">Booked hrs (LaborTrax)</TableHead>
                 {includePipeline && <TableHead className="text-right">Pipeline hrs</TableHead>}
                 <TableHead className="text-right">Total demand</TableHead><TableHead className="text-right">Capacity</TableHead><TableHead className="text-right">Utilization</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {capRows.map(r => {
                   const total = r.booked + (includePipeline ? r.pipeline : 0);
-                  const util = capacity > 0 ? total / capacity : null;
+                  const util = r.capacity > 0 ? total / r.capacity : null;
                   return (
                     <TableRow key={r.month}>
                       <TableCell>{r.month}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.booked.toLocaleString()}</TableCell>
                       {includePipeline && <TableCell className="text-right tabular-nums">{r.pipeline.toLocaleString()}</TableCell>}
                       <TableCell className="text-right tabular-nums font-medium">{total.toLocaleString()}</TableCell>
-                      <TableCell className="text-right tabular-nums">{capacity > 0 ? Math.round(capacity).toLocaleString() : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.capacity > 0 ? r.capacity.toLocaleString() : '—'}</TableCell>
                       <TableCell className={cn('text-right tabular-nums', util != null && util > 1 && 'text-destructive font-medium')}>{util == null ? '—' : `${Math.round(util * 100)}%`}</TableCell>
                     </TableRow>
                   );
