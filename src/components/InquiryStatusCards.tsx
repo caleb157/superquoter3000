@@ -80,7 +80,9 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         ) || 0;
         revenue += price * qty;
         cost += unitCost * qty;
-        const unitCbm = cbmMap.get(p.id) ?? prePackagedCbm(p.width_inch, p.depth_inch, p.height_inch);
+        const unitCbm = (computed?.final_unit_cbm && computed.final_unit_cbm > 0)
+          ? computed.final_unit_cbm
+          : (cbmMap.get(p.id) ?? prePackagedCbm(p.width_inch, p.depth_inch, p.height_inch));
         totalCbm += unitCbm * qty;
       });
       const profit = revenue - cost;
