@@ -156,6 +156,14 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
       shipmentPool: pools && p.customer_rfq_id ? pools[p.customer_rfq_id] : null,
     });
 
+    // Keep stored packaged CBM in sync with the live OD-based value (single source of truth).
+    const liveCbm = Number(result.finalUnitCbm) || 0;
+    if (cbmRow?.id && Math.abs((Number(cbmRow.final_unit_cbm) || 0) - liveCbm) > 0.000001) {
+      void supabase.from('cbm_estimates')
+        .update({ final_unit_cbm: liveCbm, total_cbm: +(liveCbm * (Number(p.quantity) || 0)).toFixed(4) })
+        .eq('id', cbmRow.id).then(() => {});
+    }
+
     const { summary, exchangeRate, cogsPerUnit, nonUnitCogsPerUnit } = result;
     const totalCogsPerUnitInr = cogsPerUnit + nonUnitCogsPerUnit;
     const unitCogsUsd = exchangeRate > 0 ? totalCogsPerUnitInr / exchangeRate : 0;
