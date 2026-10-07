@@ -626,7 +626,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 <TableIcon className="h-4 w-4 mr-2" /> Target grid
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
-                <AlertTriangle className="h-4 w-4 mr-2" /> Audit grid
+                <AlertTriangle className="h-4 w-4 mr-2" /> Bulk editor
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/pd`)}>
                 <TableIcon className="h-4 w-4 mr-2" /> PD view

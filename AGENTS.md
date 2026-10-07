@@ -7,3 +7,4 @@
 - Pipeline certainty = per-inquiry override, else booked 100% / cancelled-paused 0%, else the Settings default (global_settings.default_certainty_pct, cached via src/lib/projection-defaults.ts) — stage weighting retired so one knob drives all projections.
 - Master Analytics projections are Parable Ventures-only: when another entity sells, PV revenue = FOB × (1 − selling retention) paid via inter-entity deposit/balance; missing projection FOB/man-hours fall back to the live costing engine (src/lib/pipeline-live.ts).
 - Analytics opening cash comes from the sum of Odoo asset_cash accounts in the sync snapshot — no manual input.
+- The inquiry Bulk Costing Editor (/inquiry/:id/audit) edits products/cbm_estimates/cogs_items directly and recomputes every derived number through computeProductCosting in memory — no separate math, so it can never disagree with the costing sheet.
