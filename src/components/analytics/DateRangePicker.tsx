@@ -19,7 +19,7 @@ type Props = {
   onChange: (preset: RangePreset, custom?: { from?: string; to?: string }) => void;
 };
 
-const PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
+const PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'this_cy', 'last_cy', 'custom'];
 
 export function DateRangePicker({ preset, customFrom, customTo, onChange }: Props) {
   const [customOpen, setCustomOpen] = useState(false);
@@ -40,7 +40,7 @@ export function DateRangePicker({ preset, customFrom, customTo, onChange }: Prop
             <DropdownMenuItem
               key={p}
               onSelect={() => {
-                if (p === 'custom') setCustomOpen(true);
+                if (p === 'custom') { onChange('custom', { from: format(range.from, 'yyyy-MM-dd'), to: format(range.to, 'yyyy-MM-dd') }); setTimeout(() => setCustomOpen(true), 50); }
                 else onChange(p);
               }}
             >

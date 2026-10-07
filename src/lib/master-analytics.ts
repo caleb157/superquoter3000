@@ -15,6 +15,8 @@ export type SnapshotSO = Money & {
 export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
+  /** Sum of Odoo asset_cash account balances (INR) at sync time. */
+  opening_cash_inr?: number;
   sales_orders: SnapshotSO[]; cash_items: CashItem[];
   invoiced: (Money & { ref: string; partner: string | null; date: string | null })[];
   pending_so_revenue: (Money & { ref: string; partner: string | null; date: string })[];
