@@ -11,6 +11,8 @@ import { Bar, BarChart, Cell, ComposedChart, Line, CartesianGrid, Legend, Refere
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Copy, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { loadProjectionDefaults } from '@/lib/projection-defaults';
+import { liveInquiryFinancials } from '@/lib/pipeline-live';
 import { cn } from '@/lib/utils';
 import {
   buildPipeline, pipelineCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
@@ -171,9 +173,7 @@ export function ProjectionsZone(p: Props) {
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-sm font-medium">Cash flow · next 12 months</CardTitle>
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <label className="flex items-center gap-1.5">Opening cash ₹
-              <Input type="number" className="h-7 w-28 text-xs" defaultValue={p.openingCash} onBlur={e => p.setOpeningCash(Number(e.target.value) || 0)} />
-            </label>
+            <span className="text-muted-foreground" title="Sum of all Odoo bank & cash accounts at last sync">Opening cash {fmtMoney(ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr, ccy)} <span className="opacity-70">(Odoo bank &amp; cash)</span></span>
             <label className="flex items-center gap-1.5">Overhead avg of last
               <Input type="number" min={1} max={24} className="h-7 w-14 text-xs" defaultValue={p.overheadMonths} onBlur={e => p.setOverheadMonths(Math.max(1, Math.min(24, Number(e.target.value) || 3)))} /> months
             </label>
@@ -267,7 +267,7 @@ export function ProjectionsZone(p: Props) {
           {fyRev && <div className="space-y-4 text-xs">
             <Section title={`Invoiced since ${fy.start} — ${f(fyRev.a)}`} rows={fyRev.invoiced.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
             <Section title={`Booked SOs not yet invoiced, due by ${fy.end} — ${f(fyRev.b)}`} rows={fyRev.pending.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
-            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.fob_usd * x.certainty), ccy, false)])} />
+            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.pv_revenue_usd * x.certainty), ccy, false)])} />
           </div>}
         </DialogContent>
       </Dialog>
