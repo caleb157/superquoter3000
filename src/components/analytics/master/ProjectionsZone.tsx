@@ -21,7 +21,6 @@ type Props = {
   snapshot: Snapshot | null; ccy: Ccy; hqRate: number;
   includePipeline: boolean; setIncludePipeline: (v: boolean) => void;
   overheadMonths: number; setOverheadMonths: (n: number) => void;
-  openingCash: number; setOpeningCash: (n: number) => void;
 };
 
 export function ProjectionsZone(p: Props) {
@@ -30,32 +29,38 @@ export function ProjectionsZone(p: Props) {
   const [capacity, setCapacity] = useState(0);
   const [cell, setCell] = useState<{ title: string; items: CashItem[] } | null>(null);
   const [fyOpen, setFyOpen] = useState(false);
+  const todayIso = snapshot?.today ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     (async () => {
-      const [inq, lab] = await Promise.all([
-        supabase.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*), products(design_stage, quote_stage, sample_stage, archived_at)'),
+      const [inq, lab, ents, defaults] = await Promise.all([
+        supabase.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*)'),
         (supabase as any).from('labor_employees').select('num_laborers, available_hours_per_month'),
+        (supabase as any).from('company_entities').select('id, name, entity_type'),
+        loadProjectionDefaults(),
       ]);
-      setPipe(buildPipeline(((inq.data as any[]) || []).map(i => ({ ...i, products: (i.products || []).filter((x: any) => !x.archived_at) }))));
       setCapacity(((lab.data as any[]) || []).reduce((s, r) => s + (Number(r.num_laborers) || 0) * (Number(r.available_hours_per_month) || 0), 0));
+      const pv = ((ents.data as any[]) || []).find(e => /parable/i.test(e.name || '') || e.entity_type === 'India');
+      const open = ((inq.data as any[]) || []).filter(i => !['po', 'complete', 'cancelled', 'paused'].includes(i.status));
+      const live = await liveInquiryFinancials(open.map(i => i.id));
+      setPipe(buildPipeline(open, { today: todayIso, pvEntityId: pv?.id ?? null, defaults, live }));
     })();
-  }, []);
+  }, [todayIso]);
 
-  const today = snapshot?.today ?? new Date().toISOString().slice(0, 10);
+  const today = todayIso;
   const months = useMemo(() => nextMonths(today, 12), [today]);
   const fy = fyBounds(today);
   const usdToCcy = (usd: number) => (ccy === 'USD' ? usd : usd * hqRate);
 
-  // ---------- FY revenue ----------
+  // ---------- FY revenue (PV share) ----------
   const fyRev = useMemo(() => {
     if (!snapshot) return null;
     const invoiced = snapshot.invoiced.filter(i => i.date && i.date >= fy.start && i.date <= today);
     const pending = snapshot.pending_so_revenue.filter(s => s.date <= fy.end);
-    const pipeIn = pipe.filter(x => { const m = (x.revenue_month || '').slice(0, 10); return m && m >= today.slice(0, 7) && m <= fy.end; });
+    const pipeIn = pipe.filter(x => { const m = (x.revenue_month || '').slice(0, 10); return m && m.slice(0, 7) >= today.slice(0, 7) && m <= fy.end; });
     const a = invoiced.reduce((s, i) => s + pickAmt(i, ccy), 0);
     const b = pending.reduce((s, i) => s + pickAmt(i, ccy), 0);
-    const c = pipeIn.reduce((s, x) => s + usdToCcy(x.fob_usd * x.certainty), 0);
+    const c = pipeIn.reduce((s, x) => s + usdToCcy(x.pv_revenue_usd * x.certainty), 0);
     return { invoiced, pending, pipeIn, a, b, c, total: a + b + (includePipeline ? c : 0) };
   }, [snapshot, pipe, ccy, includePipeline, hqRate]);
 
@@ -64,21 +69,22 @@ export function ProjectionsZone(p: Props) {
     const booked = snapshot?.booked_hours_by_month?.[m] ?? 0;
     let pipeline = 0;
     if (includePipeline) for (const x of pipe) {
-      if (!x.man_hours || !x.start_month) continue;
-      const start = x.start_month.slice(0, 7);
-      const idx = months.indexOf(m) - months.indexOf(start < months[0] ? months[0] : start);
+      if (!x.man_hours) continue;
+      const start = x.start_month.slice(0, 7) < months[0] ? months[0] : x.start_month.slice(0, 7);
+      const idx = months.indexOf(m) - months.indexOf(start);
       if (start <= m && idx >= 0 && idx < x.duration_months) pipeline += (x.man_hours * x.certainty) / x.duration_months;
     }
     return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline) };
   }), [months, snapshot, pipe, includePipeline]);
 
   // ---------- Cash ----------
+  const openingInr = snapshot?.opening_cash_inr ?? 0;
   const cash = useMemo(() => {
     const items = [...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : [])];
     const oh = snapshot ? (ccy === 'USD' ? snapshot.overhead_monthly.inr / (snapshot.inr_per_usd || hqRate) : snapshot.overhead_monthly.inr) : 0;
-    const opening = ccy === 'USD' ? p.openingCash / (snapshot?.inr_per_usd || hqRate) : p.openingCash;
+    const opening = ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr;
     return cashflowTable(items, months, ccy, oh, opening);
-  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, p.openingCash]);
+  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr]);
   const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
   const rows = CASH_ROWS.filter(r => includePipeline || !r.key.startsWith('pipeline'));
 
