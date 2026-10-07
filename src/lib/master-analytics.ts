@@ -11,6 +11,8 @@ export type SnapshotSO = Money & {
   invoice_status: string | null; delivery_status: string | null;
   original_delivery: string | null; delivery_date: string | null; effective_date: string | null;
   mo_names: string[]; mo_missing_pack: number; ready_date: string | null;
+  /** True when every linked MO is 'done' in Odoo (older snapshots: undefined). */
+  all_mos_done?: boolean; mos_done_date?: string | null;
 };
 export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
 export type Snapshot = {
@@ -39,15 +41,18 @@ export function confirmedOrdersKpi(sos: SnapshotSO[], from: Date, to: Date, inrP
   return { all: inWin, qualifying };
 }
 
-export type OtdRow = SnapshotSO & { onTime: boolean | null; lateDays: number | null };
-/** OTD: in-house SOs only (≥1 MO), completed (delivered) in window; ready = last Packaging entry + 1 day. */
+export type OtdRow = SnapshotSO & { onTime: boolean | null; lateDays: number | null; completed_on: string | null };
+/** OTD: in-house SOs only (≥1 MO) whose MOs are all done (or delivered in full), completed in window.
+ *  Completion = last Packaging entry + 1 day, else latest MO finish, else delivery date. */
 export function otdKpi(sos: SnapshotSO[], from: Date, to: Date) {
   const rows: OtdRow[] = sos
-    .filter(s => s.mo_names.length > 0 && s.delivery_status === 'full' && inR(s.effective_date, from, to))
-    .map(s => {
-      if (!s.ready_date || !s.original_delivery) return { ...s, onTime: null, lateDays: null };
-      const late = Math.round((new Date(s.ready_date).getTime() - new Date(s.original_delivery).getTime()) / 86400000);
-      return { ...s, onTime: late <= 0, lateDays: late };
+    .filter(s => s.mo_names.length > 0 && (s.all_mos_done || s.delivery_status === 'full'))
+    .map(s => ({ s, done: s.ready_date || s.mos_done_date || s.effective_date || null }))
+    .filter(({ done }) => inR(done, from, to))
+    .map(({ s, done }) => {
+      if (!done || !s.original_delivery) return { ...s, completed_on: done, onTime: null, lateDays: null };
+      const late = Math.round((new Date(done).getTime() - new Date(s.original_delivery).getTime()) / 86400000);
+      return { ...s, completed_on: done, onTime: late <= 0, lateDays: late };
     });
   const scored = rows.filter(r => r.onTime !== null);
   const onTime = scored.filter(r => r.onTime).length;

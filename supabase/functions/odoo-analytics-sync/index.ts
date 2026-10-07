@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
 
     // MOs linked by project or origin
     const mos = await sr('mrp.production', [['state', '!=', 'cancel'], ['create_date', '>=', since + ' 00:00:00']],
-      ['name', 'origin', 'project_id', 'state', 'date_start', 'date_planned_start', 'product_id', 'product_qty'], { limit: 5000 });
+      ['name', 'origin', 'project_id', 'state', 'date_start', 'date_planned_start', 'date_finished', 'product_id', 'product_qty'], { limit: 5000 });
     const pidOf = (o: any) => id(o.project_id) ?? HERITAGE_PROJECT_BY_SO[o.name] ?? null;
     const mosBySo = new Map<string, any[]>();
     for (const o of sos) {
@@ -198,6 +198,8 @@ Deno.serve(async (req) => {
         effective_date: d10(o.effective_date), signed_on: d10(o.signed_on),
         mo_names: myMos.map(m => m.name), mo_missing_pack: missing,
         ready_date: ready ? addDays(ready, 1) : null,
+        all_mos_done: myMos.length > 0 && myMos.every(m => m.state === 'done'),
+        mos_done_date: myMos.reduce((acc: string | null, m) => maxDate(acc, d10(m.date_finished)), null),
       };
     });
 
