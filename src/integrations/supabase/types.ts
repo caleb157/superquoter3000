@@ -1283,6 +1283,9 @@ export type Database = {
           corrugate_kg_per_sq_in: number
           corrugate_price_per_kg: number
           created_at: string | null
+          default_certainty_pct: number
+          default_cust_deposit_pct: number
+          default_ie_deposit_pct: number
           default_shipping_type: string | null
           exchange_rate: number
           id: string
@@ -1306,6 +1309,9 @@ export type Database = {
           corrugate_kg_per_sq_in?: number
           corrugate_price_per_kg?: number
           created_at?: string | null
+          default_certainty_pct?: number
+          default_cust_deposit_pct?: number
+          default_ie_deposit_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
@@ -1329,6 +1335,9 @@ export type Database = {
           corrugate_kg_per_sq_in?: number
           corrugate_price_per_kg?: number
           created_at?: string | null
+          default_certainty_pct?: number
+          default_cust_deposit_pct?: number
+          default_ie_deposit_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
