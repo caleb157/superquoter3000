@@ -35,6 +35,7 @@ import {
   projectionIsLocked,
 } from '@/lib/inquiry-financials';
 import { ChevronDown, Lock } from 'lucide-react';
+import { loadProjectionDefaults } from '@/lib/projection-defaults';
 
 type Props = { inquiryId: string };
 
@@ -134,7 +135,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
           setAdvancedOpen(true);
         }
       } else {
-        setProj({ inquiry_id: inquiryId, ...EMPTY });
+        const d = await loadProjectionDefaults();
+        setProj({ inquiry_id: inquiryId, ...EMPTY, cust_deposit_pct: d.custDeposit, cust_final_pct: 1 - d.custDeposit, ie_deposit_pct: d.ieDeposit, ie_balance_pct: 1 - d.ieDeposit });
         setExisted(false);
       }
       setLoading(false);
@@ -321,7 +323,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 className="h-9 mt-1"
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Stage-weighted default: {(autoCertainty * 100).toFixed(0)}%
+                Default (Settings → Projections): {(autoCertainty * 100).toFixed(0)}%
               </p>
             </div>
             <div className="flex items-end">
