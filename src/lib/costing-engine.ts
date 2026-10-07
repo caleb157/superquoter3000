@@ -138,7 +138,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const includeMc = packagingType === 'ic_mc';
   const isBulkPack = packagingType === 'bulk_pack';
   const noPackaging = packagingType === 'no_packaging';
-  let finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
+  let finalUnitCbm = calc.computePackagedUnitCbm({ product: p, cbmRow, boxData: boxData as any[], productType, globalSettings: gs });
 
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   const icDims = {
@@ -216,7 +216,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     mcCost = calc.calcICCostEstimate(bulkRes.mc_width, bulkRes.mc_depth, bulkRes.mc_height, avgMcCostPerSqIn2);
     productsPerMc = bulkRes.pieces_per_mc || 1;
     mcDims = { mc_width: bulkRes.mc_width, mc_depth: bulkRes.mc_depth, mc_height: bulkRes.mc_height };
-    finalUnitCbm = productsPerMc > 0 ? bulkRes.mc_volume_cbm / productsPerMc : 0;
 
     // Optional non-blocking warning when the user-chosen count exceeds MC max size or weight
     const maxW = cbmRow?.mc_max_width || 0;
