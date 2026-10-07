@@ -124,7 +124,7 @@ export function ProjectionsZone(p: Props) {
               <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="booked" name="Booked MOs (Odoo work orders)" stackId="a" fill="hsl(var(--primary))" />
-              {includePipeline && <Bar dataKey="pipeline" name="Pipeline (weighted)" stackId="a" fill="hsl(var(--accent))" />}
+              {includePipeline && <Bar dataKey="pipeline" name="Pipeline (weighted)" stackId="a" fill="hsl(var(--warning))" />}
               {capacity > 0 && <ReferenceLine y={capacity} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `Capacity ${Math.round(capacity)}`, fontSize: 11, fill: 'hsl(var(--destructive))', position: 'insideTopRight' }} />}
             </BarChart>
           </ResponsiveContainer>
