@@ -1,3 +1,4 @@
 - Tasks link to at most one thing via association_type/association_id/association_label (inquiry_id/customer_id kept in sync for existing views; product_id deprecated) — new link kinds need no schema change.
 - Recurring tasks are one living row: completing logs a done copy and rolls due_date forward (src/lib/task-recurrence.ts) — keeps the open list clean with history preserved.
 - Odoo-triggered task sets come from task_automation_rules via the odoo-task-webhook function, authenticated by the admin-only token in task_automation_config — Odoo pushes events, HQ never polls.
+- Master Analytics reads Odoo/LaborTrax actuals only from the latest `analytics_snapshots` row written by the `odoo-analytics-sync` function on manual Refresh; pipeline is computed live client-side in `src/lib/master-analytics.ts` — keeps the page instant and Odoo load on demand.

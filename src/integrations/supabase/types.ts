@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_snapshots: {
+        Row: {
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          payload: Json
+          status: string
+          synced_at: string
+          synced_by: string | null
+        }
+        Insert: {
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          status?: string
+          synced_at?: string
+          synced_by?: string | null
+        }
+        Update: {
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          status?: string
+          synced_at?: string
+          synced_by?: string | null
+        }
+        Relationships: []
+      }
       assembly_components: {
         Row: {
           assembly_id: string
@@ -504,6 +534,65 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      customer_complaints: {
+        Row: {
+          actions_captured: boolean
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name_manual: string | null
+          date_closed: string | null
+          date_logged: string
+          google_drive_url: string | null
+          id: string
+          issue_summary: string
+          notes: string | null
+          potential_resolution: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actions_captured?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name_manual?: string | null
+          date_closed?: string | null
+          date_logged?: string
+          google_drive_url?: string | null
+          id?: string
+          issue_summary: string
+          notes?: string | null
+          potential_resolution?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actions_captured?: boolean
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name_manual?: string | null
+          date_closed?: string | null
+          date_logged?: string
+          google_drive_url?: string | null
+          id?: string
+          issue_summary?: string
+          notes?: string | null
+          potential_resolution?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_complaints_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_lifecycle_events: {
         Row: {
@@ -1199,6 +1288,8 @@ export type Database = {
           indirect_overhead_per_mh: number
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
+          opening_cash_inr: number
+          overhead_avg_months: number
           packaging_cost_per_cbm: number
           projections_sheet_id: string | null
           projections_sheet_tab_name: string | null
@@ -1219,6 +1310,8 @@ export type Database = {
           indirect_overhead_per_mh?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
+          opening_cash_inr?: number
+          overhead_avg_months?: number
           packaging_cost_per_cbm?: number
           projections_sheet_id?: string | null
           projections_sheet_tab_name?: string | null
@@ -1239,6 +1332,8 @@ export type Database = {
           indirect_overhead_per_mh?: number
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
+          opening_cash_inr?: number
+          overhead_avg_months?: number
           packaging_cost_per_cbm?: number
           projections_sheet_id?: string | null
           projections_sheet_tab_name?: string | null
