@@ -36,22 +36,25 @@ export type InquiryProjection = {
   notes: string | null;
 };
 
+/** Team-wide projection defaults (Settings → Projections). Loaded once, cached in-module. */
+export type ProjectionDefaults = { certainty: number; custDeposit: number; ieDeposit: number };
+let projectionDefaults: ProjectionDefaults = { certainty: 0.3, custDeposit: 0.3, ieDeposit: 0.8 };
+export const getProjectionDefaults = () => projectionDefaults;
+export function setProjectionDefaults(d: Partial<ProjectionDefaults>) { projectionDefaults = { ...projectionDefaults, ...d }; }
+
+/**
+ * Certainty = per-inquiry override, else booked (po/complete) 100%, cancelled/paused 0%,
+ * else the global default certainty from Settings. Stage weighting is retired.
+ */
 export function effectiveCertainty(
   projection: Pick<InquiryProjection, 'certainty_override'> | null,
-  products: Array<{ design_stage: string | null; quote_stage: string | null; sample_stage: string | null }>,
+  _products: Array<{ design_stage: string | null; quote_stage: string | null; sample_stage: string | null }>,
   inquiryStatus: string,
 ): number {
   if (projection?.certainty_override != null) return Number(projection.certainty_override);
   if (inquiryStatus === 'po' || inquiryStatus === 'complete') return 1.0;
   if (inquiryStatus === 'cancelled' || inquiryStatus === 'paused') return 0;
-  if (inquiryStatus === 'projected_po') {
-    // Default certainty for projected POs is 0.5 — conservative middle ground.
-    // User can override per-inquiry via certainty_override.
-    return 0.5;
-  }
-  if (products.length === 0) return 0;
-  const total = products.reduce((acc, p) => acc + productWeight(p as any, inquiryStatus), 0);
-  return total / products.length;
+  return projectionDefaults.certainty;
 }
 
 /**
