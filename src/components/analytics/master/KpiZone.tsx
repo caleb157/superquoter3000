@@ -104,11 +104,12 @@ export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; c
           { header: 'Total', align: 'right', cell: r => <b>{fmtDays(r.total)}</b> },
         ]} />
       <DrillDownDialog open={drill === 'otd'} onOpenChange={o => !o && setDrill(null)} title="On-time delivery"
-        description="Fully delivered SOs with at least one MO, delivered in the period. Ready date = last Packaging work-order entry in LaborTrax across all MOs + 1 day, compared with the original delivery date. Orders without packaging entries are listed but not scored."
+        description="SOs with at least one MO where every MO is Done in Odoo (invoicing and delivery don't matter), completed in the period. Ready date = last Packaging entry in LaborTrax across all MOs + 1 day; if none, the latest MO finish date in Odoo. Compared with the original delivery date."
         rows={otd?.rows ?? []} rowKey={r => r.name}
         columns={[
           { header: 'SO', cell: r => r.name }, { header: 'Customer', cell: r => r.partner ?? '—' }, { header: 'MOs', align: 'right', cell: r => r.mo_names.length },
-          { header: 'Original due', cell: r => r.original_delivery ?? '—' }, { header: 'Ready', cell: r => r.ready_date ?? '—' },
+          { header: 'Original due', cell: r => r.original_delivery ?? '—' },
+          { header: 'Ready', cell: r => r.completed_on ? <>{r.completed_on}<span className="ml-1 text-[10px] text-muted-foreground">{r.ready_date ? 'Packaging' : r.mos_done_date ? 'MO done' : 'Delivered'}</span></> : '—' },
           { header: 'Result', cell: r => r.onTime == null ? <span className="text-muted-foreground">not scored</span> : r.onTime ? <span className="text-success">On time</span> : <span className="text-destructive">{r.lateDays}d late</span> },
         ]} />
     </div>
