@@ -18,7 +18,8 @@ type Props = {
 
 /** Progress ratio 0..1+ where 1 = goal met. */
 export function gaugeScore(actual: number | null, goal: number, higher: boolean) {
-  if (actual == null || !goal) return null;
+  if (actual == null) return null;
+  if (!goal) return higher ? null : actual <= 0 ? 1.5 : 0.3;
   if (higher) return actual / goal;
   return actual <= 0 ? 1.5 : goal / actual;
 }

@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MetricCard } from '@/components/analytics/MetricCard';
 import { DrillDownDialog } from '@/components/analytics/DrillDownDialog';
+import { Button } from '@/components/ui/button';
+import { Target } from 'lucide-react';
 import { pairRfqsToQuotes, avg, median, fmtDays, type DateRange } from '@/lib/analytics-helpers';
 import { confirmedOrdersKpi, otdKpi, pickAmt, fmtMoney, MIN_ORDER_USD, type Ccy, type Snapshot } from '@/lib/master-analytics';
 import { ComplaintsPanel, useComplaints } from './ComplaintsPanel';
+import { KpiGauge } from './KpiGauge';
+import { TargetsDialog, useKpiTargets } from './TargetsDialog';
 
 type Drill = null | 'orders' | 'rfq' | 'rfs' | 'otd';
 const days = (a: string | null, b: string | null) => (a && b ? (new Date(b).getTime() - new Date(a.length === 10 ? a + 'T00:00:00Z' : a).getTime()) / 86400000 : null);
 
 export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; ccy: Ccy; range: DateRange }) {
   const [drill, setDrill] = useState<Drill>(null);
+  const [targetsOpen, setTargetsOpen] = useState(false);
+  const { targets, save: saveTargets } = useKpiTargets();
   const [hq, setHq] = useState<{ rfqs: any[]; quotes: any[]; samples: any[]; inq: Record<string, string> }>({ rfqs: [], quotes: [], samples: [], inq: {} });
   const complaints = useComplaints();
 
