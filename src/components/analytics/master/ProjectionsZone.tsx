@@ -252,7 +252,7 @@ export function ProjectionsZone(p: Props) {
               {cell?.items.slice().sort((a, b) => pickAmt(b, ccy) - pickAmt(a, ccy)).map((it, i) => (
                 <TableRow key={i}>
                   <TableCell>{it.ref}</TableCell><TableCell>{it.partner ?? '—'}</TableCell><TableCell>{it.date}</TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}{it.advance_covered ? ' · fully covered' : ''}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtMoney(pickAmt(it, ccy) * it.sign, ccy, false)}</TableCell>
                 </TableRow>
               ))}
