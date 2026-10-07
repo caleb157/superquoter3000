@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadFobRates } from '@/lib/fob-rates';
+import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -26,7 +27,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
-  useEffect(() => { if (user) loadFobRates(); }, [user]);
+  useEffect(() => { if (user) { loadFobRates(); loadProjectionDefaults(); } }, [user]);
 
   // Route-derived context so the global "T" shortcut pre-fills the task dialog
   const taskContext = useMemo<TaskContext>(() => {

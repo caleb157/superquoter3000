@@ -6,13 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { DateRangePicker } from '@/components/analytics/DateRangePicker';
-import { SalesDashboard } from '@/components/analytics/SalesDashboard';
-import { OpsDashboard } from '@/components/analytics/OpsDashboard';
-import { ProjectionsView } from '@/components/analytics/ProjectionsView';
-import { CapacityChart } from '@/components/analytics/CapacityChart';
 import { KpiZone } from '@/components/analytics/master/KpiZone';
 import { ProjectionsZone } from '@/components/analytics/master/ProjectionsZone';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
@@ -20,7 +14,7 @@ import type { Ccy } from '@/lib/master-analytics';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
-const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'custom'];
+const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'this_cy', 'last_cy', 'custom'];
 
 const Analytics = () => {
   useDocumentTitle('Kickass Analytics Dashboard');
@@ -108,26 +102,9 @@ const Analytics = () => {
             snapshot={snapshot} ccy={ccy} hqRate={settings.hqRate || 84}
             includePipeline={includePipeline} setIncludePipeline={v => setParam('pipeline', v ? null : '0')}
             overheadMonths={settings.overheadMonths} setOverheadMonths={n => saveSetting('overhead_avg_months', n, 'overheadMonths')}
-            openingCash={settings.openingCash} setOpeningCash={n => saveSetting('opening_cash_inr', n, 'openingCash')}
           />
         </section>
 
-        {/* Legacy detail reports kept for deeper digging */}
-        <Collapsible>
-          <CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="text-muted-foreground">Detailed reports ▾</Button></CollapsibleTrigger>
-          <CollapsibleContent>
-            <Tabs defaultValue="sales" className="mt-2">
-              <TabsList>
-                <TabsTrigger value="sales">Sales</TabsTrigger><TabsTrigger value="ops">Operations</TabsTrigger>
-                <TabsTrigger value="projections">Inquiry projections</TabsTrigger><TabsTrigger value="capacity">Pipeline capacity</TabsTrigger>
-              </TabsList>
-              <TabsContent value="sales" className="mt-4"><SalesDashboard range={range} /></TabsContent>
-              <TabsContent value="ops" className="mt-4"><OpsDashboard range={range} slowQuoteDays={settings.slowQuote} slowSampleDays={settings.slowSample} /></TabsContent>
-              <TabsContent value="projections" className="mt-4"><ProjectionsView /></TabsContent>
-              <TabsContent value="capacity" className="mt-4"><CapacityChart /></TabsContent>
-            </Tabs>
-          </CollapsibleContent>
-        </Collapsible>
       </div>
     </AppLayout>
   );

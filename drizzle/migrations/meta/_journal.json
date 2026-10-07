@@ -43,6 +43,13 @@
       "when": 1791353811040,
       "tag": "0005_hq_task_automations",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791362283844,
+      "tag": "0006_projection_defaults",
+      "breakpoints": true
     }
   ]
 }

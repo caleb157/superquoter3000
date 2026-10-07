@@ -4,3 +4,6 @@
 - Master Analytics reads Odoo/LaborTrax actuals only from the latest `analytics_snapshots` row written by the `odoo-analytics-sync` function on manual Refresh; pipeline is computed live client-side in `src/lib/master-analytics.ts` — keeps the page instant and Odoo load on demand.
 - HQ-originated task automations (inquiry created, customer set to Lead) fire from database triggers via run_hq_task_automation, sharing task_automation_rules with Odoo events — catches every insert path (UI, imports, MCP) without client code.
 - App navigation is a single left slide-out menu; reference tables are grouped under an expandable "Directories" section — keeps the header uncluttered.
+- Pipeline certainty = per-inquiry override, else booked 100% / cancelled-paused 0%, else the Settings default (global_settings.default_certainty_pct, cached via src/lib/projection-defaults.ts) — stage weighting retired so one knob drives all projections.
+- Master Analytics projections are Parable Ventures-only: when another entity sells, PV revenue = FOB × (1 − selling retention) paid via inter-entity deposit/balance; missing projection FOB/man-hours fall back to the live costing engine (src/lib/pipeline-live.ts).
+- Analytics opening cash comes from the sum of Odoo asset_cash accounts in the sync snapshot — no manual input.

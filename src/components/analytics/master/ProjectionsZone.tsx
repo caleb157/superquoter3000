@@ -11,6 +11,8 @@ import { Bar, BarChart, Cell, ComposedChart, Line, CartesianGrid, Legend, Refere
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Copy, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { loadProjectionDefaults } from '@/lib/projection-defaults';
+import { liveInquiryFinancials } from '@/lib/pipeline-live';
 import { cn } from '@/lib/utils';
 import {
   buildPipeline, pipelineCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
@@ -21,7 +23,6 @@ type Props = {
   snapshot: Snapshot | null; ccy: Ccy; hqRate: number;
   includePipeline: boolean; setIncludePipeline: (v: boolean) => void;
   overheadMonths: number; setOverheadMonths: (n: number) => void;
-  openingCash: number; setOpeningCash: (n: number) => void;
 };
 
 export function ProjectionsZone(p: Props) {
@@ -30,32 +31,38 @@ export function ProjectionsZone(p: Props) {
   const [capacity, setCapacity] = useState(0);
   const [cell, setCell] = useState<{ title: string; items: CashItem[] } | null>(null);
   const [fyOpen, setFyOpen] = useState(false);
+  const todayIso = snapshot?.today ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     (async () => {
-      const [inq, lab] = await Promise.all([
-        supabase.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*), products(design_stage, quote_stage, sample_stage, archived_at)'),
+      const [inq, lab, ents, defaults] = await Promise.all([
+        supabase.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*)'),
         (supabase as any).from('labor_employees').select('num_laborers, available_hours_per_month'),
+        (supabase as any).from('company_entities').select('id, name, entity_type'),
+        loadProjectionDefaults(),
       ]);
-      setPipe(buildPipeline(((inq.data as any[]) || []).map(i => ({ ...i, products: (i.products || []).filter((x: any) => !x.archived_at) }))));
       setCapacity(((lab.data as any[]) || []).reduce((s, r) => s + (Number(r.num_laborers) || 0) * (Number(r.available_hours_per_month) || 0), 0));
+      const pv = ((ents.data as any[]) || []).find(e => /parable/i.test(e.name || '') || e.entity_type === 'India');
+      const open = ((inq.data as any[]) || []).filter(i => !['po', 'complete', 'cancelled', 'paused'].includes(i.status));
+      const live = await liveInquiryFinancials(open.map(i => i.id));
+      setPipe(buildPipeline(open, { today: todayIso, pvEntityId: pv?.id ?? null, defaults, live }));
     })();
-  }, []);
+  }, [todayIso]);
 
-  const today = snapshot?.today ?? new Date().toISOString().slice(0, 10);
+  const today = todayIso;
   const months = useMemo(() => nextMonths(today, 12), [today]);
   const fy = fyBounds(today);
   const usdToCcy = (usd: number) => (ccy === 'USD' ? usd : usd * hqRate);
 
-  // ---------- FY revenue ----------
+  // ---------- FY revenue (PV share) ----------
   const fyRev = useMemo(() => {
     if (!snapshot) return null;
     const invoiced = snapshot.invoiced.filter(i => i.date && i.date >= fy.start && i.date <= today);
     const pending = snapshot.pending_so_revenue.filter(s => s.date <= fy.end);
-    const pipeIn = pipe.filter(x => { const m = (x.revenue_month || '').slice(0, 10); return m && m >= today.slice(0, 7) && m <= fy.end; });
+    const pipeIn = pipe.filter(x => { const m = (x.revenue_month || '').slice(0, 10); return m && m.slice(0, 7) >= today.slice(0, 7) && m <= fy.end; });
     const a = invoiced.reduce((s, i) => s + pickAmt(i, ccy), 0);
     const b = pending.reduce((s, i) => s + pickAmt(i, ccy), 0);
-    const c = pipeIn.reduce((s, x) => s + usdToCcy(x.fob_usd * x.certainty), 0);
+    const c = pipeIn.reduce((s, x) => s + usdToCcy(x.pv_revenue_usd * x.certainty), 0);
     return { invoiced, pending, pipeIn, a, b, c, total: a + b + (includePipeline ? c : 0) };
   }, [snapshot, pipe, ccy, includePipeline, hqRate]);
 
@@ -64,21 +71,22 @@ export function ProjectionsZone(p: Props) {
     const booked = snapshot?.booked_hours_by_month?.[m] ?? 0;
     let pipeline = 0;
     if (includePipeline) for (const x of pipe) {
-      if (!x.man_hours || !x.start_month) continue;
-      const start = x.start_month.slice(0, 7);
-      const idx = months.indexOf(m) - months.indexOf(start < months[0] ? months[0] : start);
+      if (!x.man_hours) continue;
+      const start = x.start_month.slice(0, 7) < months[0] ? months[0] : x.start_month.slice(0, 7);
+      const idx = months.indexOf(m) - months.indexOf(start);
       if (start <= m && idx >= 0 && idx < x.duration_months) pipeline += (x.man_hours * x.certainty) / x.duration_months;
     }
     return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline) };
   }), [months, snapshot, pipe, includePipeline]);
 
   // ---------- Cash ----------
+  const openingInr = snapshot?.opening_cash_inr ?? 0;
   const cash = useMemo(() => {
     const items = [...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : [])];
     const oh = snapshot ? (ccy === 'USD' ? snapshot.overhead_monthly.inr / (snapshot.inr_per_usd || hqRate) : snapshot.overhead_monthly.inr) : 0;
-    const opening = ccy === 'USD' ? p.openingCash / (snapshot?.inr_per_usd || hqRate) : p.openingCash;
+    const opening = ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr;
     return cashflowTable(items, months, ccy, oh, opening);
-  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, p.openingCash]);
+  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr]);
   const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
   const rows = CASH_ROWS.filter(r => includePipeline || !r.key.startsWith('pipeline'));
 
@@ -165,9 +173,7 @@ export function ProjectionsZone(p: Props) {
         <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-sm font-medium">Cash flow · next 12 months</CardTitle>
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <label className="flex items-center gap-1.5">Opening cash ₹
-              <Input type="number" className="h-7 w-28 text-xs" defaultValue={p.openingCash} onBlur={e => p.setOpeningCash(Number(e.target.value) || 0)} />
-            </label>
+            <span className="text-muted-foreground" title="Sum of all Odoo bank & cash accounts at last sync">Opening cash {fmtMoney(ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr, ccy)} <span className="opacity-70">(Odoo bank &amp; cash)</span></span>
             <label className="flex items-center gap-1.5">Overhead avg of last
               <Input type="number" min={1} max={24} className="h-7 w-14 text-xs" defaultValue={p.overheadMonths} onBlur={e => p.setOverheadMonths(Math.max(1, Math.min(24, Number(e.target.value) || 3)))} /> months
             </label>
@@ -246,7 +252,7 @@ export function ProjectionsZone(p: Props) {
               {cell?.items.slice().sort((a, b) => pickAmt(b, ccy) - pickAmt(a, ccy)).map((it, i) => (
                 <TableRow key={i}>
                   <TableCell>{it.ref}</TableCell><TableCell>{it.partner ?? '—'}</TableCell><TableCell>{it.date}</TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}{it.advance_covered ? ' · fully covered' : ''}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtMoney(pickAmt(it, ccy) * it.sign, ccy, false)}</TableCell>
                 </TableRow>
               ))}
@@ -261,7 +267,7 @@ export function ProjectionsZone(p: Props) {
           {fyRev && <div className="space-y-4 text-xs">
             <Section title={`Invoiced since ${fy.start} — ${f(fyRev.a)}`} rows={fyRev.invoiced.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
             <Section title={`Booked SOs not yet invoiced, due by ${fy.end} — ${f(fyRev.b)}`} rows={fyRev.pending.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
-            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.fob_usd * x.certainty), ccy, false)])} />
+            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.pv_revenue_usd * x.certainty), ccy, false)])} />
           </div>}
         </DialogContent>
       </Dialog>
