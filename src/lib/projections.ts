@@ -1,4 +1,3 @@
-import { productWeight } from '@/lib/pipeline-weights';
 
 export type InquiryProjection = {
   inquiry_id: string;
