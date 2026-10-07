@@ -12,7 +12,7 @@ export type SnapshotSO = Money & {
   original_delivery: string | null; delivery_date: string | null; effective_date: string | null;
   mo_names: string[]; mo_missing_pack: number; ready_date: string | null;
 };
-export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number };
+export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
