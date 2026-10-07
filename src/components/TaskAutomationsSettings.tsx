@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Copy, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { TASK_TRIGGERS, TEMPLATE_VARIABLES, type TaskTemplate } from '@/lib/task-automation';
+import { TASK_TRIGGERS, ODOO_TRIGGERS, HQ_TEMPLATE_VARIABLES, TEMPLATE_VARIABLES, type TaskTemplate } from '@/lib/task-automation';
 import { useAuth } from '@/contexts/AuthContext';
 
 type Rule = { id: string; name: string; trigger_event: string; active: boolean; tasks: TaskTemplate[] };
@@ -69,8 +69,8 @@ export default function TaskAutomationsSettings() {
   return (
     <div className="space-y-4 max-w-4xl">
       <p className="text-xs text-muted-foreground">
-        When Odoo reports one of the events below, every active task set for that event creates its tasks, already linked to the SO or MO.
-        Use variables in titles: {TEMPLATE_VARIABLES.map(v => <code key={v} className="mx-0.5 px-1 rounded bg-muted text-[11px]">{`{{${v}}}`}</code>)}
+        When an HQ event (new inquiry, customer set to Lead) or an Odoo event happens, every active task set for that event creates its tasks, already linked to the inquiry, customer, SO or MO.
+        Odoo variables: {TEMPLATE_VARIABLES.map(v => <code key={v} className="mx-0.5 px-1 rounded bg-muted text-[11px]">{`{{${v}}}`}</code>)}
       </p>
 
       {rules.map(r => (
@@ -146,7 +146,7 @@ export default function TaskAutomationsSettings() {
         <CardContent className="pt-4 space-y-2 text-xs">
           <div className="font-semibold text-sm">Connecting Odoo</div>
           <p className="text-muted-foreground">In Odoo, create an Automation Rule (e.g. Sales Order, trigger "State is set to" Sales Order) with action <b>Send Webhook Notification</b>, and paste the URL for that event. Fields: SO → Order Reference, Customer, Customer Reference; MO → Reference, Product, Source.</p>
-          {token ? TASK_TRIGGERS.map(t => {
+          {token ? ODOO_TRIGGERS.map(t => {
             const url = `${WEBHOOK_URL}?token=${token}&event=${t.value}`;
             return (
               <div key={t.value} className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function TaskAutomationsSettings() {
           )}
           <p className="text-muted-foreground">Keep these URLs private — they contain the token.</p>
           <pre className="rounded bg-muted p-2 text-[11px] overflow-x-auto">{`{
-  "event": "so_confirmed",        // ${TASK_TRIGGERS.map(t => t.value).join(' | ')}
+  "event": "so_confirmed",        // ${ODOO_TRIGGERS.map(t => t.value).join(' | ')}
   "so_number": "S00108",
   "customer": "West Elm",
   "customer_ref": "Dining Table Fall Drop",

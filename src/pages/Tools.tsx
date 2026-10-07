@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Wrench, Target } from 'lucide-react';
+import { Box, Wrench, Ship } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -12,10 +12,10 @@ const tools = [
     description: 'Enter inner carton outer dimensions and constraints to get the master carton size, layout and CBM.',
   },
   {
-    to: '/tools/target-price',
-    icon: Target,
-    title: 'Target Price Solver',
-    description: 'Back-solve the markup, or the maximum unit cost, needed to hit a target sell price.',
+    to: '/freight-quotes',
+    icon: Ship,
+    title: 'Freight Quotes',
+    description: 'Log, compare and analyse freight forwarder quotes and shipping costs.',
   },
 ];
 
