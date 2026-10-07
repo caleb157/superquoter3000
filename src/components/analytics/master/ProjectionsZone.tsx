@@ -67,6 +67,8 @@ export function ProjectionsZone(p: Props) {
   }, [snapshot, pipe, ccy, includePipeline, hqRate]);
 
   // ---------- Capacity ----------
+  const ltCap = snapshot?.capacity_hours_by_month;
+  const hasLtCap = !!ltCap && Object.keys(ltCap).length > 0;
   const capRows = useMemo(() => months.map(m => {
     const booked = snapshot?.booked_hours_by_month?.[m] ?? 0;
     let pipeline = 0;
@@ -76,8 +78,11 @@ export function ProjectionsZone(p: Props) {
       const idx = months.indexOf(m) - months.indexOf(start);
       if (start <= m && idx >= 0 && idx < x.duration_months) pipeline += (x.man_hours * x.certainty) / x.duration_months;
     }
-    return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline) };
-  }), [months, snapshot, pipe, includePipeline]);
+    // LaborTrax only reports capacity for weeks with booked work; fall back to its weekly baseline × ~4.33.
+    const ltWeekly = snapshot?.lt_weekly_capacity ?? 0;
+    const cap = hasLtCap ? (ltCap![m] ?? (ltWeekly ? ltWeekly * 52 / 12 : 0)) : capacity;
+    return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline), capacity: Math.round(cap) };
+  }), [months, snapshot, pipe, includePipeline, hasLtCap, ltCap, capacity]);
 
   // ---------- Cash ----------
   const openingInr = snapshot?.opening_cash_inr ?? 0;
@@ -127,37 +132,39 @@ export function ProjectionsZone(p: Props) {
         <CardHeader className="pb-1"><CardTitle className="text-sm font-medium">Capacity · man-hours per month</CardTitle></CardHeader>
         <CardContent className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={capRows}>
+            <ComposedChart data={capRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="booked" name="Booked MOs (Odoo work orders)" stackId="a" fill="hsl(var(--primary))" />
+              <Bar dataKey="booked" name="Booked (LaborTrax forecast)" stackId="a" fill="hsl(var(--primary))" />
               {includePipeline && <Bar dataKey="pipeline" name="Pipeline (weighted)" stackId="a" fill="hsl(var(--warning))" />}
-              {capacity > 0 && <ReferenceLine y={capacity} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `Capacity ${Math.round(capacity)}`, fontSize: 11, fill: 'hsl(var(--destructive))', position: 'insideTopRight' }} />}
-            </BarChart>
+              {hasLtCap
+                ? <Line type="monotone" dataKey="capacity" name="Available capacity (LaborTrax)" stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls />
+                : capacity > 0 && <ReferenceLine y={capacity} stroke="hsl(var(--destructive))" strokeDasharray="4 4" label={{ value: `Capacity ${Math.round(capacity)}`, fontSize: 11, fill: 'hsl(var(--destructive))', position: 'insideTopRight' }} />}
+            </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
         <CardContent className="pt-0">
           <TableToggle label="View monthly capacity breakdown">
             <Table className="text-xs">
               <TableHeader><TableRow>
-                <TableHead>Month</TableHead><TableHead className="text-right">Booked MO hrs</TableHead>
+                <TableHead>Month</TableHead><TableHead className="text-right">Booked hrs (LaborTrax)</TableHead>
                 {includePipeline && <TableHead className="text-right">Pipeline hrs</TableHead>}
                 <TableHead className="text-right">Total demand</TableHead><TableHead className="text-right">Capacity</TableHead><TableHead className="text-right">Utilization</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {capRows.map(r => {
                   const total = r.booked + (includePipeline ? r.pipeline : 0);
-                  const util = capacity > 0 ? total / capacity : null;
+                  const util = r.capacity > 0 ? total / r.capacity : null;
                   return (
                     <TableRow key={r.month}>
                       <TableCell>{r.month}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.booked.toLocaleString()}</TableCell>
                       {includePipeline && <TableCell className="text-right tabular-nums">{r.pipeline.toLocaleString()}</TableCell>}
                       <TableCell className="text-right tabular-nums font-medium">{total.toLocaleString()}</TableCell>
-                      <TableCell className="text-right tabular-nums">{capacity > 0 ? Math.round(capacity).toLocaleString() : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.capacity > 0 ? r.capacity.toLocaleString() : '—'}</TableCell>
                       <TableCell className={cn('text-right tabular-nums', util != null && util > 1 && 'text-destructive font-medium')}>{util == null ? '—' : `${Math.round(util * 100)}%`}</TableCell>
                     </TableRow>
                   );
