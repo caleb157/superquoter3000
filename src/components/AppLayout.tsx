@@ -141,7 +141,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Left slide-out menu (desktop + mobile) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 p-4 flex flex-col">
+        <SheetContent side="left" className="w-80 p-4 flex flex-col">
           <div className="flex items-center gap-2 mb-4 mt-2">
             <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
               <img src={hqLogo} alt="Product HQ" className="h-6 w-6 object-contain" />
