@@ -375,7 +375,16 @@ export default function InquiryAuditGrid() {
   const flags = useMemo(() => detectFlags(rows.map(r => r.audit)), [rows]);
   const flagCount = (pid: string) => Object.values(flags[pid] || {}).filter(Boolean).length;
   const totalFlags = useMemo(() => rows.reduce((a, r) => a + flagCount(r.p.id), 0), [rows, flags]); // eslint-disable-line
-  const visibleRows = useMemo(() => (onlyFlagged ? rows.filter(r => flagCount(r.p.id) > 0) : rows), [rows, flags, onlyFlagged]); // eslint-disable-line
+  const sortedRows = useMemo(() => {
+    if (!nameSort) return rows;
+    const dir = nameSort === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const ka = `${a.audit.name} ${a.audit.sku}`.toLowerCase();
+      const kb = `${b.audit.name} ${b.audit.sku}`.toLowerCase();
+      return dir * ka.localeCompare(kb, undefined, { sensitivity: 'base' });
+    });
+  }, [rows, nameSort]);
+  const visibleRows = useMemo(() => (onlyFlagged ? sortedRows.filter(r => flagCount(r.p.id) > 0) : sortedRows), [sortedRows, flags, onlyFlagged]); // eslint-disable-line
 
   const lens = LENSES.find(l => l.id === lensId)!;
 
@@ -632,7 +641,18 @@ export default function InquiryAuditGrid() {
                 <thead className="sticky top-0 z-20 bg-muted">
                   <tr>
                     <th className="w-[34px] px-2 py-2 border-b"><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" /></th>
-                    <th className="w-[170px] text-left px-2 py-2 border-b border-r font-medium">SKU / Name</th>
+                    <th className="w-[170px] text-left px-2 py-2 border-b border-r font-medium">
+                      <button
+                        className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => setNameSort(s => (s === 'asc' ? 'desc' : s === 'desc' ? null : 'asc'))}
+                        title="Sort by name"
+                      >
+                        SKU / Name
+                        {nameSort === 'asc' && <ArrowUp className="h-3 w-3" />}
+                        {nameSort === 'desc' && <ArrowDown className="h-3 w-3" />}
+                        {!nameSort && <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                      </button>
+                    </th>
                     {lens.cols.map(c => (
                       <th key={c.id} className={cn(c.width, 'text-left px-2 py-2 border-b font-medium whitespace-nowrap overflow-hidden text-ellipsis')}>
                         {c.label}{!c.edit && <span className="ml-1 text-muted-foreground font-normal">·</span>}
