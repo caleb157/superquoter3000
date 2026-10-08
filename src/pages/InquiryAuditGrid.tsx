@@ -805,17 +805,30 @@ function EditCell({ col, row, bundle, cellId, onCommit, onNav }: {
 
 // ---------- Bulk bar ----------
 
-function BulkBar({ count, cols, bundle, lensLabel, onApply, onClear }: {
+function BulkBar({ count, cols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
   count: number; cols: LensCol[]; bundle: Bundle; lensLabel: string;
-  onApply: (col: LensCol, v: any) => void; onClear: () => void;
+  onApply: (col: LensCol, v: any) => void; onApplyDims: (colId: string, dims: [number, number, number]) => void; onClear: () => void;
 }) {
   const [colId, setColId] = useState(cols[0]?.id ?? '');
   const [val, setVal] = useState<any>('');
-  useEffect(() => { if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); } }, [cols, colId]);
+  const [dims, setDims] = useState({ w: '', d: '', h: '' });
+  const isDimCol = ['piece_w', 'piece_d', 'piece_h', 'pkg_w', 'pkg_d', 'pkg_h'].includes(colId);
+  useEffect(() => {
+    if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); }
+    setDims({ w: '', d: '', h: '' });
+  }, [cols, colId]); // eslint-disable-line react-hooks/exhaustive-deps
   const col = cols.find(c => c.id === colId);
 
   const apply = () => {
     if (!col) return;
+    if (isDimCol) {
+      const w = Number(dims.w), d = Number(dims.d), h = Number(dims.h);
+      if ([w, d, h].some(n => !Number.isFinite(n) || n < 0)) { toast.error('Enter valid numbers for W, D and H'); return; }
+      if (w === 0 && d === 0 && h === 0) { toast.error('Enter at least one dimension'); return; }
+      onApplyDims(colId, [w, d, h]);
+      toast.success(`Dimensions updated on ${count} SKU${count === 1 ? '' : 's'}`);
+      return;
+    }
     if (col.edit !== 'bool' && col.edit !== 'select' && col.edit !== 'text' && String(val).trim() === '') { toast.error('Enter a value'); return; }
     onApply(col, col.edit === 'bool' ? !!val : val);
     toast.success(`${col.label} updated on ${count} SKU${count === 1 ? '' : 's'}`);
@@ -834,7 +847,16 @@ function BulkBar({ count, cols, bundle, lensLabel, onApply, onClear }: {
             {cols.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
           <span className="text-xs text-muted-foreground">to</span>
-          {col?.edit === 'bool' ? (
+          {isDimCol ? (
+            <div className="flex items-center gap-1">
+              {(['w', 'd', 'h'] as const).map(k => (
+                <Input key={k} value={dims[k]} inputMode="decimal"
+                  onChange={e => setDims(s => ({ ...s, [k]: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && apply()}
+                  placeholder={k.toUpperCase()} className="h-8 w-[52px]" />
+              ))}
+            </div>
+          ) : col?.edit === 'bool' ? (
             <select value={val ? '1' : ''} onChange={e => setVal(e.target.value === '1')} className="h-8 rounded-md border border-input bg-background px-2 text-sm">
               <option value="1">Yes</option><option value="">No</option>
             </select>
