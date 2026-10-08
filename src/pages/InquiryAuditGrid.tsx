@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, AlertTriangle, RefreshCw, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Download, AlertTriangle, RefreshCw, ExternalLink, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -323,6 +323,7 @@ export default function InquiryAuditGrid() {
   const [loading, setLoading] = useState(true);
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [lensId, setLensId] = useState('sourcing');
+  const [nameSort, setNameSort] = useState<'asc' | 'desc' | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<number | null>(null);
   const [saving, setSaving] = useState(0);
@@ -374,7 +375,16 @@ export default function InquiryAuditGrid() {
   const flags = useMemo(() => detectFlags(rows.map(r => r.audit)), [rows]);
   const flagCount = (pid: string) => Object.values(flags[pid] || {}).filter(Boolean).length;
   const totalFlags = useMemo(() => rows.reduce((a, r) => a + flagCount(r.p.id), 0), [rows, flags]); // eslint-disable-line
-  const visibleRows = useMemo(() => (onlyFlagged ? rows.filter(r => flagCount(r.p.id) > 0) : rows), [rows, flags, onlyFlagged]); // eslint-disable-line
+  const sortedRows = useMemo(() => {
+    if (!nameSort) return rows;
+    const dir = nameSort === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const ka = `${a.audit.name} ${a.audit.sku}`.toLowerCase();
+      const kb = `${b.audit.name} ${b.audit.sku}`.toLowerCase();
+      return dir * ka.localeCompare(kb, undefined, { sensitivity: 'base' });
+    });
+  }, [rows, nameSort]);
+  const visibleRows = useMemo(() => (onlyFlagged ? sortedRows.filter(r => flagCount(r.p.id) > 0) : sortedRows), [sortedRows, flags, onlyFlagged]); // eslint-disable-line
 
   const lens = LENSES.find(l => l.id === lensId)!;
 
@@ -631,7 +641,18 @@ export default function InquiryAuditGrid() {
                 <thead className="sticky top-0 z-20 bg-muted">
                   <tr>
                     <th className="w-[34px] px-2 py-2 border-b"><Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" /></th>
-                    <th className="w-[170px] text-left px-2 py-2 border-b border-r font-medium">SKU / Name</th>
+                    <th className="w-[170px] text-left px-2 py-2 border-b border-r font-medium">
+                      <button
+                        className="inline-flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => setNameSort(s => (s === 'asc' ? 'desc' : s === 'desc' ? null : 'asc'))}
+                        title="Sort by name"
+                      >
+                        SKU / Name
+                        {nameSort === 'asc' && <ArrowUp className="h-3 w-3" />}
+                        {nameSort === 'desc' && <ArrowDown className="h-3 w-3" />}
+                        {!nameSort && <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                      </button>
+                    </th>
                     {lens.cols.map(c => (
                       <th key={c.id} className={cn(c.width, 'text-left px-2 py-2 border-b font-medium whitespace-nowrap overflow-hidden text-ellipsis')}>
                         {c.label}{!c.edit && <span className="ml-1 text-muted-foreground font-normal">·</span>}
@@ -699,6 +720,15 @@ export default function InquiryAuditGrid() {
             bundle={bundle}
             lensLabel={lens.label}
             onApply={(col, v) => applyValue(col, rows.filter(r => selected.has(r.p.id)).map(r => r.p.id), v)}
+            onApplyDims={(colId, dims) => {
+              const ids = rows.filter(r => selected.has(r.p.id)).map(r => r.p.id);
+              const src = lens.cols.find(c => c.id === colId);
+              if (!src) return;
+              const target = colId.startsWith('piece_')
+                ? { kind: 'product_dims' as const, fields: ['width_inch', 'depth_inch', 'height_inch'] as [string, string, string] }
+                : { kind: 'cbm_dims' as const, fields: ['ic_width', 'ic_depth', 'ic_height'] as [string, string, string] };
+              applyValue({ ...src, target }, ids, dims.join('×'));
+            }}
             onClear={() => setSelected(new Set())}
           />
         )}
@@ -775,17 +805,30 @@ function EditCell({ col, row, bundle, cellId, onCommit, onNav }: {
 
 // ---------- Bulk bar ----------
 
-function BulkBar({ count, cols, bundle, lensLabel, onApply, onClear }: {
+function BulkBar({ count, cols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
   count: number; cols: LensCol[]; bundle: Bundle; lensLabel: string;
-  onApply: (col: LensCol, v: any) => void; onClear: () => void;
+  onApply: (col: LensCol, v: any) => void; onApplyDims: (colId: string, dims: [number, number, number]) => void; onClear: () => void;
 }) {
   const [colId, setColId] = useState(cols[0]?.id ?? '');
   const [val, setVal] = useState<any>('');
-  useEffect(() => { if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); } }, [cols, colId]);
+  const [dims, setDims] = useState({ w: '', d: '', h: '' });
+  const isDimCol = ['piece_w', 'piece_d', 'piece_h', 'pkg_w', 'pkg_d', 'pkg_h'].includes(colId);
+  useEffect(() => {
+    if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); }
+    setDims({ w: '', d: '', h: '' });
+  }, [cols, colId]); // eslint-disable-line react-hooks/exhaustive-deps
   const col = cols.find(c => c.id === colId);
 
   const apply = () => {
     if (!col) return;
+    if (isDimCol) {
+      const w = Number(dims.w), d = Number(dims.d), h = Number(dims.h);
+      if ([w, d, h].some(n => !Number.isFinite(n) || n < 0)) { toast.error('Enter valid numbers for W, D and H'); return; }
+      if (w === 0 && d === 0 && h === 0) { toast.error('Enter at least one dimension'); return; }
+      onApplyDims(colId, [w, d, h]);
+      toast.success(`Dimensions updated on ${count} SKU${count === 1 ? '' : 's'}`);
+      return;
+    }
     if (col.edit !== 'bool' && col.edit !== 'select' && col.edit !== 'text' && String(val).trim() === '') { toast.error('Enter a value'); return; }
     onApply(col, col.edit === 'bool' ? !!val : val);
     toast.success(`${col.label} updated on ${count} SKU${count === 1 ? '' : 's'}`);
@@ -804,7 +847,16 @@ function BulkBar({ count, cols, bundle, lensLabel, onApply, onClear }: {
             {cols.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
           <span className="text-xs text-muted-foreground">to</span>
-          {col?.edit === 'bool' ? (
+          {isDimCol ? (
+            <div className="flex items-center gap-1">
+              {(['w', 'd', 'h'] as const).map(k => (
+                <Input key={k} value={dims[k]} inputMode="decimal"
+                  onChange={e => setDims(s => ({ ...s, [k]: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && apply()}
+                  placeholder={k.toUpperCase()} className="h-8 w-[52px]" />
+              ))}
+            </div>
+          ) : col?.edit === 'bool' ? (
             <select value={val ? '1' : ''} onChange={e => setVal(e.target.value === '1')} className="h-8 rounded-md border border-input bg-background px-2 text-sm">
               <option value="1">Yes</option><option value="">No</option>
             </select>
