@@ -722,12 +722,10 @@ export default function InquiryAuditGrid() {
             onApply={(col, v) => applyValue(col, rows.filter(r => selected.has(r.p.id)).map(r => r.p.id), v)}
             onApplyDims={(colId, dims) => {
               const ids = rows.filter(r => selected.has(r.p.id)).map(r => r.p.id);
-              const src = lens.cols.find(c => c.id === colId);
-              if (!src) return;
-              const target = colId.startsWith('piece_')
+              const target = colId === 'piece_dims'
                 ? { kind: 'product_dims' as const, fields: ['width_inch', 'depth_inch', 'height_inch'] as [string, string, string] }
                 : { kind: 'cbm_dims' as const, fields: ['ic_width', 'ic_depth', 'ic_height'] as [string, string, string] };
-              applyValue({ ...src, target }, ids, dims.join('×'));
+              applyValue({ id: colId, label: colId, width: '', edit: 'dims', get: () => '', target }, ids, dims.join('x'));
             }}
             onClear={() => setSelected(new Set())}
           />
