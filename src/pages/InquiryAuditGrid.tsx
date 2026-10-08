@@ -803,14 +803,24 @@ function EditCell({ col, row, bundle, cellId, onCommit, onNav }: {
 
 // ---------- Bulk bar ----------
 
-function BulkBar({ count, cols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
+function BulkBar({ count, cols: rawCols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
   count: number; cols: LensCol[]; bundle: Bundle; lensLabel: string;
   onApply: (col: LensCol, v: any) => void; onApplyDims: (colId: string, dims: [number, number, number]) => void; onClear: () => void;
 }) {
+  const cols = useMemo(() => {
+    const out: LensCol[] = [];
+    for (const c of rawCols) {
+      if (c.id === 'piece_w') out.push({ id: 'piece_dims', label: 'PIECE DIM', width: '', edit: 'dims', get: () => '' });
+      else if (c.id === 'pkg_w') out.push({ id: 'pkg_dims', label: 'PKG DIM', width: '', edit: 'dims', get: () => '' });
+      else if (['piece_d', 'piece_h', 'pkg_d', 'pkg_h'].includes(c.id)) continue;
+      else out.push(c);
+    }
+    return out;
+  }, [rawCols]);
   const [colId, setColId] = useState(cols[0]?.id ?? '');
   const [val, setVal] = useState<any>('');
   const [dims, setDims] = useState({ w: '', d: '', h: '' });
-  const isDimCol = ['piece_w', 'piece_d', 'piece_h', 'pkg_w', 'pkg_d', 'pkg_h'].includes(colId);
+  const isDimCol = colId === 'piece_dims' || colId === 'pkg_dims';
   useEffect(() => {
     if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); }
     setDims({ w: '', d: '', h: '' });
