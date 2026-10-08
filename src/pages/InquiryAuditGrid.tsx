@@ -722,12 +722,10 @@ export default function InquiryAuditGrid() {
             onApply={(col, v) => applyValue(col, rows.filter(r => selected.has(r.p.id)).map(r => r.p.id), v)}
             onApplyDims={(colId, dims) => {
               const ids = rows.filter(r => selected.has(r.p.id)).map(r => r.p.id);
-              const src = lens.cols.find(c => c.id === colId);
-              if (!src) return;
-              const target = colId.startsWith('piece_')
+              const target = colId === 'piece_dims'
                 ? { kind: 'product_dims' as const, fields: ['width_inch', 'depth_inch', 'height_inch'] as [string, string, string] }
                 : { kind: 'cbm_dims' as const, fields: ['ic_width', 'ic_depth', 'ic_height'] as [string, string, string] };
-              applyValue({ ...src, target }, ids, dims.join('×'));
+              applyValue({ id: colId, label: colId, width: '', edit: 'dims', get: () => '', target }, ids, dims.join('x'));
             }}
             onClear={() => setSelected(new Set())}
           />
@@ -805,14 +803,24 @@ function EditCell({ col, row, bundle, cellId, onCommit, onNav }: {
 
 // ---------- Bulk bar ----------
 
-function BulkBar({ count, cols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
+function BulkBar({ count, cols: rawCols, bundle, lensLabel, onApply, onApplyDims, onClear }: {
   count: number; cols: LensCol[]; bundle: Bundle; lensLabel: string;
   onApply: (col: LensCol, v: any) => void; onApplyDims: (colId: string, dims: [number, number, number]) => void; onClear: () => void;
 }) {
+  const cols = useMemo(() => {
+    const out: LensCol[] = [];
+    for (const c of rawCols) {
+      if (c.id === 'piece_w') out.push({ id: 'piece_dims', label: 'PIECE DIM', width: '', edit: 'dims', get: () => '' });
+      else if (c.id === 'pkg_w') out.push({ id: 'pkg_dims', label: 'PKG DIM', width: '', edit: 'dims', get: () => '' });
+      else if (['piece_d', 'piece_h', 'pkg_d', 'pkg_h'].includes(c.id)) continue;
+      else out.push(c);
+    }
+    return out;
+  }, [rawCols.map(c => c.id).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
   const [colId, setColId] = useState(cols[0]?.id ?? '');
   const [val, setVal] = useState<any>('');
   const [dims, setDims] = useState({ w: '', d: '', h: '' });
-  const isDimCol = ['piece_w', 'piece_d', 'piece_h', 'pkg_w', 'pkg_d', 'pkg_h'].includes(colId);
+  const isDimCol = colId === 'piece_dims' || colId === 'pkg_dims';
   useEffect(() => {
     if (!cols.some(c => c.id === colId)) { setColId(cols[0]?.id ?? ''); setVal(''); }
     setDims({ w: '', d: '', h: '' });
@@ -824,7 +832,7 @@ function BulkBar({ count, cols, bundle, lensLabel, onApply, onApplyDims, onClear
     if (isDimCol) {
       const w = Number(dims.w), d = Number(dims.d), h = Number(dims.h);
       if ([w, d, h].some(n => !Number.isFinite(n) || n < 0)) { toast.error('Enter valid numbers for W, D and H'); return; }
-      if (w === 0 && d === 0 && h === 0) { toast.error('Enter at least one dimension'); return; }
+      if (!(w > 0 && d > 0 && h > 0)) { toast.error('Enter W, D and H'); return; }
       onApplyDims(colId, [w, d, h]);
       toast.success(`Dimensions updated on ${count} SKU${count === 1 ? '' : 's'}`);
       return;
