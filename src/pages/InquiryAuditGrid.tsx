@@ -832,7 +832,7 @@ function BulkBar({ count, cols: rawCols, bundle, lensLabel, onApply, onApplyDims
     if (isDimCol) {
       const w = Number(dims.w), d = Number(dims.d), h = Number(dims.h);
       if ([w, d, h].some(n => !Number.isFinite(n) || n < 0)) { toast.error('Enter valid numbers for W, D and H'); return; }
-      if (w === 0 && d === 0 && h === 0) { toast.error('Enter at least one dimension'); return; }
+      if (!(w > 0 && d > 0 && h > 0)) { toast.error('Enter W, D and H'); return; }
       onApplyDims(colId, [w, d, h]);
       toast.success(`Dimensions updated on ${count} SKU${count === 1 ? '' : 's'}`);
       return;
