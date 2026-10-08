@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, AlertTriangle, RefreshCw, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, Download, AlertTriangle, RefreshCw, ExternalLink, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -323,6 +323,7 @@ export default function InquiryAuditGrid() {
   const [loading, setLoading] = useState(true);
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [lensId, setLensId] = useState('sourcing');
+  const [nameSort, setNameSort] = useState<'asc' | 'desc' | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<number | null>(null);
   const [saving, setSaving] = useState(0);
