@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { cn } from '@/lib/utils';
 import { customerPrimary } from '@/lib/customer-name';
+import { calcICDimensions } from '@/lib/calculations';
 
 const fmtNum = (n: number, d = 0) => n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
 const db = supabase as any;
@@ -128,6 +129,7 @@ const lineVal = (c: any) => (Number(c.components_per_product) || 0) * (Number(c.
 type Row = {
   p: any; cbmRow: any; r: CostingEngineResult; audit: AuditRow;
   buckets: Record<string, number>; rawVendor: string;
+  icAuto: { ic_width: number; ic_depth: number; ic_height: number };
 };
 
 function buildRows(b: Bundle): Row[] {
@@ -172,7 +174,8 @@ function buildRows(b: Bundle): Row[] {
       source_location: p.source_location_id ? ((locById.get(p.source_location_id) as any)?.name || '—') : 'Jodhpur',
       raw_vendor: rawVendor || '—', is_outsourced: r.isOutsourced, outsourced: r.outsourcedUnitCostInr,
     };
-    return { p, cbmRow, r, audit, buckets, rawVendor };
+    const icAuto = calcICDimensions(Number(p.width_inch) || 0, Number(p.depth_inch) || 0, Number(p.height_inch) || 0, productType?.pkg_ic_add_per_side_in ?? 0.5);
+    return { p, cbmRow, r, audit, buckets, rawVendor, icAuto };
   });
 }
 
@@ -236,8 +239,12 @@ const LENSES: { id: string; label: string; hint: string; cols: LensCol[] }[] = [
     cols: [
       { id: 'pkg_type', label: 'Packaging', width: 'w-[110px]', edit: 'select', flagKey: 'packaging_type', options: () => PACKAGING_OPTS,
         get: r => r.p.packaging_type || 'ic_mc', target: { kind: 'product', field: 'packaging_type' } },
-      { id: 'piece_dims', label: 'Piece W×D×H"', width: 'w-[110px]', edit: 'dims',
-        get: r => dimsStr(r.p.width_inch, r.p.depth_inch, r.p.height_inch), target: { kind: 'product_dims', fields: ['width_inch', 'depth_inch', 'height_inch'] } },
+      { id: 'piece_w', label: 'Piece W"', width: 'w-[62px]', edit: 'num', get: r => r.p.width_inch ?? 0, target: { kind: 'product', field: 'width_inch' } },
+      { id: 'piece_d', label: 'Piece D"', width: 'w-[62px]', edit: 'num', get: r => r.p.depth_inch ?? 0, target: { kind: 'product', field: 'depth_inch' } },
+      { id: 'piece_h', label: 'Piece H"', width: 'w-[62px]', edit: 'num', get: r => r.p.height_inch ?? 0, target: { kind: 'product', field: 'height_inch' } },
+      { id: 'pkg_w', label: 'Pkg W"', width: 'w-[62px]', edit: 'num', get: r => +(r.cbmRow?.ic_width ?? r.icAuto.ic_width).toFixed(2), target: { kind: 'cbm', field: 'ic_width' } },
+      { id: 'pkg_d', label: 'Pkg D"', width: 'w-[62px]', edit: 'num', get: r => +(r.cbmRow?.ic_depth ?? r.icAuto.ic_depth).toFixed(2), target: { kind: 'cbm', field: 'ic_depth' } },
+      { id: 'pkg_h', label: 'Pkg H"', width: 'w-[62px]', edit: 'num', get: r => +(r.cbmRow?.ic_height ?? r.icAuto.ic_height).toFixed(2), target: { kind: 'cbm', field: 'ic_height' } },
       { id: 'weight', label: 'Wt kg', width: 'w-[68px]', edit: 'num', get: r => r.p.weight_kg ?? 0, target: { kind: 'product', field: 'weight_kg' } },
       { id: 'ic_type', label: 'IC ply', width: 'w-[76px]', edit: 'select', options: boxOpts, get: r => r.cbmRow?.ic_type || '7 ply', target: { kind: 'cbm', field: 'ic_type' } },
       { id: 'per_ic', label: 'Pcs/IC', width: 'w-[64px]', edit: 'num', get: r => r.cbmRow?.products_per_ic || 1, target: { kind: 'cbm', field: 'products_per_ic' } },
