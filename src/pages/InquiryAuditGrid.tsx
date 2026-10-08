@@ -566,7 +566,7 @@ export default function InquiryAuditGrid() {
     );
   }
 
-  const editableCols = useMemo(() => lens.cols.filter(c => c.edit && c.target), [lens]);
+  const editableCols = lens.cols.filter(c => c.edit && c.target);
 
   return (
     <AppLayout>
@@ -816,7 +816,7 @@ function BulkBar({ count, cols: rawCols, bundle, lensLabel, onApply, onApplyDims
       else out.push(c);
     }
     return out;
-  }, [rawCols]);
+  }, [rawCols.map(c => c.id).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
   const [colId, setColId] = useState(cols[0]?.id ?? '');
   const [val, setVal] = useState<any>('');
   const [dims, setDims] = useState({ w: '', d: '', h: '' });
