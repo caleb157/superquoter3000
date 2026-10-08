@@ -566,7 +566,7 @@ export default function InquiryAuditGrid() {
     );
   }
 
-  const editableCols = lens.cols.filter(c => c.edit && c.target);
+  const editableCols = useMemo(() => lens.cols.filter(c => c.edit && c.target), [lens]);
 
   return (
     <AppLayout>
