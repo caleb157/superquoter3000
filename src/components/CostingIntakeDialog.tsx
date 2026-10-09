@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { applyIntake, downloadIntakeTemplate, matchProduct, parseIntakeFile, COST_COLS, LABOR_COLS, type IntakeRow } from '@/lib/costing-intake';
+import { applyIntake, downloadIntakeTemplate, matchProduct, parseIntakeFile, COST_COLS, LABOR_COLS, SLOTS, cogsToIntake, type IntakeRow } from '@/lib/costing-intake';
 
 type Props = {
   open: boolean;
@@ -76,10 +76,7 @@ export function CostingIntakeDialog({ open, onOpenChange, inquiryId, mode, initi
         coc_monthly_rate: p.cost_of_capital_monthly_rate, coc_months: p.cost_of_capital_months,
       };
       const mine = (cogs.data || []).filter((x: any) => x.product_id === p.id && x.include === 'Yes' && !x.is_auto_calculated);
-      for (const cc of COST_COLS) {
-        const lines = mine.filter((x: any) => x.cogs_type === cc.cogsType);
-        if (lines.length) r[cc.key] = Math.round(lines.reduce((a: number, x: any) => a + (Number(x.components_per_product) || 0) * (Number(x.unit_cost_inr) || 0) * (1 + (Number(x.waste_factor) || 0)), 0) * 100) / 100;
-      }
+      cogsToIntake(r, (cogs.data || []).filter((x: any) => x.product_id === p.id));
       r.raw_vendor = mine.find((x: any) => x.cogs_type === 'Raw Piece')?.vendor_name ?? '';
       for (const lc of LABOR_COLS) {
         const o = (oh.data || []).find((x: any) => x.product_id === p.id && x.labor_type === lc.laborType && !x.is_auto_estimated);
@@ -140,7 +137,7 @@ export function CostingIntakeDialog({ open, onOpenChange, inquiryId, mode, initi
               <tbody>
                 {rows.map(r => {
                   const m = matchProduct(existing, r);
-                  const cogs = COST_COLS.reduce((a, c) => a + (r[c.key] || 0), 0);
+                  const cogs = COST_COLS.reduce((a, c) => a + (r[c.key] || 0), 0) + SLOTS.reduce((a, sl) => a + (r[sl.costKey] || 0) * (r[sl.qtyKey] ?? 1), 0);
                   const hrs = LABOR_COLS.reduce((a, c) => a + (r[c.key] || 0), 0);
                   const dims = (a: any, b: any, c: any) => (a ?? b ?? c) == null ? '—' : `${a ?? '·'}×${b ?? '·'}×${c ?? '·'}`;
                   return (

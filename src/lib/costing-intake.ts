@@ -35,6 +35,31 @@ export const LABOR_COLS: { key: string; laborType: string }[] = [
   { key: 'mh_market', laborType: 'Market' },
 ];
 
+// Named line-item slots: each filled slot becomes its own named COGS row.
+export const SLOT_DEFS: { prefix: string; label: string; cogsType: string; count: number; units: string }[] = [
+  { prefix: 'handle', label: 'Handle', cogsType: 'Handles + Knobs', count: 3, units: 'pc' },
+  { prefix: 'latch', label: 'Latch', cogsType: 'Handles/Latches', count: 2, units: 'pc' },
+  { prefix: 'feet', label: 'Feet', cogsType: 'Feet/Buffers', count: 2, units: 'pc' },
+  { prefix: 'hardware', label: 'Hardware', cogsType: 'Other Hardware', count: 3, units: 'pc' },
+  { prefix: 'accessory', label: 'Accessory', cogsType: 'Accessories', count: 5, units: 'pc' },
+  { prefix: 'component', label: 'Component', cogsType: 'Components', count: 3, units: 'pc' },
+  { prefix: 'insert', label: 'Insert', cogsType: 'Inserts + Instructions', count: 2, units: 'pc' },
+  { prefix: 'packing', label: 'Packing item', cogsType: 'Packaging', count: 2, units: 'pc' },
+  { prefix: 'other', label: 'Other item', cogsType: 'Other', count: 2, units: 'pc' },
+];
+export type Slot = { cogsType: string; units: string; nameKey: string; qtyKey: string; costKey: string; vendorKey: string; label: string };
+export const SLOTS: Slot[] = SLOT_DEFS.flatMap(d => Array.from({ length: d.count }, (_, i) => ({
+  cogsType: d.cogsType, units: d.units, label: `${d.label} ${i + 1}`,
+  nameKey: `${d.prefix}${i + 1}_name`, qtyKey: `${d.prefix}${i + 1}_qty`, costKey: `${d.prefix}${i + 1}_inr`, vendorKey: `${d.prefix}${i + 1}_vendor`,
+})));
+
+// Finishing chemical liters per unit — applied to the Color / Sealer / Lacquer rows at the library ₹/L.
+export const CHEM_COLS: { key: string; name: string; category: string }[] = [
+  { key: 'color_l', name: 'Color', category: 'Color' },
+  { key: 'sealer_l', name: 'Sealer', category: 'Sealer' },
+  { key: 'lacquer_l', name: 'Lacquer', category: 'Lacquer' },
+];
+
 export const INTAKE_COLS: IntakeCol[] = [
   { key: 'sku', header: 'SKU', type: 'text', group: 'Product', help: 'Match key for updates', example: 'CCT-AT3335' },
   { key: 'name', header: 'Product name', type: 'text', group: 'Product', help: 'Required for new products', example: 'Accent Table 33x35' },
@@ -63,6 +88,13 @@ export const INTAKE_COLS: IntakeCol[] = [
   { key: 'bulk_pieces_per_box', header: 'Bulk pieces per box', type: 'num', group: 'Packaging', help: 'Bulk pack only', example: '' },
 
   ...COST_COLS.map(c => ({ key: c.key, header: c.header, type: 'num' as ColType, group: 'COGS (₹ per unit)', help: `${c.cogsType}; blank = leave as is`, example: c.key === 'raw_piece_inr' ? 2400 : c.key === 'other_hardware_inr' ? 120 : '' })),
+  ...CHEM_COLS.map(c => ({ key: c.key, header: `${c.name} (L)`, type: 'num' as ColType, group: 'Finishing liters', help: `Liters of ${c.name.toLowerCase()} per unit at library ₹/L; blank = auto`, example: '' })),
+  ...SLOTS.flatMap(sl => [
+    { key: sl.nameKey, header: `${sl.label} name`, type: 'text' as ColType, group: `Line items — ${sl.cogsType}`, help: 'Name shown on the costing sheet, e.g. 5" Gold Handle', example: sl.nameKey === 'handle1_name' ? '5" Gold Handle' : '' },
+    { key: sl.qtyKey, header: `${sl.label} qty`, type: 'num' as ColType, group: `Line items — ${sl.cogsType}`, help: 'Qty per product (default 1)', example: sl.nameKey === 'handle1_name' ? 2 : '' },
+    { key: sl.costKey, header: `${sl.label} ₹`, type: 'num' as ColType, group: `Line items — ${sl.cogsType}`, help: '₹ per piece', example: sl.nameKey === 'handle1_name' ? 150 : '' },
+    { key: sl.vendorKey, header: `${sl.label} vendor`, type: 'text' as ColType, group: `Line items — ${sl.cogsType}`, help: 'Optional', example: '' },
+  ]),
   { key: 'raw_vendor', header: 'Raw vendor', type: 'text', group: 'COGS (₹ per unit)', help: 'Vendor on the raw piece row', example: '' },
   { key: 'is_outsourced', header: 'Outsourced', type: 'bool', group: 'COGS (₹ per unit)', help: 'Bought finished? Yes / No', example: 'No' },
   { key: 'outsourced_unit_cost_inr', header: 'Outsourced cost ₹', type: 'num', group: 'COGS (₹ per unit)', help: 'Purchase price per unit', example: '' },
@@ -81,6 +113,7 @@ export type IntakeRow = Record<string, any> & { _row: number };
 const norm = (s: any) => String(s ?? '').toLowerCase().replace(/₹/g, 'inr').replace(/[^a-z0-9]+/g, '');
 const HEADER_LOOKUP = new Map<string, string>();
 for (const c of INTAKE_COLS) { HEADER_LOOKUP.set(norm(c.header), c.key); HEADER_LOOKUP.set(norm(c.key), c.key); }
+for (const c of CHEM_COLS) { HEADER_LOOKUP.set(norm(`${c.name} liters`), c.key); HEADER_LOOKUP.set(norm(`${c.name} litres`), c.key); }
 HEADER_LOOKUP.set('productname', 'name'); HEADER_LOOKUP.set('npm', 'markup_pct'); HEADER_LOOKUP.set('markup', 'markup_pct');
 
 function toNum(v: any): number | null {
@@ -109,7 +142,7 @@ export function downloadIntakeTemplate(rows?: Record<string, any>[], fileName = 
     ['Column', 'Section', 'How to fill'],
     ...INTAKE_COLS.map(c => [c.header, c.group, c.help]),
     [],
-    ['Rules', '', 'Blank cells leave the current value unchanged. A ₹ cost replaces that category\'s rows with one line at that cost (auto finishing / box rows are switched off when you enter finishing or packaging ₹). Prices, CBM and FOB are recalculated by the app.'],
+    ['Rules', '', 'Blank cells leave the current value unchanged. A category ₹ total or any named line item replaces that category\'s manual rows. Named line items (e.g. Handle 1 name = 5" Gold Handle, qty 2, ₹ 150) each become their own row. Color/Sealer/Lacquer (L) set liters per unit at the library price. Auto finishing / box rows are switched off when you enter a finishing or packaging ₹ total. Prices, CBM and FOB are recalculated by the app.'],
   ]);
   guide['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 90 }];
   const wb = XLSX.utils.book_new();
@@ -128,7 +161,7 @@ export async function parseIntakeFile(file: File): Promise<IntakeRow[] | null> {
       const map: Record<number, string> = {};
       (aoa[h] || []).forEach((cell, i) => { const k = HEADER_LOOKUP.get(norm(cell)); if (k) map[i] = k; });
       const keys = Object.values(map);
-      const costish = keys.filter(k => COST_COLS.some(c => c.key === k) || k.startsWith('mh_') || k === 'ic_width' || k === 'markup_pct').length;
+      const costish = keys.filter(k => COST_COLS.some(c => c.key === k) || k.startsWith('mh_') || SLOTS.some(sl => sl.costKey === k) || CHEM_COLS.some(c => c.key === k) || k === 'ic_width' || k === 'markup_pct').length;
       if (!(keys.includes('sku') || keys.includes('name')) || costish < 2) continue;
       const out: IntakeRow[] = [];
       for (let r = h + 1; r < aoa.length; r++) {
@@ -149,15 +182,16 @@ export async function parseIntakeFile(file: File): Promise<IntakeRow[] | null> {
   return null;
 }
 
-type Lookups = { productTypes: any[]; shippingTypes: any[]; locations: any[]; mcHeightBuffer: number };
+type Lookups = { productTypes: any[]; shippingTypes: any[]; locations: any[]; chems: any[]; mcHeightBuffer: number };
 async function loadLookups(): Promise<Lookups> {
-  const [pt, st, loc] = await Promise.all([
+  const [pt, st, loc, ch] = await Promise.all([
     db.from('product_types').select('id, name'),
     db.from('shipping_types').select('id, name'),
     db.from('local_transport_locations').select('id, name'),
+    db.from('chemical_prices').select('*'),
   ]);
   const { getCachedMcHeightBuffer } = await import('@/lib/product-defaults');
-  return { productTypes: pt.data || [], shippingTypes: st.data || [], locations: loc.data || [], mcHeightBuffer: await getCachedMcHeightBuffer() };
+  return { productTypes: pt.data || [], shippingTypes: st.data || [], locations: loc.data || [], chems: ch.data || [], mcHeightBuffer: await getCachedMcHeightBuffer() };
 }
 const byName = (list: any[], name?: string) => name ? list.find(x => (x.name || '').toLowerCase().trim() === name.toLowerCase().trim()) : undefined;
 
@@ -217,20 +251,56 @@ async function applyRow(productId: string, row: IntakeRow, L: Lookups, warn: (m:
     else await db.from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: L.mcHeightBuffer, ...c });
   }
 
-  // --- COGS: one intake line per category ---
+  // --- COGS: category totals + named line items ---
+  const types = new Set<string>();
+  for (const cc of COST_COLS) if (row[cc.key] !== undefined) types.add(cc.cogsType);
+  const filledSlots = SLOTS.filter(sl => row[sl.nameKey] !== undefined || row[sl.costKey] !== undefined);
+  for (const sl of filledSlots) types.add(sl.cogsType);
+  for (const t of types) {
+    await db.from('cogs_items').delete().eq('product_id', productId).eq('cogs_type', t).eq('is_auto_calculated', false);
+  }
+  const inserts: any[] = [];
   for (const cc of COST_COLS) {
     const v = row[cc.key];
     if (v === undefined) continue;
-    await db.from('cogs_items').delete().eq('product_id', productId).eq('cogs_type', cc.cogsType).eq('is_auto_calculated', false);
     if (cc.cogsType === 'Finishing Materials' || cc.cogsType === 'Packaging') {
       await db.from('cogs_items').update({ include: v > 0 ? 'No' : 'Yes' }).eq('product_id', productId).eq('cogs_type', cc.cogsType).eq('is_auto_calculated', true);
     }
-    if (v > 0) {
-      await db.from('cogs_items').insert({
-        product_id: productId, cogs_type: cc.cogsType, component_name: cc.cogsType === 'Raw Piece' ? 'Raw Piece' : `${cc.cogsType} (intake)`,
-        components_per_product: 1, unit_cost_inr: v, units: 'pc', waste_factor: 0, include: 'Yes', is_auto_calculated: false,
-        vendor_name: cc.cogsType === 'Raw Piece' ? (row.raw_vendor ?? null) : null, sort_order: COST_COLS.indexOf(cc),
+    if (v > 0) inserts.push({
+      product_id: productId, cogs_type: cc.cogsType, component_name: cc.cogsType === 'Raw Piece' ? 'Raw Piece' : `${cc.cogsType} (intake)`,
+      components_per_product: 1, unit_cost_inr: v, units: 'pc', waste_factor: 0, include: 'Yes', is_auto_calculated: false,
+      vendor_name: cc.cogsType === 'Raw Piece' ? (row.raw_vendor ?? null) : null, sort_order: COST_COLS.indexOf(cc),
+    });
+  }
+  filledSlots.forEach((sl, i) => {
+    const cost = row[sl.costKey] ?? 0;
+    const name = row[sl.nameKey] || sl.label;
+    if (!row[sl.nameKey] && !cost) return;
+    inserts.push({
+      product_id: productId, cogs_type: sl.cogsType, component_name: name,
+      components_per_product: row[sl.qtyKey] ?? 1, unit_cost_inr: cost, units: sl.units, waste_factor: 0, include: 'Yes', is_auto_calculated: false,
+      vendor_name: row[sl.vendorKey] ?? null, sort_order: 20 + i,
+    });
+  });
+  if (inserts.length) { const { error } = await db.from('cogs_items').insert(inserts); if (error) warn(`${label}: ${error.message}`); }
+
+  // --- Finishing liters ---
+  const chemTouched = CHEM_COLS.filter(c => row[c.key] !== undefined);
+  if (chemTouched.length) {
+    const { data: fin } = await db.from('cogs_items').select('*').eq('product_id', productId).eq('cogs_type', 'Finishing Materials');
+    for (const c of chemTouched) {
+      const liters = row[c.key] as number;
+      const ex = (fin || []).find((x: any) => {
+        const linked = x.chemical_price_id ? L.chems.find(ch => ch.id === x.chemical_price_id) : null;
+        return (linked?.category || '').toLowerCase() === c.category.toLowerCase() || (x.component_name || '').toLowerCase().includes(c.name.toLowerCase());
       });
+      const chem = (ex?.chemical_price_id && L.chems.find(ch => ch.id === ex.chemical_price_id))
+        || L.chems.find(ch => (ch.category || '').toLowerCase() === c.category.toLowerCase());
+      const price = Number(chem?.price_per_unit_inr ?? chem?.price_per_litre_inr ?? ex?.unit_cost_inr ?? 0);
+      const patch = { components_per_product: liters, unit_cost_inr: price, units: chem?.unit_type || 'L', include: liters > 0 ? 'Yes' : 'No', is_auto_calculated: false, chemical_price_id: chem?.id ?? ex?.chemical_price_id ?? null };
+      if (ex) await db.from('cogs_items').update(patch).eq('id', ex.id);
+      else if (liters > 0) await db.from('cogs_items').insert({ product_id: productId, cogs_type: 'Finishing Materials', component_name: chem?.name || c.name, waste_factor: 0, sort_order: 4, ...patch });
+      if (!chem) warn(`${label}: no ${c.name} chemical in library — ₹/L left at ${price}`);
     }
   }
   if (row.raw_vendor !== undefined && row.raw_piece_inr === undefined) {
@@ -299,4 +369,32 @@ export function matchProduct(prods: any[], row: IntakeRow) {
   const name = (row.name || '').toLowerCase().trim();
   return (sku && prods.find(p => (p.sku || '').toLowerCase().trim() === sku))
     || (name && prods.find(p => (p.name || '').toLowerCase().trim() === name)) || null;
+}
+
+/** Serialize a product's existing manual COGS rows into intake columns (round-trip export). */
+export function cogsToIntake(r: Record<string, any>, mine: any[]) {
+  const lineCost = (x: any) => (Number(x.components_per_product) || 0) * (Number(x.unit_cost_inr) || 0) * (1 + (Number(x.waste_factor) || 0));
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const manual = mine.filter(x => x.include !== 'No' && !x.is_auto_calculated);
+  for (const c of CHEM_COLS) {
+    const x = mine.find(y => y.cogs_type === 'Finishing Materials' && !y.is_auto_calculated && (y.component_name || '').toLowerCase().includes(c.name.toLowerCase()));
+    if (x) r[c.key] = x.include === 'No' ? 0 : x.components_per_product;
+  }
+  for (const cc of COST_COLS) {
+    let lines = manual.filter(x => x.cogs_type === cc.cogsType);
+    if (cc.cogsType === 'Finishing Materials') lines = lines.filter(x => !CHEM_COLS.some(c => (x.component_name || '').toLowerCase().includes(c.name.toLowerCase())));
+    const slots = SLOTS.filter(sl => sl.cogsType === cc.cogsType);
+    const named = lines.slice(0, slots.length);
+    if (slots.length) {
+      named.forEach((x, i) => {
+        const sl = slots[i];
+        r[sl.nameKey] = x.component_name; r[sl.qtyKey] = x.components_per_product;
+        r[sl.costKey] = round((Number(x.unit_cost_inr) || 0) * (1 + (Number(x.waste_factor) || 0))); r[sl.vendorKey] = x.vendor_name ?? '';
+      });
+      const overflow = lines.slice(slots.length);
+      if (overflow.length) r[cc.key] = round(overflow.reduce((a, x) => a + lineCost(x), 0));
+    } else if (lines.length) {
+      r[cc.key] = round(lines.reduce((a, x) => a + lineCost(x), 0));
+    }
+  }
 }
