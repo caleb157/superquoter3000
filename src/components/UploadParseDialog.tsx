@@ -12,6 +12,8 @@ import { Upload, X, FileText, FileSpreadsheet, Image, Loader2, Sparkles, AlertTr
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
+import { downloadIntakeTemplate, parseIntakeFile } from '@/lib/costing-intake';
+import { CostingIntakeDialog } from '@/components/CostingIntakeDialog';
 
 const ACCEPTED_TYPES = ['.jpg', '.jpeg', '.png', '.pdf', '.xlsx', '.xls', '.csv'];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -86,6 +88,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
   const [importing, setImporting] = useState(false);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [intakeFile, setIntakeFile] = useState<File | null>(null);
 
   const reset = () => {
     setFiles([]);
@@ -202,6 +205,14 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
   };
 
   const handleParse = async () => {
+    // Costing Intake sheets import deterministically through the intake dialog.
+    for (const fe of files) {
+      if (!/\.(xlsx|xls|csv)$/i.test(fe.file.name)) continue;
+      try {
+        const rows = await parseIntakeFile(fe.file);
+        if (rows) { setIntakeFile(fe.file); onOpenChange(false); reset(); return; }
+      } catch { /* not an intake sheet */ }
+    }
     setParsing(true);
     const allProducts: ParsedProduct[] = [];
     const failedFiles: string[] = [];
@@ -586,18 +597,13 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
               />
             </div>
 
-            <div className="text-xs text-muted-foreground text-center">
-              For best results with spreadsheets,{' '}
-              <a
-                href="/product-import-template.csv"
-                download
-                onClick={e => e.stopPropagation()}
-                className="text-primary underline hover:no-underline"
-              >
-                download the import template
-              </a>
-              . Required column: <code className="px-1 bg-muted rounded">name</code>. Optional:{' '}
-              <code className="px-1 bg-muted rounded">sku, width_inch, depth_inch, height_inch, weight_kg, quantity, moq, target_price_usd, product_type, finishing_difficulty, percent_wood, is_component, source_location_name, collection, notes</code>.
+            <div className="rounded-md border bg-muted/30 p-3 text-xs flex flex-wrap items-center gap-3 justify-between">
+              <span className="text-muted-foreground">
+                Have full costs? Use the <strong className="text-foreground">Costing Intake</strong> sheet — sizes, boxes, every COGS line, labor hours, shipping type and NPM in one row per SKU. Drop it here and it imports exactly, no AI guessing.
+              </span>
+              <Button type="button" size="sm" variant="outline" onClick={e => { e.stopPropagation(); downloadIntakeTemplate(); }}>
+                <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Download costing template
+              </Button>
             </div>
 
             {/* File list */}
