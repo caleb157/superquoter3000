@@ -6,7 +6,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Download, AlertTriangle, RefreshCw, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowUpDown, Download, AlertTriangle, RefreshCw, ExternalLink, X, FileSpreadsheet } from 'lucide-react';
+import { CostingIntakeDialog } from '@/components/CostingIntakeDialog';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -327,6 +328,7 @@ export default function InquiryAuditGrid() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<number | null>(null);
   const [saving, setSaving] = useState(0);
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
   useDocumentTitle(bundle ? `Bulk Editor · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Bulk Editor');
 
@@ -592,8 +594,10 @@ export default function InquiryAuditGrid() {
                 <Switch id="only-flagged" checked={onlyFlagged} onCheckedChange={setOnlyFlagged} />
                 <Label htmlFor="only-flagged" className="text-xs">Only flagged</Label>
               </div>
+              <Button size="sm" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Costing intake</Button>
               <Button size="sm" variant="outline" onClick={() => void load()}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh</Button>
               <Button size="sm" variant="outline" onClick={handleDownload} disabled={!rows.length}><Download className="h-3.5 w-3.5 mr-1" /> XLSX</Button>
+              <CostingIntakeDialog open={intakeOpen} onOpenChange={setIntakeOpen} inquiryId={inquiryId!} mode="update" onApplied={() => void load()} />
             </div>
           </div>
 

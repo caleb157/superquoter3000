@@ -9,3 +9,4 @@
 - Analytics opening cash comes from the sum of Odoo asset_cash accounts in the sync snapshot — no manual input.
 - The inquiry Bulk Costing Editor (/inquiry/:id/audit) edits products/cbm_estimates/cogs_items directly and recomputes every derived number through computeProductCosting in memory — no separate math, so it can never disagree with the costing sheet.
 - Analytics capacity (booked hours + available capacity) is a straight read of LaborTrax GET /api/public/capacity-forecast stored in the sync snapshot — so HQ matches LT's chart including manual Work Order overrides.
+- Costing Intake (src/lib/costing-intake.ts) is the one spreadsheet format for bulk costing input, used by Import products (create) and the Bulk Editor (update by SKU, then name); it writes raw inputs only and lets the costing engine derive everything — so imports can never disagree with the costing sheet.
