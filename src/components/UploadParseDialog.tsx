@@ -562,6 +562,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
@@ -869,5 +870,14 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
         )}
       </DialogContent>
     </Dialog>
+    <CostingIntakeDialog
+      open={!!intakeFile}
+      onOpenChange={o => { if (!o) setIntakeFile(null); }}
+      inquiryId={inquiryId}
+      mode="create"
+      initialFile={intakeFile}
+      onApplied={onProductsCreated}
+    />
+    </>
   );
 }
