@@ -50,7 +50,7 @@ export function CostingIntakeDialog({ open, onOpenChange, inquiryId, mode, initi
     const ps: any[] = data || [];
     if (!ps.length) { downloadIntakeTemplate(); return; }
     const ids = ps.map(p => p.id);
-    const [cogs, oh, cbm, ship, st, pt, loc] = await Promise.all([
+    const [cogs, oh, cbm, ship, st, pt, loc, chems] = await Promise.all([
       (supabase as any).from('cogs_items').select('*').in('product_id', ids),
       (supabase as any).from('overhead_items').select('*').in('product_id', ids),
       (supabase as any).from('cbm_estimates').select('*').in('product_id', ids),
@@ -58,6 +58,7 @@ export function CostingIntakeDialog({ open, onOpenChange, inquiryId, mode, initi
       (supabase as any).from('shipping_types').select('id, name'),
       (supabase as any).from('product_types').select('id, name'),
       (supabase as any).from('local_transport_locations').select('id, name'),
+      (supabase as any).from('chemical_prices').select('id, name'),
     ]);
     const nm = (list: any, id: any) => (list.data || []).find((x: any) => x.id === id)?.name ?? '';
     const out = ps.map(p => {
@@ -76,7 +77,7 @@ export function CostingIntakeDialog({ open, onOpenChange, inquiryId, mode, initi
         coc_monthly_rate: p.cost_of_capital_monthly_rate, coc_months: p.cost_of_capital_months,
       };
       const mine = (cogs.data || []).filter((x: any) => x.product_id === p.id && x.include === 'Yes' && !x.is_auto_calculated);
-      cogsToIntake(r, (cogs.data || []).filter((x: any) => x.product_id === p.id));
+      cogsToIntake(r, (cogs.data || []).filter((x: any) => x.product_id === p.id), chems.data || []);
       r.raw_vendor = mine.find((x: any) => x.cogs_type === 'Raw Piece')?.vendor_name ?? '';
       for (const lc of LABOR_COLS) {
         const o = (oh.data || []).find((x: any) => x.product_id === p.id && x.labor_type === lc.laborType && !x.is_auto_estimated);

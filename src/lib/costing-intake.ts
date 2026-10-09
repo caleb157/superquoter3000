@@ -89,6 +89,7 @@ export const INTAKE_COLS: IntakeCol[] = [
 
   ...COST_COLS.map(c => ({ key: c.key, header: c.header, type: 'num' as ColType, group: 'COGS (₹ per unit)', help: `${c.cogsType}; blank = leave as is`, example: c.key === 'raw_piece_inr' ? 2400 : c.key === 'other_hardware_inr' ? 120 : '' })),
   ...CHEM_COLS.map(c => ({ key: c.key, header: `${c.name} (L)`, type: 'num' as ColType, group: 'Finishing liters', help: `Liters of ${c.name.toLowerCase()} per unit at library ₹/L; blank = auto`, example: '' })),
+  ...CHEM_COLS.map(c => ({ key: `${c.key}_chem`, header: `${c.name} chemical`, type: 'text' as ColType, group: 'Finishing liters', help: `Exact chemical name from the price list; blank = keep linked ${c.name.toLowerCase()}`, example: '' })),
   ...SLOTS.flatMap(sl => [
     { key: sl.nameKey, header: `${sl.label} name`, type: 'text' as ColType, group: `Line items — ${sl.cogsType}`, help: 'Name shown on the costing sheet, e.g. 5" Gold Handle', example: sl.nameKey === 'handle1_name' ? '5" Gold Handle' : '' },
     { key: sl.qtyKey, header: `${sl.label} qty`, type: 'num' as ColType, group: `Line items — ${sl.cogsType}`, help: 'Qty per product (default 1)', example: sl.nameKey === 'handle1_name' ? 2 : '' },
@@ -285,24 +286,40 @@ async function applyRow(productId: string, row: IntakeRow, L: Lookups, warn: (m:
   if (inserts.length) { const { error } = await db.from('cogs_items').insert(inserts); if (error) warn(`${label}: ${error.message}`); }
 
   // --- Finishing liters ---
-  const chemTouched = CHEM_COLS.filter(c => row[c.key] !== undefined);
+  const chemTouched = CHEM_COLS.filter(c => row[c.key] !== undefined || row[`${c.key}_chem`] !== undefined);
   if (chemTouched.length) {
     const { data: fin } = await db.from('cogs_items').select('*').eq('product_id', productId).eq('cogs_type', 'Finishing Materials');
+    const clean = (v: any) => String(v ?? '').trim().toLowerCase();
     for (const c of chemTouched) {
-      const liters = row[c.key] as number;
+      const liters = row[c.key] as number | undefined;
+      const chemName = row[`${c.key}_chem`] as string | undefined;
       const ex = (fin || []).find((x: any) => {
         const linked = x.chemical_price_id ? L.chems.find(ch => ch.id === x.chemical_price_id) : null;
         return (linked?.category || '').toLowerCase() === c.category.toLowerCase() || (x.component_name || '').toLowerCase().includes(c.name.toLowerCase());
       });
-      const chem = (ex?.chemical_price_id && L.chems.find(ch => ch.id === ex.chemical_price_id))
-        || L.chems.find(ch => (ch.category || '').toLowerCase() === c.category.toLowerCase());
+      let chem: any;
+      if (chemName !== undefined) {
+        chem = L.chems.find(ch => clean(ch.name) === clean(chemName));
+        if (!chem) { warn(`${label}: ${c.name} chemical "${chemName}" not found — row left unchanged`); continue; }
+      } else {
+        chem = (ex?.chemical_price_id && L.chems.find(ch => ch.id === ex.chemical_price_id))
+          || L.chems.find(ch => (ch.category || '').toLowerCase() === c.category.toLowerCase());
+        if (!chem) warn(`${label}: no ${c.name} chemical in library`);
+      }
       const price = Number(chem?.price_per_unit_inr ?? chem?.price_per_litre_inr ?? ex?.unit_cost_inr ?? 0);
-      const patch = { components_per_product: liters, unit_cost_inr: price, units: chem?.unit_type || 'L', include: liters > 0 ? 'Yes' : 'No', is_auto_calculated: false, chemical_price_id: chem?.id ?? ex?.chemical_price_id ?? null };
+      const pricing: any = { unit_cost_inr: price, units: chem?.unit_type || 'L', chemical_price_id: chem?.id ?? ex?.chemical_price_id ?? null };
+      if (liters === undefined) {
+        // Re-link / re-price only.
+        if (ex) await db.from('cogs_items').update(pricing).eq('id', ex.id);
+        else warn(`${label}: no ${c.name} row to re-link — enter ${c.name} (L) to create one`);
+        continue;
+      }
+      const patch = { ...pricing, components_per_product: liters, include: liters > 0 ? 'Yes' : 'No', is_auto_calculated: false };
       if (ex) await db.from('cogs_items').update(patch).eq('id', ex.id);
-      else if (liters > 0) await db.from('cogs_items').insert({ product_id: productId, cogs_type: 'Finishing Materials', component_name: chem?.name || c.name, waste_factor: 0, sort_order: 4, ...patch });
-      if (!chem) warn(`${label}: no ${c.name} chemical in library — ₹/L left at ${price}`);
+      else if (liters > 0) await db.from('cogs_items').insert({ product_id: productId, cogs_type: 'Finishing Materials', component_name: c.name, waste_factor: 0, sort_order: 4, ...patch });
     }
   }
+
   if (row.raw_vendor !== undefined && row.raw_piece_inr === undefined) {
     await db.from('cogs_items').update({ vendor_name: row.raw_vendor }).eq('product_id', productId).eq('cogs_type', 'Raw Piece');
   }
@@ -372,13 +389,16 @@ export function matchProduct(prods: any[], row: IntakeRow) {
 }
 
 /** Serialize a product's existing manual COGS rows into intake columns (round-trip export). */
-export function cogsToIntake(r: Record<string, any>, mine: any[]) {
+export function cogsToIntake(r: Record<string, any>, mine: any[], chems: any[] = []) {
   const lineCost = (x: any) => (Number(x.components_per_product) || 0) * (Number(x.unit_cost_inr) || 0) * (1 + (Number(x.waste_factor) || 0));
   const round = (n: number) => Math.round(n * 100) / 100;
   const manual = mine.filter(x => x.include !== 'No' && !x.is_auto_calculated);
   for (const c of CHEM_COLS) {
     const x = mine.find(y => y.cogs_type === 'Finishing Materials' && !y.is_auto_calculated && (y.component_name || '').toLowerCase().includes(c.name.toLowerCase()));
     if (x) r[c.key] = x.include === 'No' ? 0 : x.components_per_product;
+    const any = x || mine.find(y => y.cogs_type === 'Finishing Materials' && (y.component_name || '').toLowerCase().includes(c.name.toLowerCase()));
+    const linked = any?.chemical_price_id ? chems.find(ch => ch.id === any.chemical_price_id) : null;
+    if (linked) r[`${c.key}_chem`] = linked.name;
   }
   for (const cc of COST_COLS) {
     let lines = manual.filter(x => x.cogs_type === cc.cogsType);
