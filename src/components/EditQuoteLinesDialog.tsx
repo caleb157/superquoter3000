@@ -11,6 +11,8 @@ import { fmt } from '@/lib/formatters';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { FreightInput, FreightMode } from '@/lib/freight';
 import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
+import { createQuoteVersion, isSentQuote } from '@/lib/quote-versions';
 
 type SnapshotLine = {
   product_id?: string | null;
@@ -35,7 +37,12 @@ type SavedPatch = {
   totals: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; freight?: any };
   payment_terms?: string | null;
   incoterm?: string | null;
+  notes?: string | null;
+  // True when the save went to a new version because the quote had been sent; `id` is the new version.
+  new_version?: boolean;
 };
+
+type LastSent = { price: number; currency: string; sent_at: string; quote_number: string | null };
 
 type Props = {
   open: boolean;
@@ -57,6 +64,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const [freightRate, setFreightRate] = useState<string>('');
   const [dimDivisor, setDimDivisor] = useState<string>('5000');
   const [discountPercent, setDiscountPercent] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const initialNotesRef = useRef<string>('');
+  // Last price sent to this customer per SKU (or name), from their other sent quotes.
+  const [lastSent, setLastSent] = useState<Record<string, LastSent>>({});
+  // Set once a save on a sent quote has created a new version; later saves go to that version.
+  const versionIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // Baseline (last-saved) figures so edits can be shown as live deltas.
@@ -96,6 +109,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const dp = snapshot?.totals?.discount_percent != null ? String(snapshot.totals.discount_percent) : '';
     setDiscountPercent(dp);
     initialDiscountRef.current = dp;
+    const nt = (snapshot.notes ?? '') as string;
+    setNotes(nt);
+    initialNotesRef.current = nt;
+    versionIdRef.current = null;
+    setLastSent({});
+    loadLastSent(snapshot).then(setLastSent).catch(() => {});
     setStatus('idle');
     setErrorMsg(null);
     (async () => {
@@ -124,8 +143,9 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
       || paymentTerms !== initialPaymentTermsRef.current
       || incoterm !== initialIncotermRef.current
       || freightSerial !== initialFreightRef.current
-      || discountPercent !== initialDiscountRef.current,
-    [lines, paymentTerms, incoterm, freightSerial, discountPercent],
+      || discountPercent !== initialDiscountRef.current
+      || notes !== initialNotesRef.current,
+    [lines, paymentTerms, incoterm, freightSerial, discountPercent, notes],
   );
 
   const update = (key: string, patch: Partial<SnapshotLine>) => {
@@ -208,9 +228,26 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const freight: FreightInput | null = freightRateNum > 0
       ? { mode: freightMode, rate: freightRateNum, dim_divisor: Number(dimDivisor || 5000) }
       : null;
-    const result = await updateQuoteLineItems(snapshot.id, payload, {
+    // A sent quote is never changed: the first save copies it to a new draft version.
+    let targetId: string = versionIdRef.current ?? snapshot.id;
+    let newVersion = !!versionIdRef.current;
+    if (!versionIdRef.current && isSentQuote(snapshot)) {
+      const v = await createQuoteVersion(snapshot.id);
+      if (v.error || !v.id) {
+        setStatus('error');
+        setErrorMsg(v.error ?? 'Could not create a new version');
+        toast.error(`Save failed: ${v.error ?? 'could not create a new version'}`);
+        return;
+      }
+      versionIdRef.current = v.id;
+      targetId = v.id;
+      newVersion = true;
+      toast.success(`Saved as ${v.quote_number}; the sent quote is unchanged`);
+    }
+    const result = await updateQuoteLineItems(targetId, payload, {
       payment_terms: paymentTerms, freight, incoterm,
       discount_percent: discountPct > 0 ? discountPct : null,
+      notes,
     });
 
     if (result.error) {
@@ -227,12 +264,15 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     initialIncotermRef.current = incoterm;
     initialFreightRef.current = freightSerial;
     initialDiscountRef.current = discountPercent;
+    initialNotesRef.current = notes;
     setStatus('saved');
     toast.success('Quote updated');
 
     // Push the optimistic patch up so the Quotes list reflects new totals immediately.
     onSaved({
-      id: snapshot.id,
+      id: targetId,
+      new_version: newVersion,
+      notes: notes.trim() || null,
       products: result.products ?? payload,
       totals: result.totals ?? {
         sku_count: payload.length,
@@ -256,7 +296,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const saveLabel =
     status === 'saving' ? 'Saving…' :
     status === 'saved' ? 'Saved' :
-    dirty ? 'Save changes' : 'No changes';
+    dirty ? (isSentQuote(snapshot) && !versionIdRef.current ? 'Save as new version' : 'Save changes') : 'No changes';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -266,6 +306,11 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <DialogDescription>
             Adjust the name, quantity, or unit price for each line. Totals will be recalculated automatically.
           </DialogDescription>
+          {isSentQuote(snapshot) && (
+            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              This quote has been sent. Saving creates a new draft version; the sent quote stays exactly as the customer received it.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 space-y-4">
@@ -388,6 +433,15 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   className="h-8 text-xs text-right"
                   disabled={status === 'saving'}
                 />
+                {(() => {
+                  const hit = lastSent[lastSentKey(line.sku, line.name, true)] ?? lastSent[lastSentKey(line.sku, line.name, false)];
+                  if (!hit) return null;
+                  return (
+                    <p className="mt-0.5 text-right text-[10px] text-muted-foreground" title={hit.quote_number ?? undefined}>
+                      Last sent {fmt.money(hit.price, hit.currency)} · {new Date(hit.sent_at).toLocaleDateString()}
+                    </p>
+                  );
+                })()}
               </div>
               <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
                 {(() => {
@@ -470,6 +524,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             disabled={status === 'saving'}
           />
           <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
+        </div>
+
+        <div className="rounded-md border p-3 bg-card space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Notes and one-off terms</Label>
+          <Textarea
+            value={notes}
+            onChange={e => { setNotes(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            placeholder="e.g. Prices assume the finish approved on the March sample."
+            className="text-xs min-h-[60px]"
+            disabled={status === 'saving'}
+          />
+          <p className="text-[10px] text-muted-foreground">Printed on the quote PDF under the totals. Leave blank to omit.</p>
         </div>
 
         <div className="rounded-md border p-3 bg-card space-y-2">
@@ -591,4 +657,36 @@ function makeBaseline(lines: Array<SnapshotLine & { _key: string }>) {
     qty += Number(l.quantity || 0);
   }
   return { byKey, grand, qty };
+}
+
+// Key for the last-sent lookup: by SKU when the line has one, else by name.
+function lastSentKey(sku: string | null | undefined, name: string, bySku: boolean): string {
+  return bySku ? `sku:${(sku ?? '').trim().toLowerCase()}` : `name:${(name ?? '').trim().toLowerCase()}`;
+}
+
+/** Latest price per SKU and per name across this customer's other sent quotes. */
+async function loadLastSent(snapshot: any): Promise<Record<string, LastSent>> {
+  let customerId: string | null = snapshot?.customer?.id ?? null;
+  if (!customerId && snapshot?.customer_rfq_id) {
+    const { data } = await (supabase as any).from('customer_rfqs').select('customer_id').eq('id', snapshot.customer_rfq_id).maybeSingle();
+    customerId = data?.customer_id ?? null;
+  }
+  if (!customerId) return {};
+  const { data: inqs } = await (supabase as any).from('customer_rfqs').select('id').eq('customer_id', customerId);
+  const ids = ((inqs ?? []) as any[]).map(r => r.id);
+  if (ids.length === 0) return {};
+  const { data: quotes } = await (supabase as any).from('quote_snapshots')
+    .select('id, quote_number, currency, sent_at, products')
+    .in('customer_rfq_id', ids).not('sent_at', 'is', null).neq('id', snapshot.id)
+    .order('sent_at', { ascending: false }).limit(100);
+  const out: Record<string, LastSent> = {};
+  for (const q of (quotes ?? []) as any[]) {
+    for (const l of (q.products ?? []) as any[]) {
+      const hit: LastSent = { price: Number(l.unit_price_usd || 0), currency: q.currency || 'USD', sent_at: q.sent_at, quote_number: q.quote_number };
+      if (!(hit.price > 0)) continue;
+      if (l.sku) { const k = lastSentKey(l.sku, l.name, true); if (!out[k]) out[k] = hit; }
+      if (l.name) { const k = lastSentKey(l.sku, l.name, false); if (!out[k]) out[k] = hit; }
+    }
+  }
+  return out;
 }

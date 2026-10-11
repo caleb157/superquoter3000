@@ -23,8 +23,7 @@ import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
-import { referencePriceFor } from '@/components/QuotePriceReviewDialog';
-import { computeProductUnitPrices } from '@/lib/product-pricing';
+import { priceProductLines, resolveQuoteDefaults } from '@/lib/quote-rough';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
@@ -455,44 +454,26 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     if (selectedProductsLocal.length === 0 || generatingQuoteRef.current) return;
     generatingQuoteRef.current = true;
     try {
-      const [{ data: entities }, { data: inq }] = await Promise.all([
-        supabase.from('company_entities').select('id, name').order('name'),
-        (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency').eq('id', inquiryId).maybeSingle(),
-      ]);
-      if (!entities || entities.length === 0) {
+      const { entity: preferredEntity, currency: cur, incoterm } = await resolveQuoteDefaults(inquiryId);
+      if (!preferredEntity) {
         toast.error('Set up a Company Entity in Settings before generating quotes.');
         return;
       }
-      const preferredEntity = inq?.quoting_entity_id && entities.find(e => e.id === inq.quoting_entity_id)
-        ? entities.find(e => e.id === inq.quoting_entity_id)!
-        : entities[0];
-      const cur = (inq?.quoting_currency as string) || 'USD';
       setHwEntityId(preferredEntity.id);
       setHwEntityName(preferredEntity.name);
       setHwCurrency(cur);
+      setHwIncoterm(incoterm);
 
-      await loadCurrencyMap();
-      const priceMap = await computeProductUnitPrices(selectedProductsLocal.map(p => p.id));
-      const lines: QuoteProductInput[] = selectedProductsLocal
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
-        .map(p => {
-          const ref = referencePriceFor({
-            id: p.id, name: p.name, quantity: p.quantity ?? null,
-            reference_price_usd: displayPriceUsd(p),
-            target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
-          }, priceMap, cur);
-          return {
-            id: p.id, name: p.name, quantity: Number(p.quantity ?? 0),
-            unit_price_override: ref > 0 ? Number(ref.toFixed(2)) : 0,
-            display_name: p.name,
-          } as QuoteProductInput;
-        });
+      const lines = await priceProductLines(selectedProductsLocal.map(p => ({
+        id: p.id, name: p.name, quantity: p.quantity ?? null,
+        reference_price_usd: displayPriceUsd(p),
+        target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+      })), cur);
 
       setPendingLines(lines);
       const plan = await getHardwareSyncPlan(Array.from(new Set(lines.map(l => l.id))));
       if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-        await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur, lines);
+        await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur, lines, incoterm);
       } else {
         // Hardware library conflicts need a decision; the quote is created right after.
         setHwPlan(plan);
@@ -510,6 +491,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
     currency: string = 'USD',
     lines?: QuoteProductInput[],
+    incoterm: string | null = null,
   ) => {
     if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
       const sync = await applyHardwareSync(plan.newItems, resolved);
@@ -528,6 +510,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       entityId,
       validUntil: defaultValidUntil(),
       currency,
+      incoterm,
     });
     setHwOpen(false);
     setHwPlan(null);
@@ -1028,7 +1011,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         open={hwOpen}
         plan={hwPlan}
         onCancel={() => { setHwOpen(false); setHwPlan(null); setPendingLines(null); }}
-        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency, pendingLines || undefined); }}
+        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency, pendingLines || undefined, hwIncoterm); }}
       />
     </div>
   );

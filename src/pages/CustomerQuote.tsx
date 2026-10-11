@@ -155,6 +155,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
   const [editOpen, setEditOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const editedRef = useRef(false);
+  const newVersionIdRef = useRef<string | null>(null);
   const { token: routeToken } = useParams<{ token: string }>();
   const token = embedded ? embeddedId : routeToken;
   const [data, setData] = useState<QuoteData | null>(null);
@@ -1001,10 +1002,15 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
           onOpenChange={(o) => {
             setEditOpen(o);
             // Refresh the view once editing is done (not on every autosave, which would reset the dialog).
-            if (!o && editedRef.current) { editedRef.current = false; setReloadKey(k => k + 1); }
+            if (!o && newVersionIdRef.current) {
+              // Editing a sent quote made a new version: show that version.
+              const next = newVersionIdRef.current;
+              newVersionIdRef.current = null; editedRef.current = false;
+              navigate(`/quotes/${next}`);
+            } else if (!o && editedRef.current) { editedRef.current = false; setReloadKey(k => k + 1); }
           }}
           snapshot={data?.snapshot ?? null}
-          onSaved={() => { editedRef.current = true; }}
+          onSaved={(patch) => { editedRef.current = true; if (patch.new_version) newVersionIdRef.current = patch.id; }}
         />
       )}
 

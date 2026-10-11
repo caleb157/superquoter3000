@@ -107,9 +107,15 @@ const Quotes = () => {
     let result = snapshots.filter(snap => {
       if (search) {
         const s = search.toLowerCase();
-        const inqName = inquiryLabel(snap.customer_rfq_id);
-        const quoteNum = snap.quote_number || '';
-        if (!quoteNum.toLowerCase().includes(s) && !inqName.toLowerCase().includes(s)) return false;
+        // Quote #, inquiry, customer (name or company), or any line's SKU or product name.
+        const haystack = [
+          snap.quote_number,
+          inquiryLabel(snap.customer_rfq_id),
+          snap.customer?.name,
+          snap.customer?.company,
+          ...((snap.products ?? []) as any[]).flatMap(l => [l.sku, l.name]),
+        ].filter(Boolean).join('\n').toLowerCase();
+        if (!haystack.includes(s)) return false;
       }
       if (filterInquiry !== 'all' && snap.customer_rfq_id !== filterInquiry) return false;
       if (filterStatus !== 'all' && (snap.status || 'draft') !== filterStatus) return false;
@@ -179,7 +185,7 @@ const Quotes = () => {
           <div className="relative col-span-2 lg:flex-1 lg:min-w-[180px] lg:max-w-xs">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search quote # or inquiry..."
+              placeholder="Search quote #, inquiry, customer or SKU..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 h-9 text-xs"
