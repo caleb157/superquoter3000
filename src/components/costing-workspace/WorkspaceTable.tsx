@@ -1,6 +1,6 @@
 // The bulk grid: one row per SKU, columns from the active view. Sticky header, sticky
 // name column and a totals footer; the name cell opens the product panel.
-import { AlertTriangle, ChevronRight, Plus } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,9 @@ type Props = {
   onToggleAll: () => void;
   openId: string | null;
   onOpen: (id: string) => void;
+  /** Header click on SKU cycles name A–Z → Z–A → sheet order. */
+  nameSort: 'asc' | 'desc' | null;
+  onSortName: () => void;
   apply: Apply;
   /** Panel open: show a narrow list instead of the full view. */
   compact: boolean;
@@ -81,7 +84,11 @@ export function WorkspaceTable(p: Props) {
           <th className="left-0 z-20 text-left">
             <div className="flex items-center gap-3 pl-1">
               <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={p.onToggleAll} aria-label="Select all" />
-              <span>SKU</span>
+              <button onClick={p.onSortName} title="Sort by name (click again to reverse, third click for sheet order)"
+                className={cn('flex items-center gap-1 rounded hover:text-foreground', p.nameSort && 'text-foreground')}>
+                SKU
+                {p.nameSort === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : p.nameSort === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />}
+              </button>
               <span className="ml-auto font-normal tabular-nums">{rows.length}</span>
             </div>
           </th>

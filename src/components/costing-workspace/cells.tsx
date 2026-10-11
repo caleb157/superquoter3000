@@ -344,7 +344,7 @@ export function CostMixBar({ row, className, showLegend }: { row: WorkspaceRow; 
   }
   return (
     <Tooltip>
-      <TooltipTrigger asChild><div className="py-2 cursor-default">{bar}</div></TooltipTrigger>
+      <TooltipTrigger asChild><div className="w-full py-2 cursor-default">{bar}</div></TooltipTrigger>
       <TooltipContent side="bottom" className="p-3">
         <div className="text-xs font-medium mb-1.5">Unit cost {inr(row.costInr)}</div>
         <table className="text-xs tabular-nums">

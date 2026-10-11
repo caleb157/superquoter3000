@@ -33,7 +33,8 @@ import { VIEWS } from '@/components/costing-workspace/columns';
 import { Stat, focusCell, focusNavEl, pct, usd } from '@/components/costing-workspace/cells';
 
 type Filter = 'all' | 'over' | 'flagged' | 'notarget';
-type Sort = 'sheet' | 'gap' | 'price' | 'name';
+type Sort = 'sheet' | 'gap' | 'price' | 'name' | 'name_desc' | 'sku' | 'sku_desc';
+const natural = (a: unknown, b: unknown) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
 
 export default function CostingWorkspace() {
   const { id: inquiryId } = useParams<{ id: string }>();
@@ -125,7 +126,10 @@ export default function CostingWorkspace() {
     if (filter === 'notarget') out = out.filter(r => r.targetUsd == null);
     if (sort === 'gap') out = [...out].sort((a, b) => (b.gapPct ?? -Infinity) - (a.gapPct ?? -Infinity));
     if (sort === 'price') out = [...out].sort((a, b) => b.priceUsd - a.priceUsd);
-    if (sort === 'name') out = [...out].sort((a, b) => String(a.p.name).localeCompare(String(b.p.name)));
+    if (sort === 'name') out = [...out].sort((a, b) => natural(a.p.name, b.p.name));
+    if (sort === 'name_desc') out = [...out].sort((a, b) => natural(b.p.name, a.p.name));
+    if (sort === 'sku') out = [...out].sort((a, b) => natural(a.p.sku, b.p.sku));
+    if (sort === 'sku_desc') out = [...out].sort((a, b) => natural(b.p.sku, a.p.sku));
     return out;
   }, [rows, search, filter, sort]);
 
@@ -287,6 +291,9 @@ export default function CostingWorkspace() {
                 <option value="gap">Furthest over target</option>
                 <option value="price">Highest price</option>
                 <option value="name">Name A–Z</option>
+                <option value="name_desc">Name Z–A</option>
+                <option value="sku">SKU code A–Z</option>
+                <option value="sku_desc">SKU code Z–A</option>
               </select>
             </div>
           </div>
@@ -306,6 +313,8 @@ export default function CostingWorkspace() {
                 <WorkspaceTable
                   view={view} rows={visibleRows} bundle={bundle} apply={apply}
                   selected={selected} onToggle={toggleRow} onToggleAll={toggleAll}
+                  nameSort={sort === 'name' ? 'asc' : sort === 'name_desc' ? 'desc' : null}
+                  onSortName={() => setSort(s => (s === 'name' ? 'name_desc' : s === 'name_desc' ? 'sheet' : 'name'))}
                   openId={openId} onOpen={id => setParam('sku', id === openId ? null : id)}
                   compact={!!openRow} quoteSlots={quoteSlots} onAddQuoteSlot={() => setExtraSlots(s => s + 1)}
                 />
