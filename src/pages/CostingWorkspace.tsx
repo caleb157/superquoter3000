@@ -77,7 +77,7 @@ export default function CostingWorkspace() {
   const rows = useMemo(() => (bundle ? buildRows(bundle, results) : []), [bundle, results]);
   const t = useMemo(() => totals(rows), [rows]);
 
-  useDocumentTitle(bundle ? `Costing · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Costing workspace');
+  useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
 
   // ---------- writes ----------
 
@@ -231,7 +231,7 @@ export default function CostingWorkspace() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="min-w-0 flex-1">
-              <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/inquiries' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Costing" />
+              <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/inquiries' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Badass Costing Workspace" />
               <div className="flex items-baseline gap-2 min-w-0">
                 <h1 className="text-xl font-semibold truncate">{title}</h1>
                 <span className="text-sm text-muted-foreground truncate">{bundle.inq.rfq_number}{bundle.customer ? ` · ${customerPrimary(bundle.customer)}` : ''}</span>

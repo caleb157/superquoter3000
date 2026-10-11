@@ -613,7 +613,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             </span>
           )}
           <Button size="sm" variant="outline" className="h-9 gap-1.5 border-primary/40 text-primary hover:text-primary" onClick={() => navigate(`/inquiry/${inquiryId}/costing`)}>
-            <Calculator className="h-4 w-4" /> Costing workspace
+            <Calculator className="h-4 w-4" /> Badass Costing Workspace
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
