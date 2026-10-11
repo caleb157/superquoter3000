@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Upload, Trash2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EntityTermsEditor } from '@/components/EntityTermsEditor';
+import type { QuoteClause } from '@/lib/quote-terms';
 
 interface CompanyEntity {
   id: string;
@@ -33,6 +35,7 @@ interface CompanyEntity {
   ifsc_code: string | null;
   swift_code: string | null;
   logo_url: string | null;
+  default_terms: QuoteClause[] | null;
 }
 
 const FIELDS_GENERAL: { key: keyof CompanyEntity; label: string; half?: boolean }[] = [
@@ -82,11 +85,12 @@ export default function CompanyEntitiesSettings() {
 
   const entity = entities.find(e => e.id === selectedId) || null;
 
-  const updateField = async (field: keyof CompanyEntity, value: any) => {
-    if (!entity) return;
+  const updateField = async (field: keyof CompanyEntity, value: any): Promise<boolean> => {
+    if (!entity) return false;
     setEntities(prev => prev.map(e => e.id === entity.id ? { ...e, [field]: value } : e));
     const { error } = await (supabase as any).from('company_entities').update({ [field]: value }).eq('id', entity.id);
     if (error) toast.error(error.message);
+    return !error;
   };
 
   const addEntity = async () => {
@@ -252,6 +256,15 @@ export default function CompanyEntitiesSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Quote terms and policies */}
+      <EntityTermsEditor
+        entityId={entity.id}
+        value={entity.default_terms}
+        onSave={async terms => {
+          if (await updateField('default_terms', terms)) toast.success(terms ? 'Terms saved' : 'Terms reset to defaults');
+        }}
+      />
     </div>
   );
 }

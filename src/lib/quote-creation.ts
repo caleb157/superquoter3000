@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { buildQuoteClauses } from '@/lib/quote-terms';
 import { computeFreight, dimKgPerUnit, type FreightInput, type FreightLine } from '@/lib/freight';
 
 export type QuoteProductInput = {
@@ -353,6 +354,9 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
 
   const entityJson = entityRes.data ?? null;
 
+  const { data: termsRow } = await (supabase as any)
+    .from('company_entities').select('default_terms').eq('id', entityId).maybeSingle();
+
   const insertPayload: any = {
     customer_rfq_id: inquiryId,
     quote_number: 'Q-' + Date.now(),
@@ -372,6 +376,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
     currency: code,
     currency_rate_inr_per_unit: frozenInrPerUnit,
     incoterm: incoterm?.trim() || null,
+    terms: buildQuoteClauses(termsRow?.default_terms ?? null),
     entity: entityJson,
     customer: customerJson,
     inquiry: inquiryJson,

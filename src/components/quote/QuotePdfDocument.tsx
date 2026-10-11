@@ -75,6 +75,7 @@ export interface QuotePdfProps {
   createdAt: string | null;
   status: string;
   paymentTerms?: string | null;
+  terms?: { key: string; title: string; text: string }[] | null;
   incoterm?: string | null;
   notes?: string | null;
   products: QuotePdfProduct[];
@@ -273,6 +274,7 @@ const QuotePdfDocument = ({
   createdAt,
   status,
   paymentTerms,
+  terms,
   incoterm,
   products,
   selections,
@@ -584,6 +586,22 @@ const QuotePdfDocument = ({
           fixed
         />
       </Page>
+
+      {/* Final page: full terms and policies (the payment clause follows this quote's payment terms) */}
+      {terms && terms.length > 0 ? (
+        <Page size={size} orientation={orientation} style={s.page}>
+          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', marginBottom: 10 }}>Terms and Policies</Text>
+          {terms.map((c, i) => (
+            <Text key={c.key} style={{ fontSize: 8.5, lineHeight: 1.4, marginBottom: 5 }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{i + 1}. {c.title}. </Text>
+              {c.key === 'payment' && paymentTerms ? paymentTerms : c.text}
+            </Text>
+          ))}
+          <Text style={s.footer} fixed>
+            {entity?.name ? `${entity.name}  ·  ` : ''}{quoteNumber}
+          </Text>
+        </Page>
+      ) : null}
     </Document>
   );
 };
