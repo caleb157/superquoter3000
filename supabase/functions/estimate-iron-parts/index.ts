@@ -1,7 +1,7 @@
 // Iron Weight Calculator — photo estimate. Given a photo of an iron furniture piece and its outer
 // W × D × H, asks Claude for the iron members (section, size, cut length, count) grouped into
 // assemblies. Returns a draft only; the app computes every weight with iron-weight-core.ts.
-import Anthropic from "npm:@anthropic-ai/sdk";
+import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
