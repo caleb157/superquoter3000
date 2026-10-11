@@ -865,6 +865,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          rupees_per_ri: number | null
           sort_order: number
           updated_at: string
         }
@@ -873,6 +874,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          rupees_per_ri?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -881,6 +883,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          rupees_per_ri?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -1623,6 +1626,48 @@ export type Database = {
         }
         Relationships: []
       }
+      iron_builds: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          label: string
+          notes: string | null
+          owner_id: string | null
+          price_per_kg: number | null
+          sku: string
+          total_cost: number | null
+          total_kg: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          label?: string
+          notes?: string | null
+          owner_id?: string | null
+          price_per_kg?: number | null
+          sku: string
+          total_cost?: number | null
+          total_kg?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          label?: string
+          notes?: string | null
+          owner_id?: string | null
+          price_per_kg?: number | null
+          sku?: string
+          total_cost?: number | null
+          total_kg?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       labor_employees: {
         Row: {
           created_at: string | null
@@ -2063,6 +2108,7 @@ export type Database = {
           quote_notes: string | null
           quote_stage: string | null
           revenue_done: boolean | null
+          running_inches_override: number | null
           sample_stage: string | null
           shipping_done: boolean | null
           sku: string | null
@@ -2113,6 +2159,7 @@ export type Database = {
           quote_notes?: string | null
           quote_stage?: string | null
           revenue_done?: boolean | null
+          running_inches_override?: number | null
           sample_stage?: string | null
           shipping_done?: boolean | null
           sku?: string | null
@@ -2163,6 +2210,7 @@ export type Database = {
           quote_notes?: string | null
           quote_stage?: string | null
           revenue_done?: boolean | null
+          running_inches_override?: number | null
           sample_stage?: string | null
           shipping_done?: boolean | null
           sku?: string | null
