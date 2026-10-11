@@ -12,7 +12,8 @@ import { Layers, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
-import { GenerateQuoteDialog } from '@/components/GenerateQuoteDialog';
+import { priceAssemblyLines, resolveQuoteDefaults } from '@/lib/quote-rough';
+import { createQuoteSnapshot, defaultValidUntil } from '@/lib/quote-creation';
 
 type Assembly = {
   id: string;
@@ -38,7 +39,35 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
   const [refresh, setRefresh] = useState(0);
   const [inquiryProducts, setInquiryProducts] = useState<{ id: string; name: string; sku: string | null }[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({}); // productId -> qty/asm
-  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  // Generate quote: one click, every kit on this inquiry at its current price, sorted by name.
+  // Opens the new draft in the app; remove lines or change prices there.
+  const generateKitQuote = async () => {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const { entity, currency, incoterm } = await resolveQuoteDefaults(inquiryId);
+      if (!entity) { toast.error('Set up a Company Entity in Settings before generating quotes.'); return; }
+      const { data } = await (supabase as any)
+        .from('product_assemblies')
+        .select('id, name, quantity, markup_percent, assembly_components(product_id, quantity_per_assembly)')
+        .eq('customer_rfq_id', inquiryId);
+      const lines = await priceAssemblyLines(((data ?? []) as any[]).map(a => ({
+        id: a.id, name: a.name, quantity: a.quantity, markup_percent: a.markup_percent,
+        components: a.assembly_components || [],
+      })), currency);
+      if (lines.length === 0) return;
+      const result = await createQuoteSnapshot({
+        inquiryId, selectedProducts: lines, entityId: entity.id, validUntil: defaultValidUntil(), currency, incoterm,
+      });
+      if (result.error) { toast.error(result.error); return; }
+      toast.success(`Quote draft created with ${entity.name} (${currency})`);
+      if (result.id) navigate(`/quotes/${result.id}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -130,8 +159,8 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
         </p>
         <div className="flex items-center gap-2">
           {assemblies.length > 0 && (
-            <Button size="sm" variant="outline" onClick={() => setQuoteOpen(true)}>
-              Generate quote
+            <Button size="sm" variant="outline" onClick={generateKitQuote} disabled={generating}>
+              {generating ? 'Generating…' : 'Generate quote'}
             </Button>
           )}
           <Button size="sm" onClick={openCreate} className="gap-1.5">
@@ -274,12 +303,6 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
         </DialogContent>
       </Dialog>
 
-      <GenerateQuoteDialog
-        open={quoteOpen}
-        onOpenChange={setQuoteOpen}
-        inquiryId={inquiryId}
-        onCreated={() => setRefresh(r => r + 1)}
-      />
     </div>
   );
 }

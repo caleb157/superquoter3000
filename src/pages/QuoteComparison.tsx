@@ -10,7 +10,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { fmt } from '@/lib/formatters';
 import { loadCurrencyMap } from '@/lib/currency';
 import { computeProductUnitPrices } from '@/lib/product-pricing';
-import { referencePriceFor } from '@/components/QuotePriceReviewDialog';
+import { referencePriceFor } from '@/lib/quote-rough';
 import { compareQuoteToCurrent, type CompareResult, type CompareStatus } from '@/lib/quote-comparison';
 
 type SentQuote = { id: string; quote_number: string | null; sent_at: string; currency: string | null };
