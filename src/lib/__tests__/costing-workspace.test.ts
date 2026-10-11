@@ -3,7 +3,7 @@
 // cheapest quote) — all measured through the same engine the costing sheet uses.
 import { describe, expect, it } from 'vitest';
 import {
-  buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setQuote, type Bundle,
+  buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setQuote, totals, type Bundle,
 } from '@/lib/costing-workspace';
 
 const PT = { id: 'pt1', name: 'Wood Side/End Table', pkg_ic_add_per_side_in: 0.5, finishing_mh_per_100ri: 0.5, finishing_color_per_100ri: 0.02 };
@@ -68,6 +68,25 @@ describe('costing workspace', () => {
       const sum = Object.values(r.buckets).reduce((a, v) => a + v, 0) + r.r.capitalPerUnitInr;
       expect(sum).toBeCloseTo(r.costInr, 6);
     }
+  });
+
+  it('contribution adds back exactly the indirect overhead (with its cost of capital)', () => {
+    const rows = rowsOf(bundle());
+    const c = rows.find(r => r.p.id === 'c')!; // no man-hours, like a bought-in item
+    expect(c.indirectInr).toBe(0);
+    expect(c.contribution).toBeCloseTo(c.margin, 12);
+    for (const id of ['a', 'b']) {
+      const r = rows.find(x => x.p.id === id)!;
+      expect(r.r.indirectOhPerUnit).toBeGreaterThan(0);
+      expect(r.indirectInr).toBeCloseTo(r.r.indirectOhPerUnit * (1 + r.r.capitalFactor), 9);
+      expect((r.contribution - r.margin) * r.priceInr).toBeCloseTo(r.indirectInr, 6);
+    }
+    const t = totals(rows);
+    const fob = rows.reduce((a, r) => a + r.priceUsd * r.qty, 0);
+    const profit = rows.reduce((a, r) => a + (r.priceUsd - r.costUsd) * r.qty, 0);
+    const indirect = rows.reduce((a, r) => a + r.indirectUsd * r.qty, 0);
+    expect(t.contribution).toBeCloseTo((profit + indirect) / fob, 12);
+    expect(t.contribution).toBeGreaterThan(t.margin);
   });
 
   it('counts waste the way the engine does (qty ÷ (1 − waste))', () => {

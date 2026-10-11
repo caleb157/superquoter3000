@@ -133,6 +133,16 @@ const npmCol: Col = {
   },
 };
 
+const contribCol: Col = {
+  id: 'contrib', label: 'Contrib %', width: 84, align: 'right',
+  hint: 'Contribution rate: net margin plus the indirect (factory) overhead this SKU absorbs. Equals NPM for bought-in items with no man-hours, so trading and manufacturing work compare fairly.',
+  render: r => <span className="tabular-nums text-muted-foreground">{pct(r.contribution)}</span>,
+  footer: rows => {
+    const fob = sumBy(rows, r => r.priceUsd * r.qty);
+    return fob > 0 ? pct(sumBy(rows, r => (r.priceUsd - r.costUsd + r.indirectUsd) * r.qty) / fob) : '—';
+  },
+};
+
 const targetCol: Col = {
   id: 'target', label: 'Target $', width: 88, align: 'right',
   hint: "Customer's target price per unit (USD). Leave blank for none.",
@@ -162,6 +172,7 @@ export const VIEWS: View[] = [
       { id: 'mix', label: 'Cost mix', width: 150, render: r => <CostMixBar row={r} /> },
       costCol,
       npmCol,
+      contribCol,
       priceCol,
       targetCol,
       gapCol,

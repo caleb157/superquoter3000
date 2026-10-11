@@ -402,10 +402,18 @@ export function Thumb({ p, size = 32 }: { p: any; size?: number }) {
 
 // ---------- Stat ----------
 
-export function Stat({ label, value, sub, tone, onClick, active }: {
-  label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'good' | 'bad' | 'warn'; onClick?: () => void; active?: boolean;
+export function Stat({ label, value, sub, tone, onClick, active, hint }: {
+  label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'good' | 'bad' | 'warn'; onClick?: () => void; active?: boolean; hint?: string;
 }) {
   const Comp = onClick ? 'button' : 'div';
+  if (hint) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild><div className="min-w-0 cursor-help"><Stat {...{ label, value, sub, tone, onClick, active }} /></div></TooltipTrigger>
+        <TooltipContent className="max-w-xs text-xs">{hint}</TooltipContent>
+      </Tooltip>
+    );
+  }
   return (
     <Comp
       onClick={onClick}

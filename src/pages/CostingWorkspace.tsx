@@ -194,11 +194,11 @@ export default function CostingWorkspace() {
   const exportXlsx = () => {
     if (!bundle) return;
     const header = ['SKU', 'Name', 'Qty', 'Raw vendor', 'Raw piece ₹', 'Subcontract ₹', 'Outsourced ₹', 'Hardware ₹', 'Finishing ₹', 'Packaging ₹',
-      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Price ₹', 'Price $', 'Target $', 'Gap $', 'Unit CBM', 'Issues'];
+      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', 'Price $', 'Target $', 'Gap $', 'Unit CBM', 'Issues'];
     const data = rows.map(r => [
       r.p.sku || '', r.p.name || '', r.qty, r.rawVendor, r.buckets.raw_piece, r.buckets.subcontract, r.buckets.outsourced, r.buckets.hardware,
       r.buckets.finishing, r.buckets.packaging, r.buckets.other, r.buckets.labor, r.buckets.shipping, r.costInr,
-      +(r.margin * 100).toFixed(2), r.priceInr, +r.priceUsd.toFixed(2), r.targetUsd ?? '', r.gapUsd == null ? '' : +r.gapUsd.toFixed(2),
+      +(r.margin * 100).toFixed(2), +(r.contribution * 100).toFixed(2), r.indirectInr, r.priceInr, +r.priceUsd.toFixed(2), r.targetUsd ?? '', r.gapUsd == null ? '' : +r.gapUsd.toFixed(2),
       +r.r.finalUnitCbm.toFixed(4), r.flags.map(f => f.msg).join('; '),
     ].map(v => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)));
     const ws = XLSX.utils.aoa_to_sheet([
@@ -249,10 +249,13 @@ export default function CostingWorkspace() {
           </div>
 
           {/* KPIs */}
-          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
             <Stat label="SKUs" value={t.skus} sub={`${t.units.toLocaleString()} units`} />
             <Stat label="Order FOB" value={usd(t.fobUsd, 0)} sub={`cost ${usd(t.costUsd, 0)}`} />
-            <Stat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${usd(t.fobUsd - t.costUsd, 0)} profit`} />
+            <Stat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${usd(t.fobUsd - t.costUsd, 0)} profit`}
+              hint="Order profit ÷ order FOB, weighted by each line's dollars. Cost is the full costing-sheet cost, including direct labor, indirect overhead, shipping and cost of capital." />
+            <Stat label="Contribution" value={pct(t.contribution)} sub={`${usd(t.fobUsd - t.costUsd + t.indirectUsd, 0)} · ${usd(t.indirectUsd, 0)} overhead`}
+              hint="Net profit plus the indirect (factory) overhead this order absorbs, ÷ order FOB. Bought-in items carry no man-hours, so for trading work this equals NPM; manufacturing work shows how much it also pays toward fixed overhead." />
             <Stat label="Packed CBM" value={t.cbm.toFixed(2)} sub={`≈ ${(t.cbm / 68).toFixed(2)} × 40HC`} />
             <Stat label="Over target" value={t.withTarget ? `${t.overTarget} / ${t.withTarget}` : '—'}
               tone={t.overTarget ? 'bad' : t.withTarget ? 'good' : undefined}

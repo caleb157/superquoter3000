@@ -101,6 +101,11 @@ export type WorkspaceRow = {
   markup: number;
   /** Net margin on price (price − cost) / price. */
   margin: number;
+  /** Per-unit indirect (factory) overhead in the cost, with its share of cost of capital. */
+  indirectInr: number;
+  indirectUsd: number;
+  /** Contribution rate: net margin with indirect overhead added back, (price − cost + indirect) / price. */
+  contribution: number;
   targetUsd: number | null;
   gapUsd: number | null;
   gapPct: number | null;
@@ -192,6 +197,8 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     const fx = r.exchangeRate || 1;
     const targetUsd = Number(p.target_price_usd) > 0 ? Number(p.target_price_usd) : null;
     const priceUsd = r.summary.unit_price_usd;
+    // Cost of capital is charged on the whole base cost, so the indirect share carries its part too.
+    const indirectInr = (r.indirectOhPerUnit || 0) * (1 + (r.capitalFactor || 0));
     const ms = targetUsd ? solveForMarkup({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, currentMarkup: r.markupPercent }) : null;
     const cs = targetUsd ? solveForMaxCost({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, markupPercent: r.markupPercent, buckets: [] }) : null;
     return {
@@ -205,6 +212,9 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       costUsd: r.summary.product_cost_per_unit_usd,
       markup: r.markupPercent,
       margin: priceInr > 0 ? (priceInr - costInr) / priceInr : 0,
+      indirectInr,
+      indirectUsd: indirectInr / fx,
+      contribution: priceInr > 0 ? (priceInr - costInr + indirectInr) / priceInr : 0,
       targetUsd,
       gapUsd: targetUsd ? priceUsd - targetUsd : null,
       gapPct: targetUsd ? (priceUsd - targetUsd) / targetUsd : null,
@@ -255,17 +265,20 @@ function attachFlags(rows: WorkspaceRow[]) {
 
 export type Totals = {
   skus: number; units: number; cbm: number; fobUsd: number; costUsd: number; margin: number;
+  /** Indirect overhead absorbed by the order, and the contribution rate (net + indirect) / FOB. */
+  indirectUsd: number; contribution: number;
   withTarget: number; overTarget: number; targetFobUsd: number; flagged: number;
 };
 
 export function totals(rows: WorkspaceRow[]): Totals {
-  let units = 0, cbm = 0, fob = 0, cost = 0, withTarget = 0, overTarget = 0, targetFob = 0, flagged = 0;
+  let units = 0, cbm = 0, fob = 0, cost = 0, indirect = 0, withTarget = 0, overTarget = 0, targetFob = 0, flagged = 0;
   for (const r of rows) {
-    units += r.qty; cbm += r.r.finalUnitCbm * r.qty; fob += r.priceUsd * r.qty; cost += r.costUsd * r.qty;
+    units += r.qty; cbm += r.r.finalUnitCbm * r.qty; fob += r.priceUsd * r.qty; cost += r.costUsd * r.qty; indirect += r.indirectUsd * r.qty;
     if (r.targetUsd) { withTarget++; targetFob += r.targetUsd * r.qty; if ((r.gapUsd ?? 0) > 0.005) overTarget++; }
     if (r.flags.some(f => f.kind !== 'target')) flagged++;
   }
-  return { skus: rows.length, units, cbm, fobUsd: fob, costUsd: cost, margin: fob > 0 ? (fob - cost) / fob : 0, withTarget, overTarget, targetFobUsd: targetFob, flagged };
+  return { skus: rows.length, units, cbm, fobUsd: fob, costUsd: cost, margin: fob > 0 ? (fob - cost) / fob : 0,
+    indirectUsd: indirect, contribution: fob > 0 ? (fob - cost + indirect) / fob : 0, withTarget, overTarget, targetFobUsd: targetFob, flagged };
 }
 
 // ---------- Loading ----------
