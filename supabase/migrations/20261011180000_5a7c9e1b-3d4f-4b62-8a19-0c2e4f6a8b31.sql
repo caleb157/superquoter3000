@@ -33,6 +33,8 @@ CREATE POLICY "Admin/team can manage sample requests"
   ON public.sample_requests FOR ALL TO authenticated
   USING (public.is_admin_or_team(auth.uid()))
   WITH CHECK (public.is_admin_or_team(auth.uid()));
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sample_requests TO authenticated;
+GRANT ALL ON public.sample_requests TO service_role;
 
 ALTER TABLE public.samples ADD COLUMN IF NOT EXISTS request_id uuid REFERENCES public.sample_requests(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS samples_request_idx ON public.samples(request_id);
