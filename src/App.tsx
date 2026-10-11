@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,9 +22,7 @@ import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
 import InquiryDetail from "./pages/InquiryDetail";
-import InquiryPricingGrid from "./pages/InquiryPricingGrid";
-import InquiryTargetGrid from "./pages/InquiryTargetGrid";
-import InquiryAuditGrid from "./pages/InquiryAuditGrid";
+import CostingWorkspace from "./pages/CostingWorkspace";
 import InquiryPdView from "./pages/InquiryPdView";
 import PdDashboard from "./pages/PdDashboard";
 import InquiryContainerPlanner from "./pages/InquiryContainerPlanner";
@@ -45,6 +43,11 @@ import FreightQuoteDashboard from "./pages/FreightQuoteDashboard";
 import FreightQuoteSettings from "./pages/FreightQuoteSettings";
 
 const queryClient = new QueryClient();
+
+const CostingRedirect = ({ view }: { view?: string }) => {
+  const { id } = useParams();
+  return <Navigate replace to={`/inquiry/${id}/costing${view ? `?view=${view}` : ''}`} />;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -85,15 +88,13 @@ const App = () => (
               <Route path="/inquiry/:id" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
               } />
-              <Route path="/inquiry/:id/pricing" element={
-                <ProtectedRoute requireAdminOrTeam><InquiryPricingGrid /></ProtectedRoute>
+              <Route path="/inquiry/:id/costing" element={
+                <ProtectedRoute requireAdminOrTeam><CostingWorkspace /></ProtectedRoute>
               } />
-              <Route path="/inquiry/:id/targets" element={
-                <ProtectedRoute requireAdminOrTeam><InquiryTargetGrid /></ProtectedRoute>
-              } />
-              <Route path="/inquiry/:id/audit" element={
-                <ProtectedRoute requireAdminOrTeam><InquiryAuditGrid /></ProtectedRoute>
-              } />
+              {/* The Pricing, Target and Bulk grids are views of the Costing workspace now. */}
+              <Route path="/inquiry/:id/pricing" element={<CostingRedirect view="quotes" />} />
+              <Route path="/inquiry/:id/targets" element={<CostingRedirect />} />
+              <Route path="/inquiry/:id/audit" element={<CostingRedirect view="buildup" />} />
               <Route path="/inquiry/:id/pd" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>
               } />

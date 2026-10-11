@@ -38,6 +38,16 @@
     --sidebar-accent-foreground: 222 25% 14%;
     --sidebar-border: 220 13% 88%;
     --sidebar-ring: 158 74% 38%;
+    /* Costing workspace cost-bucket palette */
+    --cw-raw: 27 72% 50%;
+    --cw-subc: 262 48% 60%;
+    --cw-outs: 330 58% 56%;
+    --cw-hw: 212 66% 52%;
+    --cw-fin: 158 58% 40%;
+    --cw-pkg: 44 88% 50%;
+    --cw-other: 220 9% 62%;
+    --cw-labor: 189 62% 40%;
+    --cw-ship: 6 70% 60%;
   }
 
   /* Parker Mode — graphite dark with emerald accent. */
@@ -73,6 +83,15 @@
     --sidebar-accent-foreground: 210 20% 94%;
     --sidebar-border: 220 12% 16%;
     --sidebar-ring: 158 68% 48%;
+    --cw-raw: 27 72% 58%;
+    --cw-subc: 262 55% 70%;
+    --cw-outs: 330 60% 66%;
+    --cw-hw: 212 72% 64%;
+    --cw-fin: 158 55% 50%;
+    --cw-pkg: 44 85% 58%;
+    --cw-other: 220 9% 52%;
+    --cw-labor: 189 60% 52%;
+    --cw-ship: 6 72% 66%;
   }
 
   .dark body,
@@ -196,4 +215,9 @@
     @apply outline-none rounded-md transition-shadow;
     @apply focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
+}
+
+/* Costing Workspace: keyboard-focused cells scroll clear of the sticky header/footer/name column. */
+[data-grid]:not([data-col="name"]) {
+  scroll-margin: var(--cw-scroll-top, 0) 4px var(--cw-scroll-bottom, 0) var(--cw-scroll-left, 0);
 }

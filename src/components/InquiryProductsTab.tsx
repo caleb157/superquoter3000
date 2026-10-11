@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, AlertTriangle, Target, ChevronDown, Wrench, Archive, ArchiveRestore, Clock } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, Target, Calculator, ChevronDown, Wrench, Archive, ArchiveRestore, Clock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { toast } from 'sonner';
@@ -612,6 +612,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               Calculating prices… ({recosting.done}/{recosting.total})
             </span>
           )}
+          <Button size="sm" variant="outline" className="h-9 gap-1.5 border-primary/40 text-primary hover:text-primary" onClick={() => navigate(`/inquiry/${inquiryId}/costing`)}>
+            <Calculator className="h-4 w-4" /> Costing workspace
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="h-9 gap-1.5">
@@ -619,15 +622,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/pricing`)}>
-                <TableIcon className="h-4 w-4 mr-2" /> Pricing grid
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/targets`)}>
-                <TableIcon className="h-4 w-4 mr-2" /> Target grid
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/audit`)}>
-                <AlertTriangle className="h-4 w-4 mr-2" /> Bulk editor
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/pd`)}>
                 <TableIcon className="h-4 w-4 mr-2" /> PD view
               </DropdownMenuItem>
