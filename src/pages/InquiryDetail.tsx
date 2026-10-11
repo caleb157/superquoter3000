@@ -35,6 +35,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
+import { InquiryClockStrip } from '@/components/InquiryClockStrip';
 import { customerFullLabel } from '@/lib/customer-name';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
 const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
@@ -312,6 +313,14 @@ export default function InquiryDetail() {
             />
           </div>
         </div>
+
+        <InquiryClockStrip
+          inquiryId={id!}
+          receivedDate={inquiry.received_date ?? null}
+          createdAt={inquiry.created_at ?? null}
+          status={inquiry.status ?? null}
+          refreshKey={refreshKey}
+        />
 
         {/* Google Drive folder link */}
         <Card>
