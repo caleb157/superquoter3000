@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ReceivedRfqList } from '@/components/ReceivedRfqList';
-import { ExternalLink, Pencil } from 'lucide-react';
+import { ExternalLink, Pencil, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -96,8 +96,13 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
 
       <Card>
         <CardContent className="p-0">
-          <div className="px-4 py-3 border-b">
+          <div className="px-4 py-3 border-b flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Quotes sent</div>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1">
+              <Link to={`/inquiry/${inquiryId}/quote-comparison`}>
+                <Scale className="h-3.5 w-3.5" /> Compare to latest sent
+              </Link>
+            </Button>
           </div>
           {quotes.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-6">No quotes yet.</div>

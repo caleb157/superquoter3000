@@ -19,6 +19,7 @@ import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
 import QuoteView from "./pages/QuoteView";
+import QuoteComparison from "./pages/QuoteComparison";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
@@ -97,6 +98,9 @@ const App = () => (
               <Route path="/inquiry/:id/pricing" element={<CostingRedirect view="quotes" />} />
               <Route path="/inquiry/:id/targets" element={<CostingRedirect />} />
               <Route path="/inquiry/:id/audit" element={<CostingRedirect view="buildup" />} />
+              <Route path="/inquiry/:id/quote-comparison" element={
+                <ProtectedRoute requireAdminOrTeam><QuoteComparison /></ProtectedRoute>
+              } />
               <Route path="/inquiry/:id/pd" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>
               } />

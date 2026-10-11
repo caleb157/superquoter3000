@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { useForceLightTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -151,6 +152,9 @@ function formatDate(iso?: string | null) {
 const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
   const embedded = !!embeddedId;
   const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const editedRef = useRef(false);
   const { token: routeToken } = useParams<{ token: string }>();
   const token = embedded ? embeddedId : routeToken;
   const [data, setData] = useState<QuoteData | null>(null);
@@ -227,7 +231,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
       setLoading(false);
     };
     if (token) fetchQuote();
-  }, [token, supabaseUrl, embedded]);
+  }, [token, supabaseUrl, embedded, reloadKey]);
 
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
     if (embedded || !token || !data || confirmed) return;
@@ -529,6 +533,11 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
                     aria-pressed={printOrientation === 'landscape'}
                   >Landscape</button>
                 </div>
+                {embedded && (
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setEditOpen(true)}>
+                    Edit quote
+                  </Button>
+                )}
                 {embedded && (
                   <Button size="sm" className="h-8 gap-1.5 bg-slate-900 text-white hover:bg-slate-800" onClick={handleDownloadPdf} disabled={downloadingPdf}>
                     {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -985,6 +994,19 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
           <p>{entity?.name ?? ''}{entity?.name && snapshot.quote_number ? ' · ' : ''}{snapshot.quote_number ?? ''}</p>
         </footer>
       </div>
+
+      {embedded && (
+        <EditQuoteLinesDialog
+          open={editOpen}
+          onOpenChange={(o) => {
+            setEditOpen(o);
+            // Refresh the view once editing is done (not on every autosave, which would reset the dialog).
+            if (!o && editedRef.current) { editedRef.current = false; setReloadKey(k => k + 1); }
+          }}
+          snapshot={data?.snapshot ?? null}
+          onSaved={() => { editedRef.current = true; }}
+        />
+      )}
 
       {/* ============ CONFIRM DIALOG ============ */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

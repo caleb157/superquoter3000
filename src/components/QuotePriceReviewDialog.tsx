@@ -11,7 +11,7 @@ import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { convertFromInr, getCachedCurrencyMap, loadCurrencyMap } from '@/lib/currency';
 
-type SelectedProduct = {
+export type SelectedProduct = {
   id: string;
   name: string;
   quantity?: number | null;
@@ -335,7 +335,7 @@ function referencePriceUsd(p: SelectedProduct, prices: ProductUnitPriceMap): num
   return Number(entry?.unit_price_usd) || 0;
 }
 
-function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: string): number {
+export function referencePriceFor(p: SelectedProduct, prices: ProductUnitPriceMap, currency: string): number {
   const entry = prices[p.id];
   const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
   const map = getCachedCurrencyMap();
