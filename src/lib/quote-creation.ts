@@ -432,7 +432,7 @@ export async function updateQuoteLineItems(
     variant_name?: string | null;
   }>,
 
-  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null },
+  meta?: { payment_terms?: string | null; freight?: FreightInput | null; preserve_freight?: boolean; incoterm?: string | null; discount_percent?: number | null; notes?: string | null },
 ): Promise<{ error?: string; products?: any[]; totals?: { sku_count: number; total_qty: number; grand_total: number; total_cbm: number; subtotal?: number; discount_percent?: number | null; discount_amount?: number; freight?: any }; payment_terms?: string | null; incoterm?: string | null }> {
   const productsJson: any[] = products.map(p => ({
     ...p,
@@ -556,6 +556,9 @@ export async function updateQuoteLineItems(
   if (meta && Object.prototype.hasOwnProperty.call(meta, 'incoterm')) {
     const trimmed = meta.incoterm?.toString().trim();
     updatePayload.incoterm = trimmed || null;
+  }
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'notes')) {
+    updatePayload.notes = meta.notes?.toString().trim() || null;
   }
 
   const { error } = await (supabase as any)
