@@ -33,8 +33,8 @@ export function useKpiTargets() {
 const FIELDS: { k: keyof KpiTargets; label: string; hint: string }[] = [
   { k: 'confirmed_sos_monthly', label: 'Confirmed SOs per month', hint: 'scaled to the date range' },
   { k: 'revenue_usd_monthly', label: 'Booked revenue per month (USD)', hint: 'scaled; shown in ₹ when INR is selected' },
-  { k: 'rfq_days', label: 'RFQ → quote, max days', hint: 'average' },
-  { k: 'sample_days', label: 'Sample cycle, max days', hint: 'median' },
+  { k: 'rfq_days', label: 'Inquiry → quote, max days', hint: 'median' },
+  { k: 'sample_days', label: 'Samples requested → received, max days', hint: 'median' },
   { k: 'otd_pct', label: 'On-time delivery, min %', hint: '' },
   { k: 'complaints_monthly', label: 'Complaints per month, max', hint: 'scaled to the date range' },
 ];

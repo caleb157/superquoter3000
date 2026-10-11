@@ -14,6 +14,8 @@ type Props<T> = {
   onOpenChange: (o: boolean) => void;
   title: string;
   description?: string;
+  /** Shown between the description and the table, e.g. a trend. */
+  header?: React.ReactNode;
   columns: DrillColumn<T>[];
   rows: T[];
   emptyText?: string;
@@ -22,7 +24,7 @@ type Props<T> = {
 };
 
 export function DrillDownDialog<T>({
-  open, onOpenChange, title, description, columns, rows, emptyText = 'No records.', onRowClick, rowKey,
+  open, onOpenChange, title, description, header, columns, rows, emptyText = 'No records.', onRowClick, rowKey,
 }: Props<T>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -31,6 +33,7 @@ export function DrillDownDialog<T>({
           <DialogTitle className="text-base">{title}</DialogTitle>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </DialogHeader>
+        {header}
         <div className="overflow-auto flex-1">
           {rows.length === 0 ? (
             <div className="px-6 py-8 text-sm text-muted-foreground text-center">{emptyText}</div>
