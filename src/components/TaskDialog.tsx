@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { PostponeMenu } from '@/components/PostponeMenu';
+import { shortDate } from '@/lib/task-postpone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -94,7 +96,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           setTitle(d.title);
           setDescription(d.description ?? '');
           setAssignee(d.assignee ?? 'unassigned');
-          setDueDate(d.due_date ?? '');
+          setDueDate(d.due_date ?? ''); setPostponedFrom(null);
           setPriority((d.priority as TaskPriority) ?? 'normal');
           setStatus((d.status as 'open' | 'done') ?? 'open');
           setRule(parseRule(d.recurrence_rule));
@@ -162,6 +164,34 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     setRule(r => ({ freq: v as RecurrenceFreq, interval: r?.interval ?? 1, mode: r?.mode ?? 'due', weekdays: v === 'weekly' ? (r?.weekdays ?? []) : undefined }));
   };
 
+  // On an existing task, postponing saves the new due date straight away; on a new task it just
+  // fills the date field. Undo sits under the date (a toast button can't be clicked through the
+  // dialog's backdrop).
+  const [postponedFrom, setPostponedFrom] = useState<string | null>(null);
+  // Lists refresh (and may unmount this dialog) on onSaved, so a postpone tells them on close.
+  const postponedRef = useRef(false);
+  const close = (o: boolean) => {
+    if (!o && postponedRef.current) { postponedRef.current = false; onSaved?.(); }
+    onOpenChange(o);
+  };
+  const postpone = async (newDue: string) => {
+    const prevDue = dueDate;
+    setDueDate(newDue);
+    if (!isEdit || !taskId) return;
+    const { error } = await supabase.from('tasks').update({ due_date: newDue }).eq('id', taskId);
+    if (error) { setDueDate(prevDue); toast.error(error.message); return; }
+    setPostponedFrom(f => f ?? prevDue);
+    postponedRef.current = true;
+    toast.success(`Postponed to ${shortDate(newDue)}`);
+  };
+  const undoPostpone = async () => {
+    if (postponedFrom == null || !taskId) return;
+    const { error } = await supabase.from('tasks').update({ due_date: postponedFrom || null }).eq('id', taskId);
+    if (error) { toast.error(error.message); return; }
+    setDueDate(postponedFrom);
+    setPostponedFrom(null);
+  };
+
   const handleSave = async (addAnother = false) => {
     if (!title.trim()) { toast.error('Title is required'); return; }
     if (assocType === 'inquiry' && !inquiryId) { toast.error('Pick an inquiry or remove the link'); return; }
@@ -220,7 +250,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const meta = associationMeta(assocType);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit task' : 'New task'}</DialogTitle>
@@ -266,7 +296,16 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">Due date</Label>
-              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1 h-9 text-sm" />
+              <div className="mt-1 flex gap-1.5">
+                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-9 text-sm min-w-0 flex-1" />
+                {status === 'open' && <PostponeMenu due={dueDate || null} onPick={d => void postpone(d)} className="h-9 w-9 border" />}
+              </div>
+              {postponedFrom != null && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Postponed from {postponedFrom ? shortDate(postponedFrom) : 'no date'} ·{' '}
+                  <button type="button" className="font-medium text-primary hover:underline" onClick={() => void undoPostpone()}>Undo</button>
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1"><Repeat className="h-3 w-3" />Repeat</Label>
@@ -465,7 +504,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               />
             </div>
           )}
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => close(false)}>Cancel</Button>
           {!isEdit && (
             <Button variant="secondary" onClick={() => handleSave(true)} disabled={saving}>
               {saving ? 'Saving…' : 'Save & add another'}

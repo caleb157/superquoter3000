@@ -12,6 +12,8 @@ import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
 import { associationMeta } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
+import { PostponeMenu } from '@/components/PostponeMenu';
+import { shortDate } from '@/lib/task-postpone';
 import type { TaskWithRefs, DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { PRIORITY_RANK } from '@/lib/task-types';
 import { customerPrimary } from '@/lib/customer-name';
@@ -164,6 +166,28 @@ export function TaskList({
     }
   };
 
+  // Push the due date out; the toast offers Undo back to the previous date.
+  const postpone = async (t: TaskWithRefs, newDue: string) => {
+    const prevDue = t.due_date;
+    setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: newDue } : x));
+    const { error } = await supabase.from('tasks').update({ due_date: newDue }).eq('id', t.id);
+    if (error) {
+      toast.error(error.message);
+      setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: prevDue } : x));
+      return;
+    }
+    toast.success(`Postponed to ${shortDate(newDue)}`, {
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          const { error: undoErr } = await supabase.from('tasks').update({ due_date: prevDue }).eq('id', t.id);
+          if (undoErr) { toast.error(undoErr.message); return; }
+          setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: prevDue } : x));
+        },
+      },
+    });
+  };
+
   if (loading) return <div className="text-xs text-muted-foreground py-3">Loading…</div>;
   if (filteredSorted.length === 0) {
     return showEmptyState ? <div className="text-sm text-muted-foreground py-4 text-center">No tasks</div> : null;
@@ -227,6 +251,9 @@ export function TaskList({
                 </div>
                 {anchorBadge && <div className="flex">{anchorBadge}</div>}
               </button>
+              {t.status === 'open' && (
+                <PostponeMenu due={t.due_date} onPick={d => postpone(t, d)} className="h-8 w-8 -mr-1 text-muted-foreground" />
+              )}
             </div>
           );
 
@@ -297,6 +324,11 @@ export function TaskList({
                   <span className="text-[11px] text-muted-foreground">{createdLabel}</span>
                 </div>
               )}
+
+              {t.status === 'open' ? (
+                <PostponeMenu due={t.due_date} onPick={d => postpone(t, d)}
+                  className="h-6 w-6 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100" />
+              ) : <span className="w-6 shrink-0" />}
 
               {!compact && (
                 <Button
