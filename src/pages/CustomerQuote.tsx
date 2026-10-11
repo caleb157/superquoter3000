@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
 import { useForceLightTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -142,8 +144,19 @@ function formatDate(iso?: string | null) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const CustomerQuote = () => {
-  const { token } = useParams<{ token: string }>();
+/**
+ * The quote view. Without props it is the public customer page (/quote/:token). With `embeddedId`
+ * it is the in-app view of that quote (/quotes/:id): read straight from the database so viewing
+ * never marks the quote as viewed, no customer actions, and the PDF button sits at the top.
+ */
+const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
+  const embedded = !!embeddedId;
+  const navigate = useNavigate();
+  const [editOpen, setEditOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const editedRef = useRef(false);
+  const { token: routeToken } = useParams<{ token: string }>();
+  const token = embedded ? embeddedId : routeToken;
   const [data, setData] = useState<QuoteData | null>(null);
   useDocumentTitle(data ? `Quote${data.snapshot?.quote_number ? ` ${data.snapshot.quote_number}` : ''}` : 'Quote');
   const [loading, setLoading] = useState(true);
@@ -171,18 +184,31 @@ const CustomerQuote = () => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   // Force light theme on this customer-facing page regardless of app setting.
-  useForceLightTheme();
+  useForceLightTheme(!embedded);
 
 
   useEffect(() => {
     const fetchQuote = async () => {
       try {
-        const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`);
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || 'Quote not found');
+        let quoteData: QuoteData;
+        if (embedded) {
+          const { data: row, error: rowErr } = await (supabase as any)
+            .from('quote_snapshots').select('*').eq('id', token).maybeSingle();
+          if (rowErr || !row) throw new Error(rowErr?.message || 'Quote not found');
+          let entity = row.entity ?? null;
+          if (!entity && row.entity_id) {
+            const { data: ent } = await (supabase as any).from('company_entities').select('*').eq('id', row.entity_id).maybeSingle();
+            entity = ent ?? null;
+          }
+          quoteData = { snapshot: row, entity, customer: row.customer ?? null, inquiry: row.inquiry ?? null } as QuoteData;
+        } else {
+          const res = await fetch(`${supabaseUrl}/functions/v1/get-quote?token=${token}`);
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Quote not found');
+          }
+          quoteData = await res.json();
         }
-        const quoteData: QuoteData = await res.json();
         setData(quoteData);
 
         const existing = quoteData.snapshot.customer_selections;
@@ -205,10 +231,10 @@ const CustomerQuote = () => {
       setLoading(false);
     };
     if (token) fetchQuote();
-  }, [token, supabaseUrl]);
+  }, [token, supabaseUrl, embedded, reloadKey]);
 
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
-    if (!token || !data || confirmed) return;
+    if (embedded || !token || !data || confirmed) return;
     try {
       const pct = data.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
       const customerSelections = {
@@ -233,15 +259,15 @@ const CustomerQuote = () => {
         body: JSON.stringify({ customer_selections: customerSelections, confirmed: false }),
       });
     } catch { /* ignore */ }
-  }, [token, data, confirmed, supabaseUrl]);
+  }, [token, data, confirmed, supabaseUrl, embedded]);
 
   useEffect(() => {
     if (initialLoadRef.current) { initialLoadRef.current = false; return; }
-    if (confirmed || !data) return;
+    if (embedded || confirmed || !data) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => autoSave(selections), 1500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [selections, autoSave, confirmed, data]);
+  }, [selections, autoSave, confirmed, data, embedded]);
 
   // Below-MOQ surcharge & hard-floor helpers.
   // - hardFloor: absolute minimum quantity the customer can order.
@@ -466,9 +492,13 @@ const CustomerQuote = () => {
         })();
         const canGoBack = typeof window !== 'undefined' && (window.history.length > 1 && sameOriginReferrer);
         return (
-          <div className="no-print sticky top-0 z-30 bg-slate-50/90 backdrop-blur border-b border-slate-200">
+          <div className={`no-print ${embedded ? '' : 'sticky top-0 z-30'} bg-slate-50/90 backdrop-blur border-b border-slate-200`}>
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3 flex-wrap">
-              {canGoBack ? (
+              {embedded ? (
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="h-8 -ml-2">
+                  ← Back
+                </Button>
+              ) : canGoBack ? (
                 <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="h-8 -ml-2">
                   ← Back to app
                 </Button>
@@ -503,6 +533,17 @@ const CustomerQuote = () => {
                     aria-pressed={printOrientation === 'landscape'}
                   >Landscape</button>
                 </div>
+                {embedded && (
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setEditOpen(true)}>
+                    Edit quote
+                  </Button>
+                )}
+                {embedded && (
+                  <Button size="sm" className="h-8 gap-1.5 bg-slate-900 text-white hover:bg-slate-800" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+                    {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    {downloadingPdf ? 'Generating…' : 'Download PDF'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -751,15 +792,15 @@ const CustomerQuote = () => {
                         <Label className="text-xs text-slate-500 font-medium">Qty</Label>
                         <div className="flex items-center border border-slate-200 rounded-md overflow-hidden no-print">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
-                            onClick={() => updateQuantity(idx, -10)} disabled={confirmed || isExpired}>
+                            onClick={() => updateQuantity(idx, -10)} disabled={embedded || confirmed || isExpired}>
                             <Minus className="h-3.5 w-3.5" />
                           </Button>
                           <Input className="h-8 w-20 text-center text-sm font-medium border-0 border-x border-slate-200 rounded-none focus-visible:ring-0"
                             type="number" value={qty}
                             onChange={e => setQuantity(idx, parseInt(e.target.value) || 0)}
-                            disabled={confirmed || isExpired} min={pFloor} />
+                            disabled={embedded || confirmed || isExpired} min={pFloor} />
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-50"
-                            onClick={() => updateQuantity(idx, 10)} disabled={confirmed || isExpired}>
+                            onClick={() => updateQuantity(idx, 10)} disabled={embedded || confirmed || isExpired}>
                             <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -893,7 +934,7 @@ const CustomerQuote = () => {
               )}
 
               {/* Action buttons */}
-              <div className="mt-5 pt-5 border-t border-slate-100 space-y-2 no-print">
+              <div className={`mt-5 pt-5 border-t border-slate-100 space-y-2 no-print ${embedded ? 'hidden' : ''}`}>
                 <Button variant="outline" className="w-full h-10 gap-2 border-slate-300" onClick={handleDownloadPdf} disabled={downloadingPdf}>
                   {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   {downloadingPdf ? 'Generating PDF…' : 'Download PDF'}
@@ -953,6 +994,19 @@ const CustomerQuote = () => {
           <p>{entity?.name ?? ''}{entity?.name && snapshot.quote_number ? ' · ' : ''}{snapshot.quote_number ?? ''}</p>
         </footer>
       </div>
+
+      {embedded && (
+        <EditQuoteLinesDialog
+          open={editOpen}
+          onOpenChange={(o) => {
+            setEditOpen(o);
+            // Refresh the view once editing is done (not on every autosave, which would reset the dialog).
+            if (!o && editedRef.current) { editedRef.current = false; setReloadKey(k => k + 1); }
+          }}
+          snapshot={data?.snapshot ?? null}
+          onSaved={() => { editedRef.current = true; }}
+        />
+      )}
 
       {/* ============ CONFIRM DIALOG ============ */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
