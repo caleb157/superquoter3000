@@ -93,24 +93,20 @@ export interface QuotePdfProps {
   };
 }
 
-// ---- Styling (slate palette, mirrors web view) ----
+// ---- Styling: compact, borderless sections so a typical quote fits one page ----
 const C = {
   text: '#0f172a',
   muted: '#64748b',
   light: '#94a3b8',
   border: '#e2e8f0',
-  bg: '#f8fafc',
+  bg: '#f1f5f9',
   white: '#ffffff',
-  amberBg: '#fffbeb',
-  amberBorder: '#fde68a',
-  amberText: '#78350f',
-  amberLabel: '#b45309',
 };
 
 const CONTAINERS: { key: string; name: string; cbm: number }[] = [
-  { key: '20ft', name: '20ft Standard', cbm: 28 },
-  { key: '40ft', name: '40ft Standard', cbm: 56 },
-  { key: '40fthc', name: '40ft High Cube', cbm: 68 },
+  { key: '20ft', name: '20ft', cbm: 28 },
+  { key: '40ft', name: '40ft', cbm: 56 },
+  { key: '40fthc', name: '40ft HC', cbm: 68 },
 ];
 
 function containerFill(totalCbm: number, containerCbm: number) {
@@ -125,145 +121,84 @@ function containerFill(totalCbm: number, containerCbm: number) {
 const s = StyleSheet.create({
   page: {
     paddingTop: 28,
-    paddingBottom: 36,
-    paddingHorizontal: 28,
-    fontSize: 9,
+    paddingBottom: 40,
+    paddingHorizontal: 32,
+    fontSize: 8.5,
     color: C.text,
     fontFamily: 'Helvetica',
     backgroundColor: C.white,
   },
   // Header
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 6,
-    padding: 12,
-  },
-  headerLeft: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', flexShrink: 1 },
-  logo: { width: 44, height: 44, objectFit: 'contain' },
-  logoFallback: {
-    width: 44, height: 44, backgroundColor: C.bg, borderRadius: 4,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  entityName: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: C.text },
-  entityLegal: { fontSize: 8, color: C.muted, marginTop: 2 },
-  entityType: { fontSize: 7, color: C.light, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6 },
-  headerRight: { alignItems: 'flex-end', gap: 4 },
-  pill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, fontSize: 7, fontFamily: 'Helvetica-Bold', borderWidth: 1 },
-  quoteNumber: { fontSize: 11, fontFamily: 'Courier-Bold', color: C.text },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 10, borderBottomWidth: 1.5, borderColor: C.text },
+  headerLeft: { flexDirection: 'row', gap: 10, alignItems: 'center', flexShrink: 1 },
+  logo: { width: 38, height: 38, objectFit: 'contain' },
+  entityName: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: C.text },
+  entityLegal: { fontSize: 8, color: C.muted, marginTop: 1 },
+  headerRight: { alignItems: 'flex-end' },
+  docLabel: { fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.light, letterSpacing: 1.2, textTransform: 'uppercase' },
+  quoteNumber: { fontSize: 12, fontFamily: 'Courier-Bold', color: C.text, marginTop: 1 },
   metaLine: { fontSize: 8, color: C.muted, marginTop: 2 },
   metaLineExpired: { fontSize: 8, color: '#dc2626', fontFamily: 'Helvetica-Bold', marginTop: 2 },
 
-  // Sections
-  section: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 6,
-    padding: 12, marginTop: 8,
-  },
-  sectionLabel: {
-    fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.light,
-    textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6,
-  },
-  twoCol: { flexDirection: 'row', gap: 16 },
-  col: { flex: 1 },
+  // Three-column info band
+  infoBand: { flexDirection: 'row', gap: 18, paddingVertical: 10, borderBottomWidth: 0.5, borderColor: C.border },
+  infoCol: { flex: 1 },
+  label: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: C.light, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
+  line: { fontSize: 8, lineHeight: 1.35 },
+  lineMuted: { fontSize: 8, lineHeight: 1.35, color: C.muted },
+  dlRow: { flexDirection: 'row' },
+  dt: { width: 52, color: C.muted, fontSize: 7.5, lineHeight: 1.35 },
+  dd: { flex: 1, fontSize: 8, lineHeight: 1.35 },
 
-  // Payment terms band
-  termsBand: {
-    backgroundColor: C.amberBg, borderColor: C.amberBorder, borderWidth: 1,
-    borderRadius: 6, padding: 10, marginTop: 8, flexDirection: 'row', gap: 8,
-  },
-  termsLabel: { fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.amberLabel, textTransform: 'uppercase', letterSpacing: 0.6 },
-  termsText: { fontSize: 9, color: C.amberText, flex: 1 },
-
-  row: { flexDirection: 'row' },
-  spaceBetween: { flexDirection: 'row', justifyContent: 'space-between' },
-
-  // Bank dl
-  dl: { gap: 3 },
-  dlRow: { flexDirection: 'row', gap: 8 },
-  dt: { width: 70, color: C.muted, fontSize: 8 },
-  dd: { flex: 1, fontSize: 9, color: C.text },
-
-  // Customer card
-  custName: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: C.text },
-  custCompany: { fontSize: 9, color: C.text, marginTop: 2 },
-  custEmail: { fontSize: 8, color: C.muted, marginTop: 2 },
+  // Key terms strip
+  strip: { flexDirection: 'row', gap: 16, paddingVertical: 6, borderBottomWidth: 0.5, borderColor: C.border },
 
   // Products table
-  productsHeader: {
-    flexDirection: 'row',
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 4, borderTopRightRadius: 4,
-    paddingVertical: 6, paddingHorizontal: 8,
-    fontSize: 7, fontFamily: 'Helvetica-Bold', color: C.muted,
-    textTransform: 'uppercase', letterSpacing: 0.5,
-    borderWidth: 1, borderColor: C.border,
+  tableHeader: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg,
+    paddingVertical: 4, paddingHorizontal: 6, marginTop: 10,
+    fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.6,
   },
-  productRow: {
-    flexDirection: 'row',
-    borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1,
-    borderColor: C.border,
-    paddingVertical: 8, paddingHorizontal: 8,
-    alignItems: 'flex-start',
-  },
-  thumb: { width: 56, height: 56, objectFit: 'cover', borderRadius: 3, backgroundColor: C.bg },
-  thumbFallback: {
-    width: 56, height: 56, backgroundColor: C.bg, borderRadius: 3,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pName: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: C.text },
-  pSku: { fontSize: 7, color: C.light, fontStyle: 'italic', marginTop: 2 },
-  pSpecs: { fontSize: 7, color: C.muted, marginTop: 4 },
-  pQty: { fontSize: 10, color: C.text, fontFamily: 'Helvetica-Bold', textAlign: 'center' },
+  productRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 5, paddingHorizontal: 6, borderBottomWidth: 0.5, borderColor: C.border },
+  thumb: { width: 38, height: 38, objectFit: 'cover', borderRadius: 2, backgroundColor: C.bg },
+  thumbFallback: { width: 38, height: 38, backgroundColor: C.bg, borderRadius: 2 },
+  pName: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.text },
+  pSku: { fontSize: 7, color: C.light, marginTop: 1 },
+  pSpecs: { fontSize: 7, color: C.muted, marginTop: 2, lineHeight: 1.3 },
+  pQty: { fontSize: 9, color: C.text, textAlign: 'center' },
   pUnit: { fontSize: 9, color: C.text, textAlign: 'right' },
-  pTotal: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: C.text, textAlign: 'right' },
-  pMoq: { fontSize: 7, color: C.light, marginTop: 2 },
+  pTotal: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.text, textAlign: 'right' },
 
-  // Summary card
-  summaryCard: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 6,
-    padding: 12, marginTop: 12,
-  },
-  sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  sumLabel: { color: C.muted, fontSize: 9 },
-  sumValue: { color: C.text, fontSize: 9, fontFamily: 'Helvetica-Bold' },
-  divider: { height: 1, backgroundColor: C.border, marginVertical: 6 },
-  totalLabel: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: C.text },
-  totalValue: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: C.text },
+  // Totals
+  totalsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8, gap: 20 },
+  sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 1.5 },
+  sumLabel: { color: C.muted, fontSize: 8.5 },
+  sumValue: { color: C.text, fontSize: 8.5, fontFamily: 'Helvetica-Bold' },
+  totalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 4, marginTop: 3, borderTopWidth: 1, borderColor: C.text },
+  totalLabel: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: C.text },
+  totalValue: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: C.text },
 
-  footer: {
-    position: 'absolute',
-    left: 28, right: 28, bottom: 14,
-    fontSize: 7, color: C.light, textAlign: 'center',
-  },
-  pageNum: {
-    position: 'absolute',
-    bottom: 14, right: 28,
-    fontSize: 7, color: C.light,
-  },
+  // Terms
+  termsHeading: { fontSize: 9, fontFamily: 'Helvetica-Bold', marginTop: 14, marginBottom: 5, paddingBottom: 3, borderBottomWidth: 0.5, borderColor: C.border },
+  termsCols: { flexDirection: 'row', gap: 18 },
+  clause: { fontSize: 7, lineHeight: 1.35, marginBottom: 3.5, color: '#1e293b' },
+
+  footer: { position: 'absolute', left: 32, right: 32, bottom: 16, fontSize: 7, color: C.light, textAlign: 'center' },
+  pageNum: { position: 'absolute', bottom: 16, right: 32, fontSize: 7, color: C.light },
 });
 
-const STATUS_PILL: Record<string, { label: string; bg: string; border: string; color: string }> = {
-  draft: { label: 'Draft', bg: '#f1f5f9', border: '#e2e8f0', color: '#334155' },
-  sent: { label: 'Active', bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
-  viewed: { label: 'Active', bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
-  approved: { label: 'Approved', bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
-  expired: { label: 'Expired', bg: '#fef2f2', border: '#fecaca', color: '#b91c1c' },
+const STATUS_PILL: Record<string, { label: string; color: string }> = {
+  draft: { label: 'Draft', color: '#475569' },
+  sent: { label: 'Active', color: '#1d4ed8' },
+  viewed: { label: 'Active', color: '#1d4ed8' },
+  approved: { label: 'Approved', color: '#047857' },
+  expired: { label: 'Expired', color: '#b91c1c' },
 };
 
 function formatDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-
-const Pill = ({ statusKey }: { statusKey: string }) => {
-  const p = STATUS_PILL[statusKey] ?? STATUS_PILL.draft;
-  return (
-    <Text style={[s.pill, { backgroundColor: p.bg, borderColor: p.border, color: p.color }]}>{p.label}</Text>
-  );
-};
 
 const QuotePdfDocument = ({
   size = 'A4',
@@ -276,6 +211,7 @@ const QuotePdfDocument = ({
   paymentTerms,
   terms,
   incoterm,
+  notes,
   products,
   selections,
   entity,
@@ -286,12 +222,13 @@ const QuotePdfDocument = ({
   // PDF font (Helvetica) is WinAnsi-only, so non-WinAnsi symbols like ₹ render as boxes.
   // Use a whitelist of safe glyphs; fall back to "CODE " prefix for everything else.
   const PDF_SAFE_SYMBOLS: Record<string, string> = {
-    USD: '$', EUR: '\u20AC', GBP: '\u00A3', JPY: '\u00A5',
+    USD: '$', EUR: '€', GBP: '£', JPY: '¥',
     AUD: 'A$', CAD: 'C$', NZD: 'NZ$', SGD: 'S$', HKD: 'HK$',
   };
   const symbol = PDF_SAFE_SYMBOLS[currency] ?? `${currency} `;
   const isExpired = validUntil ? new Date(validUntil) < new Date() : false;
   const statusKey = isExpired ? 'expired' : (status || 'draft');
+  const pill = STATUS_PILL[statusKey] ?? STATUS_PILL.draft;
 
   const addressLines = [
     entity?.address_line1,
@@ -306,6 +243,28 @@ const QuotePdfDocument = ({
   const fmt = (n: number) =>
     n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const discountPct = Number(totals.discountPercent || 0);
+  const net = totals.totalValue - (totals.totalValue * discountPct) / 100;
+
+  // Terms in two balanced columns; the payment clause follows this quote's own payment terms.
+  const clauses = (terms ?? []).map((c, i) => ({
+    ...c,
+    n: i + 1,
+    text: c.key === 'payment' && paymentTerms ? paymentTerms : c.text,
+  }));
+  const half = Math.ceil(clauses.length / 2);
+  const termCols = [clauses.slice(0, half), clauses.slice(half)];
+
+  const containerLine = totals.totalCbm > 0
+    ? CONTAINERS.map((c) => {
+        const f = containerFill(totals.totalCbm, c.cbm);
+        const util = f.fullContainers === f.containerCount
+          ? `${f.containerCount} full`
+          : f.containerCount === 1 ? `${f.lastContainerPct.toFixed(0)}% of 1` : `${f.fullContainers} full + ${f.lastContainerPct.toFixed(0)}%`;
+        return `${c.name}: ${util}`;
+      }).join('   ·   ')
+    : null;
+
   return (
     <Document
       title={`Quote ${quoteNumber}`}
@@ -319,260 +278,193 @@ const QuotePdfDocument = ({
             {entity?.logo_url ? (
               // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={entity.logo_url} style={s.logo} />
-            ) : (
-              <View style={s.logoFallback}><Text style={{ color: C.light, fontSize: 14 }}>◼</Text></View>
-            )}
+            ) : null}
             <View style={{ flexShrink: 1 }}>
               <Text style={s.entityName}>{entity?.name || 'Quotation'}</Text>
               {entity?.legal_name && entity.legal_name !== entity.name && (
                 <Text style={s.entityLegal}>{entity.legal_name}</Text>
               )}
-              {entity?.entity_type && <Text style={s.entityType}>{entity.entity_type}</Text>}
             </View>
           </View>
           <View style={s.headerRight}>
-            <Pill statusKey={statusKey} />
+            <Text style={s.docLabel}>Quotation  <Text style={{ color: pill.color }}>{'·'} {pill.label}</Text></Text>
             <Text style={s.quoteNumber}>{quoteNumber || '—'}</Text>
-            <Text style={s.metaLine}>Issued: {formatDate(createdAt)}</Text>
+            <Text style={s.metaLine}>Issued {formatDate(createdAt)}</Text>
             <Text style={isExpired ? s.metaLineExpired : s.metaLine}>
-              Valid until: {formatDate(validUntil)}{isExpired ? ' (expired)' : ''}
+              Valid until {formatDate(validUntil)}{isExpired ? ' (expired)' : ''}
             </Text>
-            {incoterm ? <Text style={s.metaLine}>Incoterm: {incoterm}</Text> : null}
           </View>
         </View>
 
-        {/* Incoterm */}
-        {incoterm ? (
-          <View style={[s.termsBand, { backgroundColor: '#F8FAFC', borderColor: C.border }]} wrap={false}>
-            <Text style={[s.termsLabel, { color: C.light }]}>Incoterm</Text>
-            <Text style={[s.termsText, { color: '#0F172A' }]}>{incoterm}</Text>
+        {/* From / Prepared for / Pay to */}
+        <View style={s.infoBand} wrap={false}>
+          <View style={s.infoCol}>
+            <Text style={s.label}>From</Text>
+            {addressLines.map((l, i) => (<Text key={i} style={s.line}>{l}</Text>))}
+            {entity?.phone ? <Text style={s.lineMuted}>{entity.phone}</Text> : null}
+            {entity?.email ? <Text style={s.lineMuted}>{entity.email}</Text> : null}
+            {entity?.website ? <Text style={s.lineMuted}>{entity.website}</Text> : null}
+            {entity?.gst_number ? <Text style={s.lineMuted}>GST {entity.gst_number}</Text> : null}
+            {entity?.ein_number ? <Text style={s.lineMuted}>EIN {entity.ein_number}</Text> : null}
           </View>
-        ) : null}
-
-        {/* Payment terms */}
-        {paymentTerms ? (
-          <View style={s.termsBand} wrap={false}>
-            <Text style={s.termsLabel}>Payment{'\n'}Terms</Text>
-            <Text style={s.termsText}>{paymentTerms}</Text>
-          </View>
-        ) : null}
-
-        {/* Entity address + bank */}
-        {entity ? (
-          <View style={s.section} wrap={false}>
-            <View style={s.twoCol}>
-              <View style={s.col}>
-                <Text style={s.sectionLabel}>Contact & Address</Text>
-                <View style={{ gap: 2 }}>
-                  {addressLines.map((l, i) => (<Text key={i} style={{ fontSize: 9 }}>{l}</Text>))}
-                  {entity.phone ? <Text style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>Phone: {entity.phone}</Text> : null}
-                  {entity.email ? <Text style={{ fontSize: 9, color: C.muted }}>Email: {entity.email}</Text> : null}
-                  {entity.website ? <Text style={{ fontSize: 9, color: C.muted }}>{entity.website}</Text> : null}
-                  {entity.gst_number ? <Text style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>GST: {entity.gst_number}</Text> : null}
-                  {entity.ein_number ? <Text style={{ fontSize: 8, color: C.muted }}>EIN: {entity.ein_number}</Text> : null}
-                </View>
-              </View>
-              <View style={s.col}>
-                <Text style={s.sectionLabel}>Banking Details</Text>
-                {entity.bank_name || entity.account_number ? (
-                  <View style={s.dl}>
-                    {entity.bank_name ? <View style={s.dlRow}><Text style={s.dt}>Bank</Text><Text style={s.dd}>{entity.bank_name}</Text></View> : null}
-                    {entity.bank_branch ? <View style={s.dlRow}><Text style={s.dt}>Branch</Text><Text style={s.dd}>{entity.bank_branch}</Text></View> : null}
-                    {entity.account_name ? <View style={s.dlRow}><Text style={s.dt}>Account name</Text><Text style={s.dd}>{entity.account_name}</Text></View> : null}
-                    {entity.account_number ? <View style={s.dlRow}><Text style={s.dt}>Account #</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.account_number}</Text></View> : null}
-                    {!isUS && entity.ifsc_code ? <View style={s.dlRow}><Text style={s.dt}>IFSC</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.ifsc_code}</Text></View> : null}
-                    {isUS && entity.routing_number ? <View style={s.dlRow}><Text style={s.dt}>Routing #</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.routing_number}</Text></View> : null}
-                    {entity.swift_code ? <View style={s.dlRow}><Text style={s.dt}>SWIFT</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.swift_code}</Text></View> : null}
-                  </View>
-                ) : (
-                  <Text style={{ fontSize: 9, color: C.light, fontStyle: 'italic' }}>Bank details available on request.</Text>
-                )}
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Customer */}
-        <View style={s.section} wrap={false}>
-          <Text style={s.sectionLabel}>Prepared for</Text>
-          <View style={s.spaceBetween}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.custName}>{customerPrimary(customer, 'Customer')}</Text>
-              {customerSecondary(customer) ? <Text style={s.custCompany}>{customerSecondary(customer)}</Text> : null}
-              {customer?.email ? <Text style={s.custEmail}>{customer.email}</Text> : null}
-            </View>
+          <View style={s.infoCol}>
+            <Text style={s.label}>Prepared for</Text>
+            <Text style={[s.line, { fontFamily: 'Helvetica-Bold', fontSize: 9.5 }]}>{customerPrimary(customer, 'Customer')}</Text>
+            {customerSecondary(customer) ? <Text style={s.line}>{customerSecondary(customer)}</Text> : null}
+            {customer?.email ? <Text style={s.lineMuted}>{customer.email}</Text> : null}
             {(inquiry?.rfq_number || inquiry?.title) ? (
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.sectionLabel, { marginBottom: 2 }]}>Reference</Text>
-                {inquiry?.rfq_number ? <Text style={{ fontSize: 9, fontFamily: 'Courier', color: C.text }}>{inquiry.rfq_number}</Text> : null}
-                {inquiry?.title ? <Text style={{ fontSize: 9, color: C.muted }}>{inquiry.title}</Text> : null}
-              </View>
+              <Text style={[s.lineMuted, { marginTop: 4 }]}>
+                Ref {inquiry?.rfq_number ? <Text style={{ fontFamily: 'Courier', color: C.text }}>{inquiry.rfq_number}</Text> : null}
+                {inquiry?.title ? `  ${inquiry.title}` : ''}
+              </Text>
             ) : null}
           </View>
+          <View style={s.infoCol}>
+            <Text style={s.label}>Pay to</Text>
+            {entity && (entity.bank_name || entity.account_number) ? (
+              <View>
+                {entity.bank_name ? <View style={s.dlRow}><Text style={s.dt}>Bank</Text><Text style={s.dd}>{entity.bank_name}</Text></View> : null}
+                {entity.bank_branch ? <View style={s.dlRow}><Text style={s.dt}>Branch</Text><Text style={s.dd}>{entity.bank_branch}</Text></View> : null}
+                {entity.account_name ? <View style={s.dlRow}><Text style={s.dt}>Account</Text><Text style={s.dd}>{entity.account_name}</Text></View> : null}
+                {entity.account_number ? <View style={s.dlRow}><Text style={s.dt}>Account #</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.account_number}</Text></View> : null}
+                {!isUS && entity.ifsc_code ? <View style={s.dlRow}><Text style={s.dt}>IFSC</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.ifsc_code}</Text></View> : null}
+                {isUS && entity.routing_number ? <View style={s.dlRow}><Text style={s.dt}>Routing #</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.routing_number}</Text></View> : null}
+                {entity.swift_code ? <View style={s.dlRow}><Text style={s.dt}>SWIFT</Text><Text style={[s.dd, { fontFamily: 'Courier' }]}>{entity.swift_code}</Text></View> : null}
+              </View>
+            ) : (
+              <Text style={[s.lineMuted, { fontStyle: 'italic' }]}>Bank details available on request.</Text>
+            )}
+          </View>
         </View>
+
+        {/* Incoterm and payment terms */}
+        {(incoterm || paymentTerms) ? (
+          <View style={s.strip} wrap={false}>
+            {incoterm ? <Text style={s.line}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Incoterm  </Text>{incoterm}</Text> : null}
+            {paymentTerms ? <Text style={[s.line, { flex: 1 }]}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Payment  </Text>{paymentTerms}</Text> : null}
+          </View>
+        ) : null}
 
         {/* Products */}
-        <View style={{ marginTop: 12 }}>
-          <Text style={[s.sectionLabel, { marginBottom: 4 }]}>Products ({products.length})</Text>
+        <View style={s.tableHeader} fixed>
+          <Text style={{ width: 44 }}>Item</Text>
+          <Text style={{ flex: 1, paddingLeft: 6 }}>Description</Text>
+          <Text style={{ width: 36, textAlign: 'center' }}>Qty</Text>
+          <Text style={{ width: 56, textAlign: 'right' }}>Unit</Text>
+          <Text style={{ width: 66, textAlign: 'right' }}>Total</Text>
+        </View>
 
-          <View style={s.productsHeader} fixed>
-            <Text style={{ width: 60 }}>Item</Text>
-            <Text style={{ flex: 1, paddingLeft: 8 }}>Description</Text>
-            <Text style={{ width: 40, textAlign: 'center' }}>Qty</Text>
-            <Text style={{ width: 60, textAlign: 'right' }}>Unit</Text>
-            <Text style={{ width: 70, textAlign: 'right' }}>Total</Text>
-          </View>
-
-          {products.map((p, idx) => {
-            const qty = selections[idx]?.quantity ?? p.quantity;
-            const lineTotal = (p.unit_price_usd || 0) * qty;
-            const dims = (p.width_inch && p.depth_inch && p.height_inch)
-              ? `${p.width_inch}" x ${p.depth_inch}" x ${p.height_inch}"` : null;
-            return (
-              <View key={idx} style={s.productRow} wrap={false}>
-                <View style={{ width: 60 }}>
-                  {p.photo_url ? (
-                    // eslint-disable-next-line jsx-a11y/alt-text
-                    <Image src={p.photo_url} style={s.thumb} />
-                  ) : (
-                    <View style={s.thumbFallback}><Text style={{ color: C.light, fontSize: 12 }}>{'\u25A0'}</Text></View>
-                  )}
-                </View>
-                <View style={{ flex: 1, paddingLeft: 8, paddingRight: 6 }}>
-                  <Text style={s.pName}>{p.name}{p.is_assembly ? ' (Kit)' : ''}</Text>
-                  {p.sku ? <Text style={s.pSku}>{p.sku}</Text> : null}
-                  {p.quote_notes ? <Text style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>{p.quote_notes}</Text> : null}
-                  <Text style={s.pSpecs}>
-                    {[
-                      dims,
-                      p.weight_kg ? `${p.weight_kg} kg` : null,
-                      p.unit_cbm > 0 ? `${p.unit_cbm.toFixed(4)} CBM` : null,
-                      !p.is_assembly && p.box_size ? `Box: ${p.box_size}` : null,
-                    ].filter(Boolean).join('  \u00B7  ')}
-                  </Text>
-                  {p.moq && p.moq > 1 ? <Text style={s.pMoq}>MOQ: {p.moq}</Text> : null}
-                  {p.is_assembly && p.components && p.components.length > 0 ? (
-                    <View style={{ marginTop: 4, paddingTop: 4, borderTopWidth: 0.5, borderColor: C.border }}>
-                      <Text style={{ fontSize: 7, color: C.light, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
-                        Includes
+        {products.map((p, idx) => {
+          const qty = selections[idx]?.quantity ?? p.quantity;
+          const lineTotal = (p.unit_price_usd || 0) * qty;
+          const dims = (p.width_inch && p.depth_inch && p.height_inch)
+            ? `${p.width_inch}" x ${p.depth_inch}" x ${p.height_inch}"` : null;
+          return (
+            <View key={idx} style={s.productRow} wrap={false}>
+              <View style={{ width: 44 }}>
+                {p.photo_url ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text
+                  <Image src={p.photo_url} style={s.thumb} />
+                ) : (
+                  <View style={s.thumbFallback} />
+                )}
+              </View>
+              <View style={{ flex: 1, paddingLeft: 6, paddingRight: 6 }}>
+                <Text style={s.pName}>{p.name}{p.is_assembly ? ' (Kit)' : ''}</Text>
+                {p.sku ? <Text style={s.pSku}>{p.sku}</Text> : null}
+                {p.quote_notes ? <Text style={s.pSpecs}>{p.quote_notes}</Text> : null}
+                <Text style={s.pSpecs}>
+                  {[
+                    dims,
+                    p.weight_kg ? `${p.weight_kg} kg` : null,
+                    p.unit_cbm > 0 ? `${p.unit_cbm.toFixed(4)} CBM` : null,
+                    !p.is_assembly && p.box_size ? `Box: ${p.box_size}` : null,
+                    p.moq && p.moq > 1 ? `MOQ ${p.moq}` : null,
+                  ].filter(Boolean).join('  ·  ')}
+                </Text>
+                {p.is_assembly && p.components && p.components.length > 0 ? (
+                  <View style={{ marginTop: 3 }}>
+                    <Text style={[s.label, { marginBottom: 1 }]}>Includes</Text>
+                    {p.components.map((c, ci) => (
+                      <Text key={ci} style={s.pSpecs}>
+                        {`• ${c.name} ×${c.quantity_per_assembly}`}
+                        {c.width_inch && c.depth_inch && c.height_inch ? `  ·  ${c.width_inch}" x ${c.depth_inch}" x ${c.height_inch}"` : ''}
+                        {c.box_size ? `  ·  Box: ${c.box_size}` : ''}
                       </Text>
-                      {p.components.map((c, ci) => (
-                        <Text key={ci} style={{ fontSize: 8, color: C.muted, marginTop: 1 }}>
-                          {`\u2022 ${c.name} \u00D7${c.quantity_per_assembly}`}
-                          {c.width_inch && c.depth_inch && c.height_inch ? `  \u00B7  ${c.width_inch}" x ${c.depth_inch}" x ${c.height_inch}"` : ''}
-                          {c.box_size ? `  \u00B7  Box: ${c.box_size}` : ''}
-                        </Text>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-                <View style={{ width: 40 }}>
-                  <Text style={s.pQty}>{qty}</Text>
-                </View>
-                <View style={{ width: 60 }}>
-                  <Text style={s.pUnit}>{symbol}{fmt(p.unit_price_usd || 0)}</Text>
-                </View>
-                <View style={{ width: 70 }}>
-                  <Text style={s.pTotal}>{symbol}{fmt(lineTotal)}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Summary */}
-        <View style={s.summaryCard} wrap={false}>
-          <Text style={s.sectionLabel}>Order Summary</Text>
-          <View style={s.sumRow}><Text style={s.sumLabel}>Products</Text><Text style={s.sumValue}>{totals.totalItems}</Text></View>
-          <View style={s.sumRow}><Text style={s.sumLabel}>Total quantity</Text><Text style={s.sumValue}>{totals.totalQty.toLocaleString()}</Text></View>
-          {totals.totalCbm > 0 ? (
-            <View style={s.sumRow}><Text style={s.sumLabel}>Total volume</Text><Text style={s.sumValue}>{totals.totalCbm.toFixed(2)} CBM</Text></View>
-          ) : null}
-          <View style={s.divider} />
-          {Number(totals.discountPercent || 0) > 0 ? (
-            <>
-              <View style={s.sumRow}>
-                <Text style={s.sumLabel}>Subtotal</Text>
-                <Text style={s.sumValue}>{symbol}{fmt(totals.totalValue)}</Text>
-              </View>
-              <View style={s.sumRow}>
-                <Text style={s.sumLabel}>Discount ({Number(totals.discountPercent)}%)</Text>
-                <Text style={s.sumValue}>-{symbol}{fmt((totals.totalValue * Number(totals.discountPercent)) / 100)}</Text>
-              </View>
-            </>
-          ) : null}
-          <View style={s.sumRow}>
-            <Text style={s.totalLabel}>Total</Text>
-            <Text style={s.totalValue}>
-              {symbol}{fmt(totals.totalValue - (totals.totalValue * Number(totals.discountPercent || 0)) / 100)}
-            </Text>
-          </View>
-          {totals.freight && totals.freight.amount > 0 ? (
-            <View style={[s.sumRow, { marginTop: 4 }]}>
-              <Text style={s.sumLabel}>
-                Freight Estimate (Rough) · {totals.freight.mode === 'air' ? 'Air' : 'Sea'}
-              </Text>
-              <Text style={s.sumValue}>{symbol}{fmt(totals.freight.amount)}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Volume & container planning */}
-        {totals.totalCbm > 0 ? (
-          <View style={s.section} wrap={false}>
-            <Text style={s.sectionLabel}>Volume & Container Planning</Text>
-            <View style={s.sumRow}>
-              <Text style={s.sumLabel}>Total shipment volume</Text>
-              <Text style={s.sumValue}>{totals.totalCbm.toFixed(2)} CBM</Text>
-            </View>
-            {totals.freight?.total_chargeable_kg ? (
-              <>
-                <View style={s.sumRow}>
-                  <Text style={s.sumLabel}>Chargeable weight</Text>
-                  <Text style={s.sumValue}>{Math.round(totals.freight.total_chargeable_kg).toLocaleString()} kg</Text>
-                </View>
-                {(totals.freight as any).total_boxes ? (
-                  <View style={s.sumRow}>
-                    <Text style={s.sumLabel}>Cartons · actual vs volumetric (÷{totals.freight.dim_divisor || 5000})</Text>
-                    <Text style={s.sumValue}>
-                      {(totals.freight as any).total_boxes} · {Math.round((totals.freight as any).total_actual_kg || 0)} kg vs {Math.round((totals.freight as any).total_dim_kg || 0)} kg
-                    </Text>
+                    ))}
                   </View>
                 ) : null}
+              </View>
+              <View style={{ width: 36 }}><Text style={s.pQty}>{qty}</Text></View>
+              <View style={{ width: 56 }}><Text style={s.pUnit}>{symbol}{fmt(p.unit_price_usd || 0)}</Text></View>
+              <View style={{ width: 66 }}><Text style={s.pTotal}>{symbol}{fmt(lineTotal)}</Text></View>
+            </View>
+          );
+        })}
+
+        {/* Totals: shipment facts on the left, money on the right */}
+        <View style={s.totalsRow} wrap={false}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.label}>Shipment</Text>
+            <Text style={s.lineMuted}>
+              {totals.totalItems} product{totals.totalItems === 1 ? '' : 's'}  {'·'}  {totals.totalQty.toLocaleString()} pcs
+              {totals.totalCbm > 0 ? `  ·  ${totals.totalCbm.toFixed(2)} CBM` : ''}
+            </Text>
+            {containerLine ? <Text style={[s.lineMuted, { marginTop: 2 }]}>{containerLine}</Text> : null}
+            {totals.freight?.total_chargeable_kg ? (
+              <Text style={[s.lineMuted, { marginTop: 2 }]}>
+                Chargeable weight {Math.round(totals.freight.total_chargeable_kg).toLocaleString()} kg
+              </Text>
+            ) : null}
+            <Text style={[s.lineMuted, { marginTop: 2, fontSize: 6.5, color: C.light }]}>
+              Container fill is an estimate from total CBM; it ignores stacking and loading limits.
+            </Text>
+          </View>
+          <View style={{ width: 200 }}>
+            {discountPct > 0 ? (
+              <>
+                <View style={s.sumRow}><Text style={s.sumLabel}>Subtotal</Text><Text style={s.sumValue}>{symbol}{fmt(totals.totalValue)}</Text></View>
+                <View style={s.sumRow}><Text style={s.sumLabel}>Discount ({discountPct}%)</Text><Text style={s.sumValue}>-{symbol}{fmt((totals.totalValue * discountPct) / 100)}</Text></View>
               </>
             ) : null}
-
-            <View style={s.divider} />
-            <View style={[s.productsHeader, { paddingHorizontal: 0 }]}>
-              <Text style={{ flex: 1 }}>Container</Text>
-              <Text style={{ width: 50, textAlign: 'right' }}>Capacity</Text>
-              <Text style={{ width: 50, textAlign: 'right' }}>Needed</Text>
-              <Text style={{ width: 90, textAlign: 'right' }}>Utilization</Text>
+            <View style={s.totalLine}>
+              <Text style={s.totalLabel}>Total</Text>
+              <Text style={s.totalValue}>{symbol}{fmt(net)}</Text>
             </View>
-            {CONTAINERS.map((c) => {
-              const f = containerFill(totals.totalCbm, c.cbm);
-              const util = f.containerCount === 0
-                ? '—'
-                : f.fullContainers === f.containerCount
-                  ? '100% full'
-                  : f.containerCount === 1
-                    ? `${f.lastContainerPct.toFixed(0)}% of 1`
-                    : `${f.fullContainers} full + ${f.lastContainerPct.toFixed(0)}%`;
-              return (
-                <View key={c.key} style={{ flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5, borderColor: C.border }}>
-                  <Text style={{ flex: 1, fontSize: 9 }}>{c.name}</Text>
-                  <Text style={{ width: 50, fontSize: 9, textAlign: 'right', color: C.muted }}>{c.cbm} CBM</Text>
-                  <Text style={{ width: 50, fontSize: 9, textAlign: 'right' }}>{f.containerCount}</Text>
-                  <Text style={{ width: 90, fontSize: 9, textAlign: 'right', color: C.muted }}>{util}</Text>
-                </View>
-              );
-            })}
-            <Text style={{ fontSize: 7, color: C.light, marginTop: 6 }}>
-              Container counts are estimates based on total CBM and do not account for stacking or loading constraints.
-            </Text>
+            {totals.freight && totals.freight.amount > 0 ? (
+              <View style={[s.sumRow, { marginTop: 3 }]}>
+                <Text style={s.sumLabel}>Freight estimate ({totals.freight.mode === 'air' ? 'air' : 'sea'}, rough)</Text>
+                <Text style={s.sumValue}>{symbol}{fmt(totals.freight.amount)}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Quote notes (saved on the quote; previously never printed) */}
+        {notes ? (
+          <View style={{ marginTop: 8 }} wrap={false}>
+            <Text style={s.label}>Notes</Text>
+            <Text style={s.line}>{notes}</Text>
           </View>
         ) : null}
 
+        {/* Terms and policies: two columns, flowing straight after the totals */}
+        {clauses.length > 0 ? (
+          <View>
+            <Text style={s.termsHeading} minPresenceAhead={60}>Terms and Policies</Text>
+            <View style={s.termsCols}>
+              {termCols.map((col, ci) => (
+                <View key={ci} style={{ flex: 1 }}>
+                  {col.map((c) => (
+                    <Text key={c.key} style={s.clause} wrap={false}>
+                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>{c.n}. {c.title}. </Text>{c.text}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Footer */}
         <Text style={s.footer} fixed>
@@ -586,22 +478,6 @@ const QuotePdfDocument = ({
           fixed
         />
       </Page>
-
-      {/* Final page: full terms and policies (the payment clause follows this quote's payment terms) */}
-      {terms && terms.length > 0 ? (
-        <Page size={size} orientation={orientation} style={s.page}>
-          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', marginBottom: 10 }}>Terms and Policies</Text>
-          {terms.map((c, i) => (
-            <Text key={c.key} style={{ fontSize: 8.5, lineHeight: 1.4, marginBottom: 5 }}>
-              <Text style={{ fontFamily: 'Helvetica-Bold' }}>{i + 1}. {c.title}. </Text>
-              {c.key === 'payment' && paymentTerms ? paymentTerms : c.text}
-            </Text>
-          ))}
-          <Text style={s.footer} fixed>
-            {entity?.name ? `${entity.name}  ·  ` : ''}{quoteNumber}
-          </Text>
-        </Page>
-      ) : null}
     </Document>
   );
 };
