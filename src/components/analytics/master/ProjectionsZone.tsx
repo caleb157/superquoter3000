@@ -111,7 +111,7 @@ export function ProjectionsZone(p: Props) {
           <Switch id="pipe" checked={includePipeline} onCheckedChange={p.setIncludePipeline} />
           <Label htmlFor="pipe" className="text-sm">Include pipeline orders <span className="text-muted-foreground">(weighted by likelihood)</span></Label>
         </div>
-        <span className="text-xs text-muted-foreground">{includePipeline ? `Booked + ${pipe.length} pipeline inquiries` : 'Booked orders only'} · pipeline at HQ rate ₹{hqRate}</span>
+        <span className="text-xs text-muted-foreground">{includePipeline ? `Booked + ${pipe.length} pipeline inquiries${pipe.some(x => x.repeat) ? ` (${pipe.filter(x => x.repeat).length} repeat)` : ''}` : 'Booked orders only'} · pipeline at HQ rate ₹{hqRate}</span>
       </div>
 
       {/* FY revenue */}

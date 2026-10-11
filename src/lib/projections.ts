@@ -36,23 +36,25 @@ export type InquiryProjection = {
 };
 
 /** Team-wide projection defaults (Settings → Projections). Loaded once, cached in-module. */
-export type ProjectionDefaults = { certainty: number; custDeposit: number; ieDeposit: number };
-let projectionDefaults: ProjectionDefaults = { certainty: 0.3, custDeposit: 0.3, ieDeposit: 0.8 };
+export type ProjectionDefaults = { certainty: number; repeatCertainty: number; custDeposit: number; ieDeposit: number };
+let projectionDefaults: ProjectionDefaults = { certainty: 0.3, repeatCertainty: 0.8, custDeposit: 0.3, ieDeposit: 0.8 };
 export const getProjectionDefaults = () => projectionDefaults;
 export function setProjectionDefaults(d: Partial<ProjectionDefaults>) { projectionDefaults = { ...projectionDefaults, ...d }; }
 
 /**
  * Certainty = per-inquiry override, else booked (po/complete) 100%, cancelled/paused 0%,
- * else the global default certainty from Settings. Stage weighting is retired.
+ * else the repeat-order default for repeats, else the global default certainty from Settings.
+ * Stage weighting is retired.
  */
 export function effectiveCertainty(
-  projection: Pick<InquiryProjection, 'certainty_override'> | null,
+  projection: (Pick<InquiryProjection, 'certainty_override'> & { repeat_order?: boolean | null }) | null,
   _products: Array<{ design_stage: string | null; quote_stage: string | null; sample_stage: string | null }>,
   inquiryStatus: string,
 ): number {
   if (projection?.certainty_override != null) return Number(projection.certainty_override);
   if (inquiryStatus === 'po' || inquiryStatus === 'complete') return 1.0;
   if (inquiryStatus === 'cancelled' || inquiryStatus === 'paused') return 0;
+  if (projection?.repeat_order) return projectionDefaults.repeatCertainty;
   return projectionDefaults.certainty;
 }
 

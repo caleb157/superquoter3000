@@ -8,6 +8,7 @@ import { loadProjectionDefaults } from '@/lib/projection-defaults';
 
 const FIELDS = [
   { col: 'default_certainty_pct', label: 'Default certainty %', help: 'Applied to every open inquiry unless it has its own certainty. Scales projected revenue, cash flow and capacity.' },
+  { col: 'default_repeat_certainty_pct', label: 'Repeat order certainty %', help: 'Used instead of the default for inquiries marked as a repeat order, unless they have their own certainty.' },
   { col: 'default_cust_deposit_pct', label: 'Default customer deposit %', help: 'Customer advance when Parable Ventures sells directly. The rest is paid in the shipping month.' },
   { col: 'default_ie_deposit_pct', label: 'Default inter-entity deposit %', help: 'Advance DKT pays Parable Ventures when DKT is the selling entity. The rest is paid in the shipping month.' },
 ] as const;
@@ -15,7 +16,7 @@ const FIELDS = [
 export default function ProjectionDefaultsSettings() {
   const [row, setRow] = useState<any>(null);
   useEffect(() => {
-    (supabase as any).from('global_settings').select('id, default_certainty_pct, default_cust_deposit_pct, default_ie_deposit_pct').limit(1).maybeSingle()
+    (supabase as any).from('global_settings').select('id, default_certainty_pct, default_repeat_certainty_pct, default_cust_deposit_pct, default_ie_deposit_pct').limit(1).maybeSingle()
       .then(({ data }: any) => setRow(data));
   }, []);
 
@@ -36,7 +37,7 @@ export default function ProjectionDefaultsSettings() {
         <CardTitle>Projections defaults</CardTitle>
         <CardDescription>Used by the analytics projections and as starting values in each inquiry's Projections tab. Any inquiry can override them.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-5 md:grid-cols-3">
+      <CardContent className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
         {FIELDS.map(f => (
           <div key={f.col} className="space-y-1.5">
             <Label className="text-xs">{f.label}</Label>
