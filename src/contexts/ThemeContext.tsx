@@ -37,8 +37,9 @@ const apply = (resolved: Resolved) => {
 };
 
 /** Force light theme while the calling component is mounted. */
-export const useForceLightTheme = () => {
+export const useForceLightTheme = (enabled = true) => {
   useEffect(() => {
+    if (!enabled) return;
     forceLightCount += 1;
     apply(lastResolved);
     return () => {

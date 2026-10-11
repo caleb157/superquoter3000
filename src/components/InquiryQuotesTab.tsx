@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -152,14 +152,11 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
                         <Button size="sm" variant="ghost" className="h-7" onClick={() => openEdit(q.id)} title="Edit quote">
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        {q.share_token && (
-
-                          <Button asChild size="sm" variant="ghost" className="h-7">
-                            <a href={`/quote/${q.share_token}`} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </Button>
-                        )}
+                        <Button asChild size="sm" variant="ghost" className="h-7" title="Open quote">
+                          <Link to={`/quotes/${q.id}`}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </Button>
                         <ConfirmDeleteButton
                           itemLabel={`quote ${q.quote_number ?? q.id.slice(0, 8)}`}
                           description={`This permanently removes quote ${q.quote_number ?? q.id.slice(0, 8)} from the database. This cannot be undone.`}

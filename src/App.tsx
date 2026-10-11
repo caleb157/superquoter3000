@@ -18,6 +18,7 @@ import ProductDetail from "./pages/ProductDetail";
 import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
 import Quotes from "./pages/Quotes";
+import QuoteView from "./pages/QuoteView";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
@@ -139,6 +140,11 @@ const App = () => (
               <Route path="/quotes" element={
                 <ProtectedRoute requireAdminOrTeam>
                   <Quotes />
+                </ProtectedRoute>
+              } />
+              <Route path="/quotes/:id" element={
+                <ProtectedRoute requireAdminOrTeam>
+                  <QuoteView />
                 </ProtectedRoute>
               } />
               <Route path="/quote/:token" element={<CustomerQuote />} />

@@ -347,7 +347,7 @@ const Quotes = () => {
                                     variant="ghost" size="sm" className="text-xs h-7 gap-1"
                                     asChild
                                   >
-                                    <Link to={`/quote/${snap.share_token}`} target="_blank">
+                                    <Link to={`/quotes/${snap.id}`}>
                                       <ExternalLink className="h-3 w-3" /> Preview
                                     </Link>
                                   </Button>
@@ -441,7 +441,7 @@ const Quotes = () => {
                               <Copy className="h-3 w-3" /> Link
                             </Button>
                             <Button variant="ghost" size="sm" className="text-[11px] h-7 gap-1" asChild>
-                              <Link to={`/quote/${snap.share_token}`} target="_blank">
+                              <Link to={`/quotes/${snap.id}`}>
                                 <ExternalLink className="h-3 w-3" /> Open
                               </Link>
                             </Button>
