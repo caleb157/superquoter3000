@@ -25,7 +25,6 @@ import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { referencePriceFor } from '@/components/QuotePriceReviewDialog';
 import { computeProductUnitPrices } from '@/lib/product-pricing';
-import { loadCurrencyMap } from '@/lib/currency';
 import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
