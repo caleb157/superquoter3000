@@ -55,7 +55,7 @@ export function BulkStageActions({
   onArchive,
   onUnarchive,
 }: Props) {
-  const sampleLabel = selectedIds.length === 1 ? 'Generate Sample' : 'Generate Samples';
+  const sampleLabel = 'Request samples';
   if (selectedIds.length === 0) return null;
 
   const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkTargetPrice || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);

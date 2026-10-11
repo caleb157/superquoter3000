@@ -14,6 +14,8 @@ import { Plus, Pencil, Trash2, X, Upload, Check, ChevronsUpDown } from 'lucide-r
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
+import { SAMPLE_STATUS_LABEL } from '@/lib/sample-requests';
 import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
 
 type Sample = {
@@ -33,6 +35,7 @@ type Sample = {
   feedback: string | null;
   notes: string | null;
   created_at: string;
+  request?: { id: string; request_number: string } | null;
 };
 
 type Vendor = { id: string; name: string };
@@ -57,7 +60,7 @@ export function ProductSampleLogTab({ productId }: Props) {
     setLoading(true);
     const { data } = await (supabase as any)
       .from('samples')
-      .select('*, vendor:vendors(name)')
+      .select('*, vendor:vendors(name), request:sample_requests(id, request_number)')
       .eq('product_id', productId)
       .order('created_at', { ascending: false });
     setSamples(((data as any) ?? []).map((s: any) => ({ ...s, photo_urls: Array.isArray(s.photo_urls) ? s.photo_urls : [] })));
@@ -102,7 +105,8 @@ export function ProductSampleLogTab({ productId }: Props) {
                   <div className="flex items-start gap-2">
                     <div className="flex-1 flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{s.vendor?.name || 'No vendor set'}</span>
-                      <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{s.status}</Badge>
+                      <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLOR[s.status] ?? 'bg-muted')}>{SAMPLE_STATUS_LABEL[s.status] ?? s.status}</Badge>
+                      {s.request && <Link to={`/samples/${s.request.id}`} className="font-mono text-[10px] text-primary hover:underline">{s.request.request_number}</Link>}
                       {days !== null && (
                         <Badge variant="outline" className="text-[10px]">{days}d to sample</Badge>
                       )}
@@ -115,7 +119,7 @@ export function ProductSampleLogTab({ productId }: Props) {
 
                   <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
                     {s.requested_date && <span>Requested: {format(new Date(s.requested_date), 'MMM d, yyyy')}</span>}
-                    {s.completed_at && <span>Completed: {format(new Date(s.completed_at), 'MMM d, yyyy')}</span>}
+                    {s.completed_at && <span>Received: {format(new Date(s.completed_at), 'MMM d, yyyy')}</span>}
                     {s.required_by_date && <span>Required by: {format(new Date(s.required_by_date), 'MMM d, yyyy')}</span>}
                   </div>
 
@@ -179,7 +183,7 @@ type SampleDialogProps = {
   onSaved: () => void;
 };
 
-function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: SampleDialogProps) {
+export function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: SampleDialogProps) {
   const isEdit = !!sampleId;
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [vendorId, setVendorId] = useState<string>('');
@@ -295,7 +299,15 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     if (status === 'completed' && completedDate) {
       payload.completed_at = new Date(completedDate + 'T12:00:00').toISOString();
     }
-    if (!isEdit) payload.customer_rfq_id = customerRfqId;
+    if (!isEdit) {
+      payload.customer_rfq_id = customerRfqId;
+      // Every sample belongs to a sample request; one added here gets a request of its own.
+      const { data: req, error: rErr } = await (supabase as any).from('sample_requests')
+        .insert({ customer_rfq_id: customerRfqId, requested_date: requestedDate || undefined, required_by_date: requiredBy || null })
+        .select('id').single();
+      if (rErr) { setSaving(false); toast.error(rErr.message); return; }
+      payload.request_id = req.id;
+    }
 
     let error;
     if (isEdit && sampleId) {
@@ -305,16 +317,6 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-
-    // Ensure the product flips to 'sampling' as soon as a pending sample is added.
-    // (DB trigger handles this too; doing it explicitly avoids any stale-cache UI issues.)
-    if (status === 'pending') {
-      const { data: prod } = await supabase
-        .from('products').select('sample_stage').eq('id', productId).maybeSingle();
-      if (prod && prod.sample_stage !== 'sampled' && prod.sample_stage !== 'sampling') {
-        await supabase.from('products').update({ sample_stage: 'sampling' }).eq('id', productId);
-      }
-    }
 
     toast.success(isEdit ? 'Sample updated' : 'Sample added');
     onSaved();
@@ -344,7 +346,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="h-9 text-sm mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {STATUSES.map(s => <SelectItem key={s} value={s}>{SAMPLE_STATUS_LABEL[s] ?? s}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -362,9 +364,9 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
 
           {status === 'completed' && (
             <div>
-              <Label className="text-xs">Completed</Label>
+              <Label className="text-xs">Received at factory on</Label>
               <Input type="date" className="h-9 text-sm mt-1" value={completedDate} onChange={e => setCompletedDate(e.target.value)} />
-              <p className="text-[10px] text-muted-foreground mt-1">Defaults to today when status is first set to completed.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Defaults to today when the sample is first marked received.</p>
             </div>
           )}
 
@@ -424,7 +426,7 @@ function SampleDialog({ open, onOpenChange, productId, sampleId, onSaved }: Samp
 
 // ============= Vendor combobox (search + create) =============
 
-function VendorCombobox({
+export function VendorCombobox({
   vendors, vendorId, vendorName, onChange,
 }: {
   vendors: Vendor[];

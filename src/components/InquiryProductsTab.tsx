@@ -15,7 +15,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { ProductStagePills, SingleStagePill, type StageTrack } from '@/components/ProductStagePills';
 import { BulkStageActions } from '@/components/BulkStageActions';
-import { GenerateSampleDialog } from '@/components/GenerateSampleDialog';
+import { createSampleRequest } from '@/lib/sample-requests';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
@@ -115,7 +115,20 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>(initialFilter);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [batchOpen, setBatchOpen] = useState(false);
+  const [requestingSamples, setRequestingSamples] = useState(false);
+  // Request samples: one click, one sample request with a line per selected product; opens it.
+  const handleRequestSamples = async () => {
+    const ids = products.filter(p => selected.has(p.id)).map(p => p.id);
+    if (ids.length === 0 || requestingSamples) return;
+    setRequestingSamples(true);
+    const res = await createSampleRequest(inquiryId, ids);
+    setRequestingSamples(false);
+    if (res.error) { toast.error(res.error); return; }
+    toast.success(`Sample request ${res.request_number} created`);
+    setSelected(new Set());
+    onChange();
+    navigate(`/samples/${res.id}`);
+  };
   const [showArchived, setShowArchived] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
 
@@ -699,7 +712,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onClear={() => setSelected(new Set())}
         onSetStage={handleSetStage}
         onGenerateQuote={handleGenerateQuote}
-        onGenerateSamples={() => setBatchOpen(true)}
+        onGenerateSamples={handleRequestSamples}
         onBulkCosting={() => setBulkCostingOpen(true)}
         onBulkQuantity={() => setBulkQtyOpen(true)}
         onBulkSetNpm={() => setBulkNpmOpen(true)}
@@ -1002,12 +1015,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         </>
       )}
 
-      <GenerateSampleDialog
-        open={batchOpen} onOpenChange={setBatchOpen}
-        inquiryId={inquiryId}
-        preSelectedProductIds={selectedProducts.map(p => p.id)}
-        onCreated={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
-      />
       <HardwareSyncDialog
         open={hwOpen}
         plan={hwPlan}

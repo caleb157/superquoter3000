@@ -8,7 +8,6 @@ vi.mock('@/components/ProductStagePills', () => ({
   SingleStagePill: () => null,
 }));
 vi.mock('@/components/BulkStageActions', () => ({ BulkStageActions: () => null }));
-vi.mock('@/components/GenerateSampleDialog', () => ({ GenerateSampleDialog: () => null }));
 vi.mock('@/components/ConfirmDeleteButton', () => ({ ConfirmDeleteButton: () => null }));
 vi.mock('@/components/UploadParseDialog', () => ({ UploadParseDialog: () => null }));
 vi.mock('@/components/QuickAddProductsDialog', () => ({ QuickAddProductsDialog: () => null }));

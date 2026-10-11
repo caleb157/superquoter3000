@@ -29,6 +29,7 @@ import InquiryPdView from "./pages/InquiryPdView";
 import PdDashboard from "./pages/PdDashboard";
 import InquiryContainerPlanner from "./pages/InquiryContainerPlanner";
 import SamplesList from "./pages/SamplesList";
+import SampleRequestView from "./pages/SampleRequestView";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
 import TeamManagement from "./pages/TeamManagement";
@@ -113,6 +114,9 @@ const App = () => (
               } />
               <Route path="/samples" element={
                 <ProtectedRoute requireAdminOrTeam><SamplesList /></ProtectedRoute>
+              } />
+              <Route path="/samples/:id" element={
+                <ProtectedRoute requireAdminOrTeam><SampleRequestView /></ProtectedRoute>
               } />
               <Route path="/products" element={
                 <ProtectedRoute requireAdminOrTeam>

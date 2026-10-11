@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { clockStart, computeInquiryClock, type ClockTone } from '@/lib/inquiry-clock';
 
-const TONE: Record<ClockTone, string> = {
+export const CLOCK_TONE_CLASSES: Record<ClockTone, string> = {
   neutral: 'bg-muted text-muted-foreground border-border',
   amber: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
   red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30',
@@ -49,7 +49,7 @@ export function InquiryClockStrip({ inquiryId, receivedDate, createdAt, status, 
 
   return (
     <div
-      className={cn('flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm', TONE[clock.tone])}
+      className={cn('flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm', CLOCK_TONE_CLASSES[clock.tone])}
       title={start ? `Counted from ${start.toLocaleString()}${firstQuoteAt ? ` to the first quote on ${new Date(firstQuoteAt).toLocaleString()}` : ''}` : undefined}
     >
       <Clock className="h-4 w-4 shrink-0" />
