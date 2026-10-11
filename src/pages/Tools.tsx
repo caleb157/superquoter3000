@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Wrench, Ship } from 'lucide-react';
+import { Box, Wrench, Ship, Weight } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -10,6 +10,12 @@ const tools = [
     icon: Box,
     title: 'Master Carton Sizer',
     description: 'Enter inner carton outer dimensions and constraints to get the master carton size, layout and CBM.',
+  },
+  {
+    to: '/tools/iron-weight',
+    icon: Weight,
+    title: 'Iron Weight Calculator',
+    description: 'Weight and cost of iron furniture parts from bars and tubes. Estimate the parts from a photo and save builds by SKU.',
   },
   {
     to: '/freight-quotes',

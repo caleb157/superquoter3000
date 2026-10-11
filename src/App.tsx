@@ -33,6 +33,7 @@ import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
+import IronWeightCalculator from "./pages/IronWeightCalculator";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import SoProfitability from "./pages/SoProfitability";
@@ -155,6 +156,9 @@ const App = () => (
               } />
               <Route path="/tools/master-carton" element={
                 <ProtectedRoute requireAdminOrTeam><MasterCartonSizer /></ProtectedRoute>
+              } />
+              <Route path="/tools/iron-weight" element={
+                <ProtectedRoute requireAdminOrTeam><IronWeightCalculator /></ProtectedRoute>
               } />
 
               <Route path="/freight-quotes" element={<ProtectedRoute requireAdminOrTeam><FreightQuotes /></ProtectedRoute>} />
