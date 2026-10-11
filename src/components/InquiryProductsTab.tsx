@@ -142,6 +142,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [hwEntityId, setHwEntityId] = useState<string>('');
   const [hwEntityName, setHwEntityName] = useState<string>('');
   const [hwCurrency, setHwCurrency] = useState<string>('USD');
+  const [hwIncoterm, setHwIncoterm] = useState<string | null>(null);
   const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);

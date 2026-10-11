@@ -2469,6 +2469,53 @@ export type Database = {
         }
         Relationships: []
       }
+      sample_requests: {
+        Row: {
+          created_at: string
+          customer_requested_date: string | null
+          customer_rfq_id: string | null
+          id: string
+          legacy_rfs_id: string | null
+          notes: string | null
+          request_number: string
+          requested_date: string
+          required_by_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_requested_date?: string | null
+          customer_rfq_id?: string | null
+          id?: string
+          legacy_rfs_id?: string | null
+          notes?: string | null
+          request_number?: string
+          requested_date?: string
+          required_by_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_requested_date?: string | null
+          customer_rfq_id?: string | null
+          id?: string
+          legacy_rfs_id?: string | null
+          notes?: string | null
+          request_number?: string
+          requested_date?: string
+          required_by_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sample_requests_customer_rfq_id_fkey"
+            columns: ["customer_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       samples: {
         Row: {
           completed_at: string | null
@@ -2483,6 +2530,7 @@ export type Database = {
           notes: string | null
           photo_urls: Json
           product_id: string | null
+          request_id: string | null
           requested_date: string | null
           required_by_date: string | null
           rfs_id: string | null
@@ -2504,6 +2552,7 @@ export type Database = {
           notes?: string | null
           photo_urls?: Json
           product_id?: string | null
+          request_id?: string | null
           requested_date?: string | null
           required_by_date?: string | null
           rfs_id?: string | null
@@ -2525,6 +2574,7 @@ export type Database = {
           notes?: string | null
           photo_urls?: Json
           product_id?: string | null
+          request_id?: string | null
           requested_date?: string | null
           required_by_date?: string | null
           rfs_id?: string | null
@@ -2546,6 +2596,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "samples_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "sample_requests"
             referencedColumns: ["id"]
           },
           {
@@ -3116,6 +3173,7 @@ export type Database = {
         Returns: undefined
       }
       generate_crfq_number: { Args: never; Returns: string }
+      generate_sample_request_number: { Args: never; Returns: string }
       get_company_entities_safe: {
         Args: never
         Returns: {
