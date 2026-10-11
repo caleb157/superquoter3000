@@ -2339,6 +2339,8 @@ export type Database = {
           terms: Json | null
           totals: Json | null
           valid_until: string | null
+          version: number
+          version_of: string | null
           viewed_at: string | null
         }
         Insert: {
@@ -2365,6 +2367,8 @@ export type Database = {
           terms?: Json | null
           totals?: Json | null
           valid_until?: string | null
+          version?: number
+          version_of?: string | null
           viewed_at?: string | null
         }
         Update: {
@@ -2391,6 +2395,8 @@ export type Database = {
           terms?: Json | null
           totals?: Json | null
           valid_until?: string | null
+          version?: number
+          version_of?: string | null
           viewed_at?: string | null
         }
         Relationships: [
@@ -2413,6 +2419,13 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_snapshots_version_of_fkey"
+            columns: ["version_of"]
+            isOneToOne: false
+            referencedRelation: "quote_snapshots"
             referencedColumns: ["id"]
           },
         ]

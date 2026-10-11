@@ -78,6 +78,13 @@
       "when": 1791726648198,
       "tag": "0010_add_quote_snapshot_and_entity_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791730317589,
+      "tag": "0011_add_quote_snapshots_versioning",
+      "breakpoints": true
     }
   ]
 }
