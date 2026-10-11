@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
+import { defaultChemicalFor } from '@/lib/costing-engine';
 
 type Chemical = {
   id: string;
@@ -47,7 +48,10 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
   };
 
   // For each chemical (by id) find the finishing-materials row that represents it.
-  // Match by chemical_price_id first, then fall back to same-category legacy rows.
+  // Match by chemical_price_id first. A legacy unlinked row ("Lacquer", "Color"…) stands for
+  // ONE chemical — the one the costing engine prices it as (defaultChemicalFor) — not for
+  // every chemical in its category, or NC, Acrylic and PU would all show ticked while the
+  // cost only includes NC.
   const rowForChem = (chem: Chemical, wantInclude: 'Yes' | 'No' | 'any' = 'any'): CogsItem | undefined => {
     const finishing = cogsItems.filter(i => i.cogs_type === 'Finishing Materials');
     const matchInclude = (i: CogsItem) => {
@@ -56,14 +60,7 @@ export function ProductChemicalsPicker({ productId, chemicals, cogsItems, onChan
     };
     const linked = finishing.find(i => i.chemical_price_id === chem.id && matchInclude(i));
     if (linked) return linked;
-    // Skip legacy fallback if another row already claims this category via id.
-    const claimedCategoryIds = new Set(
-      finishing
-        .filter(i => i.chemical_price_id)
-        .map(i => chemicals.find(c => c.id === i.chemical_price_id)?.category)
-        .filter(Boolean) as string[]
-    );
-    if (claimedCategoryIds.has(chem.category)) return undefined;
+    if (defaultChemicalFor(chem.category, chemicals)?.id !== chem.id) return undefined;
     return finishing.find(i => !i.chemical_price_id && inferCategory(i.component_name) === chem.category && matchInclude(i));
   };
 

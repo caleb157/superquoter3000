@@ -89,6 +89,17 @@ export type CostingEngineResult = {
   };
 };
 
+/**
+ * The chemical a legacy finishing row (named "Lacquer", "Color"… with no chemical_price_id)
+ * is priced as: NC for lacquer, otherwise the first chemical of the category. The chemicals
+ * picker uses the same rule so what it shows ticked is exactly what the cost includes.
+ */
+export function defaultChemicalFor<T extends { category?: string | null; name?: string | null }>(category: string, chemicals: T[]): T | undefined {
+  const inCat = chemicals.filter(c => c.category === category);
+  if (category === 'Lacquer') return inCat.find(c => (c.name || '').includes('NC')) || inCat[0];
+  return inCat[0];
+}
+
 export function computeProductCosting(input: CostingEngineInput): CostingEngineResult {
   const {
     product: p,
@@ -124,11 +135,10 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const priceOf = (c: any) => Number(c?.price_per_unit_inr ?? c?.price_per_litre_inr ?? 0);
   const unitOf = (c: any) => (c?.unit_type || 'L') as string;
   const chemById = new Map<string, any>((chemicalPrices as any[]).map((c: any) => [c.id, c]));
-  const firstByCat = (cat: string) => (chemicalPrices as any[]).find((c: any) => c.category === cat);
-  const lacquerChem = (chemicalPrices as any[]).find((c: any) => c.category === 'Lacquer' && (c.name || '').includes('NC')) || firstByCat('Lacquer');
-  const colorChem = firstByCat('Color');
-  const sealerChem = firstByCat('Sealer');
-  const waxChem = firstByCat('Wax');
+  const lacquerChem = defaultChemicalFor('Lacquer', chemicalPrices as any[]);
+  const colorChem = defaultChemicalFor('Color', chemicalPrices as any[]);
+  const sealerChem = defaultChemicalFor('Sealer', chemicalPrices as any[]);
+  const waxChem = defaultChemicalFor('Wax', chemicalPrices as any[]);
 
   // ===== IC/MC dims & costs =====
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
