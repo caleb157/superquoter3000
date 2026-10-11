@@ -25,7 +25,7 @@ const EXPORT_TABLES: ExportTable[] = [
   // Inquiries
   { id: 'customer_rfqs', label: 'Inquiries', group: 'Inquiries', description: 'Top-level inquiries with status, customer, PO info.', defaultSelected: true },
   { id: 'inquiry_received_rfqs', label: 'Received RFQs (log)', group: 'Inquiries', defaultSelected: true },
-  { id: 'inquiry_received_rfs', label: 'Received RFS (log)', group: 'Inquiries', defaultSelected: true },
+  { id: 'inquiry_received_rfs', label: 'Received RFS (old log, moved to sample requests)', group: 'Inquiries', defaultSelected: false },
   { id: 'inquiry_status_events', label: 'Inquiry status events', group: 'Inquiries' },
 
   // Products and costing
@@ -46,7 +46,8 @@ const EXPORT_TABLES: ExportTable[] = [
   { id: 'quote_snapshots', label: 'Quote snapshots', group: 'Vendors & Quotes', defaultSelected: true },
 
   // Samples & tasks
-  { id: 'samples', label: 'Samples', group: 'Samples & Tasks', defaultSelected: true },
+  { id: 'sample_requests', label: 'Sample requests', group: 'Samples & Tasks', defaultSelected: true },
+  { id: 'samples', label: 'Samples (request lines)', group: 'Samples & Tasks', defaultSelected: true },
   { id: 'tasks', label: 'Tasks', group: 'Samples & Tasks', defaultSelected: true },
 
   // Reference data

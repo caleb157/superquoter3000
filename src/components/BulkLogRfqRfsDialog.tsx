@@ -32,7 +32,7 @@ export function BulkLogRfqRfsDialog({ open, onOpenChange, kind, inquiryId, selec
   const title = isRfq ? 'Log received RFQ' : 'Log received RFS';
   const subtitle = isRfq
     ? `Mark ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'} as "costing".`
-    : `Auto-create samples for ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'} and mark as "sampling".`;
+    : `Create a sample request for ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'}, dated when the customer asked.`;
 
   const save = async () => {
     if (!date) { toast.error('Date required'); return; }
@@ -53,28 +53,24 @@ export function BulkLogRfqRfsDialog({ open, onOpenChange, kind, inquiryId, selec
 
       toast.success(`Logged RFQ · ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'} → costing`);
     } else {
-      const { error: logErr } = await (supabase as any)
-        .from('inquiry_received_rfs')
-        .insert({ inquiry_id: inquiryId, received_date: date, notes: notes.trim() || null });
-      if (logErr) { setSaving(false); toast.error(logErr.message); return; }
+      // The customer's sample request becomes a sample request with a line per product;
+      // product sample stages follow the lines automatically.
+      const { data: req, error: rErr } = await (supabase as any).from('sample_requests')
+        .insert({ customer_rfq_id: inquiryId, customer_requested_date: date, requested_date: date, notes: notes.trim() || null })
+        .select('id').single();
+      if (rErr) { setSaving(false); toast.error(rErr.message); return; }
 
       const sampleRows = selectedProductIds.map(pid => ({
+        request_id: req.id,
         product_id: pid,
         customer_rfq_id: inquiryId,
         status: 'pending',
         requested_date: date,
-        notes: notes.trim() || null,
       }));
       const { error: sErr } = await (supabase as any).from('samples').insert(sampleRows);
       if (sErr) { setSaving(false); toast.error(sErr.message); return; }
 
-      const { error: pErr } = await (supabase as any)
-        .from('products')
-        .update({ sample_stage: 'sampling' })
-        .in('id', selectedProductIds);
-      if (pErr) { setSaving(false); toast.error(pErr.message); return; }
-
-      toast.success(`Logged RFS · created ${selectedProductIds.length} sample${selectedProductIds.length === 1 ? '' : 's'}`);
+      toast.success(`Logged RFS · sample request with ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'}`);
     }
 
     setSaving(false);
