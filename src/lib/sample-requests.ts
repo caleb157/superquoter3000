@@ -18,7 +18,7 @@ export const SAMPLE_RED_DAYS = 14;
 const DAY = 86_400_000;
 
 export type SampleLineLite = { status: string; completed_at?: string | null };
-export type SampleClock = { state: 'open' | 'received' | 'empty'; label: string; tone: ClockTone; received: number; total: number };
+export type SampleClock = { state: 'open' | 'received' | 'empty'; label: string; tone: ClockTone; received: number; total: number; ms: number; stoppedAt?: Date };
 
 function localMidnight(dateOnly: string): Date {
   const [y, m, d] = dateOnly.slice(0, 10).split('-').map(Number);
@@ -34,10 +34,11 @@ export function computeSampleClock(
   const received = live.filter(l => l.status === 'completed');
   const total = live.length;
   const start = localMidnight(request.requested_date);
-  if (total === 0) return { state: 'empty', label: 'No samples on this request', tone: 'neutral', received: 0, total: 0 };
+  if (total === 0) return { state: 'empty', label: 'No samples on this request', tone: 'neutral', received: 0, total: 0, ms: 0 };
   if (received.length === total) {
     const stop = Math.max(...received.map(l => (l.completed_at ? new Date(l.completed_at).getTime() : start.getTime())));
-    return { state: 'received', label: `Samples received in ${formatQuotedIn(stop - start.getTime())}`, tone: 'done', received: total, total };
+    const ms = Math.max(0, stop - start.getTime());
+    return { state: 'received', label: `Samples received in ${formatQuotedIn(ms)}`, tone: 'done', received: total, total, ms, stoppedAt: new Date(stop) };
   }
   const ms = Math.max(0, now.getTime() - start.getTime());
   const pastDue = request.required_by_date ? now.getTime() > localMidnight(request.required_by_date).getTime() + DAY : false;
@@ -45,7 +46,7 @@ export function computeSampleClock(
   return {
     state: 'open',
     label: `Samples requested ${formatOpenFor(ms)} ago, ${received.length} of ${total} received`,
-    tone, received: received.length, total,
+    tone, received: received.length, total, ms,
   };
 }
 
