@@ -384,6 +384,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string | null
+          default_terms: Json | null
           ein_number: string | null
           email: string | null
           entity_type: string | null
@@ -410,6 +411,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string | null
+          default_terms?: Json | null
           ein_number?: string | null
           email?: string | null
           entity_type?: string | null
@@ -436,6 +438,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string | null
+          default_terms?: Json | null
           ein_number?: string | null
           email?: string | null
           entity_type?: string | null
@@ -2333,6 +2336,7 @@ export type Database = {
           sent_at: string | null
           share_token: string | null
           status: string | null
+          terms: Json | null
           totals: Json | null
           valid_until: string | null
           viewed_at: string | null
@@ -2358,6 +2362,7 @@ export type Database = {
           sent_at?: string | null
           share_token?: string | null
           status?: string | null
+          terms?: Json | null
           totals?: Json | null
           valid_until?: string | null
           viewed_at?: string | null
@@ -2383,6 +2388,7 @@ export type Database = {
           sent_at?: string | null
           share_token?: string | null
           status?: string | null
+          terms?: Json | null
           totals?: Json | null
           valid_until?: string | null
           viewed_at?: string | null
