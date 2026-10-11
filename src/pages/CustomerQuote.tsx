@@ -102,6 +102,7 @@ interface QuoteData {
     notes?: string | null;
     payment_terms?: string | null;
     incoterm?: string | null;
+    terms?: { key: string; title: string; text: string }[] | null;
     created_at?: string | null;
   };
   entity: EntitySnap | null;
@@ -364,6 +365,7 @@ const CustomerQuote = () => {
           createdAt={data.snapshot.created_at ?? null}
           status={data.snapshot.status}
           paymentTerms={data.snapshot.payment_terms ?? null}
+          terms={data.snapshot.terms ?? null}
           incoterm={data.snapshot.incoterm ?? null}
           notes={data.snapshot.notes ?? null}
           products={productsForPdf}
@@ -911,6 +913,39 @@ const CustomerQuote = () => {
             </div>
           </div>
         </div>
+
+        {/* ============ TERMS AND POLICIES ============ */}
+        {Array.isArray(snapshot.terms) && snapshot.terms.length > 0 && (() => {
+          // The payment clause follows this quote's own payment terms when set (it varies by customer).
+          const clauses = snapshot.terms.map(c =>
+            c.key === 'payment' && snapshot.payment_terms ? { ...c, text: snapshot.payment_terms } : c);
+          const key = clauses.slice(0, 4);
+          return (
+            <>
+              {/* Screen: first four clauses, the rest on demand. Print: full list on its own page. */}
+              <section className="mt-6 bg-white border border-slate-200 rounded-lg p-5 print:hidden">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Key terms</h3>
+                <dl className="space-y-2 text-sm text-slate-700">
+                  {key.map(c => (<div key={c.key}><dt className="font-medium text-slate-900 inline">{c.title}. </dt><dd className="inline">{c.text}</dd></div>))}
+                </dl>
+                {clauses.length > 4 && (
+                  <details className="mt-3 text-sm">
+                    <summary className="cursor-pointer text-slate-600 hover:text-slate-900">All terms and policies</summary>
+                    <dl className="mt-2 space-y-2 text-slate-700">
+                      {clauses.slice(4).map(c => (<div key={c.key}><dt className="font-medium text-slate-900 inline">{c.title}. </dt><dd className="inline">{c.text}</dd></div>))}
+                    </dl>
+                  </details>
+                )}
+              </section>
+              <section className="hidden print:block" style={{ breakBefore: 'page' }}>
+                <h3 className="text-base font-semibold text-slate-900 mb-3">Terms and Policies</h3>
+                <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-800">
+                  {clauses.map(c => (<li key={c.key}><span className="font-semibold">{c.title}.</span> {c.text}</li>))}
+                </ol>
+              </section>
+            </>
+          );
+        })()}
 
         {/* ============ FOOTER ============ */}
         <footer className="mt-10 pt-6 border-t border-slate-200 text-center text-xs text-slate-500 space-y-1">
