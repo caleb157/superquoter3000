@@ -61,36 +61,28 @@ WHERE s.request_id IS NULL
   AND sr.customer_rfq_id IS NOT DISTINCT FROM s.customer_rfq_id
   AND sr.requested_date = coalesce(s.requested_date, s.created_at::date);
 
--- 3. The product sample stage follows its sample lines from now on: any open line -> 'sampling',
---    otherwise any received line -> 'sampled'. Products with no lines keep whatever they had.
-CREATE OR REPLACE FUNCTION public.sync_product_sample_stage(p_product_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_stage text;
+-- 3. The product sample stage follows its sample lines (this replaces the existing trigger's body):
+--    any open line -> 'sampling'; otherwise any line received at the factory -> 'sampled';
+--    only cancelled lines -> cleared. Products with no lines keep whatever they had.
+CREATE OR REPLACE FUNCTION public.update_product_sample_stage_on_sample_change()
+RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $function$
+DECLARE
+  v_product_id uuid;
+  v_stage text;
+  v_any int;
 BEGIN
-  IF p_product_id IS NULL THEN RETURN; END IF;
+  v_product_id := COALESCE(NEW.product_id, OLD.product_id);
+  IF v_product_id IS NULL THEN RETURN COALESCE(NEW, OLD); END IF;
   SELECT CASE
            WHEN bool_or(status = 'pending') THEN 'sampling'
            WHEN bool_or(status = 'completed') THEN 'sampled'
-         END
-    INTO v_stage
-  FROM public.samples WHERE product_id = p_product_id;
-  IF v_stage IS NOT NULL THEN
+         END,
+         count(*)
+    INTO v_stage, v_any
+  FROM public.samples WHERE product_id = v_product_id;
+  IF v_any > 0 THEN
     UPDATE public.products SET sample_stage = v_stage
-    WHERE id = p_product_id AND sample_stage IS DISTINCT FROM v_stage;
+    WHERE id = v_product_id AND sample_stage IS DISTINCT FROM v_stage;
   END IF;
-END $$;
-
-CREATE OR REPLACE FUNCTION public.samples_sync_stage_trigger()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF TG_OP IN ('UPDATE', 'DELETE') THEN PERFORM public.sync_product_sample_stage(OLD.product_id); END IF;
-  IF TG_OP IN ('INSERT', 'UPDATE') AND (TG_OP = 'INSERT' OR NEW.product_id IS DISTINCT FROM OLD.product_id OR NEW.status IS DISTINCT FROM OLD.status) THEN
-    PERFORM public.sync_product_sample_stage(NEW.product_id);
-  END IF;
-  RETURN NULL;
-END $$;
-
-DROP TRIGGER IF EXISTS samples_sync_stage ON public.samples;
-CREATE TRIGGER samples_sync_stage
-  AFTER INSERT OR UPDATE OR DELETE ON public.samples
-  FOR EACH ROW EXECUTE FUNCTION public.samples_sync_stage_trigger();
+  RETURN COALESCE(NEW, OLD);
+END $function$;
