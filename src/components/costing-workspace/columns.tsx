@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, patchCbm, patchProductsSame, setBucketTotal,
+  EDITABLE_BUCKETS, patchCbm, patchProductsSame, setBucketTotal, setLaborHours,
   type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { CostMixBar, GapChip, inr, num, parseNum, pct, usd } from './cells';
@@ -162,6 +162,36 @@ const costCol = ro('cost', 'Unit cost ₹', r => inr(r.costInr), 100);
 const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{usd(r.priceUsd)}</span>, 88);
 const gapCol: Col = { id: 'gap', label: 'vs target', width: 128, align: 'left', render: r => <GapChip row={r} /> };
 
+// ---------- labor ----------
+
+const laborHoursCol = (type: 'Finishing' | 'Packaging', id: string, label: string, hint: string): Col => ({
+  id, label, width: 96, align: 'right', hint,
+  edit: {
+    kind: 'number',
+    get: r => { const h = r.labor[type]; return h ? Math.round(h.hours * 1000) / 1000 : ''; },
+    display: r => { const h = r.labor[type]; return h ? `${num(h.hours, 2)}${h.auto ? '' : ' ✎'}` : ''; },
+    disabled: r => (r.labor[type] ? null : `No ${type} labor row on this product`),
+    write: (b, ids, raw) => {
+      const t = raw.trim().toLowerCase();
+      if (t === '' || t === 'auto') return setLaborHours(b, ids, type, 'auto');
+      const n = parseNum(raw);
+      return n == null || n < 0 ? null : setLaborHours(b, ids, type, n);
+    },
+  },
+  footer: rows => num(sumBy(rows, r => (r.labor[type]?.hours ?? 0) * r.qty), 1) + ' h',
+});
+
+const difficultyCol: Col = {
+  id: 'difficulty', label: 'Finish', width: 112, align: 'left',
+  edit: { kind: 'select', get: r => r.p.finishing_difficulty || 'Medium', options: b => b.difficulties.map((d: any) => ({ value: d.name, label: d.name })),
+    write: (b, ids, v) => patchProductsSame(b, ids, { finishing_difficulty: v }) },
+};
+const woodCol: Col = {
+  id: 'wood', label: 'Wood %', width: 76, align: 'right',
+  edit: { kind: 'number', get: r => Math.round((r.p.percent_wood ?? 1) * 100), display: r => `${Math.round((r.p.percent_wood ?? 1) * 100)}%`,
+    write: (b, ids, raw) => { const n = parseNum(raw); return n == null || n < 0 || n > 100 ? null : patchProductsSame(b, ids, { percent_wood: n / 100 }); } },
+};
+
 // ---------- views ----------
 
 export const VIEWS: View[] = [
@@ -262,6 +292,50 @@ export const VIEWS: View[] = [
     ],
   },
   {
+    id: 'labor', label: 'Labor', hint: 'Running inches → finishing budget and hours, packaging hours, all labor per unit',
+    cols: [
+      {
+        id: 'ri', label: 'Run. in.', width: 84, align: 'right',
+        hint: 'Running inches: longest + shortest side (long side only for Wood Table). Type a number to override for odd shapes; clear it to go back.',
+        edit: {
+          kind: 'number',
+          get: r => (Number(r.p.running_inches_override) > 0 ? r.p.running_inches_override : Math.round(r.r.ri * 100) / 100),
+          display: r => `${num(r.r.ri, 1)}${Number(r.p.running_inches_override) > 0 ? ' ✎' : ''}`,
+          write: (b, ids, raw) => {
+            if (raw.trim() === '') return patchProductsSame(b, ids, { running_inches_override: null });
+            const n = parseNum(raw);
+            return n == null || n < 0 ? null : patchProductsSame(b, ids, { running_inches_override: n || null });
+          },
+        },
+      },
+      difficultyCol,
+      ro('rpri', '₹ / run. in.', r => (r.r.autoLabor.finishingMethod === 'ri_budget'
+        ? inr(r.r.autoLabor.rupeesPerRi)
+        : <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground/60 cursor-default">n/a</span></TooltipTrigger><TooltipContent>Not a wood type: finishing uses the product type's MH per 100 running inches</TooltipContent></Tooltip>), 88,
+        { hint: 'Wood finishing labor rate for the difficulty (Settings → Finishing difficulty)' }),
+      woodCol,
+      ro('fin_budget', 'Finish budget ₹', r => inr(r.r.autoLabor.finishingBudgetInr), 108,
+        { hint: 'Running inches × ₹/run. in. × wood %. Divided by the Finishing hourly rate to get the hours.' }),
+      laborHoursCol('Finishing', 'fin_mh', 'Finish MH', 'Finishing man-hours per unit. Auto from the budget; type to set by hand (✎); type "auto" or clear to go back.'),
+      laborHoursCol('Packaging', 'pkg_mh', 'Pack MH', 'Packaging man-hours per unit: 0.015 × running inches. Type to set by hand (✎); type "auto" or clear to go back.'),
+      ro('other_mh', 'Other MH', (r, b) => {
+        const rows = b.oh.filter((o: any) => o.product_id === r.p.id && o.include !== 'No' && o.labor_type !== 'Finishing' && o.labor_type !== 'Packaging' && Number(o.man_hours_per_unit) > 0);
+        const total = rows.reduce((a: number, o: any) => a + Number(o.man_hours_per_unit), 0);
+        if (!total) return <span className="text-muted-foreground/50">—</span>;
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default">{num(total, 2)}</span></TooltipTrigger>
+            <TooltipContent className="text-xs">{rows.map((o: any) => <div key={o.id}>{o.labor_type}: {num(Number(o.man_hours_per_unit), 3)} h</div>)}<div className="mt-1 text-muted-foreground">Edit in the product panel</div></TooltipContent>
+          </Tooltip>
+        );
+      }, 84),
+      ro('mh_total', 'Total MH', r => <span className="font-medium">{num(r.r.manHoursPerUnit, 2)}</span>, 84,
+        { footer: rows => num(sumBy(rows, r => r.r.manHoursPerUnit * r.qty), 1) + ' h' }),
+      ro('labor_inr', 'Labor & OH ₹', r => <span className="font-semibold">{inr(r.buckets.labor)}</span>, 108,
+        { hint: 'Direct labor at each role\'s hourly rate plus indirect overhead per man-hour', footer: rows => inr(sumBy(rows, r => r.buckets.labor * r.qty)) }),
+    ],
+  },
+  {
     id: 'setup', label: 'Product setup', hint: 'Type, finish, wood content, source and outsourcing',
     cols: [
       qtyCol,
@@ -270,16 +344,8 @@ export const VIEWS: View[] = [
         edit: { kind: 'select', get: r => r.p.product_type_id || '', options: b => [{ value: '', label: '—' }, ...b.productTypes.map((t: any) => ({ value: t.id, label: t.name }))],
           write: (b, ids, v) => patchProductsSame(b, ids, { product_type_id: v || null }) },
       },
-      {
-        id: 'difficulty', label: 'Finish', width: 112, align: 'left',
-        edit: { kind: 'select', get: r => r.p.finishing_difficulty || 'Medium', options: b => b.difficulties.map((d: any) => ({ value: d.name, label: d.name })),
-          write: (b, ids, v) => patchProductsSame(b, ids, { finishing_difficulty: v }) },
-      },
-      {
-        id: 'wood', label: 'Wood %', width: 76, align: 'right',
-        edit: { kind: 'number', get: r => Math.round((r.p.percent_wood ?? 1) * 100), display: r => `${Math.round((r.p.percent_wood ?? 1) * 100)}%`,
-          write: (b, ids, raw) => { const n = parseNum(raw); return n == null || n < 0 || n > 100 ? null : patchProductsSame(b, ids, { percent_wood: n / 100 }); } },
-      },
+      difficultyCol,
+      woodCol,
       {
         id: 'source', label: 'Source', width: 140, align: 'left',
         edit: { kind: 'select', get: r => r.p.source_location_id || '', options: b => [{ value: '', label: 'In-house (Jodhpur)' }, ...b.locations.map((l: any) => ({ value: l.id, label: l.name }))],

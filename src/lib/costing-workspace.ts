@@ -92,6 +92,8 @@ export type WorkspaceRow = {
   /** Per-unit INR by editable bucket (finer hardware split). */
   editBuckets: Record<string, number>;
   quotes: Quote[];
+  /** Effective Finishing/Packaging hours per unit (auto rows follow the engine's estimate); null when the row is missing. */
+  labor: Record<'Finishing' | 'Packaging', { hours: number; auto: boolean } | null>;
   rawVendor: string;
   shippingName: string;
   costInr: number;
@@ -201,8 +203,20 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     const indirectInr = (r.indirectOhPerUnit || 0) * (1 + (r.capitalFactor || 0));
     const ms = targetUsd ? solveForMarkup({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, currentMarkup: r.markupPercent }) : null;
     const cs = targetUsd ? solveForMaxCost({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, markupPercent: r.markupPercent, buckets: [] }) : null;
+    const laborFor = (type: 'Finishing' | 'Packaging') => {
+      const rows = b.oh.filter(o => o.product_id === p.id && o.labor_type === type && o.include !== 'No');
+      if (!rows.length) return null;
+      if (type === 'Packaging' && p.packaging_type === 'no_packaging') return { hours: 0, auto: rows.every(o => o.is_auto_estimated) };
+      const est = type === 'Finishing' ? r.autoLabor.finishingMh : r.autoLabor.packagingMh;
+      // Mirrors the engine: an auto row takes the estimate when there is one.
+      return {
+        hours: rows.reduce((a, o) => a + (o.is_auto_estimated && est > 0 ? est : Number(o.man_hours_per_unit) || 0), 0),
+        auto: rows.every(o => o.is_auto_estimated),
+      };
+    };
     return {
       p, r,
+      labor: { Finishing: laborFor('Finishing'), Packaging: laborFor('Packaging') },
       cbmRow: b.cbm.find(c => c.product_id === p.id) || null,
       qty: Number(p.quantity) || 0,
       buckets, editBuckets, quotes,
@@ -306,7 +320,7 @@ export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
       db.from('product_types').select('*').order('name'),
       db.from('chemical_prices').select('*'),
       db.from('box_data').select('*'),
-      db.from('finishing_difficulty').select('name, adjustment_factor'),
+      db.from('finishing_difficulty').select('*'),
       db.from('local_transport_locations').select('id, name, cost_per_cbm_inr'),
       db.from('raw_material_costs').select('*'),
     ]),
@@ -504,6 +518,21 @@ export function patchOverhead(b: Bundle, id: string, patch: Record<string, any>)
     next: { ...b, oh: b.oh.map(o => (o.id === id ? { ...o, ...patch } : o)) },
     touched: row ? [row.product_id] : [],
     commit: async () => { check(await db.from('overhead_items').update(patch).eq('id', id)); },
+  };
+}
+
+/**
+ * Sets the Finishing or Packaging hours of each product: a number makes the row manual at that
+ * value; 'auto' hands it back to the running-inch estimate (autoLaborEstimate).
+ */
+export function setLaborHours(b: Bundle, ids: string[], laborType: 'Finishing' | 'Packaging', value: number | 'auto'): Mutation {
+  const patch = value === 'auto' ? { is_auto_estimated: true } : { is_auto_estimated: false, man_hours_per_unit: value };
+  const rows = b.oh.filter(o => ids.includes(o.product_id) && o.labor_type === laborType);
+  const rowIds = new Set(rows.map(r => r.id));
+  return {
+    next: { ...b, oh: b.oh.map(o => (rowIds.has(o.id) ? { ...o, ...patch } : o)) },
+    touched: [...new Set(rows.map(r => r.product_id))],
+    commit: async () => { if (rowIds.size) check(await db.from('overhead_items').update(patch).in('id', [...rowIds])); },
   };
 }
 

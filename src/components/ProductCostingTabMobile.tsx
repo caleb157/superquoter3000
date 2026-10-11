@@ -17,6 +17,7 @@ import { ProductChemicalsPicker }  from '@/components/ProductChemicalsPicker';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
+import { autoLaborEstimate } from '@/lib/costing-engine';
 import { cn } from '@/lib/utils';
 import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { VendorCombobox } from '@/components/VendorCombobox';
@@ -235,7 +236,7 @@ export function ProductCostingTabMobile(props: MobileCostingProps) {
 }
 
 // ===== Section A: Product Info =====
-function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId, overheadItems, setOverheadItems, ri }: MobileCostingProps) {
+function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, productId, overheadItems, setOverheadItems, ri, employees }: MobileCostingProps) {
   const productType = productTypes.find(pt => pt.id === product?.product_type_id);
 
   const packagingType = product?.packaging_type || 'ic_mc';
@@ -246,7 +247,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
   useEffect(() => {
     (async () => {
       const [d, l] = await Promise.all([
-        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').order('sort_order'),
+        (supabase as any).from('finishing_difficulty').select('*').order('sort_order'),
         (supabase as any).from('local_transport_locations').select('id, name').eq('active', true).order('sort_order'),
       ]);
       if (d.error) {
@@ -349,11 +350,7 @@ function InfoSection({ product, productTypes, cbm, updateProduct, updateCbm, pro
       <Field label="Difficulty">
         <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
           updateProduct('finishing_difficulty', v);
-          const newFactor = difficulties.find(x => x.name === v)?.adjustment_factor
-            ?? calc.getDifficultyFactor(v);
-          const finishingMhPer100Ri = productType?.finishing_mh_per_100ri ?? 0;
-          const percentWood = product?.percent_wood ?? 1;
-          const newFinishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, newFactor, percentWood, ri);
+          const newFinishingMh = autoLaborEstimate({ product: { ...product, finishing_difficulty: v }, productType, difficulties, employees, packagingType }).finishingMh;
           const finRows = overheadItems.filter((i: any) => i.labor_type === 'Finishing');
           if (finRows.length) {
             const mh = parseFloat(newFinishingMh.toFixed(4));

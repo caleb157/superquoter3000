@@ -105,7 +105,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
     supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc').limit(100000),
     supabase.from('chemical_prices').select('*').limit(100000),
     supabase.from('box_data').select('*').limit(100000),
-    (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
+    (supabase as any).from('finishing_difficulty').select('*').limit(100000),
     (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr').limit(100000),
     (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
   ]);

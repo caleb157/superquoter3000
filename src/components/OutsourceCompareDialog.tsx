@@ -44,7 +44,7 @@ export function OutsourceCompareDialog({ open, onOpenChange, inquiryId, productI
         supabase.from('global_settings').select('*').limit(1).single(),
         supabase.from('product_types').select('*'),
         (supabase as any).from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
-        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+        (supabase as any).from('finishing_difficulty').select('*'),
         supabase.from('box_data').select('*'),
         (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
         supabase.from('chemical_prices').select('*'),

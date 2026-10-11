@@ -277,7 +277,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
     supabase.from('global_settings').select('*').limit(1).single(),
     supabase.from('product_types').select('*').limit(100000),
     (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr').limit(100000),
-    (supabase as any).from('finishing_difficulty').select('name, adjustment_factor').limit(100000),
+    (supabase as any).from('finishing_difficulty').select('*').limit(100000),
     (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
   ]);
   return {

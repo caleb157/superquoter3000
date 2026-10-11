@@ -103,10 +103,35 @@ export function prePackagedCbm(w: number, d: number, h: number): number {
   return (w * d * h) / 61020;
 }
 
+/** Running inches = longest + shortest dimension (49×14×55 → 55 + 14 = 69). */
 export function runningInches(w: number, d: number, h: number): number {
   const sorted = [w || 0, d || 0, h || 0].sort((a, b) => b - a);
-  return sorted[0] + sorted[1];
+  return sorted[0] + sorted[2];
 }
+
+/** Product type whose running inches are the long side only (a 72×36 table → 72). */
+export const LONG_SIDE_ONLY_TYPE = 'Wood Table';
+
+/** A product's running inches: its override if set, the long side for tables, else longest + shortest. */
+export function productRunningInches(
+  p: { width_inch?: number | null; depth_inch?: number | null; height_inch?: number | null; running_inches_override?: number | null },
+  productTypeName?: string | null,
+): number {
+  const override = Number(p.running_inches_override);
+  if (override > 0) return override;
+  const w = p.width_inch || 0, d = p.depth_inch || 0, h = p.height_inch || 0;
+  if (productTypeName === LONG_SIDE_ONLY_TYPE) return Math.max(w, d, h);
+  return runningInches(w, d, h);
+}
+
+/** Packaging labor: man-hours per running inch, for every packaging type except "No packaging". */
+export const PACKAGING_MH_PER_RI = 0.015;
+
+/** ₹ per running inch for wood finishing labor when a difficulty has no rate set. */
+export const DEFAULT_RUPEES_PER_RI: Record<string, number> = {
+  Wax: 5, 'Extremely Easy': 5, 'Very Easy': 5, Easy: 6, Medium: 7, Hard: 8, 'Very Hard': 8,
+};
+export const isWoodType = (typeName?: string | null) => /^wood\b/i.test((typeName || '').trim());
 
 export function calcICDimensions(
   productW: number, productD: number, productH: number,

@@ -19,7 +19,7 @@ import { loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, convertFro
 import * as calc from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeProductCosting, OUTSOURCED_COGS_NAME, type ShipmentPool } from '@/lib/costing-engine';
+import { autoLaborEstimate, computeProductCosting, OUTSOURCED_COGS_NAME, type ShipmentPool } from '@/lib/costing-engine';
 import { buildShipmentPools, invalidateShipmentPool } from '@/lib/shipment-pool';
 import { loadFobRates } from '@/lib/fob-rates';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
@@ -283,7 +283,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('box_data').select('*'),
         (supabase as any).from('chemical_prices').select('*'),
         (supabase as any).from('hardware_prices').select('*').order('name'),
-        (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+        (supabase as any).from('finishing_difficulty').select('*'),
         (supabase as any).from('local_transport_locations').select('id, name, cost_per_cbm_inr, active, sort_order').eq('active', true).order('sort_order'),
         (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
       ]);
@@ -422,7 +422,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const d = product?.depth_inch || 0;
   const h = product?.height_inch || 0;
   const qty = product?.quantity || 100;
-  const ri = calc.runningInches(w, d, h);
+  const ri = calc.productRunningInches(product ?? {}, productType?.name);
   const prePackCbm = calc.prePackagedCbm(w, d, h);
   const percentWood = product?.percent_wood ?? 1;
   const difficulty = product?.finishing_difficulty || 'Medium';
@@ -891,13 +891,9 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   useEffect(() => {
     if (!dataLoaded || !product || !productType || !globalSettings || overheadItems.length === 0 || employees.length === 0) return;
 
-    // Phase 3a: new finishing formula — MH/100RI × adjustment factor × %wood × RI/100
-    const finishingMhPer100Ri = productType.finishing_mh_per_100ri ?? 0;
-    const finishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, difficultyFactor, percentWood, ri);
-
-    // Phase 3a: pick packaging MH/CBM rate from product_types based on packaging type.
-    const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
-    const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
+    // Same estimate as the costing engine: wood finishing from the ₹/running-inch budget,
+    // packaging at 0.015 man-hours per running inch.
+    const { finishingMh, packagingMh } = autoLaborEstimate({ product, productType, difficulties, employees, packagingType });
 
     const ohUpdates: { id: string; man_hours_per_unit: number; include?: string }[] = [];
 
@@ -925,7 +921,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, difficulty, difficultyFactor, percentWood, finalUnitCbm, noPackaging, packagingType, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, recalcTick]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, (product as any)?.running_inches_override, difficulty, difficultyFactor, percentWood, finalUnitCbm, noPackaging, packagingType, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, difficulties, recalcTick]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {
@@ -1454,10 +1450,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
                 <Select value={product.finishing_difficulty || 'Medium'} onValueChange={v => {
                   updateProduct('finishing_difficulty', v);
                   // Immediately recompute Finishing overhead MH/unit with the new difficulty.
-                  const newFactor = difficulties.find(x => x.name === v)?.adjustment_factor
-                    ?? calc.getDifficultyFactor(v);
-                  const finishingMhPer100Ri = productType?.finishing_mh_per_100ri ?? 0;
-                  const newFinishingMh = calc.calcFinishingMhPerUnit(finishingMhPer100Ri, newFactor, percentWood, ri);
+                  const newFinishingMh = autoLaborEstimate({ product: { ...product, finishing_difficulty: v }, productType, difficulties, employees, packagingType }).finishingMh;
                   const finRows = overheadItems.filter(i => i.labor_type === 'Finishing');
                   if (finRows.length) {
                     const mh = parseFloat(newFinishingMh.toFixed(4));

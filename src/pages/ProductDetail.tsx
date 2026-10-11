@@ -139,7 +139,7 @@ const ProductDetail = () => {
         : Promise.resolve({ data: null }),
       supabase.from('chemical_prices').select('*'),
       supabase.from('box_data').select('*'),
-      (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+      (supabase as any).from('finishing_difficulty').select('*'),
       (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
       (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
     ]);

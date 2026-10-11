@@ -280,7 +280,7 @@ export async function generateRawPieceRfq(
     productIds.length ? supabase.from('cbm_estimates').select('*').in('product_id', productIds) : Promise.resolve(empty),
     supabase.from('product_types').select('*'),
     (supabase as any).from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
-    (supabase as any).from('finishing_difficulty').select('name, adjustment_factor'),
+    (supabase as any).from('finishing_difficulty').select('*'),
     supabase.from('box_data').select('*'),
     (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr'),
     (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active'),
