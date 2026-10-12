@@ -36,6 +36,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 
 import { useCogsCategories, HARDWARE_COGS_TYPES_WITH_LEGACY, isHardwareCogsType } from '@/lib/cogs-categories';
+import { recordCostChange } from '@/lib/cost-history';
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
@@ -1093,6 +1094,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
       }).eq('id', product.id).then(() => {
         onProductUpdated?.();
       });
+      if (engine) void recordCostChange(product.id, engine);
     };
     // After a recost or packaging auto-disable, write straight away so other
     // screens never observe the stale cached price.

@@ -3,6 +3,7 @@
 // and ProductCostingTab so results are identical.
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
+import { recordCostChange } from '@/lib/cost-history';
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
@@ -183,7 +184,8 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
 /**
  * Persists the engine's resolved auto-calc values back to cogs_items
  * and writes calculated_unit_price_usd / calculated_unit_cost_usd to the product.
- * Compare-before-write to avoid redundant writes.
+ * Compare-before-write to avoid redundant writes. Also logs a cost history row when the
+ * costing moved; `cause` (e.g. "Live exchange rate") prefixes that row's reason.
  */
 export async function persistResolvedCosting(
   productId: string,
@@ -191,6 +193,7 @@ export async function persistResolvedCosting(
   cogsItems: any[],
   nonUnitCogs: any[],
   engineResult: CostingEngineResult,
+  cause?: string,
 ): Promise<void> {
   const writes: Promise<any>[] = [];
 
@@ -253,6 +256,8 @@ export async function persistResolvedCosting(
     );
   }
 
+  writes.push(recordCostChange(productId, engineResult, cause));
+
   await Promise.all(writes);
 }
 
@@ -298,7 +303,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
  * seed missing rows, compute via the engine, persist values + price.
  * Returns the computed unit price (USD), or null if it couldn't compute.
  */
-export async function recostProduct(productId: string, sharedRefs?: SharedRefData): Promise<number | null> {
+export async function recostProduct(productId: string, sharedRefs?: SharedRefData, cause?: string): Promise<number | null> {
   await seedDefaultCostingRows(productId);
 
   const refs = sharedRefs || (await loadSharedRefs());
@@ -347,6 +352,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
     (cogsRes.data || []) as any[],
     (nuRes.data || []) as any[],
     result,
+    cause,
   );
 
   return Number.isFinite(result.summary.unit_price_usd) ? result.summary.unit_price_usd : null;
@@ -358,6 +364,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
 export async function recostInquiry(
   inquiryId: string,
   onProgress?: (done: number, total: number) => void,
+  cause?: string,
 ): Promise<void> {
   const { data: products } = await supabase
     .from('products')
@@ -377,7 +384,7 @@ export async function recostInquiry(
       while (cursor < ids.length) {
         const i = cursor++;
         try {
-          await recostProduct(ids[i], refs);
+          await recostProduct(ids[i], refs, cause);
         } catch (e) {
           console.error('recostProduct failed for', ids[i], e);
         }
