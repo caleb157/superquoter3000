@@ -17,7 +17,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { supabase } from '@/integrations/supabase/client';
 import { customerPrimary } from '@/lib/customer-name';
 import {
-  PD_ITEMS, PD_LEGACY_CATEGORY_ALIAS, pdDisabledReason, pdIsDisabled,
+  PD_ITEMS, PD_LEGACY_CATEGORY_ALIAS, PD_REPEAT_ORDER_KEY, pdDisabledReason, pdIsDisabled, pdRepeatOrderUpserts,
   type PdItemDef, type PdItemKey,
 } from '@/lib/pd-items';
 import { cn } from '@/lib/utils';
@@ -235,6 +235,23 @@ export default function PdDashboard() {
     }
   };
 
+  /** Repeat order: ticking marks every applicable item done; unticking leaves the items as they are. */
+  const toggleRepeat = async (p: Row, next: boolean) => {
+    const repeatKey = `${p.id}:${PD_REPEAT_ORDER_KEY}`;
+    const { data: auth } = await supabase.auth.getUser();
+    const upserts = pdRepeatOrderUpserts(p, next, checked, cogsCats, auth.user?.id ?? null, new Date().toISOString());
+    const keys = upserts.map(u => `${u.product_id}:${u.item_key}`);
+    const prev = Object.fromEntries(keys.map(k => [k, !!checked[k]]));
+    setChecked(s => ({ ...s, ...Object.fromEntries(upserts.map(u => [`${u.product_id}:${u.item_key}`, u.is_checked])) }));
+    setSaving(s => ({ ...s, [repeatKey]: true }));
+    const { error } = await supabase.from('pd_checklist_items').upsert(upserts, { onConflict: 'product_id,item_key' });
+    setSaving(s => ({ ...s, [repeatKey]: false }));
+    if (error) {
+      setChecked(s => ({ ...s, ...prev }));
+      toast.error('Could not save: ' + error.message);
+    }
+  };
+
   const groups: { name: string; items: PdItemDef[] }[] = [];
   for (const it of PD_ITEMS) {
     const g = groups[groups.length - 1];
@@ -362,6 +379,9 @@ export default function PdDashboard() {
                       <th rowSpan={2} className="sticky left-0 z-30 bg-muted text-left px-2 py-1.5 border-r border-b font-medium w-[220px] min-w-[220px]">SKU / Product</th>
                       <th rowSpan={2} className="text-left px-2 py-1.5 border-r border-b font-medium w-[180px] min-w-[180px]">Inquiry</th>
                       <th rowSpan={2} className="text-left px-2 py-1.5 border-r border-b font-medium w-[140px] min-w-[140px]">Customer</th>
+                      <th rowSpan={2} title="Repeat order: ticks every applicable PD item" className="text-center px-1 py-1.5 border-r border-b font-medium w-[64px] min-w-[64px]">
+                        <span className="block text-[10px] leading-tight">Repeat order</span>
+                      </th>
                       {groups.map(g => (
                         <th key={g.name} colSpan={g.items.length} className="text-center px-1 py-1 border-b border-l font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
                           {g.name}
@@ -404,6 +424,17 @@ export default function PdDashboard() {
                             <Link to={`/inquiry/${p.inquiry_id}`} className="hover:underline block truncate max-w-[170px]">{p.inquiry_label}</Link>
                           </td>
                           <td className="px-2 py-1.5 border-r border-b text-muted-foreground truncate max-w-[130px]">{p.customer_label}</td>
+                          <td className="px-1 py-1.5 border-r border-b text-center w-[64px] min-w-[64px]">
+                            <div className="flex items-center justify-center">
+                              <Checkbox
+                                checked={!!checked[`${p.id}:${PD_REPEAT_ORDER_KEY}`]}
+                                disabled={!!saving[`${p.id}:${PD_REPEAT_ORDER_KEY}`]}
+                                onCheckedChange={v => toggleRepeat(p, v === true)}
+                                aria-label={`Repeat order — ${p.sku || p.name}`}
+                                className="border-2 border-border bg-background data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground"
+                              />
+                            </div>
+                          </td>
                           {PD_ITEMS.map((it, i) => {
                             const cellKey = `${p.id}:${it.key}`;
                             const disabled = isDisabled(p, it);
