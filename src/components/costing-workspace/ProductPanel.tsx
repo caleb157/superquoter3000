@@ -15,6 +15,7 @@ import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { avgRateByDesignation, npmToMarkup } from '@/lib/calculations';
+import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 import { COGS_CATEGORY_FALLBACK, isHardwareCogsType, useCogsCategories } from '@/lib/cogs-categories';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
@@ -584,7 +585,7 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
           </thead>
           <tbody>
             {oh.map(o => {
-              const rate = avgRateByDesignation(bundle.employees as any, o.labor_type);
+              const rate = avgRateByDesignation(withLiveDirectRates(bundle.employees as any, applyLiveRates(bundle.gs)), o.labor_type);
               const off = o.include === 'No';
               const shown = o.is_auto_estimated && o.labor_type === 'Finishing' ? row.r.autoLabor?.finishingMh ?? o.man_hours_per_unit
                 : o.is_auto_estimated && o.labor_type === 'Packaging' ? row.r.autoLabor?.packagingMh ?? o.man_hours_per_unit : o.man_hours_per_unit;

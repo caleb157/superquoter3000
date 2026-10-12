@@ -1307,6 +1307,15 @@ export type Database = {
           exchange_rate: number
           id: string
           indirect_overhead_per_mh: number
+          use_live_rates: boolean
+          live_burdened_per_mh: number | null
+          live_currency_rates: Json | null
+          live_direct_rates: Json | null
+          live_exchange_rate: number | null
+          live_exchange_rate_at: string | null
+          live_labor_at: string | null
+          live_labor_detail: Json | null
+          live_rates_warnings: string[] | null
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
           opening_cash_inr: number
@@ -1334,6 +1343,15 @@ export type Database = {
           exchange_rate?: number
           id?: string
           indirect_overhead_per_mh?: number
+          use_live_rates?: boolean
+          live_burdened_per_mh?: number | null
+          live_currency_rates?: Json | null
+          live_direct_rates?: Json | null
+          live_exchange_rate?: number | null
+          live_exchange_rate_at?: string | null
+          live_labor_at?: string | null
+          live_labor_detail?: Json | null
+          live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           opening_cash_inr?: number
@@ -1361,6 +1379,15 @@ export type Database = {
           exchange_rate?: number
           id?: string
           indirect_overhead_per_mh?: number
+          use_live_rates?: boolean
+          live_burdened_per_mh?: number | null
+          live_currency_rates?: Json | null
+          live_direct_rates?: Json | null
+          live_exchange_rate?: number | null
+          live_exchange_rate_at?: string | null
+          live_labor_at?: string | null
+          live_labor_detail?: Json | null
+          live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
           opening_cash_inr?: number

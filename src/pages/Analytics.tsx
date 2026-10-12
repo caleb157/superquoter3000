@@ -13,6 +13,7 @@ import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 import type { Ccy } from '@/lib/master-analytics';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { applyLiveRates } from '@/lib/live-rates';
 
 const VALID_PRESETS: RangePreset[] = ['7d', '14d', '30d', 'this_q', 'last_q', 'this_fy', 'last_fy', 'this_cy', 'last_cy', 'custom'];
 
@@ -47,7 +48,7 @@ const Analytics = () => {
   useEffect(() => {
     supabase.from('global_settings').select('*').limit(1).maybeSingle().then(({ data }) => {
       const d: any = data; if (!d) return;
-      setSettings({ id: d.id, hqRate: Number(d.exchange_rate) || 0, overheadMonths: d.overhead_avg_months ?? 3, openingCash: Number(d.opening_cash_inr) || 0, slowQuote: d.slow_quote_days ?? 7, slowSample: d.slow_sample_days ?? 14 });
+      setSettings({ id: d.id, hqRate: Number(applyLiveRates(d).exchange_rate) || 0, overheadMonths: d.overhead_avg_months ?? 3, openingCash: Number(d.opening_cash_inr) || 0, slowQuote: d.slow_quote_days ?? 7, slowSample: d.slow_sample_days ?? 14 });
     });
   }, []);
   const saveSetting = async (col: string, val: number, key: 'overheadMonths' | 'openingCash') => {

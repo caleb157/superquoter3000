@@ -2,7 +2,7 @@
 // search box can jump to a setting by name (e.g. "exchange rate" finds General).
 
 export type SectionId =
-  | 'task-automations' | 'general' | 'entities' | 'team' | 'integrations' | 'projections'
+  | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'team' | 'integrations' | 'projections'
   | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
@@ -18,6 +18,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Company',
     items: [
       { id: 'general', label: 'General', keywords: ['exchange rate', 'inr usd', 'indirect overhead', 'man-hour', 'auto transport', 'slow quote', 'slow sample', 'threshold', 'below moq', 'surcharge'] },
+      { id: 'live-rates', label: 'Live rates', keywords: ['live', 'odoo', 'trax', 'exchange rate', 'fully burdened', 'indirect overhead', 'direct wages', 'price impact'] },
       { id: 'entities', label: 'Company entities', keywords: ['entity', 'parable ventures', 'dkt', 'logo', 'address', 'bank', 'gst', 'quote terms', 'terms and policies'] },
       { id: 'currencies', label: 'Currencies', keywords: ['currency', 'import rate', 'export rate', 'fx', 'gbp', 'eur', 'aud'] },
       { id: 'team', label: 'Team', keywords: ['users', 'members', 'roles', 'admin', 'access', 'assignee'] },
