@@ -28,6 +28,7 @@ import { priceProductLines, resolveQuoteDefaults } from '@/lib/quote-rough';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
+import { VendorRfqSheetDialog } from '@/components/vendor-rfq/VendorRfqSheetDialog';
 import { RawTargetsDialog } from '@/components/RawTargetsDialog';
 import { OutsourceCompareDialog } from '@/components/OutsourceCompareDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
@@ -158,6 +159,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
+  const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
   const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
   const [outsourceCompareOpen, setOutsourceCompareOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
@@ -737,6 +739,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
+        onVendorRfqSheet={() => setRfqSheetOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
         onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
         onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
@@ -755,6 +758,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onOpenChange={setRawTargetsOpen}
         inquiryId={inquiryId}
         productIds={Array.from(selected)}
+      />
+
+      <VendorRfqSheetDialog
+        open={rfqSheetOpen}
+        onOpenChange={setRfqSheetOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        onCreated={() => { setSelected(new Set()); }}
       />
 
       <GenerateRfqDialog

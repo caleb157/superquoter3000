@@ -12,13 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettings, CogsCategoriesSettings, LocalTransportSettings } from '@/components/Phase2Settings';
 import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefaultChemicalsEditor';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { ALL_SECTIONS, VALID_SECTIONS, searchSettings, type SectionId } from '@/lib/settings-nav';
 
 // Generic editable table component
 function EditableTable<T extends { id: string }>({
@@ -389,84 +390,6 @@ function WrappingSettings() {
   );
 }
 
-type SectionId =
-  | 'general' | 'entities' | 'team' | 'integrations' | 'task-automations' | 'projections'
-  | 'vendors' | 'customers' | 'employees'
-  | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
-  | 'currencies' | 'finishing-difficulty'
-  | 'raw-materials' | 'cogs-categories'
-  | 'local-transport' | 'container-types' | 'data-export';
-
-const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[] = [
-  {
-    label: 'General',
-    items: [
-      { id: 'general', label: 'General' },
-      { id: 'currencies', label: 'Currencies' },
-      { id: 'entities', label: 'Company entities' },
-      { id: 'team', label: 'Team' },
-      { id: 'integrations', label: 'Integrations' },
-      { id: 'task-automations', label: 'Task automations' },
-      { id: 'projections', label: 'Projections' },
-    ],
-  },
-  {
-    label: 'People',
-    items: [
-      { id: 'vendors', label: 'Vendors' },
-      { id: 'customers', label: 'Customers' },
-      { id: 'employees', label: 'Employees' },
-    ],
-  },
-  {
-    label: 'Labor',
-    items: [
-      { id: 'finishing-difficulty', label: 'Finishing difficulty' },
-    ],
-  },
-  {
-    label: 'Products',
-    items: [
-      { id: 'product-types', label: 'Product types' },
-      { id: 'wood', label: 'Wood prices' },
-      { id: 'chemicals', label: 'Chemicals' },
-      { id: 'hardware', label: 'Hardware' },
-    ],
-  },
-  {
-    label: 'Raw Materials',
-    items: [
-      { id: 'raw-materials', label: 'Raw material costs' },
-      { id: 'cogs-categories', label: 'COGS categories' },
-    ],
-  },
-  {
-    label: 'Logistics',
-    items: [
-      { id: 'shipping', label: 'Shipping' },
-      { id: 'fob-rates', label: 'FOB Rates' },
-      { id: 'local-transport', label: 'Local transport' },
-      { id: 'container-types', label: 'Container types' },
-    ],
-  },
-  {
-    label: 'Packaging',
-    items: [
-      { id: 'wrapping', label: 'Wrapping' },
-      { id: 'box-data', label: 'Box prices' },
-    ],
-  },
-  {
-    label: 'Backups',
-    items: [
-      { id: 'data-export', label: 'Data export' },
-    ],
-  },
-];
-
-const VALID_SECTIONS: SectionId[] = ['task-automations','general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
-
 const Settings = () => {
   const initialSection = (() => {
     if (typeof window === 'undefined') return 'general';
@@ -474,6 +397,7 @@ const Settings = () => {
     return (VALID_SECTIONS as string[]).includes(hash) ? (hash as SectionId) : 'general';
   })();
   const [section, setSection] = useState<SectionId>(initialSection);
+  const [query, setQuery] = useState('');
   useEffect(() => {
     const onHash = () => {
       const h = window.location.hash.replace('#', '');
@@ -712,17 +636,34 @@ const Settings = () => {
     }
   };
 
-  const activeLabel = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === section)?.label ?? '';
+  const activeLabel = ALL_SECTIONS.find(i => i.id === section)?.label ?? '';
+  const groups = searchSettings(query);
+  const go = (id: SectionId) => { setSection(id); if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${id}`); };
 
   return (
     <AppLayout>
       <div className="flex gap-6 -mt-2">
         {/* Sidebar */}
-        <aside className="w-[180px] shrink-0 border-r border-border bg-card min-h-[calc(100vh-8rem)]">
+        <aside className="w-[200px] shrink-0 border-r border-border bg-card min-h-[calc(100vh-8rem)]">
           <div className="px-3 py-4">
             <h1 className="text-base font-serif font-medium tracking-tight mb-4 px-2">Settings</h1>
+            <div className="relative mb-4">
+              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && groups[0]?.items[0]) go(groups[0].items[0].id);
+                  if (e.key === 'Escape') setQuery('');
+                }}
+                placeholder="Search settings"
+                aria-label="Search settings"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
             <nav className="space-y-4">
-              {NAV_GROUPS.map(group => (
+              {groups.length === 0 && <p className="px-2 text-xs text-muted-foreground">No setting matches “{query}”.</p>}
+              {groups.map(group => (
                 <div key={group.label}>
                   <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {group.label}
@@ -731,7 +672,7 @@ const Settings = () => {
                     {group.items.map(item => (
                       <button
                         key={item.id}
-                        onClick={() => { setSection(item.id); if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${item.id}`); }}
+                        onClick={() => go(item.id)}
                         className={cn(
                           'w-full text-left px-2 py-1.5 rounded text-xs transition-colors',
                           section === item.id
