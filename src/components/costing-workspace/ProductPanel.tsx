@@ -14,6 +14,7 @@ import { FobEstimatePanel } from '@/components/FobEstimatePanel';
 import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { supabase } from '@/integrations/supabase/client';
+import { shrinkImageForUpload } from '@/lib/image-resize';
 import { avgRateByDesignation, npmToMarkup } from '@/lib/calculations';
 import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 import { COGS_CATEGORY_FALLBACK, isHardwareCogsType, useCogsCategories } from '@/lib/cogs-categories';
@@ -353,8 +354,9 @@ function ProductDetails({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
   const set = (patch: Record<string, any>) => apply(b => patchProductsSame(b, [id], patch));
   const [notes, setNotes] = useState<string | null>(null);
   const upload = async (file: File) => {
-    const path = `${id}.${file.name.split('.').pop() || 'jpg'}`;
-    const { error } = await supabase.storage.from('product-photos').upload(path, file, { contentType: file.type, upsert: true });
+    const img = await shrinkImageForUpload(file);
+    const path = `${id}.${img.ext}`;
+    const { error } = await supabase.storage.from('product-photos').upload(path, img.blob, { contentType: img.contentType, upsert: true });
     if (error) { toast.error('Upload failed: ' + error.message); return; }
     const { data } = supabase.storage.from('product-photos').getPublicUrl(path);
     // A new query string makes the browser fetch the replaced image.

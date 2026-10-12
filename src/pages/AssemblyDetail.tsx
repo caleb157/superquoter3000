@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { shrinkImageForUpload } from '@/lib/image-resize';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -267,9 +268,9 @@ const AssemblyDetail = () => {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file || !id) return;
-                        const ext = file.name.split('.').pop() || 'jpg';
-                        const path = `assembly-${id}.${ext}`;
-                        const { error: uploadErr } = await supabase.storage.from('product-photos').upload(path, file, { contentType: file.type, upsert: true });
+                        const img = await shrinkImageForUpload(file);
+                        const path = `assembly-${id}.${img.ext}`;
+                        const { error: uploadErr } = await supabase.storage.from('product-photos').upload(path, img.blob, { contentType: img.contentType, upsert: true });
                         if (uploadErr) { toast.error('Upload failed: ' + uploadErr.message); return; }
                         const { data: urlData } = supabase.storage.from('product-photos').getPublicUrl(path);
                         updateAssembly('photo_url', urlData.publicUrl);
