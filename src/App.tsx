@@ -13,7 +13,6 @@ import Settings from "./pages/Settings";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
-import ProjectRedirect from "./pages/ProjectRedirect";
 import ProductDetail from "./pages/ProductDetail";
 import AssemblyDetail from "./pages/AssemblyDetail";
 import CustomerQuote from "./pages/CustomerQuote";
@@ -123,7 +122,6 @@ const App = () => (
                   <Products />
                 </ProtectedRoute>
               } />
-              <Route path="/project/:id" element={<ProjectRedirect />} />
               <Route path="/product/:id" element={
                 <ProtectedRoute requireAdminOrTeam>
                   <ProductDetail />
