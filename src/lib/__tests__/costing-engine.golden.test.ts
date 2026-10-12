@@ -47,7 +47,8 @@ function legacyComputeOne(args: {
   const packagingType = p.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
   const noPackaging = packagingType === 'no_packaging';
-  const finalUnitCbm = noPackaging ? prePackCbm : (cbmRow?.final_unit_cbm || 0);
+  // Packaged CBM is computed from the product and its boxes (not the stored final_unit_cbm).
+  const finalUnitCbm = calc.computePackagedUnitCbm({ product: p, cbmRow, boxData, productType, globalSettings: gs });
 
   const autoIcDims = calc.calcICDimensions(w, d, h, icAdd);
   const icDims = {
@@ -154,8 +155,8 @@ function legacyComputeOne(args: {
   const diffName = p.finishing_difficulty || 'Medium';
   const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor) ?? calc.getDifficultyFactor(diffName);
   const finishingMh = calc.calcFinishingMhPerUnit(Number(productType?.finishing_mh_per_100ri) || 0, difficultyFactor, percentWood, ri);
-  const pkgMhPerCbm = calc.packagingMhPerCbmForType(productType, packagingType);
-  const packagingMh = noPackaging ? 0 : calc.calcPackagingLaborMhPerUnit(pkgMhPerCbm, finalUnitCbm);
+  // Packaging labor: a flat man-hours-per-running-inch rate (see autoLaborEstimate).
+  const packagingMh = noPackaging ? 0 : calc.productRunningInches(p, productType?.name) * calc.PACKAGING_MH_PER_RI;
 
   const ohItems = productOh.map((item: any) => {
     let mh = item.man_hours_per_unit || 0;

@@ -22,6 +22,7 @@ import QuoteComparison from "./pages/QuoteComparison";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
+import VendorRfqSheet from "./pages/VendorRfqSheet";
 import InquiryDetail from "./pages/InquiryDetail";
 import CostingWorkspace from "./pages/CostingWorkspace";
 import InquiryPdView from "./pages/InquiryPdView";
@@ -36,6 +37,7 @@ import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
 import IronWeightCalculator from "./pages/IronWeightCalculator";
+import ExportDocuments from "./pages/ExportDocuments";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import SoProfitability from "./pages/SoProfitability";
@@ -142,6 +144,9 @@ const App = () => (
                   <VendorRfqEditor />
                 </ProtectedRoute>
               } />
+              <Route path="/vendor-rfq-sheet/:batchId" element={
+                <ProtectedRoute requireAdminOrTeam><VendorRfqSheet /></ProtectedRoute>
+              } />
               <Route path="/vendor-rfq/view/:token" element={<VendorRfqPublicView />} />
               <Route path="/quotes" element={
                 <ProtectedRoute requireAdminOrTeam>
@@ -171,6 +176,9 @@ const App = () => (
               } />
               <Route path="/tools/iron-weight" element={
                 <ProtectedRoute requireAdminOrTeam><IronWeightCalculator /></ProtectedRoute>
+              } />
+              <Route path="/tools/export-docs" element={
+                <ProtectedRoute requireAdminOrTeam><ExportDocuments /></ProtectedRoute>
               } />
 
               <Route path="/freight-quotes" element={<ProtectedRoute requireAdminOrTeam><FreightQuotes /></ProtectedRoute>} />

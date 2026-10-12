@@ -6,7 +6,7 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { isHardwareCogsType } from '@/lib/cogs-categories';
 import { customerPrimary } from '@/lib/customer-name';
-interface RfqLineItem {
+export interface RfqLineItem {
   product_id?: string;
   product_name?: string;
   product_photo_url?: string;
@@ -264,8 +264,11 @@ export async function generateRawPieceRfq(
   inquiryId: string,
   filterProductIds?: string[],
   mode: RawTargetMode = 'raw_piece',
+  opts: { includeAll?: boolean; discount?: number } = {},
 ): Promise<{ title: string; items: RfqLineItem[]; discount: number }> {
-  const { products, cogs, project, discount, chemPrices } = await fetchInquiryContext(inquiryId, filterProductIds);
+  const ctx = await fetchInquiryContext(inquiryId, filterProductIds);
+  const { products, cogs, project, chemPrices } = ctx;
+  const discount = opts.discount ?? ctx.discount;
 
 
   const productIds = products.map((p: any) => p.id);
@@ -311,7 +314,7 @@ export async function generateRawPieceRfq(
 
   for (const p of products) {
     const rawCogsRows = cogs.filter((c: any) => c.product_id === p.id && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
-    if (mode === 'raw_piece' && rawCogsRows.length === 0) continue;
+    if (mode === 'raw_piece' && rawCogsRows.length === 0 && !opts.includeAll) continue;
 
 
     const pCogs = cogs.filter((c: any) => c.product_id === p.id);

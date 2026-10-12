@@ -22,6 +22,7 @@ import { InquiryProductsTab, type ProductFilterKey } from '@/components/InquiryP
 import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
 import { InquirySamplesTab } from '@/components/InquirySamplesTab';
+import { InquiryVendorRfqSheets } from '@/components/vendor-rfq/InquiryVendorRfqSheets';
 import { InquiryAssembliesTab } from '@/components/InquiryAssembliesTab';
 import { InquiryActivityFeed } from '@/components/InquiryActivityFeed';
 import { TaskList } from '@/components/TaskList';
@@ -454,6 +455,7 @@ export default function InquiryDetail() {
 
           <TabsContent value="quotes" className="mt-3">
             <InquiryQuotesTab inquiryId={id!} refreshKey={refreshKey} />
+            <InquiryVendorRfqSheets inquiryId={id!} refreshKey={refreshKey} />
           </TabsContent>
 
           <TabsContent value="samples" className="mt-3">

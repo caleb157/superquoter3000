@@ -25,14 +25,12 @@ import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryD
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
 import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
 import { priceProductLines, resolveQuoteDefaults } from '@/lib/quote-rough';
-import { BulkCostingUpdateDialog } from '@/components/BulkCostingUpdateDialog';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
+import { VendorRfqSheetDialog } from '@/components/vendor-rfq/VendorRfqSheetDialog';
 import { RawTargetsDialog } from '@/components/RawTargetsDialog';
 import { OutsourceCompareDialog } from '@/components/OutsourceCompareDialog';
-import { BulkSetNpmDialog } from '@/components/BulkSetNpmDialog';
-import { BulkTargetPriceDialog } from '@/components/BulkTargetPriceDialog';
 import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog';
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
 import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
@@ -109,6 +107,12 @@ type Props = {
 
 export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, onChange, refreshKey = 0 }: Props) {
   const navigate = useNavigate();
+  // Bulk costing, margin and target edits happen in the Costing Workspace, with this selection carried over.
+  const openWorkspace = (view: string) => {
+    const q = new URLSearchParams({ view });
+    if (selected.size > 0) q.set('select', Array.from(selected).join(','));
+    navigate(`/inquiry/${inquiryId}/costing?${q}`);
+  };
   const [products, setProducts] = useState<Product[]>([]);
   const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<ProductPriceCostMap>({});
@@ -148,15 +152,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
   const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
-  const [bulkCostingOpen, setBulkCostingOpen] = useState(false);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
-  const [bulkNpmOpen, setBulkNpmOpen] = useState(false);
-  const [bulkTargetPriceOpen, setBulkTargetPriceOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
   const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
+  const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
   const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
   const [outsourceCompareOpen, setOutsourceCompareOpen] = useState(false);
   const [logRfsOpen, setLogRfsOpen] = useState(false);
@@ -725,16 +727,17 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onSetStage={handleSetStage}
         onGenerateQuote={handleGenerateQuote}
         onGenerateSamples={handleRequestSamples}
-        onBulkCosting={() => setBulkCostingOpen(true)}
+        onBulkCosting={() => openWorkspace('buildup')}
         onBulkQuantity={() => setBulkQtyOpen(true)}
-        onBulkSetNpm={() => setBulkNpmOpen(true)}
-        onBulkTargetPrice={() => setBulkTargetPriceOpen(true)}
+        onBulkSetNpm={() => openWorkspace('price')}
+        onBulkTargetPrice={() => openWorkspace('price')}
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
+        onVendorRfqSheet={() => setRfqSheetOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
         onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
         onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
@@ -753,6 +756,14 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onOpenChange={setRawTargetsOpen}
         inquiryId={inquiryId}
         productIds={Array.from(selected)}
+      />
+
+      <VendorRfqSheetDialog
+        open={rfqSheetOpen}
+        onOpenChange={setRfqSheetOpen}
+        inquiryId={inquiryId}
+        productIds={Array.from(selected)}
+        onCreated={() => { setSelected(new Set()); }}
       />
 
       <GenerateRfqDialog
@@ -797,21 +808,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onApplied={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
-      <BulkSetNpmDialog
-        open={bulkNpmOpen}
-        onOpenChange={setBulkNpmOpen}
-        selectedProducts={selectedProducts.map(p => ({ id: p.id, markup_percent: p.markup_percent }))}
-        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
-      />
 
-      <BulkTargetPriceDialog
-        open={bulkTargetPriceOpen}
-        onOpenChange={setBulkTargetPriceOpen}
-        selectedProducts={selectedProducts.map(p => ({ id: p.id, target_price_usd: p.target_price_usd }))}
-        currency={quotingCurrency}
-        inrPerUsd={Number(Object.values(livePrices).find((v: any) => v?.exchange_rate)?.exchange_rate || 0)}
-        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
-      />
 
       <BulkSetSourceLocationDialog
         open={bulkSourceOpen}
@@ -830,13 +827,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
 
 
-      <BulkCostingUpdateDialog
-        open={bulkCostingOpen}
-        onOpenChange={setBulkCostingOpen}
-        selectedProductIds={Array.from(selected)}
-        selectedProductNames={selectedProducts.map(p => p.name)}
-        onApplied={() => { setRefresh(r => r + 1); onChange(); }}
-      />
 
       <BulkDeleteCogsDialog
         open={bulkDeleteCogsOpen}

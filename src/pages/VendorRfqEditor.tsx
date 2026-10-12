@@ -214,6 +214,11 @@ const VendorRfqEditor = () => {
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Button>
           <div className="flex items-center gap-2">
+            {rfq.batch_id && (
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate(`/vendor-rfq-sheet/${rfq.batch_id}`)}>
+                Open RFQ sheet
+              </Button>
+            )}
             <Badge className={STATUS_COLORS[rfq.status] || ''} variant="secondary">{rfq.status}</Badge>
             <span className="text-xs text-muted-foreground">{rfq.rfq_number}</span>
           </div>
