@@ -78,10 +78,3 @@ export async function seedProductDefaults(productId: string, opts?: { mcHBuffer?
     }) : Promise.resolve(),
   ]);
 }
-
-export async function seedProductDefaultsForMany(productIds: string[]) {
-  // Fetch the global default once and pass it through, so even cold-cache
-  // bulk inserts only do a single global_settings round-trip.
-  const mcHBuffer = await getCachedMcHeightBuffer();
-  await Promise.all(productIds.map(id => seedProductDefaults(id, { mcHBuffer })));
-}

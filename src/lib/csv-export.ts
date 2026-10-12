@@ -35,8 +35,3 @@ export function downloadCsv(filename: string, csv: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
-
-export function rangeStamp(from: Date, to: Date): string {
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return `${fmt(from)}_to_${fmt(to)}`;
-}

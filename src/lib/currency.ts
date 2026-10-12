@@ -113,12 +113,6 @@ export function convertToInr(
   return amount * r;
 }
 
-/** Whether the given currency has a usable import rate configured. */
-export function hasImportRate(map: CurrencyMap | null | undefined, code: string): boolean {
-  if (!code || code === 'INR') return true;
-  return isFinite(inrPerUnit(map, code, 'import'));
-}
-
 /**
  * Format an amount with the currency's symbol (or "CODE " prefix if no symbol).
  * Indian numbering grouping for INR; en-US grouping for everything else.
@@ -140,21 +134,6 @@ export function formatCurrency(
 /** Sync variant for hot paths. Falls back to bare CODE prefix if map not primed. */
 export function formatCurrencySync(amount: number, code: string, map: CurrencyMap | null): string {
   return formatCurrency(amount, code, map ?? undefined);
-}
-
-/**
- * Pick the right unit price for a display currency from a product-pricing entry.
- * Uses the denormalized USD price when targeting USD; otherwise converts from INR.
- */
-export function unitPriceInCurrency(
-  entry: { unit_price_inr?: number | null; unit_price_usd?: number | null } | null | undefined,
-  code: string,
-  map: CurrencyMap | null,
-): number {
-  if (!entry) return 0;
-  if (code === 'INR') return Number(entry.unit_price_inr) || 0;
-  if (code === 'USD') return Number(entry.unit_price_usd) || 0;
-  return convertFromInr(map, Number(entry.unit_price_inr) || 0, code, 'import');
 }
 
 /**
@@ -206,22 +185,4 @@ export function quoteAmountToUsd(
   const inr = convertToInr(map, amt, code, 'import');
   if (!isFinite(inr) || inr === 0) return null;
   return inr / rate;
-}
-
-/** Inverse of quoteAmountToUsd: show a stored USD target in the quoting currency. */
-export function usdToQuoteAmount(
-  usd: number | null | undefined,
-  code: string | null | undefined,
-  map: CurrencyMap | null,
-  inrPerUsd: number,
-): number | null {
-  if (usd == null || !isFinite(Number(usd))) return null;
-  const amt = Number(usd);
-  if (!code || code === 'USD') return amt;
-  const rate = inrPerUsd > 0 ? inrPerUsd : NaN;
-  if (!isFinite(rate)) return null;
-  const inr = amt * rate;
-  if (code === 'INR') return inr;
-  const out = convertFromInr(map, inr, code, 'import');
-  return isFinite(out) ? out : null;
 }

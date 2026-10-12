@@ -78,14 +78,6 @@ export function projectedGrossProfit(
   return (effectiveFobUsd || 0) * (effectiveGpm || 0);
 }
 
-export function weightedProjectedGrossProfit(
-  effectiveFobUsd: number,
-  effectiveGpm: number,
-  certainty: number,
-): number {
-  return projectedGrossProfit(effectiveFobUsd, effectiveGpm) * (certainty || 0);
-}
-
 export type ProductMhAggregate = { product_id: string; quantity: number; total_mh_per_unit: number };
 
 export function effectiveManHours(
@@ -94,21 +86,6 @@ export function effectiveManHours(
 ): number {
   if (projection?.estimated_man_hours != null) return Number(projection.estimated_man_hours);
   return products.reduce((acc, p) => acc + (p.quantity || 0) * (p.total_mh_per_unit || 0), 0);
-}
-
-export function suggestDefaultMonths(shippingMethod: string | null = 'sea'): {
-  start_month: string;
-  shipping_month: string;
-  delivery_month: string;
-} {
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), 1);
-  const shippingMonths = shippingMethod === 'air' ? 2 : shippingMethod === 'ground' ? 3 : 3;
-  const deliveryMonths = shippingMethod === 'air' ? 2 : shippingMethod === 'ground' ? 4 : 4;
-  const shipping = new Date(start.getFullYear(), start.getMonth() + shippingMonths, 1);
-  const delivery = new Date(start.getFullYear(), start.getMonth() + deliveryMonths, 1);
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-  return { start_month: iso(start), shipping_month: iso(shipping), delivery_month: iso(delivery) };
 }
 
 /** Convert "YYYY-MM" from <input type="month"> to "YYYY-MM-01" date string. */
@@ -182,29 +159,4 @@ export function deriveScheduleMonths(
     vendor_deposit_month: startMonth,
     vendor_balance_month: shipping,
   };
-}
-
-/** Same-month check on two ISO date strings (compares YYYY-MM prefix). */
-export function sameMonth(a: string | null | undefined, b: Date): boolean {
-  if (!a) return false;
-  const ym = `${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, '0')}`;
-  return String(a).slice(0, 7) === ym;
-}
-
-/**
- * Spread total man-hours evenly across (start_month + 1) .. (start_month + duration_months),
- * inclusive. The deposit month itself gets zero hours.
- */
-export function spreadManHours(
-  totalMh: number,
-  startMonth: string | null | undefined,
-  durationMonths: number | null | undefined,
-): Array<{ month: string; mh: number }> {
-  if (!startMonth || !durationMonths || durationMonths < 1 || !(totalMh > 0)) return [];
-  const perMonth = totalMh / durationMonths;
-  const out: Array<{ month: string; mh: number }> = [];
-  for (let i = 1; i <= durationMonths; i++) {
-    out.push({ month: addMonths(startMonth, i), mh: perMonth });
-  }
-  return out;
 }

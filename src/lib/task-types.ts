@@ -23,8 +23,6 @@ export type TaskPriority = typeof PRIORITIES[number];
 export const DUE_WINDOWS = ['all', 'overdue', 'today', 'due_by_today', 'this_week'] as const;
 export type DueWindow = typeof DUE_WINDOWS[number];
 
-export const ASSIGNEES = ['CQ', 'PH'] as const;
-
 export const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 export type TaskSortKey = 'title' | 'inquiry' | 'due_date' | 'priority' | 'status' | 'assignee' | 'created_at';

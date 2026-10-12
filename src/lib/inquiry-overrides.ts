@@ -29,13 +29,3 @@ export function mergeSettingsWithInquiry<T extends Record<string, any>>(
     local_transport_cost_per_cbm: pick(inq.local_transport_cost_per_cbm_override, base.local_transport_cost_per_cbm),
   } as T;
 }
-
-export const OVERRIDE_FIELDS = [
-  'exchange_rate_override',
-  'markup_percent_override',
-  'shipping_type_id_override',
-  'indirect_overhead_per_mh_override',
-  'packaging_cost_per_cbm_override',
-  'auto_transport_cost_per_cbm_override',
-  'local_transport_cost_per_cbm_override',
-] as const;

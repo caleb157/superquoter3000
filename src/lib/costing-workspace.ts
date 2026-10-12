@@ -533,20 +533,6 @@ export function chooseCheapestQuotes(b: Bundle, ids: string[]): Mutation {
   return cogsMutation(b, updates, []);
 }
 
-export function setRawVendor(b: Bundle, ids: string[], vendor: string): Mutation {
-  const v = vendor.trim() || null;
-  const updates: { id: string; patch: any }[] = [];
-  const inserts: any[] = [];
-  for (const pid of ids) {
-    const winner = quotesFor(b.cogs.filter(c => c.product_id === pid)).find(q => q.winner);
-    if (winner?.line) updates.push({ id: winner.line.id, patch: { vendor_name: v } });
-    else if (v) inserts.push({ id: uuid(), product_id: pid, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', vendor_name: v,
-      unit_cost_inr: 0, components_per_product: 1, waste_factor: 0, include: 'Yes', is_auto_calculated: false, sort_order: 0,
-      created_at: new Date().toISOString() });
-  }
-  return cogsMutation(b, updates, inserts);
-}
-
 // ----- Labor -----
 
 export function patchOverhead(b: Bundle, id: string, patch: Record<string, any>): Mutation {

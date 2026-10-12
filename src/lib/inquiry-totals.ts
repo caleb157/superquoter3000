@@ -29,10 +29,6 @@ export type TotalsProduct = {
   calculated_unit_cost_usd?: number | null;
 };
 
-export const EMPTY_TOTALS: InquiryTotals = {
-  revenueUsd: 0, costUsd: 0, profitUsd: 0, margin: 0, cbm: 0, manHours: 0, productCount: 0,
-};
-
 /** Pure sum over one inquiry's products and a live price map. */
 export function sumInquiryTotals(products: TotalsProduct[], priceMap: ProductPriceCostMap): InquiryTotals {
   let revenueUsd = 0, costUsd = 0, cbm = 0, manHours = 0, productCount = 0;

@@ -191,7 +191,6 @@ export function calcMCPacking(config: MCConfig & {
     };
   }
 
-
   const { mc_max_width, mc_max_depth, mc_max_height, mc_buffer_inch,
     mc_weight_limit_kg, mc_empty_weight_kg, product_weight_kg,
     quantity, products_per_ic, ic_width, ic_depth, ic_height } = config;
@@ -244,7 +243,6 @@ export function calcMCPacking(config: MCConfig & {
       packed_ics = best.cells;
     }
   }
-
 
   const products_per_mc = packed_ics * products_per_ic;
 
@@ -394,10 +392,6 @@ export function calcFinalUnitCbm(
   return 0;
 }
 
-export function calcTotalCbm(finalUnitCbm: number, quantity: number): number {
-  return finalUnitCbm * quantity;
-}
-
 // ============================================================
 // COGS
 // ============================================================
@@ -416,10 +410,6 @@ export function calcCogsItemCost(item: CogsItem): {
 
   const unit_cost = item.unit_cost_inr * total_units_per_product;
   return { total_units_per_product, unit_cost, total_cost_per_product: unit_cost };
-}
-
-export function calcTotalCogsPerUnit(items: CogsItem[], quantity: number): number {
-  return items.reduce((sum, item) => sum + calcCogsItemCost(item).unit_cost, 0);
 }
 
 export function calcNonUnitCogsPerUnit(items: NonUnitCogsItem[], quantity: number): number {
@@ -586,30 +576,6 @@ export function calcProductCostSummary(
   };
 }
 
-
-// ============================================================
-// Variant Pricing
-// ============================================================
-
-export function calcVariantCost(
-  masterRawPieceCost: number,
-  woodPriceFactor: number,
-  otherCostsPerUnit: number,
-  markupPercent: number,
-  exchangeRate: number
-): {
-  variant_raw_piece_cost: number;
-  variant_product_cost: number;
-  variant_unit_price_inr: number;
-  variant_unit_price_usd: number;
-} {
-  const variant_raw_piece_cost = masterRawPieceCost * woodPriceFactor;
-  const variant_product_cost = variant_raw_piece_cost + otherCostsPerUnit;
-  const variant_unit_price_inr = variant_product_cost * (1 + markupPercent);
-  const variant_unit_price_usd = exchangeRate > 0 ? variant_unit_price_inr / exchangeRate : 0;
-  return { variant_raw_piece_cost, variant_product_cost, variant_unit_price_inr, variant_unit_price_usd };
-}
-
 // ============================================================
 // Assembly Pricing (multi-component products)
 // ============================================================
@@ -645,34 +611,6 @@ export function calcAssemblyCost(
   const unit_price_usd = exchangeRate > 0 ? unit_price_inr / exchangeRate : 0;
   const num_cartons = components.length;
   return { unit_cost_inr, unit_cbm, unit_weight_kg, unit_man_hours, unit_price_inr, unit_cost_usd, unit_price_usd, num_cartons };
-}
-
-// ============================================================
-// Formatting Helpers
-// ============================================================
-
-export function formatINR(value: number): string {
-  return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatUSD(value: number): string {
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-export function formatQty(value: number): string {
-  return Math.round(value).toLocaleString();
-}
-
-export function formatCbm(value: number): string {
-  return `${value.toFixed(4)} CBM`;
-}
-
-export function formatDimensions(w: number, d: number, h: number): string {
-  return `${w || 0}" × ${d || 0}" × ${h || 0}"`;
 }
 
 // ============================================================

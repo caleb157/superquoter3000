@@ -1,7 +1,5 @@
 // Shared helpers for the Analytics dashboards.
-// Centralizes date math, RFQ↔Quote pairing, sample cycle time, and lifecycle durations.
-
-import { startOfISOWeek, format } from 'date-fns';
+// Centralizes the date-range math.
 
 export type DateRange = { from: Date; to: Date };
 
@@ -93,74 +91,6 @@ export function inRange(date: string | Date | null | undefined, range: DateRange
   return t >= range.from.getTime() && t <= range.to.getTime();
 }
 
-export function pairRfqsToQuotes(
-  receivedRfqs: Array<{ id: string; inquiry_id: string; received_date: string }>,
-  quotes: Array<{ id: string; customer_rfq_id: string | null; created_at: string }>,
-): Array<{ receivedRfqId: string; quoteSnapshotId: string; inquiryId: string; days: number; receivedAt: string; respondedAt: string }> {
-  const quotesByInquiry: Record<string, Array<{ id: string; customer_rfq_id: string | null; created_at: string }>> = {};
-  quotes.forEach(q => {
-    if (!q.customer_rfq_id) return;
-    (quotesByInquiry[q.customer_rfq_id] ||= []).push(q);
-  });
-  Object.values(quotesByInquiry).forEach(arr => arr.sort((a, b) => a.created_at.localeCompare(b.created_at)));
-
-  const rfqsByInquiry: Record<string, Array<{ id: string; inquiry_id: string; received_date: string }>> = {};
-  receivedRfqs.forEach(r => { (rfqsByInquiry[r.inquiry_id] ||= []).push(r); });
-  Object.values(rfqsByInquiry).forEach(arr => arr.sort((a, b) => a.received_date.localeCompare(b.received_date)));
-
-  const out: Array<{ receivedRfqId: string; quoteSnapshotId: string; inquiryId: string; days: number; receivedAt: string; respondedAt: string }> = [];
-  for (const inquiryId of Object.keys(rfqsByInquiry)) {
-    const rfqs = rfqsByInquiry[inquiryId];
-    const qs = quotesByInquiry[inquiryId] ?? [];
-    let qIdx = 0;
-    for (const r of rfqs) {
-      while (qIdx < qs.length && qs[qIdx].created_at <= r.received_date) qIdx++;
-      if (qIdx >= qs.length) break;
-      const matched = qs[qIdx];
-      const days = (new Date(matched.created_at).getTime() - new Date(r.received_date + 'T00:00:00Z').getTime()) / 86400000;
-      out.push({
-        receivedRfqId: r.id,
-        quoteSnapshotId: matched.id,
-        inquiryId,
-        days,
-        receivedAt: r.received_date,
-        respondedAt: matched.created_at,
-      });
-      qIdx++;
-    }
-  }
-  return out;
-}
-
-export function sampleCycleDays(sample: { requested_date: string | null; completed_at: string | null }): number | null {
-  if (!sample.requested_date || !sample.completed_at) return null;
-  return (new Date(sample.completed_at).getTime() - new Date(sample.requested_date + 'T00:00:00Z').getTime()) / 86400000;
-}
-
-export function lifecycleDurations(events: Array<{ customer_id: string; from_status: string | null; to_status: string; occurred_at: string }>) {
-  const byCustomer: Record<string, typeof events> = {};
-  events.forEach(e => { (byCustomer[e.customer_id] ||= []).push(e); });
-  Object.values(byCustomer).forEach(arr => arr.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at)));
-
-  const transitions: Array<{ customer_id: string; from_status: string; to_status: string; days: number; occurred_at: string }> = [];
-  for (const customerId of Object.keys(byCustomer)) {
-    const evs = byCustomer[customerId];
-    for (let i = 1; i < evs.length; i++) {
-      const prev = evs[i - 1];
-      const cur = evs[i];
-      const days = (new Date(cur.occurred_at).getTime() - new Date(prev.occurred_at).getTime()) / 86400000;
-      transitions.push({
-        customer_id: customerId,
-        from_status: prev.to_status,
-        to_status: cur.to_status,
-        days,
-        occurred_at: cur.occurred_at,
-      });
-    }
-  }
-  return transitions;
-}
-
 export function avg(nums: number[]): number | null {
   if (!nums.length) return null;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
@@ -175,10 +105,6 @@ export function median(nums: number[]): number | null {
 export function fmtDays(d: number | null | undefined): string {
   if (d == null || isNaN(d)) return '—';
   return `${d.toFixed(1)}d`;
-}
-
-export function fmtDateShort(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ---------------- Cashflow forecast ----------------
@@ -202,60 +128,4 @@ export type PoInquiryForForecast = {
   payment_terms_deposit_due_days: number | null;
   payment_terms_balance_due_days: number | null;
 };
-
-export function projectCashflow(
-  poInquiries: PoInquiryForForecast[],
-  horizonDays: number = 90,
-  now: Date = new Date(),
-): CashflowItem[] {
-  const out: CashflowItem[] = [];
-  const horizonEnd = new Date(now.getTime() + horizonDays * 86400000);
-  for (const inq of poInquiries) {
-    if (!inq.po_received_date || inq.po_total_value_usd == null) continue;
-    const poDate = new Date(inq.po_received_date + 'T00:00:00Z');
-    const depositPct = (inq.payment_terms_deposit_pct ?? 30) / 100;
-    const depositDueDays = inq.payment_terms_deposit_due_days ?? 0;
-    const balanceDueDays = inq.payment_terms_balance_due_days ?? 70;
-    const depositDate = new Date(poDate.getTime() + depositDueDays * 86400000);
-    const balanceDate = new Date(poDate.getTime() + balanceDueDays * 86400000);
-    const depositAmount = inq.po_total_value_usd * depositPct;
-    const balanceAmount = inq.po_total_value_usd * (1 - depositPct);
-    if (depositDate >= now && depositDate <= horizonEnd) {
-      out.push({
-        inquiry_id: inq.id, inquiry_number: inq.rfq_number, customer_name: inq.customer_name,
-        amount_usd: depositAmount, expected_date: depositDate, kind: 'deposit',
-      });
-    }
-    if (balanceDate >= now && balanceDate <= horizonEnd) {
-      out.push({
-        inquiry_id: inq.id, inquiry_number: inq.rfq_number, customer_name: inq.customer_name,
-        amount_usd: balanceAmount, expected_date: balanceDate, kind: 'balance',
-      });
-    }
-  }
-  return out.sort((a, b) => a.expected_date.getTime() - b.expected_date.getTime());
-}
-
-export function groupCashflowByWeek(
-  items: CashflowItem[],
-): Array<{ weekStart: Date; weekLabel: string; deposit: number; balance: number; total: number }> {
-  const buckets: Record<string, { weekStart: Date; deposit: number; balance: number }> = {};
-  for (const item of items) {
-    const d = new Date(item.expected_date);
-    const day = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() - day + 1);
-    d.setUTCHours(0, 0, 0, 0);
-    const key = d.toISOString();
-    buckets[key] ||= { weekStart: d, deposit: 0, balance: 0 };
-    if (item.kind === 'deposit') buckets[key].deposit += item.amount_usd;
-    else buckets[key].balance += item.amount_usd;
-  }
-  return Object.values(buckets)
-    .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
-    .map(b => ({
-      ...b,
-      weekLabel: b.weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      total: b.deposit + b.balance,
-    }));
-}
 
