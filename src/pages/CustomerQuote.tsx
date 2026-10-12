@@ -505,7 +505,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
                   ← Back to app
                 </Button>
               ) : <span />}
-              <div className="flex items-center gap-2 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-slate-600 min-w-0">
                 <span className="hidden sm:inline text-slate-500">PDF:</span>
                 <div className="inline-flex rounded-md border border-slate-200 bg-white overflow-hidden">
                   <button
@@ -536,7 +536,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
                   >Landscape</button>
                 </div>
                 {embedded && (
-                  <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setEditOpen(true)}>
+                  <Button size="sm" variant="outline" className="h-8 gap-1.5 border-slate-200 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-900" onClick={() => setEditOpen(true)}>
                     Edit quote
                   </Button>
                 )}
