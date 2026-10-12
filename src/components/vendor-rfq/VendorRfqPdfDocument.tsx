@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
-import { formatDay } from '@/lib/vendor-rfq-sheet';
+import { formatDay } from '@/lib/date-only';
 
 export interface VendorRfqPdfLine {
   name: string;

@@ -7,6 +7,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateRawPieceRfq, generateRfqNumber, type RawTargetMode } from '@/lib/rfq-generation';
 import { recostProduct } from '@/lib/costing-seed';
+import { formatDay } from '@/lib/date-only';
+
+export { formatDay };
 
 const db = supabase as any;
 const RAW_TYPE = 'Raw Piece';
@@ -95,11 +98,6 @@ export function whatsappMessage(o: {
   ].join('\n\n');
 }
 
-export function formatDay(dateOnly: string): string {
-  const [y, m, d] = dateOnly.slice(0, 10).split('-').map(Number);
-  if (!y || !m || !d) return dateOnly;
-  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 type CogsRow = { id: string; product_id: string; cogs_type: string; component_name?: string | null; vendor_name?: string | null; unit_cost_inr?: number | null; include?: string | null; sort_order?: number | null; components_per_product?: number | null; created_at?: string | null };
 export type WinnerPlan = { updates: { id: string; patch: Record<string, any> }[]; insert: Record<string, any> | null };
