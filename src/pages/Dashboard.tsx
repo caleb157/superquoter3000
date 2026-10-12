@@ -40,7 +40,8 @@ import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquir
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
-import { useInquiryManHours } from '@/hooks/use-inquiry-man-hours';
+import { useInquiryTotals } from '@/hooks/use-inquiry-totals';
+import { fetchAllRows } from '@/lib/supabase-paged';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
@@ -61,8 +62,7 @@ type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
-  calculated_unit_price_usd?: number | null; calculated_unit_cost_usd?: number | null;
-  archived_at?: string | null; is_component?: boolean | null;
+  archived_at?: string | null;
 };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
@@ -77,6 +77,12 @@ const QUOTE_PILLS: { key: string; label: string; cls: string }[] = [
 const SAMPLE_PILLS: { key: string; label: string; cls: string }[] = [
   { key: 'sampling', label: 'sampling', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
 ];
+
+function matchesStatusFilter(i: { status: string }, f: StatusFilter): boolean {
+  if (f === 'all') return true;
+  if (f === 'open') return i.status !== 'cancelled' && i.status !== 'complete' && i.status !== 'paused';
+  return i.status === f;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -111,13 +117,13 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd, archived_at, is_component'),
+        fetchAllRows<Product>(() => supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, archived_at').order('id')),
         supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
         supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
-      setProducts((prod.data ?? []) as Product[]);
+      setProducts(prod);
       const rset = new Set<string>();
       (cogsRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
       (ohRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
@@ -133,25 +139,22 @@ const Dashboard = () => {
   const productsByInquiry = useMemo(() => {
     const m: Record<string, Product[]> = {};
     products.forEach(p => {
-      if (!p.customer_rfq_id) return;
+      if (!p.customer_rfq_id || p.archived_at) return;
       (m[p.customer_rfq_id] ||= []).push(p);
     });
     return m;
   }, [products]);
-  const finByInquiry = useMemo(() => {
-    const m: Record<string, { value: number; cost: number }> = {};
-    products.forEach(p => {
-      if (!p.customer_rfq_id || p.archived_at || p.is_component) return;
-      const q = Number(p.quantity) || 0;
-      const e = (m[p.customer_rfq_id] ||= { value: 0, cost: 0 });
-      e.value += q * (Number(p.calculated_unit_price_usd) || 0);
-      e.cost += q * (Number(p.calculated_unit_cost_usd) || 0);
-    });
-    return m;
-  }, [products]);
-
-  const allInquiryIds = useMemo(() => inquiries.map(i => i.id), [inquiries]);
-  const { mhByInquiry, loading: mhLoading } = useInquiryManHours(allInquiryIds);
+  // Order value, NPM and MH come from the same live calculation as the inquiry page
+  // (src/lib/inquiry-totals.ts). Only inquiries the status filter shows are computed.
+  const totalsIds = useMemo(
+    () => inquiries.filter(i => matchesStatusFilter(i, statusFilter)).map(i => i.id),
+    [inquiries, statusFilter],
+  );
+  const { totalsByInquiry, pending: totalsPending } = useInquiryTotals(totalsIds);
+  const mhByInquiry = useMemo(
+    () => Object.fromEntries(Object.entries(totalsByInquiry).map(([id, t]) => [id, t.manHours])),
+    [totalsByInquiry],
+  );
 
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
@@ -192,8 +195,7 @@ const Dashboard = () => {
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = inquiries.filter(i => {
-      if (statusFilter === 'open' && (i.status === 'cancelled' || i.status === 'complete' || i.status === 'paused')) return false;
-      if (statusFilter !== 'all' && statusFilter !== 'open' && i.status !== statusFilter) return false;
+      if (!matchesStatusFilter(i, statusFilter)) return false;
       if (!q) return true;
       const cust = i.customer_id ? customerMap[i.customer_id] : null;
       const custName = `${cust?.company ?? ''} ${cust?.name ?? ''}`.toLowerCase();
@@ -569,24 +571,32 @@ const Dashboard = () => {
                             {prods?.length ?? 0}
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums" title="Total projected man-hours (qty × live MH per unit)">
-                            {mhLoading
+                            {totalsPending.has(inq.id)
                               ? <span className="text-muted-foreground/60">…</span>
                               : (mhByInquiry[inq.id] ?? 0) > 0
                                 ? (mhByInquiry[inq.id]).toFixed(1)
                                 : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
                           {(() => {
-                            const f = finByInquiry[inq.id];
-                            const npm = f && f.value > 0 ? (f.value - f.cost) / f.value : null;
+                            const t = totalsByInquiry[inq.id];
+                            const npm = t && t.revenueUsd > 0 ? t.margin : null;
+                            if (!t && totalsPending.has(inq.id)) {
+                              return (
+                                <>
+                                  <TableCell className="text-right text-sm text-muted-foreground/60">…</TableCell>
+                                  <TableCell className="text-right text-sm text-muted-foreground/60">…</TableCell>
+                                </>
+                              );
+                            }
                             return (
                               <>
                                 <TableCell className="text-right text-sm tabular-nums">
-                                  {f && f.value > 0 ? fmt.usd(f.value) : <span className="text-muted-foreground/60">—</span>}
+                                  {t && t.revenueUsd > 0 ? fmt.usd(t.revenueUsd) : <span className="text-muted-foreground/60">—</span>}
                                 </TableCell>
                                 <TableCell className={cn('text-right text-sm tabular-nums', npm == null ? '' : npm < 0 ? 'text-destructive' : 'text-success')}>
                                   {npm == null ? <span className="text-muted-foreground/60">—</span> : (
                                     <div className="leading-tight">
-                                      <div>{fmt.usd(f!.value - f!.cost)}</div>
+                                      <div>{fmt.usd(t!.profitUsd)}</div>
                                       <div className="text-[10px]">{(npm * 100).toFixed(1)}%</div>
                                     </div>
                                   )}

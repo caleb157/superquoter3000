@@ -318,80 +318,9 @@ export default function InquiryDetail() {
           </div>
         </div>
 
-        <InquiryClockStrip
-          inquiryId={id!}
-          receivedDate={inquiry.received_date ?? null}
-          createdAt={inquiry.created_at ?? null}
-          quotedDate={inquiry.quoted_date ?? null}
-          status={inquiry.status ?? null}
-          refreshKey={refreshKey}
-          onQuotedDateChange={date => updateField({ quoted_date: date })}
-        />
-        <InquirySampleClockStrip inquiryId={id!} refreshKey={refreshKey} />
-
-        {/* Google Drive folder link */}
-        <Card>
-          <CardContent className="py-2.5 px-3 flex items-center gap-2 text-sm">
-            <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground shrink-0">Drive folder:</span>
-            {editingDrive ? (
-              <>
-                <Input
-                  value={driveDraft}
-                  onChange={e => setDriveDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') saveDriveUrl(); if (e.key === 'Escape') setEditingDrive(false); }}
-                  placeholder="https://drive.google.com/drive/folders/..."
-                  autoFocus
-                  className="h-8 text-sm flex-1 min-w-0"
-                />
-                <Button size="sm" className="h-8" onClick={saveDriveUrl}>Save</Button>
-                <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingDrive(false)}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            ) : inquiry.drive_url ? (
-              <>
-                <a
-                  href={inquiry.drive_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 min-w-0 truncate text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <span className="truncate">{inquiry.drive_url}</span>
-                  <ExternalLink className="h-3 w-3 shrink-0" />
-                </a>
-                <Button
-                  size="sm" variant="ghost" className="h-8 px-2"
-                  onClick={() => { setDriveDraft(inquiry.drive_url ?? ''); setEditingDrive(true); }}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            ) : (
-              <button
-                className="flex-1 text-left text-muted-foreground hover:text-foreground italic"
-                onClick={() => { setDriveDraft(''); setEditingDrive(true); }}
-              >
-                Add a Google Drive folder link…
-              </button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Status cards */}
-        <InquiryStatusCards
-          inquiryId={id!}
-          refreshKey={refreshKey}
-          onCardClick={(filter) => {
-            setProductFilter(filter);
-            setActiveTab('products');
-          }}
-        />
-        <InquiryFobCard inquiryId={id!} refreshKey={refreshKey} />
-
-
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+        {/* Tabs: the bar sits right under the inquiry name so it's always within reach;
+            the clock strips and summary cards below it stay visible on every tab. */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4">
           <ResponsiveTabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabKey)}
@@ -406,6 +335,77 @@ export default function InquiryDetail() {
               { value: 'summary', label: 'Summary' },
             ]}
           />
+
+          <InquiryClockStrip
+            inquiryId={id!}
+            receivedDate={inquiry.received_date ?? null}
+            createdAt={inquiry.created_at ?? null}
+            quotedDate={inquiry.quoted_date ?? null}
+            status={inquiry.status ?? null}
+            refreshKey={refreshKey}
+            onQuotedDateChange={date => updateField({ quoted_date: date })}
+          />
+          <InquirySampleClockStrip inquiryId={id!} refreshKey={refreshKey} />
+
+          {/* Google Drive folder link */}
+          <Card>
+            <CardContent className="py-2.5 px-3 flex items-center gap-2 text-sm">
+              <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground shrink-0">Drive folder:</span>
+              {editingDrive ? (
+                <>
+                  <Input
+                    value={driveDraft}
+                    onChange={e => setDriveDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveDriveUrl(); if (e.key === 'Escape') setEditingDrive(false); }}
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    autoFocus
+                    className="h-8 text-sm flex-1 min-w-0"
+                  />
+                  <Button size="sm" className="h-8" onClick={saveDriveUrl}>Save</Button>
+                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingDrive(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              ) : inquiry.drive_url ? (
+                <>
+                  <a
+                    href={inquiry.drive_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-0 truncate text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <span className="truncate">{inquiry.drive_url}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                  <Button
+                    size="sm" variant="ghost" className="h-8 px-2"
+                    onClick={() => { setDriveDraft(inquiry.drive_url ?? ''); setEditingDrive(true); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              ) : (
+                <button
+                  className="flex-1 text-left text-muted-foreground hover:text-foreground italic"
+                  onClick={() => { setDriveDraft(''); setEditingDrive(true); }}
+                >
+                  Add a Google Drive folder link…
+                </button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Status cards */}
+          <InquiryStatusCards
+            inquiryId={id!}
+            refreshKey={refreshKey}
+            onCardClick={(filter) => {
+              setProductFilter(filter);
+              setActiveTab('products');
+            }}
+          />
+          <InquiryFobCard inquiryId={id!} refreshKey={refreshKey} />
 
           <TabsContent value="summary" className="mt-3 space-y-3">
             <Card>
