@@ -36,6 +36,7 @@ import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { STATUS_OPTIONS, INQUIRY_STATUS_COLORS as STATUS_COLOR, statusLabel } from '@/lib/inquiry-status';
 import { InquiryClockStrip } from '@/components/InquiryClockStrip';
+import { RepeatOfLink } from '@/components/RepeatOrderPicker';
 import { InquirySampleClockStrip } from '@/components/InquirySampleClockStrip';
 import { customerFullLabel } from '@/lib/customer-name';
 const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
@@ -285,6 +286,7 @@ export default function InquiryDetail() {
                 {customerFullLabel(customer)}
               </button>
             )}
+            <RepeatOfLink inquiryId={inquiry.repeat_of_inquiry_id} />
           </div>
 
           <div className="flex items-center gap-2">

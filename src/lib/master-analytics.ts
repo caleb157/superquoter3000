@@ -14,7 +14,7 @@ export type SnapshotSO = Money & {
   /** True when every linked MO is 'done' in Odoo (older snapshots: undefined). */
   all_mos_done?: boolean; mos_done_date?: string | null;
 };
-export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
+export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
@@ -66,6 +66,8 @@ export function otdKpi(sos: SnapshotSO[], from: Date, to: Date) {
 export type PipelineInquiry = {
   id: string; rfq_number: string; title: string | null; status: string; customer: string | null;
   certainty: number;
+  /** Marked as a repeat order (its inflows get their own cash-flow line). */
+  repeat: boolean;
   /** Full order FOB (customer-facing). */
   fob_usd: number;
   /** PV's share: FOB × (1 − selling retention) when another entity (DKT) sells; else FOB. */
@@ -126,7 +128,7 @@ export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInq
       }
       return {
         id: i.id, rfq_number: i.rfq_number, title: i.title, status: i.status, customer: i.customers?.name ?? null,
-        certainty, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
+        certainty, repeat: !!p.repeat_order, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
         revenue_month: ship, start_month: start, duration_months: duration,
         cust,
         vend: [
@@ -145,7 +147,7 @@ export function pipelineCashItems(pipe: PipelineInquiry[], hqRate: number, today
   const out: CashItem[] = [];
   const clamp = (m: string | null) => { const d = (m || today).slice(0, 10); return d < today ? today : d; };
   for (const p of pipe) {
-    for (const c of p.cust) if (c.pct && c.month) out.push({ kind: 'pipeline_in', ref: p.rfq_number + (p.via_other_entity ? ' (via DKT)' : ''), partner: p.customer, date: clamp(c.month), sign: 1, ...usdMoney(p.pv_revenue_usd * pct(c.pct) * p.certainty, hqRate) });
+    for (const c of p.cust) if (c.pct && c.month) out.push({ kind: p.repeat ? 'pipeline_repeat_in' : 'pipeline_in', ref: p.rfq_number + (p.via_other_entity ? ' (via DKT)' : ''), partner: p.customer, date: clamp(c.month), sign: 1, ...usdMoney(p.pv_revenue_usd * pct(c.pct) * p.certainty, hqRate) });
     const cost = p.fob_usd * (1 - pct(p.gpm));
     for (const v of p.vend) if (v.pct && v.month) out.push({ kind: 'pipeline_out', ref: p.rfq_number, partner: p.customer, date: clamp(v.month), sign: -1, ...usdMoney(cost * pct(v.pct) * p.certainty, hqRate) });
   }
@@ -166,12 +168,13 @@ export function fyBounds(today: string) {
 }
 
 // ---------- Cash flow table ----------
-export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out';
+export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out';
 export const CASH_ROWS: { key: CashRowKey; label: string; dir: 1 | -1 }[] = [
   { key: 'so', label: 'Pending SOs (customer)', dir: 1 },
   { key: 'invoice', label: 'Open customer invoices', dir: 1 },
   { key: 'igst', label: 'IGST refunds (178)', dir: 1 },
-  { key: 'pipeline_in', label: 'Pipeline inflows (weighted)', dir: 1 },
+  { key: 'pipeline_in', label: 'Pipeline inflows, new (weighted)', dir: 1 },
+  { key: 'pipeline_repeat_in', label: 'Pipeline inflows, repeat orders (weighted)', dir: 1 },
   { key: 'po', label: 'Pending POs & RFQs', dir: -1 },
   { key: 'bill', label: 'Open vendor bills', dir: -1 },
   { key: 'overhead', label: 'Overhead (non-PO)', dir: -1 },

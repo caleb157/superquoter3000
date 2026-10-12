@@ -178,8 +178,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   };
 
   const autoCertainty = useMemo(
-    () => effectiveCertainty({ certainty_override: null } as any, products as any, inquiryStatus),
-    [products, inquiryStatus],
+    () => effectiveCertainty({ certainty_override: null, repeat_order: !!proj?.repeat_order } as any, products as any, inquiryStatus),
+    [products, inquiryStatus, proj?.repeat_order],
   );
   const effCertainty = useMemo(
     () => effectiveCertainty(proj as any, products as any, inquiryStatus),
@@ -328,7 +328,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 className="h-9 mt-1"
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Default (Settings → Projections): {(autoCertainty * 100).toFixed(0)}%
+                {proj?.repeat_order ? 'Repeat order default' : 'Default'} (Settings → Projections): {(autoCertainty * 100).toFixed(0)}%
               </p>
             </div>
             <div className="flex items-end">

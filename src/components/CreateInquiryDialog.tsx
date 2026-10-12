@@ -15,8 +15,11 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Plus, ArrowLeft, ChevronDown } from 'lucide-react';
+import { Plus, ArrowLeft, ChevronDown, Repeat } from 'lucide-react';
 import { defaultDurationMonths, deriveScheduleMonths } from '@/lib/projections';
+import { loadProjectionDefaults } from '@/lib/projection-defaults';
+import { copyRepeatProducts, repeatSourceInquiry } from '@/lib/repeat-order';
+import { RepeatOrderPicker, type PickedProduct } from '@/components/RepeatOrderPicker';
 import { customerFullLabel } from '@/lib/customer-name';
 
 type Customer = { id: string; name: string; company: string | null };
@@ -64,6 +67,12 @@ export function CreateInquiryDialog({
   const [payingShipping, setPayingShipping] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  // Repeat of a past order: products copied in at today's costs
+  const [repeatOpen, setRepeatOpen] = useState(false);
+  const [picked, setPicked] = useState<PickedProduct[]>([]);
+  const [repeatCertPct, setRepeatCertPct] = useState(80);
+  const isRepeat = picked.length > 0;
+
   // Projected-PO fields
   const [projFobUsd, setProjFobUsd] = useState('');
   const [projGpmPct, setProjGpmPct] = useState('');
@@ -91,6 +100,9 @@ export function CreateInquiryDialog({
     setAdvancedOpen(false);
     setProjFobUsd('');
     setProjGpmPct('');
+    setRepeatOpen(false);
+    setPicked([]);
+    loadProjectionDefaults().then(d => setRepeatCertPct(Math.round(d.repeatCertainty * 100)));
     (async () => {
       const [{ data: cust }, { data: ent }] = await Promise.all([
         supabase.from('customers').select('id, name, company').order('name'),
@@ -104,10 +116,10 @@ export function CreateInquiryDialog({
     })();
   }, [open, defaultCustomerId, defaultMode, defaultStatus]);
 
-  // Default certainty per mode (only when not touched)
+  // Default certainty per mode; repeats leave it blank so the repeat default (Settings) applies.
   useEffect(() => {
-    setCertainty(mode === 'projected_po' ? '75' : '');
-  }, [mode]);
+    setCertainty(mode === 'projected_po' && !isRepeat ? '75' : '');
+  }, [mode, isRepeat]);
 
   // Mirror producing entity to selling unless user expanded & changed it
   useEffect(() => {
@@ -153,15 +165,15 @@ export function CreateInquiryDialog({
     if (!customerId) return false;
     if (!startMonth) return false;
     if (mode === 'projected_po') {
-      if (!projFobUsd || Number(projFobUsd) <= 0) return false;
+      if (!isRepeat && (!projFobUsd || Number(projFobUsd) <= 0)) return false;
     }
     return true;
-  }, [customerId, startMonth, mode, projFobUsd]);
+  }, [customerId, startMonth, mode, projFobUsd, isRepeat]);
 
   const create = async () => {
     if (!canSubmit) {
       if (!customerId) toast.error('Please select a customer');
-      else if (mode === 'projected_po' && (!projFobUsd || Number(projFobUsd) <= 0))
+      else if (mode === 'projected_po' && !isRepeat && (!projFobUsd || Number(projFobUsd) <= 0))
         toast.error('Estimated FOB revenue is required');
       else toast.error('Start month is required');
       return;
@@ -176,7 +188,8 @@ export function CreateInquiryDialog({
         title: title.trim() || null,
         priority: 'normal',
         status: mode,
-      })
+        ...(isRepeat ? { repeat_of_inquiry_id: repeatSourceInquiry(picked) } : {}),
+      } as any)
       .select('id, rfq_number, title')
       .single();
     if (inqErr || !inq) { setSaving(false); toast.error(inqErr?.message ?? 'Failed to create inquiry'); return; }
@@ -200,18 +213,24 @@ export function CreateInquiryDialog({
         duration_months: durNum || null,
         shipping_method: shipMethod,
         paying_shipping: payingShipping,
+        repeat_order: isRepeat,
         projected_fob_revenue_usd: mode === 'projected_po' ? fobNum : null,
         project_gpm: mode === 'projected_po' ? gpmNum : null,
         ...schedule,
       });
 
+    const label = inq.title || inq.rfq_number;
+    let copyNote = '';
+    if (isRepeat) {
+      const { copied, failed } = await copyRepeatProducts(inq.id, picked.map(p => p.productId));
+      copyNote = ` with ${copied} product${copied === 1 ? '' : 's'} at today's costs${failed ? ` (${failed} failed to copy)` : ''}`;
+    }
     setSaving(false);
 
-    const label = inq.title || inq.rfq_number;
     if (projErr) {
-      toast.warning(`Inquiry ${label} created, but projection failed: ${projErr.message}. Fill it in on the Projection tab.`);
+      toast.warning(`Inquiry ${label} created${copyNote}, but projection failed: ${projErr.message}. Fill it in on the Projection tab.`);
     } else {
-      toast.success(`Created ${label}`);
+      toast.success(`Created ${label}${copyNote}`);
     }
     onOpenChange(false);
     onCreated?.(inq.id);
@@ -300,6 +319,26 @@ export function CreateInquiryDialog({
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Q2 dining set" />
             </div>
 
+            <Collapsible open={repeatOpen} onOpenChange={setRepeatOpen} className="rounded-md border border-input">
+              <CollapsibleTrigger className="flex w-full items-center gap-2 px-2.5 py-2 text-sm">
+                <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Repeat of…</span>
+                <span className="text-xs text-muted-foreground">{isRepeat ? `${picked.length} product${picked.length === 1 ? '' : 's'} picked` : 'copy products from a past order'}</span>
+                <ChevronDown className={`ml-auto h-3.5 w-3.5 transition-transform ${repeatOpen ? 'rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-2.5 pb-2.5">
+                <RepeatOrderPicker
+                  customerId={customerId}
+                  picked={picked}
+                  onChange={setPicked}
+                  onSourcePicked={src => {
+                    if (!customerId && src.customer_id) setCustomerId(src.customer_id);
+                    if (!title.trim()) setTitle(`Repeat of ${src.title || src.rfq_number}`);
+                  }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Selling entity</Label>
@@ -317,7 +356,7 @@ export function CreateInquiryDialog({
                 <Input
                   type="number" inputMode="decimal" min={0} max={100}
                   value={certainty} onChange={e => setCertainty(e.target.value)}
-                  placeholder={mode === 'projected_po' ? '75' : 'auto'}
+                  placeholder={isRepeat ? `${repeatCertPct} (repeat)` : mode === 'projected_po' ? '75' : 'auto'}
                 />
               </div>
             </div>
@@ -358,10 +397,10 @@ export function CreateInquiryDialog({
             {mode === 'projected_po' && (
               <div className="grid grid-cols-2 gap-2 rounded-md border border-teal-300 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-500/10 p-3">
                 <div className="col-span-2 text-xs font-medium text-teal-800 dark:text-teal-300">
-                  Estimate (no products needed)
+                  {isRepeat ? 'Estimate (optional: the copied products are priced live)' : 'Estimate (no products needed)'}
                 </div>
                 <div>
-                  <Label className="text-xs">Estimated FOB (USD) *</Label>
+                  <Label className="text-xs">Estimated FOB (USD){isRepeat ? '' : ' *'}</Label>
                   <Input
                     type="number" inputMode="decimal"
                     value={projFobUsd} onChange={e => setProjFobUsd(e.target.value)}
@@ -406,7 +445,7 @@ export function CreateInquiryDialog({
             <DialogFooter>
               <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button size="sm" onClick={create} disabled={saving || !canSubmit}>
-                {saving ? 'Creating…' : mode === 'projected_po' ? 'Create projected PO' : 'Create inquiry'}
+                {saving ? (isRepeat ? 'Creating and copying…' : 'Creating…') : mode === 'projected_po' ? 'Create projected PO' : 'Create inquiry'}
               </Button>
             </DialogFooter>
           </div>
