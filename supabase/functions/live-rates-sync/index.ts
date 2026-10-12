@@ -5,7 +5,7 @@
 // (src/lib/live-rates.ts); a failed source keeps its last good value. Admin/team only.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { inrPerUnitFromOdoo, laborRatesFromEntries, laborWindow } from './rates.ts';
+import { inrPerUnitFromOdoo, laborRatesFromEntries, laborWindow, recentDaysWindow } from './rates.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -15,7 +15,20 @@ const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
 const ODOO_USER = Deno.env.get('ODOO_USERNAME') ?? '';
 const ODOO_KEY = Deno.env.get('ODOO_API_KEY') ?? '';
 const LABOR_TYPES = ['Manufacturing', 'Finishing', 'Assembly', 'Packaging', 'QC', 'Market'];
-const LABOR_MONTHS = 3; // running 3-month average, same window for burdened and direct rates
+const LABOR_MONTHS = 6; // fully burdened ₹/MH: last 6 complete months
+const DIRECT_DAYS = 21; // direct wages per labor type: last 3 weeks
+// LaborTrax's own "Fully burdened cost / man-hr" figure (the dashboard gauge). Read as-is so
+// LaborTrax alone defines it; the 6-month average from labor entries is only a fallback.
+const LT_BURDENED_URL = 'https://labor-trax.lovable.app/api/public/fully-burdened-cost';
+
+async function laborTraxBurdened(ltKey: string): Promise<{ value: number; from: string | null; to: string | null } | null> {
+  const res = await fetch(LT_BURDENED_URL, { headers: { 'x-api-key': ltKey } });
+  if (!res.ok) return null;
+  const j = await res.json().catch(() => null);
+  const value = Number(j?.fully_burdened_cost_per_mh ?? j?.fullyBurdenedCostPerManHour ?? j?.value);
+  if (!(value > 0)) return null;
+  return { value, from: j?.window_from ?? j?.windowFrom ?? null, to: j?.window_to ?? j?.windowTo ?? null };
+}
 
 let rpcId = 0;
 async function rpc(service: string, method: string, args: unknown[]) {
@@ -74,20 +87,32 @@ Deno.serve(async (req) => {
 
     // ---- LaborTrax labor cost per man-hour ----
     const window = laborWindow(now.slice(0, 10), LABOR_MONTHS);
+    const directWindow = recentDaysWindow(now.slice(0, 10), DIRECT_DAYS);
+    const fetchFrom = directWindow.from < window.from ? directWindow.from : window.from;
     try {
       const ltKey = Deno.env.get('LABORTRAX_API_KEY');
       if (!ltKey) throw new Error('LABORTRAX_API_KEY not set');
-      const res = await fetch(`https://labor-trax.lovable.app/api/public/labor-entries?from=${window.from}`, { headers: { 'x-api-key': ltKey } });
+      const res = await fetch(`https://labor-trax.lovable.app/api/public/labor-entries?from=${fetchFrom}`, { headers: { 'x-api-key': ltKey } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const entries = (await res.json())?.entries || [];
       const lr = laborRatesFromEntries(entries, window, LABOR_TYPES);
-      if (!(lr.burdenedPerMh > 0)) throw new Error(`no costed hours between ${window.from} and ${window.to}`);
-      update.live_burdened_per_mh = +lr.burdenedPerMh.toFixed(2);
-      update.live_direct_rates = Object.fromEntries(Object.entries(lr.directByType).map(([k, v]) => [k, +v.toFixed(2)]));
+      const kpi = await laborTraxBurdened(ltKey).catch(() => null);
+      if (!kpi) warnings.push(`LaborTrax has no fully burdened endpoint yet; using the average of its labor entries ${window.from} to ${window.to}`);
+      const burdenedPerMh = kpi?.value ?? lr.burdenedPerMh;
+      if (!(burdenedPerMh > 0)) throw new Error(`no costed hours between ${window.from} and ${window.to}`);
+      const dr = laborRatesFromEntries(entries, directWindow, LABOR_TYPES);
+      // A labor type with no hours in the last 3 weeks falls back to its 6-month rate.
+      const directByType = { ...lr.directByType, ...dr.directByType };
+      const directSource = Object.fromEntries(Object.keys(directByType).map(k => [k, k in dr.directByType ? '3w' : '6m']));
+      update.live_burdened_per_mh = +burdenedPerMh.toFixed(2);
+      update.live_direct_rates = Object.fromEntries(Object.entries(directByType).map(([k, v]) => [k, +v.toFixed(2)]));
       update.live_labor_detail = {
-        window, hours: +lr.hours.toFixed(1), entries: lr.entryCount,
-        burdened_per_mh: +lr.burdenedPerMh.toFixed(2), direct_per_mh: +lr.directPerMh.toFixed(2), overhead_per_mh: +lr.overheadPerMh.toFixed(2),
-        categories: lr.categories.map(c => ({ ...c, hours: +c.hours.toFixed(1), directPerMh: +c.directPerMh.toFixed(2) })),
+        window: kpi?.from && kpi?.to ? { from: kpi.from, to: kpi.to } : window,
+        burdened_source: kpi ? 'labortrax' : 'entries',
+        direct_window: directWindow, hours: +lr.hours.toFixed(1), entries: lr.entryCount,
+        burdened_per_mh: +burdenedPerMh.toFixed(2), direct_per_mh: +lr.directPerMh.toFixed(2), overhead_per_mh: +lr.overheadPerMh.toFixed(2),
+        direct_hours: +dr.hours.toFixed(1), direct_source: directSource,
+        categories: dr.categories.map(c => ({ ...c, hours: +c.hours.toFixed(1), directPerMh: +c.directPerMh.toFixed(2) })),
       };
       update.live_labor_at = now;
     } catch (e) { warnings.push('LaborTrax labor rates: ' + e.message); }

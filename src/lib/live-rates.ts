@@ -13,6 +13,12 @@ export const LIVE_STALE_HOURS = 12;
 
 export type LiveLaborDetail = {
   window: { from: string; to: string };
+  /** Direct wages per type use a shorter recent window; types with no hours there fall back to `window`. */
+  direct_window?: { from: string; to: string };
+  direct_hours?: number;
+  /** 'labortrax' = LaborTrax's own fully burdened figure; 'entries' = fallback average of labor entries. */
+  burdened_source?: 'labortrax' | 'entries';
+  direct_source?: Record<string, '3w' | '6m'>;
   hours: number;
   entries: number;
   burdened_per_mh: number;
