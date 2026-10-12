@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Live costing rates: pulls Odoo's current exchange rates and LaborTrax's labor
 // cost per man-hour (fully burdened + direct wages by labor type) into
-// global_settings.live_*. Costing reads them only while use_live_rates is on
+// global_settings.live_*, which costing always uses
 // (src/lib/live-rates.ts); a failed source keeps its last good value. Admin/team only.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     const { data: allowed } = await sb.rpc('is_admin_or_team', { _user_id: claims.claims.sub });
     if (!allowed) return json({ error: 'Forbidden' }, 403);
 
-    const { data: gs, error: gsErr } = await admin.from('global_settings').select('id, use_live_rates').limit(1).single();
+    const { data: gs, error: gsErr } = await admin.from('global_settings').select('id').limit(1).single();
     if (gsErr || !gs) return json({ error: 'global_settings not found' }, 500);
 
     const now = new Date().toISOString();
@@ -121,9 +121,9 @@ Deno.serve(async (req) => {
     const { error: upErr } = await admin.from('global_settings').update(update).eq('id', gs.id);
     if (upErr) return json({ error: upErr.message }, 500);
 
-    // Quotes freeze their rate from the currencies table, so keep it in step while live rates are on.
+    // Quotes freeze their rate from the currencies table, so keep it in step with Odoo.
     let currenciesUpdated = 0;
-    if (gs.use_live_rates && Object.keys(currencyRates).length) {
+    if (Object.keys(currencyRates).length) {
       const { data: cur } = await admin.from('currencies').select('code, units_per_inr_base');
       for (const c of cur || []) {
         const v = currencyRates[String(c.code).toUpperCase()];

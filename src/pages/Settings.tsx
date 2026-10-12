@@ -52,8 +52,6 @@ function GeneralSettings() {
   if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
 
   const fields = [
-    { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number', hint: settings.use_live_rates ? 'Live rates are on: costing uses Odoo\'s rate (Settings → Live rates). This value is the fallback.' : undefined },
-    { key: 'indirect_overhead_per_mh', label: 'Indirect OH / Man-Hour (₹)', type: 'number', hint: settings.use_live_rates ? 'Live rates are on: costing uses LaborTrax\'s fully burdened cost per man-hour (Settings → Live rates). This value is the fallback.' : 'Indirect overhead allocated to each direct man-hour of work.' },
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
     { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
     { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },

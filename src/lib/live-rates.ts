@@ -1,12 +1,12 @@
 // Live costing rates (Odoo exchange rate, LaborTrax labor cost per man-hour).
 //
 // The live-rates-sync edge function writes the latest values into
-// global_settings.live_*; nothing changes in costing until use_live_rates is on.
-// While it is on, every engine path (through mergeSettingsWithInquiry) reads:
+// global_settings.live_*, and costing always uses them. Every engine path (through mergeSettingsWithInquiry) reads:
 //   exchange_rate            ← live_exchange_rate (Odoo INR per USD)
 //   indirect_overhead_per_mh ← live_burdened_per_mh (LaborTrax fully burdened ₹/MH)
 //   direct wage per type     ← live_direct_rates[labor_type] (LaborTrax ₹/MH), else the employee average
-// A per-inquiry override still wins, and a missing live value falls back to the manual one.
+// A per-inquiry override still wins, and a missing live value (never synced) falls back to
+// the stored global_settings value, which is no longer edited in the UI.
 // Pure (no supabase): the costing engine imports it. Syncing lives in live-rates-sync.ts.
 
 export const LIVE_STALE_HOURS = 12;
@@ -32,12 +32,10 @@ const pos = (v: unknown) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-/** Global settings with live values swapped in when use_live_rates is on. Idempotent. */
-export function applyLiveRates<T extends Record<string, any>>(gs: T | null | undefined, force?: boolean): T {
+/** Global settings with the live values swapped in. Idempotent. */
+export function applyLiveRates<T extends Record<string, any>>(gs: T | null | undefined): T {
   const base = (gs || {}) as any;
-  const on = force ?? !!base.use_live_rates;
-  if (base.__live_applied != null && force === undefined) return base as T;
-  if (!on) return { ...base, __live_applied: false } as T;
+  if (base.__live_applied) return base as T;
   return {
     ...base,
     __live_applied: true,

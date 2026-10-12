@@ -1,5 +1,5 @@
 // Settings navigation: five groups, plus the words each section answers to so the
-// search box can jump to a setting by name (e.g. "exchange rate" finds General).
+// search box can jump to a setting by name (e.g. "exchange rate" finds Live rates).
 
 export type SectionId =
   | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'team' | 'integrations' | 'projections'
@@ -17,8 +17,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Company',
     items: [
-      { id: 'general', label: 'General', keywords: ['exchange rate', 'inr usd', 'indirect overhead', 'man-hour', 'auto transport', 'slow quote', 'slow sample', 'threshold', 'below moq', 'surcharge'] },
-      { id: 'live-rates', label: 'Live rates', keywords: ['live', 'odoo', 'trax', 'exchange rate', 'fully burdened', 'indirect overhead', 'direct wages', 'price impact'] },
+      { id: 'general', label: 'General', keywords: ['auto transport', 'slow quote', 'slow sample', 'threshold', 'below moq', 'surcharge'] },
+      { id: 'live-rates', label: 'Live rates', keywords: ['live', 'odoo', 'trax', 'exchange rate', 'inr usd', 'fully burdened', 'indirect overhead', 'man-hour', 'direct wages'] },
       { id: 'entities', label: 'Company entities', keywords: ['entity', 'parable ventures', 'dkt', 'logo', 'address', 'bank', 'gst', 'quote terms', 'terms and policies'] },
       { id: 'currencies', label: 'Currencies', keywords: ['currency', 'import rate', 'export rate', 'fx', 'gbp', 'eur', 'aud'] },
       { id: 'team', label: 'Team', keywords: ['users', 'members', 'roles', 'admin', 'access', 'assignee'] },

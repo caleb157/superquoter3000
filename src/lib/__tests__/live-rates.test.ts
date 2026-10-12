@@ -7,7 +7,7 @@ import { inrPerUnitFromOdoo, laborWindow, recentDaysWindow, laborRatesFromEntrie
 
 const gsManual = { exchange_rate: 85, indirect_overhead_per_mh: 40 };
 const gsLive = {
-  ...gsManual, use_live_rates: true, live_exchange_rate: 88.4, live_burdened_per_mh: 126.85,
+  ...gsManual, live_exchange_rate: 88.4, live_burdened_per_mh: 126.85,
   live_direct_rates: { Finishing: 100 },
 };
 
@@ -51,19 +51,13 @@ describe('Odoo / LaborTrax math', () => {
 });
 
 describe('applyLiveRates', () => {
-  it('leaves settings alone while switched off', () => {
-    const s = applyLiveRates({ ...gsLive, use_live_rates: false });
-    expect(s.exchange_rate).toBe(85);
-    expect(s.indirect_overhead_per_mh).toBe(40);
-  });
-
-  it('swaps in the live exchange rate and burdened cost when on', () => {
+  it('always swaps in the live exchange rate and burdened cost', () => {
     const s = applyLiveRates(gsLive);
     expect(s.exchange_rate).toBe(88.4);
     expect(s.indirect_overhead_per_mh).toBe(126.85);
   });
 
-  it('falls back to the manual value when a live value is missing', () => {
+  it('falls back to the stored value when a live value is missing', () => {
     const s = applyLiveRates({ ...gsLive, live_exchange_rate: null });
     expect(s.exchange_rate).toBe(85);
   });
@@ -73,12 +67,6 @@ describe('applyLiveRates', () => {
     const twice = mergeSettingsWithInquiry(once, { exchange_rate_override: 80 });
     expect(twice.exchange_rate).toBe(80);
     expect(twice.indirect_overhead_per_mh).toBe(126.85);
-  });
-
-  it('can be forced either way for the price-impact preview', () => {
-    expect(applyLiveRates({ ...gsLive, use_live_rates: false }, true).exchange_rate).toBe(88.4);
-    expect(applyLiveRates(gsLive, false).exchange_rate).toBe(85);
-    expect(mergeSettingsWithInquiry(applyLiveRates(gsLive, false), null).exchange_rate).toBe(85);
   });
 });
 
@@ -94,7 +82,7 @@ describe('withLiveDirectRates', () => {
     // applying twice changes nothing
     expect(avgRateByDesignation(withLiveDirectRates(list, applyLiveRates(gsLive)), 'Finishing')).toBe(100);
   });
-  it('does nothing while live rates are off', () => {
+  it('keeps the employee average when LaborTrax has no rates', () => {
     const list = withLiveDirectRates(employees, applyLiveRates(gsManual));
     expect(avgRateByDesignation(list, 'Finishing')).toBe(70);
   });
@@ -115,10 +103,13 @@ describe('costing engine with live rates', () => {
     expect(live.directOhPerUnit).toBeCloseTo(2 * 100, 6);
     expect(live.indirectOhPerUnit).toBeCloseTo(2 * 126.85, 6);
     expect(live.exchangeRate).toBe(88.4);
-    const manual = run(gsManual);
-    expect(manual.directOhPerUnit).toBeCloseTo(2 * 80, 6);
-    expect(manual.indirectOhPerUnit).toBeCloseTo(2 * 40, 6);
-    expect(manual.exchangeRate).toBe(85);
+  });
+
+  it('uses the stored values before the first sync', () => {
+    const fallback = run(gsManual);
+    expect(fallback.directOhPerUnit).toBeCloseTo(2 * 80, 6);
+    expect(fallback.indirectOhPerUnit).toBeCloseTo(2 * 40, 6);
+    expect(fallback.exchangeRate).toBe(85);
   });
 });
 
