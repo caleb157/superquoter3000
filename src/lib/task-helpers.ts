@@ -1,5 +1,8 @@
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 
+/** Local calendar date as yyyy-MM-dd (toISOString would give yesterday in India before 05:30). */
+export const localDateStr = (d: Date = new Date()) => format(d, 'yyyy-MM-dd');
+
 export function formatDueDate(dateStr: string | null): { text: string; isOverdue: boolean } {
   if (!dateStr) return { text: 'No date', isOverdue: false };
   const d = new Date(dateStr + 'T00:00:00');

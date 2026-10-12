@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil, Paperclip, Flag, Repeat, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatDueDate, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
+import { formatDueDate, localDateStr, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
 import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
 import { associationMeta, APP_FIX } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -17,7 +17,6 @@ import { shortDate } from '@/lib/task-postpone';
 import type { TaskWithRefs, DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { PRIORITY_RANK } from '@/lib/task-types';
 import { customerPrimary } from '@/lib/customer-name';
-import { localDateStr } from '@/lib/inquiry-tasks';
 
 type TaskListProps = {
   inquiryId?: string;
@@ -40,12 +39,14 @@ type TaskListProps = {
   /** Called after a task is completed, postponed or edited from this list. */
   onChanged?: () => void;
   emptyText?: string;
+  /** Card layout at every width, for narrow panels like the top-bar tasks sheet. */
+  narrow?: boolean;
 };
 
 export function TaskList({
   inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind = 'all',
   status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
-  showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false, onChanged, emptyText = 'No tasks',
+  showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false, onChanged, emptyText = 'No tasks', narrow = false,
 }: TaskListProps) {
   const [tasks, setTasks] = useState<TaskWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,7 +241,7 @@ export function TaskList({
             : null);
 
           const mobileCard = !compact && (
-            <div className={cn('sm:hidden flex items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
+            <div className={cn(narrow ? 'flex' : 'sm:hidden flex', 'items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
               <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className={cn('shrink-0 mt-0.5 h-5 w-5 rounded-full border-2', priorityRing(t.priority))} />
               <button onClick={() => setEditId(t.id)} className="flex-1 min-w-0 text-left space-y-1">
                 <div className={cn('text-sm font-medium leading-snug break-words', t.status === 'done' && 'line-through text-muted-foreground')}>
@@ -361,7 +362,7 @@ export function TaskList({
             <li key={t.id}>
               <SwipeableTaskRow done={t.status === 'done'} onToggle={() => toggleStatus(t)}>
                 {mobileCard}
-                {rowInner}
+                {!narrow && rowInner}
               </SwipeableTaskRow>
             </li>
           );

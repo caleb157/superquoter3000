@@ -13,6 +13,7 @@ import { TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
+import { TaskBell } from '@/components/TaskBell';
 import { MobileTaskFab } from '@/components/MobileTaskFab';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GlobalSearch } from '@/components/GlobalSearch';
@@ -122,6 +123,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <Search className="h-4 w-4" />
             </Button>
             <GlobalTaskQuickAdd />
+            <TaskBell />
             {isAdmin && (
               <Link to="/settings">
                 <Button

@@ -30,9 +30,6 @@ import { fmt } from '@/lib/formatters';
 import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
-import { TodayTasksCard } from '@/components/TodayTasksCard';
-import { formatDueDate } from '@/lib/task-helpers';
-import { summarizeInquiryTasks, type OpenTaskLite } from '@/lib/inquiry-tasks';
 import { useInquiryManHours } from '@/hooks/use-inquiry-man-hours';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -84,8 +81,6 @@ const Dashboard = () => {
   useScrollRestoration('dashboard.scroll', !loading);
   const { sortColumn, sortDirection, toggleSort, sortItems } = useTableSort<Inquiry>({ storageKey: 'inquiries-sort' });
   const [refreshKey, setRefreshKey] = useState(0);
-  const [openTasks, setOpenTasks] = useState<OpenTaskLite[]>([]);
-  const [taskRefreshKey, setTaskRefreshKey] = useState(0);
 
   const [showNewInquiry, setShowNewInquiry] = useState(false);
   const [newInquiryStatus, setNewInquiryStatus] = useState<'active' | 'projected_po'>('active');
@@ -103,7 +98,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     (async () => {
-      setLoading(true);
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
@@ -122,32 +116,12 @@ const Dashboard = () => {
     })();
   }, [refreshKey]);
 
-  // Open tasks linked to inquiries, for the "Next task" column. Cheap, so it is
-  // re-read whenever a task changes on this page.
+  // Keep the list live: re-read inquiries when the tab comes back into view.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('tasks')
-        .select('id, title, due_date, priority, assignee, inquiry_id')
-        .eq('status', 'open')
-        .not('inquiry_id', 'is', null);
-      if (!cancelled) setOpenTasks((data ?? []) as OpenTaskLite[]);
-    })();
-    return () => { cancelled = true; };
-  }, [refreshKey, taskRefreshKey]);
-
-  // Keep the page live: re-read inquiries and tasks when the tab comes back into view.
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      setRefreshKey(k => k + 1);
-      setTaskRefreshKey(k => k + 1);
-    };
+    const onVisible = () => { if (document.visibilityState === 'visible') setRefreshKey(k => k + 1); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
-  const taskSummary = useMemo(() => summarizeInquiryTasks(openTasks), [openTasks]);
 
   const customerMap = useMemo(
     () => Object.fromEntries(customers.map(c => [c.id, c])),
@@ -211,13 +185,12 @@ const Dashboard = () => {
         priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         mh: (i) => mhByInquiry[i.id] ?? 0,
-        next_task: (i) => taskSummary[i.id]?.next.due_date ?? (taskSummary[i.id] ? '9999-12-31' : '~'),
         updated: (i) => new Date(i.updated_at).getTime(),
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, taskSummary, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -293,11 +266,6 @@ const Dashboard = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
-          <TodayTasksCard
-            refreshKey={taskRefreshKey}
-            onChanged={() => setTaskRefreshKey(k => k + 1)}
-          />
-
           {/* Filter bar — wraps cleanly on mobile */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
@@ -382,8 +350,6 @@ const Dashboard = () => {
 
                       {!isAllStagesEmpty(prods) && renderStagePillsRow(prods, inq.id)}
 
-                      {taskSummary[inq.id] && <NextTaskCell s={taskSummary[inq.id]} inquiryId={inq.id} />}
-
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                         <span>
                           {prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}
@@ -432,7 +398,6 @@ const Dashboard = () => {
                     <TableRow>
                       <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
-                      <SortableHeader column="next_task" label="Next task" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[220px]" />
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
                       <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
@@ -475,11 +440,6 @@ const Dashboard = () => {
                                 <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200 shrink-0" title="Contains products that need review">⚠</span>
                               )}
                             </div>
-                          </TableCell>
-                          <TableCell className="max-w-[220px]">
-                            {taskSummary[inq.id]
-                              ? <NextTaskCell s={taskSummary[inq.id]} inquiryId={inq.id} />
-                              : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Select
@@ -602,30 +562,5 @@ const Dashboard = () => {
     </AppLayout>
   );
 };
-
-/** Next open task on an inquiry (earliest due), with the open count; opens the inquiry's Tasks tab. */
-function NextTaskCell({ s, inquiryId }: { s: ReturnType<typeof summarizeInquiryTasks>[string]; inquiryId: string }) {
-  const navigate = useNavigate();
-  const due = formatDueDate(s.next.due_date);
-  const isToday = due.text === 'Today';
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); navigate(`/inquiry/${inquiryId}?tab=tasks`); }}
-      className="flex items-center gap-1.5 min-w-0 max-w-full text-left hover:underline"
-      title={`${s.openCount} open task${s.openCount === 1 ? '' : 's'}${s.dueCount ? `, ${s.dueCount} due` : ''}`}
-    >
-      <span className={cn(
-        'text-[10px] px-1.5 py-0.5 rounded shrink-0 tabular-nums',
-        due.isOverdue ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
-          : isToday ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-          : 'bg-muted text-muted-foreground',
-      )}>{due.text}</span>
-      <span className="text-xs truncate min-w-0">{s.next.title}</span>
-      {s.next.assignee && <span className="text-[10px] text-muted-foreground shrink-0">{s.next.assignee}</span>}
-      {s.openCount > 1 && <span className="text-[10px] text-muted-foreground shrink-0">+{s.openCount - 1}</span>}
-    </button>
-  );
-}
 
 export default Dashboard;
