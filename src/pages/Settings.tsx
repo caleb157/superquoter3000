@@ -4,6 +4,7 @@ import { FobRatesSettings } from '@/components/FobRatesSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import CompanyEntitiesSettings from '@/components/CompanyEntitiesSettings';
+import QuoteTermsSettings from '@/components/QuoteTermsSettings';
 import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
 import TaskAutomationsSettings from '@/components/TaskAutomationsSettings';
@@ -194,6 +195,7 @@ const Settings = () => {
       case 'live-rates': return <LiveRatesSettings />;
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
+      case 'quote-terms': return <QuoteTermsSettings />;
       case 'team': return <TeamManagementContent />;
       case 'task-automations': return <TaskAutomationsSettings />;
       case 'projections': return <ProjectionDefaultsSettings />;

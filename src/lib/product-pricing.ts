@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
 import { costPointFromResult, type CostPoint } from '@/lib/cost-history';
+import { fetchAllByIds, fetchAllRows } from '@/lib/supabase-paged';
 
 let _difficultiesCache: Array<{ name: string; rupees_per_ri?: number | null }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
@@ -45,12 +46,14 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   if (productIds.length === 0) return {};
   // Expand to sibling products in the same inquiries so FOB shipping can be priced on the
   // whole inquiry shipment. Pass 1 gets CBM/cartons (shipping-independent), pass 2 uses the pool.
-  const { data: own } = await supabase.from('products').select('id, customer_rfq_id').in('id', productIds).limit(100000);
+  const own = await fetchAllByIds<{ id: string; customer_rfq_id: string | null }>(productIds, (chunk) =>
+    supabase.from('products').select('id, customer_rfq_id').in('id', chunk).order('id'));
   const inqIds = [...new Set((own || []).map((p: any) => p.customer_rfq_id).filter(Boolean))] as string[];
   let allIds = productIds;
   if (inqIds.length) {
-    const { data: sibs } = await supabase.from('products').select('id').in('customer_rfq_id', inqIds).is('archived_at', null).limit(100000);
-    allIds = [...new Set([...productIds, ...((sibs || []).map((s: any) => s.id))])];
+    const sibs = await fetchAllByIds<{ id: string }>(inqIds, (chunk) =>
+      supabase.from('products').select('id').in('customer_rfq_id', chunk).is('archived_at', null).order('id'));
+    allIds = [...new Set([...productIds, ...sibs.map((s) => s.id)])];
   }
   const first = await computeCore(allIds, null);
   const pools = buildPoolsFromMap(first);
@@ -71,6 +74,11 @@ export function buildPoolsFromMap(map: ProductPriceCostMap): Record<string, Ship
   }
   return pools;
 }
+
+const byIds = (table: string, column: string, ids: string[]) =>
+  fetchAllByIds<any>(ids, (chunk) => (supabase as any).from(table).select('*').in(column, chunk).order('id'));
+const all = (table: string, columns = '*') =>
+  fetchAllRows<any>(() => (supabase as any).from(table).select(columns).order('id'));
 
 async function computeCore(productIds: string[], pools: Record<string, ShipmentPool> | null): Promise<ProductPriceCostMap> {
   const out: ProductPriceCostMap = {};
@@ -95,41 +103,43 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
     locRes,
     rawRes,
   ] = await Promise.all([
-    supabase.from('products').select('*').in('id', productIds).limit(100000),
-    supabase.from('cogs_items').select('*').in('product_id', productIds).limit(100000),
-    supabase.from('non_unit_cogs').select('*').in('product_id', productIds).limit(100000),
-    supabase.from('overhead_items').select('*').in('product_id', productIds).limit(100000),
-    supabase.from('shipping_items').select('*').in('product_id', productIds).limit(100000),
-    supabase.from('shipping_types').select('*').limit(100000),
-    supabase.from('labor_employees').select('*').limit(100000),
+    // Every list is paged (fetchAllRows / fetchAllByIds): PostgREST returns at most 1,000
+    // rows per request, and a big inquiry easily has more cost lines than that.
+    byIds('products', 'id', productIds),
+    byIds('cogs_items', 'product_id', productIds),
+    byIds('non_unit_cogs', 'product_id', productIds),
+    byIds('overhead_items', 'product_id', productIds),
+    byIds('shipping_items', 'product_id', productIds),
+    all('shipping_types'),
+    all('labor_employees'),
     supabase.from('global_settings').select('*').limit(1).single(),
-    supabase.from('cbm_estimates').select('*').in('product_id', productIds).limit(100000),
-    supabase.from('product_types').select('*').limit(100000),
-    supabase.from('customer_rfqs').select('id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc').limit(100000),
-    supabase.from('chemical_prices').select('*').limit(100000),
-    supabase.from('box_data').select('*').limit(100000),
-    (supabase as any).from('finishing_difficulty').select('*').limit(100000),
-    (supabase as any).from('local_transport_locations').select('id, cost_per_cbm_inr').limit(100000),
-    (supabase as any).from('raw_material_costs').select('id, name, cost, unit_type, active').limit(100000),
+    byIds('cbm_estimates', 'product_id', productIds),
+    all('product_types'),
+    all('customer_rfqs', 'id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc'),
+    all('chemical_prices'),
+    all('box_data'),
+    all('finishing_difficulty'),
+    all('local_transport_locations', 'id, cost_per_cbm_inr'),
+    all('raw_material_costs', 'id, name, cost, unit_type, active'),
   ]);
 
-  const products = productsRes.data || [];
-  const cogs = cogsRes.data || [];
-  const allNu = nuRes.data || [];
-  const allOh = ohRes.data || [];
-  const allShipItems = shipItemsRes.data || [];
-  const shipTypes = shipTypesRes.data || [];
-  const employees = empRes.data || [];
+  const products = productsRes;
+  const cogs = cogsRes;
+  const allNu = nuRes;
+  const allOh = ohRes;
+  const allShipItems = shipItemsRes;
+  const shipTypes = shipTypesRes;
+  const employees = empRes;
   const gs = gsRes.data as any;
-  const allCbm = cbmRes.data || [];
-  const productTypes = ptRes.data || [];
-  const inquiries = inquiriesRes.data || [];
+  const allCbm = cbmRes;
+  const productTypes = ptRes;
+  const inquiries = inquiriesRes;
   const inquiryById = Object.fromEntries(inquiries.map((i: any) => [i.id, i]));
-  const chemicalPrices = chemRes.data || [];
-  const boxData = boxRes.data || [];
-  const difficulties: any[] = (diffRes as any).data || [];
-  const locations: any[] = (locRes as any).data || [];
-  const rawMaterialCosts: any[] = (rawRes as any).data || [];
+  const chemicalPrices = chemRes;
+  const boxData = boxRes;
+  const difficulties: any[] = diffRes as any[];
+  const locations: any[] = locRes as any[];
+  const rawMaterialCosts: any[] = rawRes as any[];
   _difficultiesCache = difficulties as any;
   _locationsCache = locations as any;
 

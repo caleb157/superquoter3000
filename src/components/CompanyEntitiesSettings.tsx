@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Upload, Trash2, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EntityTermsEditor } from '@/components/EntityTermsEditor';
 import type { QuoteClause } from '@/lib/quote-terms';
 
 interface CompanyEntity {
@@ -257,14 +256,6 @@ export default function CompanyEntitiesSettings() {
         </CardContent>
       </Card>
 
-      {/* Quote terms and policies */}
-      <EntityTermsEditor
-        entityId={entity.id}
-        value={entity.default_terms}
-        onSave={async terms => {
-          if (await updateField('default_terms', terms)) toast.success(terms ? 'Terms saved' : 'Terms reset to defaults');
-        }}
-      />
     </div>
   );
 }
