@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FobRatesSettings } from '@/components/FobRatesSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
@@ -21,127 +22,8 @@ import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettin
 import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefaultChemicalsEditor';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { ALL_SECTIONS, VALID_SECTIONS, searchSettings, type SectionId } from '@/lib/settings-nav';
+import { EditableTable } from '@/components/EditableTable';
 
-// Generic editable table component
-function EditableTable<T extends { id: string }>({
-  tableName, columns, data, setData, fetchData, defaultRow,
-}: {
-  tableName: string;
-  columns: { key: string; label: string; type?: string; width?: string }[];
-  data: T[];
-  setData: (d: T[]) => void;
-  fetchData: () => void;
-  defaultRow: Partial<T>;
-}) {
-  const addRow = async () => {
-    const client = supabase as any;
-    const { error } = await client.from(tableName).insert(defaultRow).select().single();
-    if (error) { toast.error(error.message); return; }
-    fetchData();
-    toast.success('Row added');
-  };
-
-  const updateField = async (id: string, field: string, value: any) => {
-    const client = supabase as any;
-    const { error } = await client.from(tableName).update({ [field]: value }).eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    setData(data.map(r => r.id === id ? { ...r, [field]: value } : r));
-  };
-
-  const deleteRow = async (id: string) => {
-    const client = supabase as any;
-    const { error } = await client.from(tableName).delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    fetchData();
-    toast.success('Row deleted');
-  };
-
-  return (
-    <div>
-      <div className="flex justify-end mb-2">
-        <Button size="sm" variant="outline" onClick={addRow} className="gap-1 h-7 text-xs">
-          <Plus className="h-3 w-3" /> Add Row
-        </Button>
-      </div>
-      <div className="border rounded-md overflow-auto">
-        <Table className="dense-table">
-          <TableHeader>
-            <TableRow>
-              {columns.map(c => (
-                <TableHead key={c.key} style={{ width: c.width }}>{c.label}</TableHead>
-              ))}
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map(row => (
-              <TableRow key={row.id}>
-                {columns.map(col => (
-                  <TableCell key={col.key}>
-                    {col.type === 'readonly' ? (
-                      <span className="calc-field px-1 rounded">
-                        {String((row as any)[col.key] ?? '')}
-                      </span>
-                    ) : col.type === 'tags' ? (
-                      <div className="flex flex-wrap gap-1">
-                        {((row as any)[col.key] || []).map((tag: string, i: number) => (
-                          <Badge key={i} variant="secondary" className="text-[10px] h-5 cursor-pointer"
-                            onClick={() => {
-                              const tags = [...((row as any)[col.key] || [])];
-                              tags.splice(i, 1);
-                              updateField(row.id, col.key, tags);
-                            }}>
-                            {tag} ×
-                          </Badge>
-                        ))}
-                        <input
-                          className="border-none outline-none bg-transparent text-xs w-16"
-                          placeholder="+"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                              const val = (e.target as HTMLInputElement).value.trim();
-                              const tags = [...((row as any)[col.key] || []), val];
-                              updateField(row.id, col.key, tags);
-                              (e.target as HTMLInputElement).value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <Input
-                        className="h-7 text-xs border-transparent hover:border-input focus:border-input"
-                        type={col.type === 'number' ? 'number' : 'text'}
-                        defaultValue={(row as any)[col.key] ?? ''}
-                        onBlur={(e) => {
-                          const val = col.type === 'number' ? Number(e.target.value) : e.target.value;
-                          if (val !== (row as any)[col.key]) {
-                            updateField(row.id, col.key, val);
-                          }
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => deleteRow(row.id)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {data.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="text-center text-muted-foreground py-8">
-                  No data. Click "Add Row" to get started.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
 
 // Global Settings form (single row)
 function GeneralSettings() {
@@ -391,7 +273,15 @@ function WrappingSettings() {
   );
 }
 
+// Vendors and Customers are edited on their own pages now; old links land there.
+const MOVED: Record<string, string> = { vendors: '/vendors?edit=1', customers: '/customers' };
+
 const Settings = () => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const to = MOVED[window.location.hash.replace('#', '')];
+    if (to) navigate(to, { replace: true });
+  }, [navigate]);
   const initialSection = (() => {
     if (typeof window === 'undefined') return 'general';
     const hash = window.location.hash.replace('#', '');
@@ -414,8 +304,6 @@ const Settings = () => {
   const [chemicals, setChemicals] = useState<any[]>([]);
   const [hardware, setHardware] = useState<any[]>([]);
   const [woodPrices, setWoodPrices] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<any[]>([]);
   const [containerTypes, setContainerTypes] = useState<any[]>([]);
   const fetchContainerTypes = () => (supabase as any).from('container_types').select('*').order('sort_order').then(({ data }: any) => data && setContainerTypes(data));
   useEffect(() => { fetchContainerTypes(); }, []);
@@ -428,8 +316,6 @@ const Settings = () => {
     supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data));
     supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
     supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data));
-    (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data));
-    (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -472,39 +358,6 @@ const Settings = () => {
               ]}
             />
           </div>
-        );
-      case 'customers':
-        return (
-          <EditableTable
-            tableName="customers"
-            data={customers} setData={setCustomers}
-            fetchData={() => (supabase as any).from('customers').select('*').order('name').then(({ data }: any) => data && setCustomers(data))}
-            defaultRow={{ name: 'New Customer' } as any}
-            columns={[
-              { key: 'name', label: 'Name', width: '160px' },
-              { key: 'company', label: 'Company', width: '150px' },
-              { key: 'email', label: 'Email', width: '180px' },
-              { key: 'phone', label: 'Phone', width: '120px' },
-              { key: 'notes', label: 'Notes' },
-            ]}
-          />
-        );
-      case 'vendors':
-        return (
-          <EditableTable
-            tableName="vendors"
-            data={vendors} setData={setVendors}
-            fetchData={() => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setVendors(data))}
-            defaultRow={{ name: 'New Vendor', category: 'general' } as any}
-            columns={[
-              { key: 'name', label: 'Name', width: '160px' },
-              { key: 'email', label: 'Email', width: '160px' },
-              { key: 'phone', label: 'Phone', width: '120px' },
-              { key: 'address', label: 'Address', width: '200px' },
-              { key: 'category', label: 'Category', width: '120px' },
-              { key: 'notes', label: 'Notes', width: '150px' },
-            ]}
-          />
         );
       case 'fob-rates':
         return <FobRatesSettings />;
