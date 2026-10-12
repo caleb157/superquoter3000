@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.39.0",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
     "@hello-pangea/dnd": "^17.0.0",
