@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { computeProductCosting } from '@/lib/costing-engine';
+import { autoLaborEstimate, computeProductCosting } from '@/lib/costing-engine';
 
 // ---- Frozen copy of the legacy product-pricing per-product loop body ----
 function legacyComputeOne(args: {
@@ -152,9 +152,8 @@ function legacyComputeOne(args: {
   const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
     nuForCalc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity || 0, cost_each_inr: i.cost_each_inr || 0 })), qty);
 
-  const diffName = p.finishing_difficulty || 'Medium';
-  const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor) ?? calc.getDifficultyFactor(diffName);
-  const finishingMh = calc.calcFinishingMhPerUnit(Number(productType?.finishing_mh_per_100ri) || 0, difficultyFactor, percentWood, ri);
+  // Wood types get finishing hours from the ₹/RI budget; other types get none (hours are entered by hand).
+  const finishingMh = calc.isWoodType(productType?.name) ? autoLaborEstimate({ product: p, productType, difficulties, employees }).finishingMh : 0;
   // Packaging labor: a flat man-hours-per-running-inch rate (see autoLaborEstimate).
   const packagingMh = noPackaging ? 0 : calc.productRunningInches(p, productType?.name) * calc.PACKAGING_MH_PER_RI;
 
@@ -443,7 +442,7 @@ describe('costing-engine: auto external freight and zero wood handling', () => {
       overheadItems: mkOh(product.id),
       shippingItems: [{ product_id: product.id, shipping_type_id: 'sh-cbm' }],
       cbmRow: cbmRow(product.id),
-      productType: baseProductType,
+      productType: { ...baseProductType, name: 'Wood Console' }, // wood: auto finishing hours scale with % wood
       boxData,
       chemicalPrices,
       shippingTypes: shipTypes,
