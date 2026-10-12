@@ -12,6 +12,7 @@ export type TaskContext = {
   inquiryId?: string;
   productId?: string;
   customerId?: string;
+  projectId?: string;
   /** Start a new task already tagged as an app fix. */
   appFix?: boolean;
 };

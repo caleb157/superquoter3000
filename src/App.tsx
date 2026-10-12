@@ -36,6 +36,8 @@ const InquiryContainerPlanner = lazyPage(() => import("./pages/InquiryContainerP
 const SamplesList = lazyPage(() => import("./pages/SamplesList"));
 const SampleRequestView = lazyPage(() => import("./pages/SampleRequestView"));
 const Tasks = lazyPage(() => import("./pages/Tasks"));
+const Projects = lazyPage(() => import("./pages/Projects"));
+const ProjectDetail = lazyPage(() => import("./pages/ProjectDetail"));
 const Analytics = lazyPage(() => import("./pages/Analytics"));
 const Vendors = lazyPage(() => import("./pages/Vendors"));
 const Tools = lazyPage(() => import("./pages/Tools"));
@@ -190,6 +192,12 @@ const App = () => (
               <Route path="/quote/:token" element={<CustomerQuote />} />
               <Route path="/tasks" element={
                 <ProtectedRoute requireAdminOrTeam><Tasks /></ProtectedRoute>
+              } />
+              <Route path="/projects" element={
+                <ProtectedRoute requireAdminOrTeam><Projects /></ProtectedRoute>
+              } />
+              <Route path="/projects/:id" element={
+                <ProtectedRoute requireAdminOrTeam><ProjectDetail /></ProtectedRoute>
               } />
               <Route path="/analytics" element={
                 <ProtectedRoute requireAdminOrTeam><Analytics /></ProtectedRoute>
