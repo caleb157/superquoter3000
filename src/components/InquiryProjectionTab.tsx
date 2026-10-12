@@ -36,6 +36,7 @@ import {
 } from '@/lib/inquiry-financials';
 import { ChevronDown, Lock } from 'lucide-react';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
+import { REPEAT_ORDER_EVENT } from '@/components/InquiryClockStrip';
 
 type Props = { inquiryId: string };
 
@@ -65,6 +66,17 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   useEffect(() => {
     loadProjectionDefaults().then(d => setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit })).catch(() => {});
   }, []);
+  // The clock strip above the tabs can flip the repeat flag too (and creates the projection row if needed).
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (d?.inquiryId !== inquiryId) return;
+      setProj(prev => ({ ...(prev || {}), repeat_order: !!d.repeatOrder }));
+      setExisted(true);
+    };
+    window.addEventListener(REPEAT_ORDER_EVENT, onChange);
+    return () => window.removeEventListener(REPEAT_ORDER_EVENT, onChange);
+  }, [inquiryId]);
   const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(90);
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
@@ -335,7 +347,10 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
                   checked={!!proj?.repeat_order}
-                  onCheckedChange={c => persist({ repeat_order: !!c })}
+                  onCheckedChange={async c => {
+                    await persist({ repeat_order: !!c });
+                    window.dispatchEvent(new CustomEvent(REPEAT_ORDER_EVENT, { detail: { inquiryId, repeatOrder: !!c } }));
+                  }}
                 />
                 Repeat order
               </label>

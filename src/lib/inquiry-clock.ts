@@ -1,7 +1,9 @@
 // Inquiry clock: how long an inquiry has waited for its first quote.
 // Starts at the received date (local midnight), or at the creation time when the inquiry
 // was logged that same day, so an inquiry entered at 4pm doesn't start 16 hours behind.
-// Stops at the first saved quote. Amber from 3 days open, red from 7.
+// Stops at the first saved quote, or at a quoted date entered by hand (customer_rfqs.quoted_date)
+// when the quote went out some other way. Amber from 3 days open, red from 7.
+// Repeat orders (inquiry_projections.repeat_order) have no clock: there is nothing to quote fresh.
 
 export type ClockTone = 'neutral' | 'amber' | 'red' | 'done';
 
@@ -55,17 +57,28 @@ export function formatQuotedIn(ms: number): string {
   return `${(safe / DAY).toFixed(1)} days`;
 }
 
+/** When the clock stops: the hand-entered quoted date (local midnight) wins over the first saved quote. */
+export function quoteStop(quotedDate: string | null | undefined, firstQuoteAt: string | null | undefined): Date | null {
+  const manual = quotedDate ? localMidnight(quotedDate) : null;
+  if (manual) return manual;
+  return firstQuoteAt ? new Date(firstQuoteAt) : null;
+}
+
 export function computeInquiryClock(opts: {
   receivedDate?: string | null;
   createdAt?: string | null;
   firstQuoteAt?: string | null;
+  quotedDate?: string | null;
+  repeatOrder?: boolean | null;
   status?: string | null;
   now?: Date;
 }): InquiryClock | null {
+  if (opts.repeatOrder) return null;
   const start = clockStart(opts.receivedDate, opts.createdAt);
   if (!start) return null;
-  if (opts.firstQuoteAt) {
-    const ms = Math.max(0, new Date(opts.firstQuoteAt).getTime() - start.getTime());
+  const stop = quoteStop(opts.quotedDate, opts.firstQuoteAt);
+  if (stop) {
+    const ms = Math.max(0, stop.getTime() - start.getTime());
     return { state: 'quoted', ms, label: `Quoted in ${formatQuotedIn(ms)}`, tone: 'done' };
   }
   const ms = Math.max(0, (opts.now ?? new Date()).getTime() - start.getTime());

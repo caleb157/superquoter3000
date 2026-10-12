@@ -24,14 +24,18 @@ export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; c
 
   useEffect(() => {
     (async () => {
-      const [q, s, i] = await Promise.all([
+      const [q, s, i, p] = await Promise.all([
         supabase.from('quote_snapshots').select('customer_rfq_id, created_at'),
         (supabase as any).from('sample_requests').select('id, request_number, customer_rfq_id, requested_date, required_by_date, samples(status, completed_at)'),
-        supabase.from('customer_rfqs').select('id, rfq_number, title, received_date, created_at, status'),
+        // '*' so the hand-entered quoted_date comes along without failing the query before its column exists.
+        (supabase as any).from('customer_rfqs').select('*'),
+        (supabase as any).from('inquiry_projections').select('inquiry_id').eq('repeat_order', true),
       ]);
+      const repeats = new Set<string>((p.data || []).map((x: any) => x.inquiry_id));
+      const inquiries = (i.data || []).map((x: any) => ({ ...x, repeat_order: repeats.has(x.id) }));
       const inq: Record<string, string> = {};
-      (i.data || []).forEach((x: any) => (inq[x.id] = `${x.rfq_number}${x.title ? ' · ' + x.title : ''}`));
-      setHq({ inquiries: (i.data || []) as any[], quotes: (q.data || []) as any[], requests: s.data || [], inq });
+      inquiries.forEach((x: any) => (inq[x.id] = `${x.rfq_number}${x.title ? ' · ' + x.title : ''}`));
+      setHq({ inquiries, quotes: (q.data || []) as any[], requests: s.data || [], inq });
     })();
   }, []);
 
@@ -93,7 +97,7 @@ export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; c
           { header: 'Doc ccy', cell: r => r.currency }, { header: 'Amount', align: 'right', cell: r => fmtMoney(pickAmt(r, ccy), ccy, false) },
         ]} />
       <DrillDownDialog open={drill === 'rfq'} onOpenChange={o => !o && setDrill(null)} title="Inquiry → quote"
-        description="Days from the inquiry's received date (or creation time, if logged that day) to its first saved quote: the same clock as the strip on each inquiry. The median counts inquiries first quoted in the period; active inquiries still waiting are listed below them but not counted."
+        description="Days from the inquiry's received date (or creation time, if logged that day) to its first saved quote (or the quoted date entered on the inquiry): the same clock as the strip on each inquiry. Repeat orders aren't counted. The median counts inquiries first quoted in the period; active inquiries still waiting are listed below them but not counted."
         header={<MonthlyTrend points={quoteTrend} goal={targets.rfq_days} label="Median days to first quote, by month quoted" />}
         rows={[...quoted, ...waiting]} rowKey={r => r.inquiryId} onRowClick={r => navigate(`/inquiry/${r.inquiryId}`)}
         columns={[

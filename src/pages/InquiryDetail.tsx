@@ -322,8 +322,10 @@ export default function InquiryDetail() {
           inquiryId={id!}
           receivedDate={inquiry.received_date ?? null}
           createdAt={inquiry.created_at ?? null}
+          quotedDate={inquiry.quoted_date ?? null}
           status={inquiry.status ?? null}
           refreshKey={refreshKey}
+          onQuotedDateChange={date => updateField({ quoted_date: date })}
         />
         <InquirySampleClockStrip inquiryId={id!} refreshKey={refreshKey} />
 

@@ -29,6 +29,15 @@ describe('inquiryQuoteTimings', () => {
     expect(b.waiting).toBe(true);
     expect(rows.find(r => r.inquiryId === 'c')!.waiting).toBe(false);
   });
+  it('uses a hand-entered quoted date over the first saved quote', () => {
+    const [r] = inquiryQuoteTimings([{ ...inquiries[0], quoted_date: '2026-10-03' }], quotes, now);
+    expect(r.days).toBe(2);
+    expect(r.quotedAt?.toISOString()).toBe(at(2026, 10, 3).toISOString());
+  });
+  it('leaves repeat orders out entirely', () => {
+    const r = inquiryQuoteTimings([{ ...inquiries[0], repeat_order: true }, { ...inquiries[1], repeat_order: true }], quotes, now);
+    expect(r).toEqual([]);
+  });
 });
 
 describe('sampleRequestTimings', () => {
