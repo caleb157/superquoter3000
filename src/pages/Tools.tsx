@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, FileText, Wrench, Ship, Weight, Images } from 'lucide-react';
+import { Box, Calculator, FileText, Wrench, Ship, Weight, Images } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -16,6 +16,12 @@ const tools = [
     icon: Weight,
     title: 'Iron Weight Calculator',
     description: 'Weight and cost of iron furniture parts from bars and tubes. Estimate the parts from a photo and save builds by SKU.',
+  },
+  {
+    to: '/tools/breakeven',
+    icon: Calculator,
+    title: 'Breakeven Calculator',
+    description: 'Revenue needed to cover overhead and the cash buffer at any trading / manufacturing mix, from live Odoo margins and overhead. Change any assumption to try it out.',
   },
   {
     to: '/tools/export-docs',

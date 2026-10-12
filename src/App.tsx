@@ -41,6 +41,7 @@ const Vendors = lazyPage(() => import("./pages/Vendors"));
 const Tools = lazyPage(() => import("./pages/Tools"));
 const MasterCartonSizer = lazyPage(() => import("./pages/MasterCartonSizer"));
 const IronWeightCalculator = lazyPage(() => import("./pages/IronWeightCalculator"));
+const BreakevenCalculator = lazyPage(() => import("./pages/BreakevenCalculator"));
 const ExportDocuments = lazyPage(() => import("./pages/ExportDocuments"));
 const MediaGallery = lazyPage(() => import("./pages/MediaGallery"));
 const OAuthConsent = lazyPage(() => import("./pages/OAuthConsent"));
@@ -207,6 +208,9 @@ const App = () => (
               } />
               <Route path="/tools/iron-weight" element={
                 <ProtectedRoute requireAdminOrTeam><IronWeightCalculator /></ProtectedRoute>
+              } />
+              <Route path="/tools/breakeven" element={
+                <ProtectedRoute requireAdminOrTeam><BreakevenCalculator /></ProtectedRoute>
               } />
               <Route path="/tools/export-docs" element={
                 <ProtectedRoute requireAdminOrTeam><ExportDocuments /></ProtectedRoute>
