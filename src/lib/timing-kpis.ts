@@ -2,7 +2,7 @@
 // inquiry → first quote (src/lib/inquiry-clock.ts) and sample request → every live sample
 // received at our factory (src/lib/sample-requests.ts). So the dashboard can't disagree with
 // what the inquiry page says.
-import { clockStart, computeInquiryClock } from '@/lib/inquiry-clock';
+import { clockStart, computeInquiryClock, quoteStop } from '@/lib/inquiry-clock';
 import { computeSampleClock, type SampleLineLite } from '@/lib/sample-requests';
 import { median } from '@/lib/analytics-helpers';
 
@@ -19,7 +19,7 @@ export type InquiryTiming = {
 };
 
 export function inquiryQuoteTimings(
-  inquiries: Array<{ id: string; received_date: string | null; created_at: string | null; status: string | null }>,
+  inquiries: Array<{ id: string; received_date: string | null; created_at: string | null; status: string | null; quoted_date?: string | null; repeat_order?: boolean | null }>,
   quotes: Array<{ customer_rfq_id: string | null; created_at: string }>,
   now: Date = new Date(),
 ): InquiryTiming[] {
@@ -31,12 +31,16 @@ export function inquiryQuoteTimings(
   }
   const out: InquiryTiming[] = [];
   for (const i of inquiries) {
+    // Repeat orders return no clock, so they stay out of the medians and the waiting list.
     const firstQuoteAt = first.get(i.id) ?? null;
-    const clock = computeInquiryClock({ receivedDate: i.received_date, createdAt: i.created_at, firstQuoteAt, status: i.status, now });
+    const clock = computeInquiryClock({
+      receivedDate: i.received_date, createdAt: i.created_at, firstQuoteAt, quotedDate: i.quoted_date,
+      repeatOrder: i.repeat_order, status: i.status, now,
+    });
     const start = clockStart(i.received_date, i.created_at);
     if (!clock || !start) continue;
     out.push({
-      inquiryId: i.id, start, quotedAt: firstQuoteAt ? new Date(firstQuoteAt) : null, days: clock.ms / DAY,
+      inquiryId: i.id, start, quotedAt: quoteStop(i.quoted_date, firstQuoteAt), days: clock.ms / DAY,
       waiting: clock.state === 'open' && WAITING_STATUSES.has(i.status ?? 'active'),
     });
   }
