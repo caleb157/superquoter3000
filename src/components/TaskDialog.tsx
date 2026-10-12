@@ -20,6 +20,7 @@ import { customerSecondary } from '@/lib/customer-name';
 import { ASSOCIATION_TYPES, type AssociationType, associationMeta } from '@/lib/task-association';
 import { parseRule, ruleLabel, type RecurrenceRule, type RecurrenceFreq } from '@/lib/task-recurrence';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { OdooOrderPicker } from '@/components/OdooOrderPicker';
 
 type TaskDialogProps = {
   open: boolean;
@@ -199,7 +200,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if (assocType === 'inquiry' && !inquiryId) { toast.error('Pick an inquiry or remove the link'); return; }
     if (assocType === 'customer' && !customerId) { toast.error('Pick a customer or remove the link'); return; }
     if ((assocType === 'odoo_so' || assocType === 'odoo_mo') && !extId.trim()) {
-      toast.error(`Enter the ${associationMeta(assocType)?.idLabel} or remove the link`); return;
+      toast.error(`Pick the ${associationMeta(assocType)?.idLabel} from Odoo or remove the link`); return;
     }
     if (rule && !dueDate) { toast.error('Repeating tasks need a first due date'); return; }
 
@@ -249,7 +250,6 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
 
   const selectedInquiry = inquiries.find(i => i.id === inquiryId);
   const selectedCustomer = customers.find(c => c.id === customerId);
-  const meta = associationMeta(assocType);
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -429,11 +429,11 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               <p className="mt-1.5 text-[11px] text-muted-foreground">Shows in Tasks with an App fix label. Say where in the app and what should change.</p>
             )}
 
-            {(assocType === 'odoo_so' || assocType === 'odoo_mo') && meta && (
-              <div className="grid grid-cols-[1fr_1.4fr] gap-2 mt-1.5">
-                <Input value={extId} onChange={e => setExtId(e.target.value)} placeholder={meta.idPlaceholder} className="h-9 text-sm" aria-label={meta.idLabel} />
-                <Input value={extDetail} onChange={e => setExtDetail(e.target.value)} placeholder={meta.detailPlaceholder} className="h-9 text-sm" aria-label={meta.detailLabel} />
-              </div>
+            {(assocType === 'odoo_so' || assocType === 'odoo_mo') && (
+              <OdooOrderPicker
+                kind={assocType === 'odoo_so' ? 'so' : 'mo'} value={extId} label={extDetail}
+                onPick={(name, label) => { setExtId(name); setExtDetail(label ?? ''); }}
+              />
             )}
           </div>
 
