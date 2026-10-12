@@ -2856,6 +2856,7 @@ export type Database = {
           id: string
           item_name: string
           notes: string | null
+          picked_at: string | null
           product_id: string | null
           product_name: string | null
           product_photo_url: string | null
@@ -2874,6 +2875,7 @@ export type Database = {
           id?: string
           item_name: string
           notes?: string | null
+          picked_at?: string | null
           product_id?: string | null
           product_name?: string | null
           product_photo_url?: string | null
@@ -2892,6 +2894,7 @@ export type Database = {
           id?: string
           item_name?: string
           notes?: string | null
+          picked_at?: string | null
           product_id?: string | null
           product_name?: string | null
           product_photo_url?: string | null
@@ -2966,6 +2969,7 @@ export type Database = {
       }
       vendor_rfqs: {
         Row: {
+          batch_id: string | null
           created_at: string | null
           created_by: string | null
           customer_rfq_id: string | null
@@ -2982,6 +2986,7 @@ export type Database = {
           status: string | null
           title: string | null
           updated_at: string | null
+          vendor_id: string | null
           vendor_address: string | null
           vendor_email: string | null
           vendor_name: string | null
@@ -2991,6 +2996,7 @@ export type Database = {
           vendor_response_submitted_at: string | null
         }
         Insert: {
+          batch_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_rfq_id?: string | null
@@ -3007,6 +3013,7 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
+          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
           vendor_name?: string | null
@@ -3016,6 +3023,7 @@ export type Database = {
           vendor_response_submitted_at?: string | null
         }
         Update: {
+          batch_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_rfq_id?: string | null
@@ -3032,6 +3040,7 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
+          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
           vendor_name?: string | null
