@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, FileText, Wrench, Ship, Weight } from 'lucide-react';
+import { Box, FileText, Wrench, Ship, Weight, Images } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -22,6 +22,12 @@ const tools = [
     icon: FileText,
     title: 'Commercial Invoice & Packing List',
     description: 'Pick an Odoo customer invoice and download the commercial invoice and packing list as Excel and PDF, at the ICEGATE customs rate.',
+  },
+  {
+    to: '/media',
+    icon: Images,
+    title: 'Media Gallery',
+    description: 'Every photo from products, assemblies, samples and tasks in one grid. Filter by source or inquiry, search by SKU or name, and jump back to the record.',
   },
   {
     to: '/freight-quotes',
