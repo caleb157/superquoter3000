@@ -666,6 +666,7 @@ export type Database = {
           quoting_currency_rate_override: number | null
           quoting_entity_id: string | null
           received_date: string
+          repeat_of_inquiry_id: string | null
           requirements: string | null
           rfq_number: string
           shipping_type_id_override: string | null
@@ -704,6 +705,7 @@ export type Database = {
           quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
           received_date?: string
+          repeat_of_inquiry_id?: string | null
           requirements?: string | null
           rfq_number?: string
           shipping_type_id_override?: string | null
@@ -742,6 +744,7 @@ export type Database = {
           quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
           received_date?: string
+          repeat_of_inquiry_id?: string | null
           requirements?: string | null
           rfq_number?: string
           shipping_type_id_override?: string | null
@@ -770,6 +773,13 @@ export type Database = {
             columns: ["quoting_entity_id"]
             isOneToOne: false
             referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_rfqs_repeat_of_inquiry_id_fkey"
+            columns: ["repeat_of_inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
             referencedColumns: ["id"]
           },
           {
@@ -1292,6 +1302,7 @@ export type Database = {
           default_certainty_pct: number
           default_cust_deposit_pct: number
           default_ie_deposit_pct: number
+          default_repeat_certainty_pct: number
           default_shipping_type: string | null
           exchange_rate: number
           id: string
@@ -1318,6 +1329,7 @@ export type Database = {
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
           default_ie_deposit_pct?: number
+          default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
@@ -1344,6 +1356,7 @@ export type Database = {
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
           default_ie_deposit_pct?: number
+          default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
           id?: string
