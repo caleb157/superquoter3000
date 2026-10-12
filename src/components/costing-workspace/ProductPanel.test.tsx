@@ -35,6 +35,9 @@ describe('ProductPanel', () => {
     expect(screen.getByText('chemicals picker')).toBeTruthy();
     expect(screen.getByLabelText('Shipping done')).toBeTruthy();
     expect(screen.getByText(/Max raw piece at target/)).toBeTruthy();
+    // Quantity and MOQs come first, ahead of the cost figures.
+    const order = ['Qty', 'MOQ', 'Hard MOQ', 'Unit cost'].map(t => screen.getAllByText(t)[0]);
+    for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByLabelText('Next SKU')).toBeNull();
     fireEvent.click(screen.getByLabelText('Materials & components done'));
     expect(apply).toHaveBeenCalledTimes(1);

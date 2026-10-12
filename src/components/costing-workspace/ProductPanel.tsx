@@ -76,8 +76,10 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
         {isPhotoEstimated(p) && <PhotoEstimateNote est={p.photo_estimate} onChecked={() =>
           apply(b => patchProductsSame(b, [id], { photo_estimate: { ...p.photo_estimate, checked_at: new Date().toISOString() } }))} />}
 
+        <QuantityBar row={row} bundle={bundle} apply={apply} />
+
         {/* Price vs target */}
-        <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-px border-b bg-border', page && 'rounded-t-xl overflow-hidden')}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px border-b bg-border">
           <Figure label="Unit cost" value={inr(row.costInr)} sub={usd(row.costUsd)} />
           <Figure label="NPM" sub={`markup ${pct(row.markup)}`}>
             <PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} big />
@@ -217,7 +219,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 
         <Section title="Product setup" defaultOpen={page}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            {['qty', 'ptype', 'difficulty', 'wood', 'source', 'outsourced'].map(cid => (
+            {['ptype', 'difficulty', 'wood', 'source', 'outsourced'].map(cid => (
               <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />
             ))}
           </div>
@@ -324,7 +326,26 @@ function NumField({ label, value, onCommit, min = 0, int, hint }: {
   );
 }
 
-/** Page mode only: photo, MOQs and the note printed under the product on quotes. */
+/** Order quantity and MOQs, first thing in the panel: they drive shipping pooling and the below-MOQ surcharge. */
+function QuantityBar({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; apply: Apply }) {
+  const { p } = row;
+  const set = (patch: Record<string, any>) => apply(b => patchProductsSame(b, [p.id], patch));
+  return (
+    <div className="grid grid-cols-3 gap-x-4 border-b px-4 py-2.5">
+      <Field col={colById('qty')} row={row} bundle={bundle} apply={apply} />
+      <NumField label="MOQ" value={p.moq ?? 50} int onCommit={n => set({ moq: n })} />
+      <label className="block min-w-0" title="Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the below-MOQ surcharge applies.">
+        <span className="text-xs text-muted-foreground">Hard MOQ</span>
+        <div className="mt-0.5">
+          <EditCell className="border-border" align="left" value={p.hard_moq ?? ''} placeholder={String(p.moq ?? 50)}
+            onCommit={raw => { if (raw.trim() === '') { set({ hard_moq: null }); return; } const n = parseNum(raw); if (n != null && n >= 0) set({ hard_moq: Math.round(n) }); }} />
+        </div>
+      </label>
+    </div>
+  );
+}
+
+/** Page mode only: photo and the note printed under the product on quotes. */
 function ProductDetails({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
   const { p } = row;
   const id = p.id;
@@ -359,16 +380,6 @@ function ProductDetails({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-2.5">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-          <NumField label="MOQ" value={p.moq ?? 50} int onCommit={n => set({ moq: n })} />
-          <label className="block min-w-0" title="Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the below-MOQ surcharge applies.">
-            <span className="text-xs text-muted-foreground">Hard MOQ</span>
-            <div className="mt-0.5">
-              <EditCell className="border-border" align="left" value={p.hard_moq ?? ''} placeholder={String(p.moq ?? 50)}
-                onCommit={raw => { if (raw.trim() === '') { set({ hard_moq: null }); return; } const n = parseNum(raw); if (n != null && n >= 0) set({ hard_moq: Math.round(n) }); }} />
-            </div>
-          </label>
-        </div>
         <label className="block">
           <span className="text-xs text-muted-foreground">Quote notes (shown to the customer)</span>
           <Textarea className="mt-0.5 min-h-[60px] text-sm" rows={2} placeholder="Notes that appear on the customer quote under the product name…"
