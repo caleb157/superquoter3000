@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Users, Mail, Phone, ExternalLink, Package } from 'lucide-react';
+import { Search, Users, Mail, Phone, Package, Pencil, LayoutGrid } from 'lucide-react';
+import { EditableTable } from '@/components/EditableTable';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useScrollRestoration } from '@/hooks/use-persistent-state';
 
@@ -38,6 +40,15 @@ export default function Vendors() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   useScrollRestoration('vendors.scroll', !loading);
+  const { isAdmin } = useAuth();
+  const [params, setParams] = useSearchParams();
+  // Admins edit the vendor list here (it used to be a table in Settings).
+  const editing = isAdmin && params.get('edit') === '1';
+  const setEditing = (on: boolean) => setParams(on ? { edit: '1' } : {}, { replace: true });
+  const [rows, setRows] = useState<any[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+  const fetchRows = () => (supabase as any).from('vendors').select('*').order('name').then(({ data }: any) => data && setRows(data));
+  useEffect(() => { if (editing) void fetchRows(); }, [editing]);
 
   useEffect(() => {
     let cancel = false;
@@ -92,7 +103,7 @@ export default function Vendors() {
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -115,13 +126,29 @@ export default function Vendors() {
             <h1 className="text-xl font-serif font-medium tracking-tight">Vendors</h1>
             <Badge variant="secondary" className="text-xs">{vendors.length}</Badge>
           </div>
-          <Link to="/settings#vendors">
-            <Button size="sm" variant="outline">
-              Manage in Settings
-              <ExternalLink className="h-3.5 w-3.5" />
+          {isAdmin && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { if (editing) setReloadKey(k => k + 1); setEditing(!editing); }}>
+              {editing ? <><LayoutGrid className="h-3.5 w-3.5" /> Done editing</> : <><Pencil className="h-3.5 w-3.5" /> Edit list</>}
             </Button>
-          </Link>
+          )}
         </div>
+
+        {editing ? (
+          <EditableTable
+            tableName="vendors"
+            data={rows} setData={setRows}
+            fetchData={fetchRows}
+            defaultRow={{ name: 'New Vendor', category: 'general' } as any}
+            columns={[
+              { key: 'name', label: 'Name', width: '160px' },
+              { key: 'email', label: 'Email', width: '160px' },
+              { key: 'phone', label: 'Phone', width: '120px' },
+              { key: 'address', label: 'Address', width: '200px' },
+              { key: 'category', label: 'Category', width: '120px' },
+              { key: 'notes', label: 'Notes', width: '150px' },
+            ]}
+          />
+        ) : <>
 
         <div className="relative max-w-md">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -210,6 +237,7 @@ export default function Vendors() {
             ))}
           </div>
         )}
+        </>}
       </div>
     </AppLayout>
   );

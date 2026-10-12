@@ -23,6 +23,8 @@ import { TaskDialog } from '@/components/TaskDialog';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
+import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
@@ -54,6 +56,7 @@ type ProductCount = { customer_rfq_id: string };
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'inquiries';
 
@@ -152,6 +155,19 @@ export default function CustomerDetail() {
             canonical={[{ label: 'Customers', to: '/customers' }]}
             current={customer.company || customer.name || 'Customer'}
           />
+          {isAdmin && (
+            <div className="ml-auto">
+              <ConfirmDeleteButton
+                itemLabel={customer.company || customer.name || 'customer'}
+                description="Its inquiries stay but lose their customer link, and its tasks are deleted."
+                onConfirm={async () => {
+                  const { error } = await (supabase as any).from('customers').delete().eq('id', customer.id);
+                  if (error) throw new Error(error.message);
+                  navigate('/customers', { replace: true });
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Header — inline editable */}

@@ -32,7 +32,6 @@ import SamplesList from "./pages/SamplesList";
 import SampleRequestView from "./pages/SampleRequestView";
 import Tasks from "./pages/Tasks";
 import Analytics from "./pages/Analytics";
-import TeamManagement from "./pages/TeamManagement";
 import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
@@ -189,9 +188,7 @@ const App = () => (
               <Route path="/profitability" element={
                 <ProtectedRoute requireAdminOrTeam><SoProfitability /></ProtectedRoute>
               } />
-              <Route path="/team" element={
-                <ProtectedRoute requireAdmin><TeamManagement /></ProtectedRoute>
-              } />
+              <Route path="/team" element={<Navigate to="/settings#team" replace />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
