@@ -872,6 +872,126 @@ export type Database = {
         }
         Relationships: []
       }
+      customs_exchange_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          id: string
+          notification_no: string | null
+          rate: number
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          notification_no?: string | null
+          rate: number
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          notification_no?: string | null
+          rate?: number
+          source_url?: string | null
+        }
+        Relationships: []
+      }
+      export_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string | null
+          exchange_rate: number | null
+          id: string
+          invoice_no: string
+          notification_no: string | null
+          odoo_invoice_id: number | null
+          payload: Json
+          total_usd: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          exchange_rate?: number | null
+          id?: string
+          invoice_no: string
+          notification_no?: string | null
+          odoo_invoice_id?: number | null
+          payload: Json
+          total_usd?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          exchange_rate?: number | null
+          id?: string
+          invoice_no?: string
+          notification_no?: string | null
+          odoo_invoice_id?: number | null
+          payload?: Json
+          total_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_documents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_documents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_packing_profiles: {
+        Row: {
+          gross_weight_kg: number | null
+          net_weight_kg: number | null
+          package_dims_in: string | null
+          package_kind: string | null
+          sku: string
+          units_per_package: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          gross_weight_kg?: number | null
+          net_weight_kg?: number | null
+          package_dims_in?: string | null
+          package_kind?: string | null
+          sku: string
+          units_per_package?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          gross_weight_kg?: number | null
+          net_weight_kg?: number | null
+          package_dims_in?: string | null
+          package_kind?: string | null
+          sku?: string
+          units_per_package?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       finishing_difficulty: {
         Row: {
           adjustment_factor: number
