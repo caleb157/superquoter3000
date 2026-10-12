@@ -142,7 +142,6 @@ export type Database = {
           ic_depth: number | null
           ic_height: number | null
           ic_type: string | null
-          ic_volume_cbm: number | null
           ic_width: number | null
           id: string
           include_mc: boolean | null
@@ -167,7 +166,6 @@ export type Database = {
           products_per_ic: number | null
           products_per_mc: number | null
           total_cbm: number | null
-          total_weight_kg: number | null
           updated_at: string | null
         }
         Insert: {
@@ -177,7 +175,6 @@ export type Database = {
           ic_depth?: number | null
           ic_height?: number | null
           ic_type?: string | null
-          ic_volume_cbm?: number | null
           ic_width?: number | null
           id?: string
           include_mc?: boolean | null
@@ -202,7 +199,6 @@ export type Database = {
           products_per_ic?: number | null
           products_per_mc?: number | null
           total_cbm?: number | null
-          total_weight_kg?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -212,7 +208,6 @@ export type Database = {
           ic_depth?: number | null
           ic_height?: number | null
           ic_type?: string | null
-          ic_volume_cbm?: number | null
           ic_width?: number | null
           id?: string
           include_mc?: boolean | null
@@ -237,7 +232,6 @@ export type Database = {
           products_per_ic?: number | null
           products_per_mc?: number | null
           total_cbm?: number | null
-          total_weight_kg?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -644,13 +638,11 @@ export type Database = {
           drive_url: string | null
           exchange_rate_override: number | null
           fob_fumigation: string
-          fob_mode_override: string | null
           fob_pool_cartons_override: number | null
           fob_pool_cbm_override: number | null
           fob_wlc: string
           id: string
           indirect_overhead_per_mh_override: number | null
-          kanban_substage_override: string | null
           local_transport_cost_per_cbm_override: number | null
           markup_percent_override: number | null
           notes: string | null
@@ -684,13 +676,11 @@ export type Database = {
           drive_url?: string | null
           exchange_rate_override?: number | null
           fob_fumigation?: string
-          fob_mode_override?: string | null
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
           fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
-          kanban_substage_override?: string | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
@@ -724,13 +714,11 @@ export type Database = {
           drive_url?: string | null
           exchange_rate_override?: number | null
           fob_fumigation?: string
-          fob_mode_override?: string | null
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
           fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
-          kanban_substage_override?: string | null
           local_transport_cost_per_cbm_override?: number | null
           markup_percent_override?: number | null
           notes?: string | null
@@ -997,7 +985,6 @@ export type Database = {
       }
       finishing_difficulty: {
         Row: {
-          adjustment_factor: number
           created_at: string
           id: string
           name: string
@@ -1006,7 +993,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          adjustment_factor?: number
           created_at?: string
           id?: string
           name: string
@@ -1015,7 +1001,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          adjustment_factor?: number
           created_at?: string
           id?: string
           name?: string
@@ -1417,10 +1402,6 @@ export type Database = {
           analytics_targets: Json
           auto_transport_cost_per_cbm: number
           below_moq_surcharge_percent: number
-          bubble_kg_per_sq_in: number
-          bubble_price_per_kg: number
-          corrugate_kg_per_sq_in: number
-          corrugate_price_per_kg: number
           created_at: string | null
           default_certainty_pct: number
           default_cust_deposit_pct: number
@@ -1440,21 +1421,13 @@ export type Database = {
           live_rates_warnings: string[] | null
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
-          opening_cash_inr: number
           overhead_avg_months: number
           packaging_cost_per_cbm: number
-          slow_quote_days: number
-          slow_sample_days: number
-          use_live_rates: boolean
         }
         Insert: {
           analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
           below_moq_surcharge_percent?: number
-          bubble_kg_per_sq_in?: number
-          bubble_price_per_kg?: number
-          corrugate_kg_per_sq_in?: number
-          corrugate_price_per_kg?: number
           created_at?: string | null
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
@@ -1474,21 +1447,13 @@ export type Database = {
           live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
-          opening_cash_inr?: number
           overhead_avg_months?: number
           packaging_cost_per_cbm?: number
-          slow_quote_days?: number
-          slow_sample_days?: number
-          use_live_rates?: boolean
         }
         Update: {
           analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
           below_moq_surcharge_percent?: number
-          bubble_kg_per_sq_in?: number
-          bubble_price_per_kg?: number
-          corrugate_kg_per_sq_in?: number
-          corrugate_price_per_kg?: number
           created_at?: string | null
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
@@ -1508,12 +1473,8 @@ export type Database = {
           live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
-          opening_cash_inr?: number
           overhead_avg_months?: number
           packaging_cost_per_cbm?: number
-          slow_quote_days?: number
-          slow_sample_days?: number
-          use_live_rates?: boolean
         }
         Relationships: []
       }
@@ -1687,41 +1648,6 @@ export type Database = {
             columns: ["selling_entity_id"]
             isOneToOne: false
             referencedRelation: "company_entities_safe"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      inquiry_received_rfqs: {
-        Row: {
-          created_at: string
-          id: string
-          inquiry_id: string
-          notes: string | null
-          received_date: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          inquiry_id: string
-          notes?: string | null
-          received_date?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          inquiry_id?: string
-          notes?: string | null
-          received_date?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inquiry_received_rfqs_inquiry_id_fkey"
-            columns: ["inquiry_id"]
-            isOneToOne: false
-            referencedRelation: "customer_rfqs"
             referencedColumns: ["id"]
           },
         ]
@@ -2197,91 +2123,35 @@ export type Database = {
       product_types: {
         Row: {
           created_at: string | null
-          default_percent_wood_for_finishing: number | null
           finishing_color_per_100ri: number | null
           finishing_lacquer_per_100ri: number | null
-          finishing_mh_per_100ri: number | null
           finishing_sealer_l_per_100ri: number | null
           finishing_wax_g_per_sqin: number | null
           id: string
           name: string
-          pkg_corrugate_bubble_rate_mh_per_cbm: number | null
           pkg_ic_add_per_side_in: number | null
-          pkg_ic_mc_rate_mh_per_cbm: number | null
-          pkg_ic_rate_mh_per_cbm: number | null
         }
         Insert: {
           created_at?: string | null
-          default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
-          finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
           finishing_wax_g_per_sqin?: number | null
           id?: string
           name: string
-          pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
           pkg_ic_add_per_side_in?: number | null
-          pkg_ic_mc_rate_mh_per_cbm?: number | null
-          pkg_ic_rate_mh_per_cbm?: number | null
         }
         Update: {
           created_at?: string | null
-          default_percent_wood_for_finishing?: number | null
           finishing_color_per_100ri?: number | null
           finishing_lacquer_per_100ri?: number | null
-          finishing_mh_per_100ri?: number | null
           finishing_sealer_l_per_100ri?: number | null
           finishing_wax_g_per_sqin?: number | null
           id?: string
           name?: string
-          pkg_corrugate_bubble_rate_mh_per_cbm?: number | null
           pkg_ic_add_per_side_in?: number | null
-          pkg_ic_mc_rate_mh_per_cbm?: number | null
-          pkg_ic_rate_mh_per_cbm?: number | null
         }
         Relationships: []
-      }
-      product_variants: {
-        Row: {
-          attributes: Json
-          created_at: string | null
-          id: string
-          notes: string | null
-          photo_url: string | null
-          product_id: string | null
-          variant_name: string
-          wood_price_factor: number | null
-        }
-        Insert: {
-          attributes?: Json
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          photo_url?: string | null
-          product_id?: string | null
-          variant_name: string
-          wood_price_factor?: number | null
-        }
-        Update: {
-          attributes?: Json
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          photo_url?: string | null
-          product_id?: string | null
-          variant_name?: string
-          wood_price_factor?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_variants_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       products: {
         Row: {
@@ -2700,7 +2570,6 @@ export type Database = {
           customer_requested_date: string | null
           customer_rfq_id: string | null
           id: string
-          legacy_rfs_id: string | null
           notes: string | null
           request_number: string
           requested_date: string
@@ -2712,7 +2581,6 @@ export type Database = {
           customer_requested_date?: string | null
           customer_rfq_id?: string | null
           id?: string
-          legacy_rfs_id?: string | null
           notes?: string | null
           request_number?: string
           requested_date?: string
@@ -2724,7 +2592,6 @@ export type Database = {
           customer_requested_date?: string | null
           customer_rfq_id?: string | null
           id?: string
-          legacy_rfs_id?: string | null
           notes?: string | null
           request_number?: string
           requested_date?: string
@@ -2748,17 +2615,14 @@ export type Database = {
           customer_rfq_id: string | null
           dimensions_inch: string | null
           feedback: string | null
-          final_ready_date: string | null
           finish: string | null
           id: string
-          initial_ready_date: string | null
           notes: string | null
           photo_urls: Json
           product_id: string | null
           request_id: string | null
           requested_date: string | null
           required_by_date: string | null
-          rfs_id: string | null
           status: string
           updated_at: string
           vendor_id: string | null
@@ -2770,17 +2634,14 @@ export type Database = {
           customer_rfq_id?: string | null
           dimensions_inch?: string | null
           feedback?: string | null
-          final_ready_date?: string | null
           finish?: string | null
           id?: string
-          initial_ready_date?: string | null
           notes?: string | null
           photo_urls?: Json
           product_id?: string | null
           request_id?: string | null
           requested_date?: string | null
           required_by_date?: string | null
-          rfs_id?: string | null
           status?: string
           updated_at?: string
           vendor_id?: string | null
@@ -2792,17 +2653,14 @@ export type Database = {
           customer_rfq_id?: string | null
           dimensions_inch?: string | null
           feedback?: string | null
-          final_ready_date?: string | null
           finish?: string | null
           id?: string
-          initial_ready_date?: string | null
           notes?: string | null
           photo_urls?: Json
           product_id?: string | null
           request_id?: string | null
           requested_date?: string | null
           required_by_date?: string | null
-          rfs_id?: string | null
           status?: string
           updated_at?: string
           vendor_id?: string | null
@@ -3305,27 +3163,6 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
-        }
-        Relationships: []
-      }
-      wood_prices: {
-        Row: {
-          created_at: string | null
-          id: string
-          price_per_cft_inr: number
-          wood_type: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          price_per_cft_inr: number
-          wood_type: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          price_per_cft_inr?: number
-          wood_type?: string
         }
         Relationships: []
       }
