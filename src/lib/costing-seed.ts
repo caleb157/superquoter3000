@@ -1,8 +1,10 @@
 // Headless costing orchestration — seed, compute, and persist a product's costing
 // without opening the costing tab UI. Shares the same pure engine as product-pricing.ts
-// and ProductCostingTab so results are identical.
+// and the Costing Workspace so results are identical.
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
+import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
+import { recordCostChange } from '@/lib/cost-history';
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
@@ -20,7 +22,7 @@ const packagingIncludeForType = (pkg: string, componentName: string): boolean =>
  * Ensures a product has its default auto-calc COGS rows. Inserts only missing ones.
  * Idempotent: safe to call repeatedly. Returns true if any rows were inserted.
  *
- * Mirrors the row definitions used by ProductCostingTab's recalculate-all path and
+ * Mirrors the row definitions used by resetAutoCosting (Recalculate auto costs) and
  * the DB trigger trg_seed_product_defaults; the trigger covers most cases on
  * INSERT, this is the safety net for products that pre-date the trigger or had
  * default rows manually deleted.
@@ -183,7 +185,8 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
 /**
  * Persists the engine's resolved auto-calc values back to cogs_items
  * and writes calculated_unit_price_usd / calculated_unit_cost_usd to the product.
- * Compare-before-write to avoid redundant writes.
+ * Compare-before-write to avoid redundant writes. Also logs a cost history row when the
+ * costing moved; `cause` (e.g. "Live exchange rate") prefixes that row's reason.
  */
 export async function persistResolvedCosting(
   productId: string,
@@ -191,6 +194,7 @@ export async function persistResolvedCosting(
   cogsItems: any[],
   nonUnitCogs: any[],
   engineResult: CostingEngineResult,
+  cause?: string,
 ): Promise<void> {
   const writes: Promise<any>[] = [];
 
@@ -253,6 +257,8 @@ export async function persistResolvedCosting(
     );
   }
 
+  writes.push(recordCostChange(productId, engineResult, cause));
+
   await Promise.all(writes);
 }
 
@@ -298,7 +304,7 @@ async function loadSharedRefs(): Promise<SharedRefData> {
  * seed missing rows, compute via the engine, persist values + price.
  * Returns the computed unit price (USD), or null if it couldn't compute.
  */
-export async function recostProduct(productId: string, sharedRefs?: SharedRefData): Promise<number | null> {
+export async function recostProduct(productId: string, sharedRefs?: SharedRefData, cause?: string): Promise<number | null> {
   await seedDefaultCostingRows(productId);
 
   const refs = sharedRefs || (await loadSharedRefs());
@@ -347,6 +353,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
     (cogsRes.data || []) as any[],
     (nuRes.data || []) as any[],
     result,
+    cause,
   );
 
   return Number.isFinite(result.summary.unit_price_usd) ? result.summary.unit_price_usd : null;
@@ -358,6 +365,7 @@ export async function recostProduct(productId: string, sharedRefs?: SharedRefDat
 export async function recostInquiry(
   inquiryId: string,
   onProgress?: (done: number, total: number) => void,
+  cause?: string,
 ): Promise<void> {
   const { data: products } = await supabase
     .from('products')
@@ -377,7 +385,7 @@ export async function recostInquiry(
       while (cursor < ids.length) {
         const i = cursor++;
         try {
-          await recostProduct(ids[i], refs);
+          await recostProduct(ids[i], refs, cause);
         } catch (e) {
           console.error('recostProduct failed for', ids[i], e);
         }
@@ -386,4 +394,142 @@ export async function recostInquiry(
       }
     }),
   );
+}
+
+const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', ...HARDWARE_COGS_TYPES_WITH_LEGACY]);
+
+/**
+ * The rows the product costing screen makes sure exist whenever it is opened (the old
+ * Costing tab did this in its own effects). Unlike seedDefaultCostingRows it does not bring
+ * back finishing or packaging lines the user turned into something else, so a wax or
+ * outsourced product stays as it is. Idempotent: inserts only what is missing.
+ *
+ * - a cbm_estimates row, and the Auto Transport non-unit line when there are no non-unit lines
+ * - the product type's default chemicals (one per finishing category)
+ * - Corrugate / Bubble wrap lines in wrap packaging mode
+ * - the domestic freight line when the product is sourced from outside
+ * - a shipping item with the default shipping type
+ * - qty 1 on priced manual raw piece / subcontracting / hardware lines that still say 0
+ *
+ * Returns true when anything was written (callers reload their rows).
+ */
+export async function ensureCostingRowsOnOpen(productId: string): Promise<boolean> {
+  const sb = supabase as any;
+  const [prodRes, cogsRes, nuRes, cbmRes, shipRes] = await Promise.all([
+    sb.from('products').select('id, packaging_type, source_location_id, product_type_id').eq('id', productId).maybeSingle(),
+    sb.from('cogs_items').select('*').eq('product_id', productId),
+    sb.from('non_unit_cogs').select('id').eq('product_id', productId),
+    sb.from('cbm_estimates').select('id').eq('product_id', productId),
+    sb.from('shipping_items').select('id').eq('product_id', productId),
+  ]);
+  const product = prodRes.data;
+  if (!product) return false;
+  const cogs = (cogsRes.data || []) as any[];
+  let changed = false;
+
+  const needsGs = !(cbmRes.data || []).length || !(shipRes.data || []).length;
+  const gs = needsGs ? (await sb.from('global_settings').select('mc_height_buffer_inch, default_shipping_type').limit(1).maybeSingle()).data : null;
+
+  if (!(cbmRes.data || []).length) {
+    await sb.from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: gs?.mc_height_buffer_inch ?? 2.5 });
+    changed = true;
+  }
+  if (!(nuRes.data || []).length) {
+    await sb.from('non_unit_cogs').insert({
+      product_id: productId, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
+    });
+    changed = true;
+  }
+  if (!(shipRes.data || []).length) {
+    const { data: types } = await sb.from('shipping_types').select('id, name').order('name');
+    const type = (types || []).find((t: any) => t.name === gs?.default_shipping_type) || (types || [])[0];
+    if (type) {
+      await sb.from('shipping_items').insert({ product_id: productId, shipping_type_id: type.id });
+      changed = true;
+    }
+  }
+
+  const has = (match: (n: string) => boolean) => cogs.some(c => match((c.component_name || '').toLowerCase()));
+  let s = cogs.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0) + 1;
+  const inserts: any[] = [];
+
+  if (product.product_type_id) {
+    const { data: defaults } = await sb
+      .from('product_type_default_chemicals')
+      .select('chemical_price_id, chemical_price:chemical_prices(id, name, category, unit_type, price_per_unit_inr, price_per_litre_inr)')
+      .eq('product_type_id', product.product_type_id);
+    const chemIds = new Set(cogs.map(c => c.chemical_price_id).filter(Boolean));
+    const cats = new Set(cogs.filter(c => c.cogs_type === 'Finishing Materials').map(c => {
+      const n = (c.component_name || '').toLowerCase();
+      if (n.includes('color') || n.includes('stain')) return 'Color';
+      if (n.includes('sealer')) return 'Sealer';
+      if (n.includes('lacquer')) return 'Lacquer';
+      if (n.includes('wax')) return 'Wax';
+      return null;
+    }).filter(Boolean));
+    for (const d of (defaults || []) as any[]) {
+      const chem = d.chemical_price;
+      if (!chem || chemIds.has(chem.id) || cats.has(chem.category)) continue;
+      cats.add(chem.category);
+      inserts.push({
+        product_id: productId, cogs_type: 'Finishing Materials', component_name: chem.name, chemical_price_id: chem.id,
+        is_auto_calculated: true, include: 'Yes', units: chem.unit_type || 'L', components_per_product: 0,
+        unit_cost_inr: Number(chem.price_per_unit_inr ?? chem.price_per_litre_inr ?? 0), sort_order: s++,
+      });
+    }
+  }
+  if (product.packaging_type === 'corrugate_bubble') {
+    for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
+      if (!has(n => n === name.toLowerCase())) {
+        inserts.push({ product_id: productId, cogs_type: 'Packaging', component_name: name, units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+    }
+  }
+  if (product.source_location_id && !has(n => n.includes('domestic freight'))) {
+    inserts.push({
+      product_id: productId, cogs_type: 'Subcontracting', component_name: 'Domestic Freight (External Sourcing)', units: 'CBM',
+      waste_factor: 0, is_auto_calculated: true, include: 'Yes', sort_order: s++,
+    });
+  }
+  if (inserts.length) {
+    await sb.from('cogs_items').insert(inserts);
+    changed = true;
+  }
+
+  const backfill = cogs.filter(c =>
+    !c.is_auto_calculated && PRICED_QTY_DEFAULT_COGS_TYPES.has(c.cogs_type)
+    && (Number(c.unit_cost_inr) || 0) > 0 && (Number(c.components_per_product) || 0) <= 0,
+  ).map(c => c.id);
+  if (backfill.length) {
+    await sb.from('cogs_items').update({ components_per_product: 1 }).in('id', backfill);
+    changed = true;
+  }
+  return changed;
+}
+
+/**
+ * "Recalculate auto costs": hands the managed lines (finishing materials, cartons, domestic
+ * freight, finishing and packaging labor) back to the engine and re-adds any deleted default
+ * rows. Returns how many rows were restored.
+ */
+export async function resetAutoCosting(productId: string): Promise<number> {
+  const sb = supabase as any;
+  const count = async () => {
+    const [c, o] = await Promise.all([
+      sb.from('cogs_items').select('id, component_name').eq('product_id', productId),
+      sb.from('overhead_items').select('id, labor_type').eq('product_id', productId),
+    ]);
+    return { cogs: (c.data || []) as any[], oh: (o.data || []) as any[] };
+  };
+  const before = await count();
+  const managed = ['color', 'stain', 'sealer', 'lacquer', 'ic box', 'inner carton', 'mc box', 'master carton', 'outer carton', 'domestic freight'];
+  const cogsIds = before.cogs.filter(c => managed.some(k => (c.component_name || '').toLowerCase().includes(k))).map(c => c.id);
+  const ohIds = before.oh.filter(o => o.labor_type === 'Finishing' || o.labor_type === 'Packaging').map(o => o.id);
+  await Promise.all([
+    cogsIds.length ? sb.from('cogs_items').update({ is_auto_calculated: true }).in('id', cogsIds) : null,
+    ohIds.length ? sb.from('overhead_items').update({ is_auto_estimated: true }).in('id', ohIds) : null,
+  ]);
+  await seedDefaultCostingRows(productId);
+  const after = await count();
+  return Math.max(0, after.cogs.length + after.oh.length - before.cogs.length - before.oh.length);
 }

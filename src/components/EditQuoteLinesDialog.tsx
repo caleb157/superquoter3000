@@ -13,6 +13,7 @@ import type { FreightInput, FreightMode } from '@/lib/freight';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { createQuoteVersion, isSentQuote } from '@/lib/quote-versions';
+import { costRiseText, useCostRiseWarnings } from '@/components/CostRiseWarnings';
 
 type SnapshotLine = {
   product_id?: string | null;
@@ -68,6 +69,12 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
   const initialNotesRef = useRef<string>('');
   // Last price sent to this customer per SKU (or name), from their other sent quotes.
   const [lastSent, setLastSent] = useState<Record<string, LastSent>>({});
+  // Lines whose cost rose since they were last quoted to this customer, by product.
+  const costRises = useCostRiseWarnings(snapshot, open);
+  const costRiseByProduct = useMemo(() => {
+    const lines = (snapshot?.products ?? []) as any[];
+    return Object.fromEntries(costRises.map(w => [lines[w.index]?.product_id, w]));
+  }, [costRises, snapshot]);
   // Set once a save on a sent quote has created a new version; later saves go to that version.
   const versionIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
@@ -435,11 +442,21 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                 />
                 {(() => {
                   const hit = lastSent[lastSentKey(line.sku, line.name, true)] ?? lastSent[lastSentKey(line.sku, line.name, false)];
-                  if (!hit) return null;
+                  const rise = line.product_id ? costRiseByProduct[line.product_id] : undefined;
+                  if (!hit && !rise) return null;
                   return (
-                    <p className="mt-0.5 text-right text-[10px] text-muted-foreground" title={hit.quote_number ?? undefined}>
-                      Last sent {fmt.money(hit.price, hit.currency)} · {new Date(hit.sent_at).toLocaleDateString()}
-                    </p>
+                    <>
+                      {hit && (
+                        <p className="mt-0.5 text-right text-[10px] text-muted-foreground" title={hit.quote_number ?? undefined}>
+                          Last sent {fmt.money(hit.price, hit.currency)} · {new Date(hit.sent_at).toLocaleDateString()}
+                        </p>
+                      )}
+                      {rise && (
+                        <p className="mt-0.5 text-right text-[10px] font-medium text-amber-600 dark:text-amber-400" title={rise.reasons.join('\n') || undefined}>
+                          {costRiseText(rise).replace(/^c/, 'C')}
+                        </p>
+                      )}
+                    </>
                   );
                 })()}
               </div>

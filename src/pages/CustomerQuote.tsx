@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { EditQuoteLinesDialog } from '@/components/EditQuoteLinesDialog';
+import { CostRiseBanner } from '@/components/CostRiseWarnings';
 import { useForceLightTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -550,6 +551,8 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
           </div>
         );
       })()}
+
+      {embedded && <CostRiseBanner snapshot={snapshot} />}
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:py-0 print:px-0 print-fit">
 
