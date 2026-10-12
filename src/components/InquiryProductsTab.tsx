@@ -27,7 +27,6 @@ import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type Har
 import { priceProductLines, resolveQuoteDefaults } from '@/lib/quote-rough';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
-import { GenerateRfqDialog } from '@/components/GenerateRfqDialog';
 import { VendorRfqSheetDialog } from '@/components/vendor-rfq/VendorRfqSheetDialog';
 import { RawTargetsDialog } from '@/components/RawTargetsDialog';
 import { OutsourceCompareDialog } from '@/components/OutsourceCompareDialog';
@@ -157,7 +156,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
-  const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
   const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
   const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
   const [outsourceCompareOpen, setOutsourceCompareOpen] = useState(false);
@@ -736,7 +734,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkSetType={() => setBulkTypeOpen(true)}
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
-        onGenerateRfq={() => setGenerateRfqOpen(true)}
         onVendorRfqSheet={() => setRfqSheetOpen(true)}
         onCopyToInquiry={() => setCopyToOpen(true)}
         onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
@@ -761,14 +758,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       <VendorRfqSheetDialog
         open={rfqSheetOpen}
         onOpenChange={setRfqSheetOpen}
-        inquiryId={inquiryId}
-        productIds={Array.from(selected)}
-        onCreated={() => { setSelected(new Set()); }}
-      />
-
-      <GenerateRfqDialog
-        open={generateRfqOpen}
-        onOpenChange={setGenerateRfqOpen}
         inquiryId={inquiryId}
         productIds={Array.from(selected)}
         onCreated={() => { setSelected(new Set()); }}

@@ -26,7 +26,6 @@ type Props = {
   onBulkSetSource?: () => void;
   onBulkSetType?: () => void;
   onLogRfs?: () => void;
-  onGenerateRfq?: () => void;
   onVendorRfqSheet?: () => void;
   onCopyToInquiry?: () => void;
   onBulkDeleteCogs?: () => void;
@@ -48,7 +47,6 @@ export function BulkStageActions({
   onBulkSetSource,
   onBulkSetType,
   onLogRfs,
-  onGenerateRfq,
   onVendorRfqSheet,
   onCopyToInquiry,
   onBulkDeleteCogs,
@@ -59,7 +57,7 @@ export function BulkStageActions({
   if (selectedIds.length === 0) return null;
 
   const hasAnyBulkEdit = !!(onBulkQuantity || onBulkCosting || onBulkSetNpm || onBulkTargetPrice || onBulkChemicals || onBulkSetSource || onBulkSetType || onBulkDeleteCogs);
-  const hasAnyLog = !!(onLogRfs || onGenerateRfq);
+  const hasAnyLog = !!onLogRfs;
 
   const stageSub = (track: StageTrack, label: string) => (
     <DropdownMenuSub>
@@ -146,8 +144,6 @@ export function BulkStageActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {onGenerateRfq && <DropdownMenuItem onClick={onGenerateRfq}>Generate RFQ from selection…</DropdownMenuItem>}
-            {onGenerateRfq && onLogRfs && <DropdownMenuSeparator />}
             {onLogRfs && <DropdownMenuItem onClick={onLogRfs}>RFS received</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
