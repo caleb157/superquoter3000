@@ -9,7 +9,7 @@
 // Bulk Costing Editor: they were three views over the same rows.
 
 import { supabase } from '@/integrations/supabase/client';
-import { computeProductCosting, type CostingEngineResult, type ShipmentPool } from '@/lib/costing-engine';
+import { OUTSOURCED_COGS_NAME, computeProductCosting, type CostingEngineResult, type ShipmentPool } from '@/lib/costing-engine';
 import { loadFobRates } from '@/lib/fob-rates';
 import { persistResolvedCosting } from '@/lib/costing-seed';
 import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
@@ -36,6 +36,7 @@ export type Bundle = {
   difficulties: any[];
   locations: any[];
   rawMaterialCosts: any[];
+  hardwarePrices: any[];
 };
 
 // ---------- Cost buckets ----------
@@ -95,6 +96,7 @@ export type WorkspaceRow = {
   /** Effective Finishing/Packaging hours per unit (auto rows follow the engine's estimate); null when the row is missing. */
   labor: Record<'Finishing' | 'Packaging', { hours: number; auto: boolean } | null>;
   rawVendor: string;
+  shippingId: string | null;
   shippingName: string;
   costInr: number;
   priceInr: number;
@@ -221,6 +223,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       qty: Number(p.quantity) || 0,
       buckets, editBuckets, quotes,
       rawVendor: winner?.vendor || '',
+      shippingId: shipId,
       shippingName: shipId ? ((shipTypeById.get(shipId) as any)?.name || '—') : '—',
       costInr, priceInr, priceUsd,
       costUsd: r.summary.product_cost_per_unit_usd,
@@ -297,6 +300,41 @@ export function totals(rows: WorkspaceRow[]): Totals {
 
 // ---------- Loading ----------
 
+async function loadRows(ids: string[]) {
+  const q = ids.length ? ids : ['00000000-0000-0000-0000-000000000000'];
+  const [cogs, nu, oh, ship, cbm] = await Promise.all([
+    db.from('cogs_items').select('*').in('product_id', q).limit(100000),
+    db.from('non_unit_cogs').select('*').in('product_id', q).limit(100000),
+    db.from('overhead_items').select('*').in('product_id', q).limit(100000),
+    db.from('shipping_items').select('*').in('product_id', q).limit(100000),
+    db.from('cbm_estimates').select('*').in('product_id', q).limit(100000),
+  ]);
+  return { cogs: cogs.data || [], nu: nu.data || [], oh: oh.data || [], shipItems: ship.data || [], cbm: cbm.data || [] };
+}
+
+async function loadRefs() {
+  const [res] = await Promise.all([
+    Promise.all([
+      db.from('shipping_types').select('*'),
+      db.from('labor_employees').select('*'),
+      db.from('global_settings').select('*').limit(1).maybeSingle(),
+      db.from('product_types').select('*').order('name'),
+      db.from('chemical_prices').select('*'),
+      db.from('box_data').select('*'),
+      db.from('finishing_difficulty').select('*'),
+      db.from('local_transport_locations').select('id, name, cost_per_cbm_inr'),
+      db.from('raw_material_costs').select('*'),
+      db.from('hardware_prices').select('*').order('name'),
+    ]),
+    loadFobRates(),
+  ]);
+  const d = res.map((x: any) => x.data || []);
+  return {
+    shipTypes: d[0], employees: d[1], gs: res[2].data || {}, productTypes: d[3], chemicalPrices: d[4], boxData: d[5],
+    difficulties: d[6], locations: d[7], rawMaterialCosts: d[8], hardwarePrices: d[9],
+  };
+}
+
 export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
   const { data: inq } = await db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle();
   if (!inq) return null;
@@ -306,33 +344,26 @@ export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
       .order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).order('name', { ascending: true }),
   ]);
   const products = (prods.data as any[]) || [];
-  const ids = products.length ? products.map(p => p.id) : ['00000000-0000-0000-0000-000000000000'];
-  const [res] = await Promise.all([
-    Promise.all([
-      db.from('cogs_items').select('*').in('product_id', ids).limit(100000),
-      db.from('non_unit_cogs').select('*').in('product_id', ids).limit(100000),
-      db.from('overhead_items').select('*').in('product_id', ids).limit(100000),
-      db.from('shipping_items').select('*').in('product_id', ids).limit(100000),
-      db.from('shipping_types').select('*'),
-      db.from('labor_employees').select('*'),
-      db.from('global_settings').select('*').limit(1).maybeSingle(),
-      db.from('cbm_estimates').select('*').in('product_id', ids).limit(100000),
-      db.from('product_types').select('*').order('name'),
-      db.from('chemical_prices').select('*'),
-      db.from('box_data').select('*'),
-      db.from('finishing_difficulty').select('*'),
-      db.from('local_transport_locations').select('id, name, cost_per_cbm_inr'),
-      db.from('raw_material_costs').select('*'),
-    ]),
-    loadFobRates(),
-  ]);
-  const d = res.map((x: any) => x.data || []);
-  return {
-    inq, customer: cust.data, products,
-    cogs: d[0], nu: d[1], oh: d[2], shipItems: d[3], shipTypes: d[4], employees: d[5], gs: res[6].data || {},
-    cbm: d[7], productTypes: d[8], chemicalPrices: d[9], boxData: d[10], difficulties: d[11], locations: d[12],
-    rawMaterialCosts: d[13],
-  };
+  const [rows, refs] = await Promise.all([loadRows(products.map(p => p.id)), loadRefs()]);
+  return { inq, customer: cust.data, products, ...rows, ...refs };
+}
+
+/**
+ * Bundle for one product's costing sheet. A product in an inquiry is loaded with its whole
+ * inquiry, so FOB shipping is pooled exactly as in the workspace; `inq` is null otherwise.
+ */
+export async function loadProductBundle(productId: string): Promise<Bundle | null> {
+  const { data: product } = await db.from('products').select('*').eq('id', productId).maybeSingle();
+  if (!product) return null;
+  const b = product.customer_rfq_id ? await loadBundle(product.customer_rfq_id) : null;
+  if (b && b.products.some(p => p.id === productId)) return b;
+  // Archived, or not in an inquiry: just this product's rows.
+  const [rows, refs] = await Promise.all([loadRows([productId]), b ? Promise.resolve(null) : loadRefs()]);
+  if (b) {
+    return { ...b, products: [...b.products, product], cogs: [...b.cogs, ...rows.cogs], nu: [...b.nu, ...rows.nu],
+      oh: [...b.oh, ...rows.oh], shipItems: [...b.shipItems, ...rows.shipItems], cbm: [...b.cbm, ...rows.cbm] };
+  }
+  return { inq: null, customer: null, products: [product], ...rows, ...refs! };
 }
 
 // ---------- Mutations ----------
@@ -542,6 +573,225 @@ export function patchNonUnit(b: Bundle, id: string, patch: Record<string, any>):
     next: { ...b, nu: b.nu.map(o => (o.id === id ? { ...o, ...patch } : o)) },
     touched: row ? [row.product_id] : [],
     commit: async () => { check(await db.from('non_unit_cogs').update(patch).eq('id', id)); },
+  };
+}
+
+export function addNonUnit(b: Bundle, productId: string, name = 'New item'): Mutation {
+  const maxSort = b.nu.filter(n => n.product_id === productId).reduce((m, n) => Math.max(m, n.sort_order ?? 0), 0);
+  const row = { id: uuid(), product_id: productId, name, include: 'Yes', total_quantity: 1, cost_each_inr: 0, manual_override: false, sort_order: maxSort + 1 };
+  return { next: { ...b, nu: [...b.nu, row] }, touched: [productId], commit: async () => { check(await db.from('non_unit_cogs').insert(row)); } };
+}
+
+export function deleteNonUnit(b: Bundle, id: string): Mutation {
+  const row = b.nu.find(n => n.id === id);
+  return { next: { ...b, nu: b.nu.filter(n => n.id !== id) }, touched: row ? [row.product_id] : [], commit: async () => { check(await db.from('non_unit_cogs').delete().eq('id', id)); } };
+}
+
+/** Chains mutations, each built on the bundle the previous one produced, into one. */
+export function chain(b: Bundle, steps: ((cur: Bundle) => Mutation | null)[]): Mutation {
+  let cur = b;
+  const commits: (() => Promise<void>)[] = [];
+  const touched = new Set<string>();
+  for (const step of steps) {
+    const m = step(cur);
+    if (!m) continue;
+    cur = m.next; commits.push(m.commit); m.touched.forEach(t => touched.add(t));
+  }
+  return { next: cur, touched: [...touched], commit: async () => { for (const c of commits) await c(); } };
+}
+
+function ohMutation(b: Bundle, updates: { id: string; patch: any }[]): Mutation {
+  const byId = new Map(updates.map(u => [u.id, u.patch]));
+  return {
+    next: { ...b, oh: b.oh.map(o => (byId.has(o.id) ? { ...o, ...byId.get(o.id) } : o)) },
+    touched: [...new Set(b.oh.filter(o => byId.has(o.id)).map(o => o.product_id))],
+    commit: async () => { await Promise.all(updates.map(async u => check(await db.from('overhead_items').update(u.patch).eq('id', u.id)))); },
+  };
+}
+
+function nuMutation(b: Bundle, updates: { id: string; patch: any }[]): Mutation {
+  const byId = new Map(updates.map(u => [u.id, u.patch]));
+  return {
+    next: { ...b, nu: b.nu.map(o => (byId.has(o.id) ? { ...o, ...byId.get(o.id) } : o)) },
+    touched: [...new Set(b.nu.filter(o => byId.has(o.id)).map(o => o.product_id))],
+    commit: async () => { await Promise.all(updates.map(async u => check(await db.from('non_unit_cogs').update(u.patch).eq('id', u.id)))); },
+  };
+}
+
+const lc = (s: any) => String(s || '').toLowerCase();
+const nextSort = (b: Bundle, pid: string) => b.cogs.filter(c => c.product_id === pid).reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0) + 1;
+const autoLine = (pid: string, sort: number, extra: Record<string, any>) => ({
+  id: uuid(), product_id: pid, include: 'Yes', components_per_product: 0, unit_cost_inr: 0, waste_factor: 0,
+  is_auto_calculated: true, vendor_name: null, chemical_price_id: null, sort_order: sort, created_at: new Date().toISOString(), ...extra,
+});
+
+/** Which packaging lines a packaging type uses (null = not a packaging line this rule knows). */
+export function packagingIncludeForType(pkg: string, componentName: string): boolean | null {
+  const n = lc(componentName);
+  if (pkg === 'no_packaging') return false;
+  if (n.includes('ic box') || n.includes('inner carton') || n === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
+  if (n.includes('mc box') || n.includes('master carton') || n.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
+  if (n === 'corrugate wrap' || n === 'bubble wrap') return pkg === 'corrugate_bubble';
+  if (n.includes('foam') || n.includes('bulk pack')) return pkg === 'bulk_pack';
+  return null;
+}
+
+/**
+ * Packaging type: switches the packaging lines on/off to match, turns packaging labor off for
+ * "No packaging", and adds the corrugate and bubble wrap lines the first time wrap is chosen.
+ */
+export function setPackagingType(b: Bundle, ids: string[], pkg: string): Mutation {
+  return chain(b, [
+    cur => patchProductsSame(cur, ids, { packaging_type: pkg }),
+    cur => patchCbm(cur, ids, { include_mc: pkg === 'ic_mc' }),
+    cur => {
+      const updates: { id: string; patch: any }[] = [];
+      const inserts: any[] = [];
+      for (const pid of ids) {
+        const lines = cur.cogs.filter(c => c.product_id === pid && c.cogs_type === 'Packaging');
+        for (const l of lines) {
+          const on = packagingIncludeForType(pkg, l.component_name);
+          if (on != null && (l.include === 'No') === on) updates.push({ id: l.id, patch: { include: on ? 'Yes' : 'No' } });
+        }
+        if (pkg === 'corrugate_bubble') {
+          let sort = nextSort(cur, pid);
+          for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
+            if (!lines.some(l => lc(l.component_name) === lc(name))) {
+              inserts.push(autoLine(pid, sort++, { cogs_type: 'Packaging', component_name: name, units: 'KG' }));
+            }
+          }
+        }
+      }
+      return updates.length || inserts.length ? cogsMutation(cur, updates, inserts) : null;
+    },
+    cur => (pkg === 'no_packaging'
+      ? ohMutation(cur, cur.oh.filter(o => ids.includes(o.product_id) && o.labor_type === 'Packaging')
+        .map(o => ({ id: o.id, patch: { include: 'No', man_hours_per_unit: 0 } })))
+      : null),
+  ]);
+}
+
+const isOutsourcedType = (b: Bundle, typeId: string | null) => lc(b.productTypes.find(t => t.id === typeId)?.name) === 'outsourced';
+
+/**
+ * Bought-in finished product: every other cost line and labor row is switched off and a single
+ * "Outsourced Product" line holds the purchased cost (kept editable, so extras can be re-enabled).
+ */
+function makeOutsourced(b: Bundle, ids: string[]): Mutation {
+  return chain(b, [
+    cur => {
+      const updates: { id: string; patch: any }[] = [];
+      const inserts: any[] = [];
+      for (const pid of ids) {
+        const p = cur.products.find(x => x.id === pid);
+        const mine = cur.cogs.filter(c => c.product_id === pid);
+        const row = mine.find(c => lc(c.component_name) === lc(OUTSOURCED_COGS_NAME));
+        mine.filter(c => c !== row && c.include !== 'No').forEach(c => updates.push({ id: c.id, patch: { include: 'No' } }));
+        if (row) { if (row.include !== 'Yes') updates.push({ id: row.id, patch: { include: 'Yes' } }); }
+        else inserts.push({ ...autoLine(pid, nextSort(cur, pid), { cogs_type: 'Other', component_name: OUTSOURCED_COGS_NAME }),
+          is_auto_calculated: false, components_per_product: 1, unit_cost_inr: Number(p?.outsourced_unit_cost_inr) || 0 });
+      }
+      return cogsMutation(cur, updates, inserts);
+    },
+    cur => nuMutation(cur, cur.nu.filter(n => ids.includes(n.product_id) && n.include !== 'No').map(n => ({ id: n.id, patch: { include: 'No' } }))),
+    cur => ohMutation(cur, cur.oh.filter(o => ids.includes(o.product_id) && o.include !== 'No').map(o => ({ id: o.id, patch: { include: 'No' } }))),
+    // The cost now lives on the line, so the legacy product-level field is cleared.
+    cur => patchProductsSame(cur, ids, { outsourced_unit_cost_inr: null, outsourced_unit_cost_usd: null }),
+  ]);
+}
+
+export function setProductType(b: Bundle, ids: string[], typeId: string | null): Mutation {
+  const becoming = isOutsourcedType(b, typeId)
+    ? ids.filter(id => !isOutsourcedType(b, b.products.find(p => p.id === id)?.product_type_id ?? null)) : [];
+  return chain(b, [
+    cur => patchProductsSame(cur, ids, { product_type_id: typeId }),
+    cur => (becoming.length ? makeOutsourced(cur, becoming) : null),
+  ]);
+}
+
+export function setOutsourced(b: Bundle, ids: string[], on: boolean): Mutation {
+  const becoming = on ? ids.filter(id => !b.products.find(p => p.id === id)?.is_outsourced) : [];
+  return chain(b, [
+    cur => patchProductsSame(cur, ids, { is_outsourced: on }),
+    cur => (becoming.length ? makeOutsourced(cur, becoming) : null),
+  ]);
+}
+
+const finishCat = (b: Bundle, line: any): string => {
+  const linked = b.chemicalPrices.find((c: any) => c.id === line.chemical_price_id);
+  if (linked?.category) return lc(linked.category);
+  const n = lc(line.component_name);
+  if (n.includes('color') || n.includes('stain')) return 'color';
+  if (n.includes('sealer')) return 'sealer';
+  if (n.includes('lacquer')) return 'lacquer';
+  if (n.includes('wax')) return 'wax';
+  return '';
+};
+
+/**
+ * Finish difficulty: finishing labor goes back to the estimate for the new difficulty. "Wax"
+ * swaps color, sealer and lacquer for a wax line (added if missing); leaving Wax swaps back.
+ */
+export function setDifficulty(b: Bundle, ids: string[], difficulty: string): Mutation {
+  const waxChem = b.chemicalPrices.find((c: any) => c.category === 'Wax');
+  return chain(b, [
+    cur => patchProductsSame(cur, ids, { finishing_difficulty: difficulty }),
+    cur => ohMutation(cur, cur.oh.filter(o => ids.includes(o.product_id) && o.labor_type === 'Finishing' && !o.is_auto_estimated)
+      .map(o => ({ id: o.id, patch: { is_auto_estimated: true } }))),
+    cur => {
+      const updates: { id: string; patch: any }[] = [];
+      const inserts: any[] = [];
+      for (const pid of ids) {
+        const was = b.products.find(p => p.id === pid)?.finishing_difficulty;
+        const goingWax = difficulty === 'Wax' && was !== 'Wax';
+        const leavingWax = was === 'Wax' && difficulty !== 'Wax';
+        if (!goingWax && !leavingWax) continue;
+        const finishing = cur.cogs.filter(c => c.product_id === pid && c.cogs_type === 'Finishing Materials');
+        for (const l of finishing) {
+          const cat = finishCat(cur, l);
+          if (cat === 'color' || cat === 'sealer' || cat === 'lacquer') updates.push({ id: l.id, patch: { include: goingWax ? 'No' : 'Yes' } });
+          else if (cat === 'wax') updates.push({ id: l.id, patch: { include: goingWax ? 'Yes' : 'No', is_auto_calculated: true,
+            ...(goingWax && !l.chemical_price_id && waxChem ? { chemical_price_id: waxChem.id } : {}) } });
+        }
+        if (goingWax && waxChem && !finishing.some(l => finishCat(cur, l) === 'wax')) {
+          inserts.push(autoLine(pid, nextSort(cur, pid), { cogs_type: 'Finishing Materials', component_name: waxChem.name,
+            chemical_price_id: waxChem.id, units: waxChem.unit_type || 'g' }));
+        }
+      }
+      return updates.length || inserts.length ? cogsMutation(cur, updates, inserts) : null;
+    },
+  ]);
+}
+
+export const DOMESTIC_FREIGHT = 'Domestic Freight (External Sourcing)';
+
+/** Source location: an outside source adds the domestic freight line; back to in-house removes it. */
+export function setSourceLocation(b: Bundle, ids: string[], locationId: string | null): Mutation {
+  return chain(b, [
+    cur => patchProductsSame(cur, ids, { source_location_id: locationId }),
+    cur => {
+      if (!locationId) {
+        const del = cur.cogs.filter(c => ids.includes(c.product_id) && c.component_name === DOMESTIC_FREIGHT).map(c => c.id);
+        return del.length ? cogsMutation(cur, [], [], del) : null;
+      }
+      const inserts = ids.filter(pid => !cur.cogs.some(c => c.product_id === pid && c.component_name === DOMESTIC_FREIGHT))
+        .map(pid => autoLine(pid, nextSort(cur, pid), { cogs_type: 'Subcontracting', component_name: DOMESTIC_FREIGHT, units: 'CBM' }));
+      return inserts.length ? cogsMutation(cur, [], inserts) : null;
+    },
+  ]);
+}
+
+/** Shipping type for each product (one shipping row per product). */
+export function setShippingType(b: Bundle, ids: string[], shippingTypeId: string): Mutation {
+  const existing = new Set(b.shipItems.filter(s => ids.includes(s.product_id)).map(s => s.product_id));
+  const inserts = ids.filter(id => !existing.has(id)).map(pid => ({ id: uuid(), product_id: pid, shipping_type_id: shippingTypeId }));
+  return {
+    next: { ...b, shipItems: [...b.shipItems.map(s => (ids.includes(s.product_id) ? { ...s, shipping_type_id: shippingTypeId } : s)), ...inserts] },
+    touched: ids,
+    commit: async () => {
+      if (existing.size) check(await db.from('shipping_items').update({ shipping_type_id: shippingTypeId }).in('product_id', [...existing]));
+      if (inserts.length) check(await db.from('shipping_items').insert(inserts));
+    },
   };
 }
 

@@ -4,7 +4,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, patchCbm, patchProductsSame, setBucketTotal, setLaborHours,
+  EDITABLE_BUCKETS, patchCbm, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  setPackagingType, setProductType, setShippingType, setSourceLocation,
   type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { CostMixBar, GapChip, inr, num, parseNum, pct, usd } from './cells';
@@ -184,7 +185,7 @@ const laborHoursCol = (type: 'Finishing' | 'Packaging', id: string, label: strin
 const difficultyCol: Col = {
   id: 'difficulty', label: 'Finish', width: 112, align: 'left',
   edit: { kind: 'select', get: r => r.p.finishing_difficulty || 'Medium', options: b => b.difficulties.map((d: any) => ({ value: d.name, label: d.name })),
-    write: (b, ids, v) => patchProductsSame(b, ids, { finishing_difficulty: v }) },
+    write: (b, ids, v) => setDifficulty(b, ids, v) },
 };
 const woodCol: Col = {
   id: 'wood', label: 'Wood %', width: 76, align: 'right',
@@ -266,7 +267,7 @@ export const VIEWS: View[] = [
       {
         id: 'pkg_type', label: 'Packaging', width: 132, align: 'left',
         edit: { kind: 'select', get: r => r.p.packaging_type || 'ic_mc', options: () => PACKAGING_OPTS,
-          write: (b, ids, v) => patchProductsSame(b, ids, { packaging_type: v || 'ic_mc' }) },
+          write: (b, ids, v) => setPackagingType(b, ids, v || 'ic_mc') },
       },
       ...dimCols('piece', 'Piece', {
         get: (r, axis) => r.p[`${axis}_inch`],
@@ -342,21 +343,26 @@ export const VIEWS: View[] = [
       {
         id: 'ptype', label: 'Product type', width: 170, align: 'left',
         edit: { kind: 'select', get: r => r.p.product_type_id || '', options: b => [{ value: '', label: '—' }, ...b.productTypes.map((t: any) => ({ value: t.id, label: t.name }))],
-          write: (b, ids, v) => patchProductsSame(b, ids, { product_type_id: v || null }) },
+          write: (b, ids, v) => setProductType(b, ids, v || null) },
       },
       difficultyCol,
       woodCol,
       {
         id: 'source', label: 'Source', width: 140, align: 'left',
         edit: { kind: 'select', get: r => r.p.source_location_id || '', options: b => [{ value: '', label: 'In-house (Jodhpur)' }, ...b.locations.map((l: any) => ({ value: l.id, label: l.name }))],
-          write: (b, ids, v) => patchProductsSame(b, ids, { source_location_id: v || null }) },
+          write: (b, ids, v) => setSourceLocation(b, ids, v || null) },
       },
       {
         id: 'outsourced', label: 'Outsourced', width: 92, align: 'center',
-        edit: { kind: 'bool', get: r => !!r.p.is_outsourced, write: (b, ids, v) => patchProductsSame(b, ids, { is_outsourced: v === 'true' }) },
+        edit: { kind: 'bool', get: r => !!r.p.is_outsourced, write: (b, ids, v) => setOutsourced(b, ids, v === 'true') },
       },
       ro('mh', 'Man-hrs/unit', r => (r.r.manHoursPerUnit ? r.r.manHoursPerUnit.toFixed(2) : '—'), 96, { footer: rows => num(sumBy(rows, r => r.r.manHoursPerUnit * r.qty), 1) + ' h' }),
-      ro('ship_m', 'Shipping', r => <span className="text-xs">{r.shippingName}</span>, 150, { align: 'left' }),
+      {
+        id: 'shipping', label: 'Shipping', width: 150, align: 'left',
+        edit: { kind: 'select', get: r => r.shippingId || '', options: b => b.shipTypes.map((t: any) => ({ value: t.id, label: t.name })),
+          disabled: (_r, b) => (b.inq?.shipping_type_id_override ? 'This inquiry sets one shipping type for every SKU in its Settings tab' : null),
+          write: (b, ids, v) => (v ? setShippingType(b, ids, v) : null) },
+      },
     ],
   },
 ];
