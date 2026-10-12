@@ -74,3 +74,46 @@ export function pdDisabledReason(p: PdProductShape, item: PdItemDef): string {
   if (item.cogsCategory) return `No "${item.cogsCategory}" COGS rows on this product.`;
   return '';
 }
+
+/**
+ * "Repeat order" flag, stored as its own pd_checklist_items row. It is not in PD_ITEMS,
+ * so it never counts towards progress. Ticking it marks every applicable item done.
+ */
+export const PD_REPEAT_ORDER_KEY = 'repeat_order';
+
+export type PdChecklistUpsert = {
+  product_id: string;
+  item_key: string;
+  is_checked: boolean;
+  checked_at: string | null;
+  checked_by: string | null;
+};
+
+/**
+ * Rows to upsert when the repeat-order box is toggled. Ticking writes the flag plus every
+ * applicable item not already checked (already-checked items keep their original date/user);
+ * unticking only clears the flag and leaves the items as they are.
+ */
+export function pdRepeatOrderUpserts(
+  p: PdProductShape,
+  next: boolean,
+  checked: Record<string, boolean>,
+  cogsCats: Record<string, Set<string>>,
+  userId: string | null,
+  nowIso: string,
+): PdChecklistUpsert[] {
+  const row = (item_key: string, on: boolean): PdChecklistUpsert => ({
+    product_id: p.id,
+    item_key,
+    is_checked: on,
+    checked_at: on ? nowIso : null,
+    checked_by: on ? userId : null,
+  });
+  const rows = [row(PD_REPEAT_ORDER_KEY, next)];
+  if (!next) return rows;
+  for (const it of PD_ITEMS) {
+    if (pdIsDisabled(p, it, cogsCats) || checked[`${p.id}:${it.key}`]) continue;
+    rows.push(row(it.key, true));
+  }
+  return rows;
+}
