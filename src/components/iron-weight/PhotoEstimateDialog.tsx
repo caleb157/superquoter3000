@@ -9,22 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { legsFromEstimate, type EditLeg, type IronEstimate } from '@/lib/iron-weight';
+import { prepareImage } from '@/lib/photo-intake';
 import { cn } from '@/lib/utils';
 import { NumInput, fieldCls } from './PartRow';
 
 type Dims = { w: number; d: number; h: number; unit: 'in' | 'cm' | 'mm' };
-const MAX_EDGE = 1568; // larger images are downscaled by the API anyway
-
-/** Downscale to a JPEG data URL so phone photos upload quickly. */
-async function prepareImage(file: File): Promise<{ data: string; mediaType: string; preview: string }> {
-  const bmp = await createImageBitmap(file);
-  const k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bmp.width * k); canvas.height = Math.round(bmp.height * k);
-  canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  const url = canvas.toDataURL('image/jpeg', 0.85);
-  return { data: url.slice(url.indexOf(',') + 1), mediaType: 'image/jpeg', preview: url };
-}
 
 export function PhotoEstimateDialog({ open, onOpenChange, hasWork, onApply }: {
   open: boolean; onOpenChange: (o: boolean) => void; hasWork: boolean;

@@ -2,13 +2,14 @@
 // costing row (COGS lines, labor, packaging, product setup) editable in place.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { avgRateByDesignation, npmToMarkup } from '@/lib/calculations';
 import { COGS_CATEGORY_FALLBACK, useCogsCategories } from '@/lib/cogs-categories';
 import { cn } from '@/lib/utils';
+import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, chooseQuote, deleteCogsLine, lineValue, patchCogsLine, patchNonUnit, patchOverhead,
   patchProductsSame, type Apply, type Bundle, type WorkspaceRow,
@@ -53,6 +54,9 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {isPhotoEstimated(p) && <PhotoEstimateNote est={p.photo_estimate} onChecked={() =>
+          apply(b => patchProductsSame(b, [id], { photo_estimate: { ...p.photo_estimate, checked_at: new Date().toISOString() } }))} />}
+
         {/* Price vs target */}
         <div className="grid grid-cols-4 gap-px border-b bg-border">
           <Figure label="Unit cost" value={inr(row.costInr)} sub={usd(row.costUsd)} />
@@ -179,6 +183,33 @@ function Figure({ label, value, sub, children }: { label: string; value?: React.
 
 function Mini({ label, value }: { label: string; value: string }) {
   return <div><div className="text-muted-foreground">{label}</div><div className="font-medium tabular-nums">{value}</div></div>;
+}
+
+/** What the photo estimate assumed, until someone has checked the draft numbers. */
+function PhotoEstimateNote({ est, onChecked }: { est: PhotoEstimateRecord; onChecked: () => void }) {
+  const [more, setMore] = useState(false);
+  const assumptions = est.assumptions ?? [];
+  return (
+    <div className="border-b bg-violet-500/[0.05] px-4 py-3 text-sm">
+      <div className="flex items-start gap-2">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="font-medium">Estimated from a photo <span className="font-normal text-muted-foreground">· {est.confidence} confidence</span></div>
+          {est.summary && <p className="text-muted-foreground">{est.summary}</p>}
+          {est.raw_piece_basis && <p className="text-xs text-muted-foreground">Raw piece: {est.raw_piece_basis}</p>}
+          {assumptions.length > 0 && (
+            <>
+              <button className="text-xs text-primary hover:underline" onClick={() => setMore(m => !m)}>
+                {more ? 'Hide' : 'Show'} {assumptions.length} assumption{assumptions.length === 1 ? '' : 's'} to check
+              </button>
+              {more && <ul className="space-y-0.5 text-xs text-muted-foreground">{assumptions.map((a, i) => <li key={i}>• {a}</li>)}</ul>}
+            </>
+          )}
+        </div>
+        <Button size="sm" variant="outline" className="h-7 shrink-0 gap-1" onClick={onChecked}><Check className="h-3.5 w-3.5" /> Mark checked</Button>
+      </div>
+    </div>
+  );
 }
 
 function Section({ title, sub, count, defaultOpen, children }: { title: string; sub?: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
