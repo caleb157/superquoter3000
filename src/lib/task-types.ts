@@ -13,6 +13,8 @@ export type TaskContext = {
   productId?: string;
   customerId?: string;
   projectId?: string;
+  /** Start a new task linked to this customer complaint. */
+  complaintId?: string;
   /** Start a new task already tagged as an app fix. */
   appFix?: boolean;
 };

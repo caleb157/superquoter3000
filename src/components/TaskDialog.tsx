@@ -17,7 +17,7 @@ import type { TaskContext, TaskPriority } from '@/lib/task-types';
 import { useAuth } from '@/contexts/AuthContext';
 import { SignedImg, resolveDisplayUrl } from '@/lib/storage-urls';
 import { customerSecondary } from '@/lib/customer-name';
-import { ASSOCIATION_TYPES, type AssociationType, associationMeta } from '@/lib/task-association';
+import { ASSOCIATION_TYPES, type AssociationType, associationMeta, complaintLabel } from '@/lib/task-association';
 import { parseRule, ruleLabel, type RecurrenceRule, type RecurrenceFreq } from '@/lib/task-recurrence';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { OdooOrderPicker } from '@/components/OdooOrderPicker';
@@ -34,6 +34,7 @@ type TaskDialogProps = {
 type Inquiry = { id: string; rfq_number: string; title: string | null; updated_at: string };
 type Customer = { id: string; name: string; company: string | null };
 type ProjectOption = { id: string; name: string; status: string };
+type ComplaintOpt = { id: string; label: string };
 type AssocKind = 'none' | AssociationType;
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -62,6 +63,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [complaints, setComplaints] = useState<ComplaintOpt[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [assigneeOptions, setAssigneeOptions] = useState<string[]>([]);
@@ -69,13 +71,15 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [iRes, cRes, pRes, tRes, prRes] = await Promise.all([
+      const [iRes, cRes, pRes, tRes, prRes, kRes] = await Promise.all([
         supabase.from('customer_rfqs').select('id, rfq_number, title, updated_at').order('updated_at', { ascending: false }),
         (supabase as any).from('customers').select('id, name, company').order('name'),
         (supabase as any).from('profiles').select('assignee_code'),
         supabase.from('tasks').select('assignee'),
         (supabase as any).from('projects').select('id, name, status').order('name'),
+        (supabase as any).from('customer_complaints').select('id, date_logged, issue_summary, customer_name_manual, customer:customers(name)').order('date_logged', { ascending: false }),
       ]);
+      if (kRes.data) setComplaints((kRes.data as any[]).map(c => ({ id: c.id, label: complaintLabel(c, c.customer?.name ?? c.customer_name_manual) })));
       if (iRes.data) setInquiries(iRes.data as any);
       if (cRes.data) setCustomers(cRes.data as any);
       if (prRes.data) setProjects(prRes.data as any);
@@ -99,8 +103,9 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           setInquiryId(d.inquiry_id);
           setCustomerId(d.customer_id);
           setProjectId(t === 'project' ? (d.association_id ?? null) : null);
-          setExtId(t === 'odoo_so' || t === 'odoo_mo' ? (d.association_id ?? '') : '');
-          setExtDetail(t === 'odoo_so' || t === 'odoo_mo' ? (d.association_label ?? '') : '');
+          const ext = t === 'odoo_so' || t === 'odoo_mo' || t === 'complaint';
+          setExtId(ext ? (d.association_id ?? '') : '');
+          setExtDetail(ext ? (d.association_label ?? '') : '');
           setTitle(d.title);
           setDescription(d.description ?? '');
           setAssignee(d.assignee ?? 'unassigned');
@@ -123,6 +128,8 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
         setAssocType('customer'); setCustomerId(context.customerId);
       } else if (context?.projectId) {
         setAssocType('project'); setProjectId(context.projectId);
+      } else if (context?.complaintId) {
+        setAssocType('complaint'); setExtId(context.complaintId);
       } else if (context?.appFix) {
         setAssocType('app_fix');
       }
@@ -212,6 +219,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if ((assocType === 'odoo_so' || assocType === 'odoo_mo') && !extId.trim()) {
       toast.error(`Pick the ${associationMeta(assocType)?.idLabel} from Odoo or remove the link`); return;
     }
+    if (assocType === 'complaint' && !extId) { toast.error('Pick a complaint or remove the link'); return; }
     if (rule && !dueDate) { toast.error('Repeating tasks need a first due date'); return; }
 
     const inq = inquiries.find(i => i.id === inquiryId);
@@ -222,6 +230,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if (assocType === 'customer') { association_id = customerId; association_label = cust?.name ?? null; }
     if (assocType === 'project') { association_id = projectId; association_label = projects.find(p => p.id === projectId)?.name ?? null; }
     if (assocType === 'odoo_so' || assocType === 'odoo_mo') { association_id = extId.trim(); association_label = extDetail.trim() || null; }
+    if (assocType === 'complaint') { association_id = extId; association_label = complaints.find(c => c.id === extId)?.label ?? (extDetail || null); }
 
     setSaving(true);
     const payload: any = {
@@ -264,6 +273,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const selectedProject = projects.find(p => p.id === projectId);
   // Pick from open projects; keep a closed one listed if this task already links to it.
   const projectOptions = projects.filter(p => isOpenProject(p) || p.id === projectId);
+  const selectedComplaintLabel = complaints.find(c => c.id === extId)?.label ?? extDetail;
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -443,6 +453,34 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                               </div>
                             </CommandItem>
                           ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {assocType === 'complaint' && (
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between h-9 text-sm font-normal mt-1.5">
+                    <span className="truncate">{extId ? (selectedComplaintLabel || 'Complaint') : 'Select complaint...'}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search complaints..." />
+                    <CommandList>
+                      <CommandEmpty>Nothing found.</CommandEmpty>
+                      <CommandGroup>
+                        {complaints.map(c => (
+                          <CommandItem key={c.id} value={`${c.label} ${c.id}`}
+                            onSelect={() => { setExtId(c.id); setExtDetail(c.label); setPickerOpen(false); }}>
+                            <Check className={cn('mr-2 h-4 w-4', extId === c.id ? 'opacity-100' : 'opacity-0')} />
+                            <span className="truncate">{c.label}</span>
+                          </CommandItem>
+                        ))}
                       </CommandGroup>
                     </CommandList>
                   </Command>
