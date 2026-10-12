@@ -2652,6 +2652,51 @@ export type Database = {
           },
         ]
       }
+      quote_terms_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          changes: Json
+          entity_id: string | null
+          id: string
+          terms: Json | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changes?: Json
+          entity_id?: string | null
+          id?: string
+          terms?: Json | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changes?: Json
+          entity_id?: string | null
+          id?: string
+          terms?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_terms_changes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_terms_changes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       raw_material_costs: {
         Row: {
           active: boolean
