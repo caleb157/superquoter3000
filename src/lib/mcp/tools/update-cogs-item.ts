@@ -31,7 +31,7 @@ export default defineTool({
     cogs_item_id: z.string().uuid().optional().describe("Direct UUID of the cogs_items row to update."),
     product_id: z.string().uuid().optional().describe("Product UUID (required if cogs_item_id not given)."),
     component_name: z.string().optional().describe("Component name to match (case-insensitive) when cogs_item_id not given."),
-    cogs_type: z.enum(COGS_TYPES).optional().describe("Optional category to disambiguate the match."),
+    cogs_type: z.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).optional().describe("Optional category to disambiguate the match."),
     unit_cost_inr: z.number().nonnegative().optional().describe("New unit cost in INR."),
     vendor_name: z.string().optional().describe("New vendor name."),
     units: z.string().optional().describe("New unit of measure."),
@@ -101,7 +101,7 @@ export default defineTool({
       };
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, unknown> = Object.create(null);
     if (input.unit_cost_inr !== undefined) patch.unit_cost_inr = input.unit_cost_inr;
     if (input.vendor_name !== undefined) patch.vendor_name = input.vendor_name;
     if (input.units !== undefined) patch.units = input.units;

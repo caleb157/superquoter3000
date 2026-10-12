@@ -29,7 +29,7 @@ export default defineTool({
     "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
   inputSchema: {
     product_id: z.string().uuid().describe("UUID of the target product."),
-    cogs_type: z.enum(COGS_TYPES).describe("Category of the COGS line."),
+    cogs_type: z.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
     component_name: z.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
     unit_cost_inr: z.number().nonnegative().describe("Unit cost in INR."),
     vendor_name: z.string().optional().describe("Optional vendor name."),
