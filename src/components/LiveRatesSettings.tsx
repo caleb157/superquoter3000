@@ -165,7 +165,7 @@ export default function LiveRatesSettings() {
                 <TableCell className="text-right tabular-nums">{inr(gs.live_burdened_per_mh)}</TableCell>
                 <TableCell className="text-right tabular-nums">{inr(gs.indirect_overhead_per_mh)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  LaborTrax{detail ? `, ${detail.window.from} to ${detail.window.to}, ${detail.hours.toLocaleString()} man-hours` : ''}, updated {ago(gs.live_labor_at)}
+                  {detail?.burdened_source === 'labortrax' ? `LaborTrax fully burdened figure${detail.window ? `, ${detail.window.from} to ${detail.window.to}` : ''}` : `LaborTrax labor entries${detail ? `, ${detail.window.from} to ${detail.window.to}, ${detail.hours.toLocaleString()} man-hours` : ''}`}, updated {ago(gs.live_labor_at)}
                 </TableCell>
               </TableRow>
               {LABOR_TYPES.map(t => (
@@ -173,7 +173,9 @@ export default function LiveRatesSettings() {
                   <TableCell className="pl-6">Direct wages / man-hour: {t}</TableCell>
                   <TableCell className="text-right tabular-nums">{inr(directLive[t])}</TableCell>
                   <TableCell className="text-right tabular-nums">{inr(avgRateByDesignation(employees, t))}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{directLive[t] ? 'LaborTrax' : 'No LaborTrax hours: employee average is used'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{!directLive[t] ? 'No LaborTrax hours: employee average is used'
+                    : detail?.direct_source?.[t] === '6m' ? 'LaborTrax, 6-month rate (no hours in the last 3 weeks)'
+                    : `LaborTrax${detail?.direct_window ? `, ${detail.direct_window.from} to ${detail.direct_window.to}` : ''}`}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -181,7 +183,7 @@ export default function LiveRatesSettings() {
 
           {detail?.categories?.length ? (
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground">LaborTrax work-order categories ({detail.categories.length})</summary>
+              <summary className="cursor-pointer text-muted-foreground">LaborTrax work-order categories, {detail.direct_window ? `${detail.direct_window.from} to ${detail.direct_window.to}` : ''} ({detail.categories.length})</summary>
               <Table>
                 <TableHeader><TableRow><TableHead>Category</TableHead><TableHead>Counts as</TableHead><TableHead className="text-right">Man-hours</TableHead><TableHead className="text-right">Direct ₹/MH</TableHead></TableRow></TableHeader>
                 <TableBody>

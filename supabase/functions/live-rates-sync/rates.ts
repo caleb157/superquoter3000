@@ -16,11 +16,19 @@ export function inrPerUnitFromOdoo(row: { rate?: unknown; inverse_rate?: unknown
 }
 
 /** The last `months` complete calendar months before `today` (YYYY-MM-DD, end inclusive). */
-export function laborWindow(today: string, months = 3): { from: string; to: string } {
+export function laborWindow(today: string, months = 6): { from: string; to: string } {
   const d = new Date(today.slice(0, 10) + 'T00:00:00Z');
   const firstOfThisMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
   const to = new Date(firstOfThisMonth.getTime() - 86400000);
   const from = new Date(Date.UTC(firstOfThisMonth.getUTCFullYear(), firstOfThisMonth.getUTCMonth() - months, 1));
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+/** The last `days` full days before `today` (YYYY-MM-DD, end inclusive). */
+export function recentDaysWindow(today: string, days = 21): { from: string; to: string } {
+  const d = new Date(today.slice(0, 10) + 'T00:00:00Z');
+  const to = new Date(d.getTime() - 86400000);
+  const from = new Date(d.getTime() - days * 86400000);
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 

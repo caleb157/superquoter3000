@@ -21,9 +21,9 @@ export function InquiryVendorRfqSheets({ inquiryId, refreshKey }: { inquiryId: s
           {sheets.map(s => (
             <Link key={s.batchId} to={`/vendor-rfq-sheet/${s.batchId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-muted/50">
               <span className="font-mono text-xs text-muted-foreground">{s.firstNumber}</span>
-              <span className="flex-1 min-w-[12rem] truncate">{s.vendors.join(', ')}</span>
+              <span className="flex-1 min-w-[12rem] truncate">{s.vendors.length ? s.vendors.join(', ') : 'Open sheet, no vendor yet'}</span>
               <span className="text-xs text-muted-foreground">
-                {s.items} item{s.items === 1 ? '' : 's'} · {s.replied}/{s.vendors.length} replied · {s.picked}/{s.items} picked
+                {s.items} item{s.items === 1 ? '' : 's'} · {s.vendors.length ? `${s.replied}/${s.vendors.length} replied · ` : ''}{s.picked}/{s.items} picked
                 {s.createdAt ? ` · sent ${formatDay(s.createdAt)}` : ''}
               </span>
             </Link>
