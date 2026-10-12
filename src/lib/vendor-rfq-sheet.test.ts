@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReplyGrid, planWinner, priceTone, whatsappMessage, defaultReplyBy, type SheetRfq, type SheetLine } from './vendor-rfq-sheet';
+import { buildReplyGrid, productSpecs, isOpenRfq, planWinner, priceTone, whatsappMessage, defaultReplyBy, type SheetRfq, type SheetLine } from './vendor-rfq-sheet';
 
 const rfq = (id: string, vendor: string): SheetRfq => ({ id, rfq_number: `RFQ-${id}`, vendor_id: null, vendor_name: vendor, status: 'sent', response_due: null });
 const line = (id: string, rfqId: string, productId: string, extra: Partial<SheetLine> = {}): SheetLine => ({
@@ -93,5 +93,43 @@ describe('whatsappMessage', () => {
 describe('defaultReplyBy', () => {
   it('is three days out as a date', () => {
     expect(defaultReplyBy(new Date(2026, 9, 30))).toBe('2026-11-02');
+  });
+});
+
+describe('productSpecs', () => {
+  it('lists size, type, wood, finish, weight, MOQ, hardware and notes', () => {
+    const p = {
+      id: 'p1', width_inch: 18, depth_inch: 12, height_inch: 2.5, product_type: { name: 'Wood Tray' }, percent_wood: 0.8,
+      notes_finishes: 'Natural oil', finishing_difficulty: 'Medium', weight_kg: 1.25, moq: 200,
+      notes_vendors: 'Kiln-dried mango only', notes: 'Rounded corners',
+    };
+    const cogs = [
+      { product_id: 'p1', cogs_type: 'Handles + Knobs', component_name: 'Brass handle', components_per_product: 2, include: 'Yes' },
+      { product_id: 'p1', cogs_type: 'Other Hardware', component_name: 'Hardware 1', components_per_product: 1, include: 'Yes' },
+      { product_id: 'p2', cogs_type: 'Handles + Knobs', component_name: 'Other product handle', components_per_product: 1, include: 'Yes' },
+    ];
+    const { specs, notes } = productSpecs(p, cogs);
+    expect(specs).toEqual([
+      { label: 'Size (W x D x H)', value: '18 x 12 x 2.5 in' },
+      { label: 'Type', value: 'Wood Tray' },
+      { label: 'Wood', value: '80%' },
+      { label: 'Finish', value: 'Natural oil · Medium finish' },
+      { label: 'Weight', value: '1.25 kg' },
+      { label: 'MOQ', value: '200' },
+      { label: 'Hardware', value: 'Brass handle x 2' },
+    ]);
+    expect(notes).toEqual(['Kiln-dried mango only', 'Rounded corners']);
+  });
+
+  it('skips what the product does not have', () => {
+    expect(productSpecs({ id: 'p1', percent_wood: 1 }, [])).toEqual({ specs: [], notes: [] });
+  });
+});
+
+describe('isOpenRfq', () => {
+  it('is an RFQ with no vendor on it', () => {
+    expect(isOpenRfq({ vendor_id: null, vendor_name: null })).toBe(true);
+    expect(isOpenRfq({ vendor_id: null, vendor_name: 'Rao' })).toBe(false);
+    expect(isOpenRfq({ vendor_id: 'v1', vendor_name: null })).toBe(false);
   });
 });

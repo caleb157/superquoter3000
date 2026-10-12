@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateRawPieceRfq, generateRfqNumber, type RawTargetMode } from '@/lib/rfq-generation';
 import { recostProduct } from '@/lib/costing-seed';
 import { formatDay } from '@/lib/date-only';
+import { isHardwareCogsType } from '@/lib/cogs-categories';
 
 export { formatDay };
 
@@ -138,6 +139,37 @@ export function planWinner(productId: string, cogs: CogsRow[], isOutsourced: boo
   return { updates, insert };
 }
 
+export type SpecLine = { label: string; value: string };
+
+const inch = (n: unknown) => {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? String(+v.toFixed(2)) : null;
+};
+
+/**
+ * What a vendor needs to quote a product, from the product and its included COGS lines:
+ * size, type, wood share, finish, weight, MOQ and the hardware it carries, plus the product's notes.
+ */
+export function productSpecs(p: any, cogs: { product_id: string; cogs_type: string; component_name?: string | null; components_per_product?: number | null; units?: string | null; include?: string | null }[]): { specs: SpecLine[]; notes: string[] } {
+  const specs: SpecLine[] = [];
+  const w = inch(p?.width_inch), d = inch(p?.depth_inch), h = inch(p?.height_inch);
+  if (w || d || h) specs.push({ label: 'Size (W x D x H)', value: `${w ?? '?'} x ${d ?? '?'} x ${h ?? '?'} in` });
+  const type = p?.product_type?.name;
+  if (type) specs.push({ label: 'Type', value: type });
+  if (p?.percent_wood != null && Number(p.percent_wood) > 0 && Number(p.percent_wood) < 1) specs.push({ label: 'Wood', value: `${Math.round(Number(p.percent_wood) * 100)}%` });
+  const finish = [p?.notes_finishes, p?.finishing_difficulty && !String(p?.notes_finishes || '').includes(p.finishing_difficulty) ? `${p.finishing_difficulty} finish` : null].filter(Boolean).join(' · ');
+  if (finish) specs.push({ label: 'Finish', value: finish });
+  if (Number(p?.weight_kg) > 0) specs.push({ label: 'Weight', value: `${+Number(p.weight_kg).toFixed(2)} kg` });
+  if (Number(p?.moq) > 0) specs.push({ label: 'MOQ', value: Number(p.moq).toLocaleString('en-IN') });
+  const hardware = cogs
+    .filter(c => c.product_id === p?.id && c.include === 'Yes' && isHardwareCogsType(c.cogs_type) && (c.component_name || '').trim()
+      && !/^(Hardware|Accessory) \d+$/i.test((c.component_name || '').trim()) && Number(c.components_per_product) > 0)
+    .map(c => `${c.component_name!.trim()} x ${+Number(c.components_per_product).toFixed(2)}${c.units && c.units !== 'pc' ? ` ${c.units}` : ''}`);
+  if (hardware.length) specs.push({ label: 'Hardware', value: hardware.join(', ') });
+  const notes = [p?.notes_vendors, p?.notes].map(n => String(n || '').trim()).filter(Boolean);
+  return { specs, notes: [...new Set(notes)] };
+}
+
 export function defaultReplyBy(now: Date = new Date(), days = 3): string {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -149,17 +181,18 @@ export async function createRfqSheets(o: {
   inquiryId: string; productIds: string[]; vendors: SheetVendor[]; mode: RawTargetMode;
   discount: number; replyBy: string | null; notes: string | null; userId?: string | null;
 }): Promise<{ batchId: string; count: number }> {
-  if (o.vendors.length === 0) throw new Error('Pick at least one vendor.');
   const gen = await generateRawPieceRfq(o.inquiryId, o.productIds.length ? o.productIds : undefined, o.mode, { includeAll: true, discount: o.discount });
   if (gen.items.length === 0) throw new Error('No products to put on the sheet.');
   const batchId = crypto.randomUUID();
-  for (const v of o.vendors) {
+  // No vendor picked: one open sheet (no vendor on it) to print or send to anyone; vendors can be added later.
+  const targets: (SheetVendor | null)[] = o.vendors.length ? o.vendors : [null];
+  for (const v of targets) {
     const rfqNumber = await generateRfqNumber();
     const { data: rfq, error } = await db.from('vendor_rfqs').insert({
       customer_rfq_id: o.inquiryId, rfq_number: rfqNumber, rfq_type: 'raw_pieces', title: gen.title,
       discount_percent: o.discount, status: 'draft', created_by: o.userId || null, batch_id: batchId,
-      vendor_id: v.id, vendor_name: v.name, vendor_email: v.email || null, vendor_phone: v.phone || null,
-      vendor_address: v.address || null, response_due: o.replyBy, notes: o.notes,
+      vendor_id: v?.id ?? null, vendor_name: v?.name ?? null, vendor_email: v?.email || null, vendor_phone: v?.phone || null,
+      vendor_address: v?.address || null, response_due: o.replyBy, notes: o.notes,
     }).select('id').single();
     if (error || !rfq) throw new Error(error?.message || 'Could not create the RFQ.');
     const { error: lineErr } = await db.from('vendor_rfq_line_items').insert(gen.items.map(it => ({ ...it, vendor_rfq_id: rfq.id })));
@@ -168,17 +201,46 @@ export async function createRfqSheets(o: {
   return { batchId, count: o.vendors.length };
 }
 
+/** An RFQ on a sheet with no vendor: the open sheet made when no vendor was picked. */
+export const isOpenRfq = (r: { vendor_id?: string | null; vendor_name?: string | null }) => !r.vendor_id && !(r.vendor_name || '').trim();
+
+/** Adds a vendor to an existing sheet: a new RFQ with a copy of the sheet's lines (no replies or picks). */
+export async function addVendorToSheet(batchId: string, vendor: SheetVendor, userId?: string | null): Promise<void> {
+  const { data: rfqs, error } = await db.from('vendor_rfqs').select('*').eq('batch_id', batchId).order('created_at');
+  if (error) throw new Error(error.message);
+  if (!rfqs?.length) throw new Error('RFQ sheet not found.');
+  if (rfqs.some((r: any) => r.vendor_id === vendor.id)) throw new Error(`${vendor.name} is already on this sheet.`);
+  const template = rfqs.find(isOpenRfq) || rfqs[0];
+  const { data: lines, error: lineErr } = await db.from('vendor_rfq_line_items').select('*').eq('vendor_rfq_id', template.id).order('sort_order');
+  if (lineErr) throw new Error(lineErr.message);
+  const rfqNumber = await generateRfqNumber();
+  const { data: rfq, error: insErr } = await db.from('vendor_rfqs').insert({
+    customer_rfq_id: template.customer_rfq_id, rfq_number: rfqNumber, rfq_type: template.rfq_type, title: template.title,
+    discount_percent: template.discount_percent, status: 'draft', created_by: userId || null, batch_id: batchId,
+    vendor_id: vendor.id, vendor_name: vendor.name, vendor_email: vendor.email || null, vendor_phone: vendor.phone || null,
+    vendor_address: vendor.address || null, response_due: template.response_due, notes: template.notes,
+  }).select('id').single();
+  if (insErr || !rfq) throw new Error(insErr?.message || 'Could not add the vendor.');
+  const copies = (lines || []).map(({ id: _id, created_at: _c, vendor_rfq_id: _v, picked_at: _p, vendor_price: _vp, ...rest }: any) => ({ ...rest, vendor_rfq_id: rfq.id }));
+  if (copies.length) {
+    const { error: cErr } = await db.from('vendor_rfq_line_items').insert(copies);
+    if (cErr) throw new Error(cErr.message);
+  }
+}
+
 export type SheetBundle = {
   rfqs: SheetRfq[]; lines: SheetLine[]; responses: SheetResponse[];
   inquiry: { id: string; rfq_number: string | null; title: string | null } | null;
   products: any[];
+  /** Included COGS lines of the sheet's products, for the hardware list on the printable sheet. */
+  cogs: any[];
 };
 
 export async function loadSheet(batchId: string): Promise<SheetBundle> {
   const { data: rfqs, error } = await db.from('vendor_rfqs').select('*').eq('batch_id', batchId).order('rfq_number');
   if (error) throw new Error(error.message);
   const ids = (rfqs || []).map((r: any) => r.id);
-  if (ids.length === 0) return { rfqs: [], lines: [], responses: [], inquiry: null, products: [] };
+  if (ids.length === 0) return { rfqs: [], lines: [], responses: [], inquiry: null, products: [], cogs: [] };
   const inquiryId = rfqs[0].customer_rfq_id;
   const [linesRes, respRes, inqRes] = await Promise.all([
     db.from('vendor_rfq_line_items').select('*').in('vendor_rfq_id', ids).order('sort_order'),
@@ -187,9 +249,15 @@ export async function loadSheet(batchId: string): Promise<SheetBundle> {
   ]);
   const productIds = [...new Set((linesRes.data || []).map((l: any) => l.product_id).filter(Boolean))];
   const prodRes = productIds.length
-    ? await db.from('products').select('id, name, sku, photo_url, is_outsourced, product_type_id, finishing_difficulty, notes_finishes, width_inch, depth_inch, height_inch, product_type:product_types(name)').in('id', productIds)
+    ? await db.from('products').select('id, name, sku, photo_url, is_outsourced, product_type_id, finishing_difficulty, notes_finishes, notes, notes_vendors, percent_wood, weight_kg, moq, width_inch, depth_inch, height_inch, product_type:product_types(name)').in('id', productIds)
     : { data: [] };
-  return { rfqs: rfqs || [], lines: linesRes.data || [], responses: respRes.data || [], inquiry: inqRes.data || null, products: prodRes.data || [] };
+  const cogsRes = productIds.length
+    ? await db.from('cogs_items').select('product_id, cogs_type, component_name, components_per_product, units, include').in('product_id', productIds).eq('include', 'Yes')
+    : { data: [] };
+  return {
+    rfqs: rfqs || [], lines: linesRes.data || [], responses: respRes.data || [], inquiry: inqRes.data || null,
+    products: prodRes.data || [], cogs: cogsRes.data || [],
+  };
 }
 
 /** Saves one typed reply (price and lead time) for a vendor's line; blank both to clear it. */
@@ -248,7 +316,7 @@ export type SheetSummary = { batchId: string; createdAt: string | null; firstNum
 
 /** The inquiry's RFQ sheets, newest first. */
 export async function listSheetsForInquiry(inquiryId: string): Promise<SheetSummary[]> {
-  const { data: rfqs } = await db.from('vendor_rfqs').select('id, batch_id, rfq_number, vendor_name, status, response_due, created_at')
+  const { data: rfqs } = await db.from('vendor_rfqs').select('id, batch_id, rfq_number, vendor_id, vendor_name, status, response_due, created_at')
     .eq('customer_rfq_id', inquiryId).not('batch_id', 'is', null).order('created_at', { ascending: false });
   if (!rfqs?.length) return [];
   const ids = rfqs.map((r: any) => r.id);
@@ -260,7 +328,7 @@ export async function listSheetsForInquiry(inquiryId: string): Promise<SheetSumm
       s = { batchId: r.batch_id, createdAt: r.created_at, firstNumber: r.rfq_number, vendors: [], replied: 0, items: 0, picked: 0, replyBy: r.response_due };
       byBatch.set(r.batch_id, s);
     }
-    s.vendors.push(r.vendor_name || 'Vendor');
+    if (!isOpenRfq(r)) s.vendors.push(r.vendor_name || 'Vendor');
     if (r.status === 'responded' || r.status === 'accepted') s.replied++;
     if (r.rfq_number && (!s.firstNumber || r.rfq_number < s.firstNumber)) s.firstNumber = r.rfq_number;
   }

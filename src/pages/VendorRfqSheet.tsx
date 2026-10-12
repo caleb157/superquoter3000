@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Copy, Link2, Send, Trophy, Loader2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, Copy, Link2, Send, Trophy, Loader2, ExternalLink, Printer, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -17,8 +19,8 @@ import { fmt } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { statusToneClass } from '@/lib/status-tone';
 import {
-  buildReplyGrid, formatDay, isOutsourcedProduct, loadSheet, markSent, pickWinner, priceTone, saveReply, whatsappMessage,
-  type GridRow, type SheetBundle, type SheetRfq,
+  addVendorToSheet, buildReplyGrid, formatDay, isOpenRfq, isOutsourcedProduct, loadSheet, markSent, pickWinner, priceTone, productSpecs,
+  saveReply, whatsappMessage, type GridRow, type SheetBundle, type SheetRfq, type SheetVendor,
 } from '@/lib/vendor-rfq-sheet';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -91,6 +93,9 @@ const VendorRfqSheet = () => {
   const [contactName, setContactName] = useState<string | null>(null);
   const [showTarget, setShowTarget] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [layout, setLayout] = useState<'cards' | 'table'>('cards');
+  const [allVendors, setAllVendors] = useState<SheetVendor[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
 
   const first = bundle?.rfqs[0];
   useDocumentTitle(first ? `RFQ sheet ${first.rfq_number || ''}`.trim() : 'RFQ sheet');
@@ -120,6 +125,13 @@ const VendorRfqSheet = () => {
   }, []);
 
   useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any).from('vendors').select('id, name, email, phone, address').order('name');
+      setAllVendors(data || []);
+    })();
+  }, []);
+
+  useEffect(() => {
     if (!user?.id) return;
     (async () => {
       const { data } = await (supabase as any).from('profiles').select('display_name').eq('user_id', user.id).maybeSingle();
@@ -128,12 +140,15 @@ const VendorRfqSheet = () => {
   }, [user?.id]);
 
   const entity = entities.find(e => e.id === entityId) || null;
-  const rows = useMemo(() => (bundle ? buildReplyGrid(bundle.rfqs, bundle.lines, bundle.responses) : []), [bundle]);
+  // The open sheet (made with no vendor picked) is for printing; replies are logged per vendor.
+  const vendorRfqs = useMemo(() => (bundle?.rfqs || []).filter(r => !isOpenRfq(r)), [bundle]);
+  const rows = useMemo(() => (bundle ? buildReplyGrid(vendorRfqs, bundle.lines, bundle.responses) : []), [bundle, vendorRfqs]);
+  const itemCount = useMemo(() => new Set((bundle?.lines || []).map(l => l.product_id || l.item_name)).size, [bundle]);
   const productMap = useMemo(() => new Map((bundle?.products || []).map((p: any) => [p.id, p])), [bundle]);
   const inquiryLabel = bundle?.inquiry ? [bundle.inquiry.rfq_number, bundle.inquiry.title].filter(Boolean).join(' · ') : null;
   const linesFor = (rfqId: string) => (bundle?.lines || []).filter(l => l.vendor_rfq_id === rfqId);
 
-  const downloadPdf = async (rfq: SheetRfq) => {
+  const downloadPdf = async (rfq: SheetRfq, mode: 'download' | 'print' = 'download') => {
     setBusy(`pdf:${rfq.id}`);
     try {
       const [{ pdf }, { default: VendorRfqPdfDocument }] = await Promise.all([
@@ -142,11 +157,14 @@ const VendorRfqSheet = () => {
       ]);
       const lines = linesFor(rfq.id).map(l => {
         const p: any = l.product_id ? productMap.get(l.product_id) : null;
+        const spec = p ? productSpecs(p, bundle?.cogs || []) : null;
         return {
           name: l.item_name, sku: p?.sku ?? null, photo_url: l.product_photo_url || p?.photo_url || null,
           dimensions: l.dimensions || null, finish: p ? (p.notes_finishes || p.finishing_difficulty || null) : null,
           description: p ? null : l.description || null, notes: l.notes || null,
           quantity: Number(l.quantity) || 0, units: l.units, target_price: l.target_price,
+          specs: spec ? spec.specs : [l.dimensions ? { label: 'Size', value: l.dimensions } : null, l.description ? { label: 'Details', value: l.description } : null].filter(Boolean) as { label: string; value: string }[],
+          noteLines: spec ? spec.notes : (l.notes ? [l.notes] : []),
         };
       });
       const r: any = rfq;
@@ -155,13 +173,19 @@ const VendorRfqSheet = () => {
           rfqNumber={rfq.rfq_number || 'RFQ'} date={(rfq.created_at || '').slice(0, 10) || null} replyBy={rfq.response_due}
           vendor={{ name: rfq.vendor_name, phone: rfq.vendor_phone, email: rfq.vendor_email, address: r.vendor_address }}
           entity={entity} contactName={contactName} inquiryLabel={bundle?.inquiry?.rfq_number || null}
-          notes={r.notes || null} showTarget={showTarget} lines={lines}
+          notes={r.notes || null} showTarget={showTarget} layout={layout} lines={lines}
         />,
       ).toBlob();
       const url = URL.createObjectURL(blob);
+      if (mode === 'print') {
+        // Opens the PDF in a new tab, where the browser's print button prints it.
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        return;
+      }
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(rfq.rfq_number || 'RFQ').replace(/[^a-z0-9-_]+/gi, '_')}-${(rfq.vendor_name || 'vendor').replace(/[^a-z0-9-_]+/gi, '_')}.pdf`;
+      a.download = `${(rfq.rfq_number || 'RFQ').replace(/[^a-z0-9-_]+/gi, '_')}${rfq.vendor_name ? `-${rfq.vendor_name.replace(/[^a-z0-9-_]+/gi, '_')}` : ''}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -176,6 +200,18 @@ const VendorRfqSheet = () => {
 
   const downloadAll = async () => {
     for (const rfq of bundle?.rfqs || []) await downloadPdf(rfq);
+  };
+
+  const addVendor = async (v: SheetVendor) => {
+    setAddOpen(false);
+    if (!batchId) return;
+    try {
+      await addVendorToSheet(batchId, v, user?.id);
+      await reload();
+      toast.success(`${v.name} added; type their reply in the grid`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not add the vendor');
+    }
   };
 
   const copyMessage = async (rfq: SheetRfq) => {
@@ -224,9 +260,11 @@ const VendorRfqSheet = () => {
   if (loading) return <AppLayout><div className="py-12 text-center text-muted-foreground">Loading…</div></AppLayout>;
   if (!bundle || bundle.rfqs.length === 0) return <AppLayout><div className="py-12 text-center text-muted-foreground">RFQ sheet not found.</div></AppLayout>;
 
-  const rfqs = bundle.rfqs;
+  const rfqs = vendorRfqs;
   const unsent = rfqs.filter(r => r.status === 'draft').map(r => r.id);
-  const replyBy = rfqs[0].response_due;
+  const replyBy = bundle.rfqs[0].response_due;
+  const onSheet = new Set(rfqs.map(r => r.vendor_id).filter(Boolean));
+  const addable = allVendors.filter(v => !onSheet.has(v.id));
   const vendorTotal = (rfqId: string) => rows.reduce((s, r) => s + (r.cells[rfqId]?.price || 0) * r.quantity, 0);
   const canPickCheapest = rows.some(r => r.cheapestRfqId && r.pickedRfqId !== r.cheapestRfqId);
 
@@ -240,7 +278,7 @@ const VendorRfqSheet = () => {
             </Button>
           ) : <span />}
           <div className="text-xs text-muted-foreground">
-            {rows.length} item{rows.length === 1 ? '' : 's'} · {rfqs.length} vendor{rfqs.length === 1 ? '' : 's'}
+            {itemCount} item{itemCount === 1 ? '' : 's'} · {rfqs.length ? `${rfqs.length} vendor${rfqs.length === 1 ? '' : 's'}` : 'no vendor yet'}
             {replyBy ? ` · reply by ${formatDay(replyBy)}` : ''}
           </div>
         </div>
@@ -257,13 +295,41 @@ const VendorRfqSheet = () => {
                   <SelectContent>{entities.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">PDF layout</Label>
+                <Select value={layout} onValueChange={v => setLayout(v as 'cards' | 'table')}>
+                  <SelectTrigger className="h-8 w-48 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cards">Large photos, specs and notes</SelectItem>
+                    <SelectItem value="table">Compact table</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <label className="flex items-center gap-2 text-xs pb-1.5">
                 <Switch checked={showTarget} onCheckedChange={setShowTarget} /> Show our target price on the PDF
               </label>
               <div className="flex gap-2 ml-auto">
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadAll} disabled={!!busy}>
-                  <Download className="h-3.5 w-3.5" /> All PDFs
-                </Button>
+                <Popover open={addOpen} onOpenChange={setAddOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add vendor</Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0" align="end">
+                    <Command>
+                      <CommandInput placeholder="Search vendors…" />
+                      <CommandList>
+                        <CommandEmpty>No vendors found.</CommandEmpty>
+                        <CommandGroup>
+                          {addable.map(v => <CommandItem key={v.id} value={v.name} onSelect={() => addVendor(v)} className="text-xs">{v.name}</CommandItem>)}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {bundle.rfqs.length > 1 && (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadAll} disabled={!!busy}>
+                    <Download className="h-3.5 w-3.5" /> All PDFs
+                  </Button>
+                )}
                 {unsent.length > 0 && (
                   <Button size="sm" variant="outline" className="gap-1.5" onClick={() => sendAll(unsent)}>
                     <Send className="h-3.5 w-3.5" /> Mark all sent
@@ -272,22 +338,27 @@ const VendorRfqSheet = () => {
               </div>
             </div>
             <div className="divide-y rounded-md border">
-              {rfqs.map(r => (
+              {bundle.rfqs.map(r => (
                 <div key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-                  <span className="font-medium min-w-[10rem]">{r.vendor_name || 'Vendor'}</span>
+                  <span className="font-medium min-w-[10rem]">{isOpenRfq(r) ? 'Open sheet, no vendor' : r.vendor_name || 'Vendor'}</span>
                   <span className="font-mono text-xs text-muted-foreground">{r.rfq_number}</span>
-                  <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLORS[r.status || 'draft'])}>{STATUS_LABEL[r.status || 'draft'] || r.status}</Badge>
+                  {!isOpenRfq(r) && <Badge variant="secondary" className={cn('text-[10px]', STATUS_COLORS[r.status || 'draft'])}>{STATUS_LABEL[r.status || 'draft'] || r.status}</Badge>}
                   <div className="ml-auto flex flex-wrap gap-1">
+                    <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => downloadPdf(r, 'print')} disabled={busy === `pdf:${r.id}`}>
+                      <Printer className="h-3 w-3" /> Print
+                    </Button>
                     <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => downloadPdf(r)} disabled={busy === `pdf:${r.id}`}>
                       {busy === `pdf:${r.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} PDF
                     </Button>
                     <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => copyMessage(r)}>
                       <Copy className="h-3 w-3" /> Message
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => copyLink(r)}>
-                      <Link2 className="h-3 w-3" /> Link
-                    </Button>
-                    {r.status === 'draft' && (
+                    {!isOpenRfq(r) && (
+                      <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => copyLink(r)}>
+                        <Link2 className="h-3 w-3" /> Link
+                      </Button>
+                    )}
+                    {r.status === 'draft' && !isOpenRfq(r) && (
                       <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => sendAll([r.id])}>
                         <Send className="h-3 w-3" /> Sent
                       </Button>
@@ -314,6 +385,9 @@ const VendorRfqSheet = () => {
                 </Button>
               )}
             </div>
+            {rfqs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No vendors on this sheet yet. Print it or send it to anyone, then press <span className="font-medium">Add vendor</span> for each vendor who replies and type their prices here.</p>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-separate border-spacing-0">
                 <thead>
@@ -371,6 +445,7 @@ const VendorRfqSheet = () => {
                 </tbody>
               </table>
             </div>
+            )}
           </CardContent>
         </Card>
       </div>
