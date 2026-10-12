@@ -74,7 +74,7 @@ export function VendorRfqSheetDialog({ open, onOpenChange, inquiryId, productIds
         discount: Math.max(0, Math.min(100, discountPct)) / 100,
         replyBy: replyBy || null, notes: notes.trim() || null, userId: user?.id,
       });
-      toast.success(`RFQ sheet made for ${count} vendor${count === 1 ? '' : 's'}`);
+      toast.success(count ? `RFQ sheet made for ${count} vendor${count === 1 ? '' : 's'}` : 'RFQ sheet made');
       onOpenChange(false);
       onCreated?.();
       navigate(`/vendor-rfq-sheet/${batchId}`);
@@ -92,12 +92,12 @@ export function VendorRfqSheetDialog({ open, onOpenChange, inquiryId, productIds
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Vendor RFQ sheet</DialogTitle>
-          <DialogDescription>{scope}. Each vendor gets its own PDF, and their replies go into one grid.</DialogDescription>
+          <DialogDescription>{scope}. Pick vendors to give each its own PDF, or none for one printable sheet you can send to anyone. Replies go into one grid.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Vendors</Label>
+              <Label className="text-xs">Vendors (optional)</Label>
               <span className="text-xs text-muted-foreground">{picked.size} picked</span>
             </div>
             <Input className="h-8 text-sm" placeholder="Search vendors…" value={search} onChange={e => setSearch(e.target.value)} />
@@ -140,8 +140,8 @@ export function VendorRfqSheetDialog({ open, onOpenChange, inquiryId, productIds
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>Cancel</Button>
-          <Button onClick={create} disabled={creating || picked.size === 0}>
-            {creating ? 'Making…' : `Make sheet${picked.size > 1 ? `s for ${picked.size} vendors` : ''}`}
+          <Button onClick={create} disabled={creating}>
+            {creating ? 'Making…' : picked.size === 0 ? 'Make sheet without a vendor' : `Make sheet${picked.size > 1 ? `s for ${picked.size} vendors` : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

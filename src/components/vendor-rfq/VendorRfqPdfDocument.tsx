@@ -12,6 +12,10 @@ export interface VendorRfqPdfLine {
   quantity: number;
   units?: string | null;
   target_price?: number | null;
+  /** Spec rows for the large-photo layout (size, type, finish, hardware…). */
+  specs?: { label: string; value: string }[];
+  /** Product notes for the large-photo layout. */
+  noteLines?: string[];
 }
 
 export interface VendorRfqPdfEntity {
@@ -39,6 +43,8 @@ export interface VendorRfqPdfProps {
   inquiryLabel?: string | null;
   notes?: string | null;
   showTarget: boolean;
+  /** 'cards': one block per product with a large photo, specs and notes (made for printing). 'table': compact rows. */
+  layout?: 'cards' | 'table';
   lines: VendorRfqPdfLine[];
 }
 
@@ -71,6 +77,18 @@ const s = StyleSheet.create({
   num: { fontSize: 9, textAlign: 'right' },
   blank: { height: 18, borderBottomWidth: 0.75, borderColor: C.light, marginLeft: 6 },
   notesHeading: { fontSize: 9, fontFamily: 'Helvetica-Bold', marginTop: 14, marginBottom: 4 },
+  card: { flexDirection: 'row', gap: 14, paddingVertical: 8, borderBottomWidth: 0.5, borderColor: C.border },
+  bigPhoto: { width: 170, height: 170, objectFit: 'contain', backgroundColor: C.white },
+  bigPhotoFallback: { width: 170, height: 170, backgroundColor: C.bg },
+  cardName: { fontSize: 12, fontFamily: 'Helvetica-Bold' },
+  cardSku: { fontSize: 8, color: C.muted, marginTop: 1, marginBottom: 6 },
+  specRow: { flexDirection: 'row', marginBottom: 2.5 },
+  specLabel: { width: 82, fontSize: 8, color: C.muted },
+  specValue: { flex: 1, fontSize: 9 },
+  cardNotes: { fontSize: 8.5, lineHeight: 1.4, marginTop: 4, padding: 5, backgroundColor: C.bg },
+  replyRow: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  replyBox: { flex: 1 },
+  replyLine: { height: 16, borderBottomWidth: 0.75, borderColor: C.light },
   footer: { position: 'absolute', left: 32, right: 32, bottom: 16, fontSize: 7, color: C.light, textAlign: 'center' },
   pageNum: { position: 'absolute', bottom: 16, right: 32, fontSize: 7, color: C.light },
 });
@@ -80,7 +98,7 @@ const rs = (n: number) => `Rs ${n.toLocaleString('en-IN', { maximumFractionDigit
 
 const W = { n: 18, photo: 62, item: 0, size: 82, qty: 46, target: 58, price: 66, lead: 56 };
 
-const VendorRfqPdfDocument = ({ rfqNumber, date, replyBy, vendor, entity, contactName, inquiryLabel, notes, showTarget, lines }: VendorRfqPdfProps) => {
+const VendorRfqPdfDocument = ({ rfqNumber, date, replyBy, vendor, entity, contactName, inquiryLabel, notes, showTarget, layout = 'table', lines }: VendorRfqPdfProps) => {
   const address = [
     entity?.address_line1, entity?.address_line2,
     [entity?.city, entity?.state, entity?.postal_code].filter(Boolean).join(', '), entity?.country,
@@ -108,7 +126,9 @@ const VendorRfqPdfDocument = ({ rfqNumber, date, replyBy, vendor, entity, contac
         <View style={s.band}>
           <View style={s.col}>
             <Text style={s.label}>To</Text>
-            <Text style={[s.line, { fontFamily: 'Helvetica-Bold' }]}>{vendor.name || 'Vendor'}</Text>
+            {vendor.name
+              ? <Text style={[s.line, { fontFamily: 'Helvetica-Bold' }]}>{vendor.name}</Text>
+              : <View style={[s.replyLine, { marginRight: 10 }]} />}
             {vendor.address ? <Text style={s.lineMuted}>{vendor.address}</Text> : null}
             {vendor.phone ? <Text style={s.lineMuted}>{vendor.phone}</Text> : null}
             {vendor.email ? <Text style={s.lineMuted}>{vendor.email}</Text> : null}
@@ -131,6 +151,37 @@ const VendorRfqPdfDocument = ({ rfqNumber, date, replyBy, vendor, entity, contac
           Please quote your price per piece and lead time for each item below{replyBy ? `, by ${formatDay(replyBy)}` : ''}. Sizes are in inches (W x D x H).
         </Text>
 
+        {layout === 'cards' ? lines.map((l, i) => (
+          <View key={i} style={s.card} wrap={false}>
+            {l.photo_url ? <Image src={l.photo_url} style={s.bigPhoto} /> : <View style={s.bigPhotoFallback} />}
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardName}>{i + 1}. {l.name}</Text>
+              <Text style={s.cardSku}>{l.sku ? `SKU ${l.sku}` : ' '}</Text>
+              {(l.specs || []).map((sp, j) => (
+                <View key={j} style={s.specRow}>
+                  <Text style={s.specLabel}>{sp.label}</Text>
+                  <Text style={s.specValue}>{sp.value}</Text>
+                </View>
+              ))}
+              <View style={s.specRow}>
+                <Text style={s.specLabel}>Quantity</Text>
+                <Text style={[s.specValue, { fontFamily: 'Helvetica-Bold' }]}>{l.quantity.toLocaleString('en-IN')} {l.units && l.units !== 'pc' ? l.units : 'pcs'}</Text>
+              </View>
+              {showTarget && l.target_price ? (
+                <View style={s.specRow}>
+                  <Text style={s.specLabel}>Target price</Text>
+                  <Text style={s.specValue}>{rs(l.target_price)} per piece</Text>
+                </View>
+              ) : null}
+              {(l.noteLines || []).length ? <Text style={s.cardNotes}>{(l.noteLines || []).join('\n')}</Text> : null}
+              <View style={s.replyRow}>
+                <View style={s.replyBox}><Text style={s.label}>Your price per piece</Text><View style={s.replyLine} /></View>
+                <View style={s.replyBox}><Text style={s.label}>Lead time</Text><View style={s.replyLine} /></View>
+              </View>
+            </View>
+          </View>
+        )) : (
+          <>
         <View style={s.th} fixed>
           <Text style={{ width: W.n }}>#</Text>
           <Text style={{ width: W.photo }}>Photo</Text>
@@ -161,6 +212,9 @@ const VendorRfqPdfDocument = ({ rfqNumber, date, replyBy, vendor, entity, contac
             <View style={{ width: W.lead }}><View style={s.blank} /></View>
           </View>
         ))}
+
+          </>
+        )}
 
         {notes ? (
           <View wrap={false}>
