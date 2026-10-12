@@ -36,6 +36,7 @@ import Vendors from "./pages/Vendors";
 import Tools from "./pages/Tools";
 import MasterCartonSizer from "./pages/MasterCartonSizer";
 import IronWeightCalculator from "./pages/IronWeightCalculator";
+import ExportDocuments from "./pages/ExportDocuments";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import SoProfitability from "./pages/SoProfitability";
@@ -171,6 +172,9 @@ const App = () => (
               } />
               <Route path="/tools/iron-weight" element={
                 <ProtectedRoute requireAdminOrTeam><IronWeightCalculator /></ProtectedRoute>
+              } />
+              <Route path="/tools/export-docs" element={
+                <ProtectedRoute requireAdminOrTeam><ExportDocuments /></ProtectedRoute>
               } />
 
               <Route path="/freight-quotes" element={<ProtectedRoute requireAdminOrTeam><FreightQuotes /></ProtectedRoute>} />
