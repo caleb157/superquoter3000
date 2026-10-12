@@ -69,7 +69,6 @@ export type CostingEngineResult = {
   finalUnitCbm: number;
   ri: number;
   prePackCbm: number;
-  difficultyFactor: number;
   /** How the auto-estimated Finishing/Packaging hours were derived (see autoLaborEstimate). */
   autoLabor: AutoLabor;
   /** True when the product type is "Outsourced" (bought finished from a supplier). */
@@ -94,8 +93,8 @@ export type CostingEngineResult = {
 
 export type AutoLabor = {
   ri: number;
-  /** 'ri_budget': wood — ₹/RI budget converted to hours at the finishing rate; 'per_100ri': other types (unchanged). */
-  finishingMethod: 'ri_budget' | 'per_100ri';
+  /** 'ri_budget': wood — ₹/RI budget converted to hours at the finishing rate; 'none': other types (hours entered by hand). */
+  finishingMethod: 'ri_budget' | 'none';
   rupeesPerRi: number;
   finishingBudgetInr: number;
   finishingRate: number;
@@ -107,7 +106,7 @@ export type AutoLabor = {
  * Auto-estimated labor for a product (Finishing + Packaging rows flagged is_auto_estimated).
  * - Running inches: override, else long side for Wood Table, else longest + shortest.
  * - Wood types: finishing budget = RI × ₹/RI for the difficulty × % wood; man-hours = budget ÷
- *   the average Finishing hourly rate. Other types keep MH/100RI × difficulty factor × % wood.
+ *   the average Finishing hourly rate. Other types get no auto finishing hours.
  * - Packaging: 0.015 man-hours per running inch, 0 for "No packaging".
  * Shared by the engine and the costing sheets so they can't disagree.
  */
@@ -121,15 +120,11 @@ export function autoLaborEstimate(args: {
   const diff = (difficulties || []).find((d: any) => d.name === diffName);
   const finishingRate = calc.avgRateByDesignation(employees as any, 'Finishing');
   let finishingMh = 0, finishingBudgetInr = 0, rupeesPerRi = 0;
-  const finishingMethod: AutoLabor['finishingMethod'] = calc.isWoodType(productType?.name) ? 'ri_budget' : 'per_100ri';
+  const finishingMethod: AutoLabor['finishingMethod'] = calc.isWoodType(productType?.name) ? 'ri_budget' : 'none';
   if (finishingMethod === 'ri_budget') {
     rupeesPerRi = Number(diff?.rupees_per_ri) > 0 ? Number(diff.rupees_per_ri) : (calc.DEFAULT_RUPEES_PER_RI[diffName] ?? 7);
     finishingBudgetInr = ri * rupeesPerRi * percentWood;
     finishingMh = finishingRate > 0 ? finishingBudgetInr / finishingRate : 0;
-  } else {
-    const factor = diff?.adjustment_factor ?? calc.getDifficultyFactor(diffName);
-    finishingMh = calc.calcFinishingMhPerUnit(Number(productType?.finishing_mh_per_100ri) || 0, factor, percentWood, ri);
-    finishingBudgetInr = finishingMh * finishingRate;
   }
   const packagingMh = (args.packagingType || p?.packaging_type) === 'no_packaging' ? 0 : ri * calc.PACKAGING_MH_PER_RI;
   return { ri, finishingMethod, rupeesPerRi, finishingBudgetInr, finishingRate, finishingMh, packagingMh };
@@ -410,9 +405,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   );
 
   // Overhead (auto-estimated finishing/packaging mh applied in-memory)
-  const diffName = p.finishing_difficulty || 'Medium';
-  const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor)
-    ?? calc.getDifficultyFactor(diffName);
   const autoLabor = autoLaborEstimate({ product: p, productType, difficulties, employees, packagingType });
   const { finishingMh, packagingMh } = autoLabor;
 
@@ -542,7 +534,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     finalUnitCbm,
     ri,
     prePackCbm,
-    difficultyFactor,
     autoLabor,
     isOutsourced,
     outsourcedUnitCostInr: isOutsourced ? outsourcedUnitCostInr : 0,

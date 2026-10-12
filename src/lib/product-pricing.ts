@@ -1,15 +1,16 @@
 // Compute current calculated unit prices (USD) for many products at once.
 // Used by Dashboard for the weighted pipeline value so we no longer rely on target_price_usd.
 //
-// IMPORTANT: This module mirrors the auto-calculations performed by ProductCostingTab
+// IMPORTANT: This module runs the same engine as the product costing sheet
 // in-memory so prices stay consistent with the costing sheet even when the user
 // has not opened the costing tab to flush the latest auto-cost values to DB.
 import { supabase } from '@/integrations/supabase/client';
 import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
 import { applyLiveRates } from '@/lib/live-rates';
+import { costPointFromResult, type CostPoint } from '@/lib/cost-history';
 
-let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
+let _difficultiesCache: Array<{ name: string; rupees_per_ri?: number | null }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
 
 export type ProductPriceCostMap = Record<string, {
@@ -33,6 +34,8 @@ export type ProductPriceCostMap = Record<string, {
   stored_price_usd: number | null;
   stored_cost_usd: number | null;
   cache_is_stale: boolean;
+  /** Cost history point for this result (logged when a cache heal writes the new price). */
+  cost_point?: CostPoint;
 }>;
 
 
@@ -207,6 +210,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
         storedPriceUsd != null &&
         Number.isFinite(recomputedPriceUsd) &&
         Math.abs(storedPriceUsd - recomputedPriceUsd) > 0.01,
+      cost_point: costPointFromResult(result),
     };
   }
 

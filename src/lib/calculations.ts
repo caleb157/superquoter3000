@@ -19,10 +19,6 @@ export interface ProductType {
   finishing_color_per_100ri: number;
   finishing_sealer_l_per_100ri: number;
   finishing_lacquer_per_100ri: number;
-  finishing_mh_per_100ri: number;
-  pkg_ic_rate_mh_per_cbm: number;
-  pkg_ic_mc_rate_mh_per_cbm: number;
-  pkg_corrugate_bubble_rate_mh_per_cbm: number;
 }
 
 export interface ProductDimensions {
@@ -511,75 +507,8 @@ export function calcWaxGrams(
 }
 
 // ============================================================
-// Difficulty Factor
-// ============================================================
-
-const DIFFICULTY_FACTORS: Record<string, number> = {
-  'Wax': 0.3333,
-  'Extremely Easy': 0.5,
-  'Very Easy': 0.7,
-  'Easy': 0.9,
-  'Medium': 1.0,
-  'Hard': 1.1,
-  'Very Hard': 1.3,
-};
-
-export function getDifficultyFactor(difficulty: string): number {
-  return DIFFICULTY_FACTORS[difficulty] || 1.0;
-}
-
-// ============================================================
 // Labor / Direct Overhead
 // ============================================================
-
-export function calcFinishingLaborMhPerUnit(
-  contractorBaseRate: number,
-  contractorToInhouseDecrease: number,
-  difficultyFactor: number,
-  avgFinishingSandingPay: number,
-  ri: number,
-  percentWood: number = 1
-): number {
-  if (avgFinishingSandingPay <= 0) return 0;
-  const adjustedRate = contractorBaseRate * (1 - contractorToInhouseDecrease) * difficultyFactor;
-  const mhPer100ri = (adjustedRate / avgFinishingSandingPay) * 100;
-  const effectiveRi = ri * (percentWood ?? 1);
-  return mhPer100ri * (effectiveRi / 100);
-}
-
-// Phase 3a: new direct finishing labor formula. Uses MH/100RI from product_type and
-// adjustment factor from finishing_difficulty table (instead of contractor rate / payrate).
-export function calcFinishingMhPerUnit(
-  finishingMhPer100Ri: number,
-  adjustmentFactor: number,
-  percentWood: number,
-  ri: number,
-): number {
-  if (!finishingMhPer100Ri || ri <= 0) return 0;
-  return finishingMhPer100Ri * (adjustmentFactor || 1) * (percentWood ?? 1) * (ri / 100);
-}
-
-export function calcPackagingLaborMhPerUnit(
-  packagingMhPerCbm: number,
-  finalUnitCbm: number
-): number {
-  return packagingMhPerCbm * finalUnitCbm;
-}
-
-// Phase 3a: pick the right MH/CBM rate from product_types based on the product's packaging type.
-export function packagingMhPerCbmForType(
-  productType: any,
-  packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | string,
-): number {
-  if (!productType) return 0;
-  switch (packagingType) {
-    case 'corrugate_bubble': return productType.pkg_corrugate_bubble_rate_mh_per_cbm ?? 0;
-    case 'ic_only':          return productType.pkg_ic_rate_mh_per_cbm ?? 0;
-    case 'ic_mc':            return productType.pkg_ic_mc_rate_mh_per_cbm ?? 0;
-    case 'no_packaging':     return 0;
-    default:                 return productType.pkg_ic_mc_rate_mh_per_cbm ?? 0;
-  }
-}
 
 export function calcOverheadItemCost(item: OverheadItem, quantity: number): {
   total_man_hours: number;

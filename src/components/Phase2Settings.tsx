@@ -200,7 +200,7 @@ export function FinishingDifficultySettings() {
   useEffect(() => { fetchRows(); }, []);
 
   const add = async () => {
-    const { error } = await sb.from('finishing_difficulty').insert({ name: 'New Difficulty', adjustment_factor: 1.0, sort_order: (rows.at(-1)?.sort_order ?? 0) + 1 });
+    const { error } = await sb.from('finishing_difficulty').insert({ name: 'New Difficulty', sort_order: (rows.at(-1)?.sort_order ?? 0) + 1 });
     if (error) { toast.error(error.message); return; }
     fetchRows();
   };
@@ -229,13 +229,12 @@ export function FinishingDifficultySettings() {
       </div>
       <div className="border rounded-md overflow-auto max-w-2xl">
         <Table className="dense-table">
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead title="Wood finishing labor budget per running inch">₹ / running inch (wood)</TableHead><TableHead title="Finishing labor multiplier for non-wood product types">Adjustment Factor</TableHead><TableHead>Sort</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead title="Wood finishing labor budget per running inch">₹ / running inch (wood)</TableHead><TableHead>Sort</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
           <TableBody>
             {rows.map(r => (
               <TableRow key={r.id}>
                 <TableCell><Input className="h-7 text-xs" defaultValue={r.name} onBlur={e => { if (e.target.value !== r.name) upd(r.id, 'name', e.target.value); }} /></TableCell>
                 <TableCell><Input className="h-7 text-xs w-24" type="number" step="0.5" defaultValue={r.rupees_per_ri ?? ''} placeholder="—" onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (r.rupees_per_ri ?? null)) upd(r.id, 'rupees_per_ri', v); }} /></TableCell>
-                <TableCell><Input className="h-7 text-xs w-24" type="number" step="0.1" defaultValue={r.adjustment_factor} onBlur={e => { const v = Number(e.target.value); if (v !== r.adjustment_factor) upd(r.id, 'adjustment_factor', v); }} /></TableCell>
                 <TableCell><Input className="h-7 text-xs w-20" type="number" defaultValue={r.sort_order} onBlur={e => { const v = Number(e.target.value); if (v !== r.sort_order) upd(r.id, 'sort_order', v); }} /></TableCell>
                 <TableCell><Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => del(r)}><Trash2 className="h-3 w-3 text-destructive" /></Button></TableCell>
               </TableRow>

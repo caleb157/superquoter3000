@@ -19,12 +19,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
-import { invalidateShipmentPool } from '@/lib/shipment-pool';
 import { cn } from '@/lib/utils';
-import {
-  buildRows, computeResults, loadBundle, persistDerived, totals,
-  type Apply, type Bundle, type WorkspaceRow,
-} from '@/lib/costing-workspace';
+import { loadBundle, type WorkspaceRow } from '@/lib/costing-workspace';
+import { useCostingBundle } from '@/hooks/use-costing-bundle';
 import { BulkBar } from '@/components/costing-workspace/BulkBar';
 import { ProductPanel } from '@/components/costing-workspace/ProductPanel';
 import { WorkspaceTable } from '@/components/costing-workspace/WorkspaceTable';
@@ -41,11 +38,6 @@ export default function CostingWorkspace() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
-  const [bundle, setBundle] = useState<Bundle | null>(null);
-  const bundleRef = useRef<Bundle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(0);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('sheet');
@@ -65,58 +57,11 @@ export default function CostingWorkspace() {
     return next;
   }, { replace: true });
 
-  const load = useCallback(async () => {
-    if (!inquiryId) return;
-    const b = await loadBundle(inquiryId);
-    bundleRef.current = b;
-    setBundle(b);
-    setLoading(false);
-  }, [inquiryId]);
-  useEffect(() => { void load(); }, [load]);
+  const loader = useCallback(() => loadBundle(inquiryId!), [inquiryId]);
+  const { bundle, loading, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
   useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const results = useMemo(() => (bundle ? computeResults(bundle) : new Map()), [bundle]);
-  const rows = useMemo(() => (bundle ? buildRows(bundle, results) : []), [bundle, results]);
-  const t = useMemo(() => totals(rows), [rows]);
-
   useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
-
-  // ---------- writes ----------
-
-  // Engine-derived values (auto rows, cached price on the product) are written back a
-  // moment after edits settle, so lists elsewhere in the app stay current.
-  const pendingDerived = useRef<Set<string>>(new Set());
-  const derivedTimer = useRef<number | null>(null);
-  const scheduleDerived = useCallback((ids: string[]) => {
-    ids.forEach(id => pendingDerived.current.add(id));
-    if (derivedTimer.current) window.clearTimeout(derivedTimer.current);
-    derivedTimer.current = window.setTimeout(() => {
-      const b = bundleRef.current;
-      const idsNow = [...pendingDerived.current];
-      pendingDerived.current.clear();
-      if (!b || !idsNow.length) return;
-      persistDerived(b, computeResults(b), idsNow).catch(e => console.error('persistDerived', e));
-    }, 1500);
-  }, []);
-
-  const apply: Apply = useCallback(build => {
-    const cur = bundleRef.current;
-    if (!cur) return;
-    const m = build(cur);
-    if (!m) { toast.error('That value isn’t valid here'); return; }
-    bundleRef.current = m.next;
-    setBundle(m.next);
-    setSaving(s => s + 1);
-    m.commit()
-      .then(() => {
-        setSavedAt(Date.now());
-        invalidateShipmentPool(inquiryId);
-        // Whole-inquiry FOB pooling means one SKU's CBM can move every SKU's shipping.
-        scheduleDerived(m.next.products.map(p => p.id));
-      })
-      .catch(e => { toast.error(`Couldn’t save: ${e?.message || e}`); void load(); })
-      .finally(() => setSaving(s => s - 1));
-  }, [inquiryId, load, scheduleDerived]);
 
   // ---------- filtering & sorting ----------
 
@@ -245,7 +190,7 @@ export default function CostingWorkspace() {
               </span>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-4 w-4" /> Import sheet</Button>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
-              <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => { setLoading(true); void load(); }} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
+              <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
               <ShortcutsButton />
             </div>
           </div>
