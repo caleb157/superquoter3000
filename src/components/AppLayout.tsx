@@ -7,7 +7,7 @@ import { TaskDialog } from '@/components/TaskDialog';
 import type { TaskContext } from '@/lib/task-types';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { TrendingUp,
+import { TrendingUp, Images,
   Settings, LogOut, ShoppingCart, FileText,
   Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, ChevronDown, BarChart3, Wrench, ClipboardCheck,
 } from 'lucide-react';
@@ -56,6 +56,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/analytics', label: 'Kickass Analytics Dashboard', icon: BarChart3 },
     { to: '/profitability', label: 'Profitability', icon: TrendingUp },
+    { to: '/media', label: 'Media Gallery', icon: Images },
     { to: '/tools', label: 'Tools', icon: Wrench },
   ] : [];
   const directoryNav = isAdminOrTeam ? [

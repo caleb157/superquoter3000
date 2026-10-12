@@ -42,6 +42,7 @@ const Tools = lazyPage(() => import("./pages/Tools"));
 const MasterCartonSizer = lazyPage(() => import("./pages/MasterCartonSizer"));
 const IronWeightCalculator = lazyPage(() => import("./pages/IronWeightCalculator"));
 const ExportDocuments = lazyPage(() => import("./pages/ExportDocuments"));
+const MediaGallery = lazyPage(() => import("./pages/MediaGallery"));
 const OAuthConsent = lazyPage(() => import("./pages/OAuthConsent"));
 const NotFound = lazyPage(() => import("./pages/NotFound"));
 const SoProfitability = lazyPage(() => import("./pages/SoProfitability"));
@@ -194,6 +195,9 @@ const App = () => (
               } />
               <Route path="/vendors" element={
                 <ProtectedRoute requireAdminOrTeam><Vendors /></ProtectedRoute>
+              } />
+              <Route path="/media" element={
+                <ProtectedRoute requireAdminOrTeam><MediaGallery /></ProtectedRoute>
               } />
               <Route path="/tools" element={
                 <ProtectedRoute requireAdminOrTeam><Tools /></ProtectedRoute>
