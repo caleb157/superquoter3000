@@ -2158,6 +2158,7 @@ export type Database = {
           archived_at: string | null
           bulk_pieces_per_box: number
           bulk_shrink_factor: number
+          calculated_man_hours_per_unit: number | null
           calculated_unit_cost_usd: number | null
           calculated_unit_price_usd: number | null
           cbm_done: boolean | null
@@ -2210,6 +2211,7 @@ export type Database = {
           archived_at?: string | null
           bulk_pieces_per_box?: number
           bulk_shrink_factor?: number
+          calculated_man_hours_per_unit?: number | null
           calculated_unit_cost_usd?: number | null
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
@@ -2262,6 +2264,7 @@ export type Database = {
           archived_at?: string | null
           bulk_pieces_per_box?: number
           bulk_shrink_factor?: number
+          calculated_man_hours_per_unit?: number | null
           calculated_unit_cost_usd?: number | null
           calculated_unit_price_usd?: number | null
           cbm_done?: boolean | null
