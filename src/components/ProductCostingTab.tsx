@@ -124,7 +124,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const [chemicalPrices, setChemicalPrices] = useState<any[]>([]);
   const [hardwarePrices, setHardwarePrices] = useState<any[]>([]);
   const [rawMaterialCosts, setRawMaterialCosts] = useState<any[]>([]);
-  const [difficulties, setDifficulties] = useState<Array<{ name: string; adjustment_factor: number }>>([]);
+  const [difficulties, setDifficulties] = useState<Array<{ name: string; rupees_per_ri?: number | null }>>([]);
   const [locations, setLocations] = useState<Array<{ id: string; name: string; cost_per_cbm_inr: number }>>([]);
   const [difficultiesError, setDifficultiesError] = useState<string | null>(null);
   const [locationsError, setLocationsError] = useState<string | null>(null);
@@ -426,10 +426,6 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
   const prePackCbm = calc.prePackagedCbm(w, d, h);
   const percentWood = product?.percent_wood ?? 1;
   const difficulty = product?.finishing_difficulty || 'Medium';
-  // Phase 3a: difficulty factor is sourced from the finishing_difficulty DB table;
-  // fall back to hardcoded defaults via getDifficultyFactor if the table is empty.
-  const difficultyFactor = difficulties.find(d => d.name === difficulty)?.adjustment_factor
-    ?? calc.getDifficultyFactor(difficulty);
 
   // Unique box types for dropdowns
   const uniqueBoxTypes = useMemo(() => {
@@ -921,7 +917,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         (supabase as any).from('overhead_items').update({ man_hours_per_unit: upd.man_hours_per_unit, ...(upd.include ? { include: upd.include } : {}) }).eq('id', upd.id);
       });
     }
-  }, [dataLoaded, product?.product_type_id, w, d, h, (product as any)?.running_inches_override, difficulty, difficultyFactor, percentWood, finalUnitCbm, noPackaging, packagingType, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, difficulties, recalcTick]);
+  }, [dataLoaded, product?.product_type_id, w, d, h, (product as any)?.running_inches_override, difficulty, percentWood, finalUnitCbm, noPackaging, packagingType, globalSettings?.id, employees.length, productTypes.length, overheadItems.length, difficulties, recalcTick]);
 
   // Step 7b: Auto-populate "Auto Transport" non-unit COGS — qty = total CBM, cost = rate/CBM
   useEffect(() => {

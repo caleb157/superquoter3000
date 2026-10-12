@@ -511,24 +511,6 @@ export function calcWaxGrams(
 }
 
 // ============================================================
-// Difficulty Factor
-// ============================================================
-
-const DIFFICULTY_FACTORS: Record<string, number> = {
-  'Wax': 0.3333,
-  'Extremely Easy': 0.5,
-  'Very Easy': 0.7,
-  'Easy': 0.9,
-  'Medium': 1.0,
-  'Hard': 1.1,
-  'Very Hard': 1.3,
-};
-
-export function getDifficultyFactor(difficulty: string): number {
-  return DIFFICULTY_FACTORS[difficulty] || 1.0;
-}
-
-// ============================================================
 // Labor / Direct Overhead
 // ============================================================
 
@@ -547,16 +529,14 @@ export function calcFinishingLaborMhPerUnit(
   return mhPer100ri * (effectiveRi / 100);
 }
 
-// Phase 3a: new direct finishing labor formula. Uses MH/100RI from product_type and
-// adjustment factor from finishing_difficulty table (instead of contractor rate / payrate).
+// Direct finishing labor for non-wood product types: MH/100RI from product_type.
 export function calcFinishingMhPerUnit(
   finishingMhPer100Ri: number,
-  adjustmentFactor: number,
   percentWood: number,
   ri: number,
 ): number {
   if (!finishingMhPer100Ri || ri <= 0) return 0;
-  return finishingMhPer100Ri * (adjustmentFactor || 1) * (percentWood ?? 1) * (ri / 100);
+  return finishingMhPer100Ri * (percentWood ?? 1) * (ri / 100);
 }
 
 export function calcPackagingLaborMhPerUnit(

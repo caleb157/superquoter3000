@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
 
-let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
+let _difficultiesCache: Array<{ name: string; rupees_per_ri?: number | null }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
 
 export type ProductPriceCostMap = Record<string, {

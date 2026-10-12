@@ -152,9 +152,7 @@ function legacyComputeOne(args: {
   const nonUnitCogsPerUnit = calc.calcNonUnitCogsPerUnit(
     nuForCalc.map((i: any) => ({ include: i.include, total_quantity: i.total_quantity || 0, cost_each_inr: i.cost_each_inr || 0 })), qty);
 
-  const diffName = p.finishing_difficulty || 'Medium';
-  const difficultyFactor = (difficulties.find((d: any) => d.name === diffName)?.adjustment_factor) ?? calc.getDifficultyFactor(diffName);
-  const finishingMh = calc.calcFinishingMhPerUnit(Number(productType?.finishing_mh_per_100ri) || 0, difficultyFactor, percentWood, ri);
+  const finishingMh = calc.calcFinishingMhPerUnit(Number(productType?.finishing_mh_per_100ri) || 0, percentWood, ri);
   // Packaging labor: a flat man-hours-per-running-inch rate (see autoLaborEstimate).
   const packagingMh = noPackaging ? 0 : calc.productRunningInches(p, productType?.name) * calc.PACKAGING_MH_PER_RI;
 
