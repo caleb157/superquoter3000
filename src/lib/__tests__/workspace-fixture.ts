@@ -1,7 +1,7 @@
 // Shared Costing Workspace test bundle: three SKUs (one with cost of capital) in one inquiry.
 import type { Bundle } from '@/lib/costing-workspace';
 
-const PT = { id: 'pt1', name: 'Wood Side/End Table', pkg_ic_add_per_side_in: 0.5, finishing_mh_per_100ri: 0.5, finishing_color_per_100ri: 0.02 };
+const PT = { id: 'pt1', name: 'Wood Side/End Table', pkg_ic_add_per_side_in: 0.5, finishing_color_per_100ri: 0.02 };
 
 function product(id: string, extra: Record<string, any> = {}) {
   return {
@@ -48,7 +48,7 @@ export function bundle(): Bundle {
     productTypes: [PT],
     chemicalPrices: [{ id: 'ch1', name: 'Color', category: 'Color', price_per_unit_inr: 300, unit_type: 'L' }],
     boxData: [{ box_type: '7 ply', cost_per_sq_in: 0.05 }],
-    difficulties: [{ name: 'Medium', adjustment_factor: 1 }],
+    difficulties: [{ name: 'Medium' }],
     locations: [],
     rawMaterialCosts: [],
     hardwarePrices: [],

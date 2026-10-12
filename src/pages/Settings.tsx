@@ -54,8 +54,6 @@ function GeneralSettings() {
 
   const fields = [
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
-    { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
-    { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },
     { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
 
@@ -94,50 +92,36 @@ function GeneralSettings() {
   );
 }
 
-// Wrapping settings (subset of global_settings)
-function WrappingSettings() {
-  const [settings, setSettings] = useState<any>(null);
+// Master carton height buffer (one global_settings field), shown above the box prices.
+function McHeightBufferSetting() {
+  const [settings, setSettings] = useState<{ id: string; mc_height_buffer_inch: number | null } | null>(null);
   useEffect(() => {
-    supabase.from('global_settings').select('*').limit(1).single().then(({ data }) => data && setSettings(data));
+    supabase.from('global_settings').select('id, mc_height_buffer_inch').limit(1).single().then(({ data }) => data && setSettings(data as any));
   }, []);
-  const update = async (field: string, value: any) => {
-    if (!settings) return;
-    const { error } = await supabase.from('global_settings').update({ [field]: value } as any).eq('id', settings.id);
+  if (!settings) return null;
+  const save = async (val: number) => {
+    const { error } = await supabase.from('global_settings').update({ mc_height_buffer_inch: val } as any).eq('id', settings.id);
     if (error) { toast.error(error.message); return; }
-    setSettings({ ...settings, [field]: value });
-    if (field === 'mc_height_buffer_inch') {
-      const { clearProductDefaultsCache } = await import('@/lib/product-defaults');
-      clearProductDefaultsCache();
-    }
+    setSettings({ ...settings, mc_height_buffer_inch: val });
+    const { clearProductDefaultsCache } = await import('@/lib/product-defaults');
+    clearProductDefaultsCache();
   };
-  if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
-  const fields = [
-    { key: 'mc_height_buffer_inch', label: 'MC Height Buffer (in)', hint: 'Default vertical buffer added inside master cartons. Seeded onto each new product.' },
-    { key: 'corrugate_kg_per_sq_in', label: 'Corrugate KG / sq in', hint: 'Mass of corrugate wrap per square inch of product surface area.' },
-    { key: 'bubble_kg_per_sq_in', label: 'Bubble Wrap KG / sq in', hint: 'Mass of bubble wrap per square inch of product surface area.' },
-    { key: 'corrugate_price_per_kg', label: 'Corrugate Price (₹/kg)' },
-    { key: 'bubble_price_per_kg', label: 'Bubble Wrap Price (₹/kg)' },
-  ];
   return (
-    <div className="space-y-4 max-w-lg">
-      {fields.map(f => (
-        <div key={f.key}>
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-medium w-52 shrink-0">{f.label}</label>
-            <Input
-              className="h-8 text-sm"
-              type="number"
-              step="0.01"
-              defaultValue={settings[f.key] ?? ''}
-              onBlur={(e) => {
-                const val = Number(e.target.value);
-                if (val !== settings[f.key]) update(f.key, val);
-              }}
-            />
-          </div>
-          {(f as any).hint && <p className="text-[10px] text-muted-foreground ml-[13.5rem] mt-0.5">{(f as any).hint}</p>}
-        </div>
-      ))}
+    <div className="max-w-lg">
+      <div className="flex items-center gap-3">
+        <label className="text-xs font-medium w-52 shrink-0">MC Height Buffer (in)</label>
+        <Input
+          className="h-8 text-sm"
+          type="number"
+          step="0.01"
+          defaultValue={settings.mc_height_buffer_inch ?? ''}
+          onBlur={(e) => {
+            const val = Number(e.target.value);
+            if (val !== settings.mc_height_buffer_inch) void save(val);
+          }}
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground ml-[13.5rem] mt-0.5">Default vertical buffer added inside master cartons. Seeded onto each new product.</p>
     </div>
   );
 }
@@ -172,7 +156,6 @@ const Settings = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [chemicals, setChemicals] = useState<any[]>([]);
   const [hardware, setHardware] = useState<any[]>([]);
-  const [woodPrices, setWoodPrices] = useState<any[]>([]);
   const [containerTypes, setContainerTypes] = useState<any[]>([]);
   const fetchContainerTypes = () => (supabase as any).from('container_types').select('*').order('sort_order').then(({ data }: any) => data && setContainerTypes(data));
   useEffect(() => { fetchContainerTypes(); }, []);
@@ -184,7 +167,6 @@ const Settings = () => {
     supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data));
     supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data));
     supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
-    supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -193,7 +175,6 @@ const Settings = () => {
     switch (section) {
       case 'general': return <GeneralSettings />;
       case 'live-rates': return <LiveRatesSettings />;
-      case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;
       case 'quote-terms': return <QuoteTermsSettings />;
       case 'team': return <TeamManagementContent />;
@@ -273,7 +254,8 @@ const Settings = () => {
         );
       case 'box-data':
         return (
-          <div className="space-y-2">
+          <div className="space-y-4">
+            <McHeightBufferSetting />
             <p className="text-[11px] text-muted-foreground">OD = Inner Dimension + (these offsets). Used for shipping volume calculations and master carton sizing in Phase 3.</p>
             <EditableTable
               tableName="box_data"
@@ -336,19 +318,6 @@ const Settings = () => {
               { key: 'name', label: 'Name', width: '200px' },
               { key: 'unit_cost_inr', label: 'Cost (₹)', type: 'number', width: '110px' },
               { key: 'units', label: 'Units', width: '80px' },
-            ]}
-          />
-        );
-      case 'wood':
-        return (
-          <EditableTable
-            tableName="wood_prices"
-            data={woodPrices} setData={setWoodPrices}
-            fetchData={() => supabase.from('wood_prices').select('*').order('wood_type').then(({ data }) => data && setWoodPrices(data))}
-            defaultRow={{ wood_type: 'New Wood', price_per_cft_inr: 0 }}
-            columns={[
-              { key: 'wood_type', label: 'Wood Type', width: '200px' },
-              { key: 'price_per_cft_inr', label: 'Price/CFT (₹)', type: 'number', width: '120px' },
             ]}
           />
         );

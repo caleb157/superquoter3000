@@ -17,11 +17,10 @@ const CHILD_TABLES = [
   'overhead_items',
   'shipping_items',
   'cbm_estimates',
-  'product_variants',
 ] as const;
 
 /**
- * Clone a product (and all its costing/variant rows) into a target inquiry.
+ * Clone a product (and all its costing rows) into a target inquiry.
  * Returns the new product id, or null on failure.
  */
 export async function cloneProductToInquiry(

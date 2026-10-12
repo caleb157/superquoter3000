@@ -77,20 +77,12 @@ function legacyComputeOne(args: {
     productsPerMc = mcResult.products_per_mc || 1;
   }
 
-  const isWrapMode = packagingType === 'corrugate_bubble';
-  const wrap = calc.calcCorrugateBubblePackaging(w, d, h, icAdd, {
-    corrugate_kg_per_sq_in: gs?.corrugate_kg_per_sq_in ?? 0.25,
-    bubble_kg_per_sq_in: gs?.bubble_kg_per_sq_in ?? 0.20,
-    corrugate_price_per_kg: gs?.corrugate_price_per_kg ?? 0,
-    bubble_price_per_kg: gs?.bubble_price_per_kg ?? 0,
-  });
-
   const cogsForCalc = productCogs.map((item: any) => {
     const name = (item.component_name || '').toLowerCase();
     const type = item.cogs_type;
     if (item.is_auto_calculated && type === 'Packaging') {
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-        const di = !noPackaging && !isWrapMode;
+        const di = !noPackaging;
         return { ...item, include: di && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: di ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
           unit_cost_inr: di ? icCost : 0 };
@@ -101,17 +93,9 @@ function legacyComputeOne(args: {
           components_per_product: useMc ? 1 / productsPerMc : 0,
           unit_cost_inr: useMc ? mcCost : 0 };
       }
-      if (name === 'corrugate wrap') {
-        const di = !noPackaging && isWrapMode;
-        return { ...item, include: di && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: di ? wrap.corrugate_kg : 0,
-          unit_cost_inr: di ? (gs?.corrugate_price_per_kg ?? 0) : 0 };
-      }
-      if (name === 'bubble wrap') {
-        const di = !noPackaging && isWrapMode;
-        return { ...item, include: di && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: di ? wrap.bubble_kg : 0,
-          unit_cost_inr: di ? (gs?.bubble_price_per_kg ?? 0) : 0 };
+      if (name === 'corrugate wrap' || name === 'bubble wrap') {
+        // Wrap packaging was retired: leftover rows never count.
+        return { ...item, include: 'No', components_per_product: 0, unit_cost_inr: 0 };
       }
     }
     if (item.include === 'No') return item;
@@ -219,7 +203,7 @@ const employees = [
   { id: 'e3', designations: ['Joinery'], hourly_rate_inr: 110 },
 ];
 const difficulties = [
-  { name: 'Easy', adjustment_factor: 0.8 }, { name: 'Medium', adjustment_factor: 1.0 }, { name: 'Hard', adjustment_factor: 1.3 },
+  { name: 'Easy' }, { name: 'Medium' }, { name: 'Hard' },
 ];
 const locations = [{ id: 'loc-1', cost_per_cbm_inr: 850 }];
 
@@ -227,8 +211,7 @@ const baseProductType = {
   id: 'pt-1', name: 'Case Good',
   pkg_ic_add_per_side_in: 0.5,
   finishing_color_per_100ri: 0.3, finishing_sealer_l_per_100ri: 0.25, finishing_lacquer_per_100ri: 0.35,
-  finishing_wax_g_per_sqin: 0.4, finishing_mh_per_100ri: 0.8,
-  pkg_ic_rate_mh_per_cbm: 4, pkg_ic_mc_rate_mh_per_cbm: 5, pkg_corrugate_bubble_rate_mh_per_cbm: 3,
+  finishing_wax_g_per_sqin: 0.4,
 };
 
 function mkCogs(productId: string, opts: { includeWax?: boolean; includeFinishing?: boolean; externalSourcing?: boolean } = {}) {
@@ -307,7 +290,6 @@ const fixtures = [
   { name: 'wood case good ic_mc', product: baseProduct('p1'), shipItems: [{ product_id: 'p1', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: { includeWax: true } },
   { name: 'metal no finishing', product: baseProduct('p2', { percent_wood: 0 }), shipItems: [{ product_id: 'p2', shipping_type_id: 'sh-kg' }], inq: null, cogsOpts: { includeFinishing: false } },
   { name: 'externally sourced', product: baseProduct('p3', { source_location_id: 'loc-1' }), shipItems: [{ product_id: 'p3', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: { externalSourcing: true } },
-  { name: 'corrugate_bubble wrap', product: baseProduct('p4', { packaging_type: 'corrugate_bubble' }), shipItems: [{ product_id: 'p4', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: {} },
   { name: 'no packaging', product: baseProduct('p5', { packaging_type: 'no_packaging' }), shipItems: [{ product_id: 'p5', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: {} },
   { name: 'ic_only', product: baseProduct('p6', { packaging_type: 'ic_only' }), shipItems: [{ product_id: 'p6', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: {} },
   { name: 'with wax', product: baseProduct('p7'), shipItems: [{ product_id: 'p7', shipping_type_id: 'sh-cbm' }], inq: null, cogsOpts: { includeWax: true } },
@@ -518,7 +500,7 @@ describe('costing-engine: no second engines allowed', () => {
 // This guards against the stale-cache class of bugs where the header read a
 // debounced/persisted value while the list recomputed live.
 describe('header/list price parity after packaging_type changes', () => {
-  const PKG_MODES = ['ic_mc', 'ic_only', 'corrugate_bubble', 'no_packaging', 'bulk_pack'] as const;
+  const PKG_MODES = ['ic_mc', 'ic_only', 'no_packaging', 'bulk_pack'] as const;
 
   for (const fx of fixtures) {
     for (const mode of PKG_MODES) {
@@ -568,7 +550,7 @@ describe('header/list price parity after packaging_type changes', () => {
       // Walking through every mode and back must always agree with a direct
       // call for that mode — no hidden state, no order dependence.
       const direct = mk('ic_mc');
-      const walked = [mk('no_packaging'), mk('bulk_pack'), mk('corrugate_bubble'), mk('ic_mc')].pop()!;
+      const walked = [mk('no_packaging'), mk('bulk_pack'), mk('ic_only'), mk('ic_mc')].pop()!;
       expect(walked.summary.unit_price_usd).toBeCloseTo(direct.summary.unit_price_usd, 4);
       expect(walked.summary.product_cost_per_unit_usd).toBeCloseTo(direct.summary.product_cost_per_unit_usd, 4);
     });

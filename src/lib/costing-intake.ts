@@ -78,7 +78,7 @@ export const INTAKE_COLS: IntakeCol[] = [
   { key: 'height_inch', header: 'Piece H (in)', type: 'num', group: 'Piece size', help: 'Inches', example: 24 },
   { key: 'weight_kg', header: 'Weight (kg)', type: 'num', group: 'Piece size', help: 'Net kg', example: 12 },
 
-  { key: 'packaging_type', header: 'Packaging type', type: 'text', group: 'Packaging', help: 'ic_only / ic_mc / corrugate_bubble / bulk_pack / no_packaging', example: 'ic_mc' },
+  { key: 'packaging_type', header: 'Packaging type', type: 'text', group: 'Packaging', help: 'ic_only / ic_mc / bulk_pack / no_packaging', example: 'ic_mc' },
   { key: 'ic_type', header: 'Inner box ply', type: 'text', group: 'Packaging', help: 'e.g. 5 ply, 7 ply', example: '7 ply' },
   { key: 'products_per_ic', header: 'Units per inner box', type: 'num', group: 'Packaging', help: 'Default 1', example: 1 },
   { key: 'ic_width', header: 'Box W (in)', type: 'num', group: 'Packaging', help: 'Inner box ID; blank = auto from piece', example: 34 },

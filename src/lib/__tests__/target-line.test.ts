@@ -25,13 +25,12 @@ const employees = [
   { id: 'e2', designations: ['Packaging'], hourly_rate_inr: 75 },
   { id: 'e3', designations: ['Joinery'], hourly_rate_inr: 110 },
 ];
-const difficulties = [{ name: 'Medium', adjustment_factor: 1.0 }];
+const difficulties = [{ name: 'Medium' }];
 const locations = [{ id: 'loc-1', cost_per_cbm_inr: 850 }];
 const productType = {
   id: 'pt-1', name: 'Case Good', pkg_ic_add_per_side_in: 0.5,
   finishing_color_per_100ri: 0.3, finishing_sealer_l_per_100ri: 0.25, finishing_lacquer_per_100ri: 0.35,
-  finishing_wax_g_per_sqin: 0.4, finishing_mh_per_100ri: 0.8,
-  pkg_ic_rate_mh_per_cbm: 4, pkg_ic_mc_rate_mh_per_cbm: 5, pkg_corrugate_bubble_rate_mh_per_cbm: 3,
+  finishing_wax_g_per_sqin: 0.4,
 };
 
 const RAW_ROW = {

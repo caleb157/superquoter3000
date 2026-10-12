@@ -100,7 +100,6 @@ export const PACKAGING_OPTS = [
   { value: 'ic_mc', label: 'IC + MC' },
   { value: 'ic_only', label: 'IC only' },
   { value: 'bulk_pack', label: 'Bulk pack' },
-  { value: 'corrugate_bubble', label: 'Corrugate + bubble' },
   { value: 'no_packaging', label: 'No packaging' },
 ];
 const boxOpts = (b: Bundle) => Array.from(new Set(b.boxData.map((x: any) => x.box_type).filter(Boolean))).map(v => ({ value: v as string, label: v as string }));

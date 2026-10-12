@@ -80,16 +80,15 @@ describe('costing workspace', () => {
 describe('product setup side effects (shared by the workspace and the product costing sheet)', () => {
   const lines = (b: Bundle, pid: string) => b.cogs.filter(c => c.product_id === pid);
 
-  it('packaging type switches packaging lines, adds wrap lines once, and drops packaging labor for none', () => {
+  it('packaging type switches packaging lines and drops packaging labor for none', () => {
     let b = bundle();
     b = { ...b, oh: [...b.oh, { id: 'ohp', product_id: 'a', labor_type: 'Packaging', include: 'Yes', man_hours_per_unit: 0.2, is_auto_estimated: true }] };
-    const wrap = setPackagingType(b, ['a'], 'corrugate_bubble').next;
-    expect(wrap.products.find(p => p.id === 'a')!.packaging_type).toBe('corrugate_bubble');
-    expect(lines(wrap, 'a').filter(l => ['Corrugate Wrap', 'Bubble Wrap'].includes(l.component_name)).map(l => l.include)).toEqual(['Yes', 'Yes']);
-    expect(lines(wrap, 'a').find(l => l.component_name === 'IC Box')!.include).toBe('No');
-    const again = setPackagingType(wrap, ['a'], 'corrugate_bubble').next;
-    expect(lines(again, 'a').filter(l => l.component_name === 'Bubble Wrap')).toHaveLength(1);
-    const none = setPackagingType(wrap, ['a'], 'no_packaging').next;
+    const icOnly = setPackagingType(b, ['a'], 'ic_only').next;
+    expect(icOnly.products.find(p => p.id === 'a')!.packaging_type).toBe('ic_only');
+    expect(lines(icOnly, 'a').find(l => l.component_name === 'IC Box')!.include).not.toBe('No');
+    expect(lines(icOnly, 'a').find(l => l.component_name === 'MC Box')!.include).toBe('No');
+    expect(lines(icOnly, 'a')).toHaveLength(lines(b, 'a').length); // switching adds no lines
+    const none = setPackagingType(icOnly, ['a'], 'no_packaging').next;
     expect(lines(none, 'a').filter(l => l.cogs_type === 'Packaging').every(l => l.include === 'No')).toBe(true);
     expect(none.oh.find(o => o.id === 'ohp')).toMatchObject({ include: 'No', man_hours_per_unit: 0 });
     expect(none.cbm.find(c => c.product_id === 'a')!.include_mc).toBe(false);

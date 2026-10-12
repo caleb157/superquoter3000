@@ -7,14 +7,14 @@ describe('settings navigation', () => {
   it('has five groups and every section once', () => {
     expect(NAV_GROUPS.map(g => g.label)).toEqual(['Company', 'Costing rates', 'Labor', 'Logistics', 'Data']);
     expect(new Set(VALID_SECTIONS).size).toBe(VALID_SECTIONS.length);
-    expect(VALID_SECTIONS).toHaveLength(23);
+    expect(VALID_SECTIONS).toHaveLength(21);
     expect(VALID_SECTIONS).not.toContain('vendors'); // edited on /vendors now
     expect(VALID_SECTIONS).toContain('projections');
   });
 
   it('finds a section by its name or by a setting inside it', () => {
     expect(ids('exchange rate')).toEqual(['live-rates']);
-    expect(ids('Bubble')).toEqual(['wrapping']);
+    expect(ids('mc height buffer')).toEqual(['box-data']);
     expect(ids('certainty')).toEqual(['projections']);
     expect(ids('box')).toContain('box-data');
     expect(ids('hourly rate')).toEqual(['employees']);

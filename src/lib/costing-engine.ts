@@ -186,7 +186,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
   const icType = cbmRow?.ic_type || '7 ply';
   const mcType = cbmRow?.mc_type || '7 ply';
-  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack' = p.packaging_type || 'ic_mc';
+  const packagingType: 'no_packaging' | 'ic_only' | 'ic_mc' | 'bulk_pack' = p.packaging_type || 'ic_mc';
   const includeMc = packagingType === 'ic_mc';
   const isBulkPack = packagingType === 'bulk_pack';
   const noPackaging = packagingType === 'no_packaging';
@@ -239,15 +239,6 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     productsPerMc = mcResult.products_per_mc || 1;
     mcDims = { mc_width: mcResult.mc_width, mc_depth: mcResult.mc_depth, mc_height: mcResult.mc_height };
   }
-
-  // Wrapping (Corrugate + Bubble) overrides
-  const isWrapMode = packagingType === 'corrugate_bubble';
-  const wrappingResult = calc.calcCorrugateBubblePackaging(w, d, h, icAdd, {
-    corrugate_kg_per_sq_in: (gs as any)?.corrugate_kg_per_sq_in ?? 0.25,
-    bubble_kg_per_sq_in: (gs as any)?.bubble_kg_per_sq_in ?? 0.20,
-    corrugate_price_per_kg: (gs as any)?.corrugate_price_per_kg ?? 0,
-    bubble_price_per_kg: (gs as any)?.bubble_price_per_kg ?? 0,
-  });
 
   // Bulk pack: derive box size from user's chosen pieces-per-box & shrink factor.
   let bulkPackInfo: CostingEngineResult['bulkPack'] = undefined;
@@ -312,7 +303,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     }
     if (item.is_auto_calculated && type === 'Packaging') {
       if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') {
-        const defaultIncluded = !noPackaging && !isWrapMode && !isBulkPack;
+        const defaultIncluded = !noPackaging && !isBulkPack;
         return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
           components_per_product: defaultIncluded ? (productsPerIc > 0 ? 1 / productsPerIc : 0) : 0,
           unit_cost_inr: defaultIncluded ? icCost : 0 };
@@ -323,20 +314,9 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
           components_per_product: useMc ? 1 / productsPerMc : 0,
           unit_cost_inr: useMc ? mcCost : 0 };
       }
-      if (name === 'corrugate wrap') {
-        const defaultIncluded = !noPackaging && isWrapMode;
-        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: defaultIncluded ? wrappingResult.corrugate_kg : 0,
-          unit_cost_inr: defaultIncluded ? ((gs as any)?.corrugate_price_per_kg ?? 0) : 0 };
-      }
-      if (name === 'bubble wrap') {
-        const defaultIncluded = !noPackaging && isWrapMode;
-        return { ...item, include: defaultIncluded && !(item.include === 'No' && item.is_auto_calculated === false) ? (item.include || 'Yes') : 'No',
-          components_per_product: defaultIncluded ? wrappingResult.bubble_kg : 0,
-          unit_cost_inr: defaultIncluded ? ((gs as any)?.bubble_price_per_kg ?? 0) : 0 };
-      }
-      if (name.includes('foam') || name.includes('bulk pack')) {
-        // Foam is no longer used for bulk pack — zero it out and disable the row.
+      if (name.includes('foam') || name.includes('bulk pack') || name === 'corrugate wrap' || name === 'bubble wrap') {
+        // Foam (bulk pack) and corrugate/bubble wrap (the retired wrap packaging) are no longer
+        // used: any leftover auto row is zeroed and disabled.
         return { ...item, include: 'No', components_per_product: 0, unit_cost_inr: 0 };
       }
     }

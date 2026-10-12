@@ -319,51 +319,6 @@ export function calcMcOd(
 }
 
 // ============================================================
-// Corrugate + Bubble Wrap packaging
-// ============================================================
-
-export interface WrappingSettings {
-  corrugate_kg_per_sq_in: number;
-  bubble_kg_per_sq_in: number;
-  corrugate_price_per_kg: number;
-  bubble_price_per_kg: number;
-}
-
-export function calcCorrugateBubblePackaging(
-  productW: number,
-  productD: number,
-  productH: number,
-  icAddPerSide: number,
-  s: WrappingSettings,
-): {
-  wrapped_w: number;
-  wrapped_d: number;
-  wrapped_h: number;
-  final_unit_cbm: number;
-  surface_area_sq_in: number;
-  corrugate_kg: number;
-  corrugate_cost: number;
-  bubble_kg: number;
-  bubble_cost: number;
-} {
-  const wrapped_w = (productW || 0) + 2 * icAddPerSide;
-  const wrapped_d = (productD || 0) + 2 * icAddPerSide;
-  const wrapped_h = (productH || 0) + 2 * icAddPerSide;
-  const final_unit_cbm = (wrapped_w * wrapped_d * wrapped_h) / 61020;
-  const sa = surfaceAreaSqIn(productW || 0, productD || 0, productH || 0);
-  const corrugate_kg = sa * (s.corrugate_kg_per_sq_in || 0);
-  const bubble_kg = sa * (s.bubble_kg_per_sq_in || 0);
-  return {
-    wrapped_w, wrapped_d, wrapped_h, final_unit_cbm,
-    surface_area_sq_in: sa,
-    corrugate_kg,
-    corrugate_cost: corrugate_kg * (s.corrugate_price_per_kg || 0),
-    bubble_kg,
-    bubble_cost: bubble_kg * (s.bubble_price_per_kg || 0),
-  };
-}
-
-// ============================================================
 // Bulk Pack packaging (single vertical stack, user-set count)
 // ============================================================
 
@@ -809,14 +764,6 @@ export function computePackagedUnitCbm(args: {
   if (packagingType === 'no_packaging') return prePackagedCbm(w, d, h);
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
   const mcBufferH = cbm?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5;
-  if (packagingType === 'corrugate_bubble') {
-    return calcCorrugateBubblePackaging(w, d, h, icAdd, {
-      corrugate_kg_per_sq_in: gs?.corrugate_kg_per_sq_in ?? 0.25,
-      bubble_kg_per_sq_in: gs?.bubble_kg_per_sq_in ?? 0.2,
-      corrugate_price_per_kg: gs?.corrugate_price_per_kg ?? 0,
-      bubble_price_per_kg: gs?.bubble_price_per_kg ?? 0,
-    }).final_unit_cbm;
-  }
   if (packagingType === 'bulk_pack') {
     const b = calcBulkPacking({
       piece_width: w, piece_depth: d, piece_height: h,

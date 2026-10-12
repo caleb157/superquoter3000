@@ -48,7 +48,7 @@ const names = () => db.cogs_items.map(c => c.component_name);
 
 beforeEach(() => {
   for (const k of Object.keys(db)) delete db[k];
-  db.products = [{ id: 'p1', packaging_type: 'corrugate_bubble', source_location_id: 'loc1', product_type_id: 't1' }];
+  db.products = [{ id: 'p1', packaging_type: 'ic_only', source_location_id: 'loc1', product_type_id: 't1' }];
   db.cogs_items = [
     { id: 'c1', product_id: 'p1', cogs_type: 'Finishing Materials', component_name: 'Wax', is_auto_calculated: true, sort_order: 3 },
     { id: 'c2', product_id: 'p1', cogs_type: 'Raw Piece', component_name: 'Raw Piece', unit_cost_inr: 900, components_per_product: 0, is_auto_calculated: false },
@@ -82,7 +82,7 @@ describe('ensureCostingRowsOnOpen', () => {
     expect(names()).not.toContain('Bees Wax');
     expect(names()).not.toContain('Color');
     expect(names()).not.toContain('Lacquer');
-    expect(names()).toEqual(expect.arrayContaining(['Corrugate Wrap', 'Bubble Wrap', 'Domestic Freight (External Sourcing)']));
+    expect(names()).toContain('Domestic Freight (External Sourcing)');
     // New lines sort after the existing ones.
     expect(db.cogs_items.find(c => c.component_name === 'NC Sealer')!.sort_order).toBe(4);
 
@@ -99,10 +99,9 @@ describe('ensureCostingRowsOnOpen', () => {
     expect(counts()).toEqual(before);
   });
 
-  it('adds no wrap or freight lines for an in-house carton product', async () => {
+  it('adds no freight line for an in-house product', async () => {
     db.products[0] = { id: 'p1', packaging_type: 'ic_mc', source_location_id: null, product_type_id: null };
     await ensureCostingRowsOnOpen('p1');
-    expect(names()).not.toContain('Corrugate Wrap');
     expect(names()).not.toContain('Domestic Freight (External Sourcing)');
   });
 });

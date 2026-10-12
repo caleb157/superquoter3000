@@ -637,14 +637,13 @@ export function packagingIncludeForType(pkg: string, componentName: string): boo
   if (pkg === 'no_packaging') return false;
   if (n.includes('ic box') || n.includes('inner carton') || n === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
   if (n.includes('mc box') || n.includes('master carton') || n.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
-  if (n === 'corrugate wrap' || n === 'bubble wrap') return pkg === 'corrugate_bubble';
   if (n.includes('foam') || n.includes('bulk pack')) return pkg === 'bulk_pack';
   return null;
 }
 
 /**
  * Packaging type: switches the packaging lines on/off to match, turns packaging labor off for
- * "No packaging", and adds the corrugate and bubble wrap lines the first time wrap is chosen.
+ * "No packaging".
  */
 export function setPackagingType(b: Bundle, ids: string[], pkg: string): Mutation {
   return chain(b, [
@@ -652,23 +651,14 @@ export function setPackagingType(b: Bundle, ids: string[], pkg: string): Mutatio
     cur => patchCbm(cur, ids, { include_mc: pkg === 'ic_mc' }),
     cur => {
       const updates: { id: string; patch: any }[] = [];
-      const inserts: any[] = [];
       for (const pid of ids) {
         const lines = cur.cogs.filter(c => c.product_id === pid && c.cogs_type === 'Packaging');
         for (const l of lines) {
           const on = packagingIncludeForType(pkg, l.component_name);
           if (on != null && (l.include === 'No') === on) updates.push({ id: l.id, patch: { include: on ? 'Yes' : 'No' } });
         }
-        if (pkg === 'corrugate_bubble') {
-          let sort = nextSort(cur, pid);
-          for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
-            if (!lines.some(l => lc(l.component_name) === lc(name))) {
-              inserts.push(autoLine(pid, sort++, { cogs_type: 'Packaging', component_name: name, units: 'KG' }));
-            }
-          }
-        }
       }
-      return updates.length || inserts.length ? cogsMutation(cur, updates, inserts) : null;
+      return updates.length ? cogsMutation(cur, updates, []) : null;
     },
     cur => (pkg === 'no_packaging'
       ? ohMutation(cur, cur.oh.filter(o => ids.includes(o.product_id) && o.labor_type === 'Packaging')
