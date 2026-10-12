@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TrendingUp, Images,
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning,
+  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, FolderKanban, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -43,6 +43,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     if (productMatch) return { productId: productMatch[1] };
     const customerMatch = path.match(/^\/(?:customer|customers)\/([^/?#]+)/);
     if (customerMatch) return { customerId: customerMatch[1] };
+    const projectMatch = path.match(/^\/projects\/([^/?#]+)/);
+    if (projectMatch) return { projectId: projectMatch[1] };
     return {};
   }, [location.pathname]);
 
@@ -56,6 +58,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/', label: 'Inquiries', icon: Inbox },
     { to: '/pd-dashboard', label: 'PD Dashboard', icon: ClipboardCheck },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/projects', label: 'Projects', icon: FolderKanban },
     { to: '/analytics', label: 'Kickass Analytics Dashboard', icon: BarChart3 },
     { to: '/profitability', label: 'Profitability', icon: TrendingUp },
     { to: '/tools', label: 'Tools', icon: Wrench },

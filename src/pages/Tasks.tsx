@@ -15,6 +15,7 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import type { DueWindow, TaskSortKey, TaskSortDir } from '@/lib/task-types';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useScrollRestoration } from '@/hooks/use-persistent-state';
+import { isOpenProject } from '@/lib/projects';
 
 export default function Tasks() {
   useDocumentTitle('Tasks');
@@ -22,10 +23,12 @@ export default function Tasks() {
   useScrollRestoration('tasks.scroll', true);
   const [inquiries, setInquiries] = useState<{ id: string; rfq_number: string; title: string | null; customer_id: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; name: string; status: string }[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
 
   const [filterCustomer, setFilterCustomer] = useState<string>('all');
   const [filterInquiry, setFilterInquiry] = useState<string>('all');
+  const [filterProject, setFilterProject] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
   const userTouchedAssignee = useRef(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
@@ -66,14 +69,16 @@ export default function Tasks() {
 
   useEffect(() => {
     (async () => {
-      const [iRes, cRes, aRes, pRes] = await Promise.all([
+      const [iRes, cRes, aRes, pRes, prRes] = await Promise.all([
         supabase.from('customer_rfqs').select('id, rfq_number, title, customer_id').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name').order('name'),
         supabase.from('tasks').select('assignee'),
         (supabase as any).from('profiles').select('assignee_code'),
+        (supabase as any).from('projects').select('id, name, status').order('name'),
       ]);
       if (iRes.data) setInquiries(iRes.data as any);
       if (cRes.data) setCustomers(cRes.data as any);
+      if (prRes.data) setProjects(prRes.data as any);
       const set = new Set<string>();
       if (aRes.data) (aRes.data as any[]).forEach(r => { if (r.assignee) set.add(r.assignee); });
       if (pRes.data) (pRes.data as any[]).forEach(r => { if (r.assignee_code) set.add(r.assignee_code); });
@@ -150,6 +155,18 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
+              {projects.length > 0 && (
+                <Select value={filterProject} onValueChange={setFilterProject}>
+                  <SelectTrigger className="h-9 text-sm lg:w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All projects</SelectItem>
+                    {projects.filter(p => isOpenProject(p) || p.id === filterProject).map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
               <Select value={filterAssignee} onValueChange={handleAssigneeChange}>
                 <SelectTrigger className="h-9 text-sm lg:w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -178,6 +195,7 @@ export default function Tasks() {
             <TaskList
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
               customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
+              projectId={filterProject !== 'all' ? filterProject : undefined}
               assignee={filterAssignee}
               kind={filterKind}
               status={filterStatus}
