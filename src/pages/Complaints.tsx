@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +18,8 @@ type StatusFilter = 'all' | 'open' | 'resolved';
 /** Customer complaints directory: the full log. Analytics only shows the count for its date range. */
 export default function Complaints() {
   useDocumentTitle('Complaints');
-  const { rows, loading, reload } = useComplaints();
+  const { rows, openTasks, loading, reload } = useComplaints();
+  const [params, setParams] = useSearchParams();
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
@@ -36,6 +38,14 @@ export default function Complaints() {
     });
   }, [rows, customers, search, status]);
   const openCount = rows.filter(c => c.status === 'open').length;
+
+  // Task badges in the task log link here with ?id= to open that complaint.
+  const linkedId = params.get('id');
+  useEffect(() => {
+    const c = linkedId && rows.find(r => r.id === linkedId);
+    if (c) { setEditing(c); setOpen(true); }
+  }, [linkedId, rows]);
+  const setDialogOpen = (o: boolean) => { setOpen(o); if (!o && linkedId) setParams({}, { replace: true }); };
 
   const startNew = () => { setEditing(null); setOpen(true); };
   const startEdit = (c: Complaint) => { setEditing(c); setOpen(true); };
@@ -82,7 +92,7 @@ export default function Complaints() {
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Date</TableHead><TableHead>Customer</TableHead><TableHead>Issue</TableHead><TableHead>Resolution</TableHead>
-                  <TableHead>Photos</TableHead><TableHead>Status</TableHead><TableHead>Closed</TableHead><TableHead className="text-center">Actions captured</TableHead>
+                  <TableHead>Photos</TableHead><TableHead>Status</TableHead><TableHead>Closed</TableHead><TableHead className="text-center">Open tasks</TableHead><TableHead className="text-center">Actions captured</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {filtered.map(c => (
@@ -101,6 +111,7 @@ export default function Complaints() {
                         </Badge>
                       </TableCell>
                       <TableCell className="tabular-nums whitespace-nowrap">{c.date_closed || '—'}</TableCell>
+                      <TableCell className="text-center tabular-nums">{openTasks[c.id] || '—'}</TableCell>
                       <TableCell className="text-center" onClick={e => e.stopPropagation()}>
                         <Checkbox checked={c.actions_captured} onCheckedChange={v => patch(c.id, { actions_captured: !!v })} />
                       </TableCell>
@@ -113,7 +124,7 @@ export default function Complaints() {
         )}
       </div>
 
-      <ComplaintDialog open={open} onOpenChange={setOpen} editing={editing} customers={customers} onSaved={reload} />
+      <ComplaintDialog open={open} onOpenChange={setDialogOpen} editing={editing} customers={customers} onSaved={reload} />
     </AppLayout>
   );
 }

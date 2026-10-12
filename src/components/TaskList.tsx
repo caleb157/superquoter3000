@@ -22,6 +22,8 @@ type TaskListProps = {
   inquiryId?: string;
   productId?: string;
   customerId?: string;
+  /** Tasks linked to this customer complaint. */
+  complaintId?: string;
   /** When set, fetches tasks where customer_id = X OR inquiry_id IN (inquiries of customer X). */
   customerIdIncludingInquiries?: string;
   assignee?: string;
@@ -44,7 +46,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
-  inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind = 'all',
+  inquiryId, productId, customerId, complaintId, customerIdIncludingInquiries, assignee, kind = 'all',
   status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
   showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false, onChanged, emptyText = 'No tasks', narrow = false,
 }: TaskListProps) {
@@ -73,6 +75,7 @@ export function TaskList({
       );
       if (inquiryId) q = q.eq('inquiry_id', inquiryId);
       if (customerId) q = q.eq('customer_id', customerId);
+      if (complaintId) q = q.eq('association_type', 'complaint').eq('association_id', complaintId);
       if (customerIdIncludingInquiries) {
         if (inquiryIdsForCustomer && inquiryIdsForCustomer.length > 0) {
           q = q.or(
@@ -96,7 +99,7 @@ export function TaskList({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind, status, refreshKey, internalRefresh]);
+  }, [inquiryId, productId, customerId, complaintId, customerIdIncludingInquiries, assignee, kind, status, refreshKey, internalRefresh]);
 
   const filteredSorted = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -234,6 +237,12 @@ export function TaskList({
               ? <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
                   <Wrench className="h-3 w-3" />App fix
                 </Badge>
+            : aType === 'complaint' && aId
+              ? <Link to={`/complaints?id=${aId}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate border-red-300 text-red-700 dark:border-red-800 dark:text-red-300" title={aLabel ?? undefined}>
+                    Complaint{aLabel ? ` · ${aLabel}` : ''}
+                  </Badge>
+                </Link>
             : (aType === 'odoo_so' || aType === 'odoo_mo') && aId
               ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate font-mono" title={[aId, aLabel].filter(Boolean).join(' · ')}>
                   {associationMeta(aType)?.short} {aId}{aLabel ? ` · ${aLabel}` : ''}

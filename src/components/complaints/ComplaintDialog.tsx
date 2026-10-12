@@ -7,6 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Plus } from 'lucide-react';
+import { TaskList } from '@/components/TaskList';
+import { TaskDialog } from '@/components/TaskDialog';
 
 export type Complaint = {
   id: string; date_logged: string; customer_id: string | null; customer_name_manual: string | null;
@@ -18,14 +21,21 @@ const empty = () => ({ date_logged: new Date().toISOString().slice(0, 10), custo
 
 export function useComplaints() {
   const [rows, setRows] = useState<Complaint[]>([]);
+  const [openTasks, setOpenTasks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const load = async () => {
-    const { data } = await (supabase as any).from('customer_complaints').select('*').order('date_logged', { ascending: false });
-    setRows(data || []);
+    const [c, t] = await Promise.all([
+      (supabase as any).from('customer_complaints').select('*').order('date_logged', { ascending: false }),
+      (supabase as any).from('tasks').select('association_id').eq('association_type', 'complaint').eq('status', 'open'),
+    ]);
+    setRows(c.data || []);
+    const counts: Record<string, number> = {};
+    (t.data || []).forEach((r: { association_id: string | null }) => { if (r.association_id) counts[r.association_id] = (counts[r.association_id] ?? 0) + 1; });
+    setOpenTasks(counts);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
-  return { rows, loading, reload: load };
+  return { rows, openTasks, loading, reload: load };
 }
 
 export async function patchComplaint(id: string, p: Partial<Complaint>) {
@@ -40,6 +50,8 @@ export function ComplaintDialog({ open, onOpenChange, editing, customers, onSave
   customers: { id: string; name: string }[]; onSaved: () => void;
 }) {
   const [form, setForm] = useState<any>(empty());
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskRefresh, setTaskRefresh] = useState(0);
   useEffect(() => {
     if (!open) return;
     setForm(editing ? { ...empty(), ...editing, customer_id: editing.customer_id ?? '', customer_name_manual: editing.customer_name_manual ?? '', potential_resolution: editing.potential_resolution ?? '', google_drive_url: editing.google_drive_url ?? '', notes: editing.notes ?? '' } : empty());
@@ -82,6 +94,16 @@ export function ComplaintDialog({ open, onOpenChange, editing, customers, onSave
           <div><Label>Potential resolution</Label><Textarea rows={2} value={form.potential_resolution} onChange={e => setForm({ ...form, potential_resolution: e.target.value })} /></div>
           <div><Label>Google Drive link (photos)</Label><Input type="url" placeholder="https://drive.google.com/…" value={form.google_drive_url} onChange={e => setForm({ ...form, google_drive_url: e.target.value })} /></div>
           <div><Label>Notes</Label><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+          {editing && (
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between">
+                <Label>Tasks</Label>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setTaskOpen(true)}><Plus className="h-3 w-3 mr-1" />Add task</Button>
+              </div>
+              <TaskList complaintId={editing.id} status="all" sort="due_date" showAnchorLinks={false} narrow
+                refreshKey={taskRefresh} onChanged={onSaved} emptyText="No tasks yet. Added tasks also show in the task log." />
+            </div>
+          )}
         </div>
         <DialogFooter className="gap-2">
           {editing && <Button variant="ghost" className="text-destructive mr-auto" onClick={remove}>Delete</Button>}
@@ -89,6 +111,10 @@ export function ComplaintDialog({ open, onOpenChange, editing, customers, onSave
           <Button onClick={save}>Save</Button>
         </DialogFooter>
       </DialogContent>
+      {editing && (
+        <TaskDialog open={taskOpen} onOpenChange={setTaskOpen} context={{ complaintId: editing.id }}
+          onSaved={() => { setTaskRefresh(k => k + 1); onSaved(); }} />
+      )}
     </Dialog>
   );
 }
