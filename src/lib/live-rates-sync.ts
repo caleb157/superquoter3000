@@ -13,6 +13,7 @@ export async function syncLiveRates(): Promise<LiveSyncResult> {
     invalidateCurrencyCache();
     const { invalidateCostingReference } = await import('@/lib/costing-reference');
     invalidateCostingReference();
+    (await import('@/lib/live-cost-cache')).invalidateLiveCosts();
   }
   return res;
 }

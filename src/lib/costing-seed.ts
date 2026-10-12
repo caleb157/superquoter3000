@@ -2,6 +2,7 @@
 // without opening the costing tab UI. Shares the same pure engine as product-pricing.ts
 // and the Costing Workspace so results are identical.
 import { supabase } from '@/integrations/supabase/client';
+import { MH_COLUMN, mhChanged, saveStoredMh } from '@/lib/stored-man-hours';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { recordCostChange } from '@/lib/cost-history';
@@ -175,7 +176,8 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
 
 /**
  * Persists the engine's resolved auto-calc values back to cogs_items
- * and writes calculated_unit_price_usd / calculated_unit_cost_usd to the product.
+ * and writes calculated_unit_price_usd / calculated_unit_cost_usd (and man-hours per unit,
+ * src/lib/stored-man-hours.ts) to the product.
  * Compare-before-write to avoid redundant writes. Also logs a cost history row when the
  * costing moved; `cause` (e.g. "Live exchange rate") prefixes that row's reason.
  */
@@ -247,6 +249,9 @@ export async function persistResolvedCosting(
       }).eq('id', productId),
     );
   }
+
+  const mh = Number(engineResult.manHoursPerUnit) || 0;
+  if (mhChanged(product[MH_COLUMN], mh)) writes.push(saveStoredMh([{ id: productId, manHours: mh }]));
 
   writes.push(recordCostChange(productId, engineResult, cause));
 

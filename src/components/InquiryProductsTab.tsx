@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { saveStoredMh } from '@/lib/stored-man-hours';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -332,6 +333,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             calculated_unit_cost_usd: Number.isFinite(lp.unit_cost_usd) ? +lp.unit_cost_usd.toFixed(4) : null,
           }).eq('id', p.id);
           if (lp.cost_point) await recordCostPoint(p.id, lp.cost_point);
+          await saveStoredMh([{ id: p.id, manHours: lp.man_hours_per_unit }]);
         } catch (e) {
           console.error('Cache heal failed', e);
         }

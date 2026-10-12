@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearSnapshots } from '@/lib/page-snapshot';
+import { invalidateLiveCosts } from '@/lib/live-cost-cache';
 
 type AppRole = 'admin' | 'team' | 'guest';
 
@@ -111,6 +113,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    clearSnapshots();
+    invalidateLiveCosts();
     setRoles([]);
     setAssigneeCode(null);
     setRolesLoaded(false);
