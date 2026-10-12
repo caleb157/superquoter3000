@@ -26,11 +26,3 @@ export const STATUS_TONE_CLASS: Record<StatusTone, string> = {
 export function statusToneClass(tone: StatusTone): string {
   return STATUS_TONE_CLASS[tone];
 }
-
-// Dot / swatch variant (used inside indicators, timelines).
-export const STATUS_TONE_DOT: Record<StatusTone, string> = {
-  complete: 'bg-emerald-500',
-  progress: 'bg-amber-500',
-  issue: 'bg-red-500',
-  idle: 'bg-muted-foreground/30',
-};

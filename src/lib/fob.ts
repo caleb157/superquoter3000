@@ -45,7 +45,6 @@ export const DEFAULT_FOB_RATES: FobRates = {
 };
 
 let current: FobRates = DEFAULT_FOB_RATES;
-export const getFobRates = () => current;
 export function setFobRates(r: { lcl?: Partial<LclRates> | null; fcl?: Partial<FclRates> | null }) {
   current = {
     lcl: { ...DEFAULT_FOB_RATES.lcl, ...(r.lcl || {}) },

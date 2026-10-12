@@ -16,13 +16,6 @@ export function formatDueDate(dateStr: string | null): { text: string; isOverdue
   return { text: format(d, 'EEE, MMM d'), isOverdue: false };
 }
 
-export function priorityColor(p: string): string {
-  if (p === 'urgent') return 'bg-purple-600';
-  if (p === 'high') return 'bg-red-500';
-  if (p === 'low') return 'bg-muted-foreground/30';
-  return 'bg-amber-400';
-}
-
 /** Text colour for the priority flag icon. */
 export function priorityText(p: string): string {
   if (p === 'urgent') return 'text-purple-600';

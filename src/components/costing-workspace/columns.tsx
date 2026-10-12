@@ -100,7 +100,6 @@ export const PACKAGING_OPTS = [
   { value: 'ic_mc', label: 'IC + MC' },
   { value: 'ic_only', label: 'IC only' },
   { value: 'bulk_pack', label: 'Bulk pack' },
-  { value: 'corrugate_bubble', label: 'Corrugate + bubble' },
   { value: 'no_packaging', label: 'No packaging' },
 ];
 const boxOpts = (b: Bundle) => Array.from(new Set(b.boxData.map((x: any) => x.box_type).filter(Boolean))).map(v => ({ value: v as string, label: v as string }));
@@ -378,21 +377,6 @@ export function bulkFields(): Col[] {
   }
   return out;
 }
-
-/** Per-row writes (different value per product) chained into one mutation — used by paste. */
-export function writeEach(b: Bundle, col: Col, pairs: { id: string; raw: string }[]): Mutation | null {
-  let cur = b;
-  const commits: (() => Promise<void>)[] = [];
-  const touched: string[] = [];
-  for (const { id, raw } of pairs) {
-    const m = col.edit!.write(cur, [id], raw);
-    if (!m) continue;
-    cur = m.next; commits.push(m.commit); touched.push(...m.touched);
-  }
-  if (!commits.length) return null;
-  return { next: cur, touched, commit: async () => { for (const c of commits) await c(); } };
-}
-
 
 /**
  * Spreadsheet paste: cells[i][j] goes to row startRow+i and the j-th editable column from

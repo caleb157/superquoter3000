@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { fetchAllRows } from '@/lib/supabase-paged';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -44,8 +45,7 @@ const Products = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
-  const [cogsMap, setCogsMap] = useState<Record<string, any[]>>({});
-  const [ohMap, setOhMap] = useState<Record<string, any[]>>({});
+  const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
   const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = usePersistentState<string>('products.search', '');
@@ -77,18 +77,17 @@ const Products = () => {
   useEffect(() => {
     const fetchAll = async () => {
       const [prodRes, inqRes, custRes, typesRes, cbmRes, cogsRes, ohRes] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        // Paged: each request returns at most 1,000 rows.
+        fetchAllRows<any>(() => supabase.from('products').select('*').order('created_at', { ascending: false }).order('id')),
         (supabase as any).from('customer_rfqs').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('product_types').select('*'),
-        supabase.from('cbm_estimates').select('*'),
-        supabase.from('cogs_items').select('*'),
-        supabase.from('overhead_items').select('*'),
+        fetchAllRows<any>(() => supabase.from('cbm_estimates').select('*').order('id')),
+        fetchAllRows<any>(() => supabase.from('cogs_items').select('product_id').eq('include', 'Review').order('id')),
+        fetchAllRows<any>(() => supabase.from('overhead_items').select('product_id').eq('include', 'Review').order('id')),
       ]);
-      const prods = prodRes.data || [];
-      const allCogs = cogsRes.data || [];
-      const allOh = ohRes.data || [];
-      const allCbm = cbmRes.data || [];
+      const prods = prodRes;
+      const allCbm = cbmRes;
 
       setProducts(prods);
       if (inqRes.data) setInquiries(inqRes.data);
@@ -99,13 +98,7 @@ const Products = () => {
       allCbm.forEach((c: any) => { if (c.product_id) cbm[c.product_id] = c; });
       setCbmMap(cbm);
 
-      const cogsM: Record<string, any[]> = {};
-      allCogs.forEach((c: any) => { if (c.product_id) { if (!cogsM[c.product_id]) cogsM[c.product_id] = []; cogsM[c.product_id].push(c); } });
-      setCogsMap(cogsM);
-
-      const ohM: Record<string, any[]> = {};
-      allOh.forEach((o: any) => { if (o.product_id) { if (!ohM[o.product_id]) ohM[o.product_id] = []; ohM[o.product_id].push(o); } });
-      setOhMap(ohM);
+      setReviewIds(new Set([...cogsRes, ...ohRes].map((r: any) => r.product_id).filter(Boolean)));
 
       // Use shared helper so prices match the costing sheet (includes auto-calc rows for
       // packaging boxes, finishing materials, finishing/packaging labor, etc.)
@@ -124,11 +117,7 @@ const Products = () => {
   const inquiryMap = Object.fromEntries(inquiries.map(p => [p.id, p]));
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c]));
 
-  const hasReview = (productId: string) => {
-    const cogs = cogsMap[productId] || [];
-    const oh = ohMap[productId] || [];
-    return cogs.some((c: any) => c.include === 'Review') || oh.some((o: any) => o.include === 'Review');
-  };
+  const hasReview = (productId: string) => reviewIds.has(productId);
 
   const filtered = useMemo(() => {
     let result = products.filter(p => {
@@ -217,7 +206,7 @@ const Products = () => {
             productTypes={productTypes}
             onProductsCreated={() => {
               setUploadInquiryId('');
-              supabase.from('products').select('*').order('created_at', { ascending: false }).then(({ data }) => { if (data) setProducts(data); });
+              fetchAllRows<any>(() => supabase.from('products').select('*').order('created_at', { ascending: false }).order('id')).then(setProducts);
             }}
           />
         )}

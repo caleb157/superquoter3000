@@ -6,6 +6,7 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 
 import { isHardwareCogsType } from '@/lib/cogs-categories';
 import { customerPrimary } from '@/lib/customer-name';
+import { fxOrFallback } from '@/lib/live-rates';
 export interface RfqLineItem {
   product_id?: string;
   product_name?: string;
@@ -307,7 +308,7 @@ export async function generateRawPieceRfq(
 
   const { computeProductCosting } = await import('@/lib/costing-engine');
   const mergedGs = mergeSettingsWithInquiry(gs, inq);
-  const exchangeRate = mergedGs?.exchange_rate || 90;
+  const exchangeRate = fxOrFallback(mergedGs?.exchange_rate);
 
   const items: RfqLineItem[] = [];
   let sortOrder = 0;

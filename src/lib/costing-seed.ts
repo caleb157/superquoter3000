@@ -6,14 +6,13 @@ import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-e
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { recordCostChange } from '@/lib/cost-history';
 
-type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
+type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'bulk_pack';
 
 const packagingIncludeForType = (pkg: string, componentName: string): boolean => {
   const name = (componentName || '').toLowerCase();
   if (pkg === 'no_packaging') return false;
   if (name.includes('ic box') || name.includes('inner carton') || name === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
   if (name.includes('mc box') || name.includes('master carton') || name.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
-  if (name === 'corrugate wrap' || name === 'bubble wrap') return pkg === 'corrugate_bubble';
   if (name.includes('foam') || name.includes('bulk pack')) return pkg === 'bulk_pack';
   return false;
 };
@@ -118,14 +117,6 @@ export async function seedDefaultCostingRows(productId: string): Promise<boolean
       is_auto_calculated: true,
       include: packagingIncludeForType(pkgType, 'MC Box') ? 'Yes' : 'No', sort_order: s++,
     });
-  }
-  if (pkgType === 'corrugate_bubble') {
-    if (!hasCogs((n) => n === 'corrugate wrap')) {
-      cogsToInsert.push({ product_id: productId, cogs_type: 'Packaging', component_name: 'Corrugate Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
-    }
-    if (!hasCogs((n) => n === 'bubble wrap')) {
-      cogsToInsert.push({ product_id: productId, cogs_type: 'Packaging', component_name: 'Bubble Wrap', units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
-    }
   }
   // Bulk pack no longer seeds a foam row — padding is purely dimensional.
 
@@ -406,7 +397,6 @@ const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', ..
  *
  * - a cbm_estimates row, and the Auto Transport non-unit line when there are no non-unit lines
  * - the product type's default chemicals (one per finishing category)
- * - Corrugate / Bubble wrap lines in wrap packaging mode
  * - the domestic freight line when the product is sourced from outside
  * - a shipping item with the default shipping type
  * - qty 1 on priced manual raw piece / subcontracting / hardware lines that still say 0
@@ -476,13 +466,6 @@ export async function ensureCostingRowsOnOpen(productId: string): Promise<boolea
         is_auto_calculated: true, include: 'Yes', units: chem.unit_type || 'L', components_per_product: 0,
         unit_cost_inr: Number(chem.price_per_unit_inr ?? chem.price_per_litre_inr ?? 0), sort_order: s++,
       });
-    }
-  }
-  if (product.packaging_type === 'corrugate_bubble') {
-    for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
-      if (!has(n => n === name.toLowerCase())) {
-        inserts.push({ product_id: productId, cogs_type: 'Packaging', component_name: name, units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
-      }
     }
   }
   if (product.source_location_id && !has(n => n.includes('domestic freight'))) {

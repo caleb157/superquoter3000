@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ReceivedRfqList } from '@/components/ReceivedRfqList';
 import { ExternalLink, Pencil, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,8 +91,6 @@ export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string;
 
   return (
     <div className="space-y-4">
-      <ReceivedRfqList inquiryId={inquiryId} />
-
       <Card>
         <CardContent className="p-0">
           <div className="px-4 py-3 border-b flex items-center justify-between gap-2">

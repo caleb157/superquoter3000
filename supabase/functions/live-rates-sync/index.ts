@@ -5,7 +5,7 @@
 // (src/lib/live-rates.ts); a failed source keeps its last good value. Admin/team only.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { inrPerUnitFromOdoo, laborRatesFromEntries, laborWindow, recentDaysWindow } from './rates.ts';
+import { inrPerUnitFromOdoo, laborRatesFromEntries, laborWindow, planCurrencySync, recentDaysWindow, type OdooCurrency } from './rates.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -42,18 +42,18 @@ async function rpc(service: string, method: string, args: unknown[]) {
   return data.result;
 }
 
-async function odooCurrencies(): Promise<Record<string, number>> {
+async function odooCurrencies(): Promise<OdooCurrency[]> {
   if (!ODOO_URL || !ODOO_USER || !ODOO_KEY) throw new Error('Odoo is not connected');
   const uid = await rpc('common', 'authenticate', [ODOO_DB, ODOO_USER, ODOO_KEY, {}]);
   if (!uid) throw new Error('Odoo login failed');
-  const rows = await rpc('object', 'execute_kw', [ODOO_DB, uid, ODOO_KEY, 'res.currency', 'search_read',
-    [[['active', '=', true]]], { fields: ['name', 'rate', 'inverse_rate'] }]) as any[];
-  const out: Record<string, number> = {};
-  for (const r of rows || []) {
-    const v = inrPerUnitFromOdoo(r);
-    if (r?.name && v > 0) out[String(r.name).toUpperCase()] = v;
-  }
-  return out;
+  const read = (fields: string[]) => rpc('object', 'execute_kw', [ODOO_DB, uid, ODOO_KEY, 'res.currency', 'search_read',
+    [[['active', '=', true]]], { fields }]) as Promise<any[]>;
+  // full_name is missing on some Odoo versions; the rate must not depend on it.
+  const rows = await read(['name', 'full_name', 'symbol', 'rate', 'inverse_rate'])
+    .catch(() => read(['name', 'symbol', 'rate', 'inverse_rate']));
+  return (rows || [])
+    .map(r => ({ code: String(r?.name || '').toUpperCase(), name: r?.full_name || null, symbol: r?.symbol || null, inrPerUnit: inrPerUnitFromOdoo(r) }))
+    .filter(c => c.code && c.inrPerUnit > 0);
 }
 
 Deno.serve(async (req) => {
@@ -76,9 +76,11 @@ Deno.serve(async (req) => {
     const update: Record<string, unknown> = {};
 
     // ---- Odoo exchange rates ----
+    let odooList: OdooCurrency[] = [];
     let currencyRates: Record<string, number> = {};
     try {
-      currencyRates = await odooCurrencies();
+      odooList = await odooCurrencies();
+      currencyRates = Object.fromEntries(odooList.map(c => [c.code, c.inrPerUnit]));
       if (!(currencyRates.USD > 0)) throw new Error('Odoo has no active USD rate');
       update.live_exchange_rate = +currencyRates.USD.toFixed(4);
       update.live_currency_rates = currencyRates;
@@ -121,16 +123,19 @@ Deno.serve(async (req) => {
     const { error: upErr } = await admin.from('global_settings').update(update).eq('id', gs.id);
     if (upErr) return json({ error: upErr.message }, 500);
 
-    // Quotes freeze their rate from the currencies table, so keep it in step with Odoo.
+    // The currencies table follows Odoo: its active currencies with their names, symbols and
+    // rates (quotes freeze their rate from here). Skipped when Odoo could not be read.
     let currenciesUpdated = 0;
-    if (Object.keys(currencyRates).length) {
-      const { data: cur } = await admin.from('currencies').select('code, units_per_inr_base');
-      for (const c of cur || []) {
-        const v = currencyRates[String(c.code).toUpperCase()];
-        if (!v || c.code === 'INR') continue;
-        const rate = +(v * (Number(c.units_per_inr_base) || 1)).toFixed(4);
-        const { error } = await admin.from('currencies').update({ import_rate: rate, export_rate: rate }).eq('code', c.code);
-        if (error) warnings.push(`Currency ${c.code}: ${error.message}`); else currenciesUpdated++;
+    if (odooList.length) {
+      const { data: cur } = await admin.from('currencies').select('code, units_per_inr_base, import_rate, symbol');
+      const plan = planCurrencySync(cur || [], odooList, now.slice(0, 10));
+      for (const u of plan.updates) {
+        const { error } = await admin.from('currencies').update(u.patch).eq('code', u.code);
+        if (error) warnings.push(`Currency ${u.code}: ${error.message}`); else currenciesUpdated++;
+      }
+      if (plan.inserts.length) {
+        const { error } = await admin.from('currencies').insert(plan.inserts);
+        if (error) warnings.push(`New currencies: ${error.message}`); else currenciesUpdated += plan.inserts.length;
       }
     }
 

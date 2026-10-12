@@ -157,7 +157,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
   const [bulkDeleteCogsOpen, setBulkDeleteCogsOpen] = useState(false);
-  const [logRfqOpen, setLogRfqOpen] = useState(false);
   const [generateRfqOpen, setGenerateRfqOpen] = useState(false);
   const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
   const [rawTargetsOpen, setRawTargetsOpen] = useState(false);
@@ -736,7 +735,6 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkSetSource={() => setBulkSourceOpen(true)}
         onBulkSetType={() => setBulkTypeOpen(true)}
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
-        onLogRfq={() => setLogRfqOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onGenerateRfq={() => setGenerateRfqOpen(true)}
         onVendorRfqSheet={() => setRfqSheetOpen(true)}
@@ -786,18 +784,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       />
 
       <BulkLogRfqRfsDialog
-        open={logRfqOpen}
-        onOpenChange={setLogRfqOpen}
-        kind="rfq"
-        inquiryId={inquiryId}
-        selectedProductIds={Array.from(selected)}
-        onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}
-      />
-
-      <BulkLogRfqRfsDialog
         open={logRfsOpen}
         onOpenChange={setLogRfsOpen}
-        kind="rfs"
         inquiryId={inquiryId}
         selectedProductIds={Array.from(selected)}
         onDone={() => { setSelected(new Set()); setRefresh(r => r + 1); onChange(); }}

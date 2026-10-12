@@ -9,9 +9,9 @@ const difficulties = [
   { name: 'Hard' }, // no rate stored → default ₹8
 ];
 const employees = [{ hourly_rate_inr: 100, designations: ['Finishing'] }, { hourly_rate_inr: 80, designations: ['Packaging'] }];
-const wood = { name: 'Wood Console', finishing_mh_per_100ri: 7 };
-const table = { name: 'Wood Table', finishing_mh_per_100ri: 7 };
-const iron = { name: 'Iron Small', finishing_mh_per_100ri: 2 };
+const wood = { name: 'Wood Console' };
+const table = { name: 'Wood Table' };
+const iron = { name: 'Iron Small' };
 
 describe('running inches', () => {
   it('is longest + shortest', () => {

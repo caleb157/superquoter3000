@@ -191,7 +191,6 @@ export function calcMCPacking(config: MCConfig & {
     };
   }
 
-
   const { mc_max_width, mc_max_depth, mc_max_height, mc_buffer_inch,
     mc_weight_limit_kg, mc_empty_weight_kg, product_weight_kg,
     quantity, products_per_ic, ic_width, ic_depth, ic_height } = config;
@@ -244,7 +243,6 @@ export function calcMCPacking(config: MCConfig & {
       packed_ics = best.cells;
     }
   }
-
 
   const products_per_mc = packed_ics * products_per_ic;
 
@@ -315,51 +313,6 @@ export function calcMcOd(
     mc_od_width: mcIdW + offsets.lAdd,
     mc_od_depth: mcIdD + offsets.wAdd,
     mc_od_height: mcIdH + offsets.hAdd,
-  };
-}
-
-// ============================================================
-// Corrugate + Bubble Wrap packaging
-// ============================================================
-
-export interface WrappingSettings {
-  corrugate_kg_per_sq_in: number;
-  bubble_kg_per_sq_in: number;
-  corrugate_price_per_kg: number;
-  bubble_price_per_kg: number;
-}
-
-export function calcCorrugateBubblePackaging(
-  productW: number,
-  productD: number,
-  productH: number,
-  icAddPerSide: number,
-  s: WrappingSettings,
-): {
-  wrapped_w: number;
-  wrapped_d: number;
-  wrapped_h: number;
-  final_unit_cbm: number;
-  surface_area_sq_in: number;
-  corrugate_kg: number;
-  corrugate_cost: number;
-  bubble_kg: number;
-  bubble_cost: number;
-} {
-  const wrapped_w = (productW || 0) + 2 * icAddPerSide;
-  const wrapped_d = (productD || 0) + 2 * icAddPerSide;
-  const wrapped_h = (productH || 0) + 2 * icAddPerSide;
-  const final_unit_cbm = (wrapped_w * wrapped_d * wrapped_h) / 61020;
-  const sa = surfaceAreaSqIn(productW || 0, productD || 0, productH || 0);
-  const corrugate_kg = sa * (s.corrugate_kg_per_sq_in || 0);
-  const bubble_kg = sa * (s.bubble_kg_per_sq_in || 0);
-  return {
-    wrapped_w, wrapped_d, wrapped_h, final_unit_cbm,
-    surface_area_sq_in: sa,
-    corrugate_kg,
-    corrugate_cost: corrugate_kg * (s.corrugate_price_per_kg || 0),
-    bubble_kg,
-    bubble_cost: bubble_kg * (s.bubble_price_per_kg || 0),
   };
 }
 
@@ -439,10 +392,6 @@ export function calcFinalUnitCbm(
   return 0;
 }
 
-export function calcTotalCbm(finalUnitCbm: number, quantity: number): number {
-  return finalUnitCbm * quantity;
-}
-
 // ============================================================
 // COGS
 // ============================================================
@@ -461,10 +410,6 @@ export function calcCogsItemCost(item: CogsItem): {
 
   const unit_cost = item.unit_cost_inr * total_units_per_product;
   return { total_units_per_product, unit_cost, total_cost_per_product: unit_cost };
-}
-
-export function calcTotalCogsPerUnit(items: CogsItem[], quantity: number): number {
-  return items.reduce((sum, item) => sum + calcCogsItemCost(item).unit_cost, 0);
 }
 
 export function calcNonUnitCogsPerUnit(items: NonUnitCogsItem[], quantity: number): number {
@@ -631,30 +576,6 @@ export function calcProductCostSummary(
   };
 }
 
-
-// ============================================================
-// Variant Pricing
-// ============================================================
-
-export function calcVariantCost(
-  masterRawPieceCost: number,
-  woodPriceFactor: number,
-  otherCostsPerUnit: number,
-  markupPercent: number,
-  exchangeRate: number
-): {
-  variant_raw_piece_cost: number;
-  variant_product_cost: number;
-  variant_unit_price_inr: number;
-  variant_unit_price_usd: number;
-} {
-  const variant_raw_piece_cost = masterRawPieceCost * woodPriceFactor;
-  const variant_product_cost = variant_raw_piece_cost + otherCostsPerUnit;
-  const variant_unit_price_inr = variant_product_cost * (1 + markupPercent);
-  const variant_unit_price_usd = exchangeRate > 0 ? variant_unit_price_inr / exchangeRate : 0;
-  return { variant_raw_piece_cost, variant_product_cost, variant_unit_price_inr, variant_unit_price_usd };
-}
-
 // ============================================================
 // Assembly Pricing (multi-component products)
 // ============================================================
@@ -690,34 +611,6 @@ export function calcAssemblyCost(
   const unit_price_usd = exchangeRate > 0 ? unit_price_inr / exchangeRate : 0;
   const num_cartons = components.length;
   return { unit_cost_inr, unit_cbm, unit_weight_kg, unit_man_hours, unit_price_inr, unit_cost_usd, unit_price_usd, num_cartons };
-}
-
-// ============================================================
-// Formatting Helpers
-// ============================================================
-
-export function formatINR(value: number): string {
-  return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatUSD(value: number): string {
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-export function formatQty(value: number): string {
-  return Math.round(value).toLocaleString();
-}
-
-export function formatCbm(value: number): string {
-  return `${value.toFixed(4)} CBM`;
-}
-
-export function formatDimensions(w: number, d: number, h: number): string {
-  return `${w || 0}" × ${d || 0}" × ${h || 0}"`;
 }
 
 // ============================================================
@@ -809,14 +702,6 @@ export function computePackagedUnitCbm(args: {
   if (packagingType === 'no_packaging') return prePackagedCbm(w, d, h);
   const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
   const mcBufferH = cbm?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5;
-  if (packagingType === 'corrugate_bubble') {
-    return calcCorrugateBubblePackaging(w, d, h, icAdd, {
-      corrugate_kg_per_sq_in: gs?.corrugate_kg_per_sq_in ?? 0.25,
-      bubble_kg_per_sq_in: gs?.bubble_kg_per_sq_in ?? 0.2,
-      corrugate_price_per_kg: gs?.corrugate_price_per_kg ?? 0,
-      bubble_price_per_kg: gs?.bubble_price_per_kg ?? 0,
-    }).final_unit_cbm;
-  }
   if (packagingType === 'bulk_pack') {
     const b = calcBulkPacking({
       piece_width: w, piece_depth: d, piece_height: h,

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { fetchAllByIds } from '@/lib/supabase-paged';
 
 /**
  * Live per-inquiry FOB (USD), GPM and man-hours from the costing engine — the same
@@ -9,13 +10,9 @@ import { computeProductPriceAndCost } from '@/lib/product-pricing';
 export async function liveInquiryFinancials(inquiryIds: string[]): Promise<Record<string, { fob_usd: number; gpm: number; man_hours: number }>> {
   const out: Record<string, { fob_usd: number; gpm: number; man_hours: number }> = {};
   if (!inquiryIds.length) return out;
-  const products: any[] = [];
-  for (let i = 0; i < inquiryIds.length; i += 40) {
-    const { data } = await (supabase as any).from('products')
-      .select('id, customer_rfq_id, quantity, calculated_unit_price_usd')
-      .in('customer_rfq_id', inquiryIds.slice(i, i + 40)).is('archived_at', null).limit(100000);
-    products.push(...(data ?? []));
-  }
+  const products = await fetchAllByIds<any>(inquiryIds, chunk => (supabase as any).from('products')
+    .select('id, customer_rfq_id, quantity, calculated_unit_price_usd')
+    .in('customer_rfq_id', chunk).is('archived_at', null).order('id'));
   const prices: Record<string, any> = {};
   const ids = products.map(p => p.id);
   for (let i = 0; i < ids.length; i += 25) Object.assign(prices, await computeProductPriceAndCost(ids.slice(i, i + 25)));

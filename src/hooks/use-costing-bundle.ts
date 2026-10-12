@@ -15,13 +15,23 @@ export function useCostingBundle(loader: (() => Promise<Bundle | null>) | null) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(0);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** Set when the last load failed. The previous bundle (if any) is kept, so nothing is recomputed from partial data. */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!loader) return;
-    const b = await loader();
-    bundleRef.current = b;
-    setBundle(b);
-    setLoading(false);
+    try {
+      const b = await loader();
+      bundleRef.current = b;
+      setBundle(b);
+      setLoadError(null);
+    } catch (e: any) {
+      console.error('costing load', e);
+      setLoadError(e?.message || String(e));
+      if (bundleRef.current) toast.error('Couldn’t reload costing. Showing the last loaded figures.');
+    } finally {
+      setLoading(false);
+    }
   }, [loader]);
   useEffect(() => { void load(); }, [load]);
   /** Load again from the database, showing the loading state. */
@@ -71,5 +81,5 @@ export function useCostingBundle(loader: (() => Promise<Bundle | null>) | null) 
       .finally(() => setSaving(s => s - 1));
   }, [load, scheduleDerived]);
 
-  return { bundle, loading, saving, savedAt, load, reload, apply, results, rows, t, scheduleDerived, flushDerived };
+  return { bundle, loading, loadError, saving, savedAt, load, reload, apply, results, rows, t, scheduleDerived, flushDerived };
 }

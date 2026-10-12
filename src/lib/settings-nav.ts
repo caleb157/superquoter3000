@@ -4,8 +4,8 @@
 export type SectionId =
   | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'quote-terms' | 'team' | 'projections'
   | 'employees'
-  | 'product-types' | 'wood' | 'chemicals' | 'hardware'
-  | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
+  | 'product-types' | 'chemicals' | 'hardware'
+  | 'shipping' | 'fob-rates' | 'box-data'
   | 'currencies' | 'finishing-difficulty'
   | 'raw-materials' | 'cogs-categories'
   | 'local-transport' | 'container-types' | 'data-export';
@@ -31,7 +31,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Costing rates',
     items: [
       { id: 'product-types', label: 'Product types', keywords: ['finishing', 'color', 'sealer', 'lacquer', 'wax', 'ic add', 'man-hours per cbm', 'percent wood', 'default chemicals'] },
-      { id: 'wood', label: 'Wood prices', keywords: ['timber', 'cft', 'teak', 'mango', 'acacia', 'sheesham'] },
       { id: 'chemicals', label: 'Chemicals', keywords: ['finishing chemicals', 'color', 'stain', 'sealer', 'lacquer', 'wax', 'paint', 'price per litre'] },
       { id: 'hardware', label: 'Hardware', keywords: ['fittings', 'screws', 'hinges', 'accessories'] },
       { id: 'raw-materials', label: 'Raw material costs', keywords: ['iron', 'metal', 'steel', 'raw piece', 'material price'] },
@@ -52,8 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'fob-rates', label: 'FOB rates', keywords: ['fob', 'container', 'fcl', 'lcl', 'icd', 'jodhpur', 'fumigation', 'wildlife', 'trucking'] },
       { id: 'local-transport', label: 'Local transport', keywords: ['domestic freight', 'source location', 'external sourcing', 'cost per cbm'] },
       { id: 'container-types', label: 'Container types', keywords: ['20ft', '40ft', 'hc', 'container size', 'usable volume'] },
-      { id: 'box-data', label: 'Box prices', keywords: ['cartons', 'ply', 'inner carton', 'master carton', 'od', 'cost per sq in'] },
-      { id: 'wrapping', label: 'Wrapping', keywords: ['corrugate', 'bubble wrap', 'mc height buffer', 'packaging'] },
+      { id: 'box-data', label: 'Box prices', keywords: ['cartons', 'ply', 'inner carton', 'master carton', 'od', 'cost per sq in', 'mc height buffer', 'packaging'] },
     ],
   },
   {

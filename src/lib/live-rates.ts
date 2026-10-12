@@ -32,6 +32,17 @@ const pos = (v: unknown) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
+/** Last-resort INR per USD, used only when neither a live nor a stored rate exists (never after the first sync). */
+export const FX_FALLBACK_INR_PER_USD = 90;
+
+/** The given INR-per-USD rate, or the last-resort fallback with a console warning. */
+export function fxOrFallback(rate: unknown): number {
+  const n = pos(rate);
+  if (n) return n;
+  console.warn(`No exchange rate found; using ₹${FX_FALLBACK_INR_PER_USD}/USD`);
+  return FX_FALLBACK_INR_PER_USD;
+}
+
 /** Global settings with the live values swapped in. Idempotent. */
 export function applyLiveRates<T extends Record<string, any>>(gs: T | null | undefined): T {
   const base = (gs || {}) as any;

@@ -15,6 +15,7 @@ import { persistResolvedCosting } from '@/lib/costing-seed';
 import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { calcCogsItemCost } from '@/lib/calculations';
+import { fetchAllByIds } from '@/lib/supabase-paged';
 
 const db = supabase as any;
 
@@ -303,15 +304,13 @@ export function totals(rows: WorkspaceRow[]): Totals {
 // ---------- Loading ----------
 
 async function loadRows(ids: string[]) {
-  const q = ids.length ? ids : ['00000000-0000-0000-0000-000000000000'];
-  const [cogs, nu, oh, ship, cbm] = await Promise.all([
-    db.from('cogs_items').select('*').in('product_id', q).limit(100000),
-    db.from('non_unit_cogs').select('*').in('product_id', q).limit(100000),
-    db.from('overhead_items').select('*').in('product_id', q).limit(100000),
-    db.from('shipping_items').select('*').in('product_id', q).limit(100000),
-    db.from('cbm_estimates').select('*').in('product_id', q).limit(100000),
+  // Paged (PostgREST returns at most 1,000 rows per request) and throws on any error, so a
+  // failed or partial load never reaches the engine or gets written back.
+  const byProduct = (table: string) => fetchAllByIds<any>(ids, chunk => db.from(table).select('*').in('product_id', chunk).order('id'));
+  const [cogs, nu, oh, shipItems, cbm] = await Promise.all([
+    byProduct('cogs_items'), byProduct('non_unit_cogs'), byProduct('overhead_items'), byProduct('shipping_items'), byProduct('cbm_estimates'),
   ]);
-  return { cogs: cogs.data || [], nu: nu.data || [], oh: oh.data || [], shipItems: ship.data || [], cbm: cbm.data || [] };
+  return { cogs, nu, oh, shipItems, cbm };
 }
 
 async function loadRefs() {
@@ -330,6 +329,8 @@ async function loadRefs() {
     ]),
     loadFobRates(),
   ]);
+  const failed = res.find((x: any) => x.error);
+  if (failed) throw new Error(failed.error.message);
   const d = res.map((x: any) => x.data || []);
   return {
     shipTypes: d[0], employees: d[1], gs: res[2].data || {}, productTypes: d[3], chemicalPrices: d[4], boxData: d[5],
@@ -338,13 +339,15 @@ async function loadRefs() {
 }
 
 export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
-  const { data: inq } = await db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle();
+  const { data: inq, error } = await db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle();
+  if (error) throw new Error(error.message);
   if (!inq) return null;
   const [cust, prods] = await Promise.all([
     inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
     db.from('products').select('*').eq('customer_rfq_id', inquiryId).is('archived_at', null)
       .order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).order('name', { ascending: true }),
   ]);
+  if ((prods as any).error) throw new Error((prods as any).error.message);
   const products = (prods.data as any[]) || [];
   const [rows, refs] = await Promise.all([loadRows(products.map(p => p.id)), loadRefs()]);
   return { inq, customer: cust.data, products, ...rows, ...refs };
@@ -355,7 +358,8 @@ export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
  * inquiry, so FOB shipping is pooled exactly as in the workspace; `inq` is null otherwise.
  */
 export async function loadProductBundle(productId: string): Promise<Bundle | null> {
-  const { data: product } = await db.from('products').select('*').eq('id', productId).maybeSingle();
+  const { data: product, error } = await db.from('products').select('*').eq('id', productId).maybeSingle();
+  if (error) throw new Error(error.message);
   if (!product) return null;
   const b = product.customer_rfq_id ? await loadBundle(product.customer_rfq_id) : null;
   if (b && b.products.some(p => p.id === productId)) return b;
@@ -529,20 +533,6 @@ export function chooseCheapestQuotes(b: Bundle, ids: string[]): Mutation {
   return cogsMutation(b, updates, []);
 }
 
-export function setRawVendor(b: Bundle, ids: string[], vendor: string): Mutation {
-  const v = vendor.trim() || null;
-  const updates: { id: string; patch: any }[] = [];
-  const inserts: any[] = [];
-  for (const pid of ids) {
-    const winner = quotesFor(b.cogs.filter(c => c.product_id === pid)).find(q => q.winner);
-    if (winner?.line) updates.push({ id: winner.line.id, patch: { vendor_name: v } });
-    else if (v) inserts.push({ id: uuid(), product_id: pid, cogs_type: 'Raw Piece', component_name: 'Raw Piece 1', vendor_name: v,
-      unit_cost_inr: 0, components_per_product: 1, waste_factor: 0, include: 'Yes', is_auto_calculated: false, sort_order: 0,
-      created_at: new Date().toISOString() });
-  }
-  return cogsMutation(b, updates, inserts);
-}
-
 // ----- Labor -----
 
 export function patchOverhead(b: Bundle, id: string, patch: Record<string, any>): Mutation {
@@ -633,14 +623,13 @@ export function packagingIncludeForType(pkg: string, componentName: string): boo
   if (pkg === 'no_packaging') return false;
   if (n.includes('ic box') || n.includes('inner carton') || n === 'ic') return pkg === 'ic_only' || pkg === 'ic_mc';
   if (n.includes('mc box') || n.includes('master carton') || n.includes('outer carton')) return pkg === 'ic_mc' || pkg === 'bulk_pack';
-  if (n === 'corrugate wrap' || n === 'bubble wrap') return pkg === 'corrugate_bubble';
   if (n.includes('foam') || n.includes('bulk pack')) return pkg === 'bulk_pack';
   return null;
 }
 
 /**
  * Packaging type: switches the packaging lines on/off to match, turns packaging labor off for
- * "No packaging", and adds the corrugate and bubble wrap lines the first time wrap is chosen.
+ * "No packaging".
  */
 export function setPackagingType(b: Bundle, ids: string[], pkg: string): Mutation {
   return chain(b, [
@@ -648,23 +637,14 @@ export function setPackagingType(b: Bundle, ids: string[], pkg: string): Mutatio
     cur => patchCbm(cur, ids, { include_mc: pkg === 'ic_mc' }),
     cur => {
       const updates: { id: string; patch: any }[] = [];
-      const inserts: any[] = [];
       for (const pid of ids) {
         const lines = cur.cogs.filter(c => c.product_id === pid && c.cogs_type === 'Packaging');
         for (const l of lines) {
           const on = packagingIncludeForType(pkg, l.component_name);
           if (on != null && (l.include === 'No') === on) updates.push({ id: l.id, patch: { include: on ? 'Yes' : 'No' } });
         }
-        if (pkg === 'corrugate_bubble') {
-          let sort = nextSort(cur, pid);
-          for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
-            if (!lines.some(l => lc(l.component_name) === lc(name))) {
-              inserts.push(autoLine(pid, sort++, { cogs_type: 'Packaging', component_name: name, units: 'KG' }));
-            }
-          }
-        }
       }
-      return updates.length || inserts.length ? cogsMutation(cur, updates, inserts) : null;
+      return updates.length ? cogsMutation(cur, updates, []) : null;
     },
     cur => (pkg === 'no_packaging'
       ? ohMutation(cur, cur.oh.filter(o => ids.includes(o.product_id) && o.labor_type === 'Packaging')

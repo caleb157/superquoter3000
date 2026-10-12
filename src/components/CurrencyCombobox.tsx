@@ -14,6 +14,7 @@ export type Currency = {
   symbol: string | null;
   is_featured: boolean;
   sort_priority: number;
+  import_rate: number | null;
 };
 
 let cache: Currency[] | null = null;
@@ -26,7 +27,7 @@ export async function loadCurrencies(force = false): Promise<Currency[]> {
   inflight = (async () => {
     const { data } = await (supabase as any)
       .from('currencies')
-      .select('code, name, symbol, is_featured, sort_priority')
+      .select('code, name, symbol, is_featured, sort_priority, import_rate')
       .order('is_featured', { ascending: false })
       .order('sort_priority', { ascending: true })
       .order('code', { ascending: true });
@@ -62,8 +63,10 @@ export function CurrencyCombobox({ value, onChange, disabled, className }: Props
     return () => { subs.delete(fn); };
   }, []);
 
-  const featured = currencies.filter(c => c.is_featured);
-  const rest = currencies.filter(c => !c.is_featured);
+  // Only currencies Odoo has active (they have a rate), plus whatever is already chosen.
+  const offered = currencies.filter(c => c.code === 'INR' || c.import_rate != null || c.code === value);
+  const featured = offered.filter(c => c.is_featured);
+  const rest = offered.filter(c => !c.is_featured);
 
   const selected = currencies.find(c => c.code === value);
 

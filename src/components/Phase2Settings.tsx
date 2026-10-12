@@ -8,30 +8,42 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { CurrencyCombobox, invalidateCurrencies } from '@/components/CurrencyCombobox';
 
 const sb = supabase as any;
 
 // ============== Currencies ==============
+/** The currencies Odoo has active (INR is the base). Others keep their row but have no rate. */
+const isLiveCurrency = (r: any) => r.code === 'INR' || r.import_rate != null;
+
 export function CurrenciesSettings() {
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [open, setOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchRows = async () => {
     const { data } = await sb.from('currencies').select('*')
       .order('is_featured', { ascending: false })
       .order('sort_priority', { ascending: true })
       .order('code', { ascending: true });
-    setRows(data || []);
+    setRows((data || []).filter(isLiveCurrency));
     invalidateCurrencies();
   };
   useEffect(() => { fetchRows(); }, []);
+
+  const refresh = async () => {
+    setSyncing(true);
+    const { syncLiveRates } = await import('@/lib/live-rates-sync');
+    const res = await syncLiveRates();
+    setSyncing(false);
+    if (res.error) { toast.error(res.error); return; }
+    if (res.warnings?.length) toast.warning(res.warnings.join(' · '));
+    else toast.success('Currencies refreshed from Odoo');
+    fetchRows();
+  };
 
   const filtered = rows.filter(r => {
     if (featuredOnly && !r.is_featured) return false;
@@ -40,59 +52,19 @@ export function CurrenciesSettings() {
     return r.code.toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q);
   });
 
-  const startAdd = () => { setEditing({ code: '', name: '', symbol: '', units_per_inr_base: 1, import_rate: null, effective_start_date: '', sort_priority: 100, is_featured: false, __isNew: true }); setOpen(true); };
-  const startEdit = (r: any) => { setEditing({ ...r }); setOpen(true); };
-
-  const save = async () => {
-    if (!editing) return;
-    const code = (editing.code || '').toUpperCase().trim();
-    if (!code) { toast.error('Code required'); return; }
-    const payload = {
-      code,
-      name: editing.name,
-      symbol: editing.symbol === '' || editing.symbol == null ? null : String(editing.symbol),
-      units_per_inr_base: Number(editing.units_per_inr_base) || 1,
-      import_rate: editing.import_rate === '' || editing.import_rate == null ? null : Number(editing.import_rate),
-      effective_start_date: editing.effective_start_date || null,
-      sort_priority: Number(editing.sort_priority) || 100,
-      is_featured: !!editing.is_featured,
-    };
-    let err;
-    if (editing.__isNew) {
-      ({ error: err } = await sb.from('currencies').insert(payload));
-    } else {
-      ({ error: err } = await sb.from('currencies').update(payload).eq('code', editing.code));
-    }
-    if (err) { toast.error(err.message); return; }
-    setOpen(false); setEditing(null);
-    fetchRows();
-    toast.success('Saved');
-  };
-
-  const toggleFeatured = async (r: any, v: boolean) => {
-    const { error } = await sb.from('currencies').update({ is_featured: v }).eq('code', r.code);
-    if (error) { toast.error(error.message); return; }
-    setRows(rows.map(x => x.code === r.code ? { ...x, is_featured: v } : x));
-    invalidateCurrencies();
-  };
-
-  const updateInline = async (code: string, field: string, value: any) => {
+  // Only the picker order is edited here; names, symbols and rates come from Odoo.
+  const updateInline = async (code: string, field: 'is_featured' | 'sort_priority', value: any) => {
     const { error } = await sb.from('currencies').update({ [field]: value }).eq('code', code);
     if (error) { toast.error(error.message); return; }
     setRows(rows.map(x => x.code === code ? { ...x, [field]: value } : x));
     invalidateCurrencies();
   };
 
-  const del = async (r: any) => {
-    if (r.code === 'INR') return;
-    if (!confirm(`Delete ${r.code}?`)) return;
-    const { error } = await sb.from('currencies').delete().eq('code', r.code);
-    if (error) { toast.error(error.message); return; }
-    fetchRows();
-  };
-
   return (
     <div className="space-y-3">
+      <p className="text-[11px] text-muted-foreground">
+        The currencies active in Odoo, with Odoo's rates (₹ per unit). They update with Live rates; to add or remove one, activate or archive it in Odoo. Featured and Sort set the order in currency pickers.
+      </p>
       <div className="flex flex-wrap gap-2 items-center">
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search code or name…" className="h-8 text-xs max-w-xs" />
         <label className="flex items-center gap-1.5 text-xs">
@@ -100,8 +72,8 @@ export function CurrenciesSettings() {
           Featured only
         </label>
         <div className="flex-1" />
-        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={startAdd}>
-          <Plus className="h-3 w-3" /> Add Currency
+        <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={refresh} disabled={syncing}>
+          <RefreshCw className={syncing ? 'h-3 w-3 animate-spin' : 'h-3 w-3'} /> {syncing ? 'Refreshing…' : 'Refresh from Odoo'}
         </Button>
       </div>
       <div className="border rounded-md overflow-auto">
@@ -113,10 +85,9 @@ export function CurrenciesSettings() {
               <TableHead>Symbol</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Sort</TableHead>
-              <TableHead>Import Rate</TableHead>
-              <TableHead>Units / INR base</TableHead>
-              <TableHead>Effective start</TableHead>
-              <TableHead className="w-20" />
+              <TableHead className="text-right">Rate (₹)</TableHead>
+              <TableHead className="text-right">Per</TableHead>
+              <TableHead>Updated</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -124,68 +95,21 @@ export function CurrenciesSettings() {
               <TableRow key={r.code}>
                 <TableCell className="font-mono font-medium">{r.code}</TableCell>
                 <TableCell>{r.name}</TableCell>
-                <TableCell>
-                  <Input defaultValue={r.symbol ?? ''} className="h-7 text-xs w-16"
-                    onBlur={e => { const v = e.target.value || null; if (v !== r.symbol) updateInline(r.code, 'symbol', v); }} />
-                </TableCell>
-                <TableCell><Checkbox checked={!!r.is_featured} onCheckedChange={v => toggleFeatured(r, !!v)} /></TableCell>
+                <TableCell>{r.symbol ?? '—'}</TableCell>
+                <TableCell><Checkbox checked={!!r.is_featured} onCheckedChange={v => updateInline(r.code, 'is_featured', !!v)} /></TableCell>
                 <TableCell>
                   <Input type="number" defaultValue={r.sort_priority ?? 100} className="h-7 text-xs w-16"
                     onBlur={e => { const v = Number(e.target.value); if (v !== r.sort_priority) updateInline(r.code, 'sort_priority', v); }} />
                 </TableCell>
-                <TableCell>
-                  <Input type="number" step="0.0001" defaultValue={r.import_rate ?? ''} className="h-7 text-xs w-24"
-                    onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== r.import_rate) updateInline(r.code, 'import_rate', v); }} />
-                </TableCell>
-                <TableCell>{r.units_per_inr_base}</TableCell>
-                <TableCell>
-                  <Input type="date" defaultValue={r.effective_start_date ?? ''} className="h-7 text-xs w-32"
-                    onBlur={e => { const v = e.target.value || null; if (v !== r.effective_start_date) updateInline(r.code, 'effective_start_date', v); }} />
-                </TableCell>
-                <TableCell className="flex gap-1">
-                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEdit(r)}><Pencil className="h-3 w-3" /></Button>
-                  {r.code === 'INR' ? (
-                    <TooltipProvider><Tooltip><TooltipTrigger asChild>
-                      <span><Button size="icon" variant="ghost" className="h-6 w-6" disabled><Trash2 className="h-3 w-3 text-muted-foreground" /></Button></span>
-                    </TooltipTrigger><TooltipContent>Base currency cannot be deleted</TooltipContent></Tooltip></TooltipProvider>
-                  ) : (
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => del(r)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                  )}
-                </TableCell>
+                <TableCell className="text-right tabular-nums">{r.code === 'INR' ? '1' : Number(r.import_rate).toFixed(4)}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.units_per_inr_base}</TableCell>
+                <TableCell className="text-muted-foreground">{r.code === 'INR' ? 'Base' : r.effective_start_date ?? '—'}</TableCell>
               </TableRow>
             ))}
-            {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
+            {filtered.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground text-xs">No currencies match.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing?.__isNew ? 'Add' : 'Edit'} Currency</DialogTitle></DialogHeader>
-          {editing && (
-            <div className="space-y-3">
-              <div><Label className="text-xs">Code (ISO)</Label>
-                <Input value={editing.code} onChange={e => setEditing({ ...editing, code: e.target.value.toUpperCase() })} disabled={!editing.__isNew} maxLength={4} />
-              </div>
-              <div><Label className="text-xs">Name</Label><Input value={editing.name || ''} onChange={e => setEditing({ ...editing, name: e.target.value })} /></div>
-              <div><Label className="text-xs">Symbol <span className="text-muted-foreground">(blank = show code prefix)</span></Label>
-                <Input value={editing.symbol ?? ''} onChange={e => setEditing({ ...editing, symbol: e.target.value })} maxLength={6} placeholder="e.g. €, £, A$, kr" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-xs">Import rate</Label><Input type="number" step="0.0001" value={editing.import_rate ?? ''} onChange={e => setEditing({ ...editing, import_rate: e.target.value })} /></div>
-                <div><Label className="text-xs">Units per INR base</Label><Input type="number" step="1" value={editing.units_per_inr_base ?? 1} onChange={e => setEditing({ ...editing, units_per_inr_base: e.target.value })} /></div>
-                <div><Label className="text-xs">Sort priority</Label><Input type="number" value={editing.sort_priority ?? 100} onChange={e => setEditing({ ...editing, sort_priority: e.target.value })} /></div>
-                <div><Label className="text-xs">Effective start</Label><Input type="date" value={editing.effective_start_date ?? ''} onChange={e => setEditing({ ...editing, effective_start_date: e.target.value })} /></div>
-                <label className="flex items-end gap-2 text-xs"><Checkbox checked={!!editing.is_featured} onCheckedChange={v => setEditing({ ...editing, is_featured: !!v })} /> Featured</label>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

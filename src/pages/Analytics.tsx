@@ -44,14 +44,14 @@ const Analytics = () => {
   };
 
   const { snapshot, syncedAt, syncing, refresh } = useAnalyticsSnapshot();
-  const [settings, setSettings] = useState({ id: '', hqRate: 0, overheadMonths: 3, openingCash: 0, slowQuote: 7, slowSample: 14 });
+  const [settings, setSettings] = useState({ id: '', hqRate: 0, overheadMonths: 3 });
   useEffect(() => {
     supabase.from('global_settings').select('*').limit(1).maybeSingle().then(({ data }) => {
       const d: any = data; if (!d) return;
-      setSettings({ id: d.id, hqRate: Number(applyLiveRates(d).exchange_rate) || 0, overheadMonths: d.overhead_avg_months ?? 3, openingCash: Number(d.opening_cash_inr) || 0, slowQuote: d.slow_quote_days ?? 7, slowSample: d.slow_sample_days ?? 14 });
+      setSettings({ id: d.id, hqRate: Number(applyLiveRates(d).exchange_rate) || 0, overheadMonths: d.overhead_avg_months ?? 3 });
     });
   }, []);
-  const saveSetting = async (col: string, val: number, key: 'overheadMonths' | 'openingCash') => {
+  const saveSetting = async (col: string, val: number, key: 'overheadMonths') => {
     setSettings(s => ({ ...s, [key]: val }));
     if (settings.id) await (supabase as any).from('global_settings').update({ [col]: val }).eq('id', settings.id);
   };
@@ -68,7 +68,9 @@ const Analytics = () => {
               <ToggleGroupItem value="INR" className="px-3">INR</ToggleGroupItem>
             </ToggleGroup>
             <span className="text-xs text-muted-foreground tabular-nums">
-              Odoo ₹{snapshot?.inr_per_usd ? snapshot.inr_per_usd.toFixed(2) : '—'} · HQ ₹{settings.hqRate || '—'}
+              {/* Costing uses the live Odoo rate, so HQ's rate only shows while the two differ (e.g. before the next sync). */}
+              Odoo ₹{snapshot?.inr_per_usd ? snapshot.inr_per_usd.toFixed(2) : '—'}
+              {settings.hqRate > 0 && snapshot?.inr_per_usd && Math.abs(settings.hqRate - snapshot.inr_per_usd) >= 0.01 ? ` · HQ ₹${settings.hqRate}` : ''}
             </span>
             <Button size="sm" variant="outline" className="h-8" disabled={syncing} onClick={() => refresh(settings.overheadMonths)}>
               <RefreshCw className={syncing ? 'h-3.5 w-3.5 mr-1.5 animate-spin' : 'h-3.5 w-3.5 mr-1.5'} />
@@ -100,7 +102,7 @@ const Analytics = () => {
             <h2 className="text-sm font-semibold uppercase tracking-wide">Projections <span className="font-normal normal-case text-muted-foreground">· as of now</span></h2>
           </div>
           <ProjectionsZone
-            snapshot={snapshot} ccy={ccy} hqRate={settings.hqRate || 84}
+            snapshot={snapshot} ccy={ccy} hqRate={settings.hqRate || snapshot?.inr_per_usd || 0}
             includePipeline={includePipeline} setIncludePipeline={v => setParam('pipeline', v ? null : '0')}
             overheadMonths={settings.overheadMonths} setOverheadMonths={n => saveSetting('overhead_avg_months', n, 'overheadMonths')}
           />

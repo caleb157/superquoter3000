@@ -24,13 +24,11 @@ type ExportTable = {
 const EXPORT_TABLES: ExportTable[] = [
   // Inquiries
   { id: 'customer_rfqs', label: 'Inquiries', group: 'Inquiries', description: 'Top-level inquiries with status, customer, PO info.', defaultSelected: true },
-  { id: 'inquiry_received_rfqs', label: 'Received RFQs (log)', group: 'Inquiries', defaultSelected: true },
   { id: 'inquiry_received_rfs', label: 'Received RFS (old log, moved to sample requests)', group: 'Inquiries', defaultSelected: false },
   { id: 'inquiry_status_events', label: 'Inquiry status events', group: 'Inquiries' },
 
   // Products and costing
   { id: 'products', label: 'Products', group: 'Products', defaultSelected: true },
-  { id: 'product_variants', label: 'Product variants', group: 'Products' },
   { id: 'cogs_items', label: 'COGS items (BOM)', group: 'Products', defaultSelected: true },
   { id: 'non_unit_cogs', label: 'Non-unit COGS', group: 'Products', defaultSelected: true },
   { id: 'overhead_items', label: 'Overhead items (labor)', group: 'Products', defaultSelected: true },
@@ -62,7 +60,6 @@ const EXPORT_TABLES: ExportTable[] = [
   { id: 'local_transport_locations', label: 'Local transport locations', group: 'Reference Data' },
   { id: 'box_data', label: 'Box prices', group: 'Reference Data' },
   { id: 'chemical_prices', label: 'Chemical prices', group: 'Reference Data' },
-  { id: 'wood_prices', label: 'Wood prices', group: 'Reference Data' },
   { id: 'hardware_prices', label: 'Hardware prices', group: 'Reference Data' },
   { id: 'labor_employees', label: 'Labor employees', group: 'Reference Data' },
   { id: 'company_entities', label: 'Company entities', group: 'Reference Data' },
