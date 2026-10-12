@@ -130,7 +130,7 @@ export function VendorRfqSheetDialog({ open, onOpenChange, inquiryId, productIds
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Target price, % below today's cost (or our budget, if lower)</Label>
+            <Label className="text-xs">Target price, % below our budget</Label>
             <Input type="number" min={0} max={100} step={1} className="h-9 w-24" value={discountPct} onChange={e => setDiscountPct(Number(e.target.value))} />
           </div>
           <div className="space-y-1.5">
