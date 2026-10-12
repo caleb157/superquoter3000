@@ -41,10 +41,10 @@ describe('auto labor estimate', () => {
     expect(r.rupeesPerRi).toBe(8);
     expect(r.finishingMh).toBeCloseTo((72 * 8) / 100, 9);
   });
-  it('non-wood uses MH/100RI × % wood, whatever the difficulty; no packaging means no packaging labor', () => {
+  it('non-wood gets no auto finishing hours; no packaging means no packaging labor', () => {
     const r = autoLaborEstimate({ product: { width_inch: 20, depth_inch: 10, height_inch: 30, finishing_difficulty: 'Easy', packaging_type: 'no_packaging' }, productType: iron, difficulties, employees });
-    expect(r.finishingMethod).toBe('per_100ri');
-    expect(r.finishingMh).toBeCloseTo(2 * 1 * (40 / 100), 9);
+    expect(r.finishingMethod).toBe('none');
+    expect(r.finishingMh).toBe(0);
     expect(r.packagingMh).toBe(0);
   });
 });

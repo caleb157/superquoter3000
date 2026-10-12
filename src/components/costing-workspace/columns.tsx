@@ -311,7 +311,7 @@ export const VIEWS: View[] = [
       difficultyCol,
       ro('rpri', '₹ / run. in.', r => (r.r.autoLabor.finishingMethod === 'ri_budget'
         ? inr(r.r.autoLabor.rupeesPerRi)
-        : <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground/60 cursor-default">n/a</span></TooltipTrigger><TooltipContent>Not a wood type: finishing uses the product type's MH per 100 running inches</TooltipContent></Tooltip>), 88,
+        : <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground/60 cursor-default">n/a</span></TooltipTrigger><TooltipContent>Not a wood type: finishing hours are entered by hand</TooltipContent></Tooltip>), 88,
         { hint: 'Wood finishing labor rate for the difficulty (Settings → Finishing difficulty)' }),
       woodCol,
       ro('fin_budget', 'Finish budget ₹', r => inr(r.r.autoLabor.finishingBudgetInr), 108,
