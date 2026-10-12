@@ -161,7 +161,7 @@ const VendorRfqSheet = () => {
         return {
           name: l.item_name, sku: p?.sku ?? null, photo_url: l.product_photo_url || p?.photo_url || null,
           dimensions: l.dimensions || null, finish: p ? (p.notes_finishes || p.finishing_difficulty || null) : null,
-          description: p ? null : l.description || null, notes: l.notes || null,
+          description: p ? null : l.description || null, notes: p ? null : l.notes || null,
           quantity: Number(l.quantity) || 0, units: l.units, target_price: l.target_price,
           specs: spec ? spec.specs : [l.dimensions ? { label: 'Size', value: l.dimensions } : null, l.description ? { label: 'Details', value: l.description } : null].filter(Boolean) as { label: string; value: string }[],
           noteLines: spec ? spec.notes : (l.notes ? [l.notes] : []),
@@ -300,7 +300,7 @@ const VendorRfqSheet = () => {
                 <Select value={layout} onValueChange={v => setLayout(v as 'cards' | 'table')}>
                   <SelectTrigger className="h-8 w-48 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cards">Large photos, specs and notes</SelectItem>
+                    <SelectItem value="cards">Large photos and specs</SelectItem>
                     <SelectItem value="table">Compact table</SelectItem>
                   </SelectContent>
                 </Select>

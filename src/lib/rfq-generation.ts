@@ -221,7 +221,6 @@ export async function generateRawPieceRfq(
       units: 'pc',
       estimated_cost: estCost,
       target_price: targetPrice,
-      notes: p.notes || undefined,
       sort_order: sortOrder++,
     });
   }

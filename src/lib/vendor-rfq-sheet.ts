@@ -148,7 +148,8 @@ const inch = (n: unknown) => {
 
 /**
  * What a vendor needs to quote a product, from the product and its included COGS lines:
- * size, type, wood share, finish, weight, MOQ and the hardware it carries, plus the product's notes.
+ * size, type, wood share, finish, weight, MOQ and the hardware it carries, plus its notes for vendors.
+ * The product's internal notes are left out: they are written for us and confuse vendors.
  */
 export function productSpecs(p: any, cogs: { product_id: string; cogs_type: string; component_name?: string | null; components_per_product?: number | null; units?: string | null; include?: string | null }[]): { specs: SpecLine[]; notes: string[] } {
   const specs: SpecLine[] = [];
@@ -166,8 +167,8 @@ export function productSpecs(p: any, cogs: { product_id: string; cogs_type: stri
       && !/^(Hardware|Accessory) \d+$/i.test((c.component_name || '').trim()) && Number(c.components_per_product) > 0)
     .map(c => `${c.component_name!.trim()} x ${+Number(c.components_per_product).toFixed(2)}${c.units && c.units !== 'pc' ? ` ${c.units}` : ''}`);
   if (hardware.length) specs.push({ label: 'Hardware', value: hardware.join(', ') });
-  const notes = [p?.notes_vendors, p?.notes].map(n => String(n || '').trim()).filter(Boolean);
-  return { specs, notes: [...new Set(notes)] };
+  const notes = [p?.notes_vendors].map(n => String(n || '').trim()).filter(Boolean);
+  return { specs, notes };
 }
 
 export function defaultReplyBy(now: Date = new Date(), days = 3): string {
