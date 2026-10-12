@@ -15,7 +15,7 @@ const ODOO_DB = Deno.env.get('ODOO_DB') ?? 'parableventures';
 const ODOO_USER = Deno.env.get('ODOO_USERNAME') ?? '';
 const ODOO_KEY = Deno.env.get('ODOO_API_KEY') ?? '';
 const LABOR_TYPES = ['Manufacturing', 'Finishing', 'Assembly', 'Packaging', 'QC', 'Market'];
-const LABOR_MONTHS = 6;
+const LABOR_MONTHS = 3; // running 3-month average, same window for burdened and direct rates
 
 let rpcId = 0;
 async function rpc(service: string, method: string, args: unknown[]) {

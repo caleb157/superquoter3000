@@ -16,7 +16,7 @@ export function inrPerUnitFromOdoo(row: { rate?: unknown; inverse_rate?: unknown
 }
 
 /** The last `months` complete calendar months before `today` (YYYY-MM-DD, end inclusive). */
-export function laborWindow(today: string, months = 6): { from: string; to: string } {
+export function laborWindow(today: string, months = 3): { from: string; to: string } {
   const d = new Date(today.slice(0, 10) + 'T00:00:00Z');
   const firstOfThisMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
   const to = new Date(firstOfThisMonth.getTime() - 86400000);

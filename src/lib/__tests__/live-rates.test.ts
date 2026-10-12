@@ -18,8 +18,8 @@ describe('Odoo / LaborTrax math', () => {
     expect(inrPerUnitFromOdoo({})).toBe(0);
   });
 
-  it('uses the last six complete months', () => {
-    expect(laborWindow('2026-10-12')).toEqual({ from: '2026-04-01', to: '2026-09-30' });
+  it('uses the last three complete months by default', () => {
+    expect(laborWindow('2026-10-12')).toEqual({ from: '2026-07-01', to: '2026-09-30' });
     expect(laborWindow('2026-01-05', 6)).toEqual({ from: '2025-07-01', to: '2025-12-31' });
   });
 
