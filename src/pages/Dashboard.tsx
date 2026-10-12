@@ -31,6 +31,9 @@ import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquir
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { useInquiryTotals } from '@/hooks/use-inquiry-totals';
+import { sumInquiryTotals, type InquiryTotals } from '@/lib/inquiry-totals';
+import { withStoredMh } from '@/lib/stored-man-hours';
+import { readSnapshot, writeSnapshot } from '@/lib/page-snapshot';
 import { fetchAllRows } from '@/lib/supabase-paged';
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -53,7 +56,12 @@ type Product = {
   id: string; customer_rfq_id: string | null; name: string; quantity: number | null;
   design_stage: string | null; quote_stage: string | null; sample_stage: string | null;
   archived_at?: string | null;
+  calculated_unit_price_usd?: number | null;
+  calculated_unit_cost_usd?: number | null;
+  calculated_man_hours_per_unit?: number | null;
 };
+
+type DashboardSnapshot = { inquiries: Inquiry[]; customers: Customer[]; products: Product[]; reviewProductIds: Set<string> };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
   { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
@@ -77,10 +85,12 @@ function matchesStatusFilter(i: { status: string }, f: StatusFilter): boolean {
 const Dashboard = () => {
   useDocumentTitle('Inquiries');
   const navigate = useNavigate();
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Coming back to the list shows the last loaded data at once while it reloads.
+  const [snap] = useState(() => readSnapshot<DashboardSnapshot>('dashboard'));
+  const [inquiries, setInquiries] = useState<Inquiry[]>(snap?.inquiries ?? []);
+  const [customers, setCustomers] = useState<Customer[]>(snap?.customers ?? []);
+  const [products, setProducts] = useState<Product[]>(snap?.products ?? []);
+  const [loading, setLoading] = useState(!snap);
 
   const [search, setSearch] = usePersistentState<string>('dashboard.search', '');
   const [statusFilter, setStatusFilter] = usePersistentState<StatusFilter>('dashboard.statusFilter', 'open');
@@ -91,10 +101,7 @@ const Dashboard = () => {
   const [showNewInquiry, setShowNewInquiry] = useState(false);
   const [newInquiryStatus, setNewInquiryStatus] = useState<'active' | 'projected_po'>('active');
 
-  const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(new Set());
-  
-
-  
+  const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(snap?.reviewProductIds ?? new Set());
 
   const mobileListRef = useRef<HTMLDivElement>(null);
   const desktopListRef = useRef<HTMLDivElement>(null);
@@ -107,7 +114,9 @@ const Dashboard = () => {
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
-        fetchAllRows<Product>(() => supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, archived_at').order('id')),
+        // Saved price, cost and man-hours give the totals before the live run finishes.
+        withStoredMh('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, archived_at, calculated_unit_price_usd, calculated_unit_cost_usd',
+          (cols) => fetchAllRows<Product>(() => supabase.from('products').select(cols).order('id'))),
         fetchAllRows<any>(() => supabase.from('cogs_items').select('product_id').eq('include', 'Review').order('id')),
         fetchAllRows<any>(() => supabase.from('overhead_items').select('product_id').eq('include', 'Review').order('id')),
       ]);
@@ -121,6 +130,10 @@ const Dashboard = () => {
       setLoading(false);
     })();
   }, [refreshKey]);
+
+  useEffect(() => {
+    if (!loading) writeSnapshot<DashboardSnapshot>('dashboard', { inquiries, customers, products, reviewProductIds });
+  }, [loading, inquiries, customers, products, reviewProductIds]);
 
   // Keep the list live: re-read inquiries when the tab comes back into view.
   useEffect(() => {
@@ -147,11 +160,25 @@ const Dashboard = () => {
     () => inquiries.filter(i => matchesStatusFilter(i, statusFilter)).map(i => i.id),
     [inquiries, statusFilter],
   );
-  const { totalsByInquiry, pending: totalsPending } = useInquiryTotals(totalsIds);
-  const mhByInquiry = useMemo(
-    () => Object.fromEntries(Object.entries(totalsByInquiry).map(([id, t]) => [id, t.manHours])),
-    [totalsByInquiry],
-  );
+  const { totalsByInquiry: liveTotals, pending: totalsPending } = useInquiryTotals(totalsIds);
+  // Saved numbers show straight away; each inquiry's live result replaces them as it lands.
+  const totalsByInquiry = useMemo(() => {
+    const out: Record<string, InquiryTotals> = {};
+    for (const id of totalsIds) {
+      const live = liveTotals[id];
+      if (live) out[id] = live;
+      else if (productsByInquiry[id]?.length) out[id] = sumInquiryTotals(productsByInquiry[id], {});
+    }
+    return out;
+  }, [totalsIds, liveTotals, productsByInquiry]);
+  // Man-hours: live, else saved when every product has them saved (else "…" until live).
+  const mhByInquiry = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [id, t] of Object.entries(totalsByInquiry)) {
+      if (liveTotals[id] || (productsByInquiry[id] ?? []).every(p => p.calculated_man_hours_per_unit != null)) out[id] = t.manHours;
+    }
+    return out;
+  }, [totalsByInquiry, liveTotals, productsByInquiry]);
 
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
@@ -500,7 +527,7 @@ const Dashboard = () => {
                             {prods?.length ?? 0}
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums" title="Total projected man-hours (qty × live MH per unit)">
-                            {totalsPending.has(inq.id)
+                            {totalsPending.has(inq.id) && mhByInquiry[inq.id] == null
                               ? <span className="text-muted-foreground/60">…</span>
                               : (mhByInquiry[inq.id] ?? 0) > 0
                                 ? (mhByInquiry[inq.id]).toFixed(1)

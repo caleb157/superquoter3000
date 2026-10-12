@@ -25,6 +25,12 @@ describe('sumInquiryTotals', () => {
     expect(t.costUsd).toBe(40);
   });
 
+  it('uses saved man-hours until the live run has the product', () => {
+    const products = [{ id: 'a', quantity: 4, calculated_unit_price_usd: 10, calculated_unit_cost_usd: 8, calculated_man_hours_per_unit: 0.5 }];
+    expect(sumInquiryTotals(products, {}).manHours).toBe(2);
+    expect(sumInquiryTotals(products, { a: live(10, 8, 0.25) }).manHours).toBe(1);
+  });
+
   it('leaves out archived products', () => {
     const t = sumInquiryTotals(
       [{ id: 'a', quantity: 1 }, { id: 'b', quantity: 1, archived_at: '2026-10-01' }],

@@ -4,6 +4,7 @@
 // recomputed by the costing engine, so nothing here duplicates costing math.
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import { invalidateLiveCosts } from '@/lib/live-cost-cache';
 
 const db = supabase as any;
 
@@ -376,6 +377,7 @@ export async function applyIntake(
   }
   // Recompute and persist packaged CBM / cached prices through the shared engine.
   if (ids.length) {
+    invalidateLiveCosts();
     try { const { computeProductPriceAndCost } = await import('@/lib/product-pricing'); await computeProductPriceAndCost(ids); } catch { /* self-heals on open */ }
   }
   return res;
@@ -386,6 +388,7 @@ export async function applyIntakeToProduct(productId: string, row: IntakeRow): P
   const L = await loadLookups();
   const warnings: string[] = [];
   await applyRow(productId, row, L, m => warnings.push(m));
+  invalidateLiveCosts();
   try { const { computeProductPriceAndCost } = await import('@/lib/product-pricing'); await computeProductPriceAndCost([productId]); } catch { /* self-heals on open */ }
   return warnings;
 }

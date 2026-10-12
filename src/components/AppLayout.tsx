@@ -21,6 +21,7 @@ import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import hqLogo from '@/assets/hq-logo.png';
 import { refreshLiveRatesIfStale } from '@/lib/live-rates-sync';
+import { noteRouteForLiveCosts } from '@/lib/live-cost-cache';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, isAdmin, isAdminOrTeam, signOut } = useAuth();
@@ -31,6 +32,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [taskOpen, setTaskOpen] = useState(false);
   useEffect(() => { if (user) { loadFobRates(); loadProjectionDefaults(); } }, [user]);
   useEffect(() => { if (user && isAdminOrTeam) void refreshLiveRatesIfStale(); }, [user, isAdminOrTeam]);
+  useEffect(() => { noteRouteForLiveCosts(location.pathname); }, [location.pathname]);
 
   // Route-derived context so the global "T" shortcut pre-fills the task dialog
   const taskContext = useMemo<TaskContext>(() => {

@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { fetchAllRows } from '@/lib/supabase-paged';
+import { getLiveCosts, setLiveCosts } from '@/lib/live-cost-cache';
+import { readSnapshot, writeSnapshot } from '@/lib/page-snapshot';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,18 +38,26 @@ import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 
+type CostData = { cost_usd: number; price_usd: number };
+type ProductsSnapshot = {
+  products: any[]; inquiries: any[]; customers: any[]; productTypes: any[];
+  cbmMap: Record<string, any>; reviewIds: Set<string>; costDataMap: Record<string, CostData>;
+};
+
 const Products = () => {
   useDocumentTitle('Products');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState<any[]>([]);
-  const [inquiries, setInquiries] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [productTypes, setProductTypes] = useState<any[]>([]);
-  const [cbmMap, setCbmMap] = useState<Record<string, any>>({});
-  const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
-  const [costDataMap, setCostDataMap] = useState<Record<string, { cost_usd: number; price_usd: number }>>({});
-  const [loading, setLoading] = useState(true);
+  // Coming back to the list shows the last loaded data at once while it reloads.
+  const [snap] = useState(() => readSnapshot<ProductsSnapshot>('products'));
+  const [products, setProducts] = useState<any[]>(snap?.products ?? []);
+  const [inquiries, setInquiries] = useState<any[]>(snap?.inquiries ?? []);
+  const [customers, setCustomers] = useState<any[]>(snap?.customers ?? []);
+  const [productTypes, setProductTypes] = useState<any[]>(snap?.productTypes ?? []);
+  const [cbmMap, setCbmMap] = useState<Record<string, any>>(snap?.cbmMap ?? {});
+  const [reviewIds, setReviewIds] = useState<Set<string>>(snap?.reviewIds ?? new Set());
+  const [costDataMap, setCostDataMap] = useState<Record<string, CostData>>(snap?.costDataMap ?? {});
+  const [loading, setLoading] = useState(!snap);
   const [search, setSearch] = usePersistentState<string>('products.search', '');
   const [filterInquiry, setFilterInquiry] = usePersistentState<string>('products.filterInquiry', 'all');
   const [filterCustomer, setFilterCustomer] = usePersistentState<string>('products.filterCustomer', 'all');
@@ -100,19 +110,34 @@ const Products = () => {
 
       setReviewIds(new Set([...cogsRes, ...ohRes].map((r: any) => r.product_id).filter(Boolean)));
 
-      // Use shared helper so prices match the costing sheet (includes auto-calc rows for
-      // packaging boxes, finishing materials, finishing/packaging labor, etc.)
-      const priceMap = await computeProductPriceAndCost(prods.map((p: any) => p.id));
-      const cMap: Record<string, { cost_usd: number; price_usd: number }> = {};
+      // Saved prices show at once (plus live ones kept from an earlier visit); the live
+      // engine then prices the rest so they match the costing sheet (auto-calc rows for
+      // packaging boxes, finishing materials, finishing/packaging labor, etc.).
+      const ids = prods.map((p: any) => p.id);
+      const cachedLive = getLiveCosts<CostData>('product-costs', ids);
+      const stored: Record<string, CostData> = {};
+      prods.forEach((p: any) => {
+        stored[p.id] = cachedLive[p.id] ?? { cost_usd: Number(p.calculated_unit_cost_usd) || 0, price_usd: Number(p.calculated_unit_price_usd) || 0 };
+      });
+      setCostDataMap(stored);
+      setLoading(false);
+
+      const todo = ids.filter((id: string) => !cachedLive[id]);
+      if (!todo.length) return;
+      const priceMap = await computeProductPriceAndCost(todo);
+      const cMap: Record<string, CostData> = {};
       Object.entries(priceMap).forEach(([id, v]) => {
         cMap[id] = { cost_usd: v.unit_cost_usd, price_usd: v.unit_price_usd };
       });
-      setCostDataMap(cMap);
-
-      setLoading(false);
+      setLiveCosts('product-costs', cMap, id => priceMap[id]?.customer_rfq_id ?? null);
+      setCostDataMap(prev => ({ ...prev, ...cMap }));
     };
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    if (!loading) writeSnapshot<ProductsSnapshot>('products', { products, inquiries, customers, productTypes, cbmMap, reviewIds, costDataMap });
+  }, [loading, products, inquiries, customers, productTypes, cbmMap, reviewIds, costDataMap]);
 
   const inquiryMap = Object.fromEntries(inquiries.map(p => [p.id, p]));
   const customerMap = Object.fromEntries(customers.map(c => [c.id, c]));
