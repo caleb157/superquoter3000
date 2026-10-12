@@ -13,6 +13,7 @@ import type { FreightInput, FreightMode } from '@/lib/freight';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { createQuoteVersion, isSentQuote } from '@/lib/quote-versions';
+import { loadProjectionPaymentTerms } from '@/lib/projection-payment-terms';
 import { costRiseText, useCostRiseWarnings } from '@/components/CostRiseWarnings';
 
 type SnapshotLine = {
@@ -59,6 +60,8 @@ type Status = 'idle' | 'saving' | 'saved' | 'error';
 export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: Props) {
   const [lines, setLines] = useState<Array<SnapshotLine & { _key: string }>>([]);
   const [paymentTerms, setPaymentTerms] = useState<string>('');
+  // True while the payment terms shown are the Projection tab's, filled into an empty draft.
+  const [termsFromProjection, setTermsFromProjection] = useState(false);
   const [incoterm, setIncoterm] = useState<string>('');
   const [shippingTypes, setShippingTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [freightMode, setFreightMode] = useState<FreightMode>('sea');
@@ -102,6 +105,18 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
     const pt = (snapshot.payment_terms ?? '') as string;
     setPaymentTerms(pt);
     initialPaymentTermsRef.current = pt;
+    setTermsFromProjection(false);
+    // An empty draft takes the inquiry's Projection tab terms; typed terms and sent quotes are left alone.
+    if (!pt.trim() && !isSentQuote(snapshot) && snapshot.customer_rfq_id) {
+      loadProjectionPaymentTerms(snapshot.customer_rfq_id).then(text => {
+        if (!text) return;
+        setPaymentTerms(prev => {
+          if (prev.trim()) return prev;
+          setTermsFromProjection(true);
+          return text;
+        });
+      }).catch(() => {});
+    }
     const ic = ((snapshot as any).incoterm ?? '') as string;
     setIncoterm(ic);
     initialIncotermRef.current = ic;
@@ -535,12 +550,14 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Payment terms</Label>
           <Input
             value={paymentTerms}
-            onChange={e => { setPaymentTerms(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+            onChange={e => { setPaymentTerms(e.target.value); setTermsFromProjection(false); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
             placeholder="e.g. 50% advance, 50% before shipment"
             className="h-8 text-xs"
             disabled={status === 'saving'}
           />
-          <p className="text-[10px] text-muted-foreground">Shown near the top of the customer-facing quote. Leave blank to omit.</p>
+          <p className="text-[10px] text-muted-foreground">
+            {termsFromProjection ? 'Filled from the Projection tab; save to keep. ' : ''}Shown near the top of the customer-facing quote. Leave blank to omit.
+          </p>
         </div>
 
         <div className="rounded-md border p-3 bg-card space-y-1.5">

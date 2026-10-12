@@ -2,7 +2,7 @@
 // search box can jump to a setting by name (e.g. "exchange rate" finds Live rates).
 
 export type SectionId =
-  | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'team' | 'integrations' | 'projections'
+  | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'quote-terms' | 'team' | 'integrations' | 'projections'
   | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
@@ -19,7 +19,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'general', label: 'General', keywords: ['auto transport', 'slow quote', 'slow sample', 'threshold', 'below moq', 'surcharge'] },
       { id: 'live-rates', label: 'Live rates', keywords: ['live', 'odoo', 'trax', 'exchange rate', 'inr usd', 'fully burdened', 'indirect overhead', 'man-hour', 'direct wages'] },
-      { id: 'entities', label: 'Company entities', keywords: ['entity', 'parable ventures', 'dkt', 'logo', 'address', 'bank', 'gst', 'quote terms', 'terms and policies'] },
+      { id: 'entities', label: 'Company entities', keywords: ['entity', 'parable ventures', 'dkt', 'logo', 'address', 'bank', 'gst'] },
+      { id: 'quote-terms', label: 'Quote Terms', keywords: ['terms and policies', 'clauses', 'validity', 'lead time', 'changelog', 'quote pdf'] },
       { id: 'currencies', label: 'Currencies', keywords: ['currency', 'import rate', 'export rate', 'fx', 'gbp', 'eur', 'aud'] },
       { id: 'team', label: 'Team', keywords: ['users', 'members', 'roles', 'admin', 'access', 'assignee'] },
       { id: 'projections', label: 'Projections', keywords: ['certainty', 'repeat order', 'deposit', 'inter-entity', 'cash flow'] },
