@@ -381,6 +381,15 @@ export async function applyIntake(
   return res;
 }
 
+/** Apply one row to a product that already exists (e.g. one just created), then recompute its cached price. */
+export async function applyIntakeToProduct(productId: string, row: IntakeRow): Promise<string[]> {
+  const L = await loadLookups();
+  const warnings: string[] = [];
+  await applyRow(productId, row, L, m => warnings.push(m));
+  try { const { computeProductPriceAndCost } = await import('@/lib/product-pricing'); await computeProductPriceAndCost([productId]); } catch { /* self-heals on open */ }
+  return warnings;
+}
+
 export function matchProduct(prods: any[], row: IntakeRow) {
   const sku = (row.sku || '').toLowerCase().trim();
   const name = (row.name || '').toLowerCase().trim();
