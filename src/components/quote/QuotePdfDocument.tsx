@@ -265,6 +265,21 @@ const QuotePdfDocument = ({
       }).join('   ·   ')
     : null;
 
+  const pageFooter = (
+    <>
+      <Text style={s.footer} fixed>
+        All prices are subject to final confirmation.
+        {entity?.name ? `  ·  ${entity.name}` : ''}
+        {quoteNumber ? `  ·  ${quoteNumber}` : ''}
+      </Text>
+      <Text
+        style={s.pageNum}
+        render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+        fixed
+      />
+    </>
+  );
+
   return (
     <Document
       title={`Quote ${quoteNumber}`}
@@ -448,36 +463,27 @@ const QuotePdfDocument = ({
           </View>
         ) : null}
 
-        {/* Terms and policies: two columns, flowing straight after the totals */}
-        {clauses.length > 0 ? (
-          <View>
-            <Text style={s.termsHeading} minPresenceAhead={60}>Terms and Policies</Text>
-            <View style={s.termsCols}>
-              {termCols.map((col, ci) => (
-                <View key={ci} style={{ flex: 1 }}>
-                  {col.map((c) => (
-                    <Text key={c.key} style={s.clause} wrap={false}>
-                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>{c.n}. {c.title}. </Text>{c.text}
-                    </Text>
-                  ))}
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {/* Footer */}
-        <Text style={s.footer} fixed>
-          All prices are subject to final confirmation.
-          {entity?.name ? `  ·  ${entity.name}` : ''}
-          {quoteNumber ? `  ·  ${quoteNumber}` : ''}
-        </Text>
-        <Text
-          style={s.pageNum}
-          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-          fixed
-        />
+        {pageFooter}
       </Page>
+      {/* Terms and policies always start on their own page, so they never split
+          under the item table's repeating header. */}
+      {clauses.length > 0 ? (
+        <Page size={size} orientation={orientation} style={s.page} wrap>
+          <Text style={[s.termsHeading, { marginTop: 0 }]}>Terms and Policies</Text>
+          <View style={s.termsCols}>
+            {termCols.map((col, ci) => (
+              <View key={ci} style={{ flex: 1 }}>
+                {col.map((c) => (
+                  <Text key={c.key} style={s.clause} wrap={false}>
+                    <Text style={{ fontFamily: 'Helvetica-Bold' }}>{c.n}. {c.title}. </Text>{c.text}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+          {pageFooter}
+        </Page>
+      ) : null}
     </Document>
   );
 };
