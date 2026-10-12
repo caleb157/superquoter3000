@@ -13,7 +13,6 @@ vi.mock('@/components/UploadParseDialog', () => ({ UploadParseDialog: () => null
 vi.mock('@/components/QuickAddProductsDialog', () => ({ QuickAddProductsDialog: () => null }));
 vi.mock('@/components/CopyProductsDialog', () => ({ CopyProductsDialog: () => null }));
 vi.mock('@/components/HardwareSyncDialog', () => ({ HardwareSyncDialog: () => null }));
-vi.mock('@/components/BulkCostingUpdateDialog', () => ({ BulkCostingUpdateDialog: () => null }));
 vi.mock('@/components/BulkQuantityDialog', () => ({ BulkQuantityDialog: () => null }));
 vi.mock('@/components/BulkLogRfqRfsDialog', () => ({ BulkLogRfqRfsDialog: () => null }));
 vi.mock('@/lib/hardware-sync', () => ({

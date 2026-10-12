@@ -49,7 +49,8 @@ export default function CostingWorkspace() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('sheet');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // ?select=id,id (from the inquiry's Bulk edit menu) starts with those products selected.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set((params.get('select') || '').split(',').filter(Boolean)));
   const lastClicked = useRef<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [extraSlots, setExtraSlots] = useState(0);
@@ -72,6 +73,7 @@ export default function CostingWorkspace() {
     setLoading(false);
   }, [inquiryId]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results = useMemo(() => (bundle ? computeResults(bundle) : new Map()), [bundle]);
   const rows = useMemo(() => (bundle ? buildRows(bundle, results) : []), [bundle, results]);
