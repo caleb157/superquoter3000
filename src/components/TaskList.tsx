@@ -4,12 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Paperclip, Flag, Repeat, Wrench } from 'lucide-react';
+import { Pencil, Paperclip, Flag, Repeat, Wrench, FolderKanban } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDueDate, localDateStr, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
 import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
-import { associationMeta, APP_FIX } from '@/lib/task-association';
+import { associationMeta, APP_FIX, PROJECT } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
 import { PostponeMenu } from '@/components/PostponeMenu';
@@ -22,6 +22,8 @@ type TaskListProps = {
   inquiryId?: string;
   productId?: string;
   customerId?: string;
+  /** Tasks linked to this project. */
+  projectId?: string;
   /** When set, fetches tasks where customer_id = X OR inquiry_id IN (inquiries of customer X). */
   customerIdIncludingInquiries?: string;
   assignee?: string;
@@ -44,7 +46,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
-  inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind = 'all',
+  inquiryId, productId, customerId, projectId, customerIdIncludingInquiries, assignee, kind = 'all',
   status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
   showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false, onChanged, emptyText = 'No tasks', narrow = false,
 }: TaskListProps) {
@@ -73,6 +75,7 @@ export function TaskList({
       );
       if (inquiryId) q = q.eq('inquiry_id', inquiryId);
       if (customerId) q = q.eq('customer_id', customerId);
+      if (projectId) q = q.eq('association_type', PROJECT).eq('association_id', projectId);
       if (customerIdIncludingInquiries) {
         if (inquiryIdsForCustomer && inquiryIdsForCustomer.length > 0) {
           q = q.or(
@@ -96,7 +99,7 @@ export function TaskList({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind, status, refreshKey, internalRefresh]);
+  }, [inquiryId, productId, customerId, projectId, customerIdIncludingInquiries, assignee, kind, status, refreshKey, internalRefresh]);
 
   const filteredSorted = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -127,7 +130,9 @@ export function TaskList({
       } else if (sort === 'created_at') {
         res = (a.created_at ?? '').localeCompare(b.created_at ?? '');
       } else if (sort === 'inquiry') {
-        const linked = (t: TaskWithRefs) => (t as any).association_type === APP_FIX ? 'App fix' : (t.inquiry?.title || t.inquiry?.rfq_number || '');
+        const linked = (t: TaskWithRefs) => (t as any).association_type === APP_FIX ? 'App fix'
+          : (t as any).association_type === PROJECT ? ((t as any).association_label || '')
+          : (t.inquiry?.title || t.inquiry?.rfq_number || '');
         res = cmpStr(linked(a), linked(b));
       } else if (sort === 'title') {
         res = cmpStr(a.title || '', b.title || '');
@@ -229,6 +234,12 @@ export function TaskList({
             : aType === 'customer' && t.customer
               ? <Link to={`/customers/${t.customer.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
                   <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
+                </Link>
+            : aType === PROJECT && aId
+              ? <Link to={`/projects/${aId}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
+                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate gap-1 border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                    <FolderKanban className="h-3 w-3 shrink-0" /><span className="truncate">{aLabel || 'Project'}</span>
+                  </Badge>
                 </Link>
             : aType === APP_FIX
               ? <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
