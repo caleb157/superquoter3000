@@ -207,7 +207,7 @@ var add_cogs_item_default = defineTool6({
   description: "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
   inputSchema: {
     product_id: z5.string().uuid().describe("UUID of the target product."),
-    cogs_type: z5.enum(COGS_TYPES).describe("Category of the COGS line."),
+    cogs_type: z5.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
     component_name: z5.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
     unit_cost_inr: z5.number().nonnegative().describe("Unit cost in INR."),
     vendor_name: z5.string().optional().describe("Optional vendor name."),
@@ -324,7 +324,7 @@ var update_cogs_item_default = defineTool8({
     cogs_item_id: z7.string().uuid().optional().describe("Direct UUID of the cogs_items row to update."),
     product_id: z7.string().uuid().optional().describe("Product UUID (required if cogs_item_id not given)."),
     component_name: z7.string().optional().describe("Component name to match (case-insensitive) when cogs_item_id not given."),
-    cogs_type: z7.enum(COGS_TYPES2).optional().describe("Optional category to disambiguate the match."),
+    cogs_type: z7.enum([COGS_TYPES2[0], ...COGS_TYPES2.slice(1)]).optional().describe("Optional category to disambiguate the match."),
     unit_cost_inr: z7.number().nonnegative().optional().describe("New unit cost in INR."),
     vendor_name: z7.string().optional().describe("New vendor name."),
     units: z7.string().optional().describe("New unit of measure."),
