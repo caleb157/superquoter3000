@@ -3,7 +3,7 @@
 
 export type SectionId =
   | 'task-automations' | 'general' | 'entities' | 'team' | 'integrations' | 'projections'
-  | 'vendors' | 'customers' | 'employees'
+  | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
   | 'currencies' | 'finishing-difficulty'
@@ -58,8 +58,6 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Data',
     items: [
-      { id: 'vendors', label: 'Vendors', keywords: ['suppliers', 'vendor list'] },
-      { id: 'customers', label: 'Customers', keywords: ['clients', 'buyers'] },
       { id: 'data-export', label: 'Data export', keywords: ['backup', 'download', 'excel', 'xlsx', 'csv'] },
     ],
   },
