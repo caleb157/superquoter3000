@@ -40,7 +40,8 @@ import { fmt } from '@/lib/formatters';
 import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
-import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { type ProductPriceCostMap } from '@/lib/product-pricing';
+import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
 import { recostProduct, recostInquiry } from '@/lib/costing-seed';
 import { recordCostPoint } from '@/lib/cost-history';
 import { RefreshCw } from 'lucide-react';
@@ -247,6 +248,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
 
   useEffect(() => {
+    const since = Date.now();
     (async () => {
       let query = (supabase as any)
         .from('products')
@@ -267,7 +269,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       if (rows.length > 0) {
         const ids = rows.map((p: any) => p.id);
         const [prices, cogsRes, ohRes] = await Promise.all([
-          computeProductPriceAndCost(ids),
+          computeInquiryPriceAndCost(inquiryId, since),
           supabase.from('cogs_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
           supabase.from('overhead_items').select('product_id, include').in('product_id', ids).eq('include', 'Review'),
         ]);

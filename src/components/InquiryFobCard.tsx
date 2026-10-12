@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { computeFob, isFobPerUnit, type FobPerUnit, type Fumigation, type Wlc } from '@/lib/fob';
 import { loadFobRates } from '@/lib/fob-rates';
 import { applyLiveRates } from '@/lib/live-rates';
-import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
 import { fmt } from '@/lib/formatters';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
 
@@ -43,11 +43,12 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
 
   useEffect(() => {
     if (external) return;
+    const since = Date.now();
     (async () => {
       const { data } = await supabase.from('products').select('id').eq('customer_rfq_id', inquiryId).is('archived_at', null);
       const ids = (data || []).map((p: any) => p.id);
       if (!ids.length) { setPool({ cbm: 0, cartons: 0, count: 0 }); return; }
-      const map = await computeProductPriceAndCost(ids);
+      const map = await computeInquiryPriceAndCost(inquiryId, since);
       let c = 0, k = 0;
       for (const id of ids) {
         const v = map[id]; if (!v) continue;
