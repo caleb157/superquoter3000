@@ -1923,6 +1923,62 @@ export type Database = {
           },
         ]
       }
+      product_cost_history: {
+        Row: {
+          created_by: string | null
+          exchange_rate: number | null
+          id: string
+          man_hours: number | null
+          markup_percent: number | null
+          parts: Json
+          product_id: string
+          raw_vendor: string | null
+          reason: string | null
+          recorded_at: string
+          unit_cost_inr: number | null
+          unit_cost_usd: number | null
+          unit_price_usd: number | null
+        }
+        Insert: {
+          created_by?: string | null
+          exchange_rate?: number | null
+          id?: string
+          man_hours?: number | null
+          markup_percent?: number | null
+          parts?: Json
+          product_id: string
+          raw_vendor?: string | null
+          reason?: string | null
+          recorded_at?: string
+          unit_cost_inr?: number | null
+          unit_cost_usd?: number | null
+          unit_price_usd?: number | null
+        }
+        Update: {
+          created_by?: string | null
+          exchange_rate?: number | null
+          id?: string
+          man_hours?: number | null
+          markup_percent?: number | null
+          parts?: Json
+          product_id?: string
+          raw_vendor?: string | null
+          reason?: string | null
+          recorded_at?: string
+          unit_cost_inr?: number | null
+          unit_cost_usd?: number | null
+          unit_price_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_cost_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_stage_events: {
         Row: {
           actor: string | null
@@ -2986,9 +3042,9 @@ export type Database = {
           status: string | null
           title: string | null
           updated_at: string | null
-          vendor_id: string | null
           vendor_address: string | null
           vendor_email: string | null
+          vendor_id: string | null
           vendor_name: string | null
           vendor_phone: string | null
           vendor_response_lead_time_days: number | null
@@ -3013,9 +3069,9 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
-          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
+          vendor_id?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
           vendor_response_lead_time_days?: number | null
@@ -3040,9 +3096,9 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
-          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
+          vendor_id?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
           vendor_response_lead_time_days?: number | null
@@ -3055,6 +3111,13 @@ export type Database = {
             columns: ["customer_rfq_id"]
             isOneToOne: false
             referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_rfqs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -3241,6 +3304,7 @@ export type Database = {
       get_rfq_by_share_token: {
         Args: { _token: string }
         Returns: {
+          batch_id: string | null
           created_at: string | null
           created_by: string | null
           customer_rfq_id: string | null
@@ -3259,6 +3323,7 @@ export type Database = {
           updated_at: string | null
           vendor_address: string | null
           vendor_email: string | null
+          vendor_id: string | null
           vendor_name: string | null
           vendor_phone: string | null
           vendor_response_lead_time_days: number | null
@@ -3282,6 +3347,7 @@ export type Database = {
           id: string
           item_name: string
           notes: string | null
+          picked_at: string | null
           product_id: string | null
           product_name: string | null
           product_photo_url: string | null
