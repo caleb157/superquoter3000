@@ -2,7 +2,7 @@
 // search box can jump to a setting by name (e.g. "exchange rate" finds Live rates).
 
 export type SectionId =
-  | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'quote-terms' | 'team' | 'integrations' | 'projections'
+  | 'task-automations' | 'general' | 'live-rates' | 'entities' | 'quote-terms' | 'team' | 'projections'
   | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
@@ -25,7 +25,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'team', label: 'Team', keywords: ['users', 'members', 'roles', 'admin', 'access', 'assignee'] },
       { id: 'projections', label: 'Projections', keywords: ['certainty', 'repeat order', 'deposit', 'inter-entity', 'cash flow'] },
       { id: 'task-automations', label: 'Task automations', keywords: ['tasks', 'odoo', 'webhook', 'rules', 'lead'] },
-      { id: 'integrations', label: 'Integrations', keywords: ['google sheets', 'sheet id', 'projections push'] },
     ],
   },
   {
