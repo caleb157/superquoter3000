@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildReplyGrid, productSpecs, isOpenRfq, planWinner, priceTone, whatsappMessage, defaultReplyBy, type SheetRfq, type SheetLine } from './vendor-rfq-sheet';
+import { vendorTargetPrice } from './rfq-generation';
 
 const rfq = (id: string, vendor: string): SheetRfq => ({ id, rfq_number: `RFQ-${id}`, vendor_id: null, vendor_name: vendor, status: 'sent', response_due: null });
 const line = (id: string, rfqId: string, productId: string, extra: Partial<SheetLine> = {}): SheetLine => ({
@@ -131,5 +132,19 @@ describe('isOpenRfq', () => {
     expect(isOpenRfq({ vendor_id: null, vendor_name: null })).toBe(true);
     expect(isOpenRfq({ vendor_id: null, vendor_name: 'Rao' })).toBe(false);
     expect(isOpenRfq({ vendor_id: 'v1', vendor_name: null })).toBe(false);
+  });
+});
+
+describe('vendorTargetPrice', () => {
+  it('never goes above what we pay today, even when the customer target allows more', () => {
+    expect(vendorTargetPrice(6000, 4000, 0.1)).toBe(3600);
+  });
+  it('uses the budget when it is below what we pay today', () => {
+    expect(vendorTargetPrice(3000, 4000, 0.1)).toBe(2700);
+  });
+  it('falls back to whichever figure exists', () => {
+    expect(vendorTargetPrice(0, 4000, 0)).toBe(4000);
+    expect(vendorTargetPrice(2504, 0, 0)).toBe(2500);
+    expect(vendorTargetPrice(-50, 0, 0.1)).toBeUndefined();
   });
 });

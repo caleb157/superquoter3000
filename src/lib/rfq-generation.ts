@@ -259,6 +259,18 @@ export async function generateHardwareRfq(inquiryId: string, productIds?: string
 //   Only shipping and margin are excluded.
 // mode 'outsourced'       → back-solve the whole ex-factory INR price for an outsourced
 //   product: only margin and shipping are pulled out; the vendor delivers finished, packed goods.
+/**
+ * The target price printed for vendors: the lower of the back-solved budget (what the customer's
+ * target lets us pay) and what we pay today on the costing sheet, less the discount, to the nearest ₹10.
+ * Capped at today's cost so a generous customer target never invites vendors to quote above it.
+ */
+export function vendorTargetPrice(budget: number, currentCost: number, discount: number): number | undefined {
+  const ceilings = [budget, currentCost].filter(v => Number.isFinite(v) && v > 0);
+  if (!ceilings.length) return undefined;
+  const t = Math.round((Math.min(...ceilings) * (1 - discount)) / 10) * 10;
+  return t > 0 ? t : undefined;
+}
+
 export type RawTargetMode = 'raw_piece' | 'finishing_packing' | 'outsourced';
 
 export async function generateRawPieceRfq(
@@ -373,10 +385,11 @@ export async function generateRawPieceRfq(
     const budget = targetUsd > 0 ? maxTotalCostInr - heldCostPerUnit : 0;
 
     const estCost = budget > 0 ? +budget.toFixed(2) : undefined;
-    const discountPercent = discount * 100;
-    const targetPrice = (estCost && estCost > 0)
-      ? Math.round((budget * (1 - discountPercent / 100)) / 10) * 10
-      : undefined;
+    // What we pay today for the same thing, as written on the costing sheet.
+    const currentCost = mode === 'raw_piece'
+      ? currentRawPieceCostPerUnit
+      : summary.product_cost_per_unit_inr - engineResult.shippingPerUnit;
+    const targetPrice = vendorTargetPrice(budget, currentCost, discount);
 
     const dims = (p.width_inch && p.depth_inch && p.height_inch)
       ? `${p.width_inch} × ${p.depth_inch} × ${p.height_inch} inches`
