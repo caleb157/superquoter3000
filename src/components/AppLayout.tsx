@@ -18,7 +18,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
-import hqLogo from '@/assets/dkt-logo.png';
+import hqLogo from '@/assets/hq-logo.png';
 import { refreshLiveRatesIfStale } from '@/lib/live-rates-sync';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -111,9 +111,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <Menu className="h-4 w-4" />
           </Button>
           <Link to="/" className="flex items-center gap-2 font-serif font-medium text-base tracking-tight shrink-0">
-            <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
-              <img src={hqLogo} alt="Product HQ" className="h-6 w-6 object-contain" />
-            </span>
+            <img src={hqLogo} alt="Product HQ" className="h-8 w-8 shrink-0" />
             <span className="hidden sm:inline">Product HQ</span>
           </Link>
           <span className="hidden sm:inline text-muted-foreground">/</span>
@@ -146,9 +144,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-80 p-4 flex flex-col">
           <div className="flex items-center gap-2 mb-4 mt-2">
-            <span className="h-8 w-8 rounded-lg bg-white dark:bg-white/10 flex items-center justify-center overflow-hidden ring-1 ring-border">
-              <img src={hqLogo} alt="Product HQ" className="h-6 w-6 object-contain" />
-            </span>
+            <img src={hqLogo} alt="Product HQ" className="h-8 w-8 shrink-0" />
             <span className="font-serif font-medium text-base">Product HQ</span>
           </div>
           <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
