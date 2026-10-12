@@ -872,6 +872,126 @@ export type Database = {
         }
         Relationships: []
       }
+      customs_exchange_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          id: string
+          notification_no: string | null
+          rate: number
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          notification_no?: string | null
+          rate: number
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          id?: string
+          notification_no?: string | null
+          rate?: number
+          source_url?: string | null
+        }
+        Relationships: []
+      }
+      export_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string | null
+          exchange_rate: number | null
+          id: string
+          invoice_no: string
+          notification_no: string | null
+          odoo_invoice_id: number | null
+          payload: Json
+          total_usd: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          exchange_rate?: number | null
+          id?: string
+          invoice_no: string
+          notification_no?: string | null
+          odoo_invoice_id?: number | null
+          payload: Json
+          total_usd?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string | null
+          exchange_rate?: number | null
+          id?: string
+          invoice_no?: string
+          notification_no?: string | null
+          odoo_invoice_id?: number | null
+          payload?: Json
+          total_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_documents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_documents_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "company_entities_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_packing_profiles: {
+        Row: {
+          gross_weight_kg: number | null
+          net_weight_kg: number | null
+          package_dims_in: string | null
+          package_kind: string | null
+          sku: string
+          units_per_package: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          gross_weight_kg?: number | null
+          net_weight_kg?: number | null
+          package_dims_in?: string | null
+          package_kind?: string | null
+          sku: string
+          units_per_package?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          gross_weight_kg?: number | null
+          net_weight_kg?: number | null
+          package_dims_in?: string | null
+          package_kind?: string | null
+          sku?: string
+          units_per_package?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       finishing_difficulty: {
         Row: {
           adjustment_factor: number
@@ -1919,6 +2039,62 @@ export type Database = {
             columns: ["customer_rfq_id"]
             isOneToOne: false
             referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_cost_history: {
+        Row: {
+          created_by: string | null
+          exchange_rate: number | null
+          id: string
+          man_hours: number | null
+          markup_percent: number | null
+          parts: Json
+          product_id: string
+          raw_vendor: string | null
+          reason: string | null
+          recorded_at: string
+          unit_cost_inr: number | null
+          unit_cost_usd: number | null
+          unit_price_usd: number | null
+        }
+        Insert: {
+          created_by?: string | null
+          exchange_rate?: number | null
+          id?: string
+          man_hours?: number | null
+          markup_percent?: number | null
+          parts?: Json
+          product_id: string
+          raw_vendor?: string | null
+          reason?: string | null
+          recorded_at?: string
+          unit_cost_inr?: number | null
+          unit_cost_usd?: number | null
+          unit_price_usd?: number | null
+        }
+        Update: {
+          created_by?: string | null
+          exchange_rate?: number | null
+          id?: string
+          man_hours?: number | null
+          markup_percent?: number | null
+          parts?: Json
+          product_id?: string
+          raw_vendor?: string | null
+          reason?: string | null
+          recorded_at?: string
+          unit_cost_inr?: number | null
+          unit_cost_usd?: number | null
+          unit_price_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_cost_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -2986,9 +3162,9 @@ export type Database = {
           status: string | null
           title: string | null
           updated_at: string | null
-          vendor_id: string | null
           vendor_address: string | null
           vendor_email: string | null
+          vendor_id: string | null
           vendor_name: string | null
           vendor_phone: string | null
           vendor_response_lead_time_days: number | null
@@ -3013,9 +3189,9 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
-          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
+          vendor_id?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
           vendor_response_lead_time_days?: number | null
@@ -3040,9 +3216,9 @@ export type Database = {
           status?: string | null
           title?: string | null
           updated_at?: string | null
-          vendor_id?: string | null
           vendor_address?: string | null
           vendor_email?: string | null
+          vendor_id?: string | null
           vendor_name?: string | null
           vendor_phone?: string | null
           vendor_response_lead_time_days?: number | null
@@ -3055,6 +3231,13 @@ export type Database = {
             columns: ["customer_rfq_id"]
             isOneToOne: false
             referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_rfqs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -3241,6 +3424,7 @@ export type Database = {
       get_rfq_by_share_token: {
         Args: { _token: string }
         Returns: {
+          batch_id: string | null
           created_at: string | null
           created_by: string | null
           customer_rfq_id: string | null
@@ -3259,6 +3443,7 @@ export type Database = {
           updated_at: string | null
           vendor_address: string | null
           vendor_email: string | null
+          vendor_id: string | null
           vendor_name: string | null
           vendor_phone: string | null
           vendor_response_lead_time_days: number | null
@@ -3282,6 +3467,7 @@ export type Database = {
           id: string
           item_name: string
           notes: string | null
+          picked_at: string | null
           product_id: string | null
           product_name: string | null
           product_photo_url: string | null
