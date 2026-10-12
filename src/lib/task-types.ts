@@ -12,6 +12,8 @@ export type TaskContext = {
   inquiryId?: string;
   productId?: string;
   customerId?: string;
+  /** Start a new task already tagged as an app fix. */
+  appFix?: boolean;
 };
 
 export const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;

@@ -1,9 +1,10 @@
 // The bulk grid: one row per SKU, columns from the active view. Sticky header, sticky
 // name column and a totals footer; the name cell opens the product panel.
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { isPhotoEstimated } from '@/lib/photo-intake';
 import { chooseQuote, setQuote, type Apply, type Bundle, type WorkspaceRow } from '@/lib/costing-workspace';
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, inr, moveForKey, navigate, navKeyDown, parseNum, usd } from './cells';
 import { writeGrid, type Col, type View } from './columns';
@@ -141,6 +142,12 @@ export function WorkspaceTable(p: Props) {
                       </div>
                     </div>
                   </button>
+                  {isPhotoEstimated(row.p) && (
+                    <Tooltip>
+                      <TooltipTrigger asChild><Sparkles className="h-4 w-4 shrink-0 text-violet-500" aria-label="Estimated from a photo" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-xs">Estimated from a photo. Open it to check the numbers and mark it checked.</TooltipContent>
+                    </Tooltip>
+                  )}
                   {issues.length > 0 && (
                     <Tooltip>
                       <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /></TooltipTrigger>
