@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, ArrowUpDown, Wrench } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,7 @@ export default function Tasks() {
   const userTouchedAssignee = useRef(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
+  const [filterKind, setFilterKind] = useState<'all' | 'app_fix' | 'work'>('all');
   const [sort, setSort] = useState<TaskSortKey>('due_date');
   const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
 
@@ -57,9 +58,11 @@ export default function Tasks() {
   };
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [newAppFix, setNewAppFix] = useState(false);
+  const openNew = (appFix: boolean) => { setNewAppFix(appFix); setDialogOpen(true); };
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useKeyboardShortcuts({ onNewItem: () => setDialogOpen(true) });
+  useKeyboardShortcuts({ onNewItem: () => openNew(false) });
 
   useEffect(() => {
     (async () => {
@@ -96,9 +99,14 @@ export default function Tasks() {
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-serif font-medium tracking-tight">Tasks</h1>
-          <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => openNew(true)} className="gap-1.5" title="Log a change needed in this app">
+              <Wrench className="h-4 w-4" /> App fix
+            </Button>
+            <Button size="sm" onClick={() => openNew(false)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -152,6 +160,15 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
 
+              <Select value={filterKind} onValueChange={(v) => setFilterKind(v as 'all' | 'app_fix' | 'work')}>
+                <SelectTrigger className="h-9 text-sm lg:w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All tasks</SelectItem>
+                  <SelectItem value="app_fix">App fixes only</SelectItem>
+                  <SelectItem value="work">Hide app fixes</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Sort dropdown removed — use column headers below to sort */}
             </div>
 
@@ -162,6 +179,7 @@ export default function Tasks() {
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
               customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
               assignee={filterAssignee}
+              kind={filterKind}
               status={filterStatus}
               dueWindow={filterDue}
               sort={sort}
@@ -171,7 +189,7 @@ export default function Tasks() {
           </CardContent>
         </Card>
 
-        <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => setRefreshKey(k => k + 1)} />
+        <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} context={newAppFix ? { appFix: true } : undefined} onSaved={() => setRefreshKey(k => k + 1)} />
       </div>
       
     </AppLayout>

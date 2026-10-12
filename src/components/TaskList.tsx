@@ -4,12 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Paperclip, Flag, Repeat } from 'lucide-react';
+import { Pencil, Paperclip, Flag, Repeat, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatDueDate, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
 import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
-import { associationMeta } from '@/lib/task-association';
+import { associationMeta, APP_FIX } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
 import { SwipeableTaskRow } from '@/components/SwipeableTaskRow';
 import { PostponeMenu } from '@/components/PostponeMenu';
@@ -25,6 +25,8 @@ type TaskListProps = {
   /** When set, fetches tasks where customer_id = X OR inquiry_id IN (inquiries of customer X). */
   customerIdIncludingInquiries?: string;
   assignee?: string;
+  /** 'app_fix' = only app fixes, 'work' = everything except app fixes. */
+  kind?: 'all' | 'app_fix' | 'work';
   status?: 'open' | 'done' | 'all';
   dueWindow?: DueWindow;
   sort?: TaskSortKey;
@@ -37,7 +39,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
-  inquiryId, productId, customerId, customerIdIncludingInquiries, assignee,
+  inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind = 'all',
   status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
   showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false,
 }: TaskListProps) {
@@ -79,6 +81,8 @@ export function TaskList({
         if (assignee === 'unassigned') q = q.is('assignee', null);
         else q = q.eq('assignee', assignee);
       }
+      if (kind === 'app_fix') q = q.eq('association_type', APP_FIX);
+      if (kind === 'work') q = q.or(`association_type.is.null,association_type.neq.${APP_FIX}`);
       if (status !== 'all') q = q.eq('status', status);
       const { data, error } = await q;
       if (cancelled) return;
@@ -87,7 +91,7 @@ export function TaskList({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, status, refreshKey, internalRefresh]);
+  }, [inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind, status, refreshKey, internalRefresh]);
 
   const filteredSorted = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -117,7 +121,8 @@ export function TaskList({
       } else if (sort === 'created_at') {
         res = (a.created_at ?? '').localeCompare(b.created_at ?? '');
       } else if (sort === 'inquiry') {
-        res = cmpStr(a.inquiry?.title || a.inquiry?.rfq_number || '', b.inquiry?.title || b.inquiry?.rfq_number || '');
+        const linked = (t: TaskWithRefs) => (t as any).association_type === APP_FIX ? 'App fix' : (t.inquiry?.title || t.inquiry?.rfq_number || '');
+        res = cmpStr(linked(a), linked(b));
       } else if (sort === 'title') {
         res = cmpStr(a.title || '', b.title || '');
       } else if (sort === 'assignee') {
@@ -216,6 +221,10 @@ export function TaskList({
               ? <Link to={`/customers/${t.customer.id}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
                   <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate">{customerPrimary(t.customer)}</Badge>
                 </Link>
+            : aType === APP_FIX
+              ? <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                  <Wrench className="h-3 w-3" />App fix
+                </Badge>
             : (aType === 'odoo_so' || aType === 'odoo_mo') && aId
               ? <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate font-mono" title={[aId, aLabel].filter(Boolean).join(' · ')}>
                   {associationMeta(aType)?.short} {aId}{aLabel ? ` · ${aLabel}` : ''}
