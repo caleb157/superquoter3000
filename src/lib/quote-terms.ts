@@ -37,3 +37,21 @@ export function buildQuoteClauses(entityTemplate: unknown, paymentTerms?: string
   const pay = paymentTerms?.trim();
   return base.map(c => (c.key === 'payment' && pay ? { ...c, text: pay } : { ...c }));
 }
+
+type ProjectionTerms = { cust_deposit_pct?: number | null; cust_other_pct?: number | null; cust_final_pct?: number | null };
+
+/** Readable payment terms from an inquiry projection's customer split (fractions, 0.3 = 30%),
+ *  e.g. "30% deposit, 70% before shipment". Final defaults to whatever deposit and other leave. */
+export function paymentTermsFromProjection(p: ProjectionTerms | null | undefined): string | null {
+  if (!p) return null;
+  const pct = (n: number) => Math.round(n * 100);
+  const deposit = Math.max(0, Number(p.cust_deposit_pct) || 0);
+  const other = Math.max(0, Number(p.cust_other_pct) || 0);
+  const final = p.cust_final_pct != null ? Math.max(0, Number(p.cust_final_pct) || 0) : Math.max(0, 1 - deposit - other);
+  if (pct(deposit) >= 100 && pct(other) === 0 && pct(final) === 0) return '100% in advance';
+  const parts: string[] = [];
+  if (pct(deposit) > 0) parts.push(`${pct(deposit)}% deposit`);
+  if (pct(other) > 0) parts.push(`${pct(other)}% during production`);
+  if (pct(final) > 0) parts.push(`${pct(final)}% before shipment`);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
