@@ -55,3 +55,28 @@ export function paymentTermsFromProjection(p: ProjectionTerms | null | undefined
   if (pct(final) > 0) parts.push(`${pct(final)}% before shipment`);
   return parts.length > 0 ? parts.join(', ') : null;
 }
+
+/** The list a quote would use for an entity: its own if set, else the built-in defaults. */
+export function effectiveQuoteClauses(entityTemplate: unknown): QuoteClause[] {
+  return Array.isArray(entityTemplate) && entityTemplate.length > 0 ? (entityTemplate as QuoteClause[]) : DEFAULT_QUOTE_CLAUSES;
+}
+
+/** Plain-words changelog lines between two terms lists, matched by clause key,
+ *  e.g. 'Added "Warranty"', 'Changed the text of "Lead time"'. Empty when nothing changed. */
+export function diffQuoteTerms(before: QuoteClause[], after: QuoteClause[]): string[] {
+  const lines: string[] = [];
+  const prev = new Map(before.map(c => [c.key, c]));
+  const next = new Map(after.map(c => [c.key, c]));
+  const name = (c: QuoteClause) => `"${c.title.trim() || 'Untitled'}"`;
+  for (const c of after) if (!prev.has(c.key)) lines.push(`Added ${name(c)}`);
+  for (const c of before) if (!next.has(c.key)) lines.push(`Removed ${name(c)}`);
+  for (const c of after) {
+    const old = prev.get(c.key);
+    if (!old) continue;
+    if (old.title.trim() !== c.title.trim()) lines.push(`Renamed ${name(old)} to ${name(c)}`);
+    if (old.text.trim() !== c.text.trim()) lines.push(`Changed the text of ${name(c)}`);
+  }
+  const kept = (list: QuoteClause[], other: Map<string, QuoteClause>) => list.filter(c => other.has(c.key)).map(c => c.key).join('|');
+  if (kept(before, next) !== kept(after, prev)) lines.push('Changed the order');
+  return lines;
+}
