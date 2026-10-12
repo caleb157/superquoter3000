@@ -1,52 +1,78 @@
+import { Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Settings from "./pages/Settings";
-import Products from "./pages/Products";
-import Customers from "./pages/Customers";
-import CustomerDetail from "./pages/CustomerDetail";
-import ProductDetail from "./pages/ProductDetail";
-import AssemblyDetail from "./pages/AssemblyDetail";
-import CustomerQuote from "./pages/CustomerQuote";
-import Quotes from "./pages/Quotes";
-import QuoteView from "./pages/QuoteView";
-import QuoteComparison from "./pages/QuoteComparison";
-import VendorRfqList from "./pages/VendorRfqList";
-import VendorRfqEditor from "./pages/VendorRfqEditor";
-import VendorRfqPublicView from "./pages/VendorRfqPublicView";
-import VendorRfqSheet from "./pages/VendorRfqSheet";
-import InquiryDetail from "./pages/InquiryDetail";
-import CostingWorkspace from "./pages/CostingWorkspace";
-import InquiryPdView from "./pages/InquiryPdView";
-import PdDashboard from "./pages/PdDashboard";
-import InquiryContainerPlanner from "./pages/InquiryContainerPlanner";
-import SamplesList from "./pages/SamplesList";
-import SampleRequestView from "./pages/SampleRequestView";
-import Tasks from "./pages/Tasks";
-import Analytics from "./pages/Analytics";
-import Vendors from "./pages/Vendors";
-import Tools from "./pages/Tools";
-import MasterCartonSizer from "./pages/MasterCartonSizer";
-import IronWeightCalculator from "./pages/IronWeightCalculator";
-import ExportDocuments from "./pages/ExportDocuments";
-import OAuthConsent from "./pages/OAuthConsent";
-import NotFound from "./pages/NotFound";
-import SoProfitability from "./pages/SoProfitability";
-import FreightQuotes from "./pages/FreightQuotes";
-import FreightQuoteNew from "./pages/FreightQuoteNew";
-import FreightQuoteDetail from "./pages/FreightQuoteDetail";
-import FreightQuoteDashboard from "./pages/FreightQuoteDashboard";
-import FreightQuoteSettings from "./pages/FreightQuoteSettings";
+import { lazyPage } from "@/lib/lazy-page";
+
+// Each page is its own chunk, downloaded the first time it is opened, so the first
+// visit no longer loads the whole app (spreadsheet, PDF and chart libraries included).
+const Dashboard = lazyPage(() => import("./pages/Dashboard"));
+const Settings = lazyPage(() => import("./pages/Settings"));
+const Products = lazyPage(() => import("./pages/Products"));
+const Customers = lazyPage(() => import("./pages/Customers"));
+const CustomerDetail = lazyPage(() => import("./pages/CustomerDetail"));
+const ProductDetail = lazyPage(() => import("./pages/ProductDetail"));
+const AssemblyDetail = lazyPage(() => import("./pages/AssemblyDetail"));
+const CustomerQuote = lazyPage(() => import("./pages/CustomerQuote"));
+const Quotes = lazyPage(() => import("./pages/Quotes"));
+const QuoteView = lazyPage(() => import("./pages/QuoteView"));
+const QuoteComparison = lazyPage(() => import("./pages/QuoteComparison"));
+const VendorRfqList = lazyPage(() => import("./pages/VendorRfqList"));
+const VendorRfqEditor = lazyPage(() => import("./pages/VendorRfqEditor"));
+const VendorRfqPublicView = lazyPage(() => import("./pages/VendorRfqPublicView"));
+const VendorRfqSheet = lazyPage(() => import("./pages/VendorRfqSheet"));
+const InquiryDetail = lazyPage(() => import("./pages/InquiryDetail"));
+const CostingWorkspace = lazyPage(() => import("./pages/CostingWorkspace"));
+const InquiryPdView = lazyPage(() => import("./pages/InquiryPdView"));
+const PdDashboard = lazyPage(() => import("./pages/PdDashboard"));
+const InquiryContainerPlanner = lazyPage(() => import("./pages/InquiryContainerPlanner"));
+const SamplesList = lazyPage(() => import("./pages/SamplesList"));
+const SampleRequestView = lazyPage(() => import("./pages/SampleRequestView"));
+const Tasks = lazyPage(() => import("./pages/Tasks"));
+const Analytics = lazyPage(() => import("./pages/Analytics"));
+const Vendors = lazyPage(() => import("./pages/Vendors"));
+const Tools = lazyPage(() => import("./pages/Tools"));
+const MasterCartonSizer = lazyPage(() => import("./pages/MasterCartonSizer"));
+const IronWeightCalculator = lazyPage(() => import("./pages/IronWeightCalculator"));
+const ExportDocuments = lazyPage(() => import("./pages/ExportDocuments"));
+const OAuthConsent = lazyPage(() => import("./pages/OAuthConsent"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
+const SoProfitability = lazyPage(() => import("./pages/SoProfitability"));
+const FreightQuotes = lazyPage(() => import("./pages/FreightQuotes"));
+const FreightQuoteNew = lazyPage(() => import("./pages/FreightQuoteNew"));
+const FreightQuoteDetail = lazyPage(() => import("./pages/FreightQuoteDetail"));
+const FreightQuoteDashboard = lazyPage(() => import("./pages/FreightQuoteDashboard"));
+const FreightQuoteSettings = lazyPage(() => import("./pages/FreightQuoteSettings"));
 
 const queryClient = new QueryClient();
+
+const PageLoading = () => (
+  <div className="flex min-h-screen items-center justify-center">
+    <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+  </div>
+);
+
+// Fetch the everyday pages in the background once the first page is up, so opening
+// them later is instant. Team members only: customers and vendors on the public quote
+// and RFQ links never download the internal pages.
+const PreloadCommonPages = () => {
+  const { isAdminOrTeam } = useAuth();
+  useEffect(() => {
+    if (!isAdminOrTeam) return;
+    const run = () => [Dashboard, InquiryDetail, CostingWorkspace, Products, Tasks].forEach(p => void p.preload().catch(() => {}));
+    const w = window as any;
+    const handle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 5000 }) : window.setTimeout(run, 2000);
+    return () => (w.cancelIdleCallback ? w.cancelIdleCallback(handle) : window.clearTimeout(handle));
+  }, [isAdminOrTeam]);
+  return null;
+};
 
 const CostingRedirect = ({ view }: { view?: string }) => {
   const { id } = useParams();
@@ -61,7 +87,9 @@ const App = () => (
         <Sonner />
         <AuthProvider>
           <UpdateAvailableBanner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true }}>
+            <PreloadCommonPages />
+            <Suspense fallback={<PageLoading />}>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={
@@ -192,6 +220,7 @@ const App = () => (
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

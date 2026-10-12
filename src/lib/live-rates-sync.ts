@@ -11,6 +11,8 @@ export async function syncLiveRates(): Promise<LiveSyncResult> {
   if (!res.error) {
     const { invalidateCurrencyCache } = await import('@/lib/currency');
     invalidateCurrencyCache();
+    const { invalidateCostingReference } = await import('@/lib/costing-reference');
+    invalidateCostingReference();
   }
   return res;
 }

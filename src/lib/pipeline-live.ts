@@ -13,9 +13,9 @@ export async function liveInquiryFinancials(inquiryIds: string[]): Promise<Recor
   const products = await fetchAllByIds<any>(inquiryIds, chunk => (supabase as any).from('products')
     .select('id, customer_rfq_id, quantity, calculated_unit_price_usd')
     .in('customer_rfq_id', chunk).is('archived_at', null).order('id'));
-  const prices: Record<string, any> = {};
-  const ids = products.map(p => p.id);
-  for (let i = 0; i < ids.length; i += 25) Object.assign(prices, await computeProductPriceAndCost(ids.slice(i, i + 25)));
+  // One engine run for every product: the data is loaded once (paged), where 25-product
+  // slices used to reload each inquiry's siblings and rate tables slice after slice.
+  const prices: Record<string, any> = await computeProductPriceAndCost(products.map(p => p.id));
   const cost: Record<string, number> = {};
   for (const p of products) {
     const q = Number(p.quantity) || 0;
