@@ -16,13 +16,12 @@ export async function syncLiveRates(): Promise<LiveSyncResult> {
 }
 
 let autoRan = false;
-/** Once per session: refresh live rates in the background when they are on and stale. */
+/** Once per session: refresh live rates in the background when they are stale. */
 export async function refreshLiveRatesIfStale(): Promise<void> {
   if (autoRan) return;
   autoRan = true;
   const { data } = await (supabase as any).from('global_settings')
-    .select('use_live_rates, live_exchange_rate_at, live_labor_at').limit(1).maybeSingle();
-  if (!data?.use_live_rates) return;
+    .select('live_exchange_rate_at, live_labor_at').limit(1).maybeSingle();
   if (!isLiveStale(data.live_exchange_rate_at) && !isLiveStale(data.live_labor_at)) return;
   await syncLiveRates().catch(() => {});
 }

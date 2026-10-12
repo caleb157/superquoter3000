@@ -13,7 +13,7 @@ describe('settings navigation', () => {
   });
 
   it('finds a section by its name or by a setting inside it', () => {
-    expect(ids('exchange rate')).toEqual(['general', 'live-rates']);
+    expect(ids('exchange rate')).toEqual(['live-rates']);
     expect(ids('Bubble')).toEqual(['wrapping']);
     expect(ids('certainty')).toEqual(['projections']);
     expect(ids('box')).toContain('box-data');
