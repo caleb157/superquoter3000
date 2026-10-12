@@ -3,7 +3,7 @@ import { applyLiveRates, withLiveDirectRates, isLiveStale } from '@/lib/live-rat
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { computeProductCosting } from '@/lib/costing-engine';
 import { avgRateByDesignation } from '@/lib/calculations';
-import { inrPerUnitFromOdoo, laborWindow, recentDaysWindow, laborRatesFromEntries, laborTypeForCategory } from '../../../supabase/functions/live-rates-sync/rates';
+import { inrPerUnitFromOdoo, laborWindow, recentDaysWindow, laborRatesFromEntries, laborTypeForCategory, planCurrencySync } from '../../../supabase/functions/live-rates-sync/rates';
 
 const gsManual = { exchange_rate: 85, indirect_overhead_per_mh: 40 };
 const gsLive = {
@@ -119,5 +119,39 @@ describe('isLiveStale', () => {
     expect(isLiveStale(null, now)).toBe(true);
     expect(isLiveStale('2026-10-12T01:00:00Z', now)).toBe(false);
     expect(isLiveStale('2026-10-11T23:00:00Z', now)).toBe(true);
+  });
+});
+
+describe('currencies follow Odoo', () => {
+  const existing = [
+    { code: 'INR', units_per_inr_base: 1, import_rate: 1, symbol: '₹' },
+    { code: 'USD', units_per_inr_base: 1, import_rate: 90, symbol: '$' },
+    { code: 'AUD', units_per_inr_base: 1, import_rate: 60, symbol: 'A$' },
+    { code: 'JPY', units_per_inr_base: 100, import_rate: null, symbol: '¥' },
+    { code: 'BHD', units_per_inr_base: 1, import_rate: 230, symbol: null },
+  ];
+  const odoo = [
+    { code: 'INR', name: 'Indian Rupee', symbol: '₹', inrPerUnit: 1 },
+    { code: 'USD', name: 'US Dollar', symbol: '$', inrPerUnit: 95.25 },
+    { code: 'AUD', name: 'Australian Dollar', symbol: '$', inrPerUnit: 66.75 },
+    { code: 'JPY', name: 'Yen', symbol: '¥', inrPerUnit: 0.6 },
+    { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', inrPerUnit: 110 },
+  ];
+  const plan = planCurrencySync(existing, odoo, '2026-10-12');
+  const patch = (code: string) => plan.updates.find(u => u.code === code)?.patch;
+
+  it('takes rate and name from Odoo, scaled by units per INR base, and never touches INR', () => {
+    expect(patch('USD')).toMatchObject({ import_rate: 95.25, export_rate: 95.25, name: 'US Dollar', effective_start_date: '2026-10-12' });
+    expect(patch('JPY')).toMatchObject({ import_rate: 60 });
+    expect(patch('INR')).toBeUndefined();
+  });
+
+  it('keeps a symbol already set, so AUD stays A$ though Odoo says $', () => {
+    expect(patch('AUD')).not.toHaveProperty('symbol');
+  });
+
+  it('adds Odoo currencies that are missing and clears the rate of ones Odoo no longer has', () => {
+    expect(plan.inserts).toEqual([expect.objectContaining({ code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', import_rate: 110, units_per_inr_base: 1 })]);
+    expect(patch('BHD')).toEqual({ import_rate: null, export_rate: null });
   });
 });

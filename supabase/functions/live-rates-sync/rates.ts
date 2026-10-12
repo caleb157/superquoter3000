@@ -128,3 +128,39 @@ export function laborRatesFromEntries(
     categories,
   };
 }
+
+export type OdooCurrency = { code: string; name: string | null; symbol: string | null; inrPerUnit: number };
+export type CurrencyRow = { code: string; units_per_inr_base: number | null; import_rate: number | null; symbol?: string | null };
+
+/**
+ * How the currencies table follows Odoo: every currency active in Odoo gets its name and
+ * rate (scaled by units_per_inr_base) and is added if missing. A symbol already set is kept,
+ * because Odoo writes "$" for USD, AUD and CAD alike and quotes need them told apart. A currency Odoo
+ * no longer has active loses its rate, which hides it from pickers without deleting it
+ * (old quotes keep their own frozen rate). INR is the base and is never touched.
+ */
+export function planCurrencySync(existing: CurrencyRow[], odoo: OdooCurrency[], today: string) {
+  const have = new Map(existing.map(c => [c.code.toUpperCase(), c]));
+  const live = new Set<string>();
+  const updates: { code: string; patch: Record<string, unknown> }[] = [];
+  const inserts: Record<string, unknown>[] = [];
+  for (const o of odoo) {
+    const code = o.code.toUpperCase();
+    if (code === 'INR' || !(o.inrPerUnit > 0)) continue;
+    live.add(code);
+    const row = have.get(code);
+    const units = Number(row?.units_per_inr_base) || 1;
+    const rate = +(o.inrPerUnit * units).toFixed(4);
+    const fromOdoo: Record<string, unknown> = { import_rate: rate, export_rate: rate, effective_start_date: today };
+    if (o.name) fromOdoo.name = o.name;
+    if (o.symbol && !row?.symbol) fromOdoo.symbol = o.symbol;
+    if (row) updates.push({ code: row.code, patch: fromOdoo });
+    else inserts.push({ code, name: o.name || code, symbol: o.symbol || null, units_per_inr_base: 1, sort_priority: 100, is_featured: false, ...fromOdoo });
+  }
+  for (const c of existing) {
+    const code = c.code.toUpperCase();
+    if (code === 'INR' || live.has(code) || c.import_rate == null) continue;
+    updates.push({ code: c.code, patch: { import_rate: null, export_rate: null } });
+  }
+  return { updates, inserts };
+}
