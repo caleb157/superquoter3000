@@ -42,6 +42,7 @@ import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
 import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
 import { recostProduct, recostInquiry } from '@/lib/costing-seed';
+import { recordCostPoint } from '@/lib/cost-history';
 import { RefreshCw } from 'lucide-react';
 import { RowContextMenu } from '@/components/RowContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu';
@@ -333,6 +334,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
             calculated_unit_price_usd: +lp.unit_price_usd.toFixed(4),
             calculated_unit_cost_usd: Number.isFinite(lp.unit_cost_usd) ? +lp.unit_cost_usd.toFixed(4) : null,
           }).eq('id', p.id);
+          if (lp.cost_point) await recordCostPoint(p.id, lp.cost_point);
         } catch (e) {
           console.error('Cache heal failed', e);
         }

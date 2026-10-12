@@ -7,6 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
+import { costPointFromResult, type CostPoint } from '@/lib/cost-history';
 
 let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
@@ -32,6 +33,8 @@ export type ProductPriceCostMap = Record<string, {
   stored_price_usd: number | null;
   stored_cost_usd: number | null;
   cache_is_stale: boolean;
+  /** Cost history point for this result (logged when a cache heal writes the new price). */
+  cost_point?: CostPoint;
 }>;
 
 
@@ -203,6 +206,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
         storedPriceUsd != null &&
         Number.isFinite(recomputedPriceUsd) &&
         Math.abs(storedPriceUsd - recomputedPriceUsd) > 0.01,
+      cost_point: costPointFromResult(result),
     };
   }
 
