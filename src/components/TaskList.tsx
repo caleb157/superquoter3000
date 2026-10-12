@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil, Paperclip, Flag, Repeat, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatDueDate, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
+import { formatDueDate, localDateStr, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
 import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
 import { associationMeta, APP_FIX } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -36,12 +36,17 @@ type TaskListProps = {
   refreshKey?: number;
   maxItems?: number;
   compact?: boolean;
+  /** Called after a task is completed, postponed or edited from this list. */
+  onChanged?: () => void;
+  emptyText?: string;
+  /** Card layout at every width, for narrow panels like the top-bar tasks sheet. */
+  narrow?: boolean;
 };
 
 export function TaskList({
   inquiryId, productId, customerId, customerIdIncludingInquiries, assignee, kind = 'all',
   status = 'open', dueWindow = 'all', sort = 'due_date', sortDir = 'asc',
-  showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false,
+  showAnchorLinks = true, showEmptyState = true, refreshKey = 0, maxItems, compact = false, onChanged, emptyText = 'No tasks', narrow = false,
 }: TaskListProps) {
   const [tasks, setTasks] = useState<TaskWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,14 +100,15 @@ export function TaskList({
 
   const filteredSorted = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = localDateStr(today);
     const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 6);
-    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+    const weekEndStr = localDateStr(weekEnd);
 
     let list = tasks.filter(t => {
       if (dueWindow === 'all') return true;
       if (dueWindow === 'overdue') return t.status === 'open' && t.due_date != null && t.due_date < todayStr;
       if (dueWindow === 'today') return t.due_date === todayStr;
+      if (dueWindow === 'due_by_today') return t.due_date != null && t.due_date <= todayStr;
       if (dueWindow === 'this_week') return t.due_date != null && t.due_date >= todayStr && t.due_date <= weekEndStr;
       return true;
     });
@@ -160,6 +166,7 @@ export function TaskList({
       if (error) { toast.error(error.message); return; }
       toast.success(`Done — next due ${formatDueDate(next).text}`);
       setInternalRefresh(k => k + 1);
+      onChanged?.();
       return;
     }
     const next = t.status === 'done' ? 'open' : 'done';
@@ -168,7 +175,7 @@ export function TaskList({
     if (error) {
       toast.error(error.message);
       setTasks(prev => prev.map(x => x.id === t.id ? { ...x, status: t.status } : x));
-    }
+    } else onChanged?.();
   };
 
   // Push the due date out; the toast offers Undo back to the previous date.
@@ -181,6 +188,7 @@ export function TaskList({
       setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: prevDue } : x));
       return;
     }
+    onChanged?.();
     toast.success(`Postponed to ${shortDate(newDue)}`, {
       action: {
         label: 'Undo',
@@ -188,6 +196,7 @@ export function TaskList({
           const { error: undoErr } = await supabase.from('tasks').update({ due_date: prevDue }).eq('id', t.id);
           if (undoErr) { toast.error(undoErr.message); return; }
           setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: prevDue } : x));
+          onChanged?.();
         },
       },
     });
@@ -195,7 +204,7 @@ export function TaskList({
 
   if (loading) return <div className="text-xs text-muted-foreground py-3">Loading…</div>;
   if (filteredSorted.length === 0) {
-    return showEmptyState ? <div className="text-sm text-muted-foreground py-4 text-center">No tasks</div> : null;
+    return showEmptyState ? <div className="text-sm text-muted-foreground py-4 text-center">{emptyText}</div> : null;
   }
 
   return (
@@ -232,7 +241,7 @@ export function TaskList({
             : null);
 
           const mobileCard = !compact && (
-            <div className={cn('sm:hidden flex items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
+            <div className={cn(narrow ? 'flex' : 'sm:hidden flex', 'items-start gap-2 py-2.5 px-1 group hover:bg-muted/50 rounded-sm', priorityStripe(t.priority))}>
               <Checkbox checked={t.status === 'done'} onCheckedChange={() => toggleStatus(t)} className={cn('shrink-0 mt-0.5 h-5 w-5 rounded-full border-2', priorityRing(t.priority))} />
               <button onClick={() => setEditId(t.id)} className="flex-1 min-w-0 text-left space-y-1">
                 <div className={cn('text-sm font-medium leading-snug break-words', t.status === 'done' && 'line-through text-muted-foreground')}>
@@ -353,7 +362,7 @@ export function TaskList({
             <li key={t.id}>
               <SwipeableTaskRow done={t.status === 'done'} onToggle={() => toggleStatus(t)}>
                 {mobileCard}
-                {rowInner}
+                {!narrow && rowInner}
               </SwipeableTaskRow>
             </li>
           );
@@ -364,7 +373,7 @@ export function TaskList({
           open={!!editId}
           onOpenChange={(o) => !o && setEditId(null)}
           taskId={editId}
-          onSaved={() => setInternalRefresh(k => k + 1)}
+          onSaved={() => { setInternalRefresh(k => k + 1); onChanged?.(); }}
         />
       )}
     </>

@@ -19,7 +19,8 @@ export type TaskContext = {
 export const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 export type TaskPriority = typeof PRIORITIES[number];
 
-export const DUE_WINDOWS = ['all', 'overdue', 'today', 'this_week'] as const;
+/** 'due_by_today' = due today or overdue (the home page's today list). */
+export const DUE_WINDOWS = ['all', 'overdue', 'today', 'due_by_today', 'this_week'] as const;
 export type DueWindow = typeof DUE_WINDOWS[number];
 
 export const ASSIGNEES = ['CQ', 'PH'] as const;

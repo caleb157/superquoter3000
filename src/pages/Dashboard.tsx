@@ -25,21 +25,11 @@ import { rowNavHandlers } from '@/lib/row-nav';
 import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
-import {
-  furthestStageBucket,
-  productStageBuckets,
-  productWeight,
-  STAGE_BUCKET_LABELS,
-  STAGE_BUCKET_ORDER,
-  STAGE_BUCKET_COLOR,
-  type StageBucket,
-} from '@/lib/pipeline-weights';
 import { fmt } from '@/lib/formatters';
 
 import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
-import { UpcomingManHoursCard } from '@/components/UpcomingManHoursCard';
 import { useInquiryTotals } from '@/hooks/use-inquiry-totals';
 import { fetchAllRows } from '@/lib/supabase-paged';
 
@@ -85,6 +75,7 @@ function matchesStatusFilter(i: { status: string }, f: StatusFilter): boolean {
 }
 
 const Dashboard = () => {
+  useDocumentTitle('Inquiries');
   const navigate = useNavigate();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -113,7 +104,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     (async () => {
-      setLoading(true);
       const [inq, cust, prod, cogsRev, ohRev] = await Promise.all([
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
@@ -131,6 +121,13 @@ const Dashboard = () => {
       setLoading(false);
     })();
   }, [refreshKey]);
+
+  // Keep the list live: re-read inquiries when the tab comes back into view.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') setRefreshKey(k => k + 1); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const customerMap = useMemo(
     () => Object.fromEntries(customers.map(c => [c.id, c])),
@@ -165,32 +162,6 @@ const Dashboard = () => {
   }, [products, reviewProductIds]);
 
 
-
-  const inquiryStatusById = useMemo(
-    () => Object.fromEntries(inquiries.map(i => [i.id, i.status])),
-    [inquiries],
-  );
-  const activeInquiries = inquiries.filter(i => i.status !== 'cancelled' && i.status !== 'complete').length;
-  const poInquiries = inquiries.filter(i => i.status === 'po').length;
-  const projectedPoCount = inquiries.filter(i => i.status === 'projected_po').length;
-  const activeProducts = products.filter(p => p.design_stage || p.quote_stage || p.sample_stage).length;
-  const totalProducts = products.length;
-
-
-
-  const productsByStageBucket = useMemo(() => {
-    const counts: Record<StageBucket, number> = {
-      not_started: 0, need_design: 0, designed: 0,
-      quoting: 0, ready_for_quote: 0, quoted: 0,
-      sampling: 0, sampled: 0, po: 0,
-    };
-    for (const p of products) {
-      const inqStatus = p.customer_rfq_id ? inquiryStatusById[p.customer_rfq_id] : null;
-      if (inqStatus === 'cancelled' || inqStatus === 'complete') continue;
-      for (const b of productStageBuckets(p, inqStatus)) counts[b] += 1;
-    }
-    return counts;
-  }, [products, inquiryStatusById]);
 
   const visibleInquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -297,48 +268,6 @@ const Dashboard = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="max-w-7xl mx-auto space-y-3 sm:space-y-4 px-1 sm:px-0">
-          {/* Stats — 1 col on xs, 2 col on sm, 4 col on md+ */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
-            <StatCard label="Active Inquiries" value={activeInquiries} />
-            <StatCard label="Total Products" value={totalProducts} />
-            <StatCard label="Active Products" value={activeProducts} />
-            <StatCard label="PO Inquiries" value={poInquiries} />
-            <StatCard label="Projected POs" value={projectedPoCount} />
-            <UpcomingManHoursCard />
-          </div>
-
-          {/* Stage buckets */}
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs text-muted-foreground">Products by Stage</div>
-                <div className="text-[11px] text-muted-foreground hidden sm:block">Tap to filter</div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {STAGE_BUCKET_ORDER.map(b => {
-                  const count = productsByStageBucket[b];
-                  if (count === 0) return null;
-                  return (
-                    <button
-                      key={b}
-                      onClick={() => navigate(`/products?stage=${b}`)}
-                      className={cn(
-                        'flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-2.5 py-2 sm:py-1.5 rounded-md hover:opacity-80 transition min-h-[44px] sm:min-h-0',
-                        STAGE_BUCKET_COLOR[b],
-                      )}
-                    >
-                      <span className="text-sm font-bold tabular-nums">{count}</span>
-                      <span className="text-[11px] font-medium">{STAGE_BUCKET_LABELS[b]}</span>
-                    </button>
-                  );
-                })}
-                {STAGE_BUCKET_ORDER.every(b => productsByStageBucket[b] === 0) && (
-                  <div className="text-xs text-muted-foreground italic py-1">No products yet.</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Filter bar — wraps cleanly on mobile */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
@@ -643,18 +572,5 @@ const Dashboard = () => {
     </AppLayout>
   );
 };
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  useDocumentTitle('Inquiries');
-  return (
-    <Card>
-      <CardContent className="pt-3 pb-2.5 sm:pt-4 sm:pb-3">
-        <div className="text-xl sm:text-2xl font-bold tabular-nums">{value}</div>
-        <div className="text-[11px] sm:text-xs text-muted-foreground">{label}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
 
 export default Dashboard;
