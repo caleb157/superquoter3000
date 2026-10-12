@@ -1,5 +1,7 @@
 // Merge global_settings with optional per-inquiry overrides.
 // If an override field is null/undefined, the global value is used.
+// Live Odoo/LaborTrax rates (src/lib/live-rates.ts) replace the global values first.
+import { applyLiveRates } from '@/lib/live-rates';
 
 export type InquiryOverrideRow = {
   exchange_rate_override?: number | null;
@@ -15,7 +17,7 @@ export function mergeSettingsWithInquiry<T extends Record<string, any>>(
   gs: T | null | undefined,
   inq: InquiryOverrideRow,
 ): T {
-  const base = (gs || {}) as any;
+  const base = applyLiveRates(gs) as any;
   if (!inq) return base as T;
   const pick = <V>(o: V | null | undefined, fallback: any) => (o === null || o === undefined ? fallback : o);
   return {

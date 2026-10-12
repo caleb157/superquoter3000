@@ -7,6 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { loadFobRates } from '@/lib/fob-rates';
 import { computeProductCosting, type ShipmentPool } from '@/lib/costing-engine';
+import { applyLiveRates } from '@/lib/live-rates';
 
 let _difficultiesCache: Array<{ name: string; adjustment_factor: number }> | null = null;
 let _locationsCache: Array<{ id: string; cost_per_cbm_inr: number }> | null = null;
@@ -38,7 +39,10 @@ export type ProductPriceCostMap = Record<string, {
 // Back-compat alias for older imports
 export type ProductUnitPriceMap = ProductPriceCostMap;
 
-export async function computeProductPriceAndCost(productIds: string[]): Promise<ProductPriceCostMap> {
+/** `live` forces live Odoo/LaborTrax rates on or off (price-impact preview); omitted = Settings. */
+export type PriceComputeOptions = { live?: boolean };
+
+export async function computeProductPriceAndCost(productIds: string[], opts: PriceComputeOptions = {}): Promise<ProductPriceCostMap> {
   if (productIds.length === 0) return {};
   // Expand to sibling products in the same inquiries so FOB shipping can be priced on the
   // whole inquiry shipment. Pass 1 gets CBM/cartons (shipping-independent), pass 2 uses the pool.
@@ -49,9 +53,9 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
     const { data: sibs } = await supabase.from('products').select('id').in('customer_rfq_id', inqIds).is('archived_at', null).limit(100000);
     allIds = [...new Set([...productIds, ...((sibs || []).map((s: any) => s.id))])];
   }
-  const first = await computeCore(allIds, null);
+  const first = await computeCore(allIds, null, opts);
   const pools = buildPoolsFromMap(first);
-  const second = await computeCore(productIds, pools);
+  const second = await computeCore(productIds, pools, opts);
   return second;
 }
 
@@ -69,7 +73,7 @@ export function buildPoolsFromMap(map: ProductPriceCostMap): Record<string, Ship
   return pools;
 }
 
-async function computeCore(productIds: string[], pools: Record<string, ShipmentPool> | null): Promise<ProductPriceCostMap> {
+async function computeCore(productIds: string[], pools: Record<string, ShipmentPool> | null, opts: PriceComputeOptions = {}): Promise<ProductPriceCostMap> {
   const out: ProductPriceCostMap = {};
   if (productIds.length === 0) return out;
 
@@ -117,7 +121,7 @@ async function computeCore(productIds: string[], pools: Record<string, ShipmentP
   const allShipItems = shipItemsRes.data || [];
   const shipTypes = shipTypesRes.data || [];
   const employees = empRes.data || [];
-  const gs = gsRes.data as any;
+  const gs = opts.live === undefined ? (gsRes.data as any) : applyLiveRates(gsRes.data as any, opts.live);
   const allCbm = cbmRes.data || [];
   const productTypes = ptRes.data || [];
   const inquiries = inquiriesRes.data || [];

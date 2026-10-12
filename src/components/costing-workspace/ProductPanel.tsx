@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { avgRateByDesignation, npmToMarkup } from '@/lib/calculations';
+import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 import { COGS_CATEGORY_FALLBACK, useCogsCategories } from '@/lib/cogs-categories';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
@@ -365,7 +366,7 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
         </thead>
         <tbody>
           {oh.map(o => {
-            const rate = avgRateByDesignation(bundle.employees as any, o.labor_type);
+            const rate = avgRateByDesignation(withLiveDirectRates(bundle.employees as any, applyLiveRates(bundle.gs)), o.labor_type);
             const off = o.include === 'No';
             return (
               <tr key={o.id} className={cn('[&>td]:py-0.5', off && 'opacity-50')}>

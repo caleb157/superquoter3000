@@ -36,6 +36,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 
 import { useCogsCategories, HARDWARE_COGS_TYPES_WITH_LEGACY, isHardwareCogsType } from '@/lib/cogs-categories';
+import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 const DIFFICULTIES = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Very Hard'];
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
@@ -348,7 +349,7 @@ export function ProductCostingTab({ productId: id, onProductUpdated, onSummaryCh
         if (newNuc) setNonUnitCogs(newNuc);
       }
       if (stRes.data) setShippingTypes(stRes.data);
-      if (empRes.data) setEmployees(empRes.data);
+      if (empRes.data) setEmployees(withLiveDirectRates(empRes.data, applyLiveRates(gsRes.data as any)));
       if (gsRes.data) setGlobalSettings(gsRes.data);
       if (bdRes.data) setBoxData(bdRes.data);
       if (chemRes.data) setChemicalPrices(chemRes.data);

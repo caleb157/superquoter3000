@@ -7,6 +7,7 @@ import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
 import TaskAutomationsSettings from '@/components/TaskAutomationsSettings';
 import ProjectionDefaultsSettings from '@/components/ProjectionDefaultsSettings';
+import LiveRatesSettings from '@/components/LiveRatesSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -168,8 +169,8 @@ function GeneralSettings() {
   if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
 
   const fields = [
-    { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number' },
-    { key: 'indirect_overhead_per_mh', label: 'Indirect OH / Man-Hour (₹)', type: 'number', hint: 'Indirect overhead allocated to each direct man-hour of work.' },
+    { key: 'exchange_rate', label: 'Exchange Rate (INR/USD)', type: 'number', hint: settings.use_live_rates ? 'Live rates are on: costing uses Odoo\'s rate (Settings → Live rates). This value is the fallback.' : undefined },
+    { key: 'indirect_overhead_per_mh', label: 'Indirect OH / Man-Hour (₹)', type: 'number', hint: settings.use_live_rates ? 'Live rates are on: costing uses LaborTrax\'s fully burdened cost per man-hour (Settings → Live rates). This value is the fallback.' : 'Indirect overhead allocated to each direct man-hour of work.' },
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
     { key: 'slow_quote_days', label: 'Slow Quote Threshold (days)', type: 'number', hint: 'RFQs unanswered for more than this many days appear in the Operations slow-movers list.' },
     { key: 'slow_sample_days', label: 'Slow Sample Threshold (days)', type: 'number', hint: 'Pending samples older than this appear in the Operations slow-movers list.' },
@@ -390,7 +391,7 @@ function WrappingSettings() {
 }
 
 type SectionId =
-  | 'general' | 'entities' | 'team' | 'integrations' | 'task-automations' | 'projections'
+  | 'general' | 'live-rates' | 'entities' | 'team' | 'integrations' | 'task-automations' | 'projections'
   | 'vendors' | 'customers' | 'employees'
   | 'product-types' | 'wood' | 'chemicals' | 'hardware'
   | 'shipping' | 'fob-rates' | 'box-data' | 'wrapping'
@@ -403,6 +404,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
     label: 'General',
     items: [
       { id: 'general', label: 'General' },
+      { id: 'live-rates', label: 'Live rates' },
       { id: 'currencies', label: 'Currencies' },
       { id: 'entities', label: 'Company entities' },
       { id: 'team', label: 'Team' },
@@ -465,7 +467,7 @@ const NAV_GROUPS: { label: string; items: { id: SectionId; label: string }[] }[]
   },
 ];
 
-const VALID_SECTIONS: SectionId[] = ['task-automations','general','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
+const VALID_SECTIONS: SectionId[] = ['task-automations','general','live-rates','entities','team','integrations','vendors','customers','employees','product-types','wood','chemicals','hardware','shipping','fob-rates','box-data','wrapping','currencies','finishing-difficulty','raw-materials','cogs-categories','local-transport','container-types','data-export'];
 
 const Settings = () => {
   const initialSection = (() => {
@@ -512,6 +514,7 @@ const Settings = () => {
   const renderSection = () => {
     switch (section) {
       case 'general': return <GeneralSettings />;
+      case 'live-rates': return <LiveRatesSettings />;
       case 'integrations': return <IntegrationsSettings />;
       case 'wrapping': return <WrappingSettings />;
       case 'entities': return <CompanyEntitiesSettings />;

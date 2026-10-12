@@ -41,21 +41,41 @@ export function entryManHours(e: any): number {
   return hours;
 }
 
+export type CategoryRate = { category: string; laborType: string | null; hours: number; directPerMh: number };
+
 export type LaborRates = {
   hours: number;
   burdenedPerMh: number;
   directPerMh: number;
   overheadPerMh: number;
   entryCount: number;
+  /** Direct wages per man-hour for each HQ labor type LaborTrax has hours for. */
+  directByType: Record<string, number>;
+  /** Every LaborTrax work-order category seen, with the HQ labor type it fed (null = unmatched). */
+  categories: CategoryRate[];
 };
 
 /**
- * Per-man-hour labor cost over the window. Fully burdened = direct wages +
- * allocated overhead, so the overhead share is what costing adds on top of the
- * department wages it already charges.
+ * HQ labor type for a LaborTrax work-order category: the first type whose name
+ * appears in the category (case-insensitive), e.g. "Finishing - Polish" → Finishing.
  */
-export function laborRatesFromEntries(entries: any[], window: { from: string; to: string }): LaborRates {
+export function laborTypeForCategory(category: string, laborTypes: string[]): string | null {
+  const c = (category || '').toLowerCase();
+  if (!c) return null;
+  return laborTypes.find(t => c.includes(t.toLowerCase())) ?? null;
+}
+
+/**
+ * Per-man-hour labor cost over the window: the fully burdened rate (what HQ
+ * charges as indirect overhead per man-hour) plus direct wages per HQ labor type.
+ */
+export function laborRatesFromEntries(
+  entries: any[],
+  window: { from: string; to: string },
+  laborTypes: string[] = [],
+): LaborRates {
   let hours = 0, direct = 0, overhead = 0, burdened = 0, entryCount = 0;
+  const byCat = new Map<string, { hours: number; direct: number }>();
   for (const e of entries || []) {
     const date = String(pick(e, ['date', 'work_date', 'entry_date', 'end_time', 'start_time', 'created_at']) ?? '').slice(0, 10);
     if (!date || date < window.from || date > window.to) continue;
@@ -65,8 +85,30 @@ export function laborRatesFromEntries(entries: any[], window: { from: string; to
     const o = num(e.allocated_overhead_cost);
     const b = e.fully_burdened_cost != null ? num(e.fully_burdened_cost) : d + o;
     hours += h; direct += d; overhead += o; burdened += b; entryCount++;
+    const cat = String(pick(e, ['work_order_category', 'work_order', 'work_order_name', 'work_center', 'category']) ?? '').trim();
+    if (cat) {
+      const g = byCat.get(cat) ?? { hours: 0, direct: 0 };
+      g.hours += h; g.direct += d;
+      byCat.set(cat, g);
+    }
   }
   const per = (x: number) => (hours > 0 ? x / hours : 0);
+
+  const typeTotals = new Map<string, { hours: number; direct: number }>();
+  const categories: CategoryRate[] = [...byCat.entries()]
+    .map(([category, g]) => {
+      const laborType = laborTypeForCategory(category, laborTypes);
+      if (laborType && g.direct > 0) {
+        const t = typeTotals.get(laborType) ?? { hours: 0, direct: 0 };
+        t.hours += g.hours; t.direct += g.direct;
+        typeTotals.set(laborType, t);
+      }
+      return { category, laborType, hours: g.hours, directPerMh: g.hours > 0 ? g.direct / g.hours : 0 };
+    })
+    .sort((a, b) => b.hours - a.hours);
+  const directByType: Record<string, number> = {};
+  for (const [t, g] of typeTotals) if (g.hours > 0) directByType[t] = g.direct / g.hours;
+
   return {
     hours,
     burdenedPerMh: per(burdened),
@@ -74,5 +116,7 @@ export function laborRatesFromEntries(entries: any[], window: { from: string; to
     // Prefer burdened − direct so the two always add up to the burdened figure.
     overheadPerMh: burdened > 0 ? per(burdened - direct) : per(overhead),
     entryCount,
+    directByType,
+    categories,
   };
 }
