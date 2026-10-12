@@ -12,7 +12,7 @@
 
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { withLiveDirectRates } from '@/lib/live-rates';
+import { withLiveDirectRates, fxOrFallback } from '@/lib/live-rates';
 import { computeFob, isFobPerUnit, type FobEstimate, type Fumigation, type Wlc } from '@/lib/fob';
 
 /** COGS line that carries the purchased cost of an outsourced (bought finished) product. */
@@ -163,7 +163,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
 
   const settings = mergeSettingsWithInquiry(gs, inq);
   const employees = withLiveDirectRates(rawEmployees as any[], settings);
-  const exchangeRate = settings?.exchange_rate ?? 90;
+  const exchangeRate = fxOrFallback(settings?.exchange_rate);
   const markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
   const qty = p.quantity || 100;
   const w = p.width_inch || 0;

@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { buildQuoteClauses } from '@/lib/quote-terms';
 import { loadProjectionPaymentTerms } from '@/lib/projection-payment-terms';
 import { computeFreight, dimKgPerUnit, type FreightInput, type FreightLine } from '@/lib/freight';
+import { fxOrFallback } from '@/lib/live-rates';
 
 export type QuoteProductInput = {
   id: string;
@@ -120,7 +121,7 @@ export async function createQuoteSnapshot(params: CreateQuoteParams): Promise<Cr
   const inqRow: any = inquiryRes.data ?? {};
   const { mergeSettingsWithInquiry } = await import('@/lib/inquiry-overrides');
   const effective = mergeSettingsWithInquiry(gsRes.data as any, inqRow);
-  const usdFxRate = Number(effective?.exchange_rate ?? 90); // INR per USD (used for legacy USD→INR conversion of stored target_price_usd)
+  const usdFxRate = fxOrFallback(effective?.exchange_rate); // INR per USD (used for legacy USD→INR conversion of stored target_price_usd)
   const inquiryMarkup: number | null = inqRow.markup_percent_override ?? null;
   const code = currency || 'USD';
 

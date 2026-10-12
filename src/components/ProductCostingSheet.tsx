@@ -35,7 +35,7 @@ export function ProductCostingSheet({ productId, onSummaryChange }: {
     }
     return loadProductBundle(productId);
   }, [productId]);
-  const { bundle, loading, saving, savedAt, load, apply, rows, scheduleDerived } = useCostingBundle(loader);
+  const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, scheduleDerived } = useCostingBundle(loader);
   const row = rows.find(r => r.p.id === productId);
   const [recalcing, setRecalcing] = useState(false);
 
@@ -73,6 +73,12 @@ export function ProductCostingSheet({ productId, onSummaryChange }: {
   };
 
   if (loading) return <div className="py-16 grid place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  if (!bundle && loadError) return (
+    <div className="py-16 text-center text-sm text-muted-foreground space-y-3">
+      <p>Couldn’t load this product’s costing. Nothing was changed.</p>
+      <Button variant="outline" size="sm" onClick={() => void reload()}>Retry</Button>
+    </div>
+  );
   if (!bundle || !row) return <div className="py-16 text-center text-sm text-muted-foreground">This product couldn’t be loaded.</div>;
 
   return (

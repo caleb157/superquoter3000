@@ -108,15 +108,15 @@ const Dashboard = () => {
         supabase.from('customer_rfqs').select('*').order('updated_at', { ascending: false }),
         supabase.from('customers').select('id, name, company'),
         fetchAllRows<Product>(() => supabase.from('products').select('id, customer_rfq_id, name, quantity, design_stage, quote_stage, sample_stage, archived_at').order('id')),
-        supabase.from('cogs_items').select('product_id').eq('include', 'Review').limit(100000),
-        supabase.from('overhead_items').select('product_id').eq('include', 'Review').limit(100000),
+        fetchAllRows<any>(() => supabase.from('cogs_items').select('product_id').eq('include', 'Review').order('id')),
+        fetchAllRows<any>(() => supabase.from('overhead_items').select('product_id').eq('include', 'Review').order('id')),
       ]);
       setInquiries((inq.data ?? []) as Inquiry[]);
       setCustomers((cust.data ?? []) as Customer[]);
       setProducts(prod);
       const rset = new Set<string>();
-      (cogsRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
-      (ohRev.data ?? []).forEach((r: any) => r.product_id && rset.add(r.product_id));
+      cogsRev.forEach((r: any) => r.product_id && rset.add(r.product_id));
+      ohRev.forEach((r: any) => r.product_id && rset.add(r.product_id));
       setReviewProductIds(rset);
       setLoading(false);
     })();

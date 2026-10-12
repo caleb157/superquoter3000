@@ -14,7 +14,7 @@ import { fmt } from '@/lib/formatters';
 import * as calc from '@/lib/calculations';
 import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { applyLiveRates } from '@/lib/live-rates';
+import { applyLiveRates, fxOrFallback } from '@/lib/live-rates';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -145,7 +145,7 @@ const AssemblyDetail = () => {
     fetchAll();
   }, [id, refetchKey]);
 
-  const exchangeRate = applyLiveRates(globalSettings)?.exchange_rate || 90;
+  const exchangeRate = fxOrFallback(applyLiveRates(globalSettings)?.exchange_rate);
   const markupPercent = assembly?.markup_percent ?? 0.2;
 
   // Assembly cost calculation

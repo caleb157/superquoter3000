@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { convertFromInr, getCachedCurrencyMap, loadCurrencyMap } from '@/lib/currency';
 import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 import type { QuoteProductInput } from '@/lib/quote-creation';
+import { fxOrFallback } from '@/lib/live-rates';
 
 export type PriceableProduct = {
   id: string;
@@ -21,7 +22,7 @@ const byName = (a: { name: string }, b: { name: string }) =>
 /** Unit price in the quote currency: a supplied USD reference wins, else the engine's price. */
 export function referencePriceFor(p: PriceableProduct, prices: ProductUnitPriceMap, currency: string): number {
   const entry = prices[p.id];
-  const fx = entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate ?? 90;
+  const fx = fxOrFallback(entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate);
   const map = getCachedCurrencyMap();
   const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
   if (supplied > 0) {
@@ -92,7 +93,7 @@ export async function priceAssemblyLines(assemblies: PriceableAssembly[], curren
   await loadCurrencyMap();
   const compIds = Array.from(new Set(assemblies.flatMap(a => a.components.map(c => c.product_id))));
   const prices = compIds.length ? await computeProductUnitPrices(compIds) : {};
-  const fx = (Object.values(prices)[0] as any)?.exchange_rate ?? 90;
+  const fx = fxOrFallback((Object.values(prices)[0] as any)?.exchange_rate);
   const map = getCachedCurrencyMap();
   return assemblies.slice().sort(byName).map(a => {
     const costInr = a.components.reduce((sum, c) => {

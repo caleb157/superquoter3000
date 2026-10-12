@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { compareInhouseVsOutsourced, findExistingOutsourcedInr } from '@/lib/outsource-compare';
 import type { CostingEngineInput } from '@/lib/costing-engine';
+import { fxOrFallback } from '@/lib/live-rates';
 
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; inquiryId: string; productIds: string[] };
 
@@ -80,7 +81,7 @@ export function OutsourceCompareDialog({ open, onOpenChange, inquiryId, productI
     return { product, cmp: compareInhouseVsOutsourced(input, n != null && isFinite(n) ? n : null) };
   }), [inputs, prices]);
 
-  const fx = rows[0]?.cmp.exchangeRate || 90;
+  const fx = fxOrFallback(rows[0]?.cmp.exchangeRate);
   const compared = rows.filter(r => r.cmp.outsourced);
   const tot = compared.reduce((a, { cmp }) => ({
     inCost: a.inCost + cmp.inhouse.product_cost_per_unit_inr * cmp.qty,

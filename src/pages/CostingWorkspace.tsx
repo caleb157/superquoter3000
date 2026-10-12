@@ -58,7 +58,7 @@ export default function CostingWorkspace() {
   }, { replace: true });
 
   const loader = useCallback(() => loadBundle(inquiryId!), [inquiryId]);
-  const { bundle, loading, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
+  const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
   useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
@@ -162,6 +162,14 @@ export default function CostingWorkspace() {
   if (loading) {
     return <AppLayout><div className="py-24 grid place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div></AppLayout>;
   }
+  if (!bundle && loadError) return (
+    <AppLayout>
+      <div className="py-24 text-center text-muted-foreground space-y-3">
+        <p>Couldn’t load this inquiry’s costing. Nothing was changed.</p>
+        <Button variant="outline" size="sm" onClick={() => void reload()}>Retry</Button>
+      </div>
+    </AppLayout>
+  );
   if (!bundle) return <AppLayout><div className="py-24 text-center text-muted-foreground">Inquiry not found.</div></AppLayout>;
 
   const title = bundle.inq.title || bundle.inq.rfq_number;

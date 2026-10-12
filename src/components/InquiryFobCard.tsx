@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { computeFob, isFobPerUnit, type FobPerUnit, type Fumigation, type Wlc } from '@/lib/fob';
 import { loadFobRates } from '@/lib/fob-rates';
+import { applyLiveRates } from '@/lib/live-rates';
 import { computeProductPriceAndCost } from '@/lib/product-pricing';
 import { fmt } from '@/lib/formatters';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
@@ -24,12 +25,12 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
   useEffect(() => {
     (async () => {
       const [gs, rfq] = await Promise.all([
-        supabase.from('global_settings').select('exchange_rate').limit(1).maybeSingle(),
+        supabase.from('global_settings').select('exchange_rate, live_exchange_rate').limit(1).maybeSingle(),
         (supabase as any).from('customer_rfqs').select('exchange_rate_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc, shipping_types:shipping_type_id_override(per_unit)').eq('id', inquiryId).maybeSingle(),
         loadFobRates(),
       ]);
       const r: any = rfq.data || {};
-      setFx(Number(r.exchange_rate_override) || Number((gs.data as any)?.exchange_rate) || 0);
+      setFx(Number(r.exchange_rate_override) || Number(applyLiveRates(gs.data as any).exchange_rate) || 0);
       setOv({
         cbm: r.fob_pool_cbm_override != null ? Number(r.fob_pool_cbm_override) : null,
         cartons: r.fob_pool_cartons_override != null ? Number(r.fob_pool_cartons_override) : null,
