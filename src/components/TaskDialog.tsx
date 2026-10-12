@@ -113,6 +113,8 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
         setAssocType('inquiry'); setInquiryId(context.inquiryId);
       } else if (context?.customerId) {
         setAssocType('customer'); setCustomerId(context.customerId);
+      } else if (context?.appFix) {
+        setAssocType('app_fix');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,7 +255,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit task' : 'New task'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit task' : assocType === 'app_fix' ? 'New app fix' : 'New task'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -421,6 +423,10 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                   </Command>
                 </PopoverContent>
               </Popover>
+            )}
+
+            {assocType === 'app_fix' && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">Shows in Tasks with an App fix label. Say where in the app and what should change.</p>
             )}
 
             {(assocType === 'odoo_so' || assocType === 'odoo_mo') && meta && (

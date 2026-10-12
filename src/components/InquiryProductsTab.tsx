@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, Target, Calculator, ChevronDown, Wrench, Archive, ArchiveRestore, Clock } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, Target, Calculator, ChevronDown, Wrench, Archive, ArchiveRestore, Clock, Camera } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import { createSampleRequest } from '@/lib/sample-requests';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { UploadParseDialog } from '@/components/UploadParseDialog';
 import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
+import { PhotoIntakeDialog } from '@/components/PhotoIntakeDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
 import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
@@ -135,6 +136,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [refresh, setRefresh] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [photoIntakeOpen, setPhotoIntakeOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
@@ -672,6 +674,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setPhotoIntakeOpen(true)}>
+                  <Camera className="h-4 w-4 mr-2" /> From photos
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCopyOpen(true)}>
                   <Copy className="h-4 w-4 mr-2" /> Copy from existing
                 </DropdownMenuItem>
@@ -698,6 +703,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         inquiryId={inquiryId}
         productTypes={productTypes}
         onProductsCreated={() => { setRefresh(r => r + 1); onChange(); }}
+      />
+
+      <PhotoIntakeDialog
+        open={photoIntakeOpen}
+        onOpenChange={setPhotoIntakeOpen}
+        inquiryId={inquiryId}
+        onCreated={() => { setRefresh(r => r + 1); onChange(); }}
       />
 
       <QuickAddProductsDialog

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, ArrowUpDown, Wrench } from 'lucide-react';
 import { TaskDialog } from '@/components/TaskDialog';
 import { TaskList } from '@/components/TaskList';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,7 @@ export default function Tasks() {
   const userTouchedAssignee = useRef(false);
   const [filterStatus, setFilterStatus] = useState<'open' | 'done' | 'all'>('open');
   const [filterDue, setFilterDue] = useState<DueWindow>('all');
+  const [filterKind, setFilterKind] = useState<'all' | 'app_fix' | 'work'>('all');
   const [sort, setSort] = useState<TaskSortKey>('due_date');
   const [sortDir, setSortDir] = useState<TaskSortDir>('asc');
 
@@ -57,9 +58,11 @@ export default function Tasks() {
   };
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [newAppFix, setNewAppFix] = useState(false);
+  const openNew = (appFix: boolean) => { setNewAppFix(appFix); setDialogOpen(true); };
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useKeyboardShortcuts({ onNewItem: () => setDialogOpen(true) });
+  useKeyboardShortcuts({ onNewItem: () => openNew(false) });
 
   useEffect(() => {
     (async () => {
@@ -96,21 +99,35 @@ export default function Tasks() {
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-serif font-medium tracking-tight">Tasks</h1>
-          <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => openNew(true)} className="gap-1.5" title="Log a change needed in this app">
+              <Wrench className="h-4 w-4" /> App fix
+            </Button>
+            <Button size="sm" onClick={() => openNew(false)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Task</span><span className="sm:hidden">New</span>
+            </Button>
+          </div>
         </div>
 
         <Card>
           <CardContent className="pt-4 space-y-3">
-            {/* Status tabs always on top */}
-            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-              <TabsList className="h-9 w-full sm:w-auto">
-                <TabsTrigger value="open" className="text-xs flex-1 sm:flex-initial">Open</TabsTrigger>
-                <TabsTrigger value="done" className="text-xs flex-1 sm:flex-initial">Done</TabsTrigger>
-                <TabsTrigger value="all" className="text-xs flex-1 sm:flex-initial">All</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Status tabs always on top, with the app-fix toggle on the same row */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)} className="flex-1 sm:flex-initial">
+                <TabsList className="h-9 w-full sm:w-auto">
+                  <TabsTrigger value="open" className="text-xs flex-1 sm:flex-initial">Open</TabsTrigger>
+                  <TabsTrigger value="done" className="text-xs flex-1 sm:flex-initial">Done</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs flex-1 sm:flex-initial">All</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs value={filterKind} onValueChange={(v) => setFilterKind(v as 'all' | 'app_fix' | 'work')}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="all" className="text-xs">All tasks</TabsTrigger>
+                  <TabsTrigger value="app_fix" className="text-xs gap-1"><Wrench className="h-3 w-3" />App fixes</TabsTrigger>
+                  <TabsTrigger value="work" className="text-xs">Hide fixes</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
               <Select value={filterCustomer} onValueChange={setFilterCustomer}>
@@ -162,6 +179,7 @@ export default function Tasks() {
               inquiryId={filterInquiry !== 'all' ? filterInquiry : undefined}
               customerIdIncludingInquiries={filterCustomer !== 'all' && filterInquiry === 'all' ? filterCustomer : undefined}
               assignee={filterAssignee}
+              kind={filterKind}
               status={filterStatus}
               dueWindow={filterDue}
               sort={sort}
@@ -171,7 +189,7 @@ export default function Tasks() {
           </CardContent>
         </Card>
 
-        <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} onSaved={() => setRefreshKey(k => k + 1)} />
+        <TaskDialog open={dialogOpen} onOpenChange={setDialogOpen} context={newAppFix ? { appFix: true } : undefined} onSaved={() => setRefreshKey(k => k + 1)} />
       </div>
       
     </AppLayout>

@@ -2118,6 +2118,7 @@ export type Database = {
           overhead_done: boolean | null
           packaging_type: string
           percent_wood: number | null
+          photo_estimate: Json | null
           photo_url: string | null
           product_type_id: string | null
           quantity: number
@@ -2169,6 +2170,7 @@ export type Database = {
           overhead_done?: boolean | null
           packaging_type?: string
           percent_wood?: number | null
+          photo_estimate?: Json | null
           photo_url?: string | null
           product_type_id?: string | null
           quantity?: number
@@ -2220,6 +2222,7 @@ export type Database = {
           overhead_done?: boolean | null
           packaging_type?: string
           percent_wood?: number | null
+          photo_estimate?: Json | null
           photo_url?: string | null
           product_type_id?: string | null
           quantity?: number

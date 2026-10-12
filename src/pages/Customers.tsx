@@ -26,8 +26,8 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 const STATUS_TABS = [
   { value: 'all', label: 'All' },
   { value: 'lead', label: 'Leads' },
-  { value: 'active', label: 'Live Inquiry' },
-  { value: 'won', label: 'Active' },
+  { value: 'active', label: 'Live inquiry' },
+  { value: 'won', label: 'Customers' },
   { value: 'inactive', label: 'Inactive' },
   { value: 'churned', label: 'Churned' },
 ];
