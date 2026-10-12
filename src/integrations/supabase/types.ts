@@ -662,6 +662,7 @@ export type Database = {
           po_received_date: string | null
           po_total_value_usd: number | null
           priority: string
+          quoted_date: string | null
           quoting_currency: string | null
           quoting_currency_rate_override: number | null
           quoting_entity_id: string | null
@@ -701,6 +702,7 @@ export type Database = {
           po_received_date?: string | null
           po_total_value_usd?: number | null
           priority?: string
+          quoted_date?: string | null
           quoting_currency?: string | null
           quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
@@ -740,6 +742,7 @@ export type Database = {
           po_received_date?: string | null
           po_total_value_usd?: number | null
           priority?: string
+          quoted_date?: string | null
           quoting_currency?: string | null
           quoting_currency_rate_override?: number | null
           quoting_entity_id?: string | null
