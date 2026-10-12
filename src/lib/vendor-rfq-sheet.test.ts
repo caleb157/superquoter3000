@@ -97,7 +97,7 @@ describe('defaultReplyBy', () => {
 });
 
 describe('productSpecs', () => {
-  it('lists size, type, wood, finish, weight, MOQ, hardware and notes', () => {
+  it('lists size, type, wood, finish, weight, MOQ, hardware and vendor notes, never internal notes', () => {
     const p = {
       id: 'p1', width_inch: 18, depth_inch: 12, height_inch: 2.5, product_type: { name: 'Wood Tray' }, percent_wood: 0.8,
       notes_finishes: 'Natural oil', finishing_difficulty: 'Medium', weight_kg: 1.25, moq: 200,
@@ -118,7 +118,7 @@ describe('productSpecs', () => {
       { label: 'MOQ', value: '200' },
       { label: 'Hardware', value: 'Brass handle x 2' },
     ]);
-    expect(notes).toEqual(['Kiln-dried mango only', 'Rounded corners']);
+    expect(notes).toEqual(['Kiln-dried mango only']);
   });
 
   it('skips what the product does not have', () => {
