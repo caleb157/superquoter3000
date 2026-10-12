@@ -101,7 +101,7 @@ export default defineTool({
       };
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, unknown> = Object.create(null);
     if (input.unit_cost_inr !== undefined) patch.unit_cost_inr = input.unit_cost_inr;
     if (input.vendor_name !== undefined) patch.vendor_name = input.vendor_name;
     if (input.units !== undefined) patch.units = input.units;

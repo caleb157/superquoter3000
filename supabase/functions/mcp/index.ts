@@ -384,7 +384,7 @@ var update_cogs_item_default = defineTool8({
         isError: true
       };
     }
-    const patch = {};
+    const patch = /* @__PURE__ */ Object.create(null);
     if (input.unit_cost_inr !== void 0) patch.unit_cost_inr = input.unit_cost_inr;
     if (input.vendor_name !== void 0) patch.vendor_name = input.vendor_name;
     if (input.units !== void 0) patch.units = input.units;
