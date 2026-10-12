@@ -22,6 +22,7 @@ import QuoteComparison from "./pages/QuoteComparison";
 import VendorRfqList from "./pages/VendorRfqList";
 import VendorRfqEditor from "./pages/VendorRfqEditor";
 import VendorRfqPublicView from "./pages/VendorRfqPublicView";
+import VendorRfqSheet from "./pages/VendorRfqSheet";
 import InquiryDetail from "./pages/InquiryDetail";
 import CostingWorkspace from "./pages/CostingWorkspace";
 import InquiryPdView from "./pages/InquiryPdView";
@@ -142,6 +143,9 @@ const App = () => (
                 <ProtectedRoute requireAdminOrTeam>
                   <VendorRfqEditor />
                 </ProtectedRoute>
+              } />
+              <Route path="/vendor-rfq-sheet/:batchId" element={
+                <ProtectedRoute requireAdminOrTeam><VendorRfqSheet /></ProtectedRoute>
               } />
               <Route path="/vendor-rfq/view/:token" element={<VendorRfqPublicView />} />
               <Route path="/quotes" element={
