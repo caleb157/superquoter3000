@@ -8,7 +8,7 @@ import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
-import { ProductCostingTab } from '@/components/ProductCostingTab';
+import { ProductCostingSheet } from '@/components/ProductCostingSheet';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductCostHistoryTab } from '@/components/ProductCostHistoryTab';
 
@@ -341,7 +341,7 @@ const ProductDetail = () => {
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}
           </TabsContent>
           <TabsContent value="costing">
-            {activeTab === 'costing' && <ProductCostingTab productId={product.id} onProductUpdated={fetchProduct} onSummaryChange={setCostingSummary} />}
+            {activeTab === 'costing' && <ProductCostingSheet productId={product.id} onSummaryChange={setCostingSummary} />}
           </TabsContent>
           <TabsContent value="cost-history">
             {activeTab === 'cost-history' && <ProductCostHistoryTab productId={product.id} />}

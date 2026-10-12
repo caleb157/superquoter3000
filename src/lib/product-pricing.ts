@@ -1,7 +1,7 @@
 // Compute current calculated unit prices (USD) for many products at once.
 // Used by Dashboard for the weighted pipeline value so we no longer rely on target_price_usd.
 //
-// IMPORTANT: This module mirrors the auto-calculations performed by ProductCostingTab
+// IMPORTANT: This module runs the same engine as the product costing sheet
 // in-memory so prices stay consistent with the costing sheet even when the user
 // has not opened the costing tab to flush the latest auto-cost values to DB.
 import { supabase } from '@/integrations/supabase/client';
