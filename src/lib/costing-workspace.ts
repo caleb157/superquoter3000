@@ -158,6 +158,8 @@ function runEngine(b: Bundle, p: any, pool: ShipmentPool | null): CostingEngineR
 export function computeResults(b: Bundle): Map<string, CostingEngineResult> {
   const pool: ShipmentPool = { lines: [] };
   for (const p of b.products) {
+    // An archived product opened on its own page prices against the live order without joining it.
+    if (p.archived_at) continue;
     const r = runEngine(b, p, null);
     const q = Number(p.quantity) || 0;
     pool.lines.push({ product_id: p.id, cbm: q * r.finalUnitCbm, cartons: q > 0 ? Math.ceil(q / (r.productsPerMc || 1)) : 0 });
@@ -822,6 +824,19 @@ export async function persistDerived(b: Bundle, results: Map<string, CostingEngi
     if (!p || !r) return;
     await persistResolvedCosting(id, p, b.cogs.filter(c => c.product_id === id), b.nu.filter(n => n.product_id === id), r);
   }));
+}
+
+/**
+ * "Target this line": the ₹ each that brings the product's price onto its target when only
+ * this line's price changes (quantity, waste and NPM held). Each ₹ of line cost carries the
+ * cost-of-capital charge, so the needed cut is divided by (1 + capital factor). Null when
+ * there's no target or the line alone can't get there.
+ */
+export function targetLineEach(row: WorkspaceRow, line: any): number | null {
+  if (row.maxCostInr == null || line.include === 'No') return null;
+  const per = lineValue({ ...line, include: 'Yes', unit_cost_inr: 1 });
+  const want = lineValue({ ...line, include: 'Yes' }) - (row.costInr - row.maxCostInr) / (1 + (row.r.capitalFactor || 0));
+  return per > 0 && want > 0 ? want / per : null;
 }
 
 /** Sets the waste % on every raw-piece quote line of the given products. */

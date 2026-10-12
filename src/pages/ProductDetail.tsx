@@ -8,7 +8,7 @@ import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, RefreshCw, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
-import { ProductCostingTab } from '@/components/ProductCostingTab';
+import { ProductCostingSheet } from '@/components/ProductCostingSheet';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
@@ -339,7 +339,7 @@ const ProductDetail = () => {
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}
           </TabsContent>
           <TabsContent value="costing">
-            {activeTab === 'costing' && <ProductCostingTab productId={product.id} onProductUpdated={fetchProduct} onSummaryChange={setCostingSummary} />}
+            {activeTab === 'costing' && <ProductCostingSheet productId={product.id} onSummaryChange={setCostingSummary} />}
           </TabsContent>
           <TabsContent value="sample-log">
             {activeTab === 'sample-log' && <ProductSampleLogTab productId={product.id} />}

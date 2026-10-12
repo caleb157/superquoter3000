@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 
 /**
- * Mirrors the self-heal seed arrays in ProductCostingTab. Keep these in sync
- * with src/components/ProductCostingTab.tsx — the test below pins their lengths
- * so accidental edits to either list trip the build.
+ * Mirrors the default rows a new product starts with (seeded by the DB trigger
+ * trg_seed_product_defaults; the old product Costing tab carried a copy). The test
+ * below pins their lengths so accidental edits trip the build.
  */
 const DEFAULT_OVERHEAD = (id: string) => [
   { product_id: id, labor_type: 'Manufacturing', sort_order: 0 },
@@ -67,7 +67,7 @@ function makeMockSupabase() {
 }
 
 /**
- * Re-implementation of the self-heal block from ProductCostingTab so we can
+ * Re-implementation of the old Costing tab's self-heal block so we can
  * exercise it without rendering the full component tree.
  */
 async function runSelfHeal(supabase: any, productId: string) {

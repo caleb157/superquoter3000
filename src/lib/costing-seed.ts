@@ -1,6 +1,6 @@
 // Headless costing orchestration — seed, compute, and persist a product's costing
 // without opening the costing tab UI. Shares the same pure engine as product-pricing.ts
-// and ProductCostingTab so results are identical.
+// and the Costing Workspace so results are identical.
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
@@ -21,7 +21,7 @@ const packagingIncludeForType = (pkg: string, componentName: string): boolean =>
  * Ensures a product has its default auto-calc COGS rows. Inserts only missing ones.
  * Idempotent: safe to call repeatedly. Returns true if any rows were inserted.
  *
- * Mirrors the row definitions used by ProductCostingTab's recalculate-all path and
+ * Mirrors the row definitions used by resetAutoCosting (Recalculate auto costs) and
  * the DB trigger trg_seed_product_defaults; the trigger covers most cases on
  * INSERT, this is the safety net for products that pre-date the trigger or had
  * default rows manually deleted.
@@ -498,4 +498,31 @@ export async function ensureCostingRowsOnOpen(productId: string): Promise<boolea
     changed = true;
   }
   return changed;
+}
+
+/**
+ * "Recalculate auto costs": hands the managed lines (finishing materials, cartons, domestic
+ * freight, finishing and packaging labor) back to the engine and re-adds any deleted default
+ * rows. Returns how many rows were restored.
+ */
+export async function resetAutoCosting(productId: string): Promise<number> {
+  const sb = supabase as any;
+  const count = async () => {
+    const [c, o] = await Promise.all([
+      sb.from('cogs_items').select('id, component_name').eq('product_id', productId),
+      sb.from('overhead_items').select('id, labor_type').eq('product_id', productId),
+    ]);
+    return { cogs: (c.data || []) as any[], oh: (o.data || []) as any[] };
+  };
+  const before = await count();
+  const managed = ['color', 'stain', 'sealer', 'lacquer', 'ic box', 'inner carton', 'mc box', 'master carton', 'outer carton', 'domestic freight'];
+  const cogsIds = before.cogs.filter(c => managed.some(k => (c.component_name || '').toLowerCase().includes(k))).map(c => c.id);
+  const ohIds = before.oh.filter(o => o.labor_type === 'Finishing' || o.labor_type === 'Packaging').map(o => o.id);
+  await Promise.all([
+    cogsIds.length ? sb.from('cogs_items').update({ is_auto_calculated: true }).in('id', cogsIds) : null,
+    ohIds.length ? sb.from('overhead_items').update({ is_auto_estimated: true }).in('id', ohIds) : null,
+  ]);
+  await seedDefaultCostingRows(productId);
+  const after = await count();
+  return Math.max(0, after.cogs.length + after.oh.length - before.cogs.length - before.oh.length);
 }
