@@ -244,7 +244,7 @@ export default function SampleRequestView() {
                         <TableCell className="text-sm">
                           <div className="flex items-center gap-2">
                             {l.product?.photo_url
-                              ? <img src={l.product.photo_url} alt="" className="h-9 w-9 rounded object-cover bg-muted" />
+                              ? <img src={l.product.photo_url} alt="" loading="lazy" decoding="async" className="h-9 w-9 rounded object-cover bg-muted" />
                               : <div className="h-9 w-9 rounded bg-muted" />}
                             <div>
                               {l.product ? <Link to={`/product/${l.product.id}?tab=sample-log`} className="font-medium hover:underline">{l.product.name}</Link> : '—'}

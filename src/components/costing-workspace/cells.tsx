@@ -391,7 +391,7 @@ export function Thumb({ p, size = 32 }: { p: any; size?: number }) {
   useEffect(() => setBroken(false), [p.photo_url]);
   const initials = String(p.name || p.sku || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
   if (p.photo_url && !broken) {
-    return <img src={p.photo_url} alt="" onError={() => setBroken(true)} className="rounded-md object-cover bg-muted shrink-0" style={{ width: size, height: size }} />;
+    return <img src={p.photo_url} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className="rounded-md object-cover bg-muted shrink-0" style={{ width: size, height: size }} />;
   }
   return (
     <div className="rounded-md bg-muted text-muted-foreground grid place-items-center shrink-0 font-medium" style={{ width: size, height: size, fontSize: size * 0.34 }}>
