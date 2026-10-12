@@ -9,10 +9,11 @@ export const LEAD_STATUS_COLORS: Record<string, string> = {
   churned: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
 };
 
+// Stored values stay as they are; only the labels people see change.
 export const LEAD_STATUS_LABELS: Record<string, string> = {
   lead: 'Lead',
-  active: 'Live Inquiry',
-  won: 'Active',
+  active: 'Live inquiry',
+  won: 'Customer',
   inactive: 'Inactive',
   churned: 'Churned',
 };

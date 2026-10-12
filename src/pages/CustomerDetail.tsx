@@ -16,7 +16,7 @@ import { ArrowLeft, Plus, FileText, ListTodo, Clock, History } from 'lucide-reac
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { LeadStatusBadge } from '@/components/LeadStatusBadge';
+import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER } from '@/components/LeadStatusBadge';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -165,13 +165,7 @@ export default function CustomerDetail() {
             />
             <InlineSelect
               value={customer.lead_status}
-              options={[
-                { value: 'lead', label: 'Lead' },
-                { value: 'active', label: 'Active' },
-                { value: 'won', label: 'Won' },
-                { value: 'inactive', label: 'Inactive' },
-                { value: 'churned', label: 'Churned' },
-              ]}
+              options={LEAD_STATUS_ORDER.map(s => ({ value: s, label: LEAD_STATUS_LABELS[s] }))}
               onSave={(v) => updateField({ lead_status: v })}
               renderDisplay={() => <LeadStatusBadge status={customer.lead_status} />}
             />
@@ -230,11 +224,9 @@ export default function CustomerDetail() {
                   <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="lead">Lead</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="won">Won</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="churned">Churned</SelectItem>
+                      {LEAD_STATUS_ORDER.map(s => (
+                        <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Button
@@ -417,7 +409,8 @@ export default function CustomerDetail() {
           table: 'customer_status_events',
           parentColumn: 'customer_id',
           parentId: customer.id,
-          options: ['lead', 'active', 'won', 'inactive', 'churned'],
+          options: [...LEAD_STATUS_ORDER],
+          optionLabels: LEAD_STATUS_LABELS,
           valueColumn: 'to_status',
           fromColumn: 'from_status',
           label: `${customer.name} — lead status`,

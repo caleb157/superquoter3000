@@ -28,6 +28,8 @@ export type HistoryConfig = {
   parentId: string;
   /** Allowed values for to_status / to_stage */
   options: string[];
+  /** Optional display labels for options; falls back to the raw value */
+  optionLabels?: Record<string, string>;
   /** Column name used for the "value" in this table */
   valueColumn: 'to_status' | 'to_stage';
   /** Column name for the previous value */
@@ -75,6 +77,7 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const optionLabel = (o: string) => config.optionLabels?.[o] ?? o.replace(/_/g, ' ');
   const [newValue, setNewValue] = useState<string>(config.options[0] ?? '');
   const [newDate, setNewDate] = useState<string>(toLocalInput(new Date().toISOString()));
   const [newNote, setNewNote] = useState('');
@@ -182,10 +185,10 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
                     <Select value={value} onValueChange={(v) => updateRow(r.id, { [valueCol]: v } as any)}>
                       <SelectTrigger className="h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {config.options.map(o => <SelectItem key={o} value={o} className="capitalize">{o.replace(/_/g, ' ')}</SelectItem>)}
+                        {config.options.map(o => <SelectItem key={o} value={o} className="capitalize">{optionLabel(o)}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {from && <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">from {from.replace(/_/g, ' ')}</div>}
+                    {from && <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">from {optionLabel(from)}</div>}
                   </div>
                   <div className="col-span-8 sm:col-span-5">
                     <Label className="text-[10px] text-muted-foreground">Occurred at</Label>
@@ -236,7 +239,7 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
                 <Select value={newValue} onValueChange={setNewValue}>
                   <SelectTrigger className="h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {config.options.map(o => <SelectItem key={o} value={o} className="capitalize">{o.replace(/_/g, ' ')}</SelectItem>)}
+                    {config.options.map(o => <SelectItem key={o} value={o} className="capitalize">{optionLabel(o)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
