@@ -38,6 +38,7 @@ const SampleRequestView = lazyPage(() => import("./pages/SampleRequestView"));
 const Tasks = lazyPage(() => import("./pages/Tasks"));
 const Analytics = lazyPage(() => import("./pages/Analytics"));
 const Vendors = lazyPage(() => import("./pages/Vendors"));
+const Complaints = lazyPage(() => import("./pages/Complaints"));
 const Tools = lazyPage(() => import("./pages/Tools"));
 const MasterCartonSizer = lazyPage(() => import("./pages/MasterCartonSizer"));
 const IronWeightCalculator = lazyPage(() => import("./pages/IronWeightCalculator"));
@@ -196,6 +197,9 @@ const App = () => (
               } />
               <Route path="/vendors" element={
                 <ProtectedRoute requireAdminOrTeam><Vendors /></ProtectedRoute>
+              } />
+              <Route path="/complaints" element={
+                <ProtectedRoute requireAdminOrTeam><Complaints /></ProtectedRoute>
               } />
               <Route path="/media" element={
                 <ProtectedRoute requireAdminOrTeam><MediaGallery /></ProtectedRoute>

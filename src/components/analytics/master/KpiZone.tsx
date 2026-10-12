@@ -7,7 +7,7 @@ import { Target } from 'lucide-react';
 import { median, fmtDays, type DateRange } from '@/lib/analytics-helpers';
 import { inquiryQuoteTimings, sampleRequestTimings, monthlyMedians } from '@/lib/timing-kpis';
 import { confirmedOrdersKpi, otdKpi, pickAmt, fmtMoney, MIN_ORDER_USD, type Ccy, type Snapshot } from '@/lib/master-analytics';
-import { ComplaintsPanel, useComplaints } from './ComplaintsPanel';
+import { useComplaints } from '@/components/complaints/ComplaintDialog';
 import { KpiGauge } from './KpiGauge';
 import { TargetsDialog, useKpiTargets } from './TargetsDialog';
 import { MonthlyTrend } from './MonthlyTrend';
@@ -83,11 +83,9 @@ export function KpiZone({ snapshot, ccy, range }: { snapshot: Snapshot | null; c
         <KpiGauge label="On-time delivery" display={otd?.rate != null ? `${Math.round(otd.rate * 100)}%` : '—'} actual={otd?.rate != null ? otd.rate * 100 : null}
           goal={targets.otd_pct} goalDisplay={`≥ ${targets.otd_pct}%`} higherIsBetter sub={otd ? `${otd.onTime}/${otd.scored} SOs` : undefined} onClick={snapshot ? () => setDrill('otd') : undefined} />
         <KpiGauge label="Complaints" display={String(loggedComplaints)} actual={loggedComplaints}
-          goal={cGoal} goalDisplay={`≤ ${cGoal}`} higherIsBetter={false} sub={`${openComplaints} open`} />
+          goal={cGoal} goalDisplay={`≤ ${cGoal}`} higherIsBetter={false} sub={`${openComplaints} open`} onClick={() => navigate('/complaints')} />
       </div>
       <TargetsDialog open={targetsOpen} onOpenChange={setTargetsOpen} targets={targets} onSave={saveTargets} />
-
-      <ComplaintsPanel rows={complaints.rows} reload={complaints.reload} from={range.from} to={range.to} />
 
       <DrillDownDialog open={drill === 'orders'} onOpenChange={o => !o && setDrill(null)} title="Confirmed sales orders"
         description={`Orders confirmed in the period worth at least $${MIN_ORDER_USD} (or ₹ equivalent). Amounts untaxed, converted at each order's own Odoo rate.`}

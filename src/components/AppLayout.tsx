@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TrendingUp, Images,
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, ChevronDown, BarChart3, Wrench, ClipboardCheck,
+  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -68,6 +68,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: FileText },
+    { to: '/complaints', label: 'Complaints', icon: MessageSquareWarning },
   ] : [];
   const extraLabels = [
     { to: '/freight-quotes', label: 'Freight Quotes' },
