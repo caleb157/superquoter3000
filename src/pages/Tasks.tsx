@@ -111,14 +111,23 @@ export default function Tasks() {
 
         <Card>
           <CardContent className="pt-4 space-y-3">
-            {/* Status tabs always on top */}
-            <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-              <TabsList className="h-9 w-full sm:w-auto">
-                <TabsTrigger value="open" className="text-xs flex-1 sm:flex-initial">Open</TabsTrigger>
-                <TabsTrigger value="done" className="text-xs flex-1 sm:flex-initial">Done</TabsTrigger>
-                <TabsTrigger value="all" className="text-xs flex-1 sm:flex-initial">All</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Status tabs always on top, with the app-fix toggle on the same row */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)} className="flex-1 sm:flex-initial">
+                <TabsList className="h-9 w-full sm:w-auto">
+                  <TabsTrigger value="open" className="text-xs flex-1 sm:flex-initial">Open</TabsTrigger>
+                  <TabsTrigger value="done" className="text-xs flex-1 sm:flex-initial">Done</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs flex-1 sm:flex-initial">All</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs value={filterKind} onValueChange={(v) => setFilterKind(v as 'all' | 'app_fix' | 'work')}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="all" className="text-xs">All tasks</TabsTrigger>
+                  <TabsTrigger value="app_fix" className="text-xs gap-1"><Wrench className="h-3 w-3" />App fixes</TabsTrigger>
+                  <TabsTrigger value="work" className="text-xs">Hide fixes</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
               <Select value={filterCustomer} onValueChange={setFilterCustomer}>
@@ -157,15 +166,6 @@ export default function Tasks() {
                   <SelectItem value="overdue">Overdue</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="this_week">This week</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterKind} onValueChange={(v) => setFilterKind(v as 'all' | 'app_fix' | 'work')}>
-                <SelectTrigger className="h-9 text-sm lg:w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All tasks</SelectItem>
-                  <SelectItem value="app_fix">App fixes only</SelectItem>
-                  <SelectItem value="work">Hide app fixes</SelectItem>
                 </SelectContent>
               </Select>
 
