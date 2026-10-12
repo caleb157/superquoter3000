@@ -58,7 +58,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/analytics', label: 'Kickass Analytics Dashboard', icon: BarChart3 },
     { to: '/profitability', label: 'Profitability', icon: TrendingUp },
-    { to: '/media', label: 'Media Gallery', icon: Images },
     { to: '/tools', label: 'Tools', icon: Wrench },
   ] : [];
   const directoryNav = isAdminOrTeam ? [
@@ -68,6 +67,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/samples', label: 'Samples', icon: Package2 },
     { to: '/vendors', label: 'Vendors', icon: Truck },
     { to: '/vendor-rfqs', label: 'Vendor RFQs', icon: FileText },
+    { to: '/media', label: 'Media Gallery', icon: Images },
     { to: '/complaints', label: 'Complaints', icon: MessageSquareWarning },
   ] : [];
   const extraLabels = [
