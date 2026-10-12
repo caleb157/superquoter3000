@@ -3,6 +3,7 @@
 // and ProductCostingTab so results are identical.
 import { supabase } from '@/integrations/supabase/client';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
+import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'corrugate_bubble' | 'bulk_pack';
 
@@ -386,4 +387,115 @@ export async function recostInquiry(
       }
     }),
   );
+}
+
+const PRICED_QTY_DEFAULT_COGS_TYPES = new Set(['Raw Piece', 'Subcontracting', ...HARDWARE_COGS_TYPES_WITH_LEGACY]);
+
+/**
+ * The rows the product costing screen makes sure exist whenever it is opened (the old
+ * Costing tab did this in its own effects). Unlike seedDefaultCostingRows it does not bring
+ * back finishing or packaging lines the user turned into something else, so a wax or
+ * outsourced product stays as it is. Idempotent: inserts only what is missing.
+ *
+ * - a cbm_estimates row, and the Auto Transport non-unit line when there are no non-unit lines
+ * - the product type's default chemicals (one per finishing category)
+ * - Corrugate / Bubble wrap lines in wrap packaging mode
+ * - the domestic freight line when the product is sourced from outside
+ * - a shipping item with the default shipping type
+ * - qty 1 on priced manual raw piece / subcontracting / hardware lines that still say 0
+ *
+ * Returns true when anything was written (callers reload their rows).
+ */
+export async function ensureCostingRowsOnOpen(productId: string): Promise<boolean> {
+  const sb = supabase as any;
+  const [prodRes, cogsRes, nuRes, cbmRes, shipRes] = await Promise.all([
+    sb.from('products').select('id, packaging_type, source_location_id, product_type_id').eq('id', productId).maybeSingle(),
+    sb.from('cogs_items').select('*').eq('product_id', productId),
+    sb.from('non_unit_cogs').select('id').eq('product_id', productId),
+    sb.from('cbm_estimates').select('id').eq('product_id', productId),
+    sb.from('shipping_items').select('id').eq('product_id', productId),
+  ]);
+  const product = prodRes.data;
+  if (!product) return false;
+  const cogs = (cogsRes.data || []) as any[];
+  let changed = false;
+
+  const needsGs = !(cbmRes.data || []).length || !(shipRes.data || []).length;
+  const gs = needsGs ? (await sb.from('global_settings').select('mc_height_buffer_inch, default_shipping_type').limit(1).maybeSingle()).data : null;
+
+  if (!(cbmRes.data || []).length) {
+    await sb.from('cbm_estimates').insert({ product_id: productId, mc_height_buffer_inch: gs?.mc_height_buffer_inch ?? 2.5 });
+    changed = true;
+  }
+  if (!(nuRes.data || []).length) {
+    await sb.from('non_unit_cogs').insert({
+      product_id: productId, name: 'Auto Transport', total_quantity: 1, cost_each_inr: 0, include: 'Yes', sort_order: 0,
+    });
+    changed = true;
+  }
+  if (!(shipRes.data || []).length) {
+    const { data: types } = await sb.from('shipping_types').select('id, name').order('name');
+    const type = (types || []).find((t: any) => t.name === gs?.default_shipping_type) || (types || [])[0];
+    if (type) {
+      await sb.from('shipping_items').insert({ product_id: productId, shipping_type_id: type.id });
+      changed = true;
+    }
+  }
+
+  const has = (match: (n: string) => boolean) => cogs.some(c => match((c.component_name || '').toLowerCase()));
+  let s = cogs.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0) + 1;
+  const inserts: any[] = [];
+
+  if (product.product_type_id) {
+    const { data: defaults } = await sb
+      .from('product_type_default_chemicals')
+      .select('chemical_price_id, chemical_price:chemical_prices(id, name, category, unit_type, price_per_unit_inr, price_per_litre_inr)')
+      .eq('product_type_id', product.product_type_id);
+    const chemIds = new Set(cogs.map(c => c.chemical_price_id).filter(Boolean));
+    const cats = new Set(cogs.filter(c => c.cogs_type === 'Finishing Materials').map(c => {
+      const n = (c.component_name || '').toLowerCase();
+      if (n.includes('color') || n.includes('stain')) return 'Color';
+      if (n.includes('sealer')) return 'Sealer';
+      if (n.includes('lacquer')) return 'Lacquer';
+      if (n.includes('wax')) return 'Wax';
+      return null;
+    }).filter(Boolean));
+    for (const d of (defaults || []) as any[]) {
+      const chem = d.chemical_price;
+      if (!chem || chemIds.has(chem.id) || cats.has(chem.category)) continue;
+      cats.add(chem.category);
+      inserts.push({
+        product_id: productId, cogs_type: 'Finishing Materials', component_name: chem.name, chemical_price_id: chem.id,
+        is_auto_calculated: true, include: 'Yes', units: chem.unit_type || 'L', components_per_product: 0,
+        unit_cost_inr: Number(chem.price_per_unit_inr ?? chem.price_per_litre_inr ?? 0), sort_order: s++,
+      });
+    }
+  }
+  if (product.packaging_type === 'corrugate_bubble') {
+    for (const name of ['Corrugate Wrap', 'Bubble Wrap']) {
+      if (!has(n => n === name.toLowerCase())) {
+        inserts.push({ product_id: productId, cogs_type: 'Packaging', component_name: name, units: 'KG', is_auto_calculated: true, include: 'Yes', sort_order: s++ });
+      }
+    }
+  }
+  if (product.source_location_id && !has(n => n.includes('domestic freight'))) {
+    inserts.push({
+      product_id: productId, cogs_type: 'Subcontracting', component_name: 'Domestic Freight (External Sourcing)', units: 'CBM',
+      waste_factor: 0, is_auto_calculated: true, include: 'Yes', sort_order: s++,
+    });
+  }
+  if (inserts.length) {
+    await sb.from('cogs_items').insert(inserts);
+    changed = true;
+  }
+
+  const backfill = cogs.filter(c =>
+    !c.is_auto_calculated && PRICED_QTY_DEFAULT_COGS_TYPES.has(c.cogs_type)
+    && (Number(c.unit_cost_inr) || 0) > 0 && (Number(c.components_per_product) || 0) <= 0,
+  ).map(c => c.id);
+  if (backfill.length) {
+    await sb.from('cogs_items').update({ components_per_product: 1 }).in('id', backfill);
+    changed = true;
+  }
+  return changed;
 }
