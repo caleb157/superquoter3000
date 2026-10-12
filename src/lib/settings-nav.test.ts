@@ -7,7 +7,7 @@ describe('settings navigation', () => {
   it('has five groups and every section once', () => {
     expect(NAV_GROUPS.map(g => g.label)).toEqual(['Company', 'Costing rates', 'Labor', 'Logistics', 'Data']);
     expect(new Set(VALID_SECTIONS).size).toBe(VALID_SECTIONS.length);
-    expect(VALID_SECTIONS).toHaveLength(23);
+    expect(VALID_SECTIONS).toHaveLength(22);
     expect(VALID_SECTIONS).not.toContain('vendors'); // edited on /vendors now
     expect(VALID_SECTIONS).toContain('projections');
   });
