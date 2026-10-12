@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import hqLogo from '@/assets/hq-logo.png';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
@@ -66,9 +67,7 @@ const Login = () => {
     <div className="flex min-h-screen items-center justify-center bg-muted/30">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-            <Package className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img src={hqLogo} alt="Product HQ" className="mx-auto h-12 w-12" />
           <CardTitle className="text-xl">Product HQ</CardTitle>
           <CardDescription>
             {isSignUp ? 'Create your account' : 'Sign in to your account'}

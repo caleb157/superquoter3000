@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Package, CheckCircle2 } from 'lucide-react';
+import { Download, CheckCircle2 } from 'lucide-react';
+import hqLogo from '@/assets/hq-logo.png';
 import { toast } from 'sonner';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
@@ -110,7 +111,7 @@ const VendorRfqPublicView = () => {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Package className="h-5 w-5 text-primary" />
+              <img src={hqLogo} alt="" className="h-5 w-5" />
               <span className="font-bold text-sm">Product HQ</span>
             </div>
             <h1 className="text-xl font-bold">{rfq.title || 'Vendor Request for Quotation'}</h1>
