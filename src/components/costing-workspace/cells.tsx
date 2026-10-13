@@ -242,7 +242,7 @@ export function EditCell({
       {...navAttrs(nav)}
       title={title}
       className={cn(
-        'h-8 w-full rounded-md bg-transparent px-2 tabular-nums outline-none transition-colors',
+        'h-8 w-full rounded-md bg-transparent px-2 text-sm tabular-nums outline-none transition-colors',
         'border border-transparent hover:border-border hover:bg-background focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20',
         nav && focused && !editing && 'caret-transparent selection:bg-primary/15',
         align === 'right' ? 'text-right' : 'text-left',
@@ -329,7 +329,7 @@ export function CostMixBar({ row, className, showLegend }: { row: WorkspaceRow; 
     return (
       <div className="space-y-2">
         {bar}
-        <div className="text-[11px] text-muted-foreground">Share of unit cost</div>
+        <div className="text-xs text-muted-foreground">Share of unit cost</div>
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
           {parts.map(b => (
             <div key={b.key} className="flex items-center gap-1.5 min-w-0">
@@ -423,7 +423,7 @@ export function Stat({ label, value, sub, tone, onClick, active, hint }: {
         active && 'border-primary ring-2 ring-primary/15',
       )}
     >
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground truncate">{label}</div>
+      <div className="text-xs text-muted-foreground truncate">{label}</div>
       <div className={cn('text-lg font-semibold tabular-nums leading-tight',
         tone === 'good' && 'text-primary', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-warning')}>
         {value}

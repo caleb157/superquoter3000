@@ -272,13 +272,13 @@ const ProductDetail = () => {
           {costingSummary && (
             <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-muted/50 rounded-md">
               <div className="text-xs">
-                <span className="text-muted-foreground block text-[10px]">Unit cost</span>
+                <span className="text-muted-foreground block">Unit cost</span>
                 <span className="tabular-nums font-semibold">{inr(costingSummary.unitCostInr)}</span>
                 <span className="text-muted-foreground ml-1 tabular-nums">{usd(costingSummary.unitCostUsd)}</span>
               </div>
               <div className="w-px h-6 bg-border" />
               <div className="text-xs">
-                <span className="text-muted-foreground block text-[10px]">Unit price</span>
+                <span className="text-muted-foreground block">Unit price</span>
                 <span className="tabular-nums font-semibold text-primary">{usd(costingSummary.unitPriceUsd)}</span>
                 <span className="text-muted-foreground ml-1 tabular-nums">{inr(costingSummary.unitPriceInr)}</span>
               </div>
@@ -313,7 +313,7 @@ const ProductDetail = () => {
             onBlur={(e) => { saveInspirationUrl(e.target.value); setInspirationDraft(null); }}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             placeholder="Inspiration URL — link to the original piece…"
-            className="h-8 text-xs flex-1"
+            className="h-9 flex-1"
             disabled={inspirationSaving}
           />
           {product.inspiration_url && (

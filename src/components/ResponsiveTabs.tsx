@@ -64,9 +64,9 @@ export function ResponsiveTabs({
             <TabsTrigger
               key={opt.value}
               value={opt.value}
-              className={cn('text-xs gap-1.5', triggerClassName)}
+              className={cn('gap-1.5', triggerClassName)}
             >
-              {opt.icon && <opt.icon className="h-3.5 w-3.5" />}
+              {opt.icon && <opt.icon className="h-4 w-4" />}
               {opt.label}
             </TabsTrigger>
           ))}

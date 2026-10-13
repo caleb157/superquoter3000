@@ -42,7 +42,7 @@ function Pill({ track, value, onChange }: PillProps) {
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition hover:opacity-80',
+            'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition hover:opacity-80',
             stageClass(value),
           )}
           onClick={(e) => e.stopPropagation()}
