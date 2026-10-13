@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
-import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
 import { sumInquiryTotals } from '@/lib/inquiry-totals';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
@@ -31,6 +31,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
   });
 
   useEffect(() => {
+    const since = Date.now();
     (async () => {
       const [{ data: prodData }, { count: archived }] = await Promise.all([
         (supabase as any)
@@ -55,7 +56,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
       setCounts(c);
       // Same calculation as the Inquiries list (src/lib/inquiry-totals.ts).
       const priceMap = rows.length > 0
-        ? await computeProductPriceAndCost(rows.map((p: any) => p.id))
+        ? await computeInquiryPriceAndCost(inquiryId, since)
         : {};
       const t = sumInquiryTotals(rows, priceMap);
       setFin({

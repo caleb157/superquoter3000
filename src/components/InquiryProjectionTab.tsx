@@ -28,7 +28,7 @@ import {
   defaultDurationMonths,
   type InquiryProjection,
 } from '@/lib/projections';
-import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
 import {
   effectiveFobUsd,
   effectiveGpm,
@@ -86,6 +86,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   }, []);
 
   useEffect(() => {
+    const since = Date.now();
     (async () => {
       setLoading(true);
       const [pr, ent, inq, prods] = await Promise.all([
@@ -103,7 +104,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       if (prodIds.length) {
         const [{ data: ohRows }, priceMap] = await Promise.all([
           (supabase as any).from('overhead_items').select('product_id, man_hours_per_unit, include').in('product_id', prodIds),
-          computeProductPriceAndCost(prodIds),
+          computeInquiryPriceAndCost(inquiryId, since),
         ]);
         const sums: Record<string, number> = {};
         (ohRows || []).forEach((r: any) => {
