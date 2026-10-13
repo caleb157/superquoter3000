@@ -221,3 +221,14 @@
 [data-grid]:not([data-col="name"]) {
   scroll-margin: var(--cw-scroll-top, 0) 4px var(--cw-scroll-bottom, 0) var(--cw-scroll-left, 0);
 }
+
+/* iOS Safari zooms the whole page in when a field under 16px gets focus, and
+   stays zoomed — which pushes dialogs and toolbars off the left/right edge.
+   On phones, give text fields 16px so focusing one never zooms. */
+@media (max-width: 767px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

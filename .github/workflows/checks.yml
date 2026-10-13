@@ -1,0 +1,26 @@
+name: Checks
+
+# Typecheck and tests on every PR and on main, so a PR can be judged without
+# waiting on a Vercel preview deploy.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The lockfiles point at Lovable's private registry mirror, so install from npm directly.
+      - run: npm install --no-audit --no-fund --package-lock=false
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npx vitest run

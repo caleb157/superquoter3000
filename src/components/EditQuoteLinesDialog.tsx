@@ -322,8 +322,8 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-3xl max-h-[90dvh] flex flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-4 sm:px-6 pt-6 pb-3 pr-10">
           <DialogTitle>Edit quote line items</DialogTitle>
           <DialogDescription>
             Adjust the name, quantity, or unit price for each line. Totals will be recalculated automatically.
@@ -335,7 +335,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
           )}
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 space-y-4">
         <div className="rounded-md border p-3 bg-card space-y-1.5">
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-muted-foreground">(optional)</span></Label>
           <Select
@@ -411,7 +411,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                 dragKey === line._key ? 'opacity-50' : ''
               } ${overKey === line._key && dragKey && dragKey !== line._key ? 'border-primary ring-1 ring-primary/40' : ''}`}
             >
-              <div className="col-span-5">
+              <div className="col-span-12 sm:col-span-5 min-w-0">
                 <Label className="text-[10px] text-muted-foreground">Display name</Label>
                 <div className="flex items-center gap-1.5">
                   <span
@@ -434,7 +434,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   )}
                 </div>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-4 sm:col-span-2 min-w-0">
                 <Label className="text-[10px] text-muted-foreground">Qty</Label>
                 <Input
                   type="number"
@@ -445,7 +445,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   disabled={status === 'saving'}
                 />
               </div>
-              <div className="col-span-3">
+              <div className="col-span-8 sm:col-span-3 min-w-0">
                 <Label className="text-[10px] text-muted-foreground">Unit price ({currency})</Label>
                 <Input
                   type="number"
@@ -475,14 +475,14 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                   );
                 })()}
               </div>
-              <div className="col-span-2 flex items-center justify-end gap-1 pb-0.5">
+              <div className="col-span-12 sm:col-span-2 flex items-center justify-end gap-1 pb-0.5 min-w-0">
                 {(() => {
                   const lineTotal = Number(line.quantity || 0) * Number(line.unit_price_usd || 0);
                   const base = baseline.byKey[line._key];
                   const delta = base == null ? 0 : lineTotal - base;
                   const changed = Math.abs(delta) > 0.004;
                   return (
-                    <span className="mr-1 text-right leading-tight">
+                    <span className="mr-auto sm:mr-1 text-left sm:text-right leading-tight whitespace-nowrap">
                       <span className={`block text-[11px] tabular-nums ${changed ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                         {fmtMoney(lineTotal)}
                       </span>
@@ -629,7 +629,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
         </div>
 
-        <DialogFooter className="shrink-0 border-t bg-background px-6 py-4 flex items-center justify-between sm:justify-between gap-3">
+        <DialogFooter className="shrink-0 border-t bg-background px-4 sm:px-6 py-4 flex flex-col items-stretch sm:flex-row sm:items-center justify-between sm:justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             {lines.length} line{lines.length === 1 ? '' : 's'} · {totals.qty.toLocaleString()} units ·{' '}
             <span className="font-semibold text-foreground">{fmtMoney(totals.grand)}</span>
@@ -649,7 +649,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
               </Badge>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2">
             <Button
               variant="ghost"
               onClick={() => handleOpenChange(false)}
