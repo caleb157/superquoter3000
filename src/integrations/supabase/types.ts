@@ -1855,6 +1855,89 @@ export type Database = {
           },
         ]
       }
+      odoo_component_links: {
+        Row: {
+          cogs_type: string | null
+          component_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          match_key: string
+          odoo_display_name: string | null
+          odoo_name: string | null
+          odoo_product_id: number | null
+          odoo_sku: string | null
+          odoo_uom: string | null
+          updated_at: string
+        }
+        Insert: {
+          cogs_type?: string | null
+          component_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_key: string
+          odoo_display_name?: string | null
+          odoo_name?: string | null
+          odoo_product_id?: number | null
+          odoo_sku?: string | null
+          odoo_uom?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cogs_type?: string | null
+          component_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_key?: string
+          odoo_display_name?: string | null
+          odoo_name?: string | null
+          odoo_product_id?: number | null
+          odoo_sku?: string | null
+          odoo_uom?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      odoo_push_log: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          ok: boolean
+          product_id: string | null
+          request: Json | null
+          result: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ok: boolean
+          product_id?: string | null
+          request?: Json | null
+          result?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ok?: boolean
+          product_id?: string | null
+          request?: Json | null
+          result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "odoo_push_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       overhead_items: {
         Row: {
           created_at: string | null
