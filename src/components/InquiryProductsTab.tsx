@@ -23,9 +23,7 @@ import { QuickAddProductsDialog } from '@/components/QuickAddProductsDialog';
 import { PhotoIntakeDialog } from '@/components/PhotoIntakeDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
-import { HardwareSyncDialog } from '@/components/HardwareSyncDialog';
-import { getHardwareSyncPlan, applyHardwareSync, type HardwareSyncPlan, type HardwareConflict, type ConflictResolution } from '@/lib/hardware-sync';
-import { priceProductLines, resolveQuoteDefaults } from '@/lib/quote-rough';
+import { useGenerateQuote } from '@/hooks/use-generate-quote';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { VendorRfqSheetDialog } from '@/components/vendor-rfq/VendorRfqSheetDialog';
@@ -35,7 +33,6 @@ import { BulkSetProductTypeDialog } from '@/components/BulkSetProductTypeDialog'
 import { BulkSetSourceLocationDialog } from '@/components/BulkSetSourceLocationDialog';
 import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
 import { markupToNpm } from '@/lib/calculations';
-import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
 import { formatMoney } from '@/lib/quote-currency';
 import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
@@ -146,15 +143,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
   const [photoIntakeOpen, setPhotoIntakeOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [productTypes, setProductTypes] = useState<any[]>([]);
-  const [hwPlan, setHwPlan] = useState<HardwareSyncPlan | null>(null);
-  const [hwOpen, setHwOpen] = useState(false);
-  const [hwEntityId, setHwEntityId] = useState<string>('');
-  const [hwEntityName, setHwEntityName] = useState<string>('');
-  const [hwCurrency, setHwCurrency] = useState<string>('USD');
-  const [hwIncoterm, setHwIncoterm] = useState<string | null>(null);
   const [quotingCurrency, setQuotingCurrency] = useState<string>('USD');
   const [currencyMap, setCurrencyMap] = useState<CurrencyMap | null>(getCachedCurrencyMap());
-  const [pendingLines, setPendingLines] = useState<QuoteProductInput[] | null>(null);
   const [bulkQtyOpen, setBulkQtyOpen] = useState(false);
   const [bulkSourceOpen, setBulkSourceOpen] = useState(false);
   const [bulkTypeOpen, setBulkTypeOpen] = useState(false);
@@ -472,80 +462,13 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
 
   // Generate Quote: no review dialog. Builds a rough quote from the selected products at their
   // reference prices, sorted by name, and opens it in the app to edit afterwards.
-  const generatingQuoteRef = useRef(false);
-  const handleGenerateQuote = async () => {
-    const selectedProductsLocal = products.filter(p => selected.has(p.id));
-    if (selectedProductsLocal.length === 0 || generatingQuoteRef.current) return;
-    generatingQuoteRef.current = true;
-    try {
-      const { entity: preferredEntity, currency: cur, incoterm } = await resolveQuoteDefaults(inquiryId);
-      if (!preferredEntity) {
-        toast.error('Set up a Company Entity in Settings before generating quotes.');
-        return;
-      }
-      setHwEntityId(preferredEntity.id);
-      setHwEntityName(preferredEntity.name);
-      setHwCurrency(cur);
-      setHwIncoterm(incoterm);
-
-      const lines = await priceProductLines(selectedProductsLocal.map(p => ({
-        id: p.id, name: p.name, quantity: p.quantity ?? null,
-        reference_price_usd: displayPriceUsd(p),
-        reference_price_inr: displayPriceInr(p),
-        target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
-      })), cur);
-
-      setPendingLines(lines);
-      const plan = await getHardwareSyncPlan(Array.from(new Set(lines.map(l => l.id))));
-      if (plan.newItems.length === 0 && plan.conflicts.length === 0) {
-        await finalizeQuote(preferredEntity.id, preferredEntity.name, plan, [], cur, lines, incoterm);
-      } else {
-        // Hardware library conflicts need a decision; the quote is created right after.
-        setHwPlan(plan);
-        setHwOpen(true);
-      }
-    } finally {
-      generatingQuoteRef.current = false;
-    }
-  };
-
-  const finalizeQuote = async (
-    entityId: string,
-    entityName: string,
-    plan: HardwareSyncPlan,
-    resolved: Array<HardwareConflict & { resolution: ConflictResolution }>,
-    currency: string = 'USD',
-    lines?: QuoteProductInput[],
-    incoterm: string | null = null,
-  ) => {
-    if (plan.newItems.length || resolved.some(r => r.resolution === 'update')) {
-      const sync = await applyHardwareSync(plan.newItems, resolved);
-      if (sync.error) { toast.error('Hardware sync failed: ' + sync.error); return; }
-      if (sync.added || sync.updated) {
-        toast.success(`Hardware library: +${sync.added} added, ${sync.updated} updated`);
-      }
-    }
-    const linesToUse = lines ?? pendingLines ?? products
-      .filter(p => selected.has(p.id))
-      .map(p => ({ id: p.id, name: p.name, target_price_usd: p.target_price_usd, markup_percent: p.markup_percent } as QuoteProductInput));
-    const { createQuoteSnapshot, defaultValidUntil } = await import('@/lib/quote-creation');
-    const result = await createQuoteSnapshot({
-      inquiryId,
-      selectedProducts: linesToUse,
-      entityId,
-      validUntil: defaultValidUntil(),
-      currency,
-      incoterm,
-    });
-    setHwOpen(false);
-    setHwPlan(null);
-    setPendingLines(null);
-    if (result.error) { toast.error(result.error); return; }
-    toast.success(`Quote draft created with ${entityName} (${currency})`);
-    setSelected(new Set());
-    onChange();
-    if (result.id) navigate(`/quotes/${result.id}`);
-  };
+  const quote = useGenerateQuote(inquiryId, () => { setSelected(new Set()); onChange(); });
+  const handleGenerateQuote = () => quote.generate(products.filter(p => selected.has(p.id)).map(p => ({
+    id: p.id, name: p.name, quantity: p.quantity ?? null,
+    reference_price_usd: displayPriceUsd(p),
+    reference_price_inr: displayPriceInr(p),
+    target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
+  })));
 
   const selectedProducts = products.filter(p => selected.has(p.id));
 
@@ -1005,12 +928,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         </>
       )}
 
-      <HardwareSyncDialog
-        open={hwOpen}
-        plan={hwPlan}
-        onCancel={() => { setHwOpen(false); setHwPlan(null); setPendingLines(null); }}
-        onConfirm={(resolved) => { if (hwPlan) finalizeQuote(hwEntityId, hwEntityName, hwPlan, resolved, hwCurrency, pendingLines || undefined, hwIncoterm); }}
-      />
+      {quote.dialog}
     </div>
   );
 }

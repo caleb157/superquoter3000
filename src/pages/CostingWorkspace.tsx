@@ -22,6 +22,7 @@ import { customerPrimary } from '@/lib/customer-name';
 import { cn } from '@/lib/utils';
 import { loadBundle, type WorkspaceRow } from '@/lib/costing-workspace';
 import { useCostingBundle } from '@/hooks/use-costing-bundle';
+import { useGenerateQuote } from '@/hooks/use-generate-quote';
 import { BulkBar } from '@/components/costing-workspace/BulkBar';
 import { ProductPanel } from '@/components/costing-workspace/ProductPanel';
 import { WorkspaceTable } from '@/components/costing-workspace/WorkspaceTable';
@@ -65,6 +66,14 @@ export default function CostingWorkspace() {
   const views = useMemo(() => viewsFor(cur), [cur]);
   const view = views.find(v => v.id === viewId) ?? views[0];
   const m = (n: number, d = 0) => formatMoney(n, cur, d);
+  const quote = useGenerateQuote(inquiryId);
+  /** Draft quote from the ticked SKUs at the prices the grid shows (same engine numbers). */
+  const generateQuote = (ids: string[]) => quote.generate(rows.filter(r => ids.includes(r.p.id)).map(r => ({
+    id: r.p.id, name: r.p.name, quantity: r.qty,
+    reference_price_usd: r.r.summary.unit_price_usd,
+    reference_price_inr: r.r.summary.unit_price_inr,
+    target_price_usd: r.p.target_price_usd, markup_percent: r.p.markup_percent,
+  })));
   useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
@@ -320,10 +329,12 @@ export default function CostingWorkspace() {
 
           {selectedIds.length > 0 && (
             <div className="pointer-events-none absolute inset-x-4 bottom-5 z-30">
-              <BulkBar ids={selectedIds} rows={rows} bundle={bundle} apply={apply} onClear={() => setSelected(new Set())} />
+              <BulkBar ids={selectedIds} rows={rows} bundle={bundle} apply={apply} onClear={() => setSelected(new Set())}
+                onQuote={() => void generateQuote(selectedIds)} quoting={quote.busy} />
             </div>
           )}
         </div>
+        {quote.dialog}
         <CostingIntakeDialog open={intakeOpen} onOpenChange={setIntakeOpen} inquiryId={inquiryId!} mode="update" onApplied={() => void load()} />
       </TooltipProvider>
     </AppLayout>
