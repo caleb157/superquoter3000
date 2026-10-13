@@ -26,10 +26,21 @@
     --input: 220 13% 88%;
     --ring: 158 74% 38%;
     --radius: 0.5rem;
-    --success: 158 74% 38%;
+    /* Status colors. Every status badge, alert, icon and highlight in the app
+       uses these (text-success, bg-warning/15, border-destructive/30, ...)
+       instead of raw Tailwind palette colors, so light and dark stay in step.
+       Light values are dark enough to read as text on white. */
+    --success: 158 72% 33%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 92% 48%;
+    --warning: 30 90% 40%;
     --warning-foreground: 0 0% 100%;
+    /* Neutral information (sent, ready, links to other records). */
+    --info: 214 78% 46%;
+    --info-foreground: 0 0% 100%;
+    /* A second accent for categories that need telling apart from info
+       (urgent, viewed, quoted, estimated from a photo). */
+    --highlight: 262 52% 52%;
+    --highlight-foreground: 0 0% 100%;
     --sidebar-background: 220 16% 97%;
     --sidebar-foreground: 222 25% 14%;
     --sidebar-primary: 158 74% 38%;
@@ -73,8 +84,12 @@
     --ring: 158 68% 48%;
     --success: 158 68% 48%;
     --success-foreground: 220 15% 7%;
-    --warning: 32 92% 55%;
+    --warning: 34 92% 56%;
     --warning-foreground: 220 15% 7%;
+    --info: 212 85% 66%;
+    --info-foreground: 220 15% 7%;
+    --highlight: 262 75% 74%;
+    --highlight-foreground: 220 15% 7%;
     --sidebar-background: 220 15% 7%;
     --sidebar-foreground: 210 20% 94%;
     --sidebar-primary: 158 68% 48%;
@@ -93,6 +108,10 @@
     --cw-labor: 189 60% 52%;
     --cw-ship: 6 72% 66%;
   }
+
+  /* Native controls (date pickers, select menus, scrollbars) follow the theme. */
+  :root { color-scheme: light; }
+  .dark { color-scheme: dark; }
 
   .dark body,
   .dark input,
@@ -136,6 +155,11 @@
 
 /* Dense table styles for costing workspace */
 @layer components {
+  /* One page title style for every module (Space Grotesk, 20px). */
+  .page-title {
+    @apply font-display text-xl font-medium tracking-tight;
+  }
+
   .dense-table td,
   .dense-table th {
     @apply px-2 py-1 text-xs;
@@ -199,10 +223,10 @@
   .status-dot {
     @apply h-2.5 w-2.5 rounded-full inline-block;
   }
-  .status-done { @apply bg-emerald-500; }
-  .status-review { @apply bg-amber-500; }
-  .status-issue { @apply bg-red-500; }
-  .status-pending { @apply bg-gray-300; }
+  .status-done { @apply bg-success; }
+  .status-review { @apply bg-warning; }
+  .status-issue { @apply bg-destructive; }
+  .status-pending { @apply bg-muted-foreground/40; }
 
   /* Consistent focus ring for any interactive row action (links, buttons,
      icon-only triggers) across light/dark + mobile/desktop. Uses semantic

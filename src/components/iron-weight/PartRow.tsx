@@ -125,7 +125,7 @@ export function PartRow({ p, kgPerPiece, price, onChange, onRemove, onDuplicate 
 
       {issue && <p className="mt-2 text-xs font-medium text-destructive sm:pl-12">{issue.message}</p>}
       {p.estimate && !issue && (
-        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400 sm:pl-12">
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-warning sm:pl-12">
           <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
           <span>Estimated from photo ({p.estimate.confidence} confidence){p.estimate.note ? ` — ${p.estimate.note}` : ''}. Edit any field to confirm.</span>
         </p>

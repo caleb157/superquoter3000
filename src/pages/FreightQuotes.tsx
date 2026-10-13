@@ -113,10 +113,10 @@ export default function FreightQuotes() {
                   <td className="px-2">{r.customer || '—'}</td><td className="px-2">{r.product || '—'}</td>
                   <td className="px-2 whitespace-nowrap">{r.lane}</td><td className="px-2 text-center">{r.q.mode}</td>
                   <td className="px-2 text-center"><Badge variant={r.q.status === 'accepted' ? 'default' : 'outline'} className="text-[10px]">{r.q.status}</Badge></td>
-                  <td className="px-2 text-right font-mono">{r.q.cbm ?? '—'}</td>
-                  <td className="px-2 text-right font-mono">{usd(r.t.fob_usd)}</td><td className="px-2 text-right font-mono">{usd(r.t.cif_usd)}</td>
-                  <td className="px-2 text-right font-mono">{usd(r.t.ddp_usd)}{r.t.unpriced_count > 0 && <span className="text-warning" title="Has unpriced at-actuals lines">*</span>}</td>
-                  <td className="px-2 text-right font-mono">{usd(r.t.per_cbm.ddp, 2)}</td>
+                  <td className="px-2 text-right tabular-nums">{r.q.cbm ?? '—'}</td>
+                  <td className="px-2 text-right tabular-nums">{usd(r.t.fob_usd)}</td><td className="px-2 text-right tabular-nums">{usd(r.t.cif_usd)}</td>
+                  <td className="px-2 text-right tabular-nums">{usd(r.t.ddp_usd)}{r.t.unpriced_count > 0 && <span className="text-warning" title="Has unpriced at-actuals lines">*</span>}</td>
+                  <td className="px-2 text-right tabular-nums">{usd(r.t.per_cbm.ddp, 2)}</td>
                   <td className="px-1" onClick={e => e.stopPropagation()}><ConfirmDeleteButton iconOnly itemLabel="freight quote" onConfirm={() => removeQuotes([r.q.id])} /></td>
                 </tr>
               ))}
@@ -136,11 +136,11 @@ export default function FreightQuotes() {
                   <tr key={l} className="border-t"><td className="px-2 py-1">{l}</td>{sel4.map(r => <td key={r.q.id} className="px-2 text-right">{fn(r)}</td>)}</tr>
                 ))}
                 {BUCKETS.map(b => (
-                  <tr key={b} className="border-t"><td className="px-2 py-1">{BUCKET_LABEL[b]}</td>{sel4.map(r => <td key={r.q.id} className="px-2 text-right font-mono">{usd(r.t.buckets[b])}</td>)}</tr>
+                  <tr key={b} className="border-t"><td className="px-2 py-1">{BUCKET_LABEL[b]}</td>{sel4.map(r => <td key={r.q.id} className="px-2 text-right tabular-nums">{usd(r.t.buckets[b])}</td>)}</tr>
                 ))}
                 {(['fob', 'cif', 'ddp'] as const).map(k => (
                   <tr key={k} className="border-t font-semibold"><td className="px-2 py-1 uppercase">{k} total · $/CBM</td>
-                    {sel4.map(r => <td key={r.q.id} className="px-2 text-right font-mono">{usd(k === 'fob' ? r.t.fob_usd : k === 'cif' ? r.t.cif_usd : r.t.ddp_usd)} · {usd(r.t.per_cbm[k], 2)}</td>)}</tr>
+                    {sel4.map(r => <td key={r.q.id} className="px-2 text-right tabular-nums">{usd(k === 'fob' ? r.t.fob_usd : k === 'cif' ? r.t.cif_usd : r.t.ddp_usd)} · {usd(r.t.per_cbm[k], 2)}</td>)}</tr>
                 ))}
               </tbody>
             </table>

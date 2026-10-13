@@ -62,11 +62,11 @@ function ReplyCell({ rfq, row, onSaved }: { rfq: SheetRfq; row: GridRow; onSaved
   const tone = priceTone(cell.price, row.target);
   const cheapest = row.cheapestRfqId === rfq.id;
   return (
-    <div className={cn('rounded-md p-1 space-y-1', cheapest && 'bg-emerald-50 ring-1 ring-emerald-300 dark:bg-emerald-950/40 dark:ring-emerald-800', cell.picked && 'ring-2 ring-primary')}>
+    <div className={cn('rounded-md p-1 space-y-1', cheapest && 'bg-success/10 ring-1 ring-success/50', cell.picked && 'ring-2 ring-primary')}>
       <div className="flex items-center gap-1">
         <span className="text-[10px] text-muted-foreground w-3">₹</span>
         <Input
-          inputMode="decimal" className={cn('h-7 text-xs text-right', tone === 'good' && 'text-emerald-700 dark:text-emerald-400 font-medium', tone === 'over' && 'text-red-600 dark:text-red-400 font-medium')}
+          inputMode="decimal" className={cn('h-7 text-xs text-right', tone === 'good' && 'text-success font-medium', tone === 'over' && 'text-destructive font-medium')}
           value={price} onChange={e => setPrice(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           placeholder="Price" aria-label={`${rfq.vendor_name} price for ${row.name}`}
         />
@@ -282,7 +282,7 @@ const VendorRfqSheet = () => {
             {replyBy ? ` · reply by ${formatDay(replyBy)}` : ''}
           </div>
         </div>
-        <h1 className="text-lg font-semibold">Vendor RFQ sheet</h1>
+        <h1 className="page-title">Vendor RFQ sheet</h1>
 
         {/* Send-out */}
         <Card>
@@ -426,7 +426,7 @@ const VendorRfqSheet = () => {
                         <td className="border-t p-2">
                           {winner && winCell ? (
                             <div className="space-y-0.5">
-                              <div className="flex items-center gap-1 font-medium"><Trophy className="h-3 w-3 text-amber-500" /> {winner.vendor_name}</div>
+                              <div className="flex items-center gap-1 font-medium"><Trophy className="h-3 w-3 text-warning" /> {winner.vendor_name}</div>
                               <div className="text-muted-foreground">{fmt.inr(winCell.price || 0)}{winCell.lead != null ? ` · ${winCell.lead} d` : ''}</div>
                               {row.productId && <div className="text-muted-foreground">In costing</div>}
                             </div>

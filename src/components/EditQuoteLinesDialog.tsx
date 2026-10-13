@@ -329,7 +329,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             Adjust the name, quantity, or unit price for each line. Totals will be recalculated automatically.
           </DialogDescription>
           {isSentQuote(snapshot) && (
-            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            <p className="mt-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               This quote has been sent. Saving creates a new draft version; the sent quote stays exactly as the customer received it.
             </p>
           )}
@@ -467,7 +467,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                         </p>
                       )}
                       {rise && (
-                        <p className="mt-0.5 text-right text-[10px] font-medium text-amber-600 dark:text-amber-400" title={rise.reasons.join('\n') || undefined}>
+                        <p className="mt-0.5 text-right text-[10px] font-medium text-warning" title={rise.reasons.join('\n') || undefined}>
                           {costRiseText(rise).replace(/^c/, 'C')}
                         </p>
                       )}
@@ -487,7 +487,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
                         {fmtMoney(lineTotal)}
                       </span>
                       {changed && (
-                        <span className={`block text-[10px] tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                        <span className={`block text-[10px] tabular-nums ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
                           {delta > 0 ? '+' : '−'}{fmtMoney(Math.abs(delta))}
                         </span>
                       )}
@@ -636,7 +636,7 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
             {Math.abs(totals.grand - baseline.grand) > 0.004 && (
               <>
                 {' '}
-                <span className={`tabular-nums font-medium ${totals.grand > baseline.grand ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                <span className={`tabular-nums font-medium ${totals.grand > baseline.grand ? 'text-success' : 'text-destructive'}`}>
                   {totals.grand > baseline.grand ? '+' : '−'}{fmtMoney(Math.abs(totals.grand - baseline.grand))}
                   {baseline.grand > 0 && ` (${totals.grand > baseline.grand ? '+' : '−'}${(Math.abs(totals.grand - baseline.grand) / baseline.grand * 100).toFixed(1)}%)`}
                 </span>

@@ -27,8 +27,8 @@ export function FobEstimatePanel({ estimate, shippingPerUnit, compact, showSelec
                 {sel && <span className="text-[10px] text-primary">Selected</span>}
               </div>
               {o.mix && <div className="text-[10px] text-muted-foreground">{o.mix}</div>}
-              <div className="font-mono">{rupees(o.total_inr)}</div>
-              <div className="text-[10px] text-muted-foreground font-mono">{rupees(o.per_cbm_inr)}/CBM</div>
+              <div className="tabular-nums">{rupees(o.total_inr)}</div>
+              <div className="text-[10px] text-muted-foreground tabular-nums">{rupees(o.per_cbm_inr)}/CBM</div>
             </div>
           );
         })}
@@ -36,10 +36,10 @@ export function FobEstimatePanel({ estimate, shippingPerUnit, compact, showSelec
       <table className="w-full">
         <tbody>
           {estimate.selected.lines.filter(l => l.amount_inr !== 0).map(l => (
-            <tr key={l.label}><td className="text-muted-foreground">{l.label}</td><td className="text-right font-mono">{rupees(l.amount_inr)}</td></tr>
+            <tr key={l.label}><td className="text-muted-foreground">{l.label}</td><td className="text-right tabular-nums">{rupees(l.amount_inr)}</td></tr>
           ))}
-          <tr className="border-t font-semibold"><td>Total ({estimate.selected.label}{estimate.selected.mix ? ` · ${estimate.selected.mix}` : ''})</td><td className="text-right font-mono">{rupees(estimate.selected.total_inr)}</td></tr>
-          {shippingPerUnit != null && <tr><td>This product</td><td className="text-right font-mono">{perUnit(shippingPerUnit)}/unit</td></tr>}
+          <tr className="border-t font-semibold"><td>Total ({estimate.selected.label}{estimate.selected.mix ? ` · ${estimate.selected.mix}` : ''})</td><td className="text-right tabular-nums">{rupees(estimate.selected.total_inr)}</td></tr>
+          {shippingPerUnit != null && <tr><td>This product</td><td className="text-right tabular-nums">{perUnit(shippingPerUnit)}/unit</td></tr>}
         </tbody>
       </table>
     </div>

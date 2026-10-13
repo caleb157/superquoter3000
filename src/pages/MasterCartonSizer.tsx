@@ -88,15 +88,15 @@ export default function MasterCartonSizer() {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
           <Link to="/tools">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5">
               <ArrowLeft className="h-3.5 w-3.5" /> Tools
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <Box className="h-4 w-4" /> Master Carton Sizer
+          <h1 className="page-title flex items-center gap-2">
+            <Box className="h-5 w-5 text-muted-foreground" /> Master Carton Sizer
           </h1>
           <Button
             variant="outline"
@@ -248,7 +248,7 @@ function ConstraintCeiling({
       className={cn(
         'rounded-md border px-3 py-2 text-sm transition-colors',
         active
-          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+          ? 'border-success/40 bg-success/10 text-success'
           : 'border-border bg-muted/40 text-muted-foreground'
       )}
     >

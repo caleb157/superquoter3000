@@ -21,9 +21,9 @@ type Row = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700 border-purple-200',
-  team: 'bg-blue-100 text-blue-700 border-blue-200',
-  guest: 'bg-gray-100 text-gray-600 border-gray-200',
+  admin: 'bg-highlight/15 text-highlight border-highlight/30',
+  team: 'bg-info/15 text-info border-info/30',
+  guest: 'bg-muted text-muted-foreground border-border',
 };
 
 export default function TeamManagementContent() {

@@ -18,24 +18,24 @@ export function formatDueDate(dateStr: string | null): { text: string; isOverdue
 
 /** Text colour for the priority flag icon. */
 export function priorityText(p: string): string {
-  if (p === 'urgent') return 'text-purple-600';
-  if (p === 'high') return 'text-red-500';
+  if (p === 'urgent') return 'text-highlight';
+  if (p === 'high') return 'text-destructive';
   if (p === 'low') return 'text-muted-foreground/50';
-  return 'text-amber-500';
+  return 'text-warning';
 }
 
 /** Border colour for the Todoist-style checkbox ring. */
 export function priorityRing(p: string): string {
-  if (p === 'urgent') return 'border-purple-600 data-[state=checked]:bg-purple-600';
-  if (p === 'high') return 'border-red-500 data-[state=checked]:bg-red-500';
+  if (p === 'urgent') return 'border-highlight data-[state=checked]:bg-highlight';
+  if (p === 'high') return 'border-destructive data-[state=checked]:bg-destructive';
   if (p === 'low') return 'border-muted-foreground/40';
-  return 'border-amber-500 data-[state=checked]:bg-amber-500';
+  return 'border-warning data-[state=checked]:bg-warning';
 }
 
 /** Left-edge accent stripe for important rows. */
 export function priorityStripe(p: string): string {
-  if (p === 'urgent') return 'border-l-[3px] border-l-purple-600';
-  if (p === 'high') return 'border-l-[3px] border-l-red-500';
+  if (p === 'urgent') return 'border-l-[3px] border-l-highlight';
+  if (p === 'high') return 'border-l-[3px] border-l-destructive';
   return 'border-l-[3px] border-l-transparent';
 }
 

@@ -202,11 +202,11 @@ export function InquiryAssembliesTab({ inquiryId }: { inquiryId: string }) {
                   <TableCell className="text-right">
                     <Badge variant="secondary" className="text-[10px]">{a.components_count ?? 0}</Badge>
                   </TableCell>
-                  <TableCell className="text-right text-xs font-mono">{a.quantity}</TableCell>
-                  <TableCell className="text-right text-xs font-mono font-semibold">
+                  <TableCell className="text-right text-xs tabular-nums">{a.quantity}</TableCell>
+                  <TableCell className="text-right text-xs tabular-nums font-semibold">
                     {a.current_unit_price_usd ? `$${a.current_unit_price_usd.toFixed(2)}` : '—'}
                   </TableCell>
-                  <TableCell className="text-right text-xs font-mono">
+                  <TableCell className="text-right text-xs tabular-nums">
                     {a.target_price_usd ? `$${a.target_price_usd.toFixed(2)}` : '—'}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">

@@ -49,7 +49,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   const cbmRow = row.cbmRow || {};
 
   return (
-    <div className={cn('flex flex-col bg-card', page ? 'rounded-xl border' : 'h-full')}>
+    <div className={cn('flex flex-col bg-card', page ? 'rounded-lg border border-border/70 shadow-sm' : 'h-full')}>
       {/* Header */}
       {!page && <div className="flex items-center gap-3 border-b px-4 py-3">
         <Thumb p={p} size={44} />
@@ -110,7 +110,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
         {maxRawInr != null && row.buckets.raw_piece > 0 && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm">
             <span className="text-muted-foreground">Max raw piece at target:</span>
-            <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-emerald-600' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
+            <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-success' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
             <span className="text-muted-foreground tabular-nums">({usd(maxRawInr / (r.exchangeRate || 1))}) · headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
           </div>
         )}
@@ -208,7 +208,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
             <Mini label="MC cost" value={inr(r.mcCost, 1)} />
             <Mini label="Line CBM" value={num(r.finalUnitCbm * row.qty, 2)} />
           </div>
-          {r.bulkPack?.warning && <div className="mt-2 text-xs text-amber-600">{r.bulkPack.warning}</div>}
+          {r.bulkPack?.warning && <div className="mt-2 text-xs text-warning">{r.bulkPack.warning}</div>}
         </Section>
 
         <Section title="Shipping" sub={inr(r.shippingPerUnit) + '/unit'} defaultOpen={page} done={done('shipping_done')}>
@@ -264,9 +264,9 @@ function PhotoEstimateNote({ est, onChecked }: { est: PhotoEstimateRecord; onChe
   const [more, setMore] = useState(false);
   const assumptions = est.assumptions ?? [];
   return (
-    <div className="border-b bg-violet-500/[0.05] px-4 py-3 text-sm">
+    <div className="border-b bg-highlight/[0.05] px-4 py-3 text-sm">
       <div className="flex items-start gap-2">
-        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-highlight" />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="font-medium">Estimated from a photo <span className="font-normal text-muted-foreground">· {est.confidence} confidence</span></div>
           {est.summary && <p className="text-muted-foreground">{est.summary}</p>}
@@ -299,7 +299,7 @@ function Section({ title, sub, count, defaultOpen, done, review, children }: {
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')} />
           <span className="text-sm font-semibold">{title}</span>
           {count != null && <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">{count}</span>}
-          {review && <span className="rounded bg-amber-100 px-1.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Review</span>}
+          {review && <span className="rounded bg-warning/15 px-1.5 text-[10px] font-medium text-warning">Review</span>}
           {sub && <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">{sub}</span>}
         </button>
         {done && (
@@ -436,7 +436,7 @@ function IncludeToggle({ value, onChange }: { value: string; onChange: (v: strin
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <button onClick={() => onChange('Yes')} className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">?</button>
+          <button onClick={() => onChange('Yes')} className="rounded bg-warning/15 px-1 text-[10px] font-semibold text-warning">?</button>
         </TooltipTrigger>
         <TooltipContent>Marked for review. Click to include it.</TooltipContent>
       </Tooltip>

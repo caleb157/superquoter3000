@@ -191,7 +191,7 @@ export default function InquiryContainerPlanner() {
           <Button asChild size="sm" variant="ghost" className="gap-1.5">
             <Link to={`/inquiry/${inquiryId}`}><ArrowLeft className="h-4 w-4" /> Back</Link>
           </Button>
-          <h1 className="text-lg font-semibold">Container planner</h1>
+          <h1 className="page-title">Container planner</h1>
           <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
             <Info className="h-3.5 w-3.5" /> Changes here are for planning only and don't affect saved quantities.
           </span>
@@ -361,7 +361,7 @@ function SummaryTile({ label, value, sub, tone }: { label: string; value: string
     <Card>
       <CardContent className="pt-4">
         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className={cn('text-lg font-semibold tabular-nums', tone === 'warn' && 'text-amber-600 dark:text-amber-400')}>{value}</div>
+        <div className={cn('text-lg font-semibold tabular-nums', tone === 'warn' && 'text-warning')}>{value}</div>
         <div className="text-[11px] text-muted-foreground">{sub}</div>
       </CardContent>
     </Card>

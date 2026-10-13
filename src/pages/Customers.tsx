@@ -127,9 +127,9 @@ const Customers = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-lg font-serif font-medium tracking-tight">Customers</h1>
+          <h1 className="page-title">Customers</h1>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowImport(true)}>
               <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Import CSV</span>

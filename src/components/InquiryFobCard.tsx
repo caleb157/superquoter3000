@@ -79,7 +79,7 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
             {fmt.num(useCbm, 2)} CBM · {useCartons} cartons{(productCount ?? pool?.count) ? ` · ${productCount ?? pool?.count} products` : ''}
             {hasOv && ' · overrides applied'}
           </span>
-          <span className="ml-auto font-mono text-xs">{ov.mode ? '' : 'Cheapest '}{est.selected.label}{est.selected.mix ? ` (${est.selected.mix})` : ''}: {fmt.inr(Math.round(est.selected.total_inr))} ({fmt.inr(Math.round(est.selected.per_cbm_inr))}/CBM)</span>
+          <span className="ml-auto tabular-nums text-xs">{ov.mode ? '' : 'Cheapest '}{est.selected.label}{est.selected.mix ? ` (${est.selected.mix})` : ''}: {fmt.inr(Math.round(est.selected.total_inr))} ({fmt.inr(Math.round(est.selected.per_cbm_inr))}/CBM)</span>
         </button>
         {open && <FobEstimatePanel estimate={est} />}
       </CardContent>

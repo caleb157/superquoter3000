@@ -62,11 +62,11 @@ export default function ProjectDetail() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <PageBreadcrumbs canonical={[{ label: 'Projects', to: '/projects' }]} current={project.name} />
 
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h1 className="text-xl font-serif font-medium tracking-tight">{project.name}</h1>
+          <h1 className="page-title">{project.name}</h1>
           <div className="flex items-center gap-2">
             <Select value={project.status} onValueChange={v => void changeStatus(v as ProjectStatus)}>
               <SelectTrigger className={cn('h-8 w-36 text-xs border', statusToneClass(meta.tone))}><SelectValue /></SelectTrigger>
@@ -89,7 +89,7 @@ export default function ProjectDetail() {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">End</div>
-                <div className={cn(overdue && 'text-red-600 font-medium')}>
+                <div className={cn(overdue && 'text-destructive font-medium')}>
                   {project.end_date ? formatDay(project.end_date) : '—'}{overdue && ' · past end date'}
                 </div>
               </div>

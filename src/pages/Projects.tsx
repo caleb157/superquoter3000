@@ -78,9 +78,9 @@ export default function Projects() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-serif font-medium tracking-tight">Projects</h1>
+          <h1 className="page-title">Projects</h1>
           <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> New project
           </Button>
@@ -136,7 +136,7 @@ export default function Projects() {
                           <Badge variant="outline" className={cn('text-[11px]', statusToneClass(meta.tone))}>{meta.label}</Badge>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-sm">{p.start_date ? formatDay(p.start_date) : '—'}</TableCell>
-                        <TableCell className={cn('text-sm', overdue && 'text-red-600 font-medium')} title={overdue ? 'Past its end date' : undefined}>
+                        <TableCell className={cn('text-sm', overdue && 'text-destructive font-medium')} title={overdue ? 'Past its end date' : undefined}>
                           {p.end_date ? formatDay(p.end_date) : '—'}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-sm">

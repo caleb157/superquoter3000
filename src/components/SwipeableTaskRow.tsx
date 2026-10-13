@@ -88,7 +88,7 @@ export function SwipeableTaskRow({ done, onToggle, children }: Props) {
         <div
           className={cn(
             'absolute inset-y-0 left-0 flex items-center justify-start pl-4 transition-colors',
-            armed ? 'bg-emerald-500 text-white' : 'bg-emerald-500/40 text-emerald-900 dark:text-emerald-50',
+            armed ? 'bg-success text-success-foreground' : 'bg-success/20 text-success',
           )}
           style={{ width: Math.abs(dx) + 24 }}
           aria-hidden
@@ -100,7 +100,7 @@ export function SwipeableTaskRow({ done, onToggle, children }: Props) {
         <div
           className={cn(
             'absolute inset-y-0 right-0 flex items-center justify-end pr-4 transition-colors',
-            armed ? 'bg-amber-500 text-white' : 'bg-amber-500/40 text-amber-900 dark:text-amber-50',
+            armed ? 'bg-warning text-warning-foreground' : 'bg-warning/20 text-warning',
           )}
           style={{ width: Math.abs(dx) + 24 }}
           aria-hidden

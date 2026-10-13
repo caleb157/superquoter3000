@@ -136,7 +136,7 @@ export default function SoProfitability() {
     <AppLayout>
       <div className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h1 className="text-lg font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Sales Order Profitability</h1>
+          <h1 className="page-title flex items-center gap-2"><TrendingUp className="h-5 w-5 text-muted-foreground" /> Sales Order Profitability</h1>
           <div className="flex items-center gap-2">
             <Button size="sm" variant={showArchived ? 'default' : 'outline'} onClick={() => setShowArchived(v => !v)}>
               <Archive className="h-3.5 w-3.5 mr-1.5" /> {showArchived ? 'Back to active' : `Archived${archivedCount ? ` (${archivedCount})` : ''}`}

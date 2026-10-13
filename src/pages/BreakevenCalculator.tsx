@@ -110,7 +110,7 @@ export default function BreakevenCalculator() {
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-2">
           <label className="text-xs font-medium">{label}{unit && <span className="text-muted-foreground"> ({unit})</span>}</label>
-          {isLive && <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400">live</Badge>}
+          {isLive && <Badge variant="outline" className="text-[10px] h-5 border-success/40 text-success">live</Badge>}
           {isEdited && (
             <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1" onClick={() => clear(k)}>
               <RotateCcw className="h-3 w-3" /> {live[k] != null ? `live ${live[k]}` : 'default'}
@@ -131,11 +131,11 @@ export default function BreakevenCalculator() {
 
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="icon" className="h-8 w-8"><Link to="/tools" aria-label="Back to Tools"><ArrowLeft className="h-4 w-4" /></Link></Button>
-            <h1 className="text-lg font-semibold flex items-center gap-2"><Calculator className="h-4 w-4" /> Breakeven Calculator</h1>
+            <h1 className="page-title flex items-center gap-2"><Calculator className="h-5 w-5 text-muted-foreground" /> Breakeven Calculator</h1>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={orders.reload} disabled={orders.loading}>
@@ -166,8 +166,8 @@ export default function BreakevenCalculator() {
             </div>
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
               {[
-                ['Trading revenue', usd(r.trading), 'bg-sky-600'],
-                ['Manufacturing revenue', usd(r.manufacturing), 'bg-orange-600'],
+                ['Trading revenue', usd(r.trading), 'bg-info'],
+                ['Manufacturing revenue', usd(r.manufacturing), 'bg-warning'],
                 ['Blended contribution', pct(r.rate), null],
                 ['Overhead + buffer', usd(r.target), null],
               ].map(([k, v, dot]) => (
@@ -194,7 +194,7 @@ export default function BreakevenCalculator() {
             <input
               type="range" min={0} max={100} step={1} value={share} aria-label="Manufacturing share"
               onChange={e => set('mfgSharePct', Number(e.target.value))}
-              className="w-full accent-orange-600"
+              className="w-full accent-warning"
             />
             <div className="flex justify-between text-[11px] text-muted-foreground"><span>100% trading</span><span>100% manufacturing</span></div>
             <div className="flex flex-wrap gap-1.5">
@@ -230,9 +230,9 @@ export default function BreakevenCalculator() {
             <CardHeader className="pb-2"><CardTitle className="text-sm">Where the contribution goes</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex h-7 rounded-md overflow-hidden border">
-                <div className="bg-sky-600" style={{ width: seg(r.tradeContribution) }} title="Trading net margin" />
-                <div className="bg-orange-600" style={{ width: seg(r.mfgOhContribution) }} title="Manufacturing overhead allocation" />
-                <div className="bg-orange-400" style={{ width: seg(r.mfgNetContribution) }} title="Manufacturing net margin" />
+                <div className="bg-info" style={{ width: seg(r.tradeContribution) }} title="Trading net margin" />
+                <div className="bg-warning" style={{ width: seg(r.mfgOhContribution) }} title="Manufacturing overhead allocation" />
+                <div className="bg-warning/70" style={{ width: seg(r.mfgNetContribution) }} title="Manufacturing net margin" />
               </div>
               <table className="w-full text-xs">
                 <tbody className="[&_td]:py-1.5 [&_tr]:border-b last:[&_tr]:border-0">

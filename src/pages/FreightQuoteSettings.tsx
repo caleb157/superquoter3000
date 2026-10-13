@@ -71,8 +71,8 @@ export default function FreightQuoteSettings() {
               <CardContent className="space-y-2">
                 <table className="w-full text-xs"><thead className="text-[10px] uppercase text-muted-foreground"><tr><th className="text-left">Currency</th><th className="text-right">USD per unit</th><th className="text-right">Units per USD</th><th className="text-right">Effective</th><th /></tr></thead>
                   <tbody>{refs.fx.map(r => (
-                    <tr key={r.id} className="border-t"><td className="py-1">{r.currency}</td><td className="text-right font-mono">{Number(r.rate_to_usd).toPrecision(6)}</td>
-                      <td className="text-right font-mono">{(1 / Number(r.rate_to_usd)).toFixed(3)}</td><td className="text-right">{r.effective_date}</td>
+                    <tr key={r.id} className="border-t"><td className="py-1">{r.currency}</td><td className="text-right tabular-nums">{Number(r.rate_to_usd).toPrecision(6)}</td>
+                      <td className="text-right tabular-nums">{(1 / Number(r.rate_to_usd)).toFixed(3)}</td><td className="text-right">{r.effective_date}</td>
                       <td className="text-right"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => del('fq_fx_rates', r.id)}><Trash2 className="h-3 w-3" /></Button></td></tr>
                   ))}</tbody></table>
                 <div className="flex gap-2 items-end">

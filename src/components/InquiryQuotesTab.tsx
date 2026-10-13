@@ -38,9 +38,9 @@ type Quote = {
 
 const STATUS_COLOR: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
-  sent: 'bg-blue-100 text-blue-700',
-  viewed: 'bg-purple-100 text-purple-700',
-  approved: 'bg-emerald-100 text-emerald-700',
+  sent: 'bg-info/15 text-info',
+  viewed: 'bg-highlight/15 text-highlight',
+  approved: 'bg-success/15 text-success',
 };
 
 export function InquiryQuotesTab({ inquiryId, refreshKey }: { inquiryId: string; refreshKey: number }) {

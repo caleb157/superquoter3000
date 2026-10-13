@@ -23,9 +23,9 @@ type RequestRow = {
 
 const TONE: Record<string, string> = {
   neutral: 'text-muted-foreground',
-  amber: 'text-amber-700 dark:text-amber-300',
-  red: 'text-red-600 dark:text-red-400',
-  done: 'text-emerald-700 dark:text-emerald-400',
+  amber: 'text-warning',
+  red: 'text-destructive',
+  done: 'text-success',
 };
 
 const FILTERS = [

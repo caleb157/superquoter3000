@@ -167,9 +167,9 @@ const VendorRfqEditor = () => {
 
   const priceColor = (item: any) => {
     if (!item.vendor_price) return '';
-    if (item.vendor_price <= (item.target_price || 0)) return 'text-emerald-600';
-    if (item.vendor_price <= (item.estimated_cost || 0)) return 'text-amber-600';
-    return 'text-red-600';
+    if (item.vendor_price <= (item.target_price || 0)) return 'text-success';
+    if (item.vendor_price <= (item.estimated_cost || 0)) return 'text-warning';
+    return 'text-destructive';
   };
 
   const totals = useMemo(() => {
@@ -483,7 +483,7 @@ const VendorRfqEditor = () => {
           {totals.vendorTotal > 0 && (
             <>
               <span>Vendor Total: <strong>{fmt.inr(totals.vendorTotal)}</strong></span>
-              <span className={totals.savings > 0 ? 'text-emerald-600' : 'text-red-600'}>
+              <span className={totals.savings > 0 ? 'text-success' : 'text-destructive'}>
                 Savings: <strong>{fmt.inr(totals.savings)}</strong>
               </span>
             </>
@@ -522,7 +522,7 @@ const VendorRfqEditor = () => {
                       const target = it.target_price;
                       const quoted = r?.quoted_unit_price;
                       const color = quoted != null && target != null
-                        ? (Number(quoted) <= Number(target) ? 'text-emerald-600' : 'text-red-600')
+                        ? (Number(quoted) <= Number(target) ? 'text-success' : 'text-destructive')
                         : '';
                       return (
                         <TableRow key={it.id}>
@@ -553,7 +553,7 @@ const VendorRfqEditor = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                    className="gap-1.5 text-success border-success/50 hover:bg-success/10"
                     onClick={async () => {
                       await (supabase as any).from('vendor_rfqs').update({ status: 'accepted' }).eq('id', id);
                       updateRfqField('status', 'accepted');
@@ -565,7 +565,7 @@ const VendorRfqEditor = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1.5 text-red-700 border-red-300 hover:bg-red-50"
+                    className="gap-1.5 text-destructive border-destructive/50 hover:bg-destructive/10"
                     onClick={async () => {
                       await (supabase as any).from('vendor_rfqs').update({ status: 'rejected' }).eq('id', id);
                       updateRfqField('status', 'rejected');

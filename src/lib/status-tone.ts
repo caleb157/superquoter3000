@@ -2,23 +2,21 @@
 // Every completion-style badge/pill should go through here so light + dark
 // stay consistent with the Graphite & Emerald palette.
 //
-//   complete  → emerald  (success)
-//   progress  → amber    (warning / in flight)
-//   issue     → red      (destructive / needs review)
-//   idle      → graphite (muted / not started)
+//   complete  → success      (emerald)
+//   progress  → warning      (amber, in flight)
+//   issue     → destructive  (red, needs review)
+//   idle      → muted        (graphite, not started)
+// The tokens live in index.css with light and dark values, so no dark: overrides here.
 
 export type StatusTone = 'complete' | 'progress' | 'issue' | 'idle';
 
 export const STATUS_TONE_CLASS: Record<StatusTone, string> = {
   complete:
-    'bg-emerald-100 text-emerald-700 border-emerald-200 ' +
-    'dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/20',
+    'bg-success/15 text-success border-success/30',
   progress:
-    'bg-amber-100 text-amber-800 border-amber-200 ' +
-    'dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/20',
+    'bg-warning/15 text-warning border-warning/30',
   issue:
-    'bg-red-100 text-red-700 border-red-200 ' +
-    'dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/20',
+    'bg-destructive/15 text-destructive border-destructive/30',
   idle:
     'bg-muted text-muted-foreground border-border',
 };

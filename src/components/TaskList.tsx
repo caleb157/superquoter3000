@@ -241,17 +241,17 @@ export function TaskList({
                 </Link>
             : aType === PROJECT && aId
               ? <Link to={`/projects/${aId}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
-                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate gap-1 border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate gap-1 border-info/50 bg-info/10 text-info">
                     <FolderKanban className="h-3 w-3 shrink-0" /><span className="truncate">{aLabel || 'Project'}</span>
                   </Badge>
                 </Link>
             : aType === APP_FIX
-              ? <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
+              ? <Badge variant="outline" className="text-[10px] h-5 gap-1 border-highlight/50 bg-highlight/10 text-highlight">
                   <Wrench className="h-3 w-3" />App fix
                 </Badge>
             : aType === 'complaint' && aId
               ? <Link to={`/complaints?id=${aId}`} onClick={e => e.stopPropagation()} className="min-w-0 inline-flex">
-                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate border-red-300 text-red-700 dark:border-red-800 dark:text-red-300" title={aLabel ?? undefined}>
+                  <Badge variant="outline" className="text-[10px] h-5 max-w-full truncate border-destructive/50 text-destructive" title={aLabel ?? undefined}>
                     Complaint{aLabel ? ` · ${aLabel}` : ''}
                   </Badge>
                 </Link>
@@ -271,11 +271,11 @@ export function TaskList({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className={cn(
                     'text-[10px] px-1.5 py-0.5 rounded',
-                    overdueOpen ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground',
+                    overdueOpen ? 'bg-destructive/15 text-destructive' : 'bg-muted text-muted-foreground',
                   )}>{due.text}</span>
                   <span className={cn(
                     'text-[10px] px-1.5 py-0.5 rounded capitalize',
-                    t.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700',
+                    t.status === 'done' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning',
                   )}>{t.status === 'done' ? 'Done' : 'Open'}</span>
                   <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-medium', priorityText(t.priority))}>
                     <Flag className={cn('h-3.5 w-3.5', (t.priority === 'urgent' || t.priority === 'high') && 'fill-current')} />{PRIORITY_LABEL[t.priority] ?? t.priority}
@@ -330,7 +330,7 @@ export function TaskList({
               <div className="w-16 shrink-0 text-right">
                 <span className={cn(
                   'text-[11px] px-1.5 py-0.5 rounded inline-block',
-                  overdueOpen ? 'bg-red-100 text-red-700' : 'text-muted-foreground',
+                  overdueOpen ? 'bg-destructive/15 text-destructive' : 'text-muted-foreground',
                 )}>{due.text}</span>
               </div>
 
@@ -345,8 +345,8 @@ export function TaskList({
                 <span className={cn(
                   'text-[11px] px-2 py-0.5 rounded capitalize',
                   t.status === 'done'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-amber-100 text-amber-700',
+                    ? 'bg-success/15 text-success'
+                    : 'bg-warning/15 text-warning',
                 )}>{t.status === 'done' ? 'Done' : 'Open'}</span>
               </div>
 

@@ -37,10 +37,10 @@ import { readSnapshot, writeSnapshot } from '@/lib/page-snapshot';
 import { fetchAllRows } from '@/lib/supabase-paged';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
-  high: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
-  normal: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300',
-  low: 'bg-gray-100 text-gray-500 dark:bg-gray-500/10 dark:text-gray-400',
+  urgent: 'bg-highlight/15 text-highlight',
+  high: 'bg-destructive/15 text-destructive',
+  normal: 'bg-warning/15 text-warning',
+  low: 'bg-muted text-muted-foreground',
 };
 const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
@@ -64,16 +64,16 @@ type Product = {
 type DashboardSnapshot = { inquiries: Inquiry[]; customers: Customer[]; products: Product[]; reviewProductIds: Set<string> };
 
 const DESIGN_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'need_design', label: 'need',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
-  { key: 'designed',    label: 'designed', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' },
+  { key: 'need_design', label: 'need',     cls: 'bg-warning/15 text-warning' },
+  { key: 'designed',    label: 'designed', cls: 'bg-success/15 text-success' },
 ];
 const QUOTE_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'quoting',         label: 'quoting', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
-  { key: 'ready_for_quote', label: 'ready',   cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' },
-  { key: 'quoted',          label: 'quoted',  cls: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' },
+  { key: 'quoting',         label: 'quoting', cls: 'bg-warning/15 text-warning' },
+  { key: 'ready_for_quote', label: 'ready',   cls: 'bg-info/15 text-info' },
+  { key: 'quoted',          label: 'quoted',  cls: 'bg-highlight/15 text-highlight' },
 ];
 const SAMPLE_PILLS: { key: string; label: string; cls: string }[] = [
-  { key: 'sampling', label: 'sampling', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  { key: 'sampling', label: 'sampling', cls: 'bg-warning/15 text-warning' },
 ];
 
 function matchesStatusFilter(i: { status: string }, f: StatusFilter): boolean {
@@ -351,7 +351,7 @@ const Dashboard = () => {
                     aria-label={`Open inquiry ${inq.title || 'Untitled'}`}
                     className={cn(
                       "row-action active:scale-[0.99] transition-transform",
-                      reviewInquiryIds.has(inq.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
+                      reviewInquiryIds.has(inq.id) && 'bg-warning/[0.07] border-l-2 border-l-warning',
                     )}
                     {...rowNavHandlers(navigate, `/inquiry/${inq.id}`, { from: { label: 'Dashboard', path: '/' } })}
                   >
@@ -360,7 +360,7 @@ const Dashboard = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             {reviewInquiryIds.has(inq.id) && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200" title="Contains products that need review">⚠ Review</span>
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/25 text-warning" title="Contains products that need review">⚠ Review</span>
                             )}
                             <span className={cn(
                               'px-1.5 py-0.5 rounded text-[10px] font-medium',
@@ -455,7 +455,7 @@ const Dashboard = () => {
                           aria-label={`Open inquiry ${inq.title || 'Untitled'}`}
                           className={cn(
                             "row-action cursor-pointer hover:bg-muted/50 focus-visible:bg-muted focus-visible:!ring-inset",
-                            reviewInquiryIds.has(inq.id) && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                            reviewInquiryIds.has(inq.id) && 'bg-warning/[0.07] hover:bg-warning/[0.12] border-l-2 border-l-warning',
                           )}
                           {...navHandlers}
                         >
@@ -466,7 +466,7 @@ const Dashboard = () => {
                             <div className="flex items-center gap-1.5">
                               <span className="truncate">{inq.title || <span className="text-muted-foreground italic font-normal text-sm">Untitled</span>}</span>
                               {reviewInquiryIds.has(inq.id) && (
-                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200 shrink-0" title="Contains products that need review">⚠</span>
+                                <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-warning/25 text-warning shrink-0" title="Contains products that need review">⚠</span>
                               )}
                             </div>
                           </TableCell>

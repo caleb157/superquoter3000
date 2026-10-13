@@ -53,11 +53,11 @@ export default function Complaints() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <MessageSquareWarning className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl font-serif font-medium tracking-tight">Complaints</h1>
+            <h1 className="page-title">Complaints</h1>
             <Badge variant="secondary" className="text-xs">{rows.length}</Badge>
             {openCount > 0 && <Badge variant="destructive" className="text-xs">{openCount} open</Badge>}
           </div>

@@ -238,7 +238,7 @@ export default function InquiryOdooExport() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[240px]">
-            <h1 className="text-xl font-semibold">Send to Odoo</h1>
+            <h1 className="page-title">Send to Odoo</h1>
             <p className="text-xs text-muted-foreground">Each item is decided once for every product that uses it. Quantities stay each product's own.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => checkOdoo(chosen)} disabled={checking || loading}>
@@ -254,7 +254,7 @@ export default function InquiryOdooExport() {
             <datalist id="odoo-cats">{catList.map(c => <option key={c} value={c} />)}</datalist>
             <datalist id="odoo-uoms">{uomList.map(u => <option key={u} value={u} />)}</datalist>
             {lookupError && (
-              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+              <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
                 Odoo can't be read right now ({lookupError}). You can still fill in the draft and download the files; SKUs aren't checked against Odoo.
               </div>
             )}
@@ -306,7 +306,7 @@ export default function InquiryOdooExport() {
                             {s?.state === 'sending' && <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Sending…</span>}
                             {s?.state === 'done' && s.result && (
                               <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> Sent{s.result.bomReused ? ' (BOM already there)' : ''}</span>
+                                <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="h-3 w-3" /> Sent{s.result.bomReused ? ' (BOM already there)' : ''}</span>
                                 <div className="flex gap-2">
                                   <a className="inline-flex items-center gap-0.5 underline" href={s.result.productUrl} target="_blank" rel="noopener noreferrer">Product <ExternalLink className="h-3 w-3" /></a>
                                   {s.result.bomUrl && <a className="inline-flex items-center gap-0.5 underline" href={s.result.bomUrl} target="_blank" rel="noopener noreferrer">BOM <ExternalLink className="h-3 w-3" /></a>}
@@ -385,7 +385,7 @@ export default function InquiryOdooExport() {
                                 ))}
                               </div>
                             )}
-                            {unconvertible && <div className="text-amber-600">Unit can't be converted; set the quantity on the product's Odoo tab.</div>}
+                            {unconvertible && <div className="text-warning">Unit can't be converted; set the quantity on the product's Odoo tab.</div>}
                           </TableCell>
                           <TableCell className="align-top">
                             {s.status === 'new' ? (
@@ -418,7 +418,7 @@ export default function InquiryOdooExport() {
                 <CardContent className="py-3 space-y-1">
                   {allIssues.map((i, n) => (
                     <div key={n} className="flex items-start gap-2 text-xs">
-                      {i.level === 'error' ? <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />}
+                      {i.level === 'error' ? <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" />}
                       <span><span className="font-medium">{i.where}:</span> {i.msg}</span>
                     </div>
                   ))}

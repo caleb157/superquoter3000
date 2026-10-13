@@ -16,6 +16,7 @@ import { CostingIntakeDialog } from '@/components/CostingIntakeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
@@ -188,7 +189,7 @@ export default function CostingWorkspace() {
             <div className="min-w-0 flex-1">
               <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/inquiries' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Badass Costing Workspace" />
               <div className="flex items-baseline gap-2 min-w-0">
-                <h1 className="text-xl font-semibold truncate">{title}</h1>
+                <h1 className="page-title truncate">{title}</h1>
                 <span className="text-sm text-muted-foreground truncate">{bundle.inq.rfq_number}{bundle.customer ? ` · ${customerPrimary(bundle.customer)}` : ''}</span>
               </div>
             </div>
@@ -222,11 +223,11 @@ export default function CostingWorkspace() {
 
           {/* View switcher + filters */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border bg-muted/60 p-0.5">
+            <div className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
               {VIEWS.map(v => (
                 <button key={v.id} onClick={() => setParam('view', v.id === 'price' ? null : v.id)} title={v.hint}
-                  className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                    v.id === view.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                  className={cn('rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
+                    v.id === view.id ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground')}>
                   {v.label}
                 </button>
               ))}
@@ -238,21 +239,27 @@ export default function CostingWorkspace() {
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); focusRow(); } else if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur(); } }} />
                 {search && <button className="absolute right-2 top-2.5 text-muted-foreground" onClick={() => setSearch('')}><X className="h-4 w-4" /></button>}
               </div>
-              <select className="h-9 rounded-md border bg-background px-2 text-sm" value={filter} onChange={e => setFilter(e.target.value as Filter)}>
-                <option value="all">All SKUs</option>
-                <option value="over">Over target</option>
-                <option value="flagged">Needs a look</option>
-                <option value="notarget">No target</option>
-              </select>
-              <select className="h-9 rounded-md border bg-background px-2 text-sm" value={sort} onChange={e => setSort(e.target.value as Sort)}>
-                <option value="sheet">Sheet order</option>
-                <option value="gap">Furthest over target</option>
-                <option value="price">Highest price</option>
-                <option value="name">Name A–Z</option>
-                <option value="name_desc">Name Z–A</option>
-                <option value="sku">SKU code A–Z</option>
-                <option value="sku_desc">SKU code Z–A</option>
-              </select>
+              <Select value={filter} onValueChange={v => setFilter(v as Filter)}>
+                <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All SKUs</SelectItem>
+                  <SelectItem value="over">Over target</SelectItem>
+                  <SelectItem value="flagged">Needs a look</SelectItem>
+                  <SelectItem value="notarget">No target</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sort} onValueChange={v => setSort(v as Sort)}>
+                <SelectTrigger className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sheet">Sheet order</SelectItem>
+                  <SelectItem value="gap">Furthest over target</SelectItem>
+                  <SelectItem value="price">Highest price</SelectItem>
+                  <SelectItem value="name">Name A–Z</SelectItem>
+                  <SelectItem value="name_desc">Name Z–A</SelectItem>
+                  <SelectItem value="sku">SKU code A–Z</SelectItem>
+                  <SelectItem value="sku_desc">SKU code Z–A</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -262,7 +269,7 @@ export default function CostingWorkspace() {
 
           {/* Grid + panel */}
           <div className={cn('flex min-h-0 flex-1 gap-3', selectedIds.length > 0 && 'mb-[68px]')}>
-            <div className={cn('min-h-0 overflow-auto rounded-xl border bg-card', openRow ? 'w-[470px] shrink-0' : 'flex-1')}>
+            <div className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'flex-1')}>
               {visibleRows.length === 0 ? (
                 <div className="p-12 text-center text-sm text-muted-foreground">
                   {rows.length === 0 ? 'This inquiry has no products yet.' : 'No SKUs match.'}
@@ -279,7 +286,7 @@ export default function CostingWorkspace() {
               )}
             </div>
             {openRow && (
-              <div className="min-h-0 flex-1 overflow-hidden rounded-xl border">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 shadow-sm">
                 <ProductPanel
                   key={openRow.p.id}
                   row={openRow} bundle={bundle} apply={apply}

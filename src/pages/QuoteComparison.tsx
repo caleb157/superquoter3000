@@ -23,7 +23,7 @@ const STATUS_LABEL: Record<CompareStatus, string> = {
 };
 
 const pctText = (p: number | null) => (p == null ? '—' : `${p > 0 ? '+' : ''}${(p * 100).toFixed(1)}%`);
-const tone = (d: number | null) => (d == null || Math.abs(d) < 0.005 ? 'text-muted-foreground' : d > 0 ? 'text-red-600' : 'text-emerald-600');
+const tone = (d: number | null) => (d == null || Math.abs(d) < 0.005 ? 'text-muted-foreground' : d > 0 ? 'text-destructive' : 'text-success');
 
 /** Compares every product's current rate with the latest quote marked sent. */
 export default function QuoteComparison() {
@@ -81,14 +81,14 @@ export default function QuoteComparison() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="gap-1 -ml-2" onClick={() => navigate(`/inquiry/${id}?tab=quotes`)}>
             <ArrowLeft className="h-4 w-4" /> Back to inquiry
           </Button>
         </div>
         <div>
-          <h1 className="text-xl font-semibold">Quote comparison{inquiry?.rfq_number ? ` — ${inquiry.rfq_number}` : ''}</h1>
+          <h1 className="page-title">Quote comparison{inquiry?.rfq_number ? ` — ${inquiry.rfq_number}` : ''}</h1>
           <p className="text-sm text-muted-foreground">
             Current rates against the latest sent quote{quote ? <> (<Link className="text-primary hover:underline" to={`/quotes/${quote.id}`}>{quote.quote_number ?? 'quote'}</Link>, sent {new Date(quote.sent_at).toLocaleDateString()}, {currency})</> : ''}.
             Red means the rate is now higher than quoted.

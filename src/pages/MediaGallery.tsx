@@ -20,10 +20,10 @@ import {
 const PAGE = 60;
 
 const SOURCE_STYLE: Record<MediaSource, string> = {
-  product: 'bg-sky-600/90',
-  assembly: 'bg-violet-600/90',
-  sample: 'bg-amber-600/90',
-  task: 'bg-emerald-600/90',
+  product: 'bg-info/90',
+  assembly: 'bg-highlight/90',
+  sample: 'bg-warning/90',
+  task: 'bg-success/90',
 };
 const SOURCE_WORD: Record<MediaSource, string> = { product: 'Product', assembly: 'Assembly', sample: 'Sample', task: 'Task' };
 const OPEN_WORD: Record<MediaSource, string> = { product: 'Open product', assembly: 'Open assembly', sample: 'Open sample request', task: 'Open task' };
@@ -119,7 +119,7 @@ export default function MediaGallery() {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2"><Images className="h-5 w-5" /> Media Gallery</h1>
+            <h1 className="page-title flex items-center gap-2"><Images className="h-5 w-5 text-muted-foreground" /> Media Gallery</h1>
             <p className="text-sm text-muted-foreground">
               Every photo on products, assemblies, samples and tasks, newest first. Click one to see it large and open its record.
             </p>

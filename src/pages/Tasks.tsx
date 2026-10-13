@@ -101,9 +101,9 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-serif font-medium tracking-tight">Tasks</h1>
+          <h1 className="page-title">Tasks</h1>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => openNew(true)} className="gap-1.5" title="Log a change needed in this app">
               <Wrench className="h-4 w-4" /> App fix

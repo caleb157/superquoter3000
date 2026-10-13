@@ -146,9 +146,9 @@ const VendorRfqList = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-lg font-bold">Vendor RFQs</h1>
+          <h1 className="page-title">Vendor RFQs</h1>
         </div>
         <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-3">
           <div className="relative col-span-2 md:flex-1 md:max-w-sm">

@@ -86,15 +86,15 @@ const RAW_STAGE_LABELS: Partial<Record<FilterKey, string>> = {
 
 function costingBadge(p: Product, hasReview: boolean): { label: string; cls: string } {
   if (hasReview) {
-    return { label: 'Needs Review', cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' };
+    return { label: 'Needs Review', cls: 'bg-destructive/15 text-destructive' };
   }
   const flags = [p.cbm_done, p.cogs_done, p.overhead_done, p.shipping_done, p.revenue_done];
   const done = flags.filter(Boolean).length;
   if (done === 5) {
-    return { label: 'Priced', cls: 'bg-emerald-100 text-emerald-700' };
+    return { label: 'Priced', cls: 'bg-success/15 text-success' };
   }
   if (done > 0) {
-    return { label: `In Progress (${done}/5)`, cls: 'bg-amber-100 text-amber-700' };
+    return { label: `In Progress (${done}/5)`, cls: 'bg-warning/15 text-warning' };
   }
   return { label: 'Empty', cls: 'bg-muted text-muted-foreground' };
 }
@@ -855,7 +855,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   <RowContextMenu key={p.id} path={`/product/${p.id}`} extraItems={archiveMenuItem(p)}>
                   <TableRow className={cn(
                     selected.has(p.id) && 'bg-muted/40',
-                    needsReview && 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 border-l-2 border-amber-500',
+                    needsReview && 'bg-warning/[0.07] hover:bg-warning/[0.12] border-l-2 border-l-warning',
                   )}>
                     <TableCell>
                       <Checkbox checked={selected.has(p.id)} onCheckedChange={(v) => toggleOne(p.id, !!v)} />
@@ -934,7 +934,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                   className={cn(
                     'cursor-pointer active:bg-accent/50 transition-colors',
                     isSelected && 'ring-2 ring-primary',
-                    reviewIds.has(p.id) && 'bg-amber-100 dark:bg-amber-500/15 border-l-2 border-amber-500',
+                    reviewIds.has(p.id) && 'bg-warning/[0.07] border-l-2 border-l-warning',
                   )}
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
@@ -974,7 +974,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
                       <SingleStagePill track="sample" value={p.sample_stage} onChange={(s) => handleSetSinglePill(p.id, 'sample', s)} />
                     </div>
                      <div className="flex items-center justify-between pt-1 border-t text-[11px]">
-                       <span className="font-mono tabular-nums font-medium">
+                       <span className="tabular-nums font-medium">
                          {renderUnitPrice(p)}
                          {p.quantity != null && <span className="ml-2 text-muted-foreground font-normal">×{fmt.qty(p.quantity)}</span>}
                          {(() => { const mh = (p.quantity ?? 0) * (mhPerUnit[p.id] ?? 0); return mh > 0 ? <span className="ml-2 text-muted-foreground font-normal">{mh.toFixed(1)} MH</span> : null; })()}

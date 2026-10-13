@@ -14,9 +14,9 @@ export const REPEAT_ORDER_EVENT = 'inquiry-repeat-order-changed';
 
 export const CLOCK_TONE_CLASSES: Record<ClockTone, string> = {
   neutral: 'bg-muted text-muted-foreground border-border',
-  amber: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30',
-  red: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30',
-  done: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30',
+  amber: 'bg-warning/10 text-warning border-warning/30',
+  red: 'bg-destructive/10 text-destructive border-destructive/30',
+  done: 'bg-success/10 text-success border-success/30',
 };
 
 /** Strip at the top of an inquiry: time waiting for the first quote, frozen once one is saved

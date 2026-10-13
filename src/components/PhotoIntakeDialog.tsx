@@ -152,7 +152,7 @@ function ItemCard({ it, index, unit, locked, canRemove, onPatch, onRemove, onOpe
   };
 
   return (
-    <div className={cn('rounded-lg border p-3', it.status === 'done' && 'border-emerald-500/40 bg-emerald-500/[0.03]', it.status === 'error' && 'border-destructive/40')}>
+    <div className={cn('rounded-lg border p-3', it.status === 'done' && 'border-success/40 bg-success/[0.03]', it.status === 'error' && 'border-destructive/40')}>
       <div className="mb-2 flex items-center gap-2 text-sm">
         <span className="font-medium">Product {index + 1}</span>
         <StatusLine it={it} />
@@ -203,7 +203,7 @@ function ItemCard({ it, index, unit, locked, canRemove, onPatch, onRemove, onOpe
           {readError && <p className="text-xs text-destructive">{readError}</p>}
           {it.status === 'error' && <p className="flex items-start gap-1.5 text-xs text-destructive"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{it.error}</p>}
           {it.status === 'done' && !!it.warnings?.length && (
-            <ul className="space-y-0.5 text-xs text-amber-700 dark:text-amber-400">{it.warnings.map((w, k) => <li key={k}>• {w}</li>)}</ul>
+            <ul className="space-y-0.5 text-xs text-warning">{it.warnings.map((w, k) => <li key={k}>• {w}</li>)}</ul>
           )}
         </div>
       </div>
@@ -214,7 +214,7 @@ function ItemCard({ it, index, unit, locked, canRemove, onPatch, onRemove, onOpe
 function StatusLine({ it }: { it: Item }) {
   if (it.status === 'estimating') return <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Reading the photo…</span>;
   if (it.status === 'saving') return <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Adding to the inquiry…</span>;
-  if (it.status === 'done') return <span className="flex min-w-0 items-center gap-1 truncate text-xs text-emerald-700 dark:text-emerald-400"><Check className="h-3 w-3 shrink-0" /> Added {it.productName}</span>;
+  if (it.status === 'done') return <span className="flex min-w-0 items-center gap-1 truncate text-xs text-success"><Check className="h-3 w-3 shrink-0" /> Added {it.productName}</span>;
   if (it.status === 'error') return <span className="flex items-center gap-1 text-xs text-destructive"><RotateCcw className="h-3 w-3" /> Failed, draft again to retry</span>;
   if (!isReady(it)) return <span className="text-xs text-muted-foreground">{it.images.length ? 'Enter W × D × H' : 'Add a photo and W × D × H'}</span>;
   return null;

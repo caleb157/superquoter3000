@@ -17,7 +17,7 @@ import { ProductStagePills, type StageTrack } from '@/components/ProductStagePil
 import { Input } from '@/components/ui/input';
 import { Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { fmt } from '@/lib/formatters';
+import { inr, usd } from '@/components/costing-workspace/cells';
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { EditHistoryDialog, type HistoryConfig } from '@/components/EditHistoryDialog';
@@ -215,7 +215,7 @@ const ProductDetail = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-3">
+      <div className="max-w-6xl mx-auto space-y-3">
         <PageBreadcrumbs canonical={canonicalCrumbs} current={product.name} />
         {/* Header */}
         <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
@@ -258,7 +258,7 @@ const ProductDetail = () => {
             ) : (
               <div className="flex items-center gap-1.5 group">
                 <div className="min-w-0">
-                  <h1 className="text-base sm:text-lg font-serif font-medium tracking-tight truncate">{product.name}</h1>
+                  <h1 className="page-title truncate">{product.name}</h1>
                   {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100" onClick={startEdit}>
@@ -272,15 +272,15 @@ const ProductDetail = () => {
           {costingSummary && (
             <div className="hidden sm:flex items-center gap-4 px-3 py-1.5 bg-muted/50 rounded-md">
               <div className="text-xs">
-                <span className="text-muted-foreground block text-[10px]">Unit Cost</span>
-                <span className="font-mono font-semibold">{fmt.inr(costingSummary.unitCostInr)}</span>
-                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitCostUsd)})</span>
+                <span className="text-muted-foreground block text-[10px]">Unit cost</span>
+                <span className="tabular-nums font-semibold">{inr(costingSummary.unitCostInr)}</span>
+                <span className="text-muted-foreground ml-1 tabular-nums">{usd(costingSummary.unitCostUsd)}</span>
               </div>
               <div className="w-px h-6 bg-border" />
               <div className="text-xs">
-                <span className="text-muted-foreground block text-[10px]">Unit Price</span>
-                <span className="font-mono font-semibold text-primary">{fmt.inr(costingSummary.unitPriceInr)}</span>
-                <span className="text-muted-foreground ml-1">({fmt.usd(costingSummary.unitPriceUsd)})</span>
+                <span className="text-muted-foreground block text-[10px]">Unit price</span>
+                <span className="tabular-nums font-semibold text-primary">{usd(costingSummary.unitPriceUsd)}</span>
+                <span className="text-muted-foreground ml-1 tabular-nums">{inr(costingSummary.unitPriceInr)}</span>
               </div>
             </div>
           )}

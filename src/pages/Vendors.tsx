@@ -119,11 +119,11 @@ export default function Vendors() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl font-serif font-medium tracking-tight">Vendors</h1>
+            <h1 className="page-title">Vendors</h1>
             <Badge variant="secondary" className="text-xs">{vendors.length}</Badge>
           </div>
           {isAdmin && (
@@ -219,11 +219,11 @@ export default function Vendors() {
                               <span className="font-medium">{p.product_name}</span>
                               <span className="text-[10px] text-muted-foreground">
                                 {p.pending > 0 && (
-                                  <span className="text-amber-600 dark:text-amber-400">{p.pending} pending</span>
+                                  <span className="text-warning">{p.pending} pending</span>
                                 )}
                                 {p.pending > 0 && p.completed > 0 && <span> · </span>}
                                 {p.completed > 0 && (
-                                  <span className="text-emerald-600 dark:text-emerald-400">{p.completed} done</span>
+                                  <span className="text-success">{p.completed} done</span>
                                 )}
                               </span>
                             </Badge>

@@ -47,7 +47,7 @@ export function FobRatesSettings() {
 
   const f = fcl.rates;
   const setF = (patch: Partial<FclRates>) => setFcl({ ...fcl, rates: { ...f, ...patch } });
-  const cell = 'h-8 text-right font-mono';
+  const cell = 'h-8 text-right tabular-nums';
 
   return (
     <div className="space-y-4">

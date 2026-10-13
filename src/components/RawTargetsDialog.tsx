@@ -133,20 +133,20 @@ export function RawTargetsDialog({
                   {rows.map((r, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-medium max-w-[240px] truncate">{r.name}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">{r.qty}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">{fmt.inr(r.target)}</TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-primary">
+                      <TableCell className="text-right tabular-nums">{r.qty}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmt.inr(r.target)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-primary">
                         {fmt.inr(discounted(r.target))}
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/50 font-medium">
                     <TableCell>Shipment total</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
+                    <TableCell className="text-right tabular-nums">
                       {rows.reduce((s2, r) => s2 + (r.qty || 0), 0)}
                     </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{fmt.inr(shipmentTotal)}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums text-primary">
+                    <TableCell className="text-right tabular-nums">{fmt.inr(shipmentTotal)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-primary">
                       {fmt.inr(shipmentTotalDiscounted)}
                     </TableCell>
                   </TableRow>

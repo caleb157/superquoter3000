@@ -25,8 +25,8 @@ const INTERMEDIATE = new Set(['need_design', 'quoting', 'ready_for_quote', 'samp
 
 function stageClass(stage: string | null | undefined): string {
   if (!stage) return 'border border-dashed text-muted-foreground bg-transparent';
-  if (TERMINAL.has(stage)) return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
-  if (INTERMEDIATE.has(stage)) return 'bg-amber-100 text-amber-700 border border-amber-200';
+  if (TERMINAL.has(stage)) return 'bg-success/15 text-success border border-success/30';
+  if (INTERMEDIATE.has(stage)) return 'bg-warning/15 text-warning border border-warning/30';
   return 'bg-muted text-muted-foreground';
 }
 

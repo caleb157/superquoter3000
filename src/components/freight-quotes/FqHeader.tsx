@@ -12,7 +12,7 @@ export function FqHeader({ title, actions }: { title: string; actions?: React.Re
   return (
     <div className="space-y-2 mb-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         <div className="flex gap-2 flex-wrap">{actions}</div>
       </div>
       <nav className="flex gap-1 border-b text-xs">
