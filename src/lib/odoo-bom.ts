@@ -46,6 +46,7 @@ export type DraftLine = {
 
 export type FinishedDraft = {
   name: string;
+  hqSku?: string;          // the HQ product's own SKU, used to build the Odoo SKU from a prefix
   sku: string;
   code: string;            // BOM reference, e.g. "RADC Dark"
   category: string;
@@ -68,7 +69,8 @@ type Defaults = { status: LineStatus; prefix: string; category: string; tracked:
 
 /** Starting values for a new component, by HQ cost category (read from how Odoo's existing products are set up). */
 export const CATEGORY_DEFAULTS: Record<string, Defaults> = {
-  'Raw Piece': { status: 'new', prefix: 'PIC', category: RAW_TRACKED, tracked: true, uom: 'Units' },
+  // Raw pieces are made for one product; their SKU prefix is picked on the Send to Odoo page.
+  'Raw Piece': { status: 'new', prefix: '', category: RAW_TRACKED, tracked: true, uom: 'Units' },
   'Wood': { status: 'new', prefix: 'TMB', category: RAW_TRACKED, tracked: true, uom: 'cu ft' },
   'Finishing Materials': { status: 'new', prefix: 'CHM', category: RAW_TRACKED, tracked: true, uom: 'L' },
   'Inserts + Instructions': { status: 'new', prefix: 'PPR', category: RAW_TRACKED, tracked: true, uom: 'Units' },
@@ -166,8 +168,14 @@ export type CogsRow = {
   units?: string | null; vendor_name?: string | null; sort_order?: number | null;
 };
 
-/** One draft line per included costing row with a quantity; links pre-match lines seen before. */
-export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>): DraftLine[] {
+/** Cost categories whose items belong to one product only: never shared or pre-matched across products. */
+export const PRODUCT_SPECIFIC = ['Raw Piece'];
+
+/**
+ * One draft line per included costing row with a quantity; links pre-match lines seen before.
+ * With productId, product-specific items (raw pieces) get a key of their own per product.
+ */
+export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>, productId?: string): DraftLine[] {
   return rows
     .filter(r => r.include !== 'No' && lineQty(r) > 0 && (r.component_name || '').trim())
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -175,7 +183,7 @@ export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>
       const cogsType = r.cogs_type || 'Other';
       const hqName = String(r.component_name).trim();
       const d = defaultsFor(cogsType);
-      const key = linkKey(cogsType, hqName);
+      const key = productId && PRODUCT_SPECIFIC.includes(cogsType) ? `${linkKey(cogsType, hqName)}|${productId}` : linkKey(cogsType, hqName);
       const linked = links.get(key) ?? null;
       const hqQty = lineQty(r);
       const hqUnit = String(r.units || '').trim();
@@ -223,6 +231,7 @@ export function defaultFinished(product: { name?: string | null; sku?: string | 
   const sku = (product?.sku || '').trim();
   return {
     name: (product?.name || '').trim(),
+    hqSku: sku,
     sku,
     code: sku,
     category: FINISHED_CATEGORY,
@@ -446,4 +455,76 @@ export function combinedBomSheet(drafts: ProductDraft[]): (string | number | nul
     rows.push(...s.slice(1));
   }
   return rows;
+}
+
+// ---------- SKU prefixes ----------
+
+const alnum = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+
+/** The item part of a SKU: the HQ SKU without separators (AT-3335 → AT3335), else the initials of the name. */
+export function itemCode(hqSku: string | null | undefined, name: string): string {
+  const fromSku = alnum(hqSku || '');
+  if (fromSku) return fromSku;
+  const words = (name || '').split(/[^A-Za-z0-9]+/).filter(w => w && !/^(of|and|the|with|for|set)$/i.test(w));
+  return words.slice(0, 4).map(w => (/^\d+$/.test(w) ? w : w[0])).join('').toUpperCase();
+}
+
+/** Finished product SKU from a prefix: PREFIX-ITEMCODE (kept as is when the HQ SKU already starts with the prefix). */
+export function finishedSkuFor(prefix: string, hqSku: string | null | undefined, name: string): string {
+  const p = alnum(prefix);
+  if (!p) return (hqSku || '').trim();
+  const own = (hqSku || '').trim().toUpperCase();
+  if (own.startsWith(`${p}-`)) return own;
+  const code = itemCode(hqSku, name);
+  return code ? `${p}-${code}` : `${p}-`;
+}
+
+/** Raw piece SKU: PREFIX + the finished SKU's item part (CCT-AT3335 → RAW-AT3335); -2, -3 for further raw pieces. */
+export function rawPieceSkuFor(prefix: string, finishedSku: string, n = 1): string {
+  const p = alnum(prefix);
+  if (!p) return '';
+  const rest = finishedSku.trim().toUpperCase().split('-').slice(1).join('-');
+  const base = rest ? `${p}-${rest}` : `${p}-`;
+  return n > 1 && rest ? `${base}-${n}` : base;
+}
+
+/** A SKU nobody has typed yet: empty, unfinished ("TMB-"), or one made from the previous prefix. */
+export function isFillableSku(sku: string, prevPrefix?: string | null): boolean {
+  const s = (sku || '').trim().toUpperCase();
+  if (!s || s.endsWith('-')) return true;
+  const p = alnum(prevPrefix || '');
+  return !!p && s.startsWith(`${p}-`);
+}
+
+export type Prefixes = { product: string; raw: string };
+
+/**
+ * Fills the finished SKU and the raw piece SKUs from the prefixes, leaving any SKU someone typed
+ * (anything not empty, unfinished or made from the previous prefixes) as it is.
+ */
+export function applyPrefixes(f: FinishedDraft, lines: DraftLine[], next: Prefixes, prev: Prefixes | null): { finished: FinishedDraft; lines: DraftLine[] } {
+  let finished = f;
+  if (next.product.trim() && isFillableSku(f.sku, prev?.product)) {
+    const sku = finishedSkuFor(next.product, f.hqSku, f.name);
+    finished = { ...f, sku, code: !f.code.trim() || f.code === f.sku ? sku : f.code };
+  }
+  let n = 0;
+  const out = lines.map(l => {
+    if (!PRODUCT_SPECIFIC.includes(l.cogsType) || l.status !== 'new') return l;
+    n += 1;
+    if (!next.raw.trim()) return l;
+    const wasFromPrev = prev && (isFillableSku(l.newItem.sku, prev.raw) || l.newItem.sku === rawPieceSkuFor(prev.raw, f.sku, n));
+    if (!isFillableSku(l.newItem.sku) && !wasFromPrev) return l;
+    return { ...l, newItem: { ...l.newItem, sku: rawPieceSkuFor(next.raw, finished.sku, n) } };
+  });
+  return { finished, lines: out };
+}
+
+const LAST_PREFIXES = 'odoo-sku-prefixes';
+/** The prefixes used last (per browser), so the raw piece prefix carries over to the next product. */
+export function readLastPrefixes(): Prefixes {
+  try { const v = JSON.parse(localStorage.getItem(LAST_PREFIXES) || 'null'); return { product: v?.product || '', raw: v?.raw || '' }; } catch { return { product: '', raw: '' }; }
+}
+export function writeLastPrefixes(p: Prefixes) {
+  try { localStorage.setItem(LAST_PREFIXES, JSON.stringify(p)); } catch { /* per-browser convenience only */ }
 }

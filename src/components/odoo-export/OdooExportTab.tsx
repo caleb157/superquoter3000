@@ -20,15 +20,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { computeResults, loadProductBundle } from '@/lib/costing-workspace';
 import {
   bomQty, bomSheet, buildDraftLines, checkDraft, defaultFinished, displayName, fileStem, productsSheet, pushPayload,
-  type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct,
+  applyPrefixes, readLastPrefixes, writeLastPrefixes,
+  type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct, type Prefixes,
 } from '@/lib/odoo-bom';
 import {
   loadLinks, odooMeta, odooProductsBySku, pushToOdoo, removeLink, saveLink, suggestOdooProducts,
   type OdooMeta, type PushResult,
 } from '@/lib/odoo-products';
 import { OdooProductPicker } from './OdooProductPicker';
+import { SkuPrefixBar } from './SkuPrefixBar';
 
-type Saved = { finished: FinishedDraft; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride'>> };
+type Saved = { finished: FinishedDraft; prefixes?: Prefixes; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride'>> };
 const storeKey = (id: string) => `odoo-bom-draft:${id}`;
 const readSaved = (id: string): Saved | null => {
   try { const s = localStorage.getItem(storeKey(id)); return s ? JSON.parse(s) : null; } catch { return null; }
@@ -43,6 +45,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finished, setFinished] = useState<FinishedDraft | null>(null);
+  const [prefixes, setPrefixes] = useState<Prefixes>({ product: '', raw: '' });
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [linksAvailable, setLinksAvailable] = useState(true);
   const [meta, setMeta] = useState<OdooMeta | null>(null);
@@ -83,16 +86,19 @@ export function OdooExportTab({ productId }: { productId: string }) {
       const product = b.products.find(p => p.id === productId);
       const res = computeResults(b).get(productId);
       const rows = res?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === productId);
-      const keysProbe = buildDraftLines(rows, new Map());
+      const keysProbe = buildDraftLines(rows, new Map(), productId);
       const { links, available } = await loadLinks([...new Set(keysProbe.map(l => l.key))]);
       setLinksAvailable(available);
-      let ls = buildDraftLines(rows, links);
+      let ls = buildDraftLines(rows, links, productId);
       let f = defaultFinished(product, { volumeM3: res?.finalUnitCbm ?? null });
       const saved = readSaved(productId);
       if (saved) {
         f = { ...f, ...saved.finished };
         ls = ls.map(l => (saved.lines[l.lineId] ? { ...l, ...saved.lines[l.lineId] } : l));
       }
+      const px = saved?.prefixes ?? { product: '', raw: readLastPrefixes().raw };
+      ({ finished: f, lines: ls } = applyPrefixes(f, ls, px, null));
+      setPrefixes(px);
       setFinished(f);
       setLines(ls);
       setResult(null);
@@ -117,8 +123,8 @@ export function OdooExportTab({ productId }: { productId: string }) {
     if (!ready.current || !finished) return;
     const savedLines: Saved['lines'] = {};
     for (const l of lines) savedLines[l.lineId] = { status: l.status, match: l.match, newItem: l.newItem, qtyOverride: l.qtyOverride };
-    writeSaved(productId, { finished, lines: savedLines });
-  }, [finished, lines, productId]);
+    writeSaved(productId, { finished, prefixes, lines: savedLines });
+  }, [finished, lines, prefixes, productId]);
 
   const issues = useMemo(() => (finished ? checkDraft(finished, lines, existing) : []), [finished, lines, existing]);
   const errors = issues.filter(i => i.level === 'error');
@@ -127,6 +133,14 @@ export function OdooExportTab({ productId }: { productId: string }) {
     setLines(prev => prev.map(l => (l.lineId === lineId ? { ...l, ...patch } : l)));
   const patchNew = (lineId: string, patch: Partial<DraftLine['newItem']>) =>
     setLines(prev => prev.map(l => (l.lineId === lineId ? { ...l, newItem: { ...l.newItem, ...patch } } : l)));
+  const changePrefixes = (next: Prefixes) => {
+    if (!finished) return;
+    const r = applyPrefixes(finished, lines, next, prefixes);
+    setFinished(r.finished);
+    setLines(r.lines);
+    setPrefixes(next);
+    writeLastPrefixes(next);
+  };
   const patchFinished = (patch: Partial<FinishedDraft>) => setFinished(prev => (prev ? { ...prev, ...patch } : prev));
 
   const pick = async (l: DraftLine, p: OdooProduct) => {
@@ -194,6 +208,8 @@ export function OdooExportTab({ productId }: { productId: string }) {
       <datalist id="odoo-uoms">{uomList.map(u => <option key={u} value={u} />)}</datalist>
       <datalist id="odoo-routes">{(meta?.routes ?? []).map(r => <option key={r} value={r} />)}</datalist>
       <datalist id="odoo-companies">{(meta?.companies ?? []).map(c => <option key={c} value={c} />)}</datalist>
+
+      <SkuPrefixBar value={prefixes} onChange={changePrefixes} />
 
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-muted-foreground flex-1 min-w-[240px]">
