@@ -721,24 +721,158 @@ export function computePackagedUnitCbm(args: {
   const icOdVol = calcICVolumeCbm(icOd.ic_od_width, icOd.ic_od_depth, icOd.ic_od_height);
   const productsPerIc = cbm?.products_per_ic || 1;
   if (!includeMc) return calcFinalUnitCbm(false, icOdVol, productsPerIc, 0, 0);
-  let mc: any = calcMCPacking({
-    include_mc: true, mc_type: mcType,
-    mc_max_width: cbm?.mc_max_width || 25, mc_max_depth: cbm?.mc_max_depth || 25, mc_max_height: cbm?.mc_max_height || 25,
-    mc_buffer_inch: cbm?.mc_buffer_inch || 1, mc_height_buffer_inch: mcBufferH,
-    mc_weight_limit_kg: cbm?.mc_weight_limit_kg || 20, mc_empty_weight_kg: cbm?.mc_empty_weight_kg || 1.5,
-    product_weight_kg: p?.weight_kg || 0, quantity: p?.quantity || 100, products_per_ic: productsPerIc,
-    ic_width: icW, ic_depth: icD, ic_height: icH,
-    ic_od_width: icOd.ic_od_width, ic_od_depth: icOd.ic_od_depth, ic_od_height: icOd.ic_od_height,
-  } as any);
-  if (cbm?.mc_manual_layout) {
-    const aw = cbm?.mc_ics_along_w || mc.mc_ics_along_w, ad = cbm?.mc_ics_along_d || mc.mc_ics_along_d, ah = cbm?.mc_ics_along_h || mc.mc_ics_along_h;
-    const wd = cbm?.mc_buffer_inch || 1;
-    const lim = cbm?.mc_weight_limit_kg || 20, empty = cbm?.mc_empty_weight_kg || 1.5, pw = p?.weight_kg || 0;
-    let packed = aw * ad * ah;
-    if (lim > 0 && pw > 0 && productsPerIc > 0) packed = Math.min(packed, Math.max(0, Math.floor(Math.max(0, Math.floor((lim - empty) / pw)) / productsPerIc)));
-    mc = { mc_width: icOd.ic_od_width * aw + wd, mc_depth: icOd.ic_od_depth * ad + wd, mc_height: icOd.ic_od_height * ah + mcBufferH, products_per_mc: packed * productsPerIc };
-  }
+  const plan = productMasterCartonPlan(args);
+  const mc = { mc_width: plan.mc.width, mc_depth: plan.mc.depth, mc_height: plan.mc.height, products_per_mc: plan.pieces };
   const mcOd = calcMcOd(mc.mc_width, mc.mc_depth, mc.mc_height, getBoxOdOffsets(boxData, mcType));
   const mcOdVol = (mcOd.mc_od_width * mcOd.mc_od_depth * mcOd.mc_od_height) / 61020;
   return calcFinalUnitCbm(true, icOdVol, productsPerIc, mcOdVol, mc.products_per_mc);
+}
+
+// ============================================================
+// Master carton plan (one place for Pcs/MC, MC size and the "why")
+// ============================================================
+
+export type McLimit = 'size' | 'weight' | 'quantity' | 'manual';
+
+export interface MasterCartonPlan {
+  /** Inner carton outside size as entered (W × D × H). */
+  icOd: { w: number; d: number; h: number };
+  /** Inner carton outside size as placed in the master carton (along MC W, D, H). */
+  placed: { w: number; d: number; h: number };
+  orientation: 'upright' | 'upright, turned' | 'on its side';
+  /** Room inside the largest allowed master carton after the buffers. */
+  usable: { w: number; d: number; h: number };
+  /** Inner cartons that would fit along each side in that orientation. */
+  maxFit: { w: number; d: number; h: number };
+  /** Inner cartons actually packed along each side. */
+  along: { w: number; d: number; h: number };
+  packedIcs: number;
+  productsPerIc: number;
+  /** Pieces per master carton from the calculation (before any typed override). */
+  autoPieces: number;
+  /** Pieces per master carton used for costing and CBM (the override when set). */
+  pieces: number;
+  override: number | null;
+  manualLayout: boolean;
+  limit: McLimit;
+  weightMaxIcs: number;
+  quantityMaxIcs: number;
+  /** Master carton inside size (before ply thickness). */
+  mc: { width: number; depth: number; height: number };
+  /** False when one inner carton is bigger than the allowed master carton in every orientation. */
+  icFits: boolean;
+  buffers: { wd: number; h: number };
+  max: { w: number; d: number; h: number };
+  weightLimitKg: number;
+}
+
+/**
+ * Packs inner cartons (outside size) into the largest allowed master carton, trying every
+ * orientation of the inner carton and keeping the one that holds the most (upright wins ties).
+ * A hand layout (ICs along W/D/H) replaces the search; a typed Pcs/MC override replaces the count
+ * but keeps the carton size. Used by both the costing engine and the packed-CBM calculation.
+ */
+export function planMasterCarton(args: {
+  icOd: { w: number; d: number; h: number };
+  max: { w: number; d: number; h: number };
+  wdBuffer: number;
+  hBuffer: number;
+  weightLimitKg: number;
+  emptyWeightKg: number;
+  productWeightKg: number;
+  quantity: number;
+  productsPerIc: number;
+  manualLayout?: { w?: number | null; d?: number | null; h?: number | null } | null;
+  override?: number | null;
+}): MasterCartonPlan {
+  const { icOd, max, wdBuffer, hBuffer } = args;
+  const ppi = Math.max(1, args.productsPerIc || 1);
+  const usable = { w: max.w - wdBuffer, d: max.d - wdBuffer, h: max.h - hBuffer };
+  const dims = [icOd.w, icOd.d, icOd.h];
+  // [along W, along D, along H] as indexes into dims; upright first so it wins ties.
+  const perms: [number, number, number][] = [[0, 1, 2], [1, 0, 2], [0, 2, 1], [2, 0, 1], [1, 2, 0], [2, 1, 0]];
+  const fitsIn = (p: { w: number; d: number; h: number }) => p.w <= usable.w + 1e-9 && p.d <= usable.d + 1e-9 && p.h <= usable.h + 1e-9;
+
+  let best: { perm: [number, number, number]; res: ReturnType<typeof calcMCPacking>; fits: boolean; vol: number } | null = null;
+  for (const perm of perms) {
+    const placed = { w: dims[perm[0]], d: dims[perm[1]], h: dims[perm[2]] };
+    const res = calcMCPacking({
+      include_mc: true, mc_type: 'MC',
+      mc_max_width: max.w, mc_max_depth: max.d, mc_max_height: max.h,
+      mc_buffer_inch: wdBuffer, mc_height_buffer_inch: hBuffer,
+      mc_weight_limit_kg: args.weightLimitKg, mc_empty_weight_kg: args.emptyWeightKg,
+      product_weight_kg: args.productWeightKg, quantity: args.quantity, products_per_ic: ppi,
+      ic_width: placed.w, ic_depth: placed.d, ic_height: placed.h,
+    });
+    const fits = fitsIn(placed);
+    const vol = res.mc_width * res.mc_depth * res.mc_height;
+    const better = !best
+      || (fits && !best.fits)
+      || (fits === best.fits && (res.products_per_mc > best.res.products_per_mc
+        || (res.products_per_mc === best.res.products_per_mc && vol < best.vol - 1e-6 && perm[2] === best.perm[2])));
+    if (better) best = { perm, res, fits, vol };
+  }
+  const { perm, res, fits } = best!;
+  const placed = { w: dims[perm[0]], d: dims[perm[1]], h: dims[perm[2]] };
+  const orientation: MasterCartonPlan['orientation'] = perm[2] !== 2 ? 'on its side' : perm[0] === 0 ? 'upright' : 'upright, turned';
+  const diag = res.constraint_diagnostics;
+  const maxFit = {
+    w: Math.max(1, Math.floor(usable.w / placed.w)),
+    d: Math.max(1, Math.floor(usable.d / placed.d)),
+    h: Math.max(1, Math.floor(usable.h / placed.h)),
+  };
+
+  let along = { w: res.mc_ics_along_w, d: res.mc_ics_along_d, h: res.mc_ics_along_h };
+  let packedIcs = res.packed_ics;
+  let mc = { width: res.mc_width, depth: res.mc_depth, height: res.mc_height };
+  let limit: McLimit = packedIcs >= diag.dimensional_max_ics ? 'size'
+    : diag.weight_max_ics <= diag.quantity_max_ics ? 'weight' : 'quantity';
+  let shownPlaced = placed, shownOrientation = orientation;
+
+  const ml = args.manualLayout;
+  if (ml) {
+    // Hand layout counts are in the inner carton's own orientation (W along W, ...).
+    along = { w: Math.max(1, Math.round(ml.w || 1)), d: Math.max(1, Math.round(ml.d || 1)), h: Math.max(1, Math.round(ml.h || 1)) };
+    packedIcs = along.w * along.d * along.h;
+    if (diag.weight_max_ics < packedIcs && args.weightLimitKg > 0 && args.productWeightKg > 0) packedIcs = diag.weight_max_ics;
+    shownPlaced = { ...icOd };
+    shownOrientation = 'upright';
+    mc = { width: icOd.w * along.w + wdBuffer, depth: icOd.d * along.d + wdBuffer, height: icOd.h * along.h + hBuffer };
+    limit = 'manual';
+  }
+
+  const autoPieces = packedIcs * ppi;
+  const ov = Math.round(Number(args.override) || 0);
+  const override = ov > 0 ? ov : null;
+  return {
+    icOd: { ...icOd }, placed: shownPlaced, orientation: shownOrientation, usable,
+    maxFit: ml ? along : maxFit, along, packedIcs, productsPerIc: ppi,
+    autoPieces, pieces: override ?? autoPieces, override, manualLayout: !!ml, limit,
+    weightMaxIcs: diag.weight_max_ics, quantityMaxIcs: diag.quantity_max_ics,
+    mc, icFits: fits, buffers: { wd: wdBuffer, h: hBuffer }, max: { ...max }, weightLimitKg: args.weightLimitKg,
+  };
+}
+
+/** Builds the master carton plan for a product from its cbm_estimates row (shared by engine + CBM). */
+export function productMasterCartonPlan(args: {
+  product: any; cbmRow: any; boxData: any[]; productType: any; globalSettings: any;
+}): MasterCartonPlan {
+  const { product: p, cbmRow: cbm, boxData, productType, globalSettings: gs } = args;
+  const icAdd = productType?.pkg_ic_add_per_side_in ?? 0.5;
+  const auto = calcICDimensions(Number(p?.width_inch) || 0, Number(p?.depth_inch) || 0, Number(p?.height_inch) || 0, icAdd);
+  const icW = cbm?.ic_width ?? auto.ic_width, icD = cbm?.ic_depth ?? auto.ic_depth, icH = cbm?.ic_height ?? auto.ic_height;
+  const icOd = calcIcOd(icW, icD, icH, getBoxOdOffsets(boxData || [], cbm?.ic_type || '7 ply'));
+  return planMasterCarton({
+    icOd: { w: icOd.ic_od_width, d: icOd.ic_od_depth, h: icOd.ic_od_height },
+    max: { w: cbm?.mc_max_width || 25, d: cbm?.mc_max_depth || 25, h: cbm?.mc_max_height || 25 },
+    wdBuffer: cbm?.mc_buffer_inch || 1,
+    hBuffer: cbm?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5,
+    weightLimitKg: cbm?.mc_weight_limit_kg || 20,
+    emptyWeightKg: cbm?.mc_empty_weight_kg || 1.5,
+    productWeightKg: p?.weight_kg || 0,
+    quantity: p?.quantity || 100,
+    productsPerIc: cbm?.products_per_ic || 1,
+    manualLayout: cbm?.mc_manual_layout ? { w: cbm?.mc_ics_along_w, d: cbm?.mc_ics_along_d, h: cbm?.mc_ics_along_h } : null,
+    override: cbm?.products_per_mc_override,
+  });
 }
