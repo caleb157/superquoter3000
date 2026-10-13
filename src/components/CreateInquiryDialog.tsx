@@ -395,8 +395,8 @@ export function CreateInquiryDialog({
             </div>
 
             {mode === 'projected_po' && (
-              <div className="grid grid-cols-2 gap-2 rounded-md border border-teal-300 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-500/10 p-3">
-                <div className="col-span-2 text-xs font-medium text-teal-800 dark:text-teal-300">
+              <div className="grid grid-cols-2 gap-2 rounded-md border border-success/50 bg-success/10 p-3">
+                <div className="col-span-2 text-xs font-medium text-success">
                   {isRepeat ? 'Estimate (optional: the copied products are priced live)' : 'Estimate (no products needed)'}
                 </div>
                 <div>

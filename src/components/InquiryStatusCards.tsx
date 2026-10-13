@@ -79,7 +79,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
     `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const profitTone =
-    fin.totalProfit > 0 ? 'text-emerald-600'
+    fin.totalProfit > 0 ? 'text-success'
     : fin.totalProfit < 0 ? 'text-destructive'
     : '';
 

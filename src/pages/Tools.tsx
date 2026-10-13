@@ -49,9 +49,9 @@ export default function Tools() {
   useDocumentTitle('Tools');
   return (
     <AppLayout>
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
-        <h1 className="text-lg font-semibold flex items-center gap-2">
-          <Wrench className="h-4 w-4" /> Tools
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
+        <h1 className="page-title flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-muted-foreground" /> Tools
         </h1>
         <div className="grid gap-3 sm:grid-cols-2">
           {tools.map(t => (

@@ -142,7 +142,7 @@ export default function CustomerDetail() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={() => {
             const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;

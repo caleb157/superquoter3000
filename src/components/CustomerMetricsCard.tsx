@@ -63,19 +63,19 @@ export function CustomerMetricsCard({ customers }: Props) {
             `${stats.activeCount} active`
           )}
           {tile(
-            <Zap className="h-4 w-4 text-emerald-600" />,
+            <Zap className="h-4 w-4 text-success" />,
             'Conversion',
             `${stats.conversionRate}%`,
             'leads → active'
           )}
           {tile(
-            <Clock className="h-4 w-4 text-blue-600" />,
+            <Clock className="h-4 w-4 text-info" />,
             'Avg cycle (active)',
             stats.avgActiveCycle != null ? `${stats.avgActiveCycle}d` : '—',
             'lead → active'
           )}
           {tile(
-            <TrendingDown className="h-4 w-4 text-amber-600" />,
+            <TrendingDown className="h-4 w-4 text-warning" />,
             'Avg cycle (lost)',
             stats.avgLostCycle != null ? `${stats.avgLostCycle}d` : '—',
             'lead → churned/inactive'

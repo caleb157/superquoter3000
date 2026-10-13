@@ -77,7 +77,7 @@ export default function IronWeightCalculator() {
             <Link to="/tools">
               <Button variant="ghost" size="sm" className="h-8 gap-1.5"><ArrowLeft className="h-3.5 w-3.5" /> Tools</Button>
             </Link>
-            <h1 className="text-lg font-semibold flex items-center gap-2"><Weight className="h-4 w-4" /> Iron Weight Calculator</h1>
+            <h1 className="page-title flex items-center gap-2"><Weight className="h-5 w-5 text-muted-foreground" /> Iron Weight Calculator</h1>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button size="sm" className="h-8 gap-1.5" onClick={() => setPhotoOpen(true)}><Sparkles className="h-3.5 w-3.5" /> From photo</Button>
               <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setOpenOpen(true)}><FolderOpen className="h-3.5 w-3.5" /> Open</Button>
@@ -113,9 +113,9 @@ export default function IronWeightCalculator() {
           </div>
 
           {estimateNote && (
-            <Card className="border-amber-300/60 bg-amber-50/60 p-3 text-sm dark:bg-amber-950/20">
+            <Card className="border-warning/60 bg-warning/[0.06] p-3 text-sm">
               <div className="flex items-start gap-2">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <div className="min-w-0 space-y-1">
                   <p><span className="font-medium">Estimated from photo.</span> {estimateNote.summary}</p>
                   {estimateNote.assumptions.length > 0 && (

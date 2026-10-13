@@ -262,12 +262,12 @@ export default function ExportDocuments() {
       <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Link to="/tools"><Button variant="ghost" size="sm" className="h-8 gap-1.5"><ArrowLeft className="h-3.5 w-3.5" /> Tools</Button></Link>
-          <h1 className="text-lg font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Commercial Invoice &amp; Packing List</h1>
+          <h1 className="page-title flex items-center gap-2"><FileText className="h-5 w-5 text-muted-foreground" /> Commercial Invoice &amp; Packing List</h1>
         </div>
 
         {tablesMissing && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm flex gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" /> {MISSING_TABLES_MSG}
+          <div className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm flex gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" /> {MISSING_TABLES_MSG}
           </div>
         )}
 
@@ -435,14 +435,14 @@ export default function ExportDocuments() {
                           <tr key={i} className="border-b align-top">
                             <td className="p-1 font-medium whitespace-nowrap">{l.sku || '—'}</td>
                             <td className="p-1 min-w-[220px]"><Textarea rows={2} className="text-xs min-h-0 p-1.5" value={l.description} onChange={e => patchLine(i, { description: e.target.value })} /></td>
-                            <td className="p-1"><Input className={`h-7 px-1.5 text-xs w-24 ${!l.hsnCode ? 'border-amber-400' : ''}`} value={l.hsnCode} onChange={e => patchLine(i, { hsnCode: e.target.value })} /></td>
+                            <td className="p-1"><Input className={`h-7 px-1.5 text-xs w-24 ${!l.hsnCode ? 'border-warning' : ''}`} value={l.hsnCode} onChange={e => patchLine(i, { hsnCode: e.target.value })} /></td>
                             <td className="p-1"><NumCell w="w-16" value={l.quantity} onChange={quantity => patchLine(i, { quantity })} /></td>
                             <td className="p-1"><NumCell value={l.fobPriceUsd} onChange={fobPriceUsd => patchLine(i, { fobPriceUsd })} /></td>
                             <td className="p-1"><NumCell w="w-14" value={l.igstRatePct} onChange={igstRatePct => patchLine(i, { igstRatePct })} /></td>
                             <td className="p-1 text-right tabular-nums pt-2.5">{money(c.fobValueInr)}</td>
                             <td className="p-1 text-right tabular-nums pt-2.5">{money(c.fobIgstInr)}</td>
                             <td className="p-1 border-l"><NumCell w="w-14" value={l.unitsPerPackage} onChange={unitsPerPackage => patchLine(i, { unitsPerPackage })} /></td>
-                            <td className="p-1"><Input className={`h-7 px-1.5 text-xs w-32 ${!l.packageDims ? 'border-amber-400' : ''}`} placeholder="20 x 20 x 20" value={l.packageDims} onChange={e => patchLine(i, { packageDims: e.target.value })} /></td>
+                            <td className="p-1"><Input className={`h-7 px-1.5 text-xs w-32 ${!l.packageDims ? 'border-warning' : ''}`} placeholder="20 x 20 x 20" value={l.packageDims} onChange={e => patchLine(i, { packageDims: e.target.value })} /></td>
                             <td className="p-1"><Input className="h-7 px-1.5 text-xs w-20" value={l.packageKind} onChange={e => patchLine(i, { packageKind: e.target.value })} /></td>
                             <td className="p-1"><NumCell w="w-16" value={l.netWeightKg} onChange={netWeightKg => patchLine(i, { netWeightKg })} /></td>
                             <td className="p-1"><NumCell w="w-16" value={l.grossWeightKg} onChange={grossWeightKg => patchLine(i, { grossWeightKg })} /></td>
@@ -472,7 +472,7 @@ export default function ExportDocuments() {
                   {doc.notificationNo ? ` (Notification No. ${doc.notificationNo})` : ''}. HSN and IGST come from the Odoo products; packing details are remembered per SKU once you generate.
                 </div>
                 {warnings.length > 0 && (
-                  <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+                  <ul className="text-xs text-warning space-y-0.5">
                     {warnings.map(w => <li key={w} className="flex gap-1.5"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{w}</li>)}
                   </ul>
                 )}

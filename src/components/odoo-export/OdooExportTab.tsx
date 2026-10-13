@@ -222,7 +222,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
       </div>
 
       {lookupError && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
           Odoo can't be read right now ({lookupError}). You can still fill in the draft and download the files; SKUs aren't checked against Odoo.
         </div>
       )}
@@ -335,7 +335,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
                     </TableCell>
                     <TableCell className="align-top">
                       {l.status !== 'skip' && (
-                        <Input className={`h-8 text-xs ${q.ok ? '' : 'border-amber-500'}`} inputMode="decimal"
+                        <Input className={`h-8 text-xs ${q.ok ? '' : 'border-warning'}`} inputMode="decimal"
                           value={l.qtyOverride ?? q.qty}
                           onChange={e => patchLine(l.lineId, { qtyOverride: num(e.target.value) })} />
                       )}
@@ -356,7 +356,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
           <CardContent className="py-3 space-y-1">
             {issues.map((i, n) => (
               <div key={n} className="flex items-start gap-2 text-xs">
-                {i.level === 'error' ? <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />}
+                {i.level === 'error' ? <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" />}
                 <span><span className="font-medium">{i.where}:</span> {i.msg}</span>
               </div>
             ))}
@@ -372,8 +372,8 @@ export function OdooExportTab({ productId }: { productId: string }) {
         </div>
       )}
       {result && (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs space-y-1">
-          <div className="flex items-center gap-1.5 font-medium"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Sent to Odoo</div>
+        <div className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs space-y-1">
+          <div className="flex items-center gap-1.5 font-medium"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Sent to Odoo</div>
           <div>Created: {result.created.length ? result.created.map(c => c.sku).join(', ') : 'nothing new'}{result.reused.length ? ` · already there: ${result.reused.map(c => c.sku).join(', ')}` : ''}</div>
           <div>{result.bomReused ? 'The product already had a BOM, so no second BOM was made.' : 'BOM created.'}</div>
           <div className="flex gap-3">

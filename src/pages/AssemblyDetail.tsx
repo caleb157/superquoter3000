@@ -218,7 +218,7 @@ const AssemblyDetail = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <PageBreadcrumbs canonical={canonicalCrumbs} current={assembly.name} />
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
@@ -231,7 +231,7 @@ const AssemblyDetail = () => {
           </Button>
           <Package className="h-5 w-5 text-primary" />
           <div className="flex-1">
-            <h1 className="text-base font-bold truncate">{assembly.name}</h1>
+            <h1 className="page-title truncate">{assembly.name}</h1>
             <div className="text-[10px] text-muted-foreground">
               Assembly • {components.length} components • {assemblyCost.num_cartons} cartons
             </div>
@@ -429,35 +429,35 @@ const AssemblyDetail = () => {
             <div className="grid grid-cols-6 gap-3 text-xs">
               <div>
                 <span className="text-muted-foreground block text-[10px]">Combined Cost (INR)</span>
-                <span className="font-mono font-semibold">{fmt.inr(assemblyCost.unit_cost_inr)}</span>
+                <span className="tabular-nums font-semibold">{fmt.inr(assemblyCost.unit_cost_inr)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Combined Cost (USD)</span>
-                <span className="font-mono font-semibold">{fmt.usd(assemblyCost.unit_cost_usd)}</span>
+                <span className="tabular-nums font-semibold">{fmt.usd(assemblyCost.unit_cost_usd)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Margin ({(calc.markupToNpm(markupPercent) * 100).toFixed(1)}% NPM)</span>
-                <span className="font-mono font-semibold">{fmt.usd(assemblyCost.unit_price_usd - assemblyCost.unit_cost_usd)}</span>
+                <span className="tabular-nums font-semibold">{fmt.usd(assemblyCost.unit_price_usd - assemblyCost.unit_cost_usd)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Unit Price (USD)</span>
-                <span className="font-mono font-semibold text-primary">{fmt.usd(assemblyCost.unit_price_usd)}</span>
+                <span className="tabular-nums font-semibold text-primary">{fmt.usd(assemblyCost.unit_price_usd)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total CBM</span>
-                <span className="font-mono">{fmt.cbm(assemblyCost.unit_cbm)}</span>
+                <span className="tabular-nums">{fmt.cbm(assemblyCost.unit_cbm)}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total Weight</span>
-                <span className="font-mono">{assemblyCost.unit_weight_kg.toFixed(1)} kg</span>
+                <span className="tabular-nums">{assemblyCost.unit_weight_kg.toFixed(1)} kg</span>
               </div>
             </div>
             {assembly.target_price_usd && (
               <div className="mt-2 text-xs">
                 {assemblyCost.unit_price_usd <= assembly.target_price_usd ? (
-                  <span className="text-green-600 font-semibold">✓ Under target by {fmt.usd(assembly.target_price_usd - assemblyCost.unit_price_usd)}</span>
+                  <span className="text-success font-semibold">✓ Under target by {fmt.usd(assembly.target_price_usd - assemblyCost.unit_price_usd)}</span>
                 ) : (
-                  <span className="text-red-600 font-semibold">✗ Over target by {fmt.usd(assemblyCost.unit_price_usd - assembly.target_price_usd)}</span>
+                  <span className="text-destructive font-semibold">✗ Over target by {fmt.usd(assemblyCost.unit_price_usd - assembly.target_price_usd)}</span>
                 )}
               </div>
             )}
@@ -465,19 +465,19 @@ const AssemblyDetail = () => {
             <div className="mt-3 pt-3 border-t grid grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total Revenue ({assembly.quantity} units)</span>
-                <span className="font-mono font-semibold">{fmt.usd(assemblyCost.unit_price_usd * (assembly.quantity || 0))}</span>
+                <span className="tabular-nums font-semibold">{fmt.usd(assemblyCost.unit_price_usd * (assembly.quantity || 0))}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total Cost</span>
-                <span className="font-mono">{fmt.usd(assemblyCost.unit_cost_usd * (assembly.quantity || 0))}</span>
+                <span className="tabular-nums">{fmt.usd(assemblyCost.unit_cost_usd * (assembly.quantity || 0))}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total Profit</span>
-                <span className="font-mono font-semibold">{fmt.usd((assemblyCost.unit_price_usd - assemblyCost.unit_cost_usd) * (assembly.quantity || 0))}</span>
+                <span className="tabular-nums font-semibold">{fmt.usd((assemblyCost.unit_price_usd - assemblyCost.unit_cost_usd) * (assembly.quantity || 0))}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Total CBM</span>
-                <span className="font-mono">{fmt.cbm(assemblyCost.unit_cbm * (assembly.quantity || 0))}</span>
+                <span className="tabular-nums">{fmt.cbm(assemblyCost.unit_cbm * (assembly.quantity || 0))}</span>
               </div>
             </div>
           </CardContent>

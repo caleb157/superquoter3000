@@ -351,22 +351,22 @@ export function VendorPriceImportDialog({
                   <tbody>
                     {matched.map((m, i) => (
                       <tr key={`m-${i}`} className="border-t">
-                        <td className="px-3 py-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /></td>
+                        <td className="px-3 py-1"><CheckCircle2 className="h-3.5 w-3.5 text-success" /></td>
                         <td className="px-3 py-1 truncate max-w-[280px]">{m.product.name} <span className="text-muted-foreground">· {m.product.sku || '—'}</span></td>
                         <td className="px-3 py-1 text-right tabular-nums">{m.unit_price_inr.toLocaleString('en-IN')}</td>
                         <td className="px-3 py-1 text-muted-foreground">by {m.source === 'product_id' ? 'product_id' : 'SKU'}</td>
                       </tr>
                     ))}
                     {unmatched.map((u, i) => (
-                      <tr key={`u-${i}`} className="border-t bg-red-50/40 dark:bg-red-950/20">
-                        <td className="px-3 py-1"><AlertTriangle className="h-3.5 w-3.5 text-red-600" /></td>
+                      <tr key={`u-${i}`} className="border-t bg-destructive/[0.04]">
+                        <td className="px-3 py-1"><AlertTriangle className="h-3.5 w-3.5 text-destructive" /></td>
                         <td className="px-3 py-1 truncate max-w-[280px] text-muted-foreground">
                           {u.raw.sku || u.raw.product_id || '(no identifier)'}
                         </td>
                         <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">
                           {u.raw.unit_price_inr != null ? Number(u.raw.unit_price_inr).toLocaleString('en-IN') : '—'}
                         </td>
-                        <td className="px-3 py-1 text-red-700 dark:text-red-400">{u.reason}</td>
+                        <td className="px-3 py-1 text-destructive">{u.reason}</td>
                       </tr>
                     ))}
                   </tbody>

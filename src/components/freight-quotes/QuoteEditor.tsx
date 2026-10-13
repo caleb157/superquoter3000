@@ -60,7 +60,7 @@ export function QuoteEditor({ value, onChange, refs }: {
   const low = (k: string) => fc[k] != null && fc[k] < LOW;
   const inp = 'h-7 text-xs';
   const txt = (k: keyof EditableQuote) => ({ className: inp, value: (q[k] as any) ?? '', onChange: (e: any) => set({ [k]: e.target.value || null } as any) });
-  const nm = (k: keyof EditableQuote) => ({ className: inp + ' font-mono text-right', type: 'number', value: (q[k] as any) ?? '', onChange: (e: any) => set({ [k]: numOrNull(e.target.value) } as any) });
+  const nm = (k: keyof EditableQuote) => ({ className: inp + ' tabular-nums text-right', type: 'number', value: (q[k] as any) ?? '', onChange: (e: any) => set({ [k]: numOrNull(e.target.value) } as any) });
   const currencies = Object.keys(q.fx_snapshot || {});
 
   const grouped = BUCKETS.map(b => ({ b, rows: q.lines.map((l, i) => ({ l, i })).filter(({ l }) => (BUCKETS.includes(l.bucket as Bucket) ? l.bucket : 'OTHER') === b) }));
@@ -118,7 +118,7 @@ export function QuoteEditor({ value, onChange, refs }: {
         <span className="font-medium">FX snapshot (USD per unit):</span>
         {currencies.map(c => (
           <span key={c} className="flex items-center gap-1">{c}
-            <Input type="number" step="any" className="h-6 w-24 text-[11px] font-mono" value={q.fx_snapshot[c]}
+            <Input type="number" step="any" className="h-6 w-24 text-[11px] tabular-nums" value={q.fx_snapshot[c]}
               disabled={c === 'USD'} onChange={e => set({ fx_snapshot: { ...q.fx_snapshot, [c]: Number(e.target.value) } })} />
           </span>
         ))}
@@ -158,15 +158,15 @@ export function QuoteEditor({ value, onChange, refs }: {
                         <SelectTrigger className="h-6 text-[11px] w-28"><SelectValue /></SelectTrigger>
                         <SelectContent>{BASES.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                       </Select></td>
-                      <td className="px-1"><Input type="number" step="any" className="h-6 w-20 text-xs font-mono text-right" value={l.rate ?? ''} onChange={e => setLine(i, { rate: numOrNull(e.target.value) })} /></td>
+                      <td className="px-1"><Input type="number" step="any" className="h-6 w-20 text-xs tabular-nums text-right" value={l.rate ?? ''} onChange={e => setLine(i, { rate: numOrNull(e.target.value) })} /></td>
                       <td className="px-1"><Input className="h-6 w-14 text-xs uppercase" value={l.currency} onChange={e => setLine(i, { currency: e.target.value.toUpperCase() })} /></td>
-                      <td className="px-1"><Input type="number" step="any" className="h-6 w-16 text-xs font-mono text-right" value={l.minimum_amount ?? ''} onChange={e => setLine(i, { minimum_amount: numOrNull(e.target.value) })} /></td>
-                      <td className="px-1"><Input type="number" step="any" className="h-6 w-16 text-xs font-mono text-right" placeholder={r.quantity.toFixed(2)} value={l.quantity_override ?? ''} onChange={e => setLine(i, { quantity_override: numOrNull(e.target.value) })} /></td>
+                      <td className="px-1"><Input type="number" step="any" className="h-6 w-16 text-xs tabular-nums text-right" value={l.minimum_amount ?? ''} onChange={e => setLine(i, { minimum_amount: numOrNull(e.target.value) })} /></td>
+                      <td className="px-1"><Input type="number" step="any" className="h-6 w-16 text-xs tabular-nums text-right" placeholder={r.quantity.toFixed(2)} value={l.quantity_override ?? ''} onChange={e => setLine(i, { quantity_override: numOrNull(e.target.value) })} /></td>
                       <td className="px-1">{l.charge_basis === 'at_actuals'
-                        ? <Input type="number" step="any" className={cn('h-6 w-20 text-xs font-mono text-right', l.user_estimate == null && 'ring-1 ring-warning')} value={l.user_estimate ?? ''} onChange={e => setLine(i, { user_estimate: numOrNull(e.target.value) })} />
+                        ? <Input type="number" step="any" className={cn('h-6 w-20 text-xs tabular-nums text-right', l.user_estimate == null && 'ring-1 ring-warning')} value={l.user_estimate ?? ''} onChange={e => setLine(i, { user_estimate: numOrNull(e.target.value) })} />
                         : <span className="text-muted-foreground">—</span>}</td>
-                      <td className="px-1.5 text-right font-mono whitespace-nowrap">{r.amount_original == null ? <span className="text-warning">unpriced</span> : money(r.amount_original, l.currency, 0)}</td>
-                      <td className="px-1.5 text-right font-mono">{usd(r.amount_usd, 2)}</td>
+                      <td className="px-1.5 text-right tabular-nums whitespace-nowrap">{r.amount_original == null ? <span className="text-warning">unpriced</span> : money(r.amount_original, l.currency, 0)}</td>
+                      <td className="px-1.5 text-right tabular-nums">{usd(r.amount_usd, 2)}</td>
                       <td className="px-1 text-center"><Checkbox checked={l.applicable !== false} onCheckedChange={v => setLine(i, { applicable: !!v })} /></td>
                       <td className="px-1 text-center whitespace-nowrap">
                         <Checkbox checked={!!l.is_optional} onCheckedChange={v => setLine(i, { is_optional: !!v, optional_included: true })} title="Optional charge" />
@@ -197,7 +197,7 @@ function GroupRows({ bucket, subtotal, onAdd, children }: { bucket: Bucket; subt
         {BUCKET_LABEL[bucket]}
         <Button variant="ghost" size="sm" className="h-5 ml-2 px-1.5 text-[10px] normal-case font-normal" onClick={onAdd}><Plus className="h-3 w-3 mr-0.5" />Add row</Button>
       </td>
-        <td className="px-1.5 text-right font-mono text-[11px] font-semibold">{usd(subtotal, 2)}</td><td colSpan={3} /></tr>
+        <td className="px-1.5 text-right tabular-nums text-[11px] font-semibold">{usd(subtotal, 2)}</td><td colSpan={3} /></tr>
       {children}
     </>
   );
@@ -209,9 +209,9 @@ export function TotalsBlock({ q }: { q: FqQuote }) {
   const Row = ({ label, v, inr, strong }: { label: string; v: number; inr?: number | null; strong?: boolean }) => (
     <tr className={cn('border-t', strong && 'font-semibold')}>
       <td className="px-2 py-1">{label}</td>
-      <td className="px-2 text-right font-mono">{inr != null ? money(inr, '₹', 0) : ''}</td>
-      <td className="px-2 text-right font-mono">{usd(v, 2)}</td>
-      <td className="px-2 text-right font-mono text-muted-foreground">{t.per_cbm && q.cbm ? usd(v / Number(q.cbm), 2) : '—'}</td>
+      <td className="px-2 text-right tabular-nums">{inr != null ? money(inr, '₹', 0) : ''}</td>
+      <td className="px-2 text-right tabular-nums">{usd(v, 2)}</td>
+      <td className="px-2 text-right tabular-nums text-muted-foreground">{t.per_cbm && q.cbm ? usd(v / Number(q.cbm), 2) : '—'}</td>
     </tr>
   );
   return (
@@ -230,9 +230,9 @@ export function TotalsBlock({ q }: { q: FqQuote }) {
           <tbody>
             {(['fob', 'cif', 'ddp'] as const).map(k => (
               <tr key={k} className="border-t"><td className="px-2 py-1 uppercase">{k}</td>
-                <td className="px-2 text-right font-mono">{usd(k === 'fob' ? t.fob_usd : k === 'cif' ? t.cif_usd : t.ddp_usd, 2)}</td>
-                <td className="px-2 text-right font-mono">{usd(t.per_cbm[k], 2)}</td>
-                <td className="px-2 text-right font-mono">{usd(t.per_wm[k], 2)}</td></tr>
+                <td className="px-2 text-right tabular-nums">{usd(k === 'fob' ? t.fob_usd : k === 'cif' ? t.cif_usd : t.ddp_usd, 2)}</td>
+                <td className="px-2 text-right tabular-nums">{usd(t.per_cbm[k], 2)}</td>
+                <td className="px-2 text-right tabular-nums">{usd(t.per_wm[k], 2)}</td></tr>
             ))}
           </tbody>
         </table>

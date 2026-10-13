@@ -42,9 +42,9 @@ type Vendor = { id: string; name: string };
 
 const STATUSES = ['pending', 'completed', 'cancelled'] as const;
 const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  completed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-red-100 text-red-800',
+  pending: 'bg-warning/15 text-warning',
+  completed: 'bg-success/15 text-success',
+  cancelled: 'bg-destructive/15 text-destructive',
 };
 
 type Props = { productId: string };

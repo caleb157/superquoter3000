@@ -234,7 +234,7 @@ export default function InquiryPdView() {
 
           <div className="flex items-end justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-xl font-semibold">PD View</h1>
+              <h1 className="page-title">PD View</h1>
               <p className="text-xs text-muted-foreground">
                 Product development checklist for every active SKU. Greyed-out cells don't apply to that product.
               </p>
@@ -342,7 +342,7 @@ export default function InquiryPdView() {
                                 'px-1 py-1.5 border-b text-center snap-start',
                                 i === 0 || ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                 disabled && 'bg-muted',
-                                isDue && 'bg-amber-100 dark:bg-amber-500/20',
+                                isDue && 'bg-warning/15',
                               )}
                             >
                               {disabled ? (

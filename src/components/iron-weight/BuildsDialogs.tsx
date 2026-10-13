@@ -61,7 +61,7 @@ export function SaveBuildDialog({ open, onOpenChange, build, initial, onSaved }:
             <Label htmlFor="ib-label">Version / note <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Input id="ib-label" value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. 40×20 tube option" />
           </div>
-          {overwriting && <p className="text-sm text-amber-700 dark:text-amber-400">A build named {existing!.sku}{existing!.label ? ` · ${existing!.label}` : ''} already exists. Saving will replace it.</p>}
+          {overwriting && <p className="text-sm text-warning">A build named {existing!.sku}{existing!.label ? ` · ${existing!.label}` : ''} already exists. Saving will replace it.</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

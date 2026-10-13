@@ -30,7 +30,7 @@ export function CostRiseBanner({ snapshot }: { snapshot: any }) {
   if (snapshot?.sent_at || warnings.length === 0) return null;
   return (
     <div className="no-print max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div className="rounded-md border border-warning/50 bg-warning/10 px-4 py-3 text-sm text-warning">
         <div className="flex items-center gap-2 font-medium">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Cost has gone up on {warnings.length} line{warnings.length === 1 ? '' : 's'} since this customer was last quoted
@@ -39,7 +39,7 @@ export function CostRiseBanner({ snapshot }: { snapshot: any }) {
           {warnings.map(w => (
             <li key={w.index}>
               <span className="font-medium">{w.name}</span>: {costRiseText(w)}
-              {w.reasons.length > 0 && <span className="text-amber-800/80"> ({w.reasons.slice(-3).join('; ')})</span>}
+              {w.reasons.length > 0 && <span className="text-warning/80"> ({w.reasons.slice(-3).join('; ')})</span>}
             </li>
           ))}
         </ul>

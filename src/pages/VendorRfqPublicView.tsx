@@ -132,7 +132,7 @@ const VendorRfqPublicView = () => {
 
         {/* Submission confirmation banner */}
         {lastSubmittedAt && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-900 px-4 py-3 flex items-start gap-2 text-sm">
+          <div className="rounded-md border border-success/30 bg-success/10 text-success px-4 py-3 flex items-start gap-2 text-sm">
             <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
               <div className="font-medium">Pricing submitted on {lastSubmittedAt.toLocaleString()}.</div>

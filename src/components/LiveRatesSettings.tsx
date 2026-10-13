@@ -66,7 +66,7 @@ export default function LiveRatesSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           {(warnings.length > 0 || stale) && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+            <div className="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
               {stale && <div>Live values are more than {LIVE_STALE_HOURS} hours old; the last good values are in use.</div>}
               {warnings.map(w => <div key={w}>{w}</div>)}
             </div>

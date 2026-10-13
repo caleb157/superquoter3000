@@ -145,7 +145,7 @@ export default function SampleRequestView() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between gap-2">
           <Button variant="ghost" size="sm" className="gap-1 -ml-2" onClick={() => navigate(inquiry ? `/inquiry/${inquiry.id}?tab=samples` : '/samples')}>
             <ArrowLeft className="h-4 w-4" /> {inquiry ? 'Back to inquiry' : 'All samples'}
@@ -162,7 +162,7 @@ export default function SampleRequestView() {
         </div>
 
         <div>
-          <h1 className="text-xl font-semibold"><span className="font-mono">{req.request_number}</span></h1>
+          <h1 className="page-title"><span className="font-mono">{req.request_number}</span></h1>
           {inquiry && (
             <p className="text-sm text-muted-foreground">
               <Link to={`/inquiry/${inquiry.id}?tab=samples`} className="font-mono text-primary hover:underline">{inquiry.rfq_number}</Link>

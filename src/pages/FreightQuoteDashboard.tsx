@@ -84,7 +84,7 @@ export default function FreightQuoteDashboard() {
     <Card><CardContent className="p-2">
       <div className="text-xs font-semibold mb-1">{title}</div>
       <table className="w-full text-xs"><thead className="text-[10px] uppercase text-muted-foreground"><tr><th className="text-left">{title.split(' ')[0]}</th><th className="text-right">Quotes</th><th className="text-right">FOB/CBM</th><th className="text-right">CIF/CBM</th><th className="text-right">DDP/CBM</th><th className="text-right">Last quote</th></tr></thead>
-        <tbody>{rows.map(r => <tr key={r.k} className="border-t"><td className="py-1">{r.k}</td><td className="text-right">{r.n}</td><td className="text-right font-mono">{usd(r.fob, 2)}</td><td className="text-right font-mono">{usd(r.cif, 2)}</td><td className="text-right font-mono">{usd(r.ddp, 2)}</td><td className="text-right">{r.last}</td></tr>)}</tbody></table>
+        <tbody>{rows.map(r => <tr key={r.k} className="border-t"><td className="py-1">{r.k}</td><td className="text-right">{r.n}</td><td className="text-right tabular-nums">{usd(r.fob, 2)}</td><td className="text-right tabular-nums">{usd(r.cif, 2)}</td><td className="text-right tabular-nums">{usd(r.ddp, 2)}</td><td className="text-right">{r.last}</td></tr>)}</tbody></table>
     </CardContent></Card>
   );
 
@@ -117,7 +117,7 @@ export default function FreightQuoteDashboard() {
                   return (
                     <div key={k}>
                       <div className="text-[10px] uppercase text-muted-foreground">{k}/CBM</div>
-                      <div className="font-mono text-sm font-semibold">{usd(p.cur[k], 0)}</div>
+                      <div className="tabular-nums text-sm font-semibold">{usd(p.cur[k], 0)}</div>
                       {p.prev && <div className={d == null ? 'text-[10px] text-muted-foreground' : d > 0 ? 'text-[10px] text-destructive' : 'text-[10px] text-success'}>{d == null ? 'no prior' : `${d > 0 ? '+' : ''}${d.toFixed(1)}% vs prior`}</div>}
                     </div>
                   );

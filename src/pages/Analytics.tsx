@@ -61,7 +61,7 @@ const Analytics = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Global bar: only controls that apply to both zones */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <h1 className="text-xl font-serif font-medium tracking-tight">Kickass Analytics Dashboard</h1>
+          <h1 className="page-title">Kickass Analytics Dashboard</h1>
           <div className="flex flex-wrap items-center gap-3">
             <ToggleGroup type="single" size="sm" variant="outline" value={ccy} onValueChange={v => v && setParam('ccy', v === 'INR' ? 'INR' : null)}>
               <ToggleGroupItem value="USD" className="px-3">USD</ToggleGroupItem>

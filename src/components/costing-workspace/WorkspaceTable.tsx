@@ -144,13 +144,13 @@ export function WorkspaceTable(p: Props) {
                   </button>
                   {isPhotoEstimated(row.p) && (
                     <Tooltip>
-                      <TooltipTrigger asChild><Sparkles className="h-4 w-4 shrink-0 text-violet-500" aria-label="Estimated from a photo" /></TooltipTrigger>
+                      <TooltipTrigger asChild><Sparkles className="h-4 w-4 shrink-0 text-highlight" aria-label="Estimated from a photo" /></TooltipTrigger>
                       <TooltipContent className="max-w-xs text-xs">Estimated from a photo. Open it to check the numbers and mark it checked.</TooltipContent>
                     </Tooltip>
                   )}
                   {issues.length > 0 && (
                     <Tooltip>
-                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" /></TooltipTrigger>
+                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-warning" /></TooltipTrigger>
                       <TooltipContent className="max-w-xs text-xs space-y-0.5">{issues.map((f, i) => <div key={i}>• {f.msg}</div>)}</TooltipContent>
                     </Tooltip>
                   )}
@@ -317,7 +317,7 @@ function QuoteCells({ row, idx, rows, bundle, slots, apply }: {
       <td className="px-1.5 text-xs">
         <NavCell nav={{ grid: 'quotes', row: idx, col: 'vs' }} align="left">
         {winner && cheapest != null && winner.price > cheapest
-          ? <span className="text-amber-600 dark:text-amber-400">+{inr(winner.price - cheapest)} over cheapest</span>
+          ? <span className="text-warning">+{inr(winner.price - cheapest)} over cheapest</span>
           : winner && priced.length > 1 ? <span className="text-primary">Cheapest</span> : <span className="text-muted-foreground/50">—</span>}
         </NavCell>
       </td>

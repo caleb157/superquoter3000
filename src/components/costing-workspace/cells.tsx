@@ -418,14 +418,14 @@ export function Stat({ label, value, sub, tone, onClick, active, hint }: {
     <Comp
       onClick={onClick}
       className={cn(
-        'min-w-0 rounded-lg border bg-card px-3.5 py-2 text-left',
+        'min-w-0 rounded-lg border border-border/70 bg-card px-3.5 py-2 text-left shadow-sm',
         onClick && 'hover:border-primary/50 transition-colors',
         active && 'border-primary ring-2 ring-primary/15',
       )}
     >
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground truncate">{label}</div>
       <div className={cn('text-lg font-semibold tabular-nums leading-tight',
-        tone === 'good' && 'text-primary', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-amber-600 dark:text-amber-400')}>
+        tone === 'good' && 'text-primary', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-warning')}>
         {value}
       </div>
       {sub && <div className="text-xs text-muted-foreground truncate">{sub}</div>}

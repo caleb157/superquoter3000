@@ -62,7 +62,7 @@ export function HardwareSyncDialog({ open, plan, onCancel, onConfirm }: Props) {
                 {plan.newItems.map(item => (
                   <div key={item.name} className="flex items-center justify-between px-3 py-2 text-sm">
                     <span className="truncate">{item.name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="tabular-nums text-xs text-muted-foreground">
                       {fmt.inr(item.unit_cost_inr)} / {item.units}
                     </span>
                   </div>
@@ -93,13 +93,13 @@ export function HardwareSyncDialog({ open, plan, onCancel, onConfirm }: Props) {
                         <div className="flex items-center gap-2">
                           <RadioGroupItem value="keep" id={`keep-${c.id}`} />
                           <Label htmlFor={`keep-${c.id}`} className="text-xs cursor-pointer">
-                            Keep <span className="font-mono">{fmt.inr(c.existing_price_inr)}</span>
+                            Keep <span className="tabular-nums">{fmt.inr(c.existing_price_inr)}</span>
                           </Label>
                         </div>
                         <div className="flex items-center gap-2">
                           <RadioGroupItem value="update" id={`update-${c.id}`} />
                           <Label htmlFor={`update-${c.id}`} className="text-xs cursor-pointer">
-                            Update to <span className="font-mono">{fmt.inr(c.new_price_inr)}</span>
+                            Update to <span className="tabular-nums">{fmt.inr(c.new_price_inr)}</span>
                           </Label>
                         </div>
                       </RadioGroup>

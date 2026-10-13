@@ -24,10 +24,10 @@ export const INQUIRY_STATUS_LABEL: Record<string, string> = {
 export const INQUIRY_STATUS_COLORS: Record<string, string> = {
   // Semantic tones: active=in progress (amber), projected_po=upcoming complete (emerald soft),
   // po=complete (emerald), paused=issue-lite (amber), complete=idle-done (graphite), cancelled=idle.
-  active: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  paused: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-  projected_po: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-  po: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+  active: 'bg-warning/15 text-warning',
+  paused: 'bg-destructive/15 text-destructive',
+  projected_po: 'bg-success/10 text-success',
+  po: 'bg-success/15 text-success',
   complete: 'bg-muted text-muted-foreground',
   cancelled: 'bg-muted text-muted-foreground/70',
 };

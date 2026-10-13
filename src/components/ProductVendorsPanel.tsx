@@ -73,9 +73,9 @@ export function ProductVendorsPanel({ productId }: { productId: string }) {
               <span className="inline-flex items-center gap-1.5">
                 <span className="font-medium">{r.vendor_name}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {r.pending > 0 && <span className="text-amber-600 dark:text-amber-400">{r.pending} pending</span>}
+                  {r.pending > 0 && <span className="text-warning">{r.pending} pending</span>}
                   {r.pending > 0 && r.completed > 0 && <span> · </span>}
-                  {r.completed > 0 && <span className="text-emerald-600 dark:text-emerald-400">{r.completed} done</span>}
+                  {r.completed > 0 && <span className="text-success">{r.completed} done</span>}
                 </span>
                 <ExternalLink className="h-3 w-3 opacity-60" />
               </span>

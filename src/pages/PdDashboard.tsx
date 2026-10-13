@@ -267,7 +267,7 @@ export default function PdDashboard() {
 
           <div className="flex items-end justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-xl font-semibold">PD Dashboard</h1>
+              <h1 className="page-title">PD Dashboard</h1>
               <p className="text-xs text-muted-foreground">
                 Product development checklist across every open inquiry. Greyed cells don't apply to that product.
               </p>
@@ -462,7 +462,7 @@ export default function PdDashboard() {
                                   'px-1 py-1.5 border-b text-center w-[64px] min-w-[64px]',
                                   i === 0 || PD_ITEMS[i - 1]?.group !== it.group ? 'border-l' : '',
                                   disabled && 'bg-muted',
-                                  isDue && 'bg-amber-100 dark:bg-amber-500/20',
+                                  isDue && 'bg-warning/15',
                                 )}
                               >
                                 {disabled ? (

@@ -290,7 +290,7 @@ export default function DataExportSection() {
           approximately <span className="font-semibold text-foreground">{totalRows.toLocaleString()}</span> rows
         </div>
         {showLargeWarning && (
-          <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded p-2">
+          <div className="flex items-start gap-2 text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
               Large export (~{totalRows.toLocaleString()} rows). Browser may pause for 10-30s while assembling.

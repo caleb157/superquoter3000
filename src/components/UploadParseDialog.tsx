@@ -541,23 +541,23 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
 
   const confidenceBadge = (c: string) => {
     const colors: Record<string, string> = {
-      high: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      low: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      high: 'bg-success/15 text-success',
+      medium: 'bg-warning/15 text-warning',
+      low: 'bg-destructive/15 text-destructive',
     };
     return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[c] || colors.low}`}>{c}</span>;
   };
 
   const fileIcon = (name: string) => {
-    if (name.match(/\.(jpg|jpeg|png)$/i)) return <Image className="h-4 w-4 text-blue-500" />;
-    if (name.match(/\.pdf$/i)) return <FileText className="h-4 w-4 text-red-500" />;
-    return <FileSpreadsheet className="h-4 w-4 text-green-500" />;
+    if (name.match(/\.(jpg|jpeg|png)$/i)) return <Image className="h-4 w-4 text-info" />;
+    if (name.match(/\.pdf$/i)) return <FileText className="h-4 w-4 text-destructive" />;
+    return <FileSpreadsheet className="h-4 w-4 text-success" />;
   };
 
   const statusIcon = (status?: string) => {
     if (status === 'parsing') return <Loader2 className="h-3 w-3 animate-spin text-primary" />;
-    if (status === 'done') return <span className="text-green-500 text-xs">✓</span>;
-    if (status === 'error') return <AlertTriangle className="h-3 w-3 text-red-500" />;
+    if (status === 'done') return <span className="text-success text-xs">✓</span>;
+    if (status === 'error') return <AlertTriangle className="h-3 w-3 text-destructive" />;
     return null;
   };
 
@@ -567,7 +567,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
       <DialogContent className="max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-500" />
+            <Sparkles className="h-5 w-5 text-warning" />
             Upload & Parse Products
           </DialogTitle>
         </DialogHeader>
@@ -620,7 +620,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                     <span className="flex-1 truncate text-xs">{f.file.name}</span>
                     <span className="text-[10px] text-muted-foreground">{(f.file.size / 1024).toFixed(0)} KB</span>
                     {statusIcon(f.status)}
-                    {f.error && <span className="text-[10px] text-red-500 truncate max-w-[120px]" title={f.error}>{f.error}</span>}
+                    {f.error && <span className="text-[10px] text-destructive truncate max-w-[120px]" title={f.error}>{f.error}</span>}
                     {!parsing && (
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFile(i)}>
                         <X className="h-3 w-3" />
@@ -690,7 +690,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                       <>
                         <tr
                           key={`row-${i}`}
-                          className={`border-t cursor-pointer hover:bg-muted/30 ${p.confidence === 'low' ? 'border-l-2 border-l-red-400' : p.confidence === 'medium' ? 'border-l-2 border-l-yellow-400' : ''}`}
+                          className={`border-t cursor-pointer hover:bg-muted/30 ${p.confidence === 'low' ? 'border-l-2 border-l-destructive' : p.confidence === 'medium' ? 'border-l-2 border-l-warning' : ''}`}
                           onClick={() => toggleExpanded(i)}
                         >
                           <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
@@ -790,7 +790,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
                                             <td className="py-0.5 text-muted-foreground">{hw.notes || '—'}</td>
                                             <td className="text-right py-0.5">
                                               {hw.matched_price ? (
-                                                <span className="text-green-600">₹{hw.matched_price}/{hw.matched_units || 'pc'}</span>
+                                                <span className="text-success">₹{hw.matched_price}/{hw.matched_units || 'pc'}</span>
                                               ) : (
                                                 <span className="text-muted-foreground">—</span>
                                               )}

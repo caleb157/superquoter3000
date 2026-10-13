@@ -102,7 +102,7 @@ export function ProductSummaryTab({ productId, onProductUpdated }: Props) {
           {(product.is_outsourced || product.outsourced_unit_cost_inr != null) && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">Outsourced Cost:</span>
-              <span className="font-mono font-medium">
+              <span className="tabular-nums font-medium">
                 {product.outsourced_unit_cost_inr != null
                   ? `₹${Number(product.outsourced_unit_cost_inr).toFixed(2)}/unit`
                   : 'Not set'}
