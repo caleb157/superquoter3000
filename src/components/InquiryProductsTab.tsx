@@ -739,6 +739,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onBulkDeleteCogs={() => setBulkDeleteCogsOpen(true)}
         onLogRfs={() => setLogRfsOpen(true)}
         onVendorRfqSheet={() => setRfqSheetOpen(true)}
+        onSendToOdoo={() => navigate(`/inquiry/${inquiryId}/odoo?products=${Array.from(selected).join(',')}`)}
         onCopyToInquiry={() => setCopyToOpen(true)}
         onArchive={showArchived ? undefined : () => setArchived(Array.from(selected), true)}
         onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
