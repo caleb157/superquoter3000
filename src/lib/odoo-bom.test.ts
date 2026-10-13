@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyShared, bomQty, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, lineQty, linkKey, productsSheet, pushPayload, unitInfo,
+  applyPrefixes, applyShared, bomQty, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, finishedSkuFor, itemCode, lineQty, linkKey, productsSheet, pushPayload, rawPieceSkuFor, unitInfo,
   type OdooProduct,
 } from './odoo-bom';
 
@@ -124,5 +124,40 @@ describe('several products', () => {
     const a = draft('a', 'RWH-A', [{ component_name: 'Knob', cogs_type: 'Handles + Knobs' }, { component_name: 'Hinge', cogs_type: 'Other Hardware' }]);
     a.lines.forEach(l => { l.newItem.sku = 'HRD-SAME'; });
     expect(checkAcross([a])[0].msg).toMatch(/2 different/);
+  });
+});
+
+describe('SKU prefixes', () => {
+  const lines = (id: string) => buildDraftLines([
+    row({ component_name: 'Raw piece', cogs_type: 'Raw Piece' }),
+    row({ component_name: 'Brass knob', cogs_type: 'Handles + Knobs' }),
+  ], new Map(), id);
+
+  it('builds SKUs from the HQ SKU or the name', () => {
+    expect(itemCode('AT-3335', 'Anything')).toBe('AT3335');
+    expect(itemCode('', 'Advent Candle Set of 4 Dark')).toBe('AC4D');
+    expect(finishedSkuFor('cct', 'AT-3335', 'x')).toBe('CCT-AT3335');
+    expect(finishedSkuFor('CCT', 'CCT-AT3335-WHTE', 'x')).toBe('CCT-AT3335-WHTE');
+    expect(rawPieceSkuFor('RAW', 'CCT-AT3335')).toBe('RAW-AT3335');
+    expect(rawPieceSkuFor('RAW', 'CCT-AT3335', 2)).toBe('RAW-AT3335-2');
+  });
+
+  it('keeps raw pieces per product but other items shared', () => {
+    expect(lines('a')[0].key).not.toBe(lines('b')[0].key);
+    expect(lines('a')[1].key).toBe(lines('b')[1].key);
+  });
+
+  it('fills, refills on a prefix change, and keeps typed SKUs', () => {
+    const f = defaultFinished({ name: 'Tray', sku: 'AT-3335' });
+    let r = applyPrefixes({ ...f, sku: '' }, lines('a'), { product: 'CCT', raw: 'RAW' }, null);
+    expect(r.finished.sku).toBe('CCT-AT3335');
+    expect(r.lines[0].newItem.sku).toBe('RAW-AT3335');
+    expect(r.lines[1].newItem.sku).toBe('HRD-');
+    r = applyPrefixes(r.finished, r.lines, { product: 'RWH', raw: 'RP' }, { product: 'CCT', raw: 'RAW' });
+    expect([r.finished.sku, r.lines[0].newItem.sku]).toEqual(['RWH-AT3335', 'RP-AT3335']);
+    const typed = { ...r.finished, sku: 'MY-OWN' };
+    const ls = r.lines.map((l, i) => (i === 0 ? { ...l, newItem: { ...l.newItem, sku: 'PIECE-9' } } : l));
+    r = applyPrefixes(typed, ls, { product: 'CCT', raw: 'RAW' }, { product: 'RWH', raw: 'RP' });
+    expect([r.finished.sku, r.lines[0].newItem.sku]).toEqual(['MY-OWN', 'PIECE-9']);
   });
 });

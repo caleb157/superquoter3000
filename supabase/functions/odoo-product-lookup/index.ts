@@ -13,6 +13,7 @@ const json = (body: unknown, status = 200) =>
 
 const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('meta') }),
+  z.object({ action: z.literal('prefixes') }),
   z.object({ action: z.literal('search'), search: z.string().max(100).optional().nullable(), limit: z.number().int().min(1).max(50).optional() }),
   z.object({ action: z.literal('suggest'), names: z.array(z.string().max(200)).max(60) }),
   z.object({ action: z.literal('skus'), skus: z.array(z.string().max(100)).max(200) }),
@@ -104,6 +105,21 @@ Deno.serve(async (req) => {
         routes: routes.map(r => str(r.name)),
         companies: companies.map(c => str(c.name)),
       });
+    }
+
+    if (body.action === 'prefixes') {
+      // SKU prefixes in use (the part before the first "-"), split into finished goods and the rest.
+      const rows = await sr('product.product', [['default_code', '!=', false]], ['default_code', 'sale_ok', 'name']);
+      const by = new Map<string, { prefix: string; saleable: number; other: number; sample: string }>();
+      for (const r of rows) {
+        const code = str(r.default_code).trim().toUpperCase();
+        const m = /^([A-Z0-9]{2,6})-/.exec(code);
+        if (!m) continue;
+        const e = by.get(m[1]) ?? { prefix: m[1], saleable: 0, other: 0, sample: `${code} ${str(r.name)}`.slice(0, 80) };
+        if (r.sale_ok) e.saleable += 1; else e.other += 1;
+        by.set(m[1], e);
+      }
+      return json({ prefixes: [...by.values()].sort((a, b) => (b.saleable + b.other) - (a.saleable + a.other)) });
     }
 
     if (body.action === 'search') {
