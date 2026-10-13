@@ -2,7 +2,7 @@
 // costing row (COGS lines, labor, order-level costs, packaging, shipping, product setup)
 // editable in place. Used as the drill-in panel of the Costing Workspace and, in page
 // mode, as the product page's Costing tab (with product details, chemicals and vendors).
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Plus, RotateCcw, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,8 +41,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   const npmNeeded = row.requiredMarkup != null ? row.requiredMarkup / (1 + row.requiredMarkup) : null;
   const over = (row.gapUsd ?? 0) > 0.005;
   const done = (field: string) => ({ checked: !!p[field], onChange: (v: boolean) => apply(b => patchProductsSame(b, [id], { [field]: v })) });
-  const cogsReview = bundle.cogs.some(c => c.product_id === id && c.include === 'Review');
-  const ohReview = bundle.oh.some(o => o.product_id === id && o.include === 'Review');
+  const cogsReview = bundle.cogs.filter(c => c.product_id === id && c.include === 'Review').length;
+  const ohReview = [...bundle.oh, ...bundle.nu].filter(o => o.product_id === id && o.include === 'Review').length;
   // Highest raw piece price that still meets the target at the current NPM.
   const maxRawInr = row.maxCostInr != null ? row.maxCostInr - (row.costInr - row.buckets.raw_piece) : null;
   const pkg = p.packaging_type || 'ic_mc';
@@ -289,17 +289,37 @@ function PhotoEstimateNote({ est, onChecked }: { est: PhotoEstimateRecord; onChe
 type Done = { checked: boolean; onChange: (v: boolean) => void };
 
 function Section({ title, sub, count, defaultOpen, done, review, children }: {
-  title: string; sub?: string; count?: number; defaultOpen?: boolean; done?: Done; review?: boolean; children: React.ReactNode;
+  title: string; sub?: string; count?: number; defaultOpen?: boolean; done?: Done;
+  /** Lines in this section flagged for review; the badge opens the section and jumps to the first one. */
+  review?: number; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
+  const ref = useRef<HTMLDivElement>(null);
+  const jumpToReview = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    setOpen(true);
+    requestAnimationFrame(() => {
+      const el = ref.current?.querySelector<HTMLElement>('[data-review]');
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('animate-pulse');
+      setTimeout(() => el.classList.remove('animate-pulse'), 1600);
+    });
+  };
   return (
-    <div className="border-b">
+    <div className="border-b" ref={ref}>
       <div className="flex w-full items-center gap-2 px-4 py-3 hover:bg-muted/40">
         <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setOpen(o => !o)}>
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')} />
           <span className="text-sm font-semibold">{title}</span>
           {count != null && <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">{count}</span>}
-          {review && <span className="rounded bg-warning/15 px-1.5 text-[10px] font-medium text-warning">Review</span>}
+          {!!review && (
+            <span role="button" tabIndex={0} onClick={jumpToReview} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && jumpToReview(e)}
+              title="Show the lines flagged for review"
+              className="rounded bg-warning/15 px-1.5 text-[10px] font-medium text-warning hover:bg-warning/25">
+              {review} to review
+            </span>
+          )}
           {sub && <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">{sub}</span>}
         </button>
         {done && (
@@ -430,18 +450,23 @@ function Field({ col, row, bundle, apply, inline }: { col: Col; row: WorkspaceRo
   );
 }
 
-/** Include toggle for a line: on / off, with "Review" (flagged for a second look) shown as its own chip. */
+/** Marks a line flagged for review (include = 'Review'): still counted in the cost until someone checks it. */
+function ReviewChip({ onChecked }: { onChecked: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button onClick={onChecked} className="shrink-0 rounded bg-warning/15 px-1 text-[10px] font-semibold uppercase text-warning hover:bg-warning/25">Review</button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">Flagged for a second look; it is still counted in the cost. Check the item, quantity and price, then click to mark it checked.</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Row highlight for a line flagged for review. */
+const reviewRow = 'bg-warning/[0.08] [&>td:first-child]:shadow-[inset_3px_0_0_hsl(var(--warning))]';
+
+/** Include toggle for a line. A line flagged for review is included (it counts in the cost) and carries its own Review chip. */
 function IncludeToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  if (value === 'Review') {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button onClick={() => onChange('Yes')} className="rounded bg-warning/15 px-1 text-[10px] font-semibold text-warning">?</button>
-        </TooltipTrigger>
-        <TooltipContent>Marked for review. Click to include it.</TooltipContent>
-      </Tooltip>
-    );
-  }
   return <Checkbox checked={value !== 'No'} onCheckedChange={c => onChange(c ? 'Yes' : 'No')} aria-label="Include" />;
 }
 
@@ -492,9 +517,10 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
               {visible.filter(l => l.cogs_type === t).map(l => {
                 const auto = !!l.is_auto_calculated;
                 const off = l.include === 'No';
+                const review = l.include === 'Review';
                 const hw = isHardwareCogsType(t) && !auto && hardware.length > 0;
                 return (
-                  <tr key={l.id} className={cn('[&>td]:py-0.5', off && 'opacity-50')}>
+                  <tr key={l.id} data-review={review || undefined} className={cn('[&>td]:py-0.5', off && 'opacity-50', review && reviewRow)}>
                     <td>
                       {t === 'Raw Piece' ? (
                         <button onClick={() => apply(b => chooseQuote(b, id, rawSlots.indexOf(l)))}
@@ -517,6 +543,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
                           </select>
                         )}
                         {auto && <Tooltip><TooltipTrigger asChild><span className="shrink-0 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">AUTO</span></TooltipTrigger><TooltipContent className="max-w-xs">{AUTO_TIP}</TooltipContent></Tooltip>}
+                        {review && <ReviewChip onChecked={() => save(l.id, { include: 'Yes' })} />}
                       </div>
                     </td>
                     <td><VendorCombobox className="h-8 w-full border-transparent text-sm hover:border-border" placeholder="—" value={l.vendor_name ?? ''} onChange={v => save(l.id, { vendor_name: v.trim() || null })} /></td>
@@ -589,14 +616,16 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
             {oh.map(o => {
               const rate = avgRateByDesignation(withLiveDirectRates(bundle.employees as any, applyLiveRates(bundle.gs)), o.labor_type);
               const off = o.include === 'No';
+              const review = o.include === 'Review';
               const shown = o.is_auto_estimated && o.labor_type === 'Finishing' ? row.r.autoLabor?.finishingMh ?? o.man_hours_per_unit
                 : o.is_auto_estimated && o.labor_type === 'Packaging' ? row.r.autoLabor?.packagingMh ?? o.man_hours_per_unit : o.man_hours_per_unit;
               return (
-                <tr key={o.id} className={cn('[&>td]:py-0.5', off && 'opacity-50')}>
+                <tr key={o.id} data-review={review || undefined} className={cn('[&>td]:py-0.5', off && 'opacity-50', review && reviewRow)}>
                   <td><IncludeToggle value={o.include} onChange={v => apply(b => patchOverhead(b, o.id, { include: v }))} /></td>
                   <td>
                     <span className="pl-2">{o.labor_type}</span>
                     {o.is_auto_estimated && <span className="ml-1.5 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">AUTO</span>}
+                    {review && <span className="ml-1.5"><ReviewChip onChecked={() => apply(b => patchOverhead(b, o.id, { include: 'Yes' }))} /></span>}
                     {!o.is_auto_estimated && canAuto(o.labor_type) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -635,16 +664,20 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
             <tbody>
               {nu.map(n => {
                 const off = n.include === 'No';
+                const review = n.include === 'Review';
                 const isTransport = n.name === 'Auto Transport';
                 const autoT = isTransport && !n.manual_override;
                 return (
-                  <tr key={n.id} className={cn('[&>td]:py-0.5', off && 'opacity-50')}>
+                  <tr key={n.id} data-review={review || undefined} className={cn('[&>td]:py-0.5', off && 'opacity-50', review && reviewRow)}>
                     <td><IncludeToggle value={n.include} onChange={v => apply(b => patchNonUnit(b, n.id, { include: v }))} /></td>
                     <td className="min-w-0">
                       {isTransport ? (
                         <span className="pl-2 truncate">{n.name}{autoT && <span className="ml-1.5 rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">AUTO</span>}</span>
                       ) : (
-                        <EditCell kind="text" align="left" value={n.name ?? ''} onCommit={raw => apply(b => patchNonUnit(b, n.id, { name: raw.trim() || 'Item' }))} />
+                        <div className="flex min-w-0 items-center gap-1">
+                          <EditCell kind="text" align="left" value={n.name ?? ''} className="min-w-0" onCommit={raw => apply(b => patchNonUnit(b, n.id, { name: raw.trim() || 'Item' }))} />
+                          {review && <ReviewChip onChecked={() => apply(b => patchNonUnit(b, n.id, { include: 'Yes' }))} />}
+                        </div>
                       )}
                     </td>
                     <td><EditCell value={+(+n.total_quantity || 0).toFixed(3)} disabled={autoT ? 'Packed CBM × quantity' : null}
