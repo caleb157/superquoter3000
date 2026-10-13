@@ -1,6 +1,7 @@
 // Shared state for anything that edits costing through the workspace bundle (the inquiry
 // Costing Workspace and the product Costing tab): load, apply mutations optimistically,
 // write through, and persist engine-derived values a moment after edits settle.
+import { quoteCurrencyOf } from '@/lib/quote-currency';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { invalidateShipmentPool } from '@/lib/shipment-pool';
@@ -39,7 +40,7 @@ export function useCostingBundle(loader: (() => Promise<Bundle | null>) | null) 
 
   const results = useMemo(() => (bundle ? computeResults(bundle) : new Map()), [bundle]);
   const rows = useMemo(() => (bundle ? buildRows(bundle, results) : []), [bundle, results]);
-  const t = useMemo(() => totals(rows), [rows]);
+  const t = useMemo(() => totals(rows, quoteCurrencyOf(bundle?.inq)), [rows, bundle?.inq]);
 
   // Engine-derived values (auto rows, cached price on the product) are written back a
   // moment after edits settle, so lists elsewhere in the app stay current.

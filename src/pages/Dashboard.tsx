@@ -26,6 +26,7 @@ import { RowContextMenu } from '@/components/RowContextMenu';
 import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent-state';
 
 import { fmt } from '@/lib/formatters';
+import { formatMoney } from '@/lib/quote-currency';
 
 import { INQUIRY_STATUS_COLORS, STATUS_OPTIONS, statusLabel } from '@/lib/inquiry-status';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -41,6 +42,7 @@ type StatusFilter = 'all' | 'active' | 'paused' | 'projected_po' | 'po' | 'cance
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
   customer_id: string | null; updated_at: string; created_at: string;
+  quoting_currency?: string | null;
 };
 type Customer = { id: string; name: string | null; company: string | null };
 type Product = {
@@ -71,6 +73,13 @@ function matchesStatusFilter(i: { status: string }, f: StatusFilter): boolean {
   if (f === 'all') return true;
   if (f === 'open') return i.status !== 'cancelled' && i.status !== 'complete' && i.status !== 'paused';
   return i.status === f;
+}
+
+/** Order value / profit in the inquiry's quoting currency: ₹ for rupee customers (once a rate is known), else USD. */
+function orderMoney(inq: { quoting_currency?: string | null }, t: InquiryTotals, field: 'revenue' | 'profit'): string {
+  const inr = field === 'revenue' ? t.revenueInr : t.profitInr;
+  if (inq.quoting_currency === 'INR' && inr != null) return formatMoney(inr, 'INR', 0);
+  return fmt.usd(field === 'revenue' ? t.revenueUsd : t.profitUsd);
 }
 
 const Dashboard = () => {
@@ -523,12 +532,12 @@ const Dashboard = () => {
                             return (
                               <>
                                 <TableCell className="text-right text-sm tabular-nums">
-                                  {t && t.revenueUsd > 0 ? fmt.usd(t.revenueUsd) : <span className="text-muted-foreground/60">—</span>}
+                                  {t && t.revenueUsd > 0 ? orderMoney(inq, t, 'revenue') : <span className="text-muted-foreground/60">—</span>}
                                 </TableCell>
                                 <TableCell className={cn('text-right text-sm tabular-nums', npm == null ? '' : npm < 0 ? 'text-destructive' : 'text-success')}>
                                   {npm == null ? <span className="text-muted-foreground/60">—</span> : (
                                     <div className="leading-tight">
-                                      <div>{fmt.usd(t!.profitUsd)}</div>
+                                      <div>{orderMoney(inq, t!, 'profit')}</div>
                                       <div className="text-[10px]">{(npm * 100).toFixed(1)}%</div>
                                     </div>
                                   )}

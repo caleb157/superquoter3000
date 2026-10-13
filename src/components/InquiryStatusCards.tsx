@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { fmt } from '@/lib/formatters';
 import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
 import { sumInquiryTotals } from '@/lib/inquiry-totals';
+import { formatMoney, quoteCurrencyOf, type QuoteCur } from '@/lib/quote-currency';
 
 type FilterKey = 'needs_design' | 'in_costing' | 'sampling';
 
@@ -16,6 +17,7 @@ type Props = {
 
 type Counts = { needs_design: number; in_costing: number; sampling: number };
 type Financials = {
+  cur: QuoteCur;
   totalCbm: number;
   totalProfit: number;
   totalRevenue: number;
@@ -27,13 +29,13 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
   const [counts, setCounts] = useState<Counts>({ needs_design: 0, in_costing: 0, sampling: 0 });
   const [archivedCount, setArchivedCount] = useState(0);
   const [fin, setFin] = useState<Financials>({
-    totalCbm: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
+    cur: 'USD', totalCbm: 0, totalProfit: 0, totalRevenue: 0, marginPct: 0, productCount: 0,
   });
 
   useEffect(() => {
     const since = Date.now();
     (async () => {
-      const [{ data: prodData }, { count: archived }] = await Promise.all([
+      const [{ data: prodData }, { count: archived }, { data: inq }] = await Promise.all([
         (supabase as any)
           .from('products')
           .select('id, design_stage, quote_stage, sample_stage, quantity, archived_at, calculated_unit_price_usd, calculated_unit_cost_usd')
@@ -44,6 +46,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
           .select('id', { count: 'exact', head: true })
           .eq('customer_rfq_id', inquiryId)
           .not('archived_at', 'is', null),
+        (supabase as any).from('customer_rfqs').select('quoting_currency').eq('id', inquiryId).maybeSingle(),
       ]);
       setArchivedCount(archived || 0);
       const rows = prodData ?? [];
@@ -59,10 +62,13 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
         ? await computeInquiryPriceAndCost(inquiryId, since)
         : {};
       const t = sumInquiryTotals(rows, priceMap);
+      // Rupee customers see the order in ₹ (falls back to USD only if no rate is known yet).
+      const cur: QuoteCur = quoteCurrencyOf(inq) === 'INR' && t.revenueInr != null ? 'INR' : 'USD';
       setFin({
+        cur,
         totalCbm: t.cbm,
-        totalProfit: t.profitUsd,
-        totalRevenue: t.revenueUsd,
+        totalProfit: cur === 'INR' ? t.profitInr! : t.profitUsd,
+        totalRevenue: cur === 'INR' ? t.revenueInr! : t.revenueUsd,
         marginPct: t.margin,
         productCount: t.productCount,
       });
@@ -75,8 +81,7 @@ export function InquiryStatusCards({ inquiryId, refreshKey = 0, onCardClick }: P
     { key: 'sampling', label: 'Sampling', count: counts.sampling },
   ];
 
-  const usd0 = (n: number) =>
-    `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const usd0 = (n: number) => formatMoney(n, fin.cur, 0);
 
   const profitTone =
     fin.totalProfit > 0 ? 'text-success'

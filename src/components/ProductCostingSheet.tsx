@@ -51,12 +51,12 @@ export function ProductCostingSheet({ productId, onSummaryChange }: {
     if (!row || !onSummaryChange) return;
     onSummaryChange({
       unitPriceInr: row.priceInr,
-      unitPriceUsd: row.priceUsd,
+      unitPriceUsd: row.r.summary.unit_price_usd,
       unitCostInr: row.costInr,
-      unitCostUsd: row.costUsd,
+      unitCostUsd: row.r.summary.product_cost_per_unit_usd,
       exchangeRate: row.r.exchangeRate,
     });
-  }, [row?.priceInr, row?.priceUsd, row?.costInr, row?.costUsd, row?.r.exchangeRate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [row?.priceInr, row?.r.summary.unit_price_usd, row?.costInr, row?.r.summary.product_cost_per_unit_usd, row?.r.exchangeRate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recalculate = async () => {
     setRecalcing(true);

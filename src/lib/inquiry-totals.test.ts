@@ -39,4 +39,17 @@ describe('sumInquiryTotals', () => {
     expect(t.revenueUsd).toBe(10);
     expect(t.productCount).toBe(1);
   });
+
+  it('sums engine rupees for INR inquiries, converting saved USD only at a live rate', () => {
+    const inr = (usdPrice: number, usdCost: number, fx: number) =>
+      ({ unit_price_usd: usdPrice, unit_cost_usd: usdCost, unit_price_inr: usdPrice * fx + 0.3, unit_cost_inr: usdCost * fx, exchange_rate: fx, man_hours_per_unit: 0, final_unit_cbm: 0 }) as ProductPriceCostMap[string];
+    const t = sumInquiryTotals(
+      [{ id: 'a', quantity: 2 }, { id: 'b', quantity: 1, calculated_unit_price_usd: 10, calculated_unit_cost_usd: 8 }],
+      { a: inr(10, 8, 90) },
+    );
+    expect(t.revenueInr).toBeCloseTo(2 * 900.3 + 900, 6);
+    expect(t.profitInr).toBeCloseTo(2 * (900.3 - 720) + 180, 6);
+    // Before the live run there is no rate, so rupees are unknown rather than wrong.
+    expect(sumInquiryTotals([{ id: 'b', quantity: 1, calculated_unit_price_usd: 10, calculated_unit_cost_usd: 8 }], {}).revenueInr).toBeNull();
+  });
 });

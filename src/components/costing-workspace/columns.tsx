@@ -4,11 +4,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, patchCbm, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  EDITABLE_BUCKETS, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation,
   type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
-import { CostMixBar, GapChip, inr, num, parseNum, pct, usd } from './cells';
+import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
+import { fxOrFallback } from '@/lib/live-rates';
+import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
+import { CostMixBar, GapChip, inr, money, num, parseNum, pct } from './cells';
 
 export type EditSpec = {
   kind: 'number' | 'text' | 'select' | 'bool';
@@ -42,6 +45,9 @@ export type Col = {
 export type View = { id: string; label: string; hint: string; cols: Col[] };
 
 // ---------- helpers ----------
+
+/** INR per USD exactly as the engine uses it (live rate, inquiry override first). */
+const fxOf = (b: Bundle) => fxOrFallback(mergeSettingsWithInquiry(b.gs, b.inq)?.exchange_rate);
 
 const numberWrite = (patchFor: (n: number) => Record<string, any>, opts: { min?: number; int?: boolean } = {}) =>
   (b: Bundle, ids: string[], raw: string): Mutation | null => {
@@ -127,8 +133,8 @@ const npmCol: Col = {
     },
   },
   footer: rows => {
-    const fob = sumBy(rows, r => r.priceUsd * r.qty);
-    const cost = sumBy(rows, r => r.costUsd * r.qty);
+    const fob = sumBy(rows, r => r.price * r.qty);
+    const cost = sumBy(rows, r => r.cost * r.qty);
     return fob > 0 ? pct((fob - cost) / fob) : '—';
   },
 };
@@ -138,8 +144,8 @@ const contribCol: Col = {
   hint: 'Contribution rate: net margin plus the indirect (factory) overhead this SKU absorbs. Equals NPM for bought-in items with no man-hours, so trading and manufacturing work compare fairly.',
   render: r => <span className="tabular-nums text-muted-foreground">{pct(r.contribution)}</span>,
   footer: rows => {
-    const fob = sumBy(rows, r => r.priceUsd * r.qty);
-    return fob > 0 ? pct(sumBy(rows, r => (r.priceUsd - r.costUsd + r.indirectUsd) * r.qty) / fob) : '—';
+    const fob = sumBy(rows, r => r.price * r.qty);
+    return fob > 0 ? pct(sumBy(rows, r => (r.price - r.cost + r.indirect) * r.qty) / fob) : '—';
   },
 };
 
@@ -148,18 +154,28 @@ const targetCol: Col = {
   hint: "Customer's target price per unit (USD). Leave blank for none.",
   edit: {
     kind: 'number',
-    get: r => (r.targetUsd == null ? '' : r.targetUsd),
-    display: r => (r.targetUsd == null ? '' : usd(r.targetUsd)),
+    get: r => (r.target == null ? '' : Math.round(r.target * 100) / 100),
+    display: r => (r.target == null ? '' : money(r.target, r.cur)),
     write: (b, ids, raw) => {
-      if (raw.trim() === '') return patchProductsSame(b, ids, { target_price_usd: null });
-      const n = parseNum(raw);
-      return n == null || n < 0 ? null : patchProductsSame(b, ids, { target_price_usd: n });
+      const n = raw.trim() === '' ? null : parseNum(raw);
+      if (raw.trim() !== '' && (n == null || n < 0)) return null;
+      const cur = quoteCurrencyOf(b.inq);
+      const fx = fxOf(b);
+      // Per product, so a rupee target is never rewritten through a USD round trip.
+      const patches: Record<string, Record<string, any>> = {};
+      for (const id of ids) {
+        const p = b.products.find(x => x.id === id);
+        if (!p) continue;
+        if (n != null && readTarget(p, cur, fx) === n) continue;
+        patches[id] = targetPatch(p, cur, n, fx);
+      }
+      return patchProducts(b, patches);
     },
   },
 };
 
 const costCol = ro('cost', 'Unit cost ₹', r => inr(r.costInr), 100);
-const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{usd(r.priceUsd)}</span>, 88);
+const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 88);
 const gapCol: Col = { id: 'gap', label: 'vs target', width: 128, align: 'left', render: r => <GapChip row={r} /> };
 
 // ---------- labor ----------
@@ -210,8 +226,8 @@ export const VIEWS: View[] = [
         id: 'solve', label: 'To hit target', width: 168, align: 'left',
         hint: 'Either margin you would need at today’s cost, or the cost you would need at today’s margin',
         render: r => {
-          if (r.gapUsd == null) return <span className="text-muted-foreground/50">—</span>;
-          if (r.gapUsd <= 0.005) return <span className="text-xs text-primary">On or under target</span>;
+          if (r.gap == null) return <span className="text-muted-foreground/50">—</span>;
+          if (r.gap <= 0.005) return <span className="text-xs text-primary">On or under target</span>;
           const npmNeeded = r.requiredMarkup != null ? r.requiredMarkup / (1 + r.requiredMarkup) : null;
           return (
             <div className="text-xs leading-tight">
@@ -221,7 +237,7 @@ export const VIEWS: View[] = [
           );
         },
       },
-      ro('line', 'Line FOB $', r => usd(r.priceUsd * r.qty, 0), 100, { footer: rows => usd(sumBy(rows, r => r.priceUsd * r.qty), 0) }),
+      ro('line', 'Line FOB $', r => money(r.price * r.qty, r.cur, 0), 100, { footer: rows => money(sumBy(rows, r => r.price * r.qty), rows[0]?.cur ?? 'USD', 0) }),
     ],
   },
   {
@@ -366,11 +382,25 @@ export const VIEWS: View[] = [
   },
 ];
 
+/**
+ * The views with money headers in the inquiry's quote currency: "Price ₹", "Target ₹",
+ * "Line FOB ₹" for a rupee customer. Cells already format by each row's currency.
+ */
+export function viewsFor(cur: QuoteCur): View[] {
+  if (cur === 'USD') return VIEWS;
+  return VIEWS.map(v => ({
+    ...v,
+    cols: v.cols.map(c => (/ \$$/.test(c.label)
+      ? { ...c, label: c.label.replace(/ \$$/, ' ₹'), hint: c.hint?.replace('(USD)', '(INR)') }
+      : c)),
+  }));
+}
+
 /** Every editable field, for the bulk bar's "Set" menu (deduplicated by id). */
-export function bulkFields(): Col[] {
+export function bulkFields(cur: QuoteCur = 'USD'): Col[] {
   const seen = new Set<string>();
   const out: Col[] = [];
-  for (const v of VIEWS) for (const c of v.cols) {
+  for (const v of viewsFor(cur)) for (const c of v.cols) {
     if (!c.edit || seen.has(c.id)) continue;
     seen.add(c.id);
     out.push(c);

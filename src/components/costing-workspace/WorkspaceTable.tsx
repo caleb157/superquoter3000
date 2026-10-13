@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
 import { chooseQuote, setQuote, type Apply, type Bundle, type WorkspaceRow } from '@/lib/costing-workspace';
-import { EditCell, GapChip, NavCell, SelectCell, Thumb, inr, moveForKey, navigate, navKeyDown, parseNum, usd } from './cells';
+import { EditCell, GapChip, NavCell, SelectCell, Thumb, inr, moveForKey, navigate, navKeyDown, parseNum, money } from './cells';
 import { writeGrid, type Col, type View } from './columns';
 
 type Props = {
@@ -29,7 +29,7 @@ type Props = {
 };
 
 const COMPACT_COLS: Col[] = [
-  { id: 'c_price', label: 'Price $', width: 76, align: 'right', render: r => <span className="font-semibold">{usd(r.priceUsd)}</span> },
+  { id: 'c_price', label: 'Price', width: 76, align: 'right', render: r => <span className="font-semibold">{money(r.price, r.cur)}</span> },
   { id: 'c_gap', label: 'vs target', width: 132, align: 'left', render: r => <GapChip row={r} /> },
 ];
 
