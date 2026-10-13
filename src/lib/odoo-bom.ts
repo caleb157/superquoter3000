@@ -80,12 +80,74 @@ export const CATEGORY_DEFAULTS: Record<string, Defaults> = {
   'Other Hardware': { status: 'new', prefix: 'HRD', category: RAW_TRACKED, tracked: true, uom: 'Units' },
   'Hardware': { status: 'new', prefix: 'HRD', category: RAW_TRACKED, tracked: true, uom: 'Units' },
   'Accessories': { status: 'new', prefix: 'ACC', category: RAW_UNTRACKED, tracked: false, uom: 'Units' },
-  'Packaging': { status: 'new', prefix: 'PBX', category: RAW_TRACKED, tracked: true, uom: 'Units' },
+  'Packaging': { status: 'new', prefix: 'PMC', category: RAW_TRACKED, tracked: true, uom: 'Units' },
   'Components': { status: 'new', prefix: '', category: RAW_TRACKED, tracked: true, uom: 'Units' },
   'Other': { status: 'new', prefix: '', category: RAW_UNTRACKED, tracked: false, uom: 'Units' },
   'Subcontracting': { status: 'skip', prefix: 'SUB', category: 'All / Expenses / Subcontracting Services (AVCO)', tracked: false, uom: 'Units' },
   'Outsourced Product': { status: 'skip', prefix: '', category: RAW_TRACKED, tracked: true, uom: 'Units' },
 };
+/**
+ * Category and tracking per SKU prefix, as Caleb's live Odoo products use them. Typing a prefix on a
+ * new item picks these; the row stays editable because a few items are exceptions.
+ */
+export const PREFIX_RULES: Record<string, { category: string; tracked: boolean }> = {
+  ...Object.fromEntries(['PIC', 'PMC', 'CHM', 'TMB', 'MDF', 'HRD', 'PLY', 'CTY', 'THR', 'TTW'].map(p => [p, { category: RAW_TRACKED, tracked: true }])),
+  ...Object.fromEntries(['SCR', 'BLT', 'LBL', 'ACC', 'FCR', 'PKS'].map(p => [p, { category: RAW_UNTRACKED, tracked: false }])),
+  SUB: { category: 'All / Expenses / Subcontracting Services (AVCO)', tracked: false },
+  INH: { category: 'All / Expenses / In-House Per Piece Work', tracked: false },
+  ADH: { category: 'Glue and Adhesives (Standard Cost)', tracked: false },
+  SND: { category: 'All / Expenses / Sandpaper (Standard Cost)', tracked: false },
+  TAP: { category: 'Tape and Wrapping (Standard Cost)', tracked: false },
+  CON: { category: 'All / Expenses / Consumable Chemicals', tracked: false },
+};
+
+/** Track Inventory that goes with an Odoo category: only Raw Materials AVCO Automatic and Final Product are tracked. */
+export function trackedForCategory(category: string): boolean | null {
+  const c = (category || '').trim().toLowerCase();
+  if (!c) return null;
+  if (c === RAW_TRACKED.toLowerCase() || c === FINISHED_CATEGORY.toLowerCase()) return true;
+  return Object.values(PREFIX_RULES).some(r => r.category.toLowerCase() === c) ? false : null;
+}
+
+/** The leading SKU prefix ("PIC-AT2817" → PIC), or ''. */
+export const skuPrefix = (sku: string) => /^([A-Za-z0-9]{2,6})-/.exec((sku || '').trim())?.[1].toUpperCase() ?? '';
+
+/**
+ * Applies an edit to a new item and keeps it consistent: a new SKU prefix picks its category and
+ * tracking, a new category picks its tracking. A tracking tick is always taken as given.
+ */
+export function editNewItem(item: NewItem, patch: Partial<NewItem>): NewItem {
+  const next = { ...item, ...patch };
+  if (patch.sku !== undefined && patch.category === undefined && patch.tracked === undefined) {
+    const p = skuPrefix(patch.sku);
+    const rule = p && p !== skuPrefix(item.sku) ? PREFIX_RULES[p] : undefined;
+    if (rule) return { ...next, category: rule.category, tracked: rule.tracked };
+  }
+  if (patch.category !== undefined && patch.tracked === undefined) {
+    const t = trackedForCategory(patch.category);
+    if (t != null) next.tracked = t;
+  }
+  return next;
+}
+
+/** Name-based SKU prefix for lines whose cost category covers several kinds of Odoo item. */
+function prefixByName(cogsType: string, name: string): string | null {
+  const n = name.toLowerCase();
+  if (cogsType === 'Packaging') {
+    if (/foam\s*corner/.test(n)) return 'FCR';
+    if (/\btape\b|stretch|wrap/.test(n)) return 'TAP';
+    if (/label|sticker/.test(n)) return 'LBL';
+    if (/inner|\bic\b|\bpic\b/.test(n)) return 'PIC';
+    if (/master|\bmc\b|\bpmc\b|carton|box/.test(n)) return 'PMC';
+    return 'PKS';
+  }
+  if (/fevicol|glue|adhesive/.test(n)) return 'ADH';
+  if (/sand\s*paper|emery/.test(n)) return 'SND';
+  if (/thinner|cleaning oil/.test(n)) return 'CON';
+  if (/screw/.test(n)) return 'SCR';
+  return null;
+}
+
 const FALLBACK_DEFAULTS: Defaults = { status: 'new', prefix: '', category: RAW_TRACKED, tracked: true, uom: 'Units' };
 export const defaultsFor = (cogsType: string): Defaults => CATEGORY_DEFAULTS[cogsType] ?? FALLBACK_DEFAULTS;
 
@@ -182,7 +244,9 @@ export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>
     .map(r => {
       const cogsType = r.cogs_type || 'Other';
       const hqName = String(r.component_name).trim();
-      const d = defaultsFor(cogsType);
+      const base = defaultsFor(cogsType);
+      const byName = prefixByName(cogsType, hqName);
+      const d = byName ? { ...base, prefix: byName, ...PREFIX_RULES[byName] } : base;
       const key = productId && PRODUCT_SPECIFIC.includes(cogsType) ? `${linkKey(cogsType, hqName)}|${productId}` : linkKey(cogsType, hqName);
       const linked = links.get(key) ?? null;
       const hqQty = lineQty(r);

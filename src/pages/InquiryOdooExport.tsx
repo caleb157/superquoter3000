@@ -27,7 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
 import {
-  applyPrefixes, applyShared, bomQty, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, defaultFinished,
+  applyPrefixes, applyShared, bomQty, editNewItem, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, defaultFinished,
   displayName, pushPayload, readLastPrefixes, sharedItems, writeLastPrefixes,
   type DraftLine, type FinishedDraft, type Issue, type LineStatus, type OdooProduct, type Prefixes, type ProductDraft, type SharedItem,
 } from '@/lib/odoo-bom';
@@ -188,7 +188,7 @@ export default function InquiryOdooExport() {
   const patchShared = (key: string, patch: Partial<SharedItem>) =>
     setShared(prev => { const n = new Map(prev); n.set(key, { ...n.get(key)!, ...patch }); return n; });
   const patchNew = (key: string, patch: Partial<SharedItem['newItem']>) =>
-    setShared(prev => { const n = new Map(prev); const s = n.get(key)!; n.set(key, { ...s, newItem: { ...s.newItem, ...patch } }); return n; });
+    setShared(prev => { const n = new Map(prev); const s = n.get(key)!; n.set(key, { ...s, newItem: editNewItem(s.newItem, patch) }); return n; });
   const patchFinished = (id: string, patch: Partial<FinishedDraft>) =>
     setFinished(prev => ({ ...prev, [id]: { ...(prev[id] ?? bases.find(b => b.productId === id)!.finished), ...patch } }));
 

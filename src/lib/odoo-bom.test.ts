@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyPrefixes, applyShared, bomQty, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, finishedSkuFor, itemCode, lineQty, linkKey, productsSheet, pushPayload, rawPieceSkuFor, unitInfo,
+  applyPrefixes, applyShared, bomQty, editNewItem, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, finishedSkuFor, itemCode, lineQty, linkKey, productsSheet, pushPayload, rawPieceSkuFor, unitInfo,
   type OdooProduct,
 } from './odoo-bom';
 
@@ -159,5 +159,28 @@ describe('SKU prefixes', () => {
     const ls = r.lines.map((l, i) => (i === 0 ? { ...l, newItem: { ...l.newItem, sku: 'PIECE-9' } } : l));
     r = applyPrefixes(typed, ls, { product: 'CCT', raw: 'RAW' }, { product: 'RWH', raw: 'RP' });
     expect([r.finished.sku, r.lines[0].newItem.sku]).toEqual(['MY-OWN', 'PIECE-9']);
+  });
+});
+
+describe('Odoo category rules', () => {
+  it('names packaging and consumables the way Odoo does', () => {
+    const lines = buildDraftLines([
+      row({ component_name: 'Inner carton 5 ply', cogs_type: 'Packaging' }),
+      row({ component_name: 'Master carton', cogs_type: 'Packaging' }),
+      row({ component_name: 'Foam corners', cogs_type: 'Packaging' }),
+      row({ component_name: 'Fevicol SH', cogs_type: 'Finishing Materials', units: 'kg' }),
+    ], new Map());
+    expect(lines.map(l => [l.newItem.sku, l.newItem.tracked])).toEqual([['PIC-', true], ['PMC-', true], ['FCR-', false], ['ADH-', false]]);
+    expect(lines[3].newItem.category).toBe('Glue and Adhesives (Standard Cost)');
+  });
+
+  it('takes category and tracking from a typed prefix, and tracking from a category', () => {
+    const item = buildDraftLines([row({ component_name: 'Brass knob', cogs_type: 'Handles + Knobs' })], new Map())[0].newItem;
+    const scr = editNewItem(item, { sku: 'SCR-' });
+    expect([scr.category, scr.tracked]).toEqual(['All / Expenses / Non-Inventory Raw Material AVCO', false]);
+    // Typing on after the prefix keeps a hand-set tick.
+    expect(editNewItem({ ...scr, tracked: true }, { sku: 'SCR-BRS-10' }).tracked).toBe(true);
+    expect(editNewItem(scr, { category: 'All / Expenses / Raw Materials AVCO Automatic' }).tracked).toBe(true);
+    expect(editNewItem(scr, { category: 'Something new' }).tracked).toBe(false);
   });
 });

@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { computeResults, loadProductBundle } from '@/lib/costing-workspace';
 import {
   bomQty, bomSheet, buildDraftLines, checkDraft, defaultFinished, displayName, fileStem, productsSheet, pushPayload,
-  applyPrefixes, readLastPrefixes, writeLastPrefixes,
+  applyPrefixes, editNewItem, readLastPrefixes, writeLastPrefixes,
   type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct, type Prefixes,
 } from '@/lib/odoo-bom';
 import {
@@ -132,7 +132,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const patchLine = (lineId: string, patch: Partial<DraftLine>) =>
     setLines(prev => prev.map(l => (l.lineId === lineId ? { ...l, ...patch } : l)));
   const patchNew = (lineId: string, patch: Partial<DraftLine['newItem']>) =>
-    setLines(prev => prev.map(l => (l.lineId === lineId ? { ...l, newItem: { ...l.newItem, ...patch } } : l)));
+    setLines(prev => prev.map(l => (l.lineId === lineId ? { ...l, newItem: editNewItem(l.newItem, patch) } : l)));
   const changePrefixes = (next: Prefixes) => {
     if (!finished) return;
     const r = applyPrefixes(finished, lines, next, prefixes);
