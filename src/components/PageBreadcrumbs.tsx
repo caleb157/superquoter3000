@@ -54,7 +54,7 @@ export function PageBreadcrumbs({
           </BreadcrumbItem>
         ))}
         <BreadcrumbItem>
-          <BreadcrumbPage className="truncate max-w-[260px] sm:max-w-[420px]">{current}</BreadcrumbPage>
+          <BreadcrumbPage className="truncate max-w-[180px] sm:max-w-[420px]">{current}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
