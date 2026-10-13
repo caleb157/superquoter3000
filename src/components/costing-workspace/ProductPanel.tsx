@@ -26,6 +26,7 @@ import {
 } from '@/lib/costing-workspace';
 import { CostMixBar, EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { VIEWS, type Col } from './columns';
+import { McPlanBreakdown } from './McPlan';
 
 const colById = (id: string): Col => VIEWS.flatMap(v => v.cols).find(c => c.id === id)!;
 
@@ -201,6 +202,22 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
                     onCommit={n => apply(b => patchCbm(b, [id], { [`mc_ics_along_${a}`]: Math.max(1, n) }))} />
                 </div>
               ))}
+            </div>
+          )}
+          {pkg === 'ic_mc' && r.mcPlan && (
+            <div className="mt-3 rounded-lg border p-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="text-sm font-medium">Master carton fit</div>
+                <div className="flex items-end gap-2">
+                  <div className="w-28"><Field col={colById('per_mc')} row={row} bundle={bundle} apply={apply} /></div>
+                  {r.mcPlan.override != null && (
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => apply(b => patchCbm(b, [id], { products_per_mc_override: null }))}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Use calculated ({r.mcPlan.autoPieces})
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <McPlanBreakdown plan={r.mcPlan} className="mt-2 text-muted-foreground" />
             </div>
           )}
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg bg-muted/50 p-3 text-xs">

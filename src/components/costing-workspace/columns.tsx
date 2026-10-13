@@ -12,6 +12,7 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { fxOrFallback } from '@/lib/live-rates';
 import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
 import { CostMixBar, GapChip, inr, money, num, parseNum, pct } from './cells';
+import { McPlanBreakdown, mcPlanShort } from './McPlan';
 
 export type EditSpec = {
   kind: 'number' | 'text' | 'select' | 'bool';
@@ -302,7 +303,31 @@ export const VIEWS: View[] = [
         get: (r, axis) => r.cbmRow?.[`mc_max_${axis}`] || 25,
         write: (b, ids, axis, n) => patchCbm(b, ids, { [`mc_max_${axis}`]: n }),
       }),
-      ro('per_mc', 'Pcs/MC', r => (r.r.productsPerMc ? String(r.r.productsPerMc) : '—'), 64),
+      ro('mc_fit', 'MC fit', r => {
+        const plan = r.r.mcPlan;
+        if (!plan) return <span className="text-muted-foreground/50">—</span>;
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default whitespace-nowrap">{mcPlanShort(plan)}</span></TooltipTrigger>
+            <TooltipContent className="max-w-sm"><McPlanBreakdown plan={plan} /></TooltipContent>
+          </Tooltip>
+        );
+      }, 104, { hint: 'Inner cartons across W × along D × high in the master carton. Hover for the full calculation.' }),
+      {
+        id: 'per_mc', label: 'Pcs/MC', width: 72, align: 'right',
+        hint: 'Pieces per master carton, calculated from the fit. Type a number to override (marked ✎); clear it to go back to the calculation.',
+        edit: {
+          kind: 'number',
+          disabled: r => (r.p.packaging_type || 'ic_mc') === 'ic_mc' ? null : 'Only for IC + MC packaging',
+          get: r => r.cbmRow?.products_per_mc_override || r.r.productsPerMc || '',
+          display: r => (r.r.productsPerMc ? `${r.r.productsPerMc}${r.r.mcPlan?.override != null ? ' ✎' : ''}` : '—'),
+          write: (b, ids, raw) => {
+            if (raw.trim() === '') return patchCbm(b, ids, { products_per_mc_override: null });
+            const n = parseNum(raw);
+            return n == null || n < 0 ? null : patchCbm(b, ids, { products_per_mc_override: Math.round(n) || null });
+          },
+        },
+      },
       ro('cbm', 'Unit CBM', r => (r.r.finalUnitCbm ? r.r.finalUnitCbm.toFixed(4) : '—'), 80),
       ro('line_cbm', 'Line CBM', r => num(r.r.finalUnitCbm * r.qty, 2), 80, { footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) }),
     ],
