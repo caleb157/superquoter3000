@@ -24,7 +24,7 @@ import {
   BUCKETS, addCogsLine, addNonUnit, chooseQuote, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
 } from '@/lib/costing-workspace';
-import { CostMixBar, EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, pct, usd } from './cells';
+import { CostMixBar, EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { VIEWS, type Col } from './columns';
 
 const colById = (id: string): Col => VIEWS.flatMap(v => v.cols).find(c => c.id === id)!;
@@ -39,7 +39,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   const { p, r } = row;
   const id = p.id;
   const npmNeeded = row.requiredMarkup != null ? row.requiredMarkup / (1 + row.requiredMarkup) : null;
-  const over = (row.gapUsd ?? 0) > 0.005;
+  const over = (row.gap ?? 0) > 0.005;
+  const isInr = row.cur === 'INR';
   const done = (field: string) => ({ checked: !!p[field], onChange: (v: boolean) => apply(b => patchProductsSame(b, [id], { [field]: v })) });
   const cogsReview = bundle.cogs.filter(c => c.product_id === id && c.include === 'Review').length;
   const ohReview = [...bundle.oh, ...bundle.nu].filter(o => o.product_id === id && o.include === 'Review').length;
@@ -82,18 +83,18 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 
         {/* Price vs target */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-px border-b bg-border">
-          <Figure label="Unit cost" value={inr(row.costInr)} sub={usd(row.costUsd)} />
+          <Figure label="Unit cost" value={inr(row.costInr)} sub={isInr ? 'per unit' : usd(row.cost)} />
           <Figure label="NPM" sub={`markup ${pct(row.markup)}`}>
             <PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} big />
           </Figure>
-          <Figure label="Price" value={<span className="text-primary">{usd(row.priceUsd)}</span>} sub={inr(row.priceInr)} />
+          <Figure label="Price" value={<span className="text-primary">{money(row.price, row.cur)}</span>} sub={isInr ? `markup on ${inr(row.costInr)}` : inr(row.priceInr)} />
           <Figure label="Target" sub={<GapChip row={row} />}>
             <PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} big placeholder="none" />
           </Figure>
         </div>
         {over && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-destructive/[0.04] px-4 py-2.5 text-sm">
-            <span className="text-muted-foreground">To hit {usd(row.targetUsd)}:</span>
+            <span className="text-muted-foreground">To hit {money(row.target, row.cur)}:</span>
             <span>NPM <b className="tabular-nums">{npmNeeded != null ? pct(npmNeeded) : 'n/a'}</b></span>
             {npmNeeded != null && npmNeeded > 0 && (
               <Button size="sm" variant="outline" className="h-7"
@@ -111,7 +112,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm">
             <span className="text-muted-foreground">Max raw piece at target:</span>
             <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-success' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
-            <span className="text-muted-foreground tabular-nums">({usd(maxRawInr / (r.exchangeRate || 1))}) · headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
+            <span className="text-muted-foreground tabular-nums">{isInr ? '' : `(${usd(maxRawInr / (r.exchangeRate || 1))}) · `}headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
           </div>
         )}
 
@@ -143,10 +144,10 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
               )}
               <tr className="border-t font-medium"><td className="pt-2">Unit cost</td><td className="pt-2 text-right">{inr(row.costInr, 2)}</td><td className="pt-2 text-right text-muted-foreground">{pct(row.costInr / (row.priceInr || 1))}</td></tr>
               <tr className="text-primary"><td>Margin ({pct(row.margin)} NPM)</td><td className="text-right">{inr(row.priceInr - row.costInr, 2)}</td><td className="text-right">{pct(row.margin)}</td></tr>
-              <tr className="border-t font-semibold"><td className="pt-2">Price</td><td className="pt-2 text-right">{inr(row.priceInr, 2)}</td><td className="pt-2 text-right">{usd(row.priceUsd)}</td></tr>
+              <tr className="border-t font-semibold"><td className="pt-2">Price</td><td className="pt-2 text-right">{inr(row.priceInr, 2)}</td><td className="pt-2 text-right">{isInr ? '' : usd(row.price)}</td></tr>
             </tbody>
           </table>
-          <div className="mt-2 text-xs text-muted-foreground">₹{num(r.exchangeRate, 2)} / $ · {r.finalUnitCbm.toFixed(4)} CBM/unit · {num(r.manHoursPerUnit, 2)} man-hrs/unit</div>
+          <div className="mt-2 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · {r.finalUnitCbm.toFixed(4)} CBM/unit · {num(r.manHoursPerUnit, 2)} man-hrs/unit</div>
         </Section>
 
         <Section title="Materials & components" count={bundle.cogs.filter(c => c.product_id === id && c.include !== 'No').length} defaultOpen done={done('cogs_done')} review={cogsReview}>
@@ -554,7 +555,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
                     <td className="text-right tabular-nums pr-1 font-medium">{off ? '—' : inr(lineValue(l), 2)}</td>
                     <td>
                       <div className="flex items-center justify-end gap-1.5">
-                        {!auto && row.targetUsd != null && (() => {
+                        {!auto && row.target != null && (() => {
                           const each = targetLineEach(row, l);
                           return (
                             <Tooltip>
@@ -564,7 +565,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
                                   <Target className="h-3.5 w-3.5" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{each != null ? `Set ₹ each to ${inr(each, 2)} so the price lands on the ${usd(row.targetUsd)} target` : 'This line alone can’t reach the target'}</TooltipContent>
+                              <TooltipContent>{each != null ? `Set ₹ each to ${inr(each, 2)} so the price lands on the ${money(row.target, row.cur)} target` : 'This line alone can’t reach the target'}</TooltipContent>
                             </Tooltip>
                           );
                         })()}

@@ -5,7 +5,7 @@
 // leaving the page. Replaces the separate Pricing Grid, Target Grid and Bulk Costing Editor.
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Download, FileSpreadsheet, Keyboard, Loader2, RefreshCw, Search, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { cn } from '@/lib/utils';
@@ -27,8 +26,10 @@ import { BulkBar } from '@/components/costing-workspace/BulkBar';
 import { ProductPanel } from '@/components/costing-workspace/ProductPanel';
 import { WorkspaceTable } from '@/components/costing-workspace/WorkspaceTable';
 import { QuotesToolbar } from '@/components/costing-workspace/QuotesToolbar';
-import { VIEWS } from '@/components/costing-workspace/columns';
-import { Stat, focusCell, focusNavEl, pct, usd } from '@/components/costing-workspace/cells';
+import { viewsFor } from '@/components/costing-workspace/columns';
+import { Stat, focusCell, focusNavEl, pct } from '@/components/costing-workspace/cells';
+import { formatMoney, quoteCurrencyOf } from '@/lib/quote-currency';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Filter = 'all' | 'over' | 'flagged' | 'notarget';
 type Sort = 'sheet' | 'gap' | 'price' | 'name' | 'name_desc' | 'sku' | 'sku_desc';
@@ -50,7 +51,6 @@ export default function CostingWorkspace() {
   const [intakeOpen, setIntakeOpen] = useState(false);
 
   const viewId = params.get('view') || 'price';
-  const view = VIEWS.find(v => v.id === viewId) ?? VIEWS[0];
   const openId = params.get('sku');
   const setParam = (k: string, v: string | null) => setParams(prev => {
     const next = new URLSearchParams(prev);
@@ -60,6 +60,11 @@ export default function CostingWorkspace() {
 
   const loader = useCallback(() => loadBundle(inquiryId!), [inquiryId]);
   const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
+  // Rupee customers get the whole workspace in ₹ (the inquiry's Quoting currency).
+  const cur = quoteCurrencyOf(bundle?.inq);
+  const views = useMemo(() => viewsFor(cur), [cur]);
+  const view = views.find(v => v.id === viewId) ?? views[0];
+  const m = (n: number, d = 0) => formatMoney(n, cur, d);
   useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
@@ -69,11 +74,11 @@ export default function CostingWorkspace() {
   const visibleRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     let out = rows.filter(r => !q || `${r.p.name} ${r.p.sku || ''} ${r.rawVendor}`.toLowerCase().includes(q));
-    if (filter === 'over') out = out.filter(r => (r.gapUsd ?? 0) > 0.005);
+    if (filter === 'over') out = out.filter(r => (r.gap ?? 0) > 0.005);
     if (filter === 'flagged') out = out.filter(r => r.flags.some(f => f.kind !== 'target'));
-    if (filter === 'notarget') out = out.filter(r => r.targetUsd == null);
+    if (filter === 'notarget') out = out.filter(r => r.target == null);
     if (sort === 'gap') out = [...out].sort((a, b) => (b.gapPct ?? -Infinity) - (a.gapPct ?? -Infinity));
-    if (sort === 'price') out = [...out].sort((a, b) => b.priceUsd - a.priceUsd);
+    if (sort === 'price') out = [...out].sort((a, b) => b.price - a.price);
     if (sort === 'name') out = [...out].sort((a, b) => natural(a.p.name, b.p.name));
     if (sort === 'name_desc') out = [...out].sort((a, b) => natural(b.p.name, a.p.name));
     if (sort === 'sku') out = [...out].sort((a, b) => natural(a.p.sku, b.p.sku));
@@ -129,7 +134,7 @@ export default function CostingWorkspace() {
       if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); return; }
       if (e.key === 'g') { e.preventDefault(); focusRow(openId); return; }
       const n = Number(e.key);
-      if (n >= 1 && n <= VIEWS.length) { setParam('view', VIEWS[n - 1].id === 'price' ? null : VIEWS[n - 1].id); return; }
+      if (n >= 1 && n <= views.length) { setParam('view', views[n - 1].id === 'price' ? null : views[n - 1].id); return; }
       if (openId && (e.key === 'j' || e.key === 'ArrowDown')) { e.preventDefault(); go(1); }
       if (openId && (e.key === 'k' || e.key === 'ArrowUp')) { e.preventDefault(); go(-1); }
     };
@@ -142,16 +147,16 @@ export default function CostingWorkspace() {
   const exportXlsx = () => {
     if (!bundle) return;
     const header = ['SKU', 'Name', 'Qty', 'Raw vendor', 'Raw piece ₹', 'Subcontract ₹', 'Outsourced ₹', 'Hardware ₹', 'Finishing ₹', 'Packaging ₹',
-      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', 'Price $', 'Target $', 'Gap $', 'Unit CBM', 'Issues'];
+      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', ...(cur === 'INR' ? ['Target ₹', 'Gap ₹'] : ['Price $', 'Target $', 'Gap $']), 'Unit CBM', 'Issues'];
     const data = rows.map(r => [
       r.p.sku || '', r.p.name || '', r.qty, r.rawVendor, r.buckets.raw_piece, r.buckets.subcontract, r.buckets.outsourced, r.buckets.hardware,
       r.buckets.finishing, r.buckets.packaging, r.buckets.other, r.buckets.labor, r.buckets.shipping, r.costInr,
-      +(r.margin * 100).toFixed(2), +(r.contribution * 100).toFixed(2), r.indirectInr, r.priceInr, +r.priceUsd.toFixed(2), r.targetUsd ?? '', r.gapUsd == null ? '' : +r.gapUsd.toFixed(2),
+      +(r.margin * 100).toFixed(2), +(r.contribution * 100).toFixed(2), r.indirectInr, r.priceInr, ...(cur === 'INR' ? [] : [r.price]), r.target ?? '', r.gap ?? '',
       +r.r.finalUnitCbm.toFixed(4), r.flags.map(f => f.msg).join('; '),
     ].map(v => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)));
     const ws = XLSX.utils.aoa_to_sheet([
       ['Inquiry', bundle.inq.rfq_number], ['Title', bundle.inq.title || ''], ['Customer', customerPrimary(bundle.customer)],
-      ['Generated', new Date().toISOString()], [], header, ...data,
+      ['Currency', cur], ['Generated', new Date().toISOString()], [], header, ...data,
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Costing');
@@ -174,7 +179,7 @@ export default function CostingWorkspace() {
   if (!bundle) return <AppLayout><div className="py-24 text-center text-muted-foreground">Inquiry not found.</div></AppLayout>;
 
   const title = bundle.inq.title || bundle.inq.rfq_number;
-  const targetDelta = t.withTarget ? rows.filter(r => r.targetUsd != null).reduce((a, r) => a + (r.gapUsd ?? 0) * r.qty, 0) : null;
+  const targetDelta = t.withTarget ? rows.filter(r => r.target != null).reduce((a, r) => a + (r.gap ?? 0) * r.qty, 0) : null;
   const selectedIds = [...selected].filter(id => rows.some(r => r.p.id === id));
 
   return (
@@ -191,6 +196,20 @@ export default function CostingWorkspace() {
               <div className="flex items-baseline gap-2 min-w-0">
                 <h1 className="page-title truncate">{title}</h1>
                 <span className="text-sm text-muted-foreground truncate">{bundle.inq.rfq_number}{bundle.customer ? ` · ${customerPrimary(bundle.customer)}` : ''}</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link to={`/inquiry/${inquiryId}?tab=settings`}
+                      className={cn('shrink-0 self-center rounded-full border px-2 py-0.5 text-xs font-medium',
+                        cur === 'INR' ? 'border-primary/30 bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground')}>
+                      {cur === 'INR' ? '₹ INR' : '$ USD'}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">
+                    {cur === 'INR'
+                      ? 'This customer pays in rupees: prices, targets and FOB are in ₹ with no exchange rate. Change it under the inquiry’s Settings → Quoting currency.'
+                      : 'Prices, targets and FOB are in US dollars. Set the inquiry’s Settings → Quoting currency to INR for a rupee customer.'}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -207,15 +226,15 @@ export default function CostingWorkspace() {
           {/* KPIs */}
           <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
             <Stat label="SKUs" value={t.skus} sub={`${t.units.toLocaleString()} units`} />
-            <Stat label="Order FOB" value={usd(t.fobUsd, 0)} sub={`cost ${usd(t.costUsd, 0)}`} />
-            <Stat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${usd(t.fobUsd - t.costUsd, 0)} profit`}
-              hint="Order profit ÷ order FOB, weighted by each line's dollars. Cost is the full costing-sheet cost, including direct labor, indirect overhead, shipping and cost of capital." />
-            <Stat label="Contribution" value={pct(t.contribution)} sub={`${usd(t.fobUsd - t.costUsd + t.indirectUsd, 0)} · ${usd(t.indirectUsd, 0)} overhead`}
+            <Stat label="Order FOB" value={m(t.fob)} sub={`cost ${m(t.cost)}`} />
+            <Stat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${m(t.fob - t.cost)} profit`}
+              hint="Order profit ÷ order FOB, weighted by each line's value. Cost is the full costing-sheet cost, including direct labor, indirect overhead, shipping and cost of capital." />
+            <Stat label="Contribution" value={pct(t.contribution)} sub={`${m(t.fob - t.cost + t.indirect)} · ${m(t.indirect)} overhead`}
               hint="Net profit plus the indirect (factory) overhead this order absorbs, ÷ order FOB. Bought-in items carry no man-hours, so for trading work this equals NPM; manufacturing work shows how much it also pays toward fixed overhead." />
             <Stat label="Packed CBM" value={t.cbm.toFixed(2)} sub={`≈ ${(t.cbm / 68).toFixed(2)} × 40HC`} />
             <Stat label="Over target" value={t.withTarget ? `${t.overTarget} / ${t.withTarget}` : '—'}
               tone={t.overTarget ? 'bad' : t.withTarget ? 'good' : undefined}
-              sub={targetDelta == null ? 'no targets set' : `${targetDelta > 0 ? '+' : ''}${usd(targetDelta, 0)} order vs targets`}
+              sub={targetDelta == null ? 'no targets set' : `${targetDelta > 0 ? '+' : ''}${m(targetDelta)} order vs targets`}
               onClick={() => setFilter(f => (f === 'over' ? 'all' : 'over'))} active={filter === 'over'} />
             <Stat label="Needs a look" value={t.flagged} tone={t.flagged ? 'warn' : undefined} sub="blank or odd-one-out costs"
               onClick={() => setFilter(f => (f === 'flagged' ? 'all' : 'flagged'))} active={filter === 'flagged'} />
@@ -224,7 +243,7 @@ export default function CostingWorkspace() {
           {/* View switcher + filters */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
-              {VIEWS.map(v => (
+              {views.map(v => (
                 <button key={v.id} onClick={() => setParam('view', v.id === 'price' ? null : v.id)} title={v.hint}
                   className={cn('rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
                     v.id === view.id ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground')}>

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { BUCKETS, type WorkspaceRow } from '@/lib/costing-workspace';
+import { formatMoney, type QuoteCur } from '@/lib/quote-currency';
 
 // ---------- formatting ----------
 
@@ -10,6 +11,8 @@ export const inr = (n: number | null | undefined, d = 0) =>
   n == null || !Number.isFinite(n) ? '—' : `${n < 0 ? '−' : ''}₹${Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 export const usd = (n: number | null | undefined, d = 2) =>
   n == null || !Number.isFinite(n) ? '—' : `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+/** Amount in the inquiry's quote currency (unit prices keep cents/paise; pass d = 0 for totals). */
+export const money = (n: number | null | undefined, cur: QuoteCur, d = 2) => formatMoney(n, cur, d);
 export const pct = (n: number | null | undefined, d = 1) =>
   n == null || !Number.isFinite(n) ? '—' : `${(n * 100).toFixed(d)}%`;
 export const num = (n: number | null | undefined, d = 2) =>
@@ -369,16 +372,16 @@ export function CostMixBar({ row, className, showLegend }: { row: WorkspaceRow; 
 // ---------- Gap chip ----------
 
 export function GapChip({ row, size = 'sm' }: { row: WorkspaceRow; size?: 'sm' | 'lg' }) {
-  if (row.gapUsd == null || row.gapPct == null) return <span className="text-muted-foreground/50">—</span>;
-  const over = row.gapUsd > 0.005;
-  const under = row.gapUsd < -0.005;
+  if (row.gap == null || row.gapPct == null) return <span className="text-muted-foreground/50">—</span>;
+  const over = row.gap > 0.005;
+  const under = row.gap < -0.005;
   return (
     <span className={cn(
       'inline-flex items-center gap-1 rounded-full font-medium tabular-nums whitespace-nowrap',
       size === 'lg' ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-xs',
       over ? 'bg-destructive/10 text-destructive' : under ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
     )}>
-      {over ? '▲' : under ? '▼' : '='} {usd(Math.abs(row.gapUsd))}
+      {over ? '▲' : under ? '▼' : '='} {money(Math.abs(row.gap), row.cur)}
       <span className="opacity-70">{(Math.abs(row.gapPct) * 100).toFixed(1)}%</span>
     </span>
   );

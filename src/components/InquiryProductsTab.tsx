@@ -37,6 +37,7 @@ import { BulkDeleteCogsDialog } from '@/components/BulkDeleteCogsDialog';
 import { markupToNpm } from '@/lib/calculations';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fmt } from '@/lib/formatters';
+import { formatMoney } from '@/lib/quote-currency';
 import { formatDualPrice, loadCurrencyMap, getCachedCurrencyMap, subscribeCurrencyMap, type CurrencyMap } from '@/lib/currency';
 import { SortableHeader } from '@/components/SortableHeader';
 import { useTableSort } from '@/hooks/use-table-sort';
@@ -192,6 +193,8 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
     const usd = displayPriceUsd(p);
     if (!usd) return '—';
     if (!quotingCurrency || quotingCurrency === 'USD') return fmt.usd(usd);
+    // Rupee customers see rupees only, like the costing workspace.
+    if (quotingCurrency === 'INR') return formatMoney(displayPriceInr(p), 'INR', 2);
     return formatDualPrice(displayPriceInr(p), usd, quotingCurrency, currencyMap);
   };
 
@@ -488,6 +491,7 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
       const lines = await priceProductLines(selectedProductsLocal.map(p => ({
         id: p.id, name: p.name, quantity: p.quantity ?? null,
         reference_price_usd: displayPriceUsd(p),
+        reference_price_inr: displayPriceInr(p),
         target_price_usd: p.target_price_usd, markup_percent: p.markup_percent,
       })), cur);
 

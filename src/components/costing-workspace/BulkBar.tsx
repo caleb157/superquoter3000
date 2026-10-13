@@ -11,13 +11,15 @@ import {
 } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
 import { bulkFields, fullLabel } from './columns';
+import { quoteCurrencyOf } from '@/lib/quote-currency';
 
 const selectCls = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
 
 export function BulkBar({ ids, rows, bundle, apply, onClear }: {
   ids: string[]; rows: WorkspaceRow[]; bundle: Bundle; apply: Apply; onClear: () => void;
 }) {
-  const fields = useMemo(() => bulkFields(), []);
+  const cur = quoteCurrencyOf(bundle.inq);
+  const fields = useMemo(() => bulkFields(cur), [cur]);
   const [fieldId, setFieldId] = useState('npm');
   const [value, setValue] = useState('');
   const [bucket, setBucket] = useState('raw_piece');
@@ -25,7 +27,7 @@ export function BulkBar({ ids, rows, bundle, apply, onClear }: {
 
   const field = fields.find(f => f.id === fieldId)!;
   const sel = rows.filter(r => ids.includes(r.p.id));
-  const withTarget = sel.filter(r => r.targetUsd != null).length;
+  const withTarget = sel.filter(r => r.target != null).length;
   const withQuotes = sel.filter(r => r.quotes.filter(q => q.price > 0).length > 1).length;
   const opts = field.edit?.kind === 'select' ? field.edit.options?.(bundle) ?? [] : field.edit?.kind === 'bool'
     ? [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }] : null;

@@ -14,6 +14,10 @@ export type InquiryTotals = {
   revenueUsd: number;
   costUsd: number;
   profitUsd: number;
+  /** The same in rupees, for inquiries quoted in INR: engine rupees, no exchange round trip.
+   *  Null until the live run has a rate for any product still on its saved USD price. */
+  revenueInr: number | null;
+  profitInr: number | null;
   /** profit ÷ revenue, 0..1 (0 when there is no revenue). */
   margin: number;
   cbm: number;
@@ -38,6 +42,8 @@ export type TotalsProduct = {
  */
 export function sumInquiryTotals(products: TotalsProduct[], priceMap: ProductPriceCostMap): InquiryTotals {
   let revenueUsd = 0, costUsd = 0, cbm = 0, manHours = 0, productCount = 0;
+  let revenueInr = 0, costInr = 0, inrKnown = true;
+  const anyFx = Object.values(priceMap).find(e => Number(e?.exchange_rate) > 0)?.exchange_rate ?? 0;
   for (const p of products) {
     if (p.archived_at) continue;
     productCount++;
@@ -47,12 +53,22 @@ export function sumInquiryTotals(products: TotalsProduct[], priceMap: ProductPri
     const cost = live && live.unit_cost_usd > 0 ? live.unit_cost_usd : Number(p.calculated_unit_cost_usd) || 0;
     revenueUsd += price * qty;
     costUsd += cost * qty;
+    if (live && live.unit_price_usd > 0 && Number(live.unit_price_inr) > 0) {
+      revenueInr += live.unit_price_inr * qty;
+      costInr += (Number(live.unit_cost_inr) || cost * (live.exchange_rate || anyFx)) * qty;
+    } else if ((price || cost) && qty) {
+      if (anyFx > 0) { revenueInr += price * anyFx * qty; costInr += cost * anyFx * qty; } else inrKnown = false;
+    }
     cbm += (Number(live?.final_unit_cbm) || 0) * qty;
     const mh = live ? Number(live.man_hours_per_unit) || 0 : Number(p.calculated_man_hours_per_unit) || 0;
     manHours += mh * qty;
   }
   const profitUsd = revenueUsd - costUsd;
-  return { revenueUsd, costUsd, profitUsd, margin: revenueUsd > 0 ? profitUsd / revenueUsd : 0, cbm, manHours, productCount };
+  return {
+    revenueUsd, costUsd, profitUsd,
+    revenueInr: inrKnown ? revenueInr : null, profitInr: inrKnown ? revenueInr - costInr : null,
+    margin: revenueUsd > 0 ? profitUsd / revenueUsd : 0, cbm, manHours, productCount,
+  };
 }
 
 /** Live totals for many inquiries in one engine run (shipping pools stay per inquiry). */

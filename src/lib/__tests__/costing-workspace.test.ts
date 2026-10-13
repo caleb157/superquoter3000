@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine,
+  patchCogsLine, targetFromPrice,
 } from '@/lib/costing-workspace';
+import { readTarget, targetPatch } from '@/lib/quote-currency';
 
 import { bundle } from './workspace-fixture';
 
@@ -33,9 +34,9 @@ describe('costing workspace', () => {
       expect((r.contribution - r.margin) * r.priceInr).toBeCloseTo(r.indirectInr, 6);
     }
     const t = totals(rows);
-    const fob = rows.reduce((a, r) => a + r.priceUsd * r.qty, 0);
-    const profit = rows.reduce((a, r) => a + (r.priceUsd - r.costUsd) * r.qty, 0);
-    const indirect = rows.reduce((a, r) => a + r.indirectUsd * r.qty, 0);
+    const fob = rows.reduce((a, r) => a + r.price * r.qty, 0);
+    const profit = rows.reduce((a, r) => a + (r.price - r.cost) * r.qty, 0);
+    const indirect = rows.reduce((a, r) => a + r.indirect * r.qty, 0);
     expect(t.contribution).toBeCloseTo((profit + indirect) / fob, 12);
     expect(t.contribution).toBeGreaterThan(t.margin);
   });
@@ -57,8 +58,8 @@ describe('costing workspace', () => {
   it('price to target puts each targeted SKU on its target and leaves the rest alone', () => {
     const b0 = bundle();
     const m = markupToTarget(b0, rowsOf(b0), ['a', 'b', 'c']);
-    expect(byId(m.next, 'a').priceUsd).toBeCloseTo(20, 2);
-    expect(byId(m.next, 'b').priceUsd).toBeCloseTo(60, 2);
+    expect(byId(m.next, 'a').price).toBeCloseTo(20, 2);
+    expect(byId(m.next, 'b').price).toBeCloseTo(60, 2);
     expect(byId(m.next, 'c').p.markup_percent).toBe(0.25);
   });
 
@@ -148,7 +149,76 @@ describe('product setup side effects (shared by the workspace and the product co
       const each = targetLineEach(row, raw)!;
       expect(each).toBeGreaterThan(0);
       const after = byId(patchCogsLine(b0, raw.id, { unit_cost_inr: each }).next, id);
-      expect(after.priceUsd).toBeCloseTo(row.targetUsd!, 6);
+      expect(after.price).toBeCloseTo(row.target!, 6);
     }
+  });
+
+  describe('rupee customers (Quoting currency INR)', () => {
+    const inrBundle = (products?: any[]): Bundle => {
+      const b = bundle();
+      return { ...b, inq: { ...b.inq, quoting_currency: 'INR' }, products: products ?? b.products };
+    };
+
+    it('prices, costs and totals are the engine rupees, with no exchange rate', () => {
+      const rows = rowsOf(inrBundle());
+      for (const r of rows) {
+        expect(r.cur).toBe('INR');
+        expect(r.price).toBe(r.priceInr);
+        expect(r.cost).toBe(r.costInr);
+        expect(r.indirect).toBe(r.indirectInr);
+      }
+      const t = totals(rows, 'INR');
+      expect(t.cur).toBe('INR');
+      expect(t.fob).toBeCloseTo(rows.reduce((a, r) => a + r.priceInr * r.qty, 0), 6);
+      // Margins don't depend on the currency.
+      const usd = totals(rowsOf(bundle()));
+      expect(t.margin).toBeCloseTo(usd.margin, 9);
+      expect(t.contribution).toBeCloseTo(usd.contribution, 9);
+    });
+
+    it('a rupee target is read as-is and price-to-target lands on it exactly', () => {
+      const b0 = inrBundle(bundle().products.map(p => (p.id === 'a' ? { ...p, target_price_usd: 0.01, target_price_inr: 1500 } : p)));
+      const a = byId(b0, 'a');
+      expect(a.target).toBe(1500);
+      expect(a.gap).toBeCloseTo(a.priceInr - 1500, 6);
+      const m = markupToTarget(b0, rowsOf(b0), ['a']);
+      // Markup is stored to 4 decimals, which is a few paise either way on a ₹1,500 price.
+      expect(Math.abs(byId(m.next, 'a').price - 1500)).toBeLessThan(0.1);
+      // "Target this line" works in rupees too.
+      const raw = b0.cogs.find(c => c.product_id === 'a' && c.cogs_type === 'Raw Piece' && c.include === 'Yes')!;
+      const after = byId(patchCogsLine(b0, raw.id, { unit_cost_inr: targetLineEach(a, raw)! }).next, 'a');
+      expect(after.price).toBeCloseTo(1500, 6);
+    });
+
+    it('an older USD-only target is shown in rupees at the engine rate', () => {
+      const a = byId(inrBundle(), 'a'); // target_price_usd: 20
+      expect(a.target).toBeCloseTo(20 * a.r.exchangeRate, 6);
+    });
+
+    it('target from price stores rupees (and USD at today’s rate alongside)', () => {
+      const b0 = inrBundle();
+      const m = targetFromPrice(b0, rowsOf(b0), ['c']);
+      const c = m.next.products.find(p => p.id === 'c')!;
+      const row = byId(b0, 'c');
+      expect(c.target_price_inr).toBeCloseTo(row.priceInr, 2);
+      expect(c.target_price_usd).toBeCloseTo(row.priceInr / row.r.exchangeRate, 3);
+    });
+  });
+});
+
+describe('quote currency targets', () => {
+  it('reads each currency, falling back to the other at the given rate', () => {
+    expect(readTarget({ target_price_usd: 10 }, 'USD', 90)).toBe(10);
+    expect(readTarget({ target_price_usd: 10 }, 'INR', 90)).toBe(900);
+    expect(readTarget({ target_price_inr: 900, target_price_usd: 9.5 }, 'INR', 90)).toBe(900);
+    expect(readTarget({ target_price_inr: 900 }, 'USD', 90)).toBe(10);
+    expect(readTarget({}, 'INR', 90)).toBeNull();
+  });
+
+  it('only writes target_price_inr once the column exists', () => {
+    expect(targetPatch({ target_price_usd: 1 }, 'USD', 5, 90)).toEqual({ target_price_usd: 5 });
+    expect(targetPatch({ target_price_inr: 450 }, 'USD', 5, 90)).toEqual({ target_price_usd: 5, target_price_inr: null });
+    expect(targetPatch({}, 'INR', 900, 90)).toEqual({ target_price_inr: 900, target_price_usd: 10 });
+    expect(targetPatch({ target_price_inr: 1 }, 'INR', null, 90)).toEqual({ target_price_usd: null, target_price_inr: null });
   });
 });

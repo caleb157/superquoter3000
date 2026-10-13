@@ -16,6 +16,7 @@ import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { calcCogsItemCost } from '@/lib/calculations';
 import { fetchAllByIds } from '@/lib/supabase-paged';
+import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
 
 const db = supabase as any;
 
@@ -101,18 +102,20 @@ export type WorkspaceRow = {
   shippingName: string;
   costInr: number;
   priceInr: number;
-  priceUsd: number;
-  costUsd: number;
+  /** Currency the inquiry is quoted in; price, cost, indirect, target and gap below are in it. */
+  cur: QuoteCur;
+  price: number;
+  cost: number;
   markup: number;
   /** Net margin on price (price − cost) / price. */
   margin: number;
   /** Per-unit indirect (factory) overhead in the cost, with its share of cost of capital. */
   indirectInr: number;
-  indirectUsd: number;
+  indirect: number;
   /** Contribution rate: net margin with indirect overhead added back, (price − cost + indirect) / price. */
   contribution: number;
-  targetUsd: number | null;
-  gapUsd: number | null;
+  target: number | null;
+  gap: number | null;
   gapPct: number | null;
   requiredMarkup: number | null;
   maxCostInr: number | null;
@@ -171,6 +174,7 @@ export function computeResults(b: Bundle): Map<string, CostingEngineResult> {
 }
 
 export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>): WorkspaceRow[] {
+  const cur = quoteCurrencyOf(b.inq);
   const shipTypeById = new Map(b.shipTypes.map((s: any) => [s.id, s]));
   const rows = b.products.map(p => {
     const r = results.get(p.id)!;
@@ -202,12 +206,14 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     const costInr = r.summary.product_cost_per_unit_inr;
     const priceInr = r.summary.unit_price_inr;
     const fx = r.exchangeRate || 1;
-    const targetUsd = Number(p.target_price_usd) > 0 ? Number(p.target_price_usd) : null;
-    const priceUsd = r.summary.unit_price_usd;
+    // INR per unit of the quote currency: rupee inquiries never touch the exchange rate.
+    const rate = cur === 'INR' ? 1 : fx;
+    const target = readTarget(p, cur, fx);
+    const price = cur === 'INR' ? priceInr : r.summary.unit_price_usd;
     // Cost of capital is charged on the whole base cost, so the indirect share carries its part too.
     const indirectInr = (r.indirectOhPerUnit || 0) * (1 + (r.capitalFactor || 0));
-    const ms = targetUsd ? solveForMarkup({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, currentMarkup: r.markupPercent }) : null;
-    const cs = targetUsd ? solveForMaxCost({ targetPriceUsd: targetUsd, currentCostInr: costInr, exchangeRate: fx, markupPercent: r.markupPercent, buckets: [] }) : null;
+    const ms = target ? solveForMarkup({ targetPriceUsd: target, currentCostInr: costInr, exchangeRate: rate, currentMarkup: r.markupPercent }) : null;
+    const cs = target ? solveForMaxCost({ targetPriceUsd: target, currentCostInr: costInr, exchangeRate: rate, markupPercent: r.markupPercent, buckets: [] }) : null;
     const laborFor = (type: 'Finishing' | 'Packaging') => {
       const rows = b.oh.filter(o => o.product_id === p.id && o.labor_type === type && o.include !== 'No');
       if (!rows.length) return null;
@@ -228,16 +234,16 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       rawVendor: winner?.vendor || '',
       shippingId: shipId,
       shippingName: shipId ? ((shipTypeById.get(shipId) as any)?.name || '—') : '—',
-      costInr, priceInr, priceUsd,
-      costUsd: r.summary.product_cost_per_unit_usd,
+      costInr, priceInr, cur, price,
+      cost: cur === 'INR' ? costInr : r.summary.product_cost_per_unit_usd,
       markup: r.markupPercent,
       margin: priceInr > 0 ? (priceInr - costInr) / priceInr : 0,
       indirectInr,
-      indirectUsd: indirectInr / fx,
+      indirect: indirectInr / rate,
       contribution: priceInr > 0 ? (priceInr - costInr + indirectInr) / priceInr : 0,
-      targetUsd,
-      gapUsd: targetUsd ? priceUsd - targetUsd : null,
-      gapPct: targetUsd ? (priceUsd - targetUsd) / targetUsd : null,
+      target,
+      gap: target ? price - target : null,
+      gapPct: target ? (price - target) / target : null,
       requiredMarkup: ms?.feasible ? ms.requiredMarkup : null,
       maxCostInr: cs?.feasible ? cs.maxCostInr : null,
       flags: [],
@@ -277,28 +283,30 @@ function attachFlags(rows: WorkspaceRow[]) {
     }
   }
   for (const r of rows) {
-    if (r.gapUsd != null && r.gapPct != null && r.gapUsd > 0.005) {
-      r.flags.push({ field: 'target', kind: 'target', msg: `$${r.gapUsd.toFixed(2)} (${(r.gapPct * 100).toFixed(1)}%) over target` });
+    if (r.gap != null && r.gapPct != null && r.gap > 0.005) {
+      r.flags.push({ field: 'target', kind: 'target', msg: `${r.cur === 'INR' ? '₹' : '$'}${r.gap.toFixed(2)} (${(r.gapPct * 100).toFixed(1)}%) over target` });
     }
   }
 }
 
+/** Money totals are in the inquiry's quote currency (`cur`). */
 export type Totals = {
-  skus: number; units: number; cbm: number; fobUsd: number; costUsd: number; margin: number;
+  cur: QuoteCur;
+  skus: number; units: number; cbm: number; fob: number; cost: number; margin: number;
   /** Indirect overhead absorbed by the order, and the contribution rate (net + indirect) / FOB. */
-  indirectUsd: number; contribution: number;
-  withTarget: number; overTarget: number; targetFobUsd: number; flagged: number;
+  indirect: number; contribution: number;
+  withTarget: number; overTarget: number; targetFob: number; flagged: number;
 };
 
-export function totals(rows: WorkspaceRow[]): Totals {
+export function totals(rows: WorkspaceRow[], cur: QuoteCur = rows[0]?.cur ?? 'USD'): Totals {
   let units = 0, cbm = 0, fob = 0, cost = 0, indirect = 0, withTarget = 0, overTarget = 0, targetFob = 0, flagged = 0;
   for (const r of rows) {
-    units += r.qty; cbm += r.r.finalUnitCbm * r.qty; fob += r.priceUsd * r.qty; cost += r.costUsd * r.qty; indirect += r.indirectUsd * r.qty;
-    if (r.targetUsd) { withTarget++; targetFob += r.targetUsd * r.qty; if ((r.gapUsd ?? 0) > 0.005) overTarget++; }
+    units += r.qty; cbm += r.r.finalUnitCbm * r.qty; fob += r.price * r.qty; cost += r.cost * r.qty; indirect += r.indirect * r.qty;
+    if (r.target) { withTarget++; targetFob += r.target * r.qty; if ((r.gap ?? 0) > 0.005) overTarget++; }
     if (r.flags.some(f => f.kind !== 'target')) flagged++;
   }
-  return { skus: rows.length, units, cbm, fobUsd: fob, costUsd: cost, margin: fob > 0 ? (fob - cost) / fob : 0,
-    indirectUsd: indirect, contribution: fob > 0 ? (fob - cost + indirect) / fob : 0, withTarget, overTarget, targetFobUsd: targetFob, flagged };
+  return { cur, skus: rows.length, units, cbm, fob, cost, margin: fob > 0 ? (fob - cost) / fob : 0,
+    indirect, contribution: fob > 0 ? (fob - cost + indirect) / fob : 0, withTarget, overTarget, targetFob, flagged };
 }
 
 // ---------- Loading ----------
@@ -792,7 +800,7 @@ export function markupToTarget(b: Bundle, rows: WorkspaceRow[], ids: string[]): 
 /** Copies each product's current calculated price into its target price. */
 export function targetFromPrice(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation {
   const patches: Record<string, Record<string, any>> = {};
-  for (const r of rows) if (ids.includes(r.p.id)) patches[r.p.id] = { target_price_usd: Math.round(r.priceUsd * 100) / 100 };
+  for (const r of rows) if (ids.includes(r.p.id)) patches[r.p.id] = targetPatch(r.p, r.cur, Math.round(r.price * 100) / 100, r.r.exchangeRate || 0);
   return patchProducts(b, patches);
 }
 

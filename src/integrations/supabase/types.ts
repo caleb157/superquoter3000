@@ -2285,6 +2285,7 @@ export type Database = {
           sku: string | null
           sort_order: number | null
           source_location_id: string | null
+          target_price_inr: number | null
           target_price_usd: number | null
           updated_at: string | null
           weight_kg: number | null
@@ -2338,6 +2339,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           source_location_id?: string | null
+          target_price_inr?: number | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null
@@ -2391,6 +2393,7 @@ export type Database = {
           sku?: string | null
           sort_order?: number | null
           source_location_id?: string | null
+          target_price_inr?: number | null
           target_price_usd?: number | null
           updated_at?: string | null
           weight_kg?: number | null

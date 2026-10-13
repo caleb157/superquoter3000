@@ -12,6 +12,7 @@ export type PriceableProduct = {
   name: string;
   quantity?: number | null;
   reference_price_usd?: number | null; // a known USD reference (e.g. the live price the list shows)
+  reference_price_inr?: number | null; // the same in rupees, used as-is for INR quotes
   target_price_usd?: number | null;
   markup_percent?: number | null;
 };
@@ -24,6 +25,7 @@ export function referencePriceFor(p: PriceableProduct, prices: ProductUnitPriceM
   const entry = prices[p.id];
   const fx = fxOrFallback(entry?.exchange_rate ?? Object.values(prices)[0]?.exchange_rate);
   const map = getCachedCurrencyMap();
+  if (currency === 'INR' && Number(p.reference_price_inr) > 0) return Number(p.reference_price_inr);
   const supplied = Number(p.reference_price_usd ?? p.target_price_usd ?? 0);
   if (supplied > 0) {
     if (currency === 'USD') return supplied;
