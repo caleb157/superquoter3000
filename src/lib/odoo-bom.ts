@@ -371,3 +371,79 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     }),
   };
 }
+
+// ---------- Several products at once (inquiry → Send to Odoo) ----------
+
+/** One decision per HQ item (link key), shared by every product that uses it. */
+export type SharedItem = Pick<DraftLine, 'status' | 'match' | 'newItem'>;
+export type ProductDraft = { productId: string; finished: FinishedDraft; lines: DraftLine[] };
+
+/** First occurrence of each HQ item across the products, in order: the row the shared table shows. */
+export function sharedItems(drafts: ProductDraft[]): { key: string; first: DraftLine; usedIn: number }[] {
+  const out = new Map<string, { key: string; first: DraftLine; usedIn: number }>();
+  for (const d of drafts) {
+    for (const key of new Set(d.lines.map(l => l.key))) {
+      const first = d.lines.find(l => l.key === key)!;
+      const hit = out.get(key);
+      if (hit) hit.usedIn += 1;
+      else out.set(key, { key, first, usedIn: 1 });
+    }
+  }
+  return [...out.values()];
+}
+
+/** A product's lines with the shared decisions applied; quantities stay the product's own. */
+export function applyShared(lines: DraftLine[], shared: Map<string, SharedItem>): DraftLine[] {
+  return lines.map(l => {
+    const s = shared.get(l.key);
+    return s ? { ...l, status: s.status, match: s.match, newItem: s.newItem, qtyOverride: null } : l;
+  });
+}
+
+/** Checks across products: one SKU used for two different items, or for two finished products. */
+export function checkAcross(drafts: ProductDraft[]): Issue[] {
+  const out: Issue[] = [];
+  const bySku = new Map<string, Set<string>>();
+  const note = (sku: string, who: string) => {
+    const k = sku.trim().toUpperCase();
+    if (!k || /-$/.test(k)) return;
+    if (!bySku.has(k)) bySku.set(k, new Set());
+    bySku.get(k)!.add(who);
+  };
+  for (const d of drafts) {
+    note(d.finished.sku, `product:${d.productId}`);
+    for (const l of d.lines) if (l.status === 'new') note(l.newItem.sku, `item:${l.key}`);
+  }
+  for (const [sku, who] of bySku) {
+    if (who.size > 1) out.push({ level: 'error', where: sku, msg: `SKU ${sku} is used for ${who.size} different products or items.` });
+  }
+  return out;
+}
+
+/** One products file for several products: header once, each SKU once. */
+export function combinedProductsSheet(drafts: ProductDraft[], existing: Set<string> | null): (string | number | null)[][] {
+  const rows: (string | number | null)[][] = [];
+  const seen = new Set<string>();
+  for (const d of drafts) {
+    const s = productsSheet(d.finished, d.lines, existing);
+    if (!rows.length) rows.push(s[0]);
+    for (const r of s.slice(1)) {
+      const sku = String(r[1] ?? '').toUpperCase();
+      if (seen.has(sku)) continue;
+      seen.add(sku);
+      rows.push(r);
+    }
+  }
+  return rows;
+}
+
+/** One BOM file for several products: each BOM's header fields sit on its first line, as in Odoo's export. */
+export function combinedBomSheet(drafts: ProductDraft[]): (string | number | null)[][] {
+  const rows: (string | number | null)[][] = [];
+  for (const d of drafts) {
+    const s = bomSheet(d.finished, d.lines);
+    if (!rows.length) rows.push(s[0]);
+    rows.push(...s.slice(1));
+  }
+  return rows;
+}

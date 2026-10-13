@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bomSheet, buildDraftLines, checkDraft, convertQty, defaultFinished, lineQty, linkKey, productsSheet, pushPayload, unitInfo,
+  applyShared, bomQty, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, lineQty, linkKey, productsSheet, pushPayload, unitInfo,
   type OdooProduct,
 } from './odoo-bom';
 
@@ -97,5 +97,32 @@ describe('files', () => {
       { productId: 99, sku: 'PBX-0004-B', qty: 1, uom: '1/20th of a Pack' },
       { productId: null, sku: 'CHM-NCSL-NEW', qty: 0.05, uom: 'L' },
     ]);
+  });
+});
+
+describe('several products', () => {
+  const draft = (id: string, sku: string, rows: Record<string, unknown>[]) => ({
+    productId: id, finished: defaultFinished({ name: `Product ${id}`, sku }), lines: buildDraftLines(rows.map(row), new Map()),
+  });
+
+  it('shares one decision per HQ item and keeps each product its own quantity', () => {
+    const a = draft('a', 'RWH-A', [{ component_name: 'Brass knob', cogs_type: 'Handles + Knobs', components_per_product: 2 }]);
+    const b = draft('b', 'RWH-B', [{ component_name: 'Brass Knob', cogs_type: 'Handles + Knobs', components_per_product: 4 }]);
+    const items = sharedItems([a, b]);
+    expect(items).toHaveLength(1);
+    expect(items[0].usedIn).toBe(2);
+    const shared = new Map([[items[0].key, { ...items[0].first, newItem: { ...items[0].first.newItem, sku: 'HRD-BRKN-01' } }]]);
+    const drafts = [a, b].map(d => ({ ...d, lines: applyShared(d.lines, shared) }));
+    expect(drafts.map(d => bomQty(d.lines[0]).qty)).toEqual([2, 4]);
+    expect(combinedProductsSheet(drafts, null).map(r => r[1])).toEqual(['default_code', 'RWH-A', 'HRD-BRKN-01', 'RWH-B']);
+    const bom = combinedBomSheet(drafts);
+    expect(bom.map(r => r[1])).toEqual(['product_tmpl_id', '[RWH-A] Product a', '[RWH-B] Product b']);
+    expect(checkAcross(drafts)).toEqual([]);
+  });
+
+  it('flags one SKU used for two different items', () => {
+    const a = draft('a', 'RWH-A', [{ component_name: 'Knob', cogs_type: 'Handles + Knobs' }, { component_name: 'Hinge', cogs_type: 'Other Hardware' }]);
+    a.lines.forEach(l => { l.newItem.sku = 'HRD-SAME'; });
+    expect(checkAcross([a])[0].msg).toMatch(/2 different/);
   });
 });
