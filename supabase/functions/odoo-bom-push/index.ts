@@ -50,11 +50,19 @@ const ODOO_KEY = Deno.env.get('ODOO_API_KEY') ?? '';
 
 let rpcId = 0;
 async function rpc(service: string, method: string, args: unknown[]) {
-  const res = await fetch(`${ODOO_URL}/jsonrpc`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: ++rpcId, params: { service, method, args } }),
-  });
-  if (!res.ok) throw new Error(`Odoo HTTP ${res.status}`);
+  // Odoo rate-limits bursts (HTTP 429/503): wait and retry with backoff, honouring Retry-After.
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${ODOO_URL}/jsonrpc`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: ++rpcId, params: { service, method, args } }),
+    });
+    if ((res.status !== 429 && res.status !== 503) || attempt >= 5) break;
+    await res.body?.cancel();
+    const after = Number(res.headers.get('Retry-After'));
+    await new Promise(r => setTimeout(r, Number.isFinite(after) && after > 0 ? Math.min(after, 10) * 1000 : 500 * 2 ** attempt));
+  }
+  if (!res.ok) throw new Error(res.status === 429 ? 'Odoo is busy (too many requests) — wait a few seconds and try again.' : `Odoo HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error?.data?.message || data.error?.message || 'Odoo error');
   return data.result;

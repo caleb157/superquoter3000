@@ -25,11 +25,19 @@ const ODOO_KEY = Deno.env.get('ODOO_API_KEY') ?? '';
 
 let rpcId = 0;
 async function rpc(service: string, method: string, args: unknown[]) {
-  const res = await fetch(`${ODOO_URL}/jsonrpc`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: ++rpcId, params: { service, method, args } }),
-  });
-  if (!res.ok) throw new Error(`Odoo HTTP ${res.status}`);
+  // Odoo rate-limits bursts (HTTP 429/503): wait and retry with backoff, honouring Retry-After.
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${ODOO_URL}/jsonrpc`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: ++rpcId, params: { service, method, args } }),
+    });
+    if ((res.status !== 429 && res.status !== 503) || attempt >= 5) break;
+    await res.body?.cancel();
+    const after = Number(res.headers.get('Retry-After'));
+    await new Promise(r => setTimeout(r, Number.isFinite(after) && after > 0 ? Math.min(after, 10) * 1000 : 500 * 2 ** attempt));
+  }
+  if (!res.ok) throw new Error(res.status === 429 ? 'Odoo is busy (too many requests) — wait a few seconds and try again.' : `Odoo HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error?.data?.message || data.error?.message || 'Odoo error');
   return data.result;
@@ -107,14 +115,21 @@ Deno.serve(async (req) => {
 
     if (body.action === 'suggest') {
       // Best few Odoo products per HQ component name: whole name first, then every word.
+      // Two batched Odoo queries instead of one or two per name, so Odoo isn't flooded.
       const out: Record<string, any[]> = {};
-      for (const raw of [...new Set(body.names.map(n => n.trim()).filter(Boolean))]) {
-        let rows = await sr('product.product', [['name', 'ilike', raw]], PRODUCT_FIELDS, { limit: 3 });
-        if (!rows.length) {
-          const words = raw.split(/[^A-Za-z0-9.]+/).filter(w => w.length > 2).slice(0, 4);
-          if (words.length) rows = await sr('product.product', words.map(w => ['name', 'ilike', w]), PRODUCT_FIELDS, { limit: 3 });
+      const names = [...new Set(body.names.map(n => n.trim()).filter(Boolean))];
+      const orDomain = (conds: unknown[][]) => [...Array(Math.max(0, conds.length - 1)).fill('|'), ...conds];
+      const has = (r: any, w: string) => str(r.name).toLowerCase().includes(w.toLowerCase());
+      if (names.length) {
+        const whole = await sr('product.product', orDomain(names.map(n => ['name', 'ilike', n])), PRODUCT_FIELDS, { limit: 600 });
+        for (const n of names) out[n] = whole.filter(r => has(r, n)).slice(0, 3).map(toProduct);
+        const wordsOf = (n: string) => n.split(/[^A-Za-z0-9.]+/).filter(w => w.length > 2).slice(0, 4);
+        const missing = names.filter(n => !out[n].length && wordsOf(n).length);
+        const words = [...new Set(missing.flatMap(wordsOf))];
+        if (words.length) {
+          const byWord = await sr('product.product', orDomain(words.map(w => ['name', 'ilike', w])), PRODUCT_FIELDS, { limit: 1500 });
+          for (const n of missing) out[n] = byWord.filter(r => wordsOf(n).every(w => has(r, w))).slice(0, 3).map(toProduct);
         }
-        out[raw] = rows.map(toProduct);
       }
       return json({ suggestions: out });
     }
