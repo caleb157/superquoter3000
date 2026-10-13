@@ -165,6 +165,7 @@ export type Database = {
           product_id: string | null
           products_per_ic: number | null
           products_per_mc: number | null
+          products_per_mc_override: number | null
           total_cbm: number | null
           updated_at: string | null
         }
@@ -198,6 +199,7 @@ export type Database = {
           product_id?: string | null
           products_per_ic?: number | null
           products_per_mc?: number | null
+          products_per_mc_override?: number | null
           total_cbm?: number | null
           updated_at?: string | null
         }
@@ -231,6 +233,7 @@ export type Database = {
           product_id?: string | null
           products_per_ic?: number | null
           products_per_mc?: number | null
+          products_per_mc_override?: number | null
           total_cbm?: number | null
           updated_at?: string | null
         }

@@ -79,6 +79,8 @@ export type CostingEngineResult = {
   outsourcedUnitCostUsd: number;
   /** Present only when the shipping type is a calculated FOB type. */
   fobEstimate?: FobEstimate;
+  /** How the inner cartons pack into the master carton (IC + MC packaging only). */
+  mcPlan?: calc.MasterCartonPlan;
   bulkPack?: {
     pieces_per_mc: number;
     mc_width: number;
@@ -212,25 +214,11 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   let mcCost = 0;
   let productsPerMc = 1;
   let mcDims = { mc_width: 0, mc_depth: 0, mc_height: 0 };
+  let mcPlan: calc.MasterCartonPlan | undefined;
   const productsPerIc = cbmRow?.products_per_ic || 1;
   if (includeMc) {
-    const mcResult = calc.calcMCPacking({
-      include_mc: true,
-      mc_type: mcType,
-      mc_max_width: cbmRow?.mc_max_width || 25,
-      mc_max_depth: cbmRow?.mc_max_depth || 25,
-      mc_max_height: cbmRow?.mc_max_height || 25,
-      mc_buffer_inch: cbmRow?.mc_buffer_inch || 1,
-      mc_height_buffer_inch: cbmRow?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5,
-      mc_weight_limit_kg: cbmRow?.mc_weight_limit_kg || 20,
-      mc_empty_weight_kg: cbmRow?.mc_empty_weight_kg || 1.5,
-      product_weight_kg: p.weight_kg || 0,
-      quantity: qty,
-      products_per_ic: productsPerIc,
-      ic_width: icDims.ic_width,
-      ic_depth: icDims.ic_depth,
-      ic_height: icDims.ic_height,
-    });
+    mcPlan = calc.productMasterCartonPlan({ product: { ...p, quantity: qty }, cbmRow, boxData: boxData as any[], productType, globalSettings: gs });
+    const mcResult = { mc_width: mcPlan.mc.width, mc_depth: mcPlan.mc.depth, mc_height: mcPlan.mc.height, products_per_mc: mcPlan.pieces };
     const mcBoxes = (boxData as any[]).filter((b: any) => b.box_type === mcType && b.cost_per_sq_in > 0);
     const avgMcCostPerSqIn = mcBoxes.length > 0
       ? mcBoxes.reduce((s: number, b: any) => s + b.cost_per_sq_in, 0) / mcBoxes.length
@@ -511,6 +499,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     mcCost: effMcCost,
     productsPerIc,
     productsPerMc,
+    mcPlan,
     finalUnitCbm,
     ri,
     prePackCbm,
