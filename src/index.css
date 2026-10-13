@@ -6,7 +6,7 @@
   :root {
     /* Graphite & Emerald — light. Airy neutral canvas, near-black ink,
        emerald primary reserved for actions and key data. */
-    --background: 220 16% 97%;
+    --background: 0 0% 100%;
     --foreground: 222 25% 10%;
     --card: 0 0% 100%;
     --card-foreground: 222 25% 10%;
@@ -16,7 +16,7 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 94%;
     --secondary-foreground: 222 25% 14%;
-    --muted: 220 14% 95%;
+    --muted: 220 14% 96%;
     --muted-foreground: 220 9% 42%;
     --accent: 220 14% 93%;
     --accent-foreground: 222 25% 14%;
@@ -41,7 +41,7 @@
        (urgent, viewed, quoted, estimated from a photo). */
     --highlight: 262 52% 52%;
     --highlight-foreground: 0 0% 100%;
-    --sidebar-background: 220 16% 97%;
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 25% 14%;
     --sidebar-primary: 158 74% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -136,8 +136,8 @@
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
-    letter-spacing: -0.02em;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.015em;
     font-weight: 600;
   }
 
@@ -155,9 +155,9 @@
 
 /* Dense table styles for costing workspace */
 @layer components {
-  /* One page title style for every module (Space Grotesk, 20px). */
+  /* One page title style for every module (Inter, 20px semibold). */
   .page-title {
-    @apply font-display text-xl font-medium tracking-tight;
+    @apply text-xl font-semibold tracking-tight;
   }
 
   .dense-table td,

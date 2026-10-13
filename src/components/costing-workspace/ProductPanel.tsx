@@ -126,7 +126,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <CostMixBar row={row} showLegend />
           <table className="mt-3 w-full text-sm tabular-nums">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
+              <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
                 <th className="text-left">Per unit</th><th className="text-right">₹</th><th className="text-right">of price</th>
               </tr>
             </thead>
@@ -248,8 +248,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 function Figure({ label, value, sub, children }: { label: string; value?: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <div className="bg-card px-4 py-3 min-w-0">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-      {children ?? <div className="text-xl font-semibold tabular-nums leading-tight mt-0.5 h-8 flex items-center">{value}</div>}
+      <div className="text-xs text-muted-foreground">{label}</div>
+      {children ?? <div className="text-lg font-semibold tabular-nums leading-tight mt-0.5 h-9 flex items-center">{value}</div>}
       <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">{sub}</div>
     </div>
   );
@@ -397,7 +397,7 @@ function ProductDetails({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
         ) : (
           <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed hover:border-primary/50">
             <Camera className="h-5 w-5 text-muted-foreground" />
-            <span className="mt-0.5 text-[10px] text-muted-foreground">Add photo</span>
+            <span className="mt-0.5 text-xs text-muted-foreground">Add photo</span>
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
           </label>
         )}
@@ -423,7 +423,7 @@ function PanelInput({ col, row, bundle, apply, big, placeholder }: { col: Col; r
       disabled={e.disabled?.(row, bundle) ?? null}
       align="left"
       placeholder={placeholder}
-      className={cn('-ml-2 border-border/60', big && 'h-9 mt-0.5 text-xl font-semibold')}
+      className={cn('-ml-2 border-border/60', big && 'h-9 mt-0.5 text-lg font-semibold')}
       onCommit={raw => apply(b => e.write(b, [row.p.id], raw))}
     />
   );
@@ -507,7 +507,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
         <table className="w-full min-w-[640px] table-fixed text-sm">
           <colgroup><col style={{ width: 28 }} /><col /><col style={{ width: 120 }} /><col style={{ width: 64 }} /><col style={{ width: 40 }} /><col style={{ width: 84 }} /><col style={{ width: 56 }} /><col style={{ width: 76 }} /><col style={{ width: 48 }} /></colgroup>
           <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
+            <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
               <th /><th className="text-left">Item</th><th className="text-left">Vendor</th><th className="text-right">Qty</th><th className="text-left pl-1">Unit</th><th className="text-right">₹ each</th><th className="text-right">Waste</th><th className="text-right">₹ / unit</th><th />
             </tr>
           </thead>
@@ -608,7 +608,7 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
         <table className="w-full min-w-[420px] table-fixed text-sm">
           <colgroup><col style={{ width: 28 }} /><col /><col style={{ width: 90 }} /><col style={{ width: 84 }} /><col style={{ width: 84 }} /></colgroup>
           <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
+            <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
               <th /><th className="text-left">Labor</th><th className="text-right">Hrs / unit</th><th className="text-right">₹ / hr</th><th className="text-right">₹ / unit</th>
             </tr>
           </thead>

@@ -73,7 +73,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/media', label: 'Media Gallery', icon: Images },
     { to: '/complaints', label: 'Complaints', icon: MessageSquareWarning },
   ] : [];
+  // Detail pages show the section they belong to, never the app name a second time.
   const extraLabels = [
+    { to: '/inquiry', label: 'Inquiries' },
+    { to: '/product', label: 'Products' },
+    { to: '/assembly', label: 'Products' },
+    { to: '/vendor-rfq', label: 'Vendor RFQs' },
+    { to: '/vendor-rfq-sheet', label: 'Vendor RFQs' },
     { to: '/freight-quotes', label: 'Freight Quotes' },
     { to: '/settings', label: 'Settings' },
   ];
@@ -85,7 +91,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const inDirectories = directoryNav.some(i => isActive(i.to));
   const [dirOpen, setDirOpen] = useState(inDirectories);
   useEffect(() => { if (inDirectories) setDirOpen(true); }, [inDirectories]);
-  const currentLabel = [...primaryNav, ...directoryNav, ...extraLabels].find(i => isActive(i.to))?.label ?? 'Product HQ';
+  const currentLabel = [...primaryNav, ...directoryNav, ...extraLabels].find(i => isActive(i.to))?.label ?? '';
 
   // Bottom-nav primary set on mobile (4 most-used + Menu)
   const bottomNav = isAdminOrTeam ? [
@@ -118,11 +124,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Menu className="h-4 w-4" />
           </Button>
-          <Link to="/" className="flex items-center gap-2 font-serif font-medium text-base tracking-tight shrink-0">
+          <Link to="/" className="flex items-center gap-2 font-semibold text-sm tracking-tight shrink-0">
             <img src={hqLogo} alt="Product HQ" className="h-8 w-8 shrink-0" />
             <span className="hidden sm:inline">Product HQ</span>
           </Link>
-          <span className="hidden sm:inline text-muted-foreground">/</span>
+          {currentLabel && <span className="hidden sm:inline text-muted-foreground">/</span>}
           <div className="text-sm font-medium truncate flex-1 min-w-0">{currentLabel}</div>
 
           <div className="ml-auto flex items-center gap-1">
@@ -154,7 +160,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         <SheetContent side="left" className="w-80 p-4 flex flex-col">
           <div className="flex items-center gap-2 mb-4 mt-2">
             <img src={hqLogo} alt="Product HQ" className="h-8 w-8 shrink-0" />
-            <span className="font-serif font-medium text-base">Product HQ</span>
+            <span className="font-semibold text-sm">Product HQ</span>
           </div>
           <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
             {primaryNav.map(item => <NavButton key={item.to} item={item} />)}

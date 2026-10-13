@@ -331,7 +331,7 @@ const Settings = () => {
         {/* Sidebar */}
         <aside className="w-[200px] shrink-0 border-r border-border bg-card min-h-[calc(100vh-8rem)]">
           <div className="px-3 py-4">
-            <h1 className="text-base font-serif font-medium tracking-tight mb-4 px-2">Settings</h1>
+            <h1 className="text-base font-semibold tracking-tight mb-4 px-2">Settings</h1>
             <div className="relative mb-4">
               <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
