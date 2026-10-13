@@ -1,7 +1,7 @@
 // Floating action bar for the ticked SKUs: set any field, scale a cost bucket, or run
 // one of the pricing shortcuts (price to target, target = price, cheapest quote wins).
 import { useMemo, useState } from 'react';
-import { Crosshair, Percent, Trophy, Undo2, X } from 'lucide-react';
+import { Crosshair, FileText, Loader2, Percent, Trophy, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,8 +15,10 @@ import { quoteCurrencyOf } from '@/lib/quote-currency';
 
 const selectCls = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
 
-export function BulkBar({ ids, rows, bundle, apply, onClear }: {
+export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }: {
   ids: string[]; rows: WorkspaceRow[]; bundle: Bundle; apply: Apply; onClear: () => void;
+  /** Make a draft customer quote from the ticked SKUs at the prices shown. */
+  onQuote: () => void; quoting: boolean;
 }) {
   const cur = quoteCurrencyOf(bundle.inq);
   const fields = useMemo(() => bulkFields(cur), [cur]);
@@ -111,6 +113,17 @@ export function BulkBar({ ids, rows, bundle, apply, onClear }: {
           <TooltipContent>Picks the cheapest raw-piece quote for each SKU ({withQuotes} have several)</TooltipContent>
         </Tooltip>
       </div>
+
+      <div className="h-6 w-px bg-border" />
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="sm" className="h-8 gap-1.5" disabled={quoting} onClick={onQuote}>
+            {quoting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Generate quote
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">Makes a draft customer quote from the {ids.length} selected SKU{ids.length === 1 ? '' : 's'} at the prices shown, then opens it to edit</TooltipContent>
+      </Tooltip>
     </div>
   );
 }
