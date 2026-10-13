@@ -36,19 +36,10 @@ import { withStoredMh } from '@/lib/stored-man-hours';
 import { readSnapshot, writeSnapshot } from '@/lib/page-snapshot';
 import { fetchAllRows } from '@/lib/supabase-paged';
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-highlight/15 text-highlight',
-  high: 'bg-destructive/15 text-destructive',
-  normal: 'bg-warning/15 text-warning',
-  low: 'bg-muted text-muted-foreground',
-};
-const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
-
 type StatusFilter = 'all' | 'active' | 'paused' | 'projected_po' | 'po' | 'cancelled' | 'complete' | 'open';
 
 type Inquiry = {
   id: string; rfq_number: string; title: string | null; status: string;
-  priority: string;
   customer_id: string | null; updated_at: string; created_at: string;
 };
 type Customer = { id: string; name: string | null; company: string | null };
@@ -179,6 +170,12 @@ const Dashboard = () => {
     }
     return out;
   }, [totalsByInquiry, liveTotals, productsByInquiry]);
+  // CBM estimate (qty × packed CBM per unit) comes only from the live run ("…" until it lands).
+  const cbmByInquiry = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [id, t] of Object.entries(liveTotals)) out[id] = t.cbm;
+    return out;
+  }, [liveTotals]);
 
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
@@ -211,15 +208,15 @@ const Dashboard = () => {
         customer: (i) => customerPrimary(customerMap[i.customer_id ?? '']).toLowerCase(),
         title: (i) => (i.title ?? '').toLowerCase(),
         status: (i) => i.status,
-        priority: (i) => PRIORITY_RANK[i.priority] ?? 99,
         products: (i) => productsByInquiry[i.id]?.length ?? 0,
         mh: (i) => mhByInquiry[i.id] ?? 0,
+        cbm: (i) => cbmByInquiry[i.id] ?? 0,
         updated: (i) => new Date(i.updated_at).getTime(),
       };
       list = sortItems(list, getters);
     }
     return list;
-  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+  }, [inquiries, customerMap, productsByInquiry, mhByInquiry, cbmByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -383,6 +380,7 @@ const Dashboard = () => {
                         <span>
                           {prods?.length ?? 0} {prods?.length === 1 ? 'product' : 'products'}
                           {(mhByInquiry[inq.id] ?? 0) > 0 && ` · ${(mhByInquiry[inq.id]).toFixed(1)} MH`}
+                          {(cbmByInquiry[inq.id] ?? 0) > 0 && ` · ${(cbmByInquiry[inq.id]).toFixed(2)} CBM`}
                         </span>
                         <span>{formatDistanceToNow(new Date(inq.updated_at), { addSuffix: true })}</span>
                       </div>
@@ -428,9 +426,9 @@ const Dashboard = () => {
                       <SortableHeader column="customer" label="Customer" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="title" label="Title" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs" />
                       <SortableHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[88px]" />
-                      <SortableHeader column="priority" label="Priority" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[90px]" />
                       <SortableHeader column="products" label="Products" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <SortableHeader column="mh" label="MH" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
+                      <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs text-right w-[110px]">Order value</TableHead>
                       <TableHead className="text-xs text-right w-[100px]">NPM</TableHead>
                       
@@ -494,35 +492,6 @@ const Dashboard = () => {
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Select
-                              value={inq.priority}
-                              onValueChange={async (v) => {
-                                const prev = inq.priority;
-                                setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: v } : x));
-                                const { error } = await supabase.from('customer_rfqs').update({ priority: v }).eq('id', inq.id);
-                                if (error) {
-                                  toast.error(error.message);
-                                  setInquiries(list => list.map(x => x.id === inq.id ? { ...x, priority: prev } : x));
-                                }
-                              }}
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  'h-6 w-[88px] px-2 py-0 text-[11px] font-medium capitalize border-0 focus:ring-0 focus:ring-offset-0 [&>svg]:hidden justify-center',
-                                  PRIORITY_COLORS[inq.priority] || 'bg-muted text-muted-foreground',
-                                )}
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="urgent">Urgent</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="normal">Normal</SelectItem>
-                                <SelectItem value="low">Low</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">
                             {prods?.length ?? 0}
                           </TableCell>
@@ -531,6 +500,13 @@ const Dashboard = () => {
                               ? <span className="text-muted-foreground/60">…</span>
                               : (mhByInquiry[inq.id] ?? 0) > 0
                                 ? (mhByInquiry[inq.id]).toFixed(1)
+                                : <span className="text-muted-foreground/60">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums" title="Estimated CBM (qty × packed CBM per unit)">
+                            {cbmByInquiry[inq.id] == null
+                              ? (totalsPending.has(inq.id) ? <span className="text-muted-foreground/60">…</span> : <span className="text-muted-foreground/60">—</span>)
+                              : cbmByInquiry[inq.id] > 0
+                                ? cbmByInquiry[inq.id].toFixed(2)
                                 : <span className="text-muted-foreground/60">—</span>}
                           </TableCell>
                           {(() => {

@@ -86,3 +86,11 @@ export async function saveLink(key: string, cogsType: string, hqName: string, p:
 export async function removeLink(key: string): Promise<void> {
   await db.from('odoo_component_links').delete().eq('match_key', key);
 }
+
+export type SkuPrefix = { prefix: string; saleable: number; other: number; sample: string };
+
+/** SKU prefixes already used in Odoo, most used first. */
+export async function odooSkuPrefixes(): Promise<SkuPrefix[]> {
+  const r = await call<{ prefixes: SkuPrefix[] }>('odoo-product-lookup', { action: 'prefixes' });
+  return r.prefixes ?? [];
+}

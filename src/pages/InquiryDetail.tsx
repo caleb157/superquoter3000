@@ -40,7 +40,6 @@ import { InquiryClockStrip } from '@/components/InquiryClockStrip';
 import { RepeatOfLink } from '@/components/RepeatOrderPicker';
 import { InquirySampleClockStrip } from '@/components/InquirySampleClockStrip';
 import { customerFullLabel } from '@/lib/customer-name';
-const PRIORITY_OPTIONS = ['low', 'normal', 'high', 'urgent'];
 const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
@@ -108,7 +107,6 @@ export default function InquiryDetail() {
   useEffect(() => { fetchInquiry(); }, [id]);
 
   const updateField = async (patch: any) => {
-    if (patch.status === 'paused') patch = { priority: 'low', ...patch };
     // Auto-populate PO fields the first time the inquiry flips to 'po'
     const isPoTransition = patch.status === 'po' && inquiry?.status !== 'po' && !!id;
     if (isPoTransition) {
@@ -194,7 +192,6 @@ export default function InquiryDetail() {
     const patch = {
       title: settingsDraft.title?.trim() || null,
       status: settingsDraft.status,
-      priority: settingsDraft.status === 'paused' ? 'low' : settingsDraft.priority,
       assigned_to: settingsDraft.assigned_to?.trim() || null,
       target_completion_date: settingsDraft.target_completion_date || null,
       requirements: settingsDraft.requirements?.trim() || null,
@@ -257,7 +254,6 @@ export default function InquiryDetail() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm text-muted-foreground">{inquiry.rfq_number}</span>
-              <Badge variant="outline" className="text-[10px] capitalize">{inquiry.priority}</Badge>
             </div>
             {editingTitle ? (
               <div className="flex items-center gap-2">
@@ -412,7 +408,6 @@ export default function InquiryDetail() {
               <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry metadata</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div><Label className="text-xs text-muted-foreground">Target completion</Label><div>{inquiry.target_completion_date ?? '—'}</div></div>
-                <div><Label className="text-xs text-muted-foreground">Priority</Label><div className="capitalize">{inquiry.priority}</div></div>
                 <div><Label className="text-xs text-muted-foreground">Assigned to</Label><div>{inquiry.assigned_to ?? '—'}</div></div>
                 <div><Label className="text-xs text-muted-foreground">Received</Label><div>{inquiry.received_date}</div></div>
                 <div>
@@ -487,13 +482,6 @@ export default function InquiryDetail() {
                         <SelectItem value={settingsDraft.status} className="capitalize">{settingsDraft.status}</SelectItem>
                       )}
                     </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Priority</Label>
-                  <Select value={settingsDraft?.priority ?? 'normal'} onValueChange={v => setSettingsDraft({ ...settingsDraft, priority: v })}>
-                    <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>{PRIORITY_OPTIONS.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>

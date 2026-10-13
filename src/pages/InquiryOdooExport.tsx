@@ -22,13 +22,14 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { OdooProductPicker } from '@/components/odoo-export/OdooProductPicker';
+import { SkuPrefixBar } from '@/components/odoo-export/SkuPrefixBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
 import {
-  applyShared, bomQty, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, defaultFinished,
-  displayName, pushPayload, sharedItems,
-  type DraftLine, type FinishedDraft, type Issue, type LineStatus, type OdooProduct, type ProductDraft, type SharedItem,
+  applyPrefixes, applyShared, bomQty, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, defaultFinished,
+  displayName, pushPayload, readLastPrefixes, sharedItems, writeLastPrefixes,
+  type DraftLine, type FinishedDraft, type Issue, type LineStatus, type OdooProduct, type Prefixes, type ProductDraft, type SharedItem,
 } from '@/lib/odoo-bom';
 import {
   loadLinks, odooMeta, odooProductsBySku, pushToOdoo, removeLink, saveLink, suggestOdooProducts, type OdooMeta, type PushResult,
@@ -36,7 +37,7 @@ import {
 
 type Base = { productId: string; finished: FinishedDraft; lines: DraftLine[] };
 type SendState = { state: 'sending' | 'done' | 'error'; result?: PushResult; error?: string; problems?: string[] };
-type Saved = { shared: Record<string, SharedItem>; finished: Record<string, FinishedDraft> };
+type Saved = { shared: Record<string, SharedItem>; finished: Record<string, FinishedDraft>; prefixes?: Prefixes };
 
 const storeKey = (id: string) => `odoo-bom-bulk:${id}`;
 const readSaved = (id: string): Saved | null => {
@@ -44,6 +45,20 @@ const readSaved = (id: string): Saved | null => {
 };
 const writeSaved = (id: string, s: Saved) => { try { localStorage.setItem(storeKey(id), JSON.stringify(s)); } catch { /* per-browser draft only */ } };
 const clearSaved = (id: string) => { try { localStorage.removeItem(storeKey(id)); } catch { /* ignore */ } };
+/** Applies the SKU prefixes to every product: finished SKUs per product, raw pieces through their (per-product) shared item. */
+function fillPrefixes(bases: Base[], finished: Record<string, FinishedDraft>, shared: Map<string, SharedItem>, next: Prefixes, prev: Prefixes | null) {
+  const fin = { ...finished };
+  const sh = new Map(shared);
+  for (const b of bases) {
+    const r = applyPrefixes(fin[b.productId] ?? b.finished, applyShared(b.lines, sh), next, prev);
+    fin[b.productId] = r.finished;
+    for (const l of r.lines) {
+      const s = sh.get(l.key);
+      if (s && s.newItem.sku !== l.newItem.sku) sh.set(l.key, { ...s, newItem: { ...s.newItem, sku: l.newItem.sku } });
+    }
+  }
+  return { finished: fin, shared: sh };
+}
 const num = (v: string) => (v.trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
 export default function InquiryOdooExport() {
@@ -60,6 +75,7 @@ export default function InquiryOdooExport() {
   const [bases, setBases] = useState<Base[]>([]);
   const [finished, setFinished] = useState<Record<string, FinishedDraft>>({});
   const [shared, setShared] = useState<Map<string, SharedItem>>(new Map());
+  const [prefixes, setPrefixes] = useState<Prefixes>({ product: '', raw: '' });
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [linksAvailable, setLinksAvailable] = useState(true);
   const [meta, setMeta] = useState<OdooMeta | null>(null);
@@ -105,7 +121,7 @@ export default function InquiryOdooExport() {
       setTitle(b.inq?.rfq_number || b.inq?.title || 'Inquiry');
       const results = computeResults(b);
       const products = wanted.length ? b.products.filter(p => wanted.includes(p.id)) : b.products;
-      const probe = products.map(p => buildDraftLines(results.get(p.id)?.resolvedCogsRows ?? [], new Map()));
+      const probe = products.map(p => buildDraftLines(results.get(p.id)?.resolvedCogsRows ?? [], new Map(), p.id));
       const { links, available } = await loadLinks([...new Set(probe.flat().map(l => l.key))]);
       setLinksAvailable(available);
       const nextBases: Base[] = products.map(p => {
@@ -113,7 +129,7 @@ export default function InquiryOdooExport() {
         let f = defaultFinished(p, { volumeM3: r?.finalUnitCbm ?? null });
         // A finished-product draft started on the product's own Odoo tab carries over.
         try { const own = JSON.parse(localStorage.getItem(`odoo-bom-draft:${p.id}`) || 'null'); if (own?.finished) f = { ...f, ...own.finished }; } catch { /* none */ }
-        return { productId: p.id, finished: f, lines: buildDraftLines(r?.resolvedCogsRows ?? [], links) };
+        return { productId: p.id, finished: f, lines: buildDraftLines(r?.resolvedCogsRows ?? [], links, p.id) };
       });
       const saved = readSaved(inquiryId);
       const sh = new Map<string, SharedItem>();
@@ -122,15 +138,19 @@ export default function InquiryOdooExport() {
       }
       // A saved decision wins, unless the item has since been linked to an Odoo product.
       if (saved) for (const [k, v] of Object.entries(saved.shared)) if (sh.has(k) && !(sh.get(k)!.match && !v.match)) sh.set(k, v);
+      const fin: Record<string, FinishedDraft> = Object.fromEntries(nextBases.map(x => [x.productId, { ...x.finished, ...(saved?.finished?.[x.productId] ?? {}) }]));
+      const px = saved?.prefixes ?? { product: '', raw: readLastPrefixes().raw };
+      const filled = fillPrefixes(nextBases, fin, sh, px, null);
       setBases(nextBases);
-      setFinished(saved?.finished ? Object.fromEntries(nextBases.map(x => [x.productId, { ...x.finished, ...(saved.finished[x.productId] ?? {}) }])) : {});
-      setShared(sh);
+      setFinished(filled.finished);
+      setShared(filled.shared);
+      setPrefixes(px);
       setPicked(new Set(nextBases.map(x => x.productId)));
       setSent({});
       ready.current = true;
       setLoading(false);
 
-      const ds = nextBases.map(x => ({ ...x, lines: applyShared(x.lines, sh) }));
+      const ds = nextBases.map(x => ({ ...x, finished: filled.finished[x.productId], lines: applyShared(x.lines, filled.shared) }));
       odooMeta().then(setMeta).catch(e => setLookupError(e instanceof Error ? e.message : String(e)));
       checkOdoo(ds);
       const unmatched = [...sh.entries()].filter(([, v]) => v.status !== 'skip' && !v.match).map(([k]) => ds.flatMap(d => d.lines).find(l => l.key === k)!.hqName);
@@ -145,8 +165,16 @@ export default function InquiryOdooExport() {
 
   useEffect(() => {
     if (!ready.current) return;
-    writeSaved(inquiryId, { shared: Object.fromEntries(shared), finished });
-  }, [shared, finished, inquiryId]);
+    writeSaved(inquiryId, { shared: Object.fromEntries(shared), finished, prefixes });
+  }, [shared, finished, prefixes, inquiryId]);
+
+  const changePrefixes = (next: Prefixes) => {
+    const filled = fillPrefixes(bases, Object.fromEntries(bases.map(b => [b.productId, finished[b.productId] ?? b.finished])), shared, next, prefixes);
+    setFinished(filled.finished);
+    setShared(filled.shared);
+    setPrefixes(next);
+    writeLastPrefixes(next);
+  };
 
   const issuesByProduct = useMemo(() => {
     const m = new Map<string, Issue[]>();
@@ -251,6 +279,7 @@ export default function InquiryOdooExport() {
         {!loading && loadError && <div className="p-6 text-sm text-destructive">{loadError}</div>}
         {!loading && !loadError && (
           <>
+            <SkuPrefixBar value={prefixes} onChange={changePrefixes} />
             <datalist id="odoo-cats">{catList.map(c => <option key={c} value={c} />)}</datalist>
             <datalist id="odoo-uoms">{uomList.map(u => <option key={u} value={u} />)}</datalist>
             {lookupError && (
