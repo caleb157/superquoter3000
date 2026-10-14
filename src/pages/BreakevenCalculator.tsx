@@ -15,7 +15,6 @@ import { NumInput } from '@/components/iron-weight/PartRow';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { useOrderKinds } from '@/hooks/use-order-kinds';
 import {
   breakeven, curve, liveMarginsFromOrders, liveOverheadFromHistory, loadOverrides, resolveInputs, saveOverrides,
   type BreakevenInputs, type LiveInputs,
@@ -71,15 +70,11 @@ export default function BreakevenCalculator() {
   useDocumentTitle('Breakeven Calculator');
   const { snapshot, syncedAt } = useAnalyticsSnapshot();
   const orders = useFinishedOrders();
-  const orderKinds = useOrderKinds();
   const [overrides, setOverrides] = useState<Partial<BreakevenInputs>>(loadOverrides);
   useEffect(() => saveOverrides(overrides), [overrides]);
 
   const fx = (orders.data?.inr_per_usd && orders.data.inr_per_usd > 1 ? orders.data.inr_per_usd : snapshot?.inr_per_usd) || 0;
-  const margins = useMemo(
-    () => (orders.data && fx > 0 && orderKinds.loaded ? liveMarginsFromOrders(orders.data.orders, fx, orderKinds.kinds) : null),
-    [orders.data, fx, orderKinds.loaded, orderKinds.kinds],
-  );
+  const margins = useMemo(() => (orders.data && fx > 0 ? liveMarginsFromOrders(orders.data.orders, fx) : null), [orders.data, fx]);
   const overhead = useMemo(() => liveOverheadFromHistory(snapshot?.overhead_monthly?.history, snapshot?.inr_per_usd || fx), [snapshot, fx]);
 
   const live: LiveInputs = useMemo(() => ({
@@ -257,10 +252,9 @@ export default function BreakevenCalculator() {
           <CardContent className="space-y-4">
             {margins && (
               <p className="text-xs text-muted-foreground">
-                Trading vs manufacturing is set per sales order on{' '}
-                <Link to="/profitability" className="underline hover:text-foreground">SO Profitability</Link>.
-                {guessed > 0 && ` ${guessed} of ${margins.tradeOrders + margins.mfgOrders} orders aren't classified yet, so they're guessed from their MOs.`}
-                {orderKinds.error && ` Couldn't load the classifications: ${orderKinds.error}`}
+                Trading vs manufacturing comes from each sales order's Trading or Manufacturing tag in Odoo.
+                {guessed > 0 && <> {guessed} of {margins.tradeOrders + margins.mfgOrders} orders aren't tagged yet, so they're guessed from their MOs (see{' '}
+                  <Link to="/profitability" className="underline hover:text-foreground">SO Profitability</Link>). Press Refresh after tagging.</>}
               </p>
             )}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

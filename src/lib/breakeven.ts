@@ -4,7 +4,7 @@
 // the SO Profitability math) for margins and mix, and the Analytics snapshot for monthly
 // overhead. Anything the user types overrides the live value; nothing is saved to the DB.
 import { analyzeLines, type SoOrder } from '@/lib/so-profitability';
-import { orderKind, type OrderKinds } from '@/lib/order-kind';
+import { orderKind } from '@/lib/order-kind';
 
 export type BreakevenInputs = {
   /** Trading net margin, % of revenue. */
@@ -79,16 +79,16 @@ export const curve = (i: BreakevenInputs, steps = 20) =>
 export type LiveMargins = {
   tradeNetPct: number | null; mfgNetPct: number | null; mfgOhPct: number | null; mfgSharePct: number | null;
   tradeOrders: number; mfgOrders: number; tradeRevenueUsd: number; mfgRevenueUsd: number;
-  /** Orders counted by the MO guess because nobody has classified them yet. */
+  /** Orders counted by the MO guess because they aren't tagged Trading or Manufacturing in Odoo. */
   guessedOrders: number;
 };
 
 /**
  * Margins and mix from finished Odoo orders, using the SO Profitability line math (USD).
- * Trading vs manufacturing is the hand-set kind per SO (src/lib/order-kind.ts), else the MO guess.
+ * Trading vs manufacturing comes from the SO's Odoo tag (src/lib/order-kind.ts), else the MO guess.
  * Manufacturing overhead = LaborTrax indirect burden booked on its MOs, as a share of revenue.
  */
-export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number, kinds?: OrderKinds | null): LiveMargins {
+export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): LiveMargins {
   const t = { rev: 0, net: 0, n: 0 };
   let guessedOrders = 0;
   const f = { rev: 0, net: 0, oh: 0, n: 0 };
@@ -98,8 +98,8 @@ export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number, kind
     const rev = rows.reduce((s, r) => s + r.revenue, 0);
     if (!(rev > 0)) continue;
     const net = rows.reduce((s, r) => s + r.net, 0);
-    const { kind, manual } = orderKind(o, kinds);
-    if (!manual) guessedOrders++;
+    const { kind, tagged } = orderKind(o);
+    if (!tagged) guessedOrders++;
     if (kind === 'manufacturing') {
       f.rev += rev; f.net += net; f.n++;
       f.oh += rows.reduce((s, r) => s + r.unitOverhead * r.line.qty, 0);
