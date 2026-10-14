@@ -50,11 +50,11 @@ describe('live values', () => {
   };
 
   it('splits trading and manufacturing margins and mix', () => {
-    // fx 100: trading revenue 1000, cost 900 → 10%; mfg revenue 3000, cost 2100 (OH 600) → 30% net, 20% OH
+    // fx 100: trading revenue 1000, cost 900 → 10%; mfg revenue 3000, cost 2100 (direct 300 + OH 600) → 30% net, 30% labour + OH
     const m = liveMarginsFromOrders([trading, mfg], 100);
     expect(m.tradeNetPct).toBeCloseTo(10, 6);
     expect(m.mfgNetPct).toBeCloseTo(30, 6);
-    expect(m.mfgOhPct).toBeCloseTo(20, 6);
+    expect(m.mfgOhPct).toBeCloseTo(30, 6);
     expect(m.mfgSharePct).toBeCloseTo(75, 6);
     expect(m.tradeOrders).toBe(1);
     expect(m.mfgOrders).toBe(1);
