@@ -6,10 +6,13 @@
 ALTER TABLE public.global_settings ADD COLUMN IF NOT EXISTS fallback_direct_rates jsonb;
 UPDATE public.global_settings gs
 SET fallback_direct_rates = COALESCE((
-  SELECT jsonb_object_agg(t.labor_type, round(avg(e.hourly_rate_inr)::numeric, 2))
-  FROM unnest(ARRAY['Manufacturing','Finishing','Assembly','Packaging','QC','Market']) AS t(labor_type)
-  JOIN public.labor_employees e ON t.labor_type = ANY(e.designations)
-  GROUP BY ()
+  SELECT jsonb_object_agg(a.labor_type, a.rate)
+  FROM (
+    SELECT t.labor_type, round(avg(e.hourly_rate_inr)::numeric, 2) AS rate
+    FROM unnest(ARRAY['Manufacturing','Finishing','Assembly','Packaging','QC','Market']) AS t(labor_type)
+    JOIN public.labor_employees e ON t.labor_type = ANY(e.designations)
+    GROUP BY t.labor_type
+  ) a
 ), '{}'::jsonb)
 WHERE gs.fallback_direct_rates IS NULL;
 
