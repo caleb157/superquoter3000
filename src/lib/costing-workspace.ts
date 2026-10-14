@@ -43,6 +43,11 @@ export type Bundle = {
 
 // ---------- Cost buckets ----------
 
+export const DOMESTIC_FREIGHT = 'Domestic Freight (External Sourcing)';
+
+/** Domestic freight is stored as a Subcontracting line but is a shipping cost, so it is shown and totalled under Shipping. */
+export const isDomesticFreight = (c: any) => (c?.component_name || '') === DOMESTIC_FREIGHT;
+
 /** Per-unit cost buckets shown across the workspace, in costing-sheet order. */
 export const BUCKETS = [
   { key: 'raw_piece', label: 'Raw piece', short: 'Raw', types: ['Raw Piece', 'COGS', 'Wood'], color: 'hsl(var(--cw-raw))' },
@@ -181,10 +186,12 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     const myCogs = b.cogs.filter(c => c.product_id === p.id);
     const buckets = Object.fromEntries(BUCKETS.map(x => [x.key, 0])) as Record<BucketKey, number>;
     const editBuckets: Record<string, number> = Object.fromEntries(EDITABLE_BUCKETS.map(x => [x.key, 0]));
+    let freight = 0;
     for (const line of r.resolvedCogsRows as any[]) {
       if (line.include === 'No') continue;
       if (p.packaging_type === 'no_packaging' && line.cogs_type === 'Packaging') continue;
       const v = lineValue(line);
+      if (isDomesticFreight(line)) { freight += v; continue; }
       const isOutsourcedLine = (line.component_name || '').toLowerCase() === 'outsourced product';
       const bk = isOutsourcedLine ? BUCKETS.find(x => x.key === 'outsourced')! : BUCKETS.find(x => (x.types as readonly string[]).includes(line.cogs_type));
       buckets[(bk?.key ?? 'other') as BucketKey] += v;
@@ -192,12 +199,12 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       if (eb && !isOutsourcedLine) editBuckets[eb.key] += v;
     }
     // Legacy outsourced cost (product-level field) is added by the engine on top of COGS lines.
-    const linesTotal = Object.values(buckets).reduce((a, v) => a + v, 0);
+    const linesTotal = Object.values(buckets).reduce((a, v) => a + v, 0) + freight;
     const engineCogs = r.cogsPerUnit;
     if (engineCogs - linesTotal > 0.005) buckets.outsourced += engineCogs - linesTotal;
     buckets.other += r.nonUnitCogsPerUnit;
     buckets.labor = r.directOhPerUnit + r.indirectOhPerUnit;
-    buckets.shipping = r.shippingPerUnit;
+    buckets.shipping = r.shippingPerUnit + freight;
 
     const quotes = quotesFor(myCogs);
     const winner = quotes.find(q => q.winner);
@@ -470,7 +477,7 @@ export function setBucketTotal(b: Bundle, ids: string[], bucketKey: string, valu
   const inserts: any[] = [];
   for (const pid of ids) {
     const lines = b.cogs
-      .filter(c => c.product_id === pid && types.includes(c.cogs_type) && c.include === 'Yes' && (c.component_name || '').toLowerCase() !== 'outsourced product')
+      .filter(c => c.product_id === pid && types.includes(c.cogs_type) && c.include === 'Yes' && (c.component_name || '').toLowerCase() !== 'outsourced product' && !isDomesticFreight(c))
       .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));
     const primary = lines.find(l => !l.is_auto_calculated) || lines[0];
     if (primary) {
@@ -493,7 +500,7 @@ export function setBucketTotal(b: Bundle, ids: string[], bucketKey: string, valu
 export function scaleBucket(b: Bundle, ids: string[], bucketKey: string, pct: number): Mutation {
   const types = EDITABLE_BUCKETS.find(x => x.key === bucketKey)!.types;
   const updates = b.cogs
-    .filter(c => ids.includes(c.product_id) && types.includes(c.cogs_type) && c.include === 'Yes' && !c.is_auto_calculated)
+    .filter(c => ids.includes(c.product_id) && types.includes(c.cogs_type) && c.include === 'Yes' && !c.is_auto_calculated && !isDomesticFreight(c))
     .map(c => ({ id: c.id, patch: { unit_cost_inr: Math.round((Number(c.unit_cost_inr) || 0) * (1 + pct) * 100) / 100 } }));
   // Patches differ per line, so they can't be grouped; cogsMutation sends one request per distinct value.
   return cogsMutation(b, updates, []);
@@ -752,8 +759,6 @@ export function setDifficulty(b: Bundle, ids: string[], difficulty: string): Mut
     },
   ]);
 }
-
-export const DOMESTIC_FREIGHT = 'Domestic Freight (External Sourcing)';
 
 /** Source location: an outside source adds the domestic freight line; back to in-house removes it. */
 export function setSourceLocation(b: Bundle, ids: string[], locationId: string | null): Mutation {

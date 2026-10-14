@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine, targetFromPrice,
+  patchCogsLine, targetFromPrice, lineValue,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -132,6 +132,21 @@ describe('product setup side effects (shared by the workspace and the product co
     expect(line.unit_cost_inr).toBe(900);
     expect(line.components_per_product).toBeGreaterThan(0);
     expect(lines(setSourceLocation(out, ['c'], null).next, 'c').some(l => l.component_name === DOMESTIC_FREIGHT)).toBe(false);
+  });
+
+  it('domestic freight counts under Shipping, not Subcontract', () => {
+    let b = bundle();
+    b = { ...b, locations: [{ id: 'loc', name: 'Saharanpur', cost_per_cbm_inr: 900 }] };
+    const out = setSourceLocation(b, ['c'], 'loc').next;
+    const results = computeResults(out);
+    const before = buildRows(b, computeResults(b)).find(r => r.p.id === 'c')!;
+    const row = buildRows(out, results).find(r => r.p.id === 'c')!;
+    const freight = lineValue((results.get('c')!.resolvedCogsRows as any[]).find(l => l.component_name === DOMESTIC_FREIGHT));
+    expect(freight).toBeGreaterThan(0);
+    expect(row.buckets.subcontract).toBeCloseTo(before.buckets.subcontract, 6);
+    expect(row.editBuckets.subcontract).toBeCloseTo(before.editBuckets.subcontract, 6);
+    expect(row.buckets.outsourced).toBeCloseTo(before.buckets.outsourced, 6);
+    expect(row.buckets.shipping).toBeCloseTo(results.get('c')!.shippingPerUnit + freight, 6);
   });
 
   it('shipping type updates or creates the product shipping row', () => {
