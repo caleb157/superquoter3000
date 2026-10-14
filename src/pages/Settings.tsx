@@ -121,7 +121,7 @@ function McHeightBufferSetting() {
   );
 }
 
-// One block of the General page; the id lets old links (#live-rates, #team…) scroll to it.
+// One block of a page that holds several parts; the id lets old links (#team, #cogs-categories…) scroll to it.
 function GeneralPart({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} className="scroll-mt-4 space-y-3">
@@ -162,9 +162,7 @@ const Settings = () => {
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [boxData, setBoxData] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [chemicals, setChemicals] = useState<any[]>([]);
-  const [hardware, setHardware] = useState<any[]>([]);
   const [containerTypes, setContainerTypes] = useState<any[]>([]);
   const fetchContainerTypes = () => (supabase as any).from('container_types').select('*').order('sort_order').then(({ data }: any) => data && setContainerTypes(data));
   useEffect(() => { fetchContainerTypes(); }, []);
@@ -173,9 +171,7 @@ const Settings = () => {
     supabase.from('shipping_types').select('*').order('name').then(({ data }) => data && setShippingTypes(data));
     supabase.from('product_types').select('*').order('name').then(({ data }) => data && setProductTypes(data));
     supabase.from('box_data').select('*').order('box_type').then(({ data }) => data && setBoxData(data));
-    supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data));
     supabase.from('chemical_prices').select('*').order('name').then(({ data }) => data && setChemicals(data));
-    supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data));
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -188,19 +184,6 @@ const Settings = () => {
             <GeneralPart id="live-rates" title="Live rates"><LiveRatesSettings /></GeneralPart>
             <GeneralPart id="currencies" title="Currencies"><CurrenciesSettings /></GeneralPart>
             <GeneralPart id="team" title="Team"><TeamManagementContent /></GeneralPart>
-            <GeneralPart id="employees" title="Employees">
-              <EditableTable
-                tableName="labor_employees"
-                data={employees} setData={setEmployees}
-                fetchData={() => supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data))}
-                defaultRow={{ name: 'New Employee', hourly_rate_inr: 0, designations: [] }}
-                columns={[
-                  { key: 'name', label: 'Name', width: '150px' },
-                  { key: 'hourly_rate_inr', label: 'Rate (₹/hr)', type: 'number', width: '100px' },
-                  { key: 'designations', label: 'Designations', type: 'tags' },
-                ]}
-              />
-            </GeneralPart>
           </div>
         );
       case 'entities': return <CompanyEntitiesSettings />;
@@ -210,8 +193,13 @@ const Settings = () => {
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
       case 'data-export': return <DataExportSection />;
       case 'local-transport': return <LocalTransportSettings />;
-      case 'cogs-categories': return <CogsCategoriesSettings />;
-      case 'raw-materials': return <RawMaterialCostsSettings />;
+      case 'raw-materials':
+        return (
+          <div className="space-y-8">
+            <GeneralPart id="materials" title="Materials and hardware"><RawMaterialCostsSettings /></GeneralPart>
+            <GeneralPart id="cogs-categories" title="COGS categories"><CogsCategoriesSettings /></GeneralPart>
+          </div>
+        );
       case 'container-types':
         return (
           <div className="space-y-2">
@@ -319,20 +307,6 @@ const Settings = () => {
               { key: 'category', label: 'Category', width: '120px' },
               { key: 'unit_type', label: 'Unit', width: '80px' },
               { key: 'price_per_unit_inr', label: 'Price/Unit (₹)', type: 'number', width: '120px' },
-            ]}
-          />
-        );
-      case 'hardware':
-        return (
-          <EditableTable
-            tableName="hardware_prices"
-            data={hardware} setData={setHardware}
-            fetchData={() => supabase.from('hardware_prices').select('*').order('name').then(({ data }) => data && setHardware(data))}
-            defaultRow={{ name: 'New Hardware', unit_cost_inr: 0, units: 'pc' }}
-            columns={[
-              { key: 'name', label: 'Name', width: '200px' },
-              { key: 'unit_cost_inr', label: 'Cost (₹)', type: 'number', width: '110px' },
-              { key: 'units', label: 'Units', width: '80px' },
             ]}
           />
         );

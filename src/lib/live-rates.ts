@@ -4,7 +4,7 @@
 // global_settings.live_*, and costing always uses them. Every engine path (through mergeSettingsWithInquiry) reads:
 //   exchange_rate            ← live_exchange_rate (Odoo INR per USD)
 //   indirect_overhead_per_mh ← live_burdened_per_mh (LaborTrax fully burdened ₹/MH)
-//   direct wage per type     ← live_direct_rates[labor_type] (LaborTrax ₹/MH), else the employee average
+//   direct wage per type     ← live_direct_rates[labor_type] (LaborTrax ₹/MH), else fallback_direct_rates[labor_type]
 // A per-inquiry override still wins, and a missing live value (never synced) falls back to
 // the stored global_settings value, which is no longer edited in the UI.
 // Pure (no supabase): the costing engine imports it. Syncing lives in live-rates-sync.ts.
@@ -56,25 +56,29 @@ export function applyLiveRates<T extends Record<string, any>>(gs: T | null | und
 }
 
 /**
- * The employee list costing averages wages from, with each labor type that has a
- * live LaborTrax rate replaced by that rate. Types with no live rate keep the
- * employee average, so finishing auto-hours and direct cost use the same rate.
+ * The rate list costing averages wages from, one entry per labor type: the live LaborTrax
+ * rate, else the fallback ₹/hr set in Settings (global_settings.fallback_direct_rates), else
+ * the old Labor Directory employee average (only until the fallback rates are saved).
+ * Finishing auto-hours and direct cost read the same list, so they always agree.
  */
 export function withLiveDirectRates<E extends { hourly_rate_inr: number; designations: string[] }>(
   employees: E[] | null | undefined,
   settings: Record<string, any> | null | undefined,
 ): E[] {
   const list = employees || [];
-  if (!settings?.__live_applied) return list;
-  const rates = (settings.live_direct_rates || {}) as Record<string, unknown>;
-  const live = Object.entries(rates).filter(([, v]) => pos(v) != null);
-  if (live.length === 0) return list;
-  const liveTypes = new Set(live.map(([t]) => t));
+  const rates: Record<string, number> = {};
+  for (const [t, v] of Object.entries((settings?.fallback_direct_rates || {}) as Record<string, unknown>)) { const n = pos(v); if (n != null) rates[t] = n; }
+  if (settings?.__live_applied) {
+    for (const [t, v] of Object.entries((settings.live_direct_rates || {}) as Record<string, unknown>)) { const n = pos(v); if (n != null) rates[t] = n; }
+  }
+  const types = Object.keys(rates);
+  if (types.length === 0) return list;
+  const set = new Set(types);
   return [
     ...list
-      .map(e => ({ ...e, designations: (e.designations || []).filter(d => !liveTypes.has(d)) }))
+      .map(e => ({ ...e, designations: (e.designations || []).filter(d => !set.has(d)) }))
       .filter(e => e.designations.length > 0),
-    ...live.map(([t, v]) => ({ hourly_rate_inr: Number(v), designations: [t] }) as unknown as E),
+    ...types.map(t => ({ hourly_rate_inr: rates[t], designations: [t] }) as unknown as E),
   ];
 }
 

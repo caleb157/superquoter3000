@@ -11,7 +11,7 @@ export const DEFAULT_QUOTE_CLAUSES: QuoteClause[] = [
   { key: 'rush', title: 'Rush orders', text: 'Lead times under 40 days are rush orders and carry a 5% premium.' },
   { key: 'sample_first', title: 'Approved sample first', text: 'Mass production starts only after you approve a final physical sample, including on rush orders.' },
   { key: 'samples', title: 'Samples', text: 'We make at least 2 samples: one for you and one kept at our factory as the production reference. Samples are charged at 2× the bulk price, and the premium is credited against your bulk order. Allow up to 2 weeks.' },
-  { key: 'moq', title: 'Minimum order', text: 'Quoted MOQs apply. A first order below MOQ is possible with a 10–15% surcharge, depending on the item.' },
+  { key: 'moq', title: 'Minimum order', text: 'Quoted MOQs apply. Where a quote shows a lower minimum, a first order can go down to it at the quoted price.' },
   { key: 'spec', title: 'Specification', text: 'This quote, plus any changes agreed in writing, is the specification we build to. Please check sizes, finishes and quantities before you order.' },
   { key: 'changes', title: 'Changes after approval', text: 'Changes to design, size or finish after sample approval can change price and lead time. Work already done to the earlier specification is charged.' },
   { key: 'added_items', title: 'Added items', text: 'Items added after your PO are a new order with their own deposit and lead time. We will try to ship them together.' },
