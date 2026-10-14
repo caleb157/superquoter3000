@@ -70,7 +70,7 @@ function seed() {
       customers: { id: 'c1', name: 'Ana', company: 'Acme', email: 'ana@acme.test', logo_url: null } },
   ];
   db.company_entities = [{ id: 'e1', name: 'Parable Ventures', default_terms: null }];
-  db.global_settings = [{ exchange_rate: 85, below_moq_surcharge_percent: 0.1 }];
+  db.global_settings = [{ exchange_rate: 85 }];
   db.currencies = [
     { code: 'USD', name: 'US Dollar', import_rate: 84, export_rate: 86, units_per_inr_base: 1 },
     { code: 'GBP', name: 'Pound', import_rate: 105, export_rate: 108, units_per_inr_base: 1 },
@@ -130,7 +130,7 @@ describe('createQuoteSnapshot', () => {
     expect(stool.unit_cbm).toBeCloseTo((12 * 12 * 18) / 61020, 6);
     expect(stool.units_per_carton).toBe(1);
 
-    expect(q.totals).toMatchObject({ sku_count: 2, total_qty: 60, grand_total: 7900, below_moq_surcharge_percent: 0.1, freight: null });
+    expect(q.totals).toMatchObject({ sku_count: 2, total_qty: 60, grand_total: 7900, freight: null });
     expect(q.totals.total_cbm).toBeCloseTo(50 * 0.5 + 10 * (12 * 12 * 18) / 61020, 6);
   });
 

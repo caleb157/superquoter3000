@@ -82,6 +82,12 @@ describe('withLiveDirectRates', () => {
     // applying twice changes nothing
     expect(avgRateByDesignation(withLiveDirectRates(list, applyLiveRates(gsLive)), 'Finishing')).toBe(100);
   });
+  it('uses the Settings fallback rate for types LaborTrax has no rate for', () => {
+    const list = withLiveDirectRates(employees, applyLiveRates({ ...gsLive, fallback_direct_rates: { Packaging: 55, Finishing: 1 } }));
+    expect(avgRateByDesignation(list, 'Finishing')).toBe(100); // live wins
+    expect(avgRateByDesignation(list, 'Packaging')).toBe(55);
+    expect(avgRateByDesignation(withLiveDirectRates(employees, applyLiveRates({ ...gsManual, fallback_direct_rates: { Finishing: 75 } })), 'Finishing')).toBe(75);
+  });
   it('keeps the employee average when LaborTrax has no rates', () => {
     const list = withLiveDirectRates(employees, applyLiveRates(gsManual));
     expect(avgRateByDesignation(list, 'Finishing')).toBe(70);

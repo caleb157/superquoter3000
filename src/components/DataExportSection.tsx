@@ -60,7 +60,6 @@ const EXPORT_TABLES: ExportTable[] = [
   { id: 'local_transport_locations', label: 'Local transport locations', group: 'Reference Data' },
   { id: 'box_data', label: 'Box prices', group: 'Reference Data' },
   { id: 'chemical_prices', label: 'Chemical prices', group: 'Reference Data' },
-  { id: 'hardware_prices', label: 'Hardware prices', group: 'Reference Data' },
   { id: 'labor_employees', label: 'Labor employees', group: 'Reference Data' },
   { id: 'company_entities', label: 'Company entities', group: 'Reference Data' },
 

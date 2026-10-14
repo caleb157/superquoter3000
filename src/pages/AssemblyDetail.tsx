@@ -298,7 +298,7 @@ const AssemblyDetail = () => {
                   <Input className="h-7 text-xs" type="number" defaultValue={assembly.moq || 50} onBlur={e => updateAssembly('moq', parseInt(e.target.value))} />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground" title="Absolute floor — customer cannot order less. Between Hard MOQ and MOQ the below-MOQ surcharge applies.">Hard MOQ</label>
+                  <label className="text-[10px] text-muted-foreground" title="Absolute floor — customer cannot order less. Between Hard MOQ and MOQ the order is allowed at the quoted price.">Hard MOQ</label>
                   <Input className="h-7 text-xs" type="number" defaultValue={(assembly as any).hard_moq ?? ''} placeholder={String(assembly.moq || 50)}
                     onBlur={e => updateAssembly('hard_moq', e.target.value === '' ? null : parseInt(e.target.value))} />
                 </div>
