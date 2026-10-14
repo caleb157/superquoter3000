@@ -97,7 +97,7 @@ export default function BreakevenCalculator() {
   const sources: Record<NumKey, string | null> = {
     tradeNetPct: tradeSrc,
     mfgNetPct: mfgSrc,
-    mfgOhPct: mfgSrc && `${mfgSrc}, LaborTrax burden on their MOs`,
+    mfgOhPct: mfgSrc && `${mfgSrc}, all LaborTrax cost on their MOs (direct wages + indirect overhead)`,
     highOhUsd: ohSrc, lowOhUsd: ohSrc,
     highMonths: overhead ? `Months above the ${overhead.months}-month average, scaled to 12` : null,
     bufferUsd: null,
@@ -232,13 +232,13 @@ export default function BreakevenCalculator() {
             <CardContent className="space-y-3">
               <div className="flex h-7 rounded-md overflow-hidden border">
                 <div className="bg-info" style={{ width: seg(r.tradeContribution) }} title="Trading net margin" />
-                <div className="bg-warning" style={{ width: seg(r.mfgOhContribution) }} title="Manufacturing overhead allocation" />
+                <div className="bg-warning" style={{ width: seg(r.mfgOhContribution) }} title="Manufacturing labour + overhead" />
                 <div className="bg-warning/70" style={{ width: seg(r.mfgNetContribution) }} title="Manufacturing net margin" />
               </div>
               <table className="w-full text-xs">
                 <tbody className="[&_td]:py-1.5 [&_tr]:border-b last:[&_tr]:border-0">
                   <tr><td>Trading net margin <span className="text-muted-foreground">({inputs.tradeNetPct}% of {usd(r.trading)})</span></td><td className="text-right tabular-nums">{usd(r.tradeContribution)}</td></tr>
-                  <tr><td>Manufacturing overhead allocation <span className="text-muted-foreground">({inputs.mfgOhPct}%)</span></td><td className="text-right tabular-nums">{usd(r.mfgOhContribution)}</td></tr>
+                  <tr><td>Manufacturing labour + overhead <span className="text-muted-foreground">({inputs.mfgOhPct}%)</span></td><td className="text-right tabular-nums">{usd(r.mfgOhContribution)}</td></tr>
                   <tr><td>Manufacturing net margin <span className="text-muted-foreground">({inputs.netCounts ? `${inputs.mfgNetPct}%` : 'kept as profit'})</span></td><td className="text-right tabular-nums">{usd(r.mfgNetContribution)}</td></tr>
                   <tr className="font-semibold"><td>Covers overhead {usd(r.annualOverhead)} + buffer {usd(inputs.bufferUsd)}</td><td className="text-right tabular-nums">{usd(contribTotal)}</td></tr>
                 </tbody>
@@ -260,7 +260,7 @@ export default function BreakevenCalculator() {
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {field('tradeNetPct', 'Trading net margin', '%')}
               {field('mfgNetPct', 'Manufacturing net margin', '%')}
-              {field('mfgOhPct', 'Manufacturing overhead allocation', '%')}
+              {field('mfgOhPct', 'Manufacturing labour + overhead', '%')}
               {field('highOhUsd', 'High-month overhead', '$')}
               {field('lowOhUsd', 'Low-month overhead', '$')}
               {field('highMonths', 'High months per year', undefined, true)}
@@ -270,13 +270,13 @@ export default function BreakevenCalculator() {
               <Checkbox checked={inputs.netCounts} onCheckedChange={v => set('netCounts', v === true)} className="mt-0.5" />
               <span>
                 Count manufacturing's net margin toward overhead and the buffer. Untick it to keep that margin as profit on top: manufacturing then
-                contributes only its overhead allocation, and the revenue required goes up.
+                contributes only its labour and overhead, and the revenue required goes up.
               </span>
             </label>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Contribution is what a dollar of revenue leaves after direct cost. Trading leaves its net margin; manufacturing leaves its overhead
-              allocation plus its net margin. Breakeven is where that pool equals a year of overhead plus the buffer. Live margins use the SO
-              Profitability math on orders finished in the last 12 months (orders with a manufacturing order count as manufacturing). Taxes, owner pay,
+              Contribution is what a dollar of revenue leaves after direct cost. Trading leaves its net margin; manufacturing leaves all its labour and
+              overhead (direct wages plus indirect burden, which trading never covers) plus its net margin. Breakeven is where that pool equals a year of overhead plus the buffer. Live margins use the SO
+              Profitability math on orders finished in the last 12 months (the Trading or Manufacturing tag on each Odoo sales order decides which is which). Taxes, owner pay,
               working-capital swings and cash tied up between paying suppliers and getting paid are not modelled.
             </p>
           </CardContent>

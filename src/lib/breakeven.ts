@@ -11,7 +11,7 @@ export type BreakevenInputs = {
   tradeNetPct: number;
   /** Manufacturing net margin, % of revenue (after its overhead allocation). */
   mfgNetPct: number;
-  /** Indirect overhead absorbed by manufacturing orders, % of revenue. */
+  /** Labour and overhead absorbed by manufacturing orders (direct wages + indirect burden), % of revenue. */
   mfgOhPct: number;
   /** Monthly overhead in a high month and a low month (USD). */
   highOhUsd: number;
@@ -86,7 +86,8 @@ export type LiveMargins = {
 /**
  * Margins and mix from finished Odoo orders, using the SO Profitability line math (USD).
  * Trading vs manufacturing comes from the SO's Odoo tag (src/lib/order-kind.ts), else the MO guess.
- * Manufacturing overhead = LaborTrax indirect burden booked on its MOs, as a share of revenue.
+ * Manufacturing overhead = all LaborTrax cost booked on its MOs (direct wages + indirect burden), as a share
+ * of revenue: the factory payroll is overhead trading never covers.
  */
 export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): LiveMargins {
   const t = { rev: 0, net: 0, n: 0 };
@@ -102,7 +103,7 @@ export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): Liv
     if (!tagged) guessedOrders++;
     if (kind === 'manufacturing') {
       f.rev += rev; f.net += net; f.n++;
-      f.oh += rows.reduce((s, r) => s + r.unitOverhead * r.line.qty, 0);
+      f.oh += rows.reduce((s, r) => s + (r.unitDirect + r.unitOverhead) * r.line.qty, 0);
     } else { t.rev += rev; t.net += net; t.n++; }
   }
   const pct = (a: number, b: number) => (b > 0 ? (a / b) * 100 : null);
