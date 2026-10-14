@@ -23,6 +23,7 @@ import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, chooseQuote, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
+  isDomesticFreight,
 } from '@/lib/costing-workspace';
 import { CostMixBar, EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { VIEWS, type Col } from './columns';
@@ -150,13 +151,13 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <div className="mt-2 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · {r.finalUnitCbm.toFixed(4)} CBM/unit · {num(r.manHoursPerUnit, 2)} man-hrs/unit</div>
         </Section>
 
-        <Section title="Materials & components" count={bundle.cogs.filter(c => c.product_id === id && c.include !== 'No').length} defaultOpen done={done('cogs_done')} review={cogsReview}>
+        <Section title="Materials & components" count={bundle.cogs.filter(c => c.product_id === id && c.include !== 'No' && !isDomesticFreight(c)).length} defaultOpen done={done('cogs_done')} review={cogsReview}>
           {page && onReload && (
             <div className="mb-3">
               <ProductChemicalsPicker productId={id} chemicals={bundle.chemicalPrices} cogsItems={bundle.cogs.filter(c => c.product_id === id)} onChanged={onReload} />
             </div>
           )}
-          <CogsLines row={row} bundle={bundle} apply={apply} />
+          <CogsLines row={row} bundle={bundle} apply={apply} show={l => !isDomesticFreight(l)} />
         </Section>
 
         <Section title="Labor & overhead" sub={inr(row.buckets.labor) + '/unit'} defaultOpen={page} done={done('overhead_done')} review={ohReview}>
@@ -167,12 +168,15 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <PackagingFields row={row} bundle={bundle} apply={apply} />
         </Section>
 
-        <Section title="Shipping" sub={inr(r.shippingPerUnit) + '/unit'} defaultOpen={page} done={done('shipping_done')}>
+        <Section title="Shipping" sub={inr(row.buckets.shipping) + '/unit'} defaultOpen={page} done={done('shipping_done')}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <Field col={colById('shipping')} row={row} bundle={bundle} apply={apply} />
             <div className="text-sm"><div className="text-xs text-muted-foreground">Per unit</div><div className="h-8 flex items-center tabular-nums font-medium">{inr(r.shippingPerUnit, 2)} · {r.finalUnitCbm.toFixed(4)} CBM</div></div>
           </div>
           {r.fobEstimate && <div className="mt-3"><FobEstimatePanel estimate={r.fobEstimate} shippingPerUnit={r.shippingPerUnit} /></div>}
+          {bundle.cogs.some(c => c.product_id === id && isDomesticFreight(c)) && (
+            <div className="mt-3"><CogsLines row={row} bundle={bundle} apply={apply} show={isDomesticFreight} fixed /></div>
+          )}
         </Section>
 
         <Section title="Product setup" defaultOpen={page}>
@@ -587,18 +591,19 @@ function IncludeToggle({ value, onChange }: { value: string; onChange: (v: strin
 
 const AUTO_TIP = 'Calculated by the costing engine. Typing a value makes it a manual line; Recalculate auto costs hands it back.';
 
-function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; apply: Apply }) {
+/** COGS lines grouped by category. `show` picks which lines this table carries; `fixed` hides the add-line controls. */
+function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: WorkspaceRow; bundle: Bundle; apply: Apply; show?: (l: any) => boolean; fixed?: boolean }) {
   const categories = useCogsCategories();
   const [addType, setAddType] = useState('Raw Piece');
   const [showExcluded, setShowExcluded] = useState(false);
   const id = row.p.id;
   const resolved = new Map((row.r.resolvedCogsRows as any[]).map(c => [c.id, c]));
   const order = [...categories, ...COGS_CATEGORY_FALLBACK];
-  const lines = bundle.cogs.filter(c => c.product_id === id)
+  const lines = bundle.cogs.filter(c => c.product_id === id && show(c))
     .map(c => resolved.get(c.id) ?? c)
     .sort((a, b) => (order.indexOf(a.cogs_type) + 1 || 99) - (order.indexOf(b.cogs_type) + 1 || 99) || (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const excluded = lines.filter(l => l.include === 'No');
-  const visible = showExcluded ? lines : lines.filter(l => l.include !== 'No' || l.cogs_type === 'Raw Piece');
+  const visible = showExcluded || fixed ? lines : lines.filter(l => l.include !== 'No' || l.cogs_type === 'Raw Piece');
   const types = [...new Set(visible.map(l => l.cogs_type))];
   const rawSlots = lines.filter(l => l.cogs_type === 'Raw Piece');
   const hardware = bundle.hardwarePrices || [];
@@ -628,7 +633,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
           </thead>
           {types.map(t => (
             <tbody key={t}>
-              <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ' — pick one quote' : ''}</td></tr>
+              {!fixed && <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ' — pick one quote' : ''}</td></tr>}
               {visible.filter(l => l.cogs_type === t).map(l => {
                 const auto = !!l.is_auto_calculated;
                 const off = l.include === 'No';
@@ -695,7 +700,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
           ))}
         </table>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      {!fixed && <div className="flex flex-wrap items-center gap-2">
         <select className="h-8 rounded-md border bg-background px-2 text-sm" value={addType} onChange={e => setAddType(e.target.value)}>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -707,7 +712,7 @@ function CogsLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; 
             {showExcluded ? 'Hide' : 'Show'} {excluded.length} excluded line{excluded.length === 1 ? '' : 's'}
           </button>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
