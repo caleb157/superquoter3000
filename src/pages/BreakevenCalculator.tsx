@@ -10,7 +10,6 @@ import { AppLayout } from '@/components/AppLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { NumInput } from '@/components/iron-weight/PartRow';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
@@ -27,7 +26,7 @@ const SHIP_ACCT_KEY = 'so-profitability-shipping-account';
 const DEFAULT_SHIP_ACCT = 170;
 const PRESETS = [0, 25, 40, 50, 60, 75, 100];
 
-type NumKey = Exclude<keyof BreakevenInputs, 'netCounts'>;
+type NumKey = keyof BreakevenInputs;
 const usd = (n: number) => (Number.isFinite(n) ? `$${Math.round(n).toLocaleString('en-US')}` : '—');
 const compact = (n: number) => (!Number.isFinite(n) ? '—' : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}k` : `$${Math.round(n)}`);
 const pct = (n: number) => (Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—');
@@ -78,8 +77,8 @@ export default function BreakevenCalculator() {
   const overhead = useMemo(() => liveOverheadFromHistory(snapshot?.overhead_monthly?.history, snapshot?.inr_per_usd || fx), [snapshot, fx]);
 
   const live: LiveInputs = useMemo(() => ({
-    tradeNetPct: round1(margins?.tradeNetPct), mfgNetPct: round1(margins?.mfgNetPct),
-    mfgOhPct: round1(margins?.mfgOhPct), mfgSharePct: round0(margins?.mfgSharePct),
+    tradeGrossPct: round1(margins?.tradeGrossPct), mfgGrossPct: round1(margins?.mfgGrossPct),
+    mfgSharePct: round0(margins?.mfgSharePct),
     highOhUsd: round0(overhead?.highOhUsd), lowOhUsd: round0(overhead?.lowOhUsd), highMonths: overhead?.highMonths,
   }), [margins, overhead]);
   const inputs = useMemo(() => resolveInputs(live, overrides), [live, overrides]);
@@ -91,16 +90,12 @@ export default function BreakevenCalculator() {
   const edited = Object.keys(overrides).length > 0;
 
   const tradeSrc = margins?.tradeOrders ? `${margins.tradeOrders} finished trading orders, last 12 months` : null;
-  const noLabour = margins?.mfgNoLabourOrders ?? 0;
-  const mfgSrc = margins?.mfgOrders
-    ? `${margins.mfgOrders} finished manufacturing orders with LaborTrax labour, last 12 months${noLabour ? ` (${noLabour} without labour left out)` : ''}`
-    : null;
+  const mfgSrc = margins?.mfgOrders ? `${margins.mfgOrders} finished manufacturing orders, last 12 months (price minus MO materials)` : null;
   const guessed = margins?.guessedOrders ?? 0;
   const ohSrc = overhead ? `Odoo overhead, ${overhead.months} months (avg ${usd(overhead.averageUsd)}/mo)` : null;
   const sources: Record<NumKey, string | null> = {
-    tradeNetPct: tradeSrc,
-    mfgNetPct: mfgSrc,
-    mfgOhPct: mfgSrc && `${mfgSrc}, all LaborTrax cost on their MOs (direct wages + indirect overhead)`,
+    tradeGrossPct: tradeSrc,
+    mfgGrossPct: mfgSrc,
     highOhUsd: ohSrc, lowOhUsd: ohSrc,
     highMonths: overhead ? `Months above the ${overhead.months}-month average, scaled to 12` : null,
     bufferUsd: null,
@@ -130,7 +125,7 @@ export default function BreakevenCalculator() {
   };
 
   const share = inputs.mfgSharePct;
-  const contribTotal = r.tradeContribution + r.mfgOhContribution + r.mfgNetContribution;
+  const contribTotal = r.tradeContribution + r.mfgContribution;
   const seg = (v: number) => (contribTotal > 0 ? `${(v / contribTotal) * 100}%` : '0%');
 
   return (
@@ -234,15 +229,13 @@ export default function BreakevenCalculator() {
             <CardHeader className="pb-2"><CardTitle className="text-sm">Where the contribution goes</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex h-7 rounded-md overflow-hidden border">
-                <div className="bg-info" style={{ width: seg(r.tradeContribution) }} title="Trading net margin" />
-                <div className="bg-warning" style={{ width: seg(r.mfgOhContribution) }} title="Manufacturing labour + overhead" />
-                <div className="bg-warning/70" style={{ width: seg(r.mfgNetContribution) }} title="Manufacturing net margin" />
+                <div className="bg-info" style={{ width: seg(r.tradeContribution) }} title="Trading gross margin" />
+                <div className="bg-warning" style={{ width: seg(r.mfgContribution) }} title="Manufacturing gross margin" />
               </div>
               <table className="w-full text-xs">
                 <tbody className="[&_td]:py-1.5 [&_tr]:border-b last:[&_tr]:border-0">
-                  <tr><td>Trading net margin <span className="text-muted-foreground">({inputs.tradeNetPct}% of {usd(r.trading)})</span></td><td className="text-right tabular-nums">{usd(r.tradeContribution)}</td></tr>
-                  <tr><td>Manufacturing labour + overhead <span className="text-muted-foreground">({inputs.mfgOhPct}%)</span></td><td className="text-right tabular-nums">{usd(r.mfgOhContribution)}</td></tr>
-                  <tr><td>Manufacturing net margin <span className="text-muted-foreground">({inputs.netCounts ? `${inputs.mfgNetPct}%` : 'kept as profit'})</span></td><td className="text-right tabular-nums">{usd(r.mfgNetContribution)}</td></tr>
+                  <tr><td>Trading gross margin <span className="text-muted-foreground">({inputs.tradeGrossPct}% of {usd(r.trading)})</span></td><td className="text-right tabular-nums">{usd(r.tradeContribution)}</td></tr>
+                  <tr><td>Manufacturing gross margin <span className="text-muted-foreground">({inputs.mfgGrossPct}% of {usd(r.manufacturing)})</span></td><td className="text-right tabular-nums">{usd(r.mfgContribution)}</td></tr>
                   <tr className="font-semibold"><td>Covers overhead {usd(r.annualOverhead)} + buffer {usd(inputs.bufferUsd)}</td><td className="text-right tabular-nums">{usd(contribTotal)}</td></tr>
                 </tbody>
               </table>
@@ -261,25 +254,18 @@ export default function BreakevenCalculator() {
               </p>
             )}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {field('tradeNetPct', 'Trading net margin', '%')}
-              {field('mfgNetPct', 'Manufacturing net margin', '%')}
-              {field('mfgOhPct', 'Manufacturing labour + overhead', '%')}
+              {field('tradeGrossPct', 'Trading gross margin', '%')}
+              {field('mfgGrossPct', 'Manufacturing gross margin', '%')}
               {field('highOhUsd', 'High-month overhead', '$')}
               {field('lowOhUsd', 'Low-month overhead', '$')}
               {field('highMonths', 'High months per year', undefined, true)}
               {field('bufferUsd', 'Annual cash buffer', '$')}
             </div>
-            <label className="flex items-start gap-2 text-xs">
-              <Checkbox checked={inputs.netCounts} onCheckedChange={v => set('netCounts', v === true)} className="mt-0.5" />
-              <span>
-                Count manufacturing's net margin toward overhead and the buffer. Untick it to keep that margin as profit on top: manufacturing then
-                contributes only its labour and overhead, and the revenue required goes up.
-              </span>
-            </label>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Contribution is what a dollar of revenue leaves after direct cost. Trading leaves its net margin; manufacturing leaves all its labour and
-              overhead (direct wages plus indirect burden, which trading never covers) plus its net margin. Breakeven is where that pool equals a year of overhead plus the buffer. Live margins use the SO
-              Profitability math on orders finished in the last 12 months (the Trading or Manufacturing tag on each Odoo sales order decides which is which). Taxes, owner pay,
+              Contribution is each order's gross margin: price minus bought-in cost for trading, price minus MO materials for manufacturing. Labour and
+              everything else below gross margin is overhead, and shipping is charged on top, so neither is taken out. Breakeven is where that pool equals a
+              year of overhead plus the buffer. Live margins use the SO Profitability math on orders finished in the last 12 months (the Trading or
+              Manufacturing tag on each Odoo sales order decides which is which). Taxes, owner pay,
               working-capital swings and cash tied up between paying suppliers and getting paid are not modelled.
             </p>
           </CardContent>
