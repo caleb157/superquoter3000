@@ -8,6 +8,7 @@
 // Replaces the separate Pricing Grid (vendor quotes), Target Grid (target prices) and
 // Bulk Costing Editor: they were three views over the same rows.
 
+import { mergeHardwarePrices } from '@/lib/hardware-prices';
 import { supabase } from '@/integrations/supabase/client';
 import { OUTSOURCED_COGS_NAME, computeProductCosting, type CostingEngineResult, type ShipmentPool } from '@/lib/costing-engine';
 import { loadFobRates } from '@/lib/fob-rates';
@@ -329,7 +330,7 @@ async function loadRows(ids: string[]) {
 }
 
 async function loadRefs() {
-  const [res] = await Promise.all([
+  const [res, legacyHw] = await Promise.all([
     Promise.all([
       db.from('shipping_types').select('*'),
       db.from('labor_employees').select('*'),
@@ -340,8 +341,8 @@ async function loadRefs() {
       db.from('finishing_difficulty').select('*'),
       db.from('local_transport_locations').select('id, name, cost_per_cbm_inr'),
       db.from('raw_material_costs').select('*'),
-      db.from('hardware_prices').select('*').order('name'),
     ]),
+    db.from('hardware_prices').select('*'), // old library, until the move SQL has run
     loadFobRates(),
   ]);
   const failed = res.find((x: any) => x.error);
@@ -349,7 +350,8 @@ async function loadRefs() {
   const d = res.map((x: any) => x.data || []);
   return {
     shipTypes: d[0], employees: d[1], gs: res[2].data || {}, productTypes: d[3], chemicalPrices: d[4], boxData: d[5],
-    difficulties: d[6], locations: d[7], rawMaterialCosts: d[8], hardwarePrices: d[9],
+    difficulties: d[6], locations: d[7], rawMaterialCosts: d[8],
+    hardwarePrices: mergeHardwarePrices(d[8], (legacyHw as any).error ? [] : (legacyHw as any).data || []),
   };
 }
 

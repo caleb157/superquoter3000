@@ -99,7 +99,7 @@ interface QuoteData {
     valid_until: string | null;
     status: string;
     products: QuoteProduct[];
-    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; below_moq_surcharge_percent?: number; discount_percent?: number | null; freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null };
+    totals: { grand_total: number; total_qty: number; total_cbm: number; sku_count: number; discount_percent?: number | null; freight?: { mode: 'sea' | 'air'; rate: number; amount: number; total_cbm?: number; total_chargeable_kg?: number; dim_divisor?: number } | null };
     customer_selections?: any;
     approved_at?: string;
     notes?: string | null;
@@ -238,12 +238,11 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
   const autoSave = useCallback(async (currentSelections: Record<number, ProductSelection>) => {
     if (embedded || !token || !data || confirmed) return;
     try {
-      const pct = data.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
       const customerSelections = {
         products: data.snapshot.products.map((p, i) => {
           const q = currentSelections[i]?.quantity ?? p.quantity;
           const moq = Math.max(1, p.moq || 1);
-          const unit = q < moq ? (p.unit_price_usd || 0) * (1 + pct) : (p.unit_price_usd || 0);
+          const unit = p.unit_price_usd || 0;
           return {
             name: p.name,
             sku: p.sku,
@@ -271,20 +270,15 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [selections, autoSave, confirmed, data, embedded]);
 
-  // Below-MOQ surcharge & hard-floor helpers.
+  // MOQ helpers.
   // - hardFloor: absolute minimum quantity the customer can order.
-  // - moq: standard MOQ. If qty is between hardFloor and moq-1, apply surcharge.
-  const surchargePct = data?.snapshot.totals?.below_moq_surcharge_percent ?? 0.15;
+  // - moq: standard MOQ; ordering between hardFloor and moq-1 is flagged below_moq, at the quoted price.
   const getProductFloors = (p: QuoteProduct | undefined) => {
     const moq = Math.max(1, p?.moq || 1);
     const hardFloor = Math.max(1, p?.hard_moq ?? moq);
     return { moq, hardFloor };
   };
-  const effectiveUnitPrice = (p: QuoteProduct, qty: number) => {
-    const { moq } = getProductFloors(p);
-    const base = p.unit_price_usd || 0;
-    return qty < moq ? base * (1 + surchargePct) : base;
-  };
+  const effectiveUnitPrice = (p: QuoteProduct) => p.unit_price_usd || 0;
 
   const updateQuantity = (idx: number, delta: number) => {
     setSelections(prev => {
@@ -305,14 +299,14 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
     let totalQty = 0, totalCbm = 0, totalValue = 0;
     data.snapshot.products.forEach((p, i) => {
       const qty = selections[i]?.quantity ?? p.quantity;
-      const unit = effectiveUnitPrice(p, qty);
+      const unit = effectiveUnitPrice(p);
       totalQty += qty;
       totalCbm += (p.unit_cbm || 0) * qty;
       totalValue += unit * qty;
     });
     return { totalItems: data.snapshot.products.length, totalQty, totalCbm, totalValue };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, selections, surchargePct]);
+  }, [data, selections]);
 
   const currencyCode: string = data?.snapshot.currency || 'USD';
   const symbol = fmt.money(0, currencyCode).replace(/[\d.,\s]/g, '') || '$';
@@ -324,7 +318,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
       const customerSelections = {
         products: data?.snapshot.products.map((p, i) => {
           const q = selections[i]?.quantity ?? p.quantity;
-          const unit = effectiveUnitPrice(p, q);
+          const unit = effectiveUnitPrice(p);
           const moq = Math.max(1, p.moq || 1);
           return {
             name: p.name,
@@ -714,8 +708,7 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
             {snapshot.products.map((product, idx) => {
               const qty = selections[idx]?.quantity ?? product.quantity;
               const { moq: pMoq, hardFloor: pFloor } = getProductFloors(product);
-              const unitPrice = effectiveUnitPrice(product, qty);
-              const isBelowMoq = qty < pMoq;
+              const unitPrice = effectiveUnitPrice(product);
               const lineTotal = unitPrice * qty;
               return (
                 <div key={idx} className="bg-white border border-slate-200 rounded-lg overflow-hidden print-shadow-none print-border-light">
@@ -744,11 +737,6 @@ const CustomerQuote = ({ embeddedId }: { embeddedId?: string } = {}) => {
                             <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
                               {symbol}{unitPrice.toFixed(2)} / unit
                             </p>
-                            {isBelowMoq && (
-                              <p className="text-[10px] text-amber-600 mt-0.5">
-                                +{(surchargePct * 100).toFixed(0)}% below-MOQ surcharge
-                              </p>
-                            )}
                           </div>
                         </div>
                         {(product.width_inch || product.weight_kg || product.unit_cbm > 0 || product.box_size) && (

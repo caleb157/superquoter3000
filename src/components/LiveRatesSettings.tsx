@@ -7,10 +7,11 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { avgRateByDesignation } from '@/lib/calculations';
 import { LABOR_COLS } from '@/lib/costing-intake';
-import { isLiveStale, LIVE_STALE_HOURS, type LiveLaborDetail } from '@/lib/live-rates';
+import { isLiveStale, LIVE_STALE_HOURS, withLiveDirectRates, type LiveLaborDetail } from '@/lib/live-rates';
 import { syncLiveRates } from '@/lib/live-rates-sync';
 import { cn } from '@/lib/utils';
 
@@ -43,10 +44,23 @@ export default function LiveRatesSettings() {
     await load();
   };
 
+  // Fallback ₹/hr per labor type, used when LaborTrax has no rate for that type.
+  const saveFallback = async (type: string, raw: string) => {
+    const n = raw.trim() === '' ? null : Number(raw);
+    if (n != null && (!Number.isFinite(n) || n < 0)) return toast.error('Enter a rate in ₹ per hour');
+    const next = { ...(gs.fallback_direct_rates || {}) };
+    if (n == null) delete next[type]; else next[type] = n;
+    const { error } = await (supabase as any).from('global_settings').update({ fallback_direct_rates: next }).eq('id', gs.id);
+    if (error) return toast.error(error.message);
+    setGs({ ...gs, fallback_direct_rates: next });
+  };
+
   if (!gs) return <div className="text-sm text-muted-foreground">Loading…</div>;
   const detail = (gs.live_labor_detail || null) as LiveLaborDetail | null;
   const directLive = (gs.live_direct_rates || {}) as Record<string, number>;
   const warnings: string[] = gs.live_rates_warnings || [];
+  const fallback = (gs.fallback_direct_rates || {}) as Record<string, number>;
+  const fallbackList = withLiveDirectRates(employees, { fallback_direct_rates: fallback });
   const stale = isLiveStale(gs.live_exchange_rate_at) || isLiveStale(gs.live_labor_at);
 
   return (
@@ -57,7 +71,7 @@ export default function LiveRatesSettings() {
             <CardTitle>Live rates</CardTitle>
             <CardDescription>
               Exchange rate from Odoo; indirect overhead (fully burdened ₹/man-hour) and direct wages by labor type from LaborTrax.
-              Every costing screen and new quote uses them, and they refresh automatically every {LIVE_STALE_HOURS} hours. A per-inquiry override still wins, and if a source is down the last good value stays in use.
+              Every costing screen and new quote uses them, and they refresh automatically every {LIVE_STALE_HOURS} hours. A per-inquiry override still wins, and if a source is down the last good value stays in use. A labor type LaborTrax has no hours for uses its fallback ₹/hr.
             </CardDescription>
           </div>
           <Button size="sm" variant="outline" onClick={refresh} disabled={syncing}>
@@ -74,13 +88,14 @@ export default function LiveRatesSettings() {
 
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Rate</TableHead><TableHead className="text-right">In use</TableHead><TableHead>Source</TableHead></TableRow>
+              <TableRow><TableHead>Rate</TableHead><TableHead className="text-right">In use</TableHead><TableHead>Source</TableHead><TableHead className="w-32 text-right" title="Used only when LaborTrax has no rate for this labor type">Fallback ₹/hr</TableHead></TableRow>
             </TableHeader>
             <TableBody>
               <TableRow>
                 <TableCell>Exchange rate (INR per USD)</TableCell>
                 <TableCell className="text-right tabular-nums">{Number(gs.live_exchange_rate || gs.exchange_rate).toFixed(4)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">Odoo, updated {ago(gs.live_exchange_rate_at)}</TableCell>
+                <TableCell />
               </TableRow>
               <TableRow>
                 <TableCell>Indirect overhead / man-hour (fully burdened)</TableCell>
@@ -88,14 +103,25 @@ export default function LiveRatesSettings() {
                 <TableCell className="text-xs text-muted-foreground">
                   {detail?.burdened_source === 'labortrax' ? `LaborTrax fully burdened figure${detail.window ? `, ${detail.window.from} to ${detail.window.to}` : ''}` : `LaborTrax labor entries${detail ? `, ${detail.window.from} to ${detail.window.to}, ${detail.hours.toLocaleString()} man-hours` : ''}`}, updated {ago(gs.live_labor_at)}
                 </TableCell>
+                <TableCell />
               </TableRow>
               {LABOR_TYPES.map(t => (
                 <TableRow key={t}>
                   <TableCell className="pl-6">Direct wages / man-hour: {t}</TableCell>
-                  <TableCell className="text-right tabular-nums">{inr(directLive[t] || avgRateByDesignation(employees, t))}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{!directLive[t] ? 'No LaborTrax hours: Labor Directory employee average'
+                  <TableCell className="text-right tabular-nums">{inr(directLive[t] || avgRateByDesignation(fallbackList, t))}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{!directLive[t] ? 'No LaborTrax hours: fallback rate'
                     : detail?.direct_source?.[t] === '6m' ? 'LaborTrax, 6-month rate (no hours in the last 3 weeks)'
                     : `LaborTrax${detail?.direct_window ? `, ${detail.direct_window.from} to ${detail.direct_window.to}` : ''}`}</TableCell>
+                  <TableCell className="text-right">
+                    <Input
+                      key={`${t}-${fallback[t] ?? ''}`}
+                      type="number" min={0} step="0.01" aria-label={`Fallback ₹/hr for ${t}`}
+                      className="ml-auto h-7 w-24 text-right text-xs tabular-nums"
+                      defaultValue={fallback[t] ?? ''}
+                      placeholder={fallback[t] == null ? String(Math.round(avgRateByDesignation(employees, t) || 0) || '') : ''}
+                      onBlur={e => { if (e.target.value !== String(fallback[t] ?? '')) void saveFallback(t, e.target.value); }}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

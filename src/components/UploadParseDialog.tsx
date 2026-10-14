@@ -218,8 +218,9 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
     const failedFiles: string[] = [];
     
     // Fetch hardware prices upfront for matching
-    const { data: hwPrices } = await supabase.from('hardware_prices').select('*');
-    setHardwarePrices(hwPrices || []);
+    const { loadHardwarePrices } = await import('@/lib/hardware-prices');
+    const hwPrices = await loadHardwarePrices();
+    setHardwarePrices(hwPrices);
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i].file;
@@ -280,7 +281,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
 
         if (data?.products?.length) {
           const products: ParsedProduct[] = data.products.map((p: any) => {
-            // Match hardware items against hardware_prices
+            // Match hardware items against the hardware price library
             const hw = (p.hardware_detected || p.hardware_guess || []).map((h: any) => {
               const matched = (hwPrices || []).find((hp: any) =>
                 hp.name.toLowerCase().includes((h.item || h.type || '').toLowerCase()) ||
