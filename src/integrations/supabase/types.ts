@@ -1903,6 +1903,30 @@ export type Database = {
         }
         Relationships: []
       }
+      odoo_order_kinds: {
+        Row: {
+          created_at: string
+          kind: string
+          so_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          kind: string
+          so_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          kind?: string
+          so_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       odoo_push_log: {
         Row: {
           created_at: string
