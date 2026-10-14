@@ -11,25 +11,18 @@ describe('breakeven math', () => {
     expect(r.target).toBe(46000);
     expect(r.rate).toBeCloseTo(0.28, 10);
     expect(r.required).toBeCloseTo(46000 / 0.28, 6);
-    expect(r.tradeContribution + r.mfgOhContribution + r.mfgNetContribution).toBeCloseTo(46000, 6);
-  });
-
-  it('needs more revenue when manufacturing net margin is kept as profit', () => {
-    const kept = requiredRevenue({ ...FALLBACK_INPUTS, netCounts: false });
-    expect(kept).toBeCloseTo(46000 / (0.4 * 0.1 + 0.6 * 0.3), 6);
-    expect(kept).toBeGreaterThan(requiredRevenue(FALLBACK_INPUTS));
+    expect(r.tradeContribution + r.mfgContribution).toBeCloseTo(46000, 6);
   });
 
   it('is infinite when nothing contributes', () => {
-    expect(requiredRevenue({ ...FALLBACK_INPUTS, tradeNetPct: 0, mfgSharePct: 0 })).toBe(Infinity);
+    expect(requiredRevenue({ ...FALLBACK_INPUTS, tradeGrossPct: 0, mfgSharePct: 0 })).toBe(Infinity);
   });
 
   it('lets overrides win over live values, and live win over fallbacks', () => {
-    const i = resolveInputs({ tradeNetPct: 12, mfgOhPct: 25 }, { mfgOhPct: 28, netCounts: false });
-    expect(i.tradeNetPct).toBe(12);
-    expect(i.mfgOhPct).toBe(28);
-    expect(i.mfgNetPct).toBe(FALLBACK_INPUTS.mfgNetPct);
-    expect(i.netCounts).toBe(false);
+    const i = resolveInputs({ tradeGrossPct: 12, mfgGrossPct: 25 }, { mfgGrossPct: 28 });
+    expect(i.tradeGrossPct).toBe(12);
+    expect(i.mfgGrossPct).toBe(28);
+    expect(i.bufferUsd).toBe(FALLBACK_INPUTS.bufferUsd);
   });
 });
 
@@ -49,12 +42,11 @@ describe('live values', () => {
     labor: [{ mo_id: 5, activity: null, category: 'x', hours: 10, direct_inr: 30000, overhead_inr: 60000, burdened_inr: 90000 }],
   };
 
-  it('splits trading and manufacturing margins and mix', () => {
-    // fx 100: trading revenue 1000, cost 900 → 10%; mfg revenue 3000, cost 2100 (direct 300 + OH 600) → 30% net, 30% labour + OH
+  it('splits trading and manufacturing gross margins and mix', () => {
+    // fx 100: trading revenue 1000, bought-in 900 → 10%; mfg revenue 3000, materials 1200 → 60% (labour is overhead)
     const m = liveMarginsFromOrders([trading, mfg], 100);
-    expect(m.tradeNetPct).toBeCloseTo(10, 6);
-    expect(m.mfgNetPct).toBeCloseTo(30, 6);
-    expect(m.mfgOhPct).toBeCloseTo(30, 6);
+    expect(m.tradeGrossPct).toBeCloseTo(10, 6);
+    expect(m.mfgGrossPct).toBeCloseTo(60, 6);
     expect(m.mfgSharePct).toBeCloseTo(75, 6);
     expect(m.tradeOrders).toBe(1);
     expect(m.mfgOrders).toBe(1);
@@ -62,24 +54,13 @@ describe('live values', () => {
   });
 
   it('uses the Odoo tag over the MO guess', () => {
-    // S2 has MOs but is tagged Trading: both orders are trading, 4000 revenue, 3000 cost → 25%
+    // S2 has MOs but is tagged Trading: both orders are trading, 4000 revenue, 2100 materials → 47.5%
     const m = liveMarginsFromOrders([trading, { ...mfg, tags: ['VIP', 'trading'] }], 100);
     expect(m.tradeOrders).toBe(2);
     expect(m.mfgOrders).toBe(0);
-    expect(m.tradeNetPct).toBeCloseTo(25, 6);
+    expect(m.tradeGrossPct).toBeCloseTo(47.5, 6);
     expect(m.mfgSharePct).toBeCloseTo(0, 6);
     expect(m.guessedOrders).toBe(1);
-  });
-
-  it('leaves manufacturing orders without labour out of the margins but keeps them in the mix', () => {
-    // a second mfg order with an MO but no labour: margins stay as before, mix = 6000 / 7000
-    const noLab: SoOrder = { ...mfg, id: 3, name: 'S3', labor: [] };
-    const m = liveMarginsFromOrders([trading, mfg, noLab], 100);
-    expect(m.mfgNetPct).toBeCloseTo(30, 6);
-    expect(m.mfgOhPct).toBeCloseTo(30, 6);
-    expect(m.mfgOrders).toBe(1);
-    expect(m.mfgNoLabourOrders).toBe(1);
-    expect(m.mfgSharePct).toBeCloseTo((6000 / 7000) * 100, 6);
   });
 
   it('falls back to the MO guess when an order has neither tag or both', () => {

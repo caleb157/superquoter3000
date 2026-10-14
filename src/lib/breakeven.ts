@@ -7,12 +7,10 @@ import { analyzeLines, type SoOrder } from '@/lib/so-profitability';
 import { orderKind } from '@/lib/order-kind';
 
 export type BreakevenInputs = {
-  /** Trading net margin, % of revenue. */
-  tradeNetPct: number;
-  /** Manufacturing net margin, % of revenue (after its overhead allocation). */
-  mfgNetPct: number;
-  /** Labour and overhead absorbed by manufacturing orders (direct wages + indirect burden), % of revenue. */
-  mfgOhPct: number;
+  /** Trading gross margin, % of revenue (price minus bought-in cost). */
+  tradeGrossPct: number;
+  /** Manufacturing gross margin, % of revenue (price minus materials). Labour is overhead, so it all contributes. */
+  mfgGrossPct: number;
   /** Monthly overhead in a high month and a low month (USD). */
   highOhUsd: number;
   lowOhUsd: number;
@@ -20,25 +18,24 @@ export type BreakevenInputs = {
   highMonths: number;
   /** Cash to bank on top of overhead each year (USD). */
   bufferUsd: number;
-  /** Count manufacturing's net margin toward overhead and the buffer. */
-  netCounts: boolean;
   /** Manufacturing share of revenue, 0–100. */
   mfgSharePct: number;
 };
 
 /** The original model's assumptions, used when no live value is available. */
 export const FALLBACK_INPUTS: BreakevenInputs = {
-  tradeNetPct: 10, mfgNetPct: 10, mfgOhPct: 30, highOhUsd: 3500, lowOhUsd: 2500,
-  highMonths: 6, bufferUsd: 10000, netCounts: true, mfgSharePct: 60,
+  tradeGrossPct: 10, mfgGrossPct: 40, highOhUsd: 3500, lowOhUsd: 2500,
+  highMonths: 6, bufferUsd: 10000, mfgSharePct: 60,
 };
+const INPUT_KEYS = Object.keys(FALLBACK_INPUTS) as (keyof BreakevenInputs)[];
 
 export const annualOverhead = (i: BreakevenInputs) => {
   const n = Math.min(12, Math.max(0, i.highMonths));
   return n * i.highOhUsd + (12 - n) * i.lowOhUsd;
 };
 export const target = (i: BreakevenInputs) => annualOverhead(i) + i.bufferUsd;
-export const tradeRate = (i: BreakevenInputs) => i.tradeNetPct / 100;
-export const mfgRate = (i: BreakevenInputs) => i.mfgOhPct / 100 + (i.netCounts ? i.mfgNetPct / 100 : 0);
+export const tradeRate = (i: BreakevenInputs) => i.tradeGrossPct / 100;
+export const mfgRate = (i: BreakevenInputs) => i.mfgGrossPct / 100;
 /** Contribution per dollar of revenue at manufacturing share m (0–1). */
 export const blendedRate = (i: BreakevenInputs, m: number) => tradeRate(i) * (1 - m) + mfgRate(i) * m;
 
@@ -52,7 +49,7 @@ export type BreakevenResult = {
   required: number; perMonth: number; trading: number; manufacturing: number; rate: number;
   annualOverhead: number; target: number;
   /** Where the contribution comes from at the required revenue. */
-  tradeContribution: number; mfgOhContribution: number; mfgNetContribution: number;
+  tradeContribution: number; mfgContribution: number;
 };
 
 export function breakeven(i: BreakevenInputs): BreakevenResult {
@@ -65,8 +62,7 @@ export function breakeven(i: BreakevenInputs): BreakevenResult {
     required, perMonth: required / 12, trading, manufacturing, rate: blendedRate(i, m),
     annualOverhead: annualOverhead(i), target: target(i),
     tradeContribution: ok ? trading * tradeRate(i) : 0,
-    mfgOhContribution: ok ? manufacturing * (i.mfgOhPct / 100) : 0,
-    mfgNetContribution: ok && i.netCounts ? manufacturing * (i.mfgNetPct / 100) : 0,
+    mfgContribution: ok ? manufacturing * mfgRate(i) : 0,
   };
 }
 
@@ -77,50 +73,38 @@ export const curve = (i: BreakevenInputs, steps = 20) =>
 // ---------- Live values ----------
 
 export type LiveMargins = {
-  tradeNetPct: number | null; mfgNetPct: number | null; mfgOhPct: number | null; mfgSharePct: number | null;
+  tradeGrossPct: number | null; mfgGrossPct: number | null; mfgSharePct: number | null;
   tradeOrders: number; mfgOrders: number; tradeRevenueUsd: number; mfgRevenueUsd: number;
   /** Orders counted by the MO guess because they aren't tagged Trading or Manufacturing in Odoo. */
   guessedOrders: number;
-  /** Manufacturing orders left out of the margins and labour share: a finished MO with no LaborTrax labour. */
-  mfgNoLabourOrders: number;
 };
 
-/** Every finished MO on the order has LaborTrax labour booked (LaborTrax starts Feb 2026, older MOs have none). */
-export const hasLabourOnEveryMo = (o: SoOrder) =>
-  o.mos.length > 0 && o.mos.every(m => o.labor.some(l => l.mo_id === m.id && l.hours > 0));
-
 /**
- * Margins and mix from finished Odoo orders, using the SO Profitability line math (USD).
+ * Gross margins and mix from finished Odoo orders, using the SO Profitability line math (USD):
+ * revenue minus materials (MO material cost, or standard cost for bought-in lines). Labour, overhead
+ * and everything below gross margin goes to overhead; shipping is charged on top, so it's left out.
  * Trading vs manufacturing comes from the SO's Odoo tag (src/lib/order-kind.ts), else the MO guess.
- * Manufacturing overhead = all LaborTrax cost booked on its MOs (direct wages + indirect burden), as a share
- * of revenue: the factory payroll is overhead trading never covers. Manufacturing orders missing labour on
- * any MO are left out of the margins and that share (they'd read as labour-free), but still count in the mix.
  */
 export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): LiveMargins {
-  const t = { rev: 0, net: 0, n: 0 };
+  const t = { rev: 0, gross: 0, n: 0 };
+  const f = { rev: 0, gross: 0, n: 0 };
   let guessedOrders = 0;
-  const f = { rev: 0, net: 0, oh: 0, n: 0, mixRev: 0, noLabour: 0 };
   for (const o of orders) {
     const rows = analyzeLines(o, 'USD', inrPerUsd);
     if (!rows.length) continue;
     const rev = rows.reduce((s, r) => s + r.revenue, 0);
     if (!(rev > 0)) continue;
-    const net = rows.reduce((s, r) => s + r.net, 0);
+    const gross = rows.reduce((s, r) => s + r.gross, 0);
     const { kind, tagged } = orderKind(o);
     if (!tagged) guessedOrders++;
-    if (kind === 'manufacturing') {
-      f.mixRev += rev;
-      if (!hasLabourOnEveryMo(o)) { f.noLabour++; continue; }
-      f.rev += rev; f.net += net; f.n++;
-      f.oh += rows.reduce((s, r) => s + (r.unitDirect + r.unitOverhead) * r.line.qty, 0);
-    } else { t.rev += rev; t.net += net; t.n++; }
+    const b = kind === 'manufacturing' ? f : t;
+    b.rev += rev; b.gross += gross; b.n++;
   }
   const pct = (a: number, b: number) => (b > 0 ? (a / b) * 100 : null);
   return {
-    tradeNetPct: pct(t.net, t.rev), mfgNetPct: pct(f.net, f.rev), mfgOhPct: pct(f.oh, f.rev),
-    mfgSharePct: pct(f.mixRev, t.rev + f.mixRev),
-    tradeOrders: t.n, mfgOrders: f.n, tradeRevenueUsd: t.rev, mfgRevenueUsd: f.mixRev, guessedOrders,
-    mfgNoLabourOrders: f.noLabour,
+    tradeGrossPct: pct(t.gross, t.rev), mfgGrossPct: pct(f.gross, f.rev),
+    mfgSharePct: pct(f.rev, t.rev + f.rev),
+    tradeOrders: t.n, mfgOrders: f.n, tradeRevenueUsd: t.rev, mfgRevenueUsd: f.rev, guessedOrders,
   };
 }
 
@@ -156,7 +140,7 @@ export function resolveInputs(live: LiveInputs, overrides: Partial<BreakevenInpu
   }
   for (const k of Object.keys(overrides) as (keyof BreakevenInputs)[]) {
     const v = overrides[k];
-    if (v != null && (typeof v === 'boolean' || Number.isFinite(v))) (out as any)[k] = v;
+    if (v != null && Number.isFinite(v)) (out as any)[k] = v;
   }
   return out;
 }
@@ -165,7 +149,11 @@ export function resolveInputs(live: LiveInputs, overrides: Partial<BreakevenInpu
 
 const DRAFT_KEY = 'breakeven-overrides';
 export function loadOverrides(): Partial<BreakevenInputs> {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch { return {}; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {};
+    // Drop keys from older versions of the model (net margins, overhead allocation).
+    return Object.fromEntries(INPUT_KEYS.filter(k => raw[k] != null).map(k => [k, raw[k]]));
+  } catch { return {}; }
 }
 export function saveOverrides(o: Partial<BreakevenInputs>) {
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify(o)); } catch { /* ignore */ }
