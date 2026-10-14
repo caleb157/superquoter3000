@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import {
   type SoOrder, type DisplayCurrency, summarize, marginTone, toDisplay, orderPnl, analyzeLines, moStats, type MoStats,
 } from '@/lib/so-profitability';
+import { orderKind, type OrderKind } from '@/lib/order-kind';
+import { useOrderKinds } from '@/hooks/use-order-kinds';
 
 const ALL = '__all__';
 const DEFAULT_SHIP_ACCT = 170;
@@ -46,6 +48,7 @@ export default function SoProfitability() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [archived, setArchived] = useState<Set<string>>(loadArchived);
   const [showArchived, setShowArchived] = useState(false);
+  const orderKinds = useOrderKinds();
 
   const toggleArchive = (name: string) => setArchived(prev => {
     const n = new Set(prev);
@@ -191,6 +194,8 @@ export default function SoProfitability() {
           {uninvoiced > 0 && ` ${uninvoiced} not-yet-invoiced trading order${uninvoiced === 1 ? '' : 's'} hidden.`}
           {archivedCount > 0 && !showArchived && ` ${archivedCount} archived.`}
           {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
+          {' '}Type (trading or manufacturing) feeds the Breakeven Calculator; until you set it, it's guessed from whether the order has MOs.
+          {orderKinds.error && <span className="text-destructive"> Couldn't save or load order types: {orderKinds.error}</span>}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -232,14 +237,15 @@ export default function SoProfitability() {
               <TableHead className="h-8 w-6" />
               <TableHead className="h-8 text-xs">Order date</TableHead><TableHead className="h-8 text-xs">SO #</TableHead>
               <TableHead className="h-8 text-xs">Customer</TableHead><TableHead className="h-8 text-xs">Project</TableHead>
+              <TableHead className="h-8 text-xs">Type</TableHead>
               <TableHead className="h-8 text-xs text-right">Revenue</TableHead><TableHead className="h-8 text-xs text-right">Total cost</TableHead>
               <TableHead className="h-8 text-xs text-right">Net profit</TableHead>
               <TableHead className="h-8 text-xs text-right">GPM</TableHead><TableHead className="h-8 text-xs text-right">NPM</TableHead>
               <TableHead className="h-8 w-8" />
             </TableRow></TableHeader>
             <TableBody>
-              {loading && orders.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
-              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
+              {loading && orders.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
+              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
               {filtered.map(o => {
                 const p = orderPnl(o, cur, fx);
                 const isOpen = open.has(o.id);
@@ -251,6 +257,9 @@ export default function SoProfitability() {
                       <TableCell className="py-2 text-xs font-medium">{o.name}</TableCell>
                       <TableCell className="py-2 text-xs">{o.customer}</TableCell>
                       <TableCell className="py-2 text-xs">{o.project_name ?? <span className="text-muted-foreground">No project</span>}</TableCell>
+                      <TableCell className="py-1 text-xs" onClick={e => e.stopPropagation()}>
+                        <OrderKindSelect o={o} kinds={orderKinds.kinds} onChange={k => orderKinds.setKind(o.name, k)} />
+                      </TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.revenue)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.cost)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.net)}</TableCell>
@@ -264,7 +273,7 @@ export default function SoProfitability() {
                       </TableCell>
                     </TableRow>
                     {isOpen && (
-                      <TableRow className="hover:bg-transparent"><TableCell colSpan={11} className="bg-muted/30 p-3">
+                      <TableRow className="hover:bg-transparent"><TableCell colSpan={12} className="bg-muted/30 p-3">
                         <OrderDetail o={o} fmt={fmt} inr={inr} cur={cur} fx={fx} />
                       </TableCell></TableRow>
                     )}
@@ -458,5 +467,25 @@ function Pillar({ icon: Icon, label, value, share, sub, alert }: { icon: typeof 
       <div className="text-[11px] text-muted-foreground">{sub}</div>
       {alert && <Badge variant="outline" className={cn('text-[10px]', statusToneClass('issue'))}><AlertTriangle className="h-3 w-3 mr-1" />{alert}</Badge>}
     </CardContent></Card>
+  );
+}
+
+const KIND_LABEL: Record<OrderKind, string> = { trading: 'Trading', manufacturing: 'Manufacturing' };
+const AUTO = 'auto';
+
+/** Hand-set trading / manufacturing kind; "Auto" shows the MO guess in muted text. */
+function OrderKindSelect({ o, kinds, onChange }: { o: SoOrder; kinds: Record<string, OrderKind>; onChange: (k: OrderKind | null) => void }) {
+  const { kind, manual } = orderKind(o, kinds);
+  return (
+    <Select value={manual ? kind : AUTO} onValueChange={v => onChange(v === AUTO ? null : (v as OrderKind))}>
+      <SelectTrigger className={cn('h-7 w-36 text-xs', !manual && 'text-muted-foreground')} aria-label={`Type of ${o.name}`}>
+        <SelectValue>{manual ? KIND_LABEL[kind] : `${KIND_LABEL[kind]}?`}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={AUTO}>Not set (guess: {KIND_LABEL[orderKind(o, null).kind].toLowerCase()})</SelectItem>
+        <SelectItem value="trading">Trading</SelectItem>
+        <SelectItem value="manufacturing">Manufacturing</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

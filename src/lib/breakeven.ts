@@ -4,6 +4,7 @@
 // the SO Profitability math) for margins and mix, and the Analytics snapshot for monthly
 // overhead. Anything the user types overrides the live value; nothing is saved to the DB.
 import { analyzeLines, type SoOrder } from '@/lib/so-profitability';
+import { orderKind, type OrderKinds } from '@/lib/order-kind';
 
 export type BreakevenInputs = {
   /** Trading net margin, % of revenue. */
@@ -78,15 +79,18 @@ export const curve = (i: BreakevenInputs, steps = 20) =>
 export type LiveMargins = {
   tradeNetPct: number | null; mfgNetPct: number | null; mfgOhPct: number | null; mfgSharePct: number | null;
   tradeOrders: number; mfgOrders: number; tradeRevenueUsd: number; mfgRevenueUsd: number;
+  /** Orders counted by the MO guess because nobody has classified them yet. */
+  guessedOrders: number;
 };
 
 /**
  * Margins and mix from finished Odoo orders, using the SO Profitability line math (USD).
- * An order with any manufacturing order counts as manufacturing, the rest as trading.
+ * Trading vs manufacturing is the hand-set kind per SO (src/lib/order-kind.ts), else the MO guess.
  * Manufacturing overhead = LaborTrax indirect burden booked on its MOs, as a share of revenue.
  */
-export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): LiveMargins {
+export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number, kinds?: OrderKinds | null): LiveMargins {
   const t = { rev: 0, net: 0, n: 0 };
+  let guessedOrders = 0;
   const f = { rev: 0, net: 0, oh: 0, n: 0 };
   for (const o of orders) {
     const rows = analyzeLines(o, 'USD', inrPerUsd);
@@ -94,7 +98,9 @@ export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): Liv
     const rev = rows.reduce((s, r) => s + r.revenue, 0);
     if (!(rev > 0)) continue;
     const net = rows.reduce((s, r) => s + r.net, 0);
-    if (o.mos.length > 0) {
+    const { kind, manual } = orderKind(o, kinds);
+    if (!manual) guessedOrders++;
+    if (kind === 'manufacturing') {
       f.rev += rev; f.net += net; f.n++;
       f.oh += rows.reduce((s, r) => s + r.unitOverhead * r.line.qty, 0);
     } else { t.rev += rev; t.net += net; t.n++; }
@@ -103,7 +109,7 @@ export function liveMarginsFromOrders(orders: SoOrder[], inrPerUsd: number): Liv
   return {
     tradeNetPct: pct(t.net, t.rev), mfgNetPct: pct(f.net, f.rev), mfgOhPct: pct(f.oh, f.rev),
     mfgSharePct: pct(f.rev, t.rev + f.rev),
-    tradeOrders: t.n, mfgOrders: f.n, tradeRevenueUsd: t.rev, mfgRevenueUsd: f.rev,
+    tradeOrders: t.n, mfgOrders: f.n, tradeRevenueUsd: t.rev, mfgRevenueUsd: f.rev, guessedOrders,
   };
 }
 

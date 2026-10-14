@@ -15,6 +15,7 @@ import { NumInput } from '@/components/iron-weight/PartRow';
 import { supabase } from '@/integrations/supabase/client';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useOrderKinds } from '@/hooks/use-order-kinds';
 import {
   breakeven, curve, liveMarginsFromOrders, liveOverheadFromHistory, loadOverrides, resolveInputs, saveOverrides,
   type BreakevenInputs, type LiveInputs,
@@ -70,11 +71,15 @@ export default function BreakevenCalculator() {
   useDocumentTitle('Breakeven Calculator');
   const { snapshot, syncedAt } = useAnalyticsSnapshot();
   const orders = useFinishedOrders();
+  const orderKinds = useOrderKinds();
   const [overrides, setOverrides] = useState<Partial<BreakevenInputs>>(loadOverrides);
   useEffect(() => saveOverrides(overrides), [overrides]);
 
   const fx = (orders.data?.inr_per_usd && orders.data.inr_per_usd > 1 ? orders.data.inr_per_usd : snapshot?.inr_per_usd) || 0;
-  const margins = useMemo(() => (orders.data && fx > 0 ? liveMarginsFromOrders(orders.data.orders, fx) : null), [orders.data, fx]);
+  const margins = useMemo(
+    () => (orders.data && fx > 0 && orderKinds.loaded ? liveMarginsFromOrders(orders.data.orders, fx, orderKinds.kinds) : null),
+    [orders.data, fx, orderKinds.loaded, orderKinds.kinds],
+  );
   const overhead = useMemo(() => liveOverheadFromHistory(snapshot?.overhead_monthly?.history, snapshot?.inr_per_usd || fx), [snapshot, fx]);
 
   const live: LiveInputs = useMemo(() => ({
@@ -92,6 +97,7 @@ export default function BreakevenCalculator() {
 
   const tradeSrc = margins?.tradeOrders ? `${margins.tradeOrders} finished trading orders, last 12 months` : null;
   const mfgSrc = margins?.mfgOrders ? `${margins.mfgOrders} finished manufacturing orders, last 12 months` : null;
+  const guessed = margins?.guessedOrders ?? 0;
   const ohSrc = overhead ? `Odoo overhead, ${overhead.months} months (avg ${usd(overhead.averageUsd)}/mo)` : null;
   const sources: Record<NumKey, string | null> = {
     tradeNetPct: tradeSrc,
@@ -249,6 +255,14 @@ export default function BreakevenCalculator() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Assumptions</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {margins && (
+              <p className="text-xs text-muted-foreground">
+                Trading vs manufacturing is set per sales order on{' '}
+                <Link to="/profitability" className="underline hover:text-foreground">SO Profitability</Link>.
+                {guessed > 0 && ` ${guessed} of ${margins.tradeOrders + margins.mfgOrders} orders aren't classified yet, so they're guessed from their MOs.`}
+                {orderKinds.error && ` Couldn't load the classifications: ${orderKinds.error}`}
+              </p>
+            )}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {field('tradeNetPct', 'Trading net margin', '%')}
               {field('mfgNetPct', 'Manufacturing net margin', '%')}
