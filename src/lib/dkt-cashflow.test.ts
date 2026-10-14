@@ -1,0 +1,107 @@
+import { describe, expect, it } from 'vitest';
+import {
+  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, orderAmounts, orderFlows,
+  type DktOrder, type Loan,
+} from './dkt-cashflow';
+import { scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
+
+const order = (o: Partial<DktOrder> = {}): DktOrder => ({
+  inquiry_id: 'i1', rfq_number: 'DKT-1', title: null, customer: 'Acme', status: 'po',
+  fob_usd: 100000, fob_source: 'projection', margin_pct: 0.05, cust_deposit_pct: 0.3, advance_pct: 0.95,
+  po_month: '2026-11', ship_month: '2027-02',
+  done: { cust_deposit: false, advance: false, cust_balance: false, pv_balance: false }, excluded: false, ...o,
+});
+
+const sku = (s: Partial<AmazonSku> = {}): AmazonSku => ({
+  id: 's1', scenario_id: null, name: 'Stool', mode: 'inventory', price_usd: 50, net_margin_pct: 0.2, units_per_month: 100,
+  start_month: '2027-03', unit_cost_usd: 10, freight_per_unit_usd: 2, order_qty: 400, reorder_months: 4, make_months: 2, ship_months: 2, ...s,
+});
+
+describe('months', () => {
+  it('adds across years', () => {
+    expect(addMonths('2026-11', 3)).toBe('2027-02');
+    expect(addMonths('2027-01', -1)).toBe('2026-12');
+  });
+});
+
+describe('orders', () => {
+  it('splits a DKT order into customer and PV payments', () => {
+    const a = orderAmounts(order());
+    expect(a.custDeposit).toBe(30000);
+    expect(a.pvAdvance).toBeCloseTo(90250);
+    expect(a.pvBalance).toBeCloseTo(4750);
+    expect(a.custBalance).toBe(70000);
+    expect(a.gap).toBeCloseTo(60250);
+  });
+  it('skips done flows and pulls overdue ones into this month', () => {
+    const f = orderFlows(order({ po_month: '2026-08', done: { cust_deposit: true, advance: false, cust_balance: false, pv_balance: false } }), '2026-10');
+    expect(f.find(x => x.kind === 'cust_deposit')).toBeUndefined();
+    expect(f.find(x => x.kind === 'pv_advance')?.month).toBe('2026-10');
+  });
+});
+
+describe('costs', () => {
+  it('repeats quarterly from the start month until the end month', () => {
+    const months = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04'];
+    const f = costFlows({ id: 'c', name: 'Tax', kind: 'expense', amount_usd: 300, frequency: 'quarterly', start_month: '2026-11', end_month: '2027-03' }, months);
+    expect(f.map(x => x.month)).toEqual(['2026-11', '2027-02']);
+    expect(f[0].amount).toBe(-300);
+  });
+});
+
+describe('loans', () => {
+  const lump: Loan = { id: 'l', name: 'Presswood', kind: 'lump', balance_usd: 5000, rate_pct: 0, due_month: null, pay_with_inquiry_id: 'i1', active: true };
+  it('repays a lump loan with the linked order balance', () => {
+    const f = loanFlows(lump, [], [order()], '2026-10');
+    expect(f).toEqual([expect.objectContaining({ month: '2027-02', amount: -5000 })]);
+  });
+  it('leaves a lump loan with no date out of the forecast', () => {
+    expect(loanFlows({ ...lump, pay_with_inquiry_id: null }, [], [], '2026-10')).toEqual([]);
+  });
+});
+
+describe('credit lines', () => {
+  it('charges monthly interest on the running balance', () => {
+    const f = creditFlows([{ id: 'x', name: 'LOC', limit_usd: 50000, drawn_usd: 0, rate_pct: 12 }], [{ id: 'd', line_id: 'x', month: '2026-11', amount_usd: 10000 }], ['2026-10', '2026-11', '2026-12']);
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => Math.round(-x.amount))).toEqual([100, 100]);
+    expect(f.find(x => x.kind === 'credit_draw')?.amount).toBe(10000);
+  });
+});
+
+describe('forecast', () => {
+  it('says when cash runs short and by how much at the worst point', () => {
+    const fc = buildForecast({
+      settings: { ...DEFAULT_SETTINGS, cash_usd: 20000, min_cash_usd: 5000, horizon_months: 6 },
+      thisMonth: '2026-10', orders: [order()], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [],
+    });
+    // Nov: 20,000 + 30,000 − 90,250 = −40,250 → short 45,250 against a 5,000 minimum.
+    expect(fc.need?.firstMonth).toBe('2026-11');
+    expect(Math.round(fc.need!.amount)).toBe(45250);
+    expect(Math.round(fc.months[fc.months.length - 1].closing)).toBe(25000); // 20,000 + 5% of 100,000
+  });
+});
+
+describe('amazon', () => {
+  it('pays stock at PO, freight at ship and reorders in time to avoid running out', () => {
+    const rows = simulateSku(sku(), '2027-12');
+    expect(rows[0]).toMatchObject({ month: '2026-11', poUnits: 400, cashOut: 4000 });
+    expect(rows.find(r => r.month === '2027-01')?.cashOut).toBe(800);
+    expect(rows.filter(r => r.stockout)).toEqual([]);
+    expect(rows.find(r => r.month === '2027-03')).toMatchObject({ sold: 100, cashIn: 100 * (50 * 0.2 + 12) });
+  });
+  it('flags stockouts when the reorder comes too late', () => {
+    expect(simulateSku(sku({ reorder_months: 2 }), '2027-12').some(r => r.stockout)).toBe(true);
+  });
+  it('summarises peak cash and payback', () => {
+    const s = scenarioSummary([sku()], '2028-06');
+    expect(s.peakNeed).toBeGreaterThan(4000);
+    expect(s.paybackMonth).not.toBeNull();
+  });
+});
+
+describe('allegro', () => {
+  it('grows by the monthly top-up', () => {
+    const a = allegroProjection({ ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' }, '2026-10', 3, []);
+    expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200]);
+  });
+});
