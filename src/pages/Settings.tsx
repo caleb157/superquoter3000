@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FobRatesSettings } from '@/components/FobRatesSettings';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,13 +19,12 @@ import { cn } from '@/lib/utils';
 import { CurrenciesSettings, FinishingDifficultySettings, RawMaterialCostsSettings, CogsCategoriesSettings, LocalTransportSettings } from '@/components/Phase2Settings';
 import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefaultChemicalsEditor';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { ALL_SECTIONS, VALID_SECTIONS, searchSettings, type SectionId } from '@/lib/settings-nav';
+import { ALL_SECTIONS, resolveSettingsHash, searchSettings, type SectionId } from '@/lib/settings-nav';
 import { EditableTable } from '@/components/EditableTable';
 
 
-// Global Settings form (single row)
-function GeneralSettings() {
-  useDocumentTitle('Settings');
+// Shipping defaults (global_settings fields), shown above the shipping types.
+function ShippingDefaults() {
   const [settings, setSettings] = useState<any>(null);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
 
@@ -47,11 +46,10 @@ function GeneralSettings() {
     setSettings({ ...settings, [field]: value });
   };
 
-  if (!settings) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+  if (!settings) return null;
 
   const fields = [
     { key: 'auto_transport_cost_per_cbm', label: 'Auto Transport Cost/CBM (₹)', type: 'number', hint: 'Average local auto transport cost per CBM — auto-added to non-unit COGS for every product' },
-    { key: 'below_moq_surcharge_percent', label: 'Below-MOQ Surcharge', type: 'number', hint: 'Multiplier added to unit price when a customer orders less than the MOQ but at least the hard MOQ. Enter as a decimal (e.g. 0.15 = +15%).' },
   ];
 
   return (
@@ -123,30 +121,44 @@ function McHeightBufferSetting() {
   );
 }
 
+// One block of the General page; the id lets old links (#live-rates, #team…) scroll to it.
+function GeneralPart({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-4 space-y-3">
+      <h3 className="text-sm font-semibold border-b border-border pb-1">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 // Vendors and Customers are edited on their own pages now; old links land there.
 const MOVED: Record<string, string> = { vendors: '/vendors?edit=1', customers: '/customers' };
 
 const Settings = () => {
+  useDocumentTitle('Settings');
   const navigate = useNavigate();
   useEffect(() => {
     const to = MOVED[window.location.hash.replace('#', '')];
     if (to) navigate(to, { replace: true });
   }, [navigate]);
-  const initialSection = (() => {
-    if (typeof window === 'undefined') return 'general';
-    const hash = window.location.hash.replace('#', '');
-    return (VALID_SECTIONS as string[]).includes(hash) ? (hash as SectionId) : 'general';
-  })();
-  const [section, setSection] = useState<SectionId>(initialSection);
+  const initial = typeof window === 'undefined' ? null : resolveSettingsHash(window.location.hash);
+  const [section, setSection] = useState<SectionId>(initial?.section ?? 'general');
+  const [anchor, setAnchor] = useState<string | null>(initial?.anchor ?? null);
   const [query, setQuery] = useState('');
   useEffect(() => {
     const onHash = () => {
-      const h = window.location.hash.replace('#', '');
-      if ((VALID_SECTIONS as string[]).includes(h)) setSection(h as SectionId);
+      const r = resolveSettingsHash(window.location.hash);
+      if (r) { setSection(r.section); setAnchor(r.anchor); }
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // A merged section's old link (e.g. #team) scrolls to its part once the page has rendered.
+  useEffect(() => {
+    if (!anchor) return;
+    const t = setTimeout(() => document.getElementById(anchor)?.scrollIntoView({ block: 'start' }), 50);
+    return () => clearTimeout(t);
+  }, [anchor, section]);
   const [shippingTypes, setShippingTypes] = useState<any[]>([]);
   const [productTypes, setProductTypes] = useState<any[]>([]);
   const [boxData, setBoxData] = useState<any[]>([]);
@@ -170,14 +182,31 @@ const Settings = () => {
 
   const renderSection = () => {
     switch (section) {
-      case 'general': return <GeneralSettings />;
-      case 'live-rates': return <LiveRatesSettings />;
+      case 'general':
+        return (
+          <div className="space-y-8">
+            <GeneralPart id="live-rates" title="Live rates"><LiveRatesSettings /></GeneralPart>
+            <GeneralPart id="currencies" title="Currencies"><CurrenciesSettings /></GeneralPart>
+            <GeneralPart id="team" title="Team"><TeamManagementContent /></GeneralPart>
+            <GeneralPart id="employees" title="Employees">
+              <EditableTable
+                tableName="labor_employees"
+                data={employees} setData={setEmployees}
+                fetchData={() => supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data))}
+                defaultRow={{ name: 'New Employee', hourly_rate_inr: 0, designations: [] }}
+                columns={[
+                  { key: 'name', label: 'Name', width: '150px' },
+                  { key: 'hourly_rate_inr', label: 'Rate (₹/hr)', type: 'number', width: '100px' },
+                  { key: 'designations', label: 'Designations', type: 'tags' },
+                ]}
+              />
+            </GeneralPart>
+          </div>
+        );
       case 'entities': return <CompanyEntitiesSettings />;
       case 'quote-terms': return <QuoteTermsSettings />;
-      case 'team': return <TeamManagementContent />;
       case 'task-automations': return <TaskAutomationsSettings />;
       case 'projections': return <ProjectionDefaultsSettings />;
-      case 'currencies': return <CurrenciesSettings />;
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
       case 'data-export': return <DataExportSection />;
       case 'local-transport': return <LocalTransportSettings />;
@@ -210,6 +239,8 @@ const Settings = () => {
         return <FobRatesSettings />;
       case 'shipping':
         return (
+          <div className="space-y-4">
+          <ShippingDefaults />
           <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix ex-Jodhpur ICD · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
           <EditableTable
@@ -223,6 +254,7 @@ const Settings = () => {
               { key: 'per_unit', label: 'Per Unit', width: '100px' },
             ]}
           />
+          </div>
           </div>
         );
       case 'product-types':
@@ -275,20 +307,6 @@ const Settings = () => {
             />
           </div>
         );
-      case 'employees':
-        return (
-          <EditableTable
-            tableName="labor_employees"
-            data={employees} setData={setEmployees}
-            fetchData={() => supabase.from('labor_employees').select('*').order('name').then(({ data }) => data && setEmployees(data))}
-            defaultRow={{ name: 'New Employee', hourly_rate_inr: 0, designations: [] }}
-            columns={[
-              { key: 'name', label: 'Name', width: '150px' },
-              { key: 'hourly_rate_inr', label: 'Rate (₹/hr)', type: 'number', width: '100px' },
-              { key: 'designations', label: 'Designations', type: 'tags' },
-            ]}
-          />
-        );
       case 'chemicals':
         return (
           <EditableTable
@@ -323,7 +341,7 @@ const Settings = () => {
 
   const activeLabel = ALL_SECTIONS.find(i => i.id === section)?.label ?? '';
   const groups = searchSettings(query);
-  const go = (id: SectionId) => { setSection(id); if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${id}`); };
+  const go = (id: SectionId) => { setSection(id); setAnchor(null); if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${id}`); };
 
   return (
     <AppLayout>

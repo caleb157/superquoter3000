@@ -463,7 +463,7 @@ function NumField({ label, prefix, value, onCommit, min = 0, int, hint }: {
   );
 }
 
-/** Order quantity and MOQs, first thing in the panel: they drive shipping pooling and the below-MOQ surcharge. */
+/** Order quantity and MOQs, first thing in the panel: they drive shipping pooling and the MOQ shown on the quote. */
 function QuantityBar({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; apply: Apply }) {
   const { p } = row;
   const set = (patch: Record<string, any>) => apply(b => patchProductsSame(b, [p.id], patch));
@@ -471,7 +471,7 @@ function QuantityBar({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle
     <div className="grid grid-cols-3 gap-x-4 border-b px-4 py-2.5">
       <Field col={colById('qty')} row={row} bundle={bundle} apply={apply} />
       <NumField label="MOQ" value={p.moq ?? 50} int onCommit={n => set({ moq: n })} />
-      <label className="block min-w-0" title="Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the below-MOQ surcharge applies.">
+      <label className="block min-w-0" title="Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the order is allowed at the quoted price.">
         <span className="text-xs text-muted-foreground">Hard MOQ</span>
         <div className="mt-0.5">
           <EditCell className="border-border" align="left" value={p.hard_moq ?? ''} placeholder={String(p.moq ?? 50)}
