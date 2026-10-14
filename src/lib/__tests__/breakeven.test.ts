@@ -71,6 +71,17 @@ describe('live values', () => {
     expect(m.guessedOrders).toBe(1);
   });
 
+  it('leaves manufacturing orders without labour out of the margins but keeps them in the mix', () => {
+    // a second mfg order with an MO but no labour: margins stay as before, mix = 6000 / 7000
+    const noLab: SoOrder = { ...mfg, id: 3, name: 'S3', labor: [] };
+    const m = liveMarginsFromOrders([trading, mfg, noLab], 100);
+    expect(m.mfgNetPct).toBeCloseTo(30, 6);
+    expect(m.mfgOhPct).toBeCloseTo(30, 6);
+    expect(m.mfgOrders).toBe(1);
+    expect(m.mfgNoLabourOrders).toBe(1);
+    expect(m.mfgSharePct).toBeCloseTo((6000 / 7000) * 100, 6);
+  });
+
   it('falls back to the MO guess when an order has neither tag or both', () => {
     const m = liveMarginsFromOrders([{ ...trading, tags: ['Trading', 'Manufacturing'] }, mfg], 100);
     expect(m.tradeOrders).toBe(1);

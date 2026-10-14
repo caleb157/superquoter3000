@@ -91,7 +91,10 @@ export default function BreakevenCalculator() {
   const edited = Object.keys(overrides).length > 0;
 
   const tradeSrc = margins?.tradeOrders ? `${margins.tradeOrders} finished trading orders, last 12 months` : null;
-  const mfgSrc = margins?.mfgOrders ? `${margins.mfgOrders} finished manufacturing orders, last 12 months` : null;
+  const noLabour = margins?.mfgNoLabourOrders ?? 0;
+  const mfgSrc = margins?.mfgOrders
+    ? `${margins.mfgOrders} finished manufacturing orders with LaborTrax labour, last 12 months${noLabour ? ` (${noLabour} without labour left out)` : ''}`
+    : null;
   const guessed = margins?.guessedOrders ?? 0;
   const ohSrc = overhead ? `Odoo overhead, ${overhead.months} months (avg ${usd(overhead.averageUsd)}/mo)` : null;
   const sources: Record<NumKey, string | null> = {
