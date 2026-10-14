@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import {
   type SoOrder, type DisplayCurrency, summarize, marginTone, toDisplay, orderPnl, analyzeLines, moStats, type MoStats,
 } from '@/lib/so-profitability';
+import { orderKind, type OrderKind } from '@/lib/order-kind';
 
 const ALL = '__all__';
 const DEFAULT_SHIP_ACCT = 170;
@@ -46,6 +47,12 @@ export default function SoProfitability() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [archived, setArchived] = useState<Set<string>>(loadArchived);
   const [showArchived, setShowArchived] = useState(false);
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  const toggleTag = (t: string) => setTagFilter(prev => {
+    const n = new Set(prev);
+    if (n.has(t)) n.delete(t); else n.add(t);
+    return n;
+  });
 
   const toggleArchive = (name: string) => setArchived(prev => {
     const n = new Set(prev);
@@ -99,15 +106,21 @@ export default function SoProfitability() {
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [orders]);
 
+  const tagOptions = useMemo(
+    () => [...new Set(orders.flatMap(o => o.tags ?? []))].sort((a, b) => a.localeCompare(b)),
+    [orders],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
       if (archived.has(o.name) !== showArchived) return false;
+      if (tagFilter.size && !(o.tags ?? []).some(t => tagFilter.has(t))) return false;
       if (q && !(`${o.name} ${o.customer ?? ''} ${o.project_name ?? ''}`.toLowerCase().includes(q))) return false;
       if (sku !== ALL && !o.mos.some(mo => (mo.sku || mo.product_name) === sku)) return false;
       return true;
     });
-  }, [orders, search, sku, archived, showArchived]);
+  }, [orders, search, sku, archived, showArchived, tagFilter]);
   const archivedCount = useMemo(() => orders.filter(o => archived.has(o.name)).length, [orders, archived]);
 
   const fmt = (n: number) => `${cur === 'USD' ? '$' : '₹'}${n.toLocaleString(cur === 'INR' ? 'en-IN' : 'en-US', { maximumFractionDigits: cur === 'USD' ? 2 : 0, minimumFractionDigits: cur === 'USD' ? 2 : 0 })}`;
@@ -146,6 +159,16 @@ export default function SoProfitability() {
             </Button>
           </div>
         </div>
+
+        {tagOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase text-muted-foreground mr-1">Odoo tags</span>
+            <Button size="sm" variant={tagFilter.size === 0 ? 'default' : 'outline'} className="h-7 px-2.5 text-xs" onClick={() => setTagFilter(new Set())}>All orders</Button>
+            {tagOptions.map(t => (
+              <Button key={t} size="sm" variant={tagFilter.has(t) ? 'default' : 'outline'} className="h-7 px-2.5 text-xs" aria-pressed={tagFilter.has(t)} onClick={() => toggleTag(t)}>{t}</Button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1"><div className="text-[10px] uppercase text-muted-foreground">Search</div>
@@ -190,7 +213,9 @@ export default function SoProfitability() {
           {skipped > 0 && ` ${skipped} order${skipped === 1 ? '' : 's'} still in production hidden.`}
           {uninvoiced > 0 && ` ${uninvoiced} not-yet-invoiced trading order${uninvoiced === 1 ? '' : 's'} hidden.`}
           {archivedCount > 0 && !showArchived && ` ${archivedCount} archived.`}
+          {tagFilter.size > 0 && ` Showing orders tagged ${[...tagFilter].join(' or ')}.`}
           {fetchedAt && ` Data from Odoo at ${new Date(fetchedAt).toLocaleString()}.`}
+          {' '}Type comes from the order's Trading or Manufacturing tag in Odoo and feeds the Breakeven Calculator; untagged orders (shown with ?) are guessed from whether they have MOs.
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -232,14 +257,15 @@ export default function SoProfitability() {
               <TableHead className="h-8 w-6" />
               <TableHead className="h-8 text-xs">Order date</TableHead><TableHead className="h-8 text-xs">SO #</TableHead>
               <TableHead className="h-8 text-xs">Customer</TableHead><TableHead className="h-8 text-xs">Project</TableHead>
+              <TableHead className="h-8 text-xs">Type</TableHead>
               <TableHead className="h-8 text-xs text-right">Revenue</TableHead><TableHead className="h-8 text-xs text-right">Total cost</TableHead>
               <TableHead className="h-8 text-xs text-right">Net profit</TableHead>
               <TableHead className="h-8 text-xs text-right">GPM</TableHead><TableHead className="h-8 text-xs text-right">NPM</TableHead>
               <TableHead className="h-8 w-8" />
             </TableRow></TableHeader>
             <TableBody>
-              {loading && orders.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
-              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
+              {loading && orders.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">Loading from Odoo…</TableCell></TableRow>}
+              {!loading && filtered.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-sm text-muted-foreground py-8">{showArchived ? 'No archived sales orders.' : 'No sales orders found.'}</TableCell></TableRow>}
               {filtered.map(o => {
                 const p = orderPnl(o, cur, fx);
                 const isOpen = open.has(o.id);
@@ -248,9 +274,13 @@ export default function SoProfitability() {
                     <TableRow className="cursor-pointer" onClick={() => toggle(o.id)}>
                       <TableCell className="py-2">{isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}</TableCell>
                       <TableCell className="py-2 text-xs tabular-nums">{o.date_order?.slice(0, 10)}</TableCell>
-                      <TableCell className="py-2 text-xs font-medium">{o.name}</TableCell>
+                      <TableCell className="py-2 text-xs font-medium">
+                        {o.name}
+                        {!!o.tags?.length && <div className="text-[10px] font-normal text-muted-foreground">{o.tags.join(', ')}</div>}
+                      </TableCell>
                       <TableCell className="py-2 text-xs">{o.customer}</TableCell>
                       <TableCell className="py-2 text-xs">{o.project_name ?? <span className="text-muted-foreground">No project</span>}</TableCell>
+                      <TableCell className="py-2 text-xs"><OrderKindBadge o={o} /></TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.revenue)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.cost)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.net)}</TableCell>
@@ -264,7 +294,7 @@ export default function SoProfitability() {
                       </TableCell>
                     </TableRow>
                     {isOpen && (
-                      <TableRow className="hover:bg-transparent"><TableCell colSpan={11} className="bg-muted/30 p-3">
+                      <TableRow className="hover:bg-transparent"><TableCell colSpan={12} className="bg-muted/30 p-3">
                         <OrderDetail o={o} fmt={fmt} inr={inr} cur={cur} fx={fx} />
                       </TableCell></TableRow>
                     )}
@@ -459,4 +489,14 @@ function Pillar({ icon: Icon, label, value, share, sub, alert }: { icon: typeof 
       {alert && <Badge variant="outline" className={cn('text-[10px]', statusToneClass('issue'))}><AlertTriangle className="h-3 w-3 mr-1" />{alert}</Badge>}
     </CardContent></Card>
   );
+}
+
+const KIND_LABEL: Record<OrderKind, string> = { trading: 'Trading', manufacturing: 'Manufacturing' };
+
+/** Kind from the Odoo tag; an untagged order shows the MO guess, muted, with a ?. */
+function OrderKindBadge({ o }: { o: SoOrder }) {
+  const { kind, tagged } = orderKind(o);
+  return tagged
+    ? <Badge variant="outline" className="text-[10px]">{KIND_LABEL[kind]}</Badge>
+    : <span className="text-muted-foreground" title="Not tagged Trading or Manufacturing in Odoo; guessed from MOs">{KIND_LABEL[kind]}?</span>;
 }

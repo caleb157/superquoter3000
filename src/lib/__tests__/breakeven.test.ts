@@ -58,6 +58,24 @@ describe('live values', () => {
     expect(m.mfgSharePct).toBeCloseTo(75, 6);
     expect(m.tradeOrders).toBe(1);
     expect(m.mfgOrders).toBe(1);
+    expect(m.guessedOrders).toBe(2);
+  });
+
+  it('uses the Odoo tag over the MO guess', () => {
+    // S2 has MOs but is tagged Trading: both orders are trading, 4000 revenue, 3000 cost → 25%
+    const m = liveMarginsFromOrders([trading, { ...mfg, tags: ['VIP', 'trading'] }], 100);
+    expect(m.tradeOrders).toBe(2);
+    expect(m.mfgOrders).toBe(0);
+    expect(m.tradeNetPct).toBeCloseTo(25, 6);
+    expect(m.mfgSharePct).toBeCloseTo(0, 6);
+    expect(m.guessedOrders).toBe(1);
+  });
+
+  it('falls back to the MO guess when an order has neither tag or both', () => {
+    const m = liveMarginsFromOrders([{ ...trading, tags: ['Trading', 'Manufacturing'] }, mfg], 100);
+    expect(m.tradeOrders).toBe(1);
+    expect(m.mfgOrders).toBe(1);
+    expect(m.guessedOrders).toBe(2);
   });
 
   it('turns monthly overhead history into high and low months', () => {

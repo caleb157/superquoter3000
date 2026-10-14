@@ -19,6 +19,8 @@ export type SoOrder = {
   id: number; name: string; date_order: string; customer: string | null;
   project_id: number | null; project_name: string | null; currency: string;
   amount_untaxed: number; amount_total: number; state: string; status: 'Completed' | 'In Progress';
+  /** Odoo SO tags; "Trading" / "Manufacturing" set the order kind (src/lib/order-kind.ts). */
+  tags?: string[];
   lines?: SoLine[]; mos: SoMo[]; materials: SoMaterial[]; labor: SoLabor[]; shipping: SoShipping[];
 };
 

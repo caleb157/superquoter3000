@@ -108,8 +108,17 @@ Deno.serve(async (req) => {
       soDomain.push('|', ['name', 'ilike', search.trim()], ['partner_id.name', 'ilike', search.trim()]);
     }
     const orders = await searchRead('sale.order', soDomain,
-      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state', 'invoice_status'],
+      ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'project_id', 'currency_id', 'state', 'invoice_status', 'tag_ids'],
       { order: 'date_order desc', limit: limit ?? 200 });
+
+    // SO tags (crm.tag), e.g. "Trading" / "Manufacturing", which set the order's kind.
+    const tagIds = [...new Set(orders.flatMap(o => (Array.isArray(o.tag_ids) ? o.tag_ids : [])))];
+    const tagName = new Map<number, string>();
+    if (tagIds.length) {
+      try {
+        for (const t of await searchRead('crm.tag', [['id', 'in', tagIds]], ['name'])) tagName.set(t.id, t.name);
+      } catch (_e) { /* tags not readable: kinds fall back to the MO guess */ }
+    }
 
     // Heritage orders carry their project only in the lookup table above.
     const pidOf = (o: any): number | null => m2oId(o.project_id) ?? HERITAGE_PROJECT_BY_SO[o.name] ?? null;
@@ -304,6 +313,7 @@ Deno.serve(async (req) => {
         amount_untaxed: num(o.amount_untaxed),
         amount_total: num(o.amount_total),
         state: o.state,
+        tags: (Array.isArray(o.tag_ids) ? o.tag_ids : []).map((id: number) => tagName.get(id)).filter(Boolean),
         status: o.state === 'done' || allDone ? 'Completed' : 'In Progress',
         lines: soLines.filter(l => m2oId(l.order_id) === o.id).map(l => {
           const p = lineProdById.get(m2oId(l.product_id));

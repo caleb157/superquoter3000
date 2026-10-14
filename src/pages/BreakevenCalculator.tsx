@@ -92,6 +92,7 @@ export default function BreakevenCalculator() {
 
   const tradeSrc = margins?.tradeOrders ? `${margins.tradeOrders} finished trading orders, last 12 months` : null;
   const mfgSrc = margins?.mfgOrders ? `${margins.mfgOrders} finished manufacturing orders, last 12 months` : null;
+  const guessed = margins?.guessedOrders ?? 0;
   const ohSrc = overhead ? `Odoo overhead, ${overhead.months} months (avg ${usd(overhead.averageUsd)}/mo)` : null;
   const sources: Record<NumKey, string | null> = {
     tradeNetPct: tradeSrc,
@@ -249,6 +250,13 @@ export default function BreakevenCalculator() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Assumptions</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {margins && (
+              <p className="text-xs text-muted-foreground">
+                Trading vs manufacturing comes from each sales order's Trading or Manufacturing tag in Odoo.
+                {guessed > 0 && <> {guessed} of {margins.tradeOrders + margins.mfgOrders} orders aren't tagged yet, so they're guessed from their MOs (see{' '}
+                  <Link to="/profitability" className="underline hover:text-foreground">SO Profitability</Link>). Press Refresh after tagging.</>}
+              </p>
+            )}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {field('tradeNetPct', 'Trading net margin', '%')}
               {field('mfgNetPct', 'Manufacturing net margin', '%')}
