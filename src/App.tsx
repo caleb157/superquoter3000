@@ -31,7 +31,6 @@ const VendorRfqSheet = lazyPage(() => import("./pages/VendorRfqSheet"));
 const InquiryDetail = lazyPage(() => import("./pages/InquiryDetail"));
 const CostingWorkspace = lazyPage(() => import("./pages/CostingWorkspace"));
 const InquiryPdView = lazyPage(() => import("./pages/InquiryPdView"));
-const InquiryOdooExport = lazyPage(() => import("./pages/InquiryOdooExport"));
 const PdDashboard = lazyPage(() => import("./pages/PdDashboard"));
 const InquiryContainerPlanner = lazyPage(() => import("./pages/InquiryContainerPlanner"));
 const SamplesList = lazyPage(() => import("./pages/SamplesList"));
@@ -134,9 +133,6 @@ const App = () => (
               <Route path="/inquiry/:id/audit" element={<CostingRedirect view="buildup" />} />
               <Route path="/inquiry/:id/quote-comparison" element={
                 <ProtectedRoute requireAdminOrTeam><QuoteComparison /></ProtectedRoute>
-              } />
-              <Route path="/inquiry/:id/odoo" element={
-                <ProtectedRoute requireAdminOrTeam><InquiryOdooExport /></ProtectedRoute>
               } />
               <Route path="/inquiry/:id/pd" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryPdView /></ProtectedRoute>

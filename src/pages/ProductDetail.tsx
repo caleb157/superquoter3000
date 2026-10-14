@@ -5,13 +5,12 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, Send, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingSheet } from '@/components/ProductCostingSheet';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductCostHistoryTab } from '@/components/ProductCostHistoryTab';
-import { OdooExportTab } from '@/components/odoo-export/OdooExportTab';
 
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
 import { Input } from '@/components/ui/input';
@@ -40,7 +39,7 @@ type ProductHeader = {
   inspiration_url: string | null;
 };
 
-const VALID_TABS = ['costing', 'cost-history', 'variants', 'sample-log', 'summary', 'odoo'] as const;
+const VALID_TABS = ['costing', 'cost-history', 'variants', 'sample-log', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 const ProductDetail = () => {
@@ -335,7 +334,6 @@ const ProductDetail = () => {
               { value: 'cost-history', label: 'Cost history', icon: TrendingUp },
               { value: 'sample-log', label: 'Sample Log', icon: Package2 },
               { value: 'summary', label: 'Summary', icon: FileText },
-              { value: 'odoo', label: 'Odoo', icon: Send },
             ]}
           />
 
@@ -347,9 +345,6 @@ const ProductDetail = () => {
           </TabsContent>
           <TabsContent value="cost-history">
             {activeTab === 'cost-history' && <ProductCostHistoryTab productId={product.id} />}
-          </TabsContent>
-          <TabsContent value="odoo">
-            {activeTab === 'odoo' && <OdooExportTab productId={product.id} />}
           </TabsContent>
           <TabsContent value="sample-log">
             {activeTab === 'sample-log' && <ProductSampleLogTab productId={product.id} />}
