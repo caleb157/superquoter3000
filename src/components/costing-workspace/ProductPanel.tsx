@@ -48,7 +48,6 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   // Highest raw piece price that still meets the target at the current NPM.
   const maxRawInr = row.maxCostInr != null ? row.maxCostInr - (row.costInr - row.buckets.raw_piece) : null;
   const pkg = p.packaging_type || 'ic_mc';
-  const cbmRow = row.cbmRow || {};
 
   return (
     <div className={cn('flex flex-col bg-card', page ? 'rounded-lg border border-border/70 shadow-sm' : 'h-full')}>
@@ -164,69 +163,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <LaborLines row={row} bundle={bundle} apply={apply} />
         </Section>
 
-        <Section title="Packaging & CBM" sub={`${r.finalUnitCbm.toFixed(4)} CBM · ${r.productsPerMc || 1}/MC`} defaultOpen={page} done={done('cbm_done')}>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            {['pkg_type', 'weight'].map(cid => <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />)}
-          </div>
-          {[['piece', 'Piece size'], ['ic', 'Inner carton size'], ['mc', 'Master carton max']].map(([prefix, label]) => (
-            <div key={prefix} className="mt-2.5">
-              <div className="text-xs text-muted-foreground">{label} (inches)</div>
-              <div className="mt-0.5 grid grid-cols-3 gap-2">
-                {['w', 'd', 'h'].map(a => <Field key={a} col={colById(`${prefix}_${a}`)} row={row} bundle={bundle} apply={apply} inline />)}
-              </div>
-            </div>
-          ))}
-          <div className="mt-2.5 grid grid-cols-3 gap-x-4 gap-y-2.5">
-            {['ic_type', 'per_ic', 'mc_type'].map(cid => <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />)}
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
-            {pkg === 'bulk_pack' && <>
-              <NumField label="Pieces per box" value={p.bulk_pieces_per_box ?? 1} min={1} int
-                onCommit={n => apply(b => patchProductsSame(b, [id], { bulk_pieces_per_box: Math.max(1, n) }))} />
-              <NumField label="Height per extra piece %" hint="How much height each additional piece adds, as a % of one piece's height. 100 = no nesting." value={Math.round((p.bulk_shrink_factor ?? 1) * 100)}
-                onCommit={n => apply(b => patchProductsSame(b, [id], { bulk_shrink_factor: Math.min(1, Math.max(0, n / 100)) }))} />
-            </>}
-            <NumField label="MC W/D buffer (in)" value={cbmRow.mc_buffer_inch ?? 1} onCommit={n => apply(b => patchCbm(b, [id], { mc_buffer_inch: n }))} />
-            <NumField label="MC H buffer (in)" value={cbmRow.mc_height_buffer_inch ?? bundle.gs?.mc_height_buffer_inch ?? 2.5} onCommit={n => apply(b => patchCbm(b, [id], { mc_height_buffer_inch: n }))} />
-            {pkg !== 'bulk_pack' && <NumField label="MC weight limit (kg)" value={cbmRow.mc_weight_limit_kg || 20} onCommit={n => apply(b => patchCbm(b, [id], { mc_weight_limit_kg: n }))} />}
-          </div>
-          {(pkg === 'ic_mc' || pkg === 'ic_only') && (
-            <div className="mt-2.5 flex flex-wrap items-end gap-3">
-              <label className="flex h-8 items-center gap-2 text-sm">
-                <Checkbox checked={!!cbmRow.mc_manual_layout} onCheckedChange={c => apply(b => patchCbm(b, [id], { mc_manual_layout: !!c }))} />
-                Set ICs per MC by hand
-              </label>
-              {cbmRow.mc_manual_layout && ['w', 'd', 'h'].map(a => (
-                <div key={a} className="w-20">
-                  <NumField label={`ICs along ${a.toUpperCase()}`} value={cbmRow[`mc_ics_along_${a}`] ?? 1} min={1} int
-                    onCommit={n => apply(b => patchCbm(b, [id], { [`mc_ics_along_${a}`]: Math.max(1, n) }))} />
-                </div>
-              ))}
-            </div>
-          )}
-          {pkg === 'ic_mc' && r.mcPlan && (
-            <div className="mt-3 rounded-lg border p-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="text-sm font-medium">Master carton fit</div>
-                <div className="flex items-end gap-2">
-                  <div className="w-28"><Field col={colById('per_mc')} row={row} bundle={bundle} apply={apply} /></div>
-                  {r.mcPlan.override != null && (
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => apply(b => patchCbm(b, [id], { products_per_mc_override: null }))}>
-                      <RotateCcw className="h-3.5 w-3.5" /> Use calculated ({r.mcPlan.autoPieces})
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <McPlanBreakdown plan={r.mcPlan} className="mt-2 text-muted-foreground" />
-            </div>
-          )}
-          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg bg-muted/50 p-3 text-xs">
-            <Mini label="MC size" value={r.mcDims.mc_width ? `${num(r.mcDims.mc_width, 1)}×${num(r.mcDims.mc_depth, 1)}×${num(r.mcDims.mc_height, 1)}"` : '—'} />
-            <Mini label="IC cost" value={inr(r.icCost, 1)} />
-            <Mini label="MC cost" value={inr(r.mcCost, 1)} />
-            <Mini label="Line CBM" value={num(r.finalUnitCbm * row.qty, 2)} />
-          </div>
-          {r.bulkPack?.warning && <div className="mt-2 text-xs text-warning">{r.bulkPack.warning}</div>}
+        <Section title="Packaging & CBM" sub={`${r.finalUnitCbm.toFixed(4)} CBM/pc${pkg === 'ic_mc' || pkg === 'bulk_pack' ? ` · ${r.productsPerMc || 1} pcs/MC` : ''}`} defaultOpen={page} done={done('cbm_done')}>
+          <PackagingFields row={row} bundle={bundle} apply={apply} />
         </Section>
 
         <Section title="Shipping" sub={inr(r.shippingPerUnit) + '/unit'} defaultOpen={page} done={done('shipping_done')}>
@@ -273,8 +211,156 @@ function Figure({ label, value, sub, children }: { label: string; value?: React.
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
-  return <div><div className="text-muted-foreground">{label}</div><div className="font-medium tabular-nums">{value}</div></div>;
+/**
+ * Packaging & CBM: what the packing comes to first (CBM, cartons, costs), then the inputs grouped
+ * by what they describe (piece, inner carton, master carton or bulk box). Only the groups the
+ * chosen packaging uses are shown, and each input has its label on the left and its unit on the right.
+ */
+function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle; apply: Apply }) {
+  const { p, r } = row;
+  const id = p.id;
+  const pkg = p.packaging_type || 'ic_mc';
+  const cbmRow = row.cbmRow || {};
+  const hasIc = pkg === 'ic_mc' || pkg === 'ic_only';
+  const hasMc = pkg === 'ic_mc' || pkg === 'bulk_pack';
+  const field = (cid: string) => <Field col={colById(cid)} row={row} bundle={bundle} apply={apply} bare />;
+  const dims = (prefix: string) => (
+    <div className="grid grid-cols-3 gap-2">
+      {['w', 'd', 'h'].map(a => <Field key={a} col={colById(`${prefix}_${a}`)} row={row} bundle={bundle} apply={apply} inline />)}
+    </div>
+  );
+  // A single input lined up with the W column of the size rows above and below it.
+  const one = (child: React.ReactNode, unit?: string, wide?: boolean) => (
+    <div className="grid grid-cols-3 gap-2">
+      <div className={cn('flex min-w-0 items-center gap-1.5', wide && 'col-span-2 sm:col-span-1')}><span className="w-3 shrink-0" /><div className="min-w-0 flex-1">{child}</div></div>
+      {unit && <div className="flex items-center text-xs text-muted-foreground">{unit}</div>}
+    </div>
+  );
+  const mcSize = r.mcDims.mc_width ? `${num(r.mcDims.mc_width, 1)} × ${num(r.mcDims.mc_depth, 1)} × ${num(r.mcDims.mc_height, 1)} in` : null;
+  const cartons = hasMc && r.productsPerMc > 0 && row.qty > 0 ? Math.ceil(row.qty / r.productsPerMc) : null;
+
+  return (
+    <div className="space-y-3">
+      {/* What it comes to */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-muted/50 p-3 sm:grid-cols-4">
+        <PkgStat label="Packed CBM per piece" value={`${r.finalUnitCbm.toFixed(4)} m³`} />
+        <PkgStat label="Line CBM" value={`${num(r.finalUnitCbm * row.qty, 2)} m³`} note={`for ${row.qty.toLocaleString()} pcs`} />
+        <PkgStat label="Inner carton cost" value={hasIc ? `${inr(r.icCost, 1)} each` : 'Not used'} muted={!hasIc}
+          note={hasIc && (cbmRow.products_per_ic || 1) > 1 ? `${cbmRow.products_per_ic} pcs per carton` : undefined} />
+        <PkgStat label={pkg === 'bulk_pack' ? 'Bulk box cost' : 'Master carton cost'} value={hasMc ? `${inr(r.mcCost, 1)} each` : 'Not used'} muted={!hasMc}
+          note={hasMc ? `${r.productsPerMc || 1} pcs per carton${cartons ? ` · ${cartons.toLocaleString()} cartons` : ''}` : undefined} />
+      </div>
+
+      <div className="px-3"><PkgRow label="Packaging">{one(field('pkg_type'), undefined, true)}</PkgRow></div>
+
+      <PkgGroup title="Piece">
+        <PkgRow label="Size" unit="in">{dims('piece')}</PkgRow>
+        <PkgRow label="Weight">{one(field('weight'), 'kg')}</PkgRow>
+      </PkgGroup>
+
+      {hasIc && (
+        <PkgGroup title="Inner carton" note="Size is the inside; it follows the piece size unless typed.">
+          <PkgRow label="Inside size" unit="in">{dims('ic')}</PkgRow>
+          <PkgRow label="Board">{one(field('ic_type'), undefined, true)}</PkgRow>
+          <PkgRow label="Pieces per carton">{one(field('per_ic'))}</PkgRow>
+        </PkgGroup>
+      )}
+
+      {hasMc && (
+        <PkgGroup title={pkg === 'bulk_pack' ? 'Bulk box' : 'Master carton'} note={mcSize ? `Comes to ${mcSize} inside` : undefined}>
+          {pkg === 'bulk_pack' && <>
+            <PkgRow label="Pieces per box">
+              {one(<NumField value={p.bulk_pieces_per_box ?? 1} min={1} int
+                onCommit={n => apply(b => patchProductsSame(b, [id], { bulk_pieces_per_box: Math.max(1, n) }))} />)}
+            </PkgRow>
+            <PkgRow label="Height per extra piece" hint="How much height each additional piece adds, as a % of one piece's height. 100 = no nesting.">
+              {one(<NumField value={Math.round((p.bulk_shrink_factor ?? 1) * 100)}
+                onCommit={n => apply(b => patchProductsSame(b, [id], { bulk_shrink_factor: Math.min(1, Math.max(0, n / 100)) }))} />, '%')}
+            </PkgRow>
+          </>}
+          <PkgRow label="Largest allowed" unit="in" hint={colById('mc_w').hint}>{dims('mc')}</PkgRow>
+          <PkgRow label="Board">{one(field('mc_type'), undefined, true)}</PkgRow>
+          <PkgRow label="Side buffer" hint="Space left inside the carton around the sides (W and D).">
+            {one(<NumField value={cbmRow.mc_buffer_inch ?? 1} onCommit={n => apply(b => patchCbm(b, [id], { mc_buffer_inch: n }))} />, 'in')}
+          </PkgRow>
+          <PkgRow label="Top buffer" hint="Space left inside the carton above the contents (H).">
+            {one(<NumField value={cbmRow.mc_height_buffer_inch ?? bundle.gs?.mc_height_buffer_inch ?? 2.5} onCommit={n => apply(b => patchCbm(b, [id], { mc_height_buffer_inch: n }))} />, 'in')}
+          </PkgRow>
+          <PkgRow label="Weight limit">
+            {one(<NumField value={cbmRow.mc_weight_limit_kg || 20} onCommit={n => apply(b => patchCbm(b, [id], { mc_weight_limit_kg: n }))} />, 'kg')}
+          </PkgRow>
+          {pkg === 'ic_mc' && <>
+            <PkgRow label="Inner cartons per MC">
+              <div className="flex flex-wrap items-center gap-3 pl-[18px]">
+                <label className="flex h-8 items-center gap-2 text-sm">
+                  <Checkbox checked={!!cbmRow.mc_manual_layout} onCheckedChange={c => apply(b => patchCbm(b, [id], { mc_manual_layout: !!c }))} />
+                  Set by hand
+                </label>
+                {cbmRow.mc_manual_layout && ['w', 'd', 'h'].map(a => (
+                  <div key={a} className="w-20">
+                    <NumField prefix={a.toUpperCase()} value={cbmRow[`mc_ics_along_${a}`] ?? 1} min={1} int
+                      onCommit={n => apply(b => patchCbm(b, [id], { [`mc_ics_along_${a}`]: Math.max(1, n) }))} />
+                  </div>
+                ))}
+              </div>
+            </PkgRow>
+            {r.mcPlan && (
+              <PkgRow label="Pieces per MC" hint={colById('per_mc').hint}>
+                <div className="flex flex-wrap items-center gap-2 pl-[18px]">
+                  <div className="w-28">{field('per_mc')}</div>
+                  {r.mcPlan.override != null && (
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => apply(b => patchCbm(b, [id], { products_per_mc_override: null }))}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Use calculated ({r.mcPlan.autoPieces})
+                    </Button>
+                  )}
+                </div>
+              </PkgRow>
+            )}
+            {r.mcPlan && (
+              <div className="rounded-md border border-dashed px-3 py-2">
+                <div className="mb-1 text-xs font-medium text-muted-foreground">How the master carton is filled</div>
+                <McPlanBreakdown plan={r.mcPlan} className="text-muted-foreground" />
+              </div>
+            )}
+          </>}
+          {r.bulkPack?.warning && <div className="text-xs text-warning">{r.bulkPack.warning}</div>}
+        </PkgGroup>
+      )}
+    </div>
+  );
+}
+
+function PkgStat({ label, value, note, muted }: { label: string; value: string; note?: string; muted?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className={cn('mt-0.5 text-base font-semibold tabular-nums', muted && 'font-normal text-muted-foreground')}>{value}</div>
+      {note && <div className="text-xs text-muted-foreground">{note}</div>}
+    </div>
+  );
+}
+
+function PkgGroup({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-3">
+        <div className="text-sm font-semibold">{title}</div>
+        {note && <div className="text-xs text-muted-foreground">{note}</div>}
+      </div>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+/** One labelled input line: label on the left, input in the middle, unit on the right (stacks on phones). */
+function PkgRow({ label, unit, hint, children }: { label: string; unit?: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[1fr_2rem] items-center gap-x-2 gap-y-1 sm:grid-cols-[9.5rem_1fr_2rem]">
+      <div className="col-span-2 text-sm text-foreground sm:col-span-1" title={hint}>{label}</div>
+      <div className="min-w-0">{children}</div>
+      <div className="text-xs text-muted-foreground">{unit}</div>
+    </div>
+  );
 }
 
 /** What the photo estimate assumed, until someone has checked the draft numbers. */
@@ -352,16 +438,23 @@ function Section({ title, sub, count, defaultOpen, done, review, children }: {
   );
 }
 
-function NumField({ label, value, onCommit, min = 0, int, hint }: {
-  label: string; value: number | null | undefined; onCommit: (n: number) => void; min?: number; int?: boolean; hint?: string;
+function NumField({ label, prefix, value, onCommit, min = 0, int, hint }: {
+  label?: string; prefix?: string; value: number | null | undefined; onCommit: (n: number) => void; min?: number; int?: boolean; hint?: string;
 }) {
+  const input = (
+    <EditCell className="border-border" align="left" value={value ?? ''}
+      onCommit={raw => { const n = parseNum(raw); if (n != null && n >= min) onCommit(int ? Math.round(n) : n); }} />
+  );
+  if (prefix) return (
+    <label className="flex min-w-0 items-center gap-1.5" title={hint}>
+      <span className="shrink-0 text-xs text-muted-foreground">{prefix}</span>
+      <div className="min-w-0 flex-1">{input}</div>
+    </label>
+  );
   return (
     <label className="block min-w-0" title={hint}>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="mt-0.5">
-        <EditCell className="border-border" align="left" value={value ?? ''}
-          onCommit={raw => { const n = parseNum(raw); if (n != null && n >= min) onCommit(int ? Math.round(n) : n); }} />
-      </div>
+      {label && <span className="text-xs text-muted-foreground">{label}</span>}
+      <div className={cn(label && 'mt-0.5')}>{input}</div>
     </label>
   );
 }
@@ -447,13 +540,17 @@ function PanelInput({ col, row, bundle, apply, big, placeholder }: { col: Col; r
   );
 }
 
-function Field({ col, row, bundle, apply, inline }: { col: Col; row: WorkspaceRow; bundle: Bundle; apply: Apply; inline?: boolean }) {
+function Field({ col, row, bundle, apply, inline, bare }: {
+  col: Col; row: WorkspaceRow; bundle: Bundle; apply: Apply; inline?: boolean;
+  /** Input only: the label is shown beside it by the caller. */
+  bare?: boolean;
+}) {
   const e = col.edit!;
   const v = e.get(row);
   return (
     <label className={cn('min-w-0', inline ? 'flex items-center gap-1.5' : 'block')}>
-      <span className={cn('text-xs text-muted-foreground', inline && 'w-3 shrink-0')}>{inline ? col.label.replace('"', '') : col.label}</span>
-      <div className={cn(inline ? 'flex-1 min-w-0' : 'mt-0.5')}>
+      {!bare && <span className={cn('text-xs text-muted-foreground', inline && 'w-3 shrink-0')}>{inline ? col.label.replace('"', '') : col.label}</span>}
+      <div className={cn(inline ? 'flex-1 min-w-0' : !bare && 'mt-0.5')}>
         {e.kind === 'bool' ? (
           <div className="h-8 flex items-center"><Checkbox checked={!!v} onCheckedChange={c => apply(b => e.write(b, [row.p.id], String(!!c)))} /></div>
         ) : e.kind === 'select' ? (
