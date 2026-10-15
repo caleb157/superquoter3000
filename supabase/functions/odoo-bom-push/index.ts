@@ -129,7 +129,11 @@ Deno.serve(async (req) => {
       sr('res.company', [], ['name']),
     ]);
     const byName = (rows: any[], key: string) => new Map(rows.map(r => [norm(String(r[key] || r.name || '')), r.id]));
+    // Categories by full path ("All / Expenses / …"), and by their own name when that name is unique.
     const catId = byName(cats, 'complete_name');
+    const leafCount = new Map<string, number>();
+    for (const c of cats) { const k = norm(String(c.name || '')); leafCount.set(k, (leafCount.get(k) ?? 0) + 1); }
+    for (const c of cats) { const k = norm(String(c.name || '')); if (k && leafCount.get(k) === 1 && !catId.has(k)) catId.set(k, c.id); }
     const uomId = byName(uoms, 'name');
     const routeId = byName(routes, 'name');
     const companyId = byName(companies, 'name');
@@ -148,7 +152,8 @@ Deno.serve(async (req) => {
       categ_id: need(catId, it.category, 'Category'),
       uom_id: need(uomId, it.uom, 'Unit'),
       uom_po_id: need(uomId, it.purchaseUom || it.uom, 'Purchase unit'),
-      route: need(routeId, it.route || (it.finished ? 'Manufacture' : 'Buy'), 'Route'),
+      // A route is a convenience: one Odoo doesn't have (or can't list) is left off rather than blocking the send.
+      route: routeId.get(norm(it.route || (it.finished ? 'Manufacture' : 'Buy'))) ?? null,
     }));
     const lineUoms = lines.map(l => need(uomId, l.uom, 'Unit'));
     for (const l of lines) if (!l.productId && !l.sku) problems.push('A BOM line has no product.');
