@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
-import { buildForecast, loanOutstanding, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, buildForecast, loanOutstanding, type Month } from '@/lib/dkt-cashflow';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
+import { OdooOrdersCard } from '@/components/dkt/OdooOrdersCard';
 import { CostsTab } from '@/components/dkt/CostsTab';
 import { LoansTab } from '@/components/dkt/LoansTab';
 import { CreditTab } from '@/components/dkt/CreditTab';
@@ -25,7 +26,7 @@ const TAB_KEY = 'dkt-cash-flow-tab';
 export default function DktCashFlow() {
   useDocumentTitle('DKT Cash Flow');
   const thisMonth: Month = useMemo(() => new Date().toISOString().slice(0, 7), []);
-  const { data, loading, error, api } = useDktCashflow(thisMonth);
+  const { data, loading, error, api, odoo } = useDktCashflow(thisMonth);
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
 
@@ -37,8 +38,9 @@ export default function DktCashFlow() {
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: data.skus.filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
+      odooOrders: odoo.rows, odooInvoices: odoo.invoices,
     });
-  }, [data, thisMonth]);
+  }, [data, thisMonth, odoo.rows, odoo.invoices]);
 
   const horizon = data?.settings.horizon_months ?? 12;
   const lookahead = Math.max(horizon, 24);
@@ -58,12 +60,17 @@ export default function DktCashFlow() {
 
         {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">{error}</div>}
         {loading && !data && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {odoo.error && data && (
+          <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-2 text-xs">
+            Confirmed orders and invoices from Odoo didn't load ({odoo.error}), so the forecast leaves them out for now.
+          </div>
+        )}
 
         {data && forecast && (
           <Tabs value={tab} onValueChange={pickTab}>
             <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="forecast">Forecast</TabsTrigger>
-              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length})</TabsTrigger>
+              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length + odoo.rows.filter(o => !o.excluded).length})</TabsTrigger>
               <TabsTrigger value="costs">Overhead &amp; expenses</TabsTrigger>
               <TabsTrigger value="loans">Loans</TabsTrigger>
               <TabsTrigger value="credit">Credit lines</TabsTrigger>
@@ -76,20 +83,24 @@ export default function DktCashFlow() {
                 forecast={forecast} settings={data.settings} saveSettings={api.saveSettings}
                 totalOwed={data.loans.filter(l => l.active).reduce((s, l) => s + loanOutstanding(l, data.loanPayments), 0)}
                 creditAvailable={data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - l.drawn_usd), 0)}
+                scenarios={data.scenarios} skus={data.skus}
+                setScenarioInForecast={(id, on) => api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios')}
               />
             </TabsContent>
             <TabsContent value="orders" className="mt-4">
               <OrdersTab orders={data.orders} meta={data.orderMeta} settings={data.settings} dktEntityName={data.dktEntityName}
-                saveOrder={api.saveOrder} saveStatus={api.saveOrderStatus} saveSettings={api.saveSettings} />
+                saveOrder={api.saveOrder} saveStatus={api.saveOrderStatus} saveSettings={api.saveSettings}
+                odooCard={<OdooOrdersCard rows={odoo.rows} invoices={odoo.invoices} partner={odoo.partner} loading={odoo.loading} error={odoo.error}
+                  thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />} />
             </TabsContent>
             <TabsContent value="costs" className="mt-4">
-              <CostsTab costs={data.costs} thisMonth={thisMonth}
+              <CostsTab costs={data.costs} thisMonth={thisMonth} settings={data.settings} saveSettings={api.saveSettings}
                 add={row => api.insert('dkt_cash_items', row)}
                 update={(id, p) => api.update('dkt_cash_items', id, p, 'costs')}
                 remove={id => api.remove('dkt_cash_items', id, 'costs')} />
             </TabsContent>
             <TabsContent value="loans" className="mt-4">
-              <LoansTab loans={data.loans} payments={data.loanPayments} orders={data.orders} thisMonth={thisMonth}
+              <LoansTab loans={data.loans} payments={data.loanPayments} orders={data.orders} odooOrders={odoo.rows} thisMonth={thisMonth}
                 addLoan={() => api.insert('dkt_loans', { name: 'New loan', kind: 'lump' })}
                 updateLoan={(id, p) => api.update('dkt_loans', id, p, 'loans')}
                 removeLoan={id => api.remove('dkt_loans', id, 'loans')}
@@ -112,7 +123,7 @@ export default function DktCashFlow() {
                 duplicateScenario={sc => api.duplicateScenario(sc, data.skus)}
                 updateScenario={(id, p) => api.update('dkt_amazon_scenarios', id, p, 'scenarios')}
                 removeScenario={id => api.remove('dkt_amazon_scenarios', id, 'scenarios')}
-                addSku={(scenarioId, mode) => api.insert('dkt_amazon_skus', { scenario_id: scenarioId, mode, name: '', start_month: mode === 'simple' ? thisMonth : null })}
+                addSku={(scenarioId, mode) => api.insert('dkt_amazon_skus', { scenario_id: scenarioId, mode, name: '', start_month: mode === 'simple' ? thisMonth : addMonths(thisMonth, 4) })}
                 updateSku={(id, p) => api.update('dkt_amazon_skus', id, p, 'skus')}
                 removeSku={id => api.remove('dkt_amazon_skus', id, 'skus')} />
             </TabsContent>

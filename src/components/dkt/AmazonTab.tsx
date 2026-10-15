@@ -103,6 +103,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                       <div className="text-[10px] text-muted-foreground mt-0.5">
                         Payout {usd(payoutPerUnit(x))}/unit{inv && po ? ` · first PO ${monthLabel(po)}` : ''}
                       </div>
+                      {!x.start_month && <div className="text-[10px] text-warning mt-0.5">Set a first sales month to count it</div>}
                     </td>
                     <td className="py-1.5 px-1"><SelectField label="Type" value={x.mode} options={[{ value: 'simple', label: 'Simple' }, { value: 'inventory', label: 'New SKU' }]} onSave={v => updateSku(x.id, { mode: v })} /></td>
                     <td className="py-1.5 px-1 w-20"><NumField label="Price" value={x.price_usd} onSave={v => updateSku(x.id, { price_usd: v ?? 0 })} /></td>

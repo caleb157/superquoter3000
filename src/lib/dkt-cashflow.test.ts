@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, orderAmounts, orderFlows,
+  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, orderAmounts, orderFlows,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -49,8 +49,20 @@ describe('costs', () => {
   });
 });
 
+describe('overhead', () => {
+  it('charges the monthly figure in every month and ignores old overhead lines', () => {
+    const fc = buildForecast({
+      settings: { ...DEFAULT_SETTINGS, cash_usd: 10000, monthly_overhead_usd: 1500, horizon_months: 3 },
+      thisMonth: '2026-10', orders: [], loanPayments: [], loans: [], creditLines: [], creditDraws: [], amazonSkus: [],
+      costs: [{ id: 'o', name: 'Old', kind: 'overhead', amount_usd: 999, frequency: 'monthly', start_month: null, end_month: null }],
+    });
+    expect(fc.months.map(m => m.byKind.overhead)).toEqual([-1500, -1500, -1500]);
+    expect(fc.months[2].closing).toBe(5500);
+  });
+});
+
 describe('loans', () => {
-  const lump: Loan = { id: 'l', name: 'Presswood', kind: 'lump', balance_usd: 5000, rate_pct: 0, due_month: null, pay_with_inquiry_id: 'i1', active: true };
+  const lump: Loan = { id: 'l', name: 'Presswood', kind: 'lump', balance_usd: 5000, rate_pct: 0, due_month: null, pay_with_inquiry_id: 'i1', pay_with_so: null, active: true };
   it('repays a lump loan with the linked order balance', () => {
     const f = loanFlows(lump, [], [order()], '2026-10');
     expect(f).toEqual([expect.objectContaining({ month: '2027-02', amount: -5000 })]);
@@ -65,6 +77,28 @@ describe('credit lines', () => {
     const f = creditFlows([{ id: 'x', name: 'LOC', limit_usd: 50000, drawn_usd: 0, rate_pct: 12 }], [{ id: 'd', line_id: 'x', month: '2026-11', amount_usd: 10000 }], ['2026-10', '2026-11', '2026-12']);
     expect(f.filter(x => x.kind === 'credit_interest').map(x => Math.round(-x.amount))).toEqual([100, 100]);
     expect(f.find(x => x.kind === 'credit_draw')?.amount).toBe(10000);
+  });
+});
+
+describe('odoo orders', () => {
+  it('pays unpaid PV invoices by due date, the uninvoiced rest at shipping, and grosses up the customer side', () => {
+    const f = odooFlows(
+      [{ name: 'S00120', ref: '', po_month: '2026-09', ship_month: '2026-12', pv_total_usd: 95000, to_invoice_usd: 20000, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: true, cust_balance: false }, excluded: false }],
+      [{ name: 'INV/1', origin: 'S00120', due_month: '2026-09', residual_usd: 75000 }],
+      '2026-10',
+    );
+    expect(f.find(x => x.kind === 'odoo_invoice')).toMatchObject({ month: '2026-10', amount: -75000 });
+    expect(f.find(x => x.kind === 'odoo_to_invoice')).toMatchObject({ month: '2026-12', amount: -20000 });
+    expect(f.find(x => x.kind === 'cust_balance')?.amount).toBeCloseTo(70000);
+    expect(f.find(x => x.kind === 'cust_deposit')).toBeUndefined();
+  });
+});
+
+describe('credit line maturity', () => {
+  it('repays the whole balance in the maturity month and stops interest', () => {
+    const f = creditFlows([{ id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 10000, rate_pct: 5, maturity_month: '2026-11' }], [], ['2026-10', '2026-11', '2026-12']);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2026-11', amount: -10000 });
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => x.month)).toEqual(['2026-10']);
   });
 });
 

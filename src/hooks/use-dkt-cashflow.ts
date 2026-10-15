@@ -2,7 +2,7 @@
 // DKT orders are HQ inquiries whose selling entity is DKT; their margin, customer deposit %,
 // advance % and months are read from and written to inquiry_projections, the same fields the
 // inquiry's Projection tab and PV analytics use.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
@@ -10,11 +10,26 @@ import { liveInquiryFinancials } from '@/lib/pipeline-live';
 import {
   addMonths, DEFAULT_SETTINGS, toMonth,
   type CostItem, type CreditDraw, type CreditLine, type DktOrder, type DktSettings, type Loan, type LoanPayment, type Month,
+  type OdooInvoice, type OdooOrder,
 } from '@/lib/dkt-cashflow';
 import type { AmazonSku } from '@/lib/dkt-amazon';
 
 const db = supabase as any;
-export const OPEN_STATUSES = ['active', 'projected_po', 'po'];
+// Before PO the order lives in HQ; once confirmed it is a PV → DKT sales order in Odoo (read live),
+// the same split Master Analytics uses, so an order is never counted twice.
+export const OPEN_STATUSES = ['active', 'projected_po'];
+
+export type OdooTerms = {
+  so_name: string; margin_pct: number | null; cust_deposit_pct: number | null; ship_month: Month | null;
+  cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean;
+};
+type OdooRaw = {
+  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number }[];
+  invoices: { name: string; origin: string; due: string | null; date: string | null; residual_usd: number; total_usd: number }[];
+  partner: string | null;
+  fetched_at: string | null;
+};
+export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
 export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean; funding: 'dkt' | 'allegro' };
 export type OrderMeta = { po_month_set: boolean; ship_month_set: boolean; margin_set: boolean; advance_set: boolean; cust_set: boolean };
@@ -31,6 +46,8 @@ export type DktData = {
   scenarios: AmazonScenario[];
   skus: AmazonSku[];
   dktEntityName: string | null;
+  odooTerms: OdooTerms[];
+  defaults: { custDeposit: number; ieDeposit: number };
 };
 
 const num = (v: any, d = 0) => (v == null || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
@@ -72,7 +89,7 @@ export function useDktCashflow(thisMonth: Month) {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    const [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus, defaults] = await Promise.all([
+    const [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus, defaults, terms] = await Promise.all([
       db.from('dkt_cash_settings').select('*').eq('id', 1).maybeSingle(),
       db.from('company_entities').select('id, name, entity_type'),
       db.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*)').in('status', OPEN_STATUSES),
@@ -85,6 +102,7 @@ export function useDktCashflow(thisMonth: Month) {
       db.from('dkt_amazon_scenarios').select('*').order('created_at'),
       db.from('dkt_amazon_skus').select('*').order('created_at'),
       loadProjectionDefaults(),
+      db.from('dkt_odoo_order_terms').select('*'),
     ]);
     const firstErr = [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus].find(r => r.error)?.error;
     if (firstErr) {
@@ -95,7 +113,7 @@ export function useDktCashflow(thisMonth: Month) {
       return;
     }
     const settings: DktSettings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(set.data || {}).filter(([, v]) => v != null)) } as DktSettings;
-    for (const k of ['cash_usd', 'min_cash_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd'] as const) {
+    for (const k of ['cash_usd', 'min_cash_usd', 'monthly_overhead_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd'] as const) {
       (settings as any)[k] = num((settings as any)[k], (DEFAULT_SETTINGS as any)[k]);
     }
     const entities = (ents.data as any[]) || [];
@@ -119,7 +137,7 @@ export function useDktCashflow(thisMonth: Month) {
       costs: (costs.data || []).map((r: any) => ({ ...r, amount_usd: num(r.amount_usd), start_month: m(r, 'start_month'), end_month: m(r, 'end_month') })),
       loans: (loans.data || []).map((r: any) => ({ ...r, balance_usd: num(r.balance_usd), rate_pct: num(r.rate_pct), due_month: m(r, 'due_month') })),
       loanPayments: (pays.data || []).map((r: any) => ({ ...r, principal_usd: num(r.principal_usd), interest_usd: num(r.interest_usd) })),
-      creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct) })),
+      creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct), maturity_month: m(r, 'maturity_month') })),
       creditDraws: (draws.data || []).map((r: any) => ({ ...r, month: m(r, 'month'), amount_usd: num(r.amount_usd) })),
       scenarios: scen.data || [],
       skus: (skus.data || []).map((r: any) => ({
@@ -128,11 +146,48 @@ export function useDktCashflow(thisMonth: Month) {
         order_qty: num(r.order_qty), reorder_months: num(r.reorder_months, 4), make_months: num(r.make_months, 2), ship_months: num(r.ship_months, 2),
       })),
       dktEntityName: dkt?.name ?? null,
+      odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
+      defaults,
     });
     setLoading(false);
   }, [thisMonth]);
 
   useEffect(() => { load(); }, [load]);
+
+  // PV's open sales orders and unpaid invoices to DKT, live from Odoo (nothing is stored).
+  const [odoo, setOdoo] = useState<OdooRaw | null>(null);
+  const [odooLoading, setOdooLoading] = useState(false);
+  const [odooError, setOdooError] = useState<string | null>(null);
+  const loadOdoo = useCallback(async () => {
+    setOdooLoading(true); setOdooError(null);
+    const { data: res, error: err } = await supabase.functions.invoke('odoo-dkt-orders', { body: {} });
+    setOdooLoading(false);
+    if (err || res?.error) { setOdooError(typeof res?.error === 'string' ? res.error : err?.message || 'Could not load DKT orders from Odoo'); return; }
+    setOdoo({ orders: res.orders ?? [], invoices: res.invoices ?? [], partner: res.partner ?? null, fetched_at: res.fetched_at ?? null });
+  }, []);
+  useEffect(() => { loadOdoo(); }, [loadOdoo]);
+
+  const odooRows: OdooRow[] = useMemo(() => {
+    if (!odoo || !data) return [];
+    const terms = new Map(data.odooTerms.map(t => [t.so_name, t]));
+    return odoo.orders.map(o => {
+      const t = terms.get(o.name);
+      const po = toMonth(o.date) ?? thisMonth;
+      const shipAuto = toMonth(o.ship_date) ?? addMonths(po, 3);
+      return {
+        name: o.name, ref: o.ref, po_month: po,
+        ship_month: t?.ship_month ?? shipAuto,
+        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd,
+        margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
+        cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
+        done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
+        excluded: !!t?.excluded,
+        ship_month_set: !!t?.ship_month || !!o.ship_date, margin_set: t?.margin_pct != null, cust_set: t?.cust_deposit_pct != null,
+        invoices: odoo.invoices.filter(i => i.origin.split(',').map(s => s.trim()).includes(o.name)).map(toInvoice(thisMonth)),
+      };
+    });
+  }, [odoo, data, thisMonth]);
+  const odooInvoices: OdooInvoice[] = useMemo(() => (odoo?.invoices ?? []).map(toInvoice(thisMonth)), [odoo, thisMonth]);
 
   const fail = (e: any) => { if (e) { toast.error(e.message || 'Could not save'); return true; } return false; };
 
@@ -140,6 +195,16 @@ export function useDktCashflow(thisMonth: Month) {
   const patchLocal = (fn: (d: DktData) => DktData) => setData(d => (d ? fn(d) : d));
 
   const api = {
+    reloadOdoo: loadOdoo,
+    async saveOdooTerms(soName: string, patch: Partial<Omit<OdooTerms, 'so_name'>>) {
+      patchLocal(d => {
+        const has = d.odooTerms.some(t => t.so_name === soName);
+        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false };
+        return { ...d, odooTerms: has ? d.odooTerms.map(t => (t.so_name === soName ? { ...t, ...patch } : t)) : [...d.odooTerms, { ...blank, ...patch }] };
+      });
+      const { error } = await db.from('dkt_odoo_order_terms').upsert({ so_name: soName, ...toDb(patch as any) }, { onConflict: 'so_name' });
+      fail(error);
+    },
     reload: load,
     async saveSettings(patch: Partial<DktSettings>) {
       patchLocal(d => ({ ...d, settings: { ...d.settings, ...patch } }));
@@ -200,10 +265,17 @@ export function useDktCashflow(thisMonth: Month) {
     },
   };
 
-  return { data, loading, error, api };
+  return {
+    data, loading, error, api,
+    odoo: { rows: odooRows, invoices: odooInvoices, partner: odoo?.partner ?? null, fetchedAt: odoo?.fetched_at ?? null, loading: odooLoading, error: odooError },
+  };
 }
 
-const MONTH_COLS = new Set(['start_month', 'end_month', 'due_month', 'month']);
+const toInvoice = (thisMonth: Month) => (i: OdooRaw['invoices'][number]): OdooInvoice => ({
+  name: i.name, origin: i.origin, due_month: toMonth(i.due || i.date) ?? thisMonth, residual_usd: i.residual_usd,
+});
+
+const MONTH_COLS = new Set(['start_month', 'end_month', 'due_month', 'month', 'ship_month', 'maturity_month']);
 function toDb(row: Record<string, any>) {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(row)) out[k] = MONTH_COLS.has(k) && typeof v === 'string' && v.length === 7 ? `${v}-01` : v;
