@@ -135,7 +135,7 @@ describe('amazon', () => {
 
 describe('allegro', () => {
   it('grows by the monthly top-up', () => {
-    const a = allegroProjection({ ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' }, '2026-10', 3, []);
+    const a = allegroProjection({ ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' }, '2026-10', 3);
     expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200]);
   });
 });
