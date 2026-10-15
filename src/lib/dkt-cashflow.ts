@@ -57,6 +57,7 @@ export type OdooOrder = {
   ship_month: Month; // customer balance + PV's not-yet-invoiced amount
   pv_total_usd: number; // what PV bills DKT for the order
   to_invoice_usd: number; // part PV hasn't invoiced yet
+  pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in)
   margin_pct: number;
   cust_deposit_pct: number;
   done: { cust_deposit: boolean; cust_balance: boolean };
@@ -170,22 +171,47 @@ export function orderFlows(o: DktOrder, thisMonth: Month): Flow[] {
 /** FOB the end customer pays DKT: PV's bill grossed up by DKT's margin. */
 export const odooFob = (o: Pick<OdooOrder, 'pv_total_usd' | 'margin_pct'>) => (o.margin_pct < 1 ? o.pv_total_usd / (1 - o.margin_pct) : o.pv_total_usd);
 
+const origins = (inv: OdooInvoice) => inv.origin.split(',').map(s => s.trim()).filter(Boolean);
+
+/**
+ * What DKT still owes PV on an order: Odoo's open amount (unpaid invoices + not yet invoiced), capped
+ * by the order total minus what DKT says it has already paid. The cap covers prepayments PV hasn't
+ * matched to an invoice in Odoo yet; once Odoo matches them, its own open amount is the smaller one.
+ */
+export function odooOwed(o: OdooOrder, invoices: OdooInvoice[]): number {
+  const open = invoices.reduce((s, i) => s + Math.max(0, i.residual_usd), 0) + Math.max(0, o.to_invoice_usd);
+  const paid = Math.max(0, o.pv_paid_usd ?? 0);
+  return paid > 0 ? Math.max(0, Math.min(open, o.pv_total_usd - paid)) : open;
+}
+
 /**
  * PV's side comes straight from Odoo: each unpaid invoice is paid by its due date, and whatever PV
- * hasn't invoiced yet is paid in the ship month. The customer side uses DKT's terms on the order.
+ * hasn't invoiced yet is paid in the ship month, less anything DKT has already paid PV (odooOwed),
+ * earliest payments first. The customer side uses DKT's terms on the order.
  */
 export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMonth: Month): Flow[] {
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
   const out: Flow[] = [];
-  const excluded = new Set(orders.filter(o => o.excluded).map(o => o.name));
+  const names = new Set(orders.map(o => o.name));
+  const invLabel = (inv: OdooInvoice) => `${inv.name}${inv.origin ? ` · ${inv.origin}` : ''}`;
+  // Invoices with no open order are paid as they stand.
   for (const inv of invoices) {
-    if (!(inv.residual_usd > 0) || inv.origin.split(',').some(s => excluded.has(s.trim()))) continue;
-    out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -inv.residual_usd, label: `${inv.name}${inv.origin ? ` · ${inv.origin}` : ''}`, ref: inv.name });
+    if (!(inv.residual_usd > 0) || origins(inv).some(s => names.has(s))) continue;
+    out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -inv.residual_usd, label: invLabel(inv), ref: inv.name });
   }
   for (const o of orders) {
     if (o.excluded) continue;
     const label = `${o.name}${o.ref ? ` · ${o.ref}` : ''}`;
-    if (o.to_invoice_usd > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -o.to_invoice_usd, label, ref: o.name });
+    const mine = invoices.filter(i => i.residual_usd > 0 && origins(i).find(s => names.has(s)) === o.name)
+      .sort((a, b) => a.due_month.localeCompare(b.due_month));
+    let left = odooOwed(o, mine);
+    for (const inv of mine) {
+      const pay = Math.min(inv.residual_usd, left);
+      left -= pay;
+      if (pay > 0) out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -pay, label: invLabel(inv), ref: inv.name });
+    }
+    const rest = Math.min(Math.max(0, o.to_invoice_usd), left);
+    if (rest > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -rest, label, ref: o.name });
     const fob = odooFob(o);
     if (!o.done.cust_deposit && fob * o.cust_deposit_pct > 0) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: fob * o.cust_deposit_pct, label, ref: o.name });
     if (!o.done.cust_balance && fob * (1 - o.cust_deposit_pct) > 0) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: fob * (1 - o.cust_deposit_pct), label, ref: o.name });

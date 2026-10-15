@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, orderAmounts, orderFlows,
+  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooOwed, orderAmounts, orderFlows,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -91,6 +91,23 @@ describe('odoo orders', () => {
     expect(f.find(x => x.kind === 'odoo_to_invoice')).toMatchObject({ month: '2026-12', amount: -20000 });
     expect(f.find(x => x.kind === 'cust_balance')?.amount).toBeCloseTo(70000);
     expect(f.find(x => x.kind === 'cust_deposit')).toBeUndefined();
+  });
+});
+
+describe('odoo orders already paid to PV', () => {
+  const so = { name: 'S00105', ref: '', po_month: '2026-07', ship_month: '2026-12', pv_total_usd: 28602, to_invoice_usd: 28602, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: true, cust_balance: false }, excluded: false };
+  it('drops the PV payment when DKT has paid in full but PV has not invoiced', () => {
+    const f = odooFlows([{ ...so, pv_paid_usd: 28602 }], [], '2026-10');
+    expect(f.filter(x => x.amount < 0)).toEqual([]);
+    expect(f.find(x => x.kind === 'cust_balance')).toBeDefined();
+  });
+  it('pays only the rest after a partial prepayment, before and after Odoo matches it', () => {
+    expect(odooFlows([{ ...so, pv_paid_usd: 20000 }], [], '2026-10').find(x => x.kind === 'odoo_to_invoice')?.amount).toBeCloseTo(-8602);
+    // PV invoiced 10,000 and matched it to the prepayment: Odoo shows 18,602 open, DKT still owes 8,602.
+    expect(odooOwed({ ...so, to_invoice_usd: 18602, pv_paid_usd: 20000 }, [])).toBeCloseTo(8602);
+    // PV invoiced everything and matched 20,000: Odoo shows 8,602 unpaid on the invoice.
+    const f = odooFlows([{ ...so, to_invoice_usd: 0, pv_paid_usd: 20000 }], [{ name: 'INV/9', origin: 'S00105', due_month: '2026-11', residual_usd: 8602 }], '2026-10');
+    expect(f.filter(x => x.amount < 0).map(x => x.amount)).toEqual([-8602]);
   });
 });
 

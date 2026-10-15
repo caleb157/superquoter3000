@@ -21,7 +21,7 @@ export const OPEN_STATUSES = ['active', 'projected_po'];
 
 export type OdooTerms = {
   so_name: string; margin_pct: number | null; cust_deposit_pct: number | null; ship_month: Month | null;
-  cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean;
+  cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null;
 };
 type OdooRaw = {
   orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number }[];
@@ -177,7 +177,7 @@ export function useDktCashflow(thisMonth: Month) {
       return {
         name: o.name, ref: o.ref, po_month: po,
         ship_month: t?.ship_month ?? shipAuto,
-        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd,
+        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, pv_paid_usd: num(t?.pv_paid_usd, 0),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
@@ -199,7 +199,7 @@ export function useDktCashflow(thisMonth: Month) {
     async saveOdooTerms(soName: string, patch: Partial<Omit<OdooTerms, 'so_name'>>) {
       patchLocal(d => {
         const has = d.odooTerms.some(t => t.so_name === soName);
-        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false };
+        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false, pv_paid_usd: null };
         return { ...d, odooTerms: has ? d.odooTerms.map(t => (t.so_name === soName ? { ...t, ...patch } : t)) : [...d.odooTerms, { ...blank, ...patch }] };
       });
       const { error } = await db.from('dkt_odoo_order_terms').upsert({ so_name: soName, ...toDb(patch as any) }, { onConflict: 'so_name' });

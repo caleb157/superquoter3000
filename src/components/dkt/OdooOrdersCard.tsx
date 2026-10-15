@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { monthLabel, odooFob, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
+import { monthLabel, odooFob, odooOwed, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
 import type { OdooRow, OdooTerms } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, usd } from './fields';
 
@@ -29,7 +29,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
           <CardTitle className="text-sm">Confirmed orders in Odoo (PV → {partner || 'DKT'})</CardTitle>
           <p className="text-xs text-muted-foreground max-w-3xl">
             Once an order is confirmed it is PV's sales order to DKT in Odoo, read live here and not copied. DKT pays every unpaid PV invoice by its due date
-            (overdue ones this month) and whatever PV hasn't invoiced yet in the ship month. The customer side uses your DKT margin and deposit % on each order:
+            (overdue ones this month) and whatever PV hasn't invoiced yet in the ship month. If DKT has already paid PV something PV hasn't matched to an invoice, type the total under "Paid to PV" and only the rest is forecast. The customer side uses your DKT margin and deposit % on each order:
             the customer pays the deposit in the order month and the balance in the ship month. Orders drop off once PV is fully invoiced and paid.
           </p>
         </div>
@@ -49,6 +49,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                 <th className="font-medium px-1 text-right">PV bills DKT</th>
                 <th className="font-medium px-1 text-right">Unpaid invoices</th>
                 <th className="font-medium px-1 text-right">Not yet invoiced</th>
+                <th className="font-medium px-1 text-right" title="Everything DKT has paid PV on this order so far, including prepayments Odoo hasn't matched to an invoice">Paid to PV</th>
                 <th className="font-medium px-1 text-right">DKT margin</th>
                 <th className="font-medium px-1 text-right">Cust. deposit</th>
                 <th className="font-medium px-1">Ship month</th>
@@ -60,6 +61,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
               {rows.map(o => {
                 const unpaid = o.invoices.reduce((s, i) => s + i.residual_usd, 0);
                 const fob = odooFob(o);
+                const owed = odooOwed(o, o.invoices);
                 const next = [...o.invoices].sort((a, b) => a.due_month.localeCompare(b.due_month))[0];
                 return (
                   <tr key={o.name} className={cn('border-t align-top', o.excluded && 'opacity-50')}>
@@ -73,6 +75,10 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                       {next && <div className={cn('text-[10px] mt-0.5', next.due_month < thisMonth ? 'text-destructive' : 'text-muted-foreground')}>{next.due_month < thisMonth ? 'overdue' : `due ${monthLabel(next.due_month)}`}</div>}
                     </td>
                     <td className="py-2 px-1 text-right tabular-nums pt-3">{usd(o.to_invoice_usd)}</td>
+                    <td className="py-2 px-1 w-28">
+                      <NumField label="Paid to PV" value={o.pv_paid_usd || null} placeholder="0" onSave={v => save(o.name, { pv_paid_usd: v })} allowEmpty />
+                      <div className={cn('text-[10px] text-right mt-0.5', owed > 0 ? 'text-muted-foreground' : 'text-success')}>{owed > 0 ? `${usd(owed)} still to pay` : 'PV paid in full'}</div>
+                    </td>
                     <td className="py-2 px-1 w-20">
                       <NumField percent label="DKT margin" value={o.margin_pct} onSave={v => save(o.name, { margin_pct: v })} allowEmpty />
                       <div className="text-[10px] text-muted-foreground text-right mt-0.5">{o.margin_set ? `FOB ${usd(fob)}` : 'default'}</div>
