@@ -21,13 +21,6 @@ type Props = {
   odooCard: ReactNode;
 };
 
-const DONE: { key: keyof DktOrder['done']; label: string; short: string }[] = [
-  { key: 'cust_deposit', label: 'Customer deposit received', short: 'Cust. dep.' },
-  { key: 'advance', label: 'Advance paid to PV', short: 'PV adv.' },
-  { key: 'cust_balance', label: 'Customer balance received', short: 'Cust. bal.' },
-  { key: 'pv_balance', label: 'Balance paid to PV', short: 'PV bal.' },
-];
-
 export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
@@ -54,7 +47,7 @@ export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, sav
             <p className="text-xs text-muted-foreground max-w-2xl">
               Every Active or Projected PO inquiry whose selling entity is {dktEntityName ?? 'DKT'}, counted at 100%. Once it's a PO it shows above from Odoo instead, so it's never counted twice.
               The customer deposit and the advance to PV happen in the PO month; the customer balance and PV's balance in the ship month.
-              Edits here save to the inquiry's Projection tab, so PV analytics sees the same numbers. Tick a payment once it has happened: it is then in your current cash and leaves the forecast.
+              Edits here save to the inquiry's Projection tab, so PV analytics sees the same numbers.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
@@ -79,7 +72,6 @@ export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, sav
                   <th className="font-medium py-1.5 px-1">PO month</th>
                   <th className="font-medium py-1.5 px-1">Ship month</th>
                   <th className="font-medium py-1.5 px-1 text-right" title="Advance minus customer deposit: what DKT carries until shipping">DKT funds</th>
-                  <th className="font-medium py-1.5 px-1">Already happened</th>
                   <th className="font-medium py-1.5 pl-1 text-center">Count</th>
                 </tr>
               </thead>
@@ -119,16 +111,6 @@ export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, sav
                         {!m?.ship_month_set && <div className="text-[10px] text-muted-foreground mt-0.5">estimated</div>}
                       </td>
                       <td className={cn('py-2 px-1 text-right tabular-nums font-medium pt-3.5', a.gap > 0 && 'text-warning')}>{usd(a.gap)}</td>
-                      <td className="py-2 px-1">
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {DONE.map(d => (
-                            <label key={d.key} className="flex items-center gap-1.5 whitespace-nowrap cursor-pointer" title={d.label}>
-                              <Checkbox checked={o.done[d.key]} onCheckedChange={v => saveStatus(o.inquiry_id, { [d.key]: !!v })} />
-                              <span className={cn(o.done[d.key] && 'line-through text-muted-foreground')}>{d.short}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </td>
                       <td className="py-2 pl-1 text-center pt-3">
                         <Checkbox aria-label="Count this order" checked={!o.excluded} onCheckedChange={v => saveStatus(o.inquiry_id, { excluded: !v })} />
                       </td>

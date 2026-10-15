@@ -75,7 +75,8 @@ function mapOrders(inqs: any[], statusRows: any[], live: Record<string, { fob_us
       cust_deposit_pct: num(p.cust_deposit_pct, defaults.custDeposit),
       advance_pct: num(p.ie_deposit_pct, defaults.ieDeposit),
       po_month: po, ship_month: ship < po ? po : ship,
-      done: { cust_deposit: !!s.cust_deposit_done, advance: !!s.advance_done, cust_balance: !!s.cust_balance_done, pv_balance: !!s.pv_balance_done },
+      // Pipeline orders have no payments yet (deposits only start once it's a real sales order).
+      done: { cust_deposit: false, advance: false, cust_balance: false, pv_balance: false },
       excluded: !!s.excluded,
     } as DktOrder;
   });
