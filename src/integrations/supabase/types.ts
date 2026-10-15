@@ -1193,6 +1193,8 @@ export type Database = {
           notes: string | null
           pay_with_inquiry_id: string | null
           pay_with_so: string | null
+          proceeds_month: string | null
+          proceeds_usd: number | null
           rate_pct: number
           updated_at: string
         }
@@ -1207,6 +1209,8 @@ export type Database = {
           notes?: string | null
           pay_with_inquiry_id?: string | null
           pay_with_so?: string | null
+          proceeds_month?: string | null
+          proceeds_usd?: number | null
           rate_pct?: number
           updated_at?: string
         }
@@ -1221,6 +1225,8 @@ export type Database = {
           notes?: string | null
           pay_with_inquiry_id?: string | null
           pay_with_so?: string | null
+          proceeds_month?: string | null
+          proceeds_usd?: number | null
           rate_pct?: number
           updated_at?: string
         }
@@ -1239,8 +1245,10 @@ export type Database = {
           cust_balance_done: boolean
           cust_deposit_done: boolean
           cust_deposit_pct: number | null
+          cust_paid_usd: number | null
           excluded: boolean
           margin_pct: number | null
+          pv_paid_usd: number | null
           ship_month: string | null
           so_name: string
           updated_at: string
@@ -1249,8 +1257,10 @@ export type Database = {
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
           cust_deposit_pct?: number | null
+          cust_paid_usd?: number | null
           excluded?: boolean
           margin_pct?: number | null
+          pv_paid_usd?: number | null
           ship_month?: string | null
           so_name: string
           updated_at?: string
@@ -1259,8 +1269,10 @@ export type Database = {
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
           cust_deposit_pct?: number | null
+          cust_paid_usd?: number | null
           excluded?: boolean
           margin_pct?: number | null
+          pv_paid_usd?: number | null
           ship_month?: string | null
           so_name?: string
           updated_at?: string
