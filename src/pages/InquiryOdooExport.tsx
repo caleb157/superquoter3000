@@ -32,7 +32,7 @@ import {
   type DraftLine, type FinishedDraft, type Issue, type LineStatus, type OdooProduct, type Prefixes, type ProductDraft, type SharedItem,
 } from '@/lib/odoo-bom';
 import {
-  loadLinks, odooMeta, odooProductsBySku, pushToOdoo, removeLink, saveLink, suggestOdooProducts, type OdooMeta, type PushResult,
+  odooMeta, odooProductsBySku, pushToOdoo, suggestOdooProducts, type OdooMeta, type PushResult,
 } from '@/lib/odoo-products';
 
 type Base = { productId: string; finished: FinishedDraft; lines: DraftLine[] };
@@ -122,8 +122,9 @@ export default function InquiryOdooExport() {
       const results = computeResults(b);
       const products = wanted.length ? b.products.filter(p => wanted.includes(p.id)) : b.products;
       const probe = products.map(p => buildDraftLines(results.get(p.id)?.resolvedCogsRows ?? [], new Map(), p.id));
-      const { links, available } = await loadLinks([...new Set(probe.flat().map(l => l.key))]);
-      setLinksAvailable(available);
+      void probe;
+      const links = new Map(); // matches are never remembered between products
+      setLinksAvailable(true);
       const nextBases: Base[] = products.map(p => {
         const r = results.get(p.id);
         let f = defaultFinished(p, { volumeM3: r?.finalUnitCbm ?? null });
@@ -139,7 +140,7 @@ export default function InquiryOdooExport() {
       // A saved decision wins, unless the item has since been linked to an Odoo product.
       if (saved) for (const [k, v] of Object.entries(saved.shared)) if (sh.has(k) && !(sh.get(k)!.match && !v.match)) sh.set(k, v);
       const fin: Record<string, FinishedDraft> = Object.fromEntries(nextBases.map(x => [x.productId, { ...x.finished, ...(saved?.finished?.[x.productId] ?? {}) }]));
-      const px = saved?.prefixes ?? { product: '', raw: readLastPrefixes().raw };
+      const px = saved?.prefixes ?? { product: '', raw: '' };
       const filled = fillPrefixes(nextBases, fin, sh, px, null);
       setBases(nextBases);
       setFinished(filled.finished);
@@ -194,12 +195,11 @@ export default function InquiryOdooExport() {
 
   const pick = async (first: DraftLine, p: OdooProduct) => {
     patchShared(first.key, { status: 'match', match: p });
-    if (linksAvailable && !(await saveLink(first.key, first.cogsType, first.hqName, p))) setLinksAvailable(false);
   };
   const setStatus = async (first: DraftLine, status: LineStatus) => {
     const cur = shared.get(first.key);
     patchShared(first.key, { status, ...(status !== 'match' ? { match: null } : {}) });
-    if (status !== 'match' && cur?.match && linksAvailable) await removeLink(first.key);
+    void cur;
   };
 
   const download = (kind: 'products' | 'bom') => {
@@ -233,7 +233,6 @@ export default function InquiryOdooExport() {
           if (!pid) continue;
           const m: OdooProduct = { id: pid, sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), display_name: displayName(l.newItem.sku, l.newItem.name), uom: l.newItem.uom };
           next.set(l.key, { status: 'match', match: m, newItem: l.newItem });
-          if (linksAvailable) saveLink(l.key, l.cogsType, l.hqName, m);
         }
         sh = next;
         setShared(next);

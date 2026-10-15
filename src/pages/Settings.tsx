@@ -8,6 +8,7 @@ import QuoteTermsSettings from '@/components/QuoteTermsSettings';
 import DataExportSection from '@/components/DataExportSection';
 import TeamManagementContent from '@/components/TeamManagementContent';
 import TaskAutomationsSettings from '@/components/TaskAutomationsSettings';
+import StandardBomSettings from '@/components/StandardBomSettings';
 import ProjectionDefaultsSettings from '@/components/ProjectionDefaultsSettings';
 import LiveRatesSettings from '@/components/LiveRatesSettings';
 import { Input } from '@/components/ui/input';
@@ -189,6 +190,7 @@ const Settings = () => {
       case 'entities': return <CompanyEntitiesSettings />;
       case 'quote-terms': return <QuoteTermsSettings />;
       case 'task-automations': return <TaskAutomationsSettings />;
+      case 'standard-bom': return <StandardBomSettings />;
       case 'projections': return <ProjectionDefaultsSettings />;
       case 'finishing-difficulty': return <FinishingDifficultySettings />;
       case 'data-export': return <DataExportSection />;

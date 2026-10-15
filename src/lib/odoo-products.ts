@@ -94,3 +94,13 @@ export async function odooSkuPrefixes(): Promise<SkuPrefix[]> {
   const r = await call<{ prefixes: SkuPrefix[] }>('odoo-product-lookup', { action: 'prefixes' });
   return r.prefixes ?? [];
 }
+
+// ---------- Standard BOM components (Settings) ----------
+
+export type StandardComponent = { id: string; odoo_product_id: number | null; sku: string; name: string; uom: string; default_qty: number; sort_order: number };
+
+export async function loadStandardComponents(): Promise<StandardComponent[]> {
+  const { data, error } = await db.from('odoo_standard_bom_components').select('*').order('sort_order').order('name');
+  if (error) throw error;
+  return (data || []).map((r: StandardComponent) => ({ ...r, default_qty: Number(r.default_qty) || 1 }));
+}

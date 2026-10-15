@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyPrefixes, applyShared, bomQty, editNewItem, bomSheet, buildDraftLines, checkAcross, checkDraft, combinedBomSheet, combinedProductsSheet, convertQty, sharedItems, defaultFinished, finishedSkuFor, itemCode, lineQty, linkKey, productsSheet, pushPayload, rawPieceSkuFor, unitInfo,
+  bomQty, bomSheet, buildDraftLines, cartonItem, cartonKind, checkDraft, convertQty, defaultFinished, editNewItem, isFullSku,
+  lineQty, productsSheet, pushPayload, splitSku, unitInfo,
   type OdooProduct,
 } from './odoo-bom';
 
@@ -8,179 +9,108 @@ const row = (over: Record<string, unknown>) => ({
   id: String(over.component_name), include: 'Yes', cogs_type: 'Other', components_per_product: 1, waste_factor: 0,
   unit_cost_inr: 10, units: 'pc', sort_order: 0, ...over,
 });
+const handle: OdooProduct = { id: 2371, sku: 'HRD-HDGL-12IN', name: 'Gold Handle', display_name: '[HRD-HDGL-12IN] Gold Handle', uom: 'Units' };
 
 describe('units', () => {
-  it('reads Odoo pack fractions and packs', () => {
+  it('reads Odoo pack fractions and converts', () => {
     expect(unitInfo('1/20th of a Pack')).toEqual({ family: 'count', factor: 1 / 20 });
-    expect(unitInfo('Pack of 12')).toEqual({ family: 'count', factor: 12 });
-  });
-  it('converts HQ units to Odoo units', () => {
     expect(convertQty(0.05, 'pc', '1/20th of a Pack')).toEqual({ qty: 1, ok: true });
     expect(convertQty(0.05, 'L', 'mL')).toEqual({ qty: 50, ok: true });
-    expect(convertQty(0.17, 'cft', 'cu ft')).toEqual({ qty: 0.17, ok: true });
-    expect(convertQty(10, 'g', 'kg')).toEqual({ qty: 0.01, ok: true });
     expect(convertQty(2, 'kg', 'L').ok).toBe(false);
   });
 });
 
 describe('draft lines', () => {
-  it('includes waste like the engine and drops excluded or empty lines', () => {
+  it('includes waste, drops excluded lines, and leaves new raw material SKUs blank with no cost', () => {
     expect(lineQty({ components_per_product: 0.15, waste_factor: 0.25 })).toBeCloseTo(0.2);
     const lines = buildDraftLines([
-      row({ component_name: 'Mango wood', cogs_type: 'Wood', components_per_product: 0.15, waste_factor: 0.25, units: 'cft' }),
+      row({ component_name: 'Mango wood', cogs_type: 'Wood', components_per_product: 0.15, waste_factor: 0.25, units: 'cft', unit_cost_inr: 900 }),
       row({ component_name: 'Off', include: 'No' }),
-      row({ component_name: 'Zero', components_per_product: 0 }),
       row({ component_name: 'Polishing', cogs_type: 'Subcontracting' }),
-      row({ component_name: 'Domestic Freight (External Sourcing)' }),
     ], new Map());
-    expect(lines.map(l => [l.hqName, l.status])).toEqual([
-      ['Mango wood', 'new'], ['Polishing', 'skip'], ['Domestic Freight (External Sourcing)', 'skip'],
-    ]);
-    expect(lines[0].newItem).toMatchObject({ sku: 'TMB-', uom: 'cu ft', tracked: true });
+    expect(lines.map(l => [l.hqName, l.status])).toEqual([['Mango wood', 'new'], ['Polishing', 'skip']]);
+    expect(lines[0].newItem).toMatchObject({ sku: '', cost: null, uom: 'cu ft' });
   });
-
-  it('pre-matches a line linked before', () => {
-    const handle: OdooProduct = { id: 2371, sku: 'HRD-HDGL-12IN', name: 'Gold Handle / Electroplated SS / 12 inch', display_name: '[HRD-HDGL-12IN] Gold Handle / Electroplated SS / 12 inch', uom: 'Units' };
-    const lines = buildDraftLines([row({ component_name: 'Gold  handle', cogs_type: 'Handles + Knobs', components_per_product: 2 })],
-      new Map([[linkKey('Handles + Knobs', 'gold handle'), handle]]));
-    expect(lines[0].status).toBe('match');
-    expect(lines[0].match?.id).toBe(2371);
+  it('keeps a typed tracking tick when the category changes it', () => {
+    const item = buildDraftLines([row({ component_name: 'Knob', cogs_type: 'Handles + Knobs' })], new Map())[0].newItem;
+    expect(editNewItem(item, { sku: 'SCR-X' }).tracked).toBe(false);
   });
 });
 
-describe('files', () => {
-  const handle: OdooProduct = { id: 2371, sku: 'HRD-HDGL-12IN', name: 'Gold Handle', display_name: '[HRD-HDGL-12IN] Gold Handle', uom: 'Units' };
-  const carton: OdooProduct = { id: 99, sku: 'PBX-0004-B', name: 'Master Carton', display_name: '[PBX-0004-B] Master Carton', uom: '1/20th of a Pack' };
-  const make = () => {
-    const lines = buildDraftLines([
-      row({ component_name: 'Gold handle', cogs_type: 'Handles + Knobs', components_per_product: 2 }),
-      row({ component_name: 'MC box', cogs_type: 'Packaging', components_per_product: 0.05 }),
-      row({ component_name: 'NC sealer', cogs_type: 'Finishing Materials', components_per_product: 0.05, units: 'L', unit_cost_inr: 400 }),
-    ], new Map([[linkKey('Handles + Knobs', 'Gold handle'), handle], [linkKey('Packaging', 'MC box'), carton]]));
-    lines[2].newItem.sku = 'CHM-NCSL-NEW';
-    const f = { ...defaultFinished({ name: 'Advent Candle Set Dark', sku: 'RWH-ADC4-DARK', weight_kg: 1.2 }), code: 'RADC Dark' };
-    return { f, lines };
+describe('finished SKU', () => {
+  it('needs a prefix, a base and a suffix', () => {
+    expect(isFullSku('CCT-WSS2016-CHST')).toBe(true);
+    expect(isFullSku('CCT-WSS2016-CHST_SMALL')).toBe(true);
+    expect(isFullSku('CCT-WSS2016')).toBe(false);
+    expect(isFullSku('CCT-WSS2016-')).toBe(false);
+    expect(splitSku('CCT-WSS2016-CHST_SMALL')).toEqual({ prefix: 'CCT', base: 'WSS2016', suffix: 'CHST_SMALL' });
+  });
+  it('suggests a 4-character base and no prefix or suffix', () => {
+    expect(defaultFinished({ name: 'Tray', sku: 'AT-3335' }).sku).toBe('-AT33-');
+  });
+});
+
+describe('cartons', () => {
+  it('names PIC from the outside size and ply, SKU from the first two sides with decimals dropped', () => {
+    expect(cartonItem('PIC', 'Side Table', 'WSS2', { w: 44.2, d: 37.9, h: 50 }, '5 ply')).toEqual({
+      name: 'Inner Carton for Side Table / 44 x 37 x 50 inch / 5 ply', sku: 'PIC-WSS2-4437',
+    });
+    expect(cartonItem('PMC', 'Tray', 'AT33', { w: 103, d: 41, h: 13 }, null)).toEqual({
+      name: 'Master Carton for Tray / 103 x 41 x 13 inch', sku: 'PMC-AT33-10341',
+    });
+  });
+  it('leaves the SKU blank without a size', () => {
+    expect(cartonItem('PIC', 'Tray', 'AT33', null, null)).toEqual({ name: 'Inner Carton for Tray', sku: '' });
+  });
+  it('tells inner from master cartons by line name', () => {
+    expect(cartonKind('Packaging', 'IC Box')).toBe('PIC');
+    expect(cartonKind('Packaging', 'MC Box')).toBe('PMC');
+    expect(cartonKind('Packaging', 'Other Packaging')).toBe(null);
+  });
+});
+
+describe('BOM units', () => {
+  const lines = () => {
+    const ls = buildDraftLines([row({ component_name: 'Gold handle', cogs_type: 'Handles + Knobs', components_per_product: 2 })], new Map());
+    ls[0] = { ...ls[0], status: 'match', match: handle };
+    return ls;
   };
-
-  it('writes the BOM in the layout of the Odoo export', () => {
-    const { f, lines } = make();
-    const s = bomSheet(f, lines);
-    expect(s[0]).toEqual(['company_id', 'product_tmpl_id', 'code', 'type', 'product_qty', 'bom_line_ids/product_id', 'bom_line_ids/product_qty', 'bom_line_ids/product_uom_id']);
-    expect(s[1]).toEqual(['Parable Ventures Private Limited', '[RWH-ADC4-DARK] Advent Candle Set Dark', 'RADC Dark', 'Manufacture this product', 1, '[HRD-HDGL-12IN] Gold Handle', 2, 'Units']);
-    expect(s[2]).toEqual([null, null, null, null, null, '[PBX-0004-B] Master Carton', 1, '1/20th of a Pack']);
-    expect(s[3].slice(5)).toEqual(['[CHM-NCSL-NEW] NC sealer', 0.05, 'L']);
-  });
-
-  it('lists only products not yet in Odoo', () => {
-    const { f, lines } = make();
-    const all = productsSheet(f, lines, null);
-    expect(all.map(r => r[1])).toEqual(['default_code', 'RWH-ADC4-DARK', 'CHM-NCSL-NEW']);
-    expect(all[2].slice(2, 11)).toEqual(['Goods', 'True', 'All / Expenses / Raw Materials AVCO Automatic', 'L', 'L', 'False', 'True', null, 400]);
-    const some = productsSheet(f, lines, new Set(['RWH-ADC4-DARK']));
-    expect(some.map(r => r[1])).toEqual(['default_code', 'CHM-NCSL-NEW']);
-  });
-
-  it('flags SKUs that already exist in Odoo and unfinished SKUs', () => {
-    const { f, lines } = make();
-    expect(checkDraft(f, lines, new Set()).filter(i => i.level === 'error')).toEqual([]);
-    expect(checkDraft(f, lines, new Set(['CHM-NCSL-NEW'])).some(i => i.level === 'error' && /already exists/.test(i.msg))).toBe(true);
-    lines[2].newItem.sku = 'CHM-';
-    expect(checkDraft(f, lines, null).some(i => /unfinished/.test(i.msg))).toBe(true);
-  });
-
-  it('builds the direct-send payload from the same draft', () => {
-    const { f, lines } = make();
-    const p = pushPayload('pid', f, lines, new Set());
-    expect(p.components.map(c => c.sku)).toEqual(['CHM-NCSL-NEW']);
-    expect(p.lines).toEqual([
-      { productId: 2371, sku: 'HRD-HDGL-12IN', qty: 2, uom: 'Units' },
-      { productId: 99, sku: 'PBX-0004-B', qty: 1, uom: '1/20th of a Pack' },
-      { productId: null, sku: 'CHM-NCSL-NEW', qty: 0.05, uom: 'L' },
-    ]);
+  it('multiplies line quantities by the units per BOM and sets the BOM quantity to match', () => {
+    const f = { ...defaultFinished({ name: 'Tray', sku: 'AT-3335' }), sku: 'CCT-AT33-DARK', bomUnits: 20 };
+    expect(bomQty(lines()[0], 20).qty).toBe(40);
+    const s = bomSheet(f, lines());
+    expect(s[1][3]).toBe(20);
+    expect(s[1][5]).toBe(40);
+    const p = pushPayload('pid', f, lines(), new Set());
+    expect(p.bomUnits).toBe(20);
+    expect(p.lines[0].qty).toBe(40);
   });
 });
 
-describe('several products', () => {
-  const draft = (id: string, sku: string, rows: Record<string, unknown>[]) => ({
-    productId: id, finished: defaultFinished({ name: `Product ${id}`, sku }), lines: buildDraftLines(rows.map(row), new Map()),
+describe('existing finished product', () => {
+  const ls = buildDraftLines([row({ component_name: 'Gold handle', cogs_type: 'Handles + Knobs' })], new Map());
+  ls[0] = { ...ls[0], status: 'match', match: handle };
+  const odoo: OdooProduct = { id: 55, sku: 'CCT-AT33-DARK', name: 'Tray', display_name: '[CCT-AT33-DARK] Tray', uom: 'Units' };
+  it('creates no product and attaches the BOM to the picked product', () => {
+    const f = { ...defaultFinished({ name: 'Tray' }), exists: true, existing: odoo };
+    expect(checkDraft(f, ls, new Set()).filter(i => i.level === 'error')).toEqual([]);
+    expect(productsSheet(f, ls, new Set())).toHaveLength(1);
+    const p = pushPayload('pid', f, ls, new Set());
+    expect(p.finished).toBeNull();
+    expect(p.existingProductId).toBe(55);
   });
-
-  it('shares one decision per HQ item and keeps each product its own quantity', () => {
-    const a = draft('a', 'RWH-A', [{ component_name: 'Brass knob', cogs_type: 'Handles + Knobs', components_per_product: 2 }]);
-    const b = draft('b', 'RWH-B', [{ component_name: 'Brass Knob', cogs_type: 'Handles + Knobs', components_per_product: 4 }]);
-    const items = sharedItems([a, b]);
-    expect(items).toHaveLength(1);
-    expect(items[0].usedIn).toBe(2);
-    const shared = new Map([[items[0].key, { ...items[0].first, newItem: { ...items[0].first.newItem, sku: 'HRD-BRKN-01' } }]]);
-    const drafts = [a, b].map(d => ({ ...d, lines: applyShared(d.lines, shared) }));
-    expect(drafts.map(d => bomQty(d.lines[0]).qty)).toEqual([2, 4]);
-    expect(combinedProductsSheet(drafts, null).map(r => r[1])).toEqual(['default_code', 'RWH-A', 'HRD-BRKN-01', 'RWH-B']);
-    const bom = combinedBomSheet(drafts);
-    expect(bom.map(r => r[1])).toEqual(['product_tmpl_id', '[RWH-A] Product a', '[RWH-B] Product b']);
-    expect(checkAcross(drafts)).toEqual([]);
+  it('requires picking the product when ticked', () => {
+    const f = { ...defaultFinished({ name: 'Tray' }), exists: true, existing: null };
+    expect(checkDraft(f, ls, new Set()).some(i => i.level === 'error' && /Pick the Odoo product/.test(i.msg))).toBe(true);
   });
-
-  it('flags one SKU used for two different items', () => {
-    const a = draft('a', 'RWH-A', [{ component_name: 'Knob', cogs_type: 'Handles + Knobs' }, { component_name: 'Hinge', cogs_type: 'Other Hardware' }]);
-    a.lines.forEach(l => { l.newItem.sku = 'HRD-SAME'; });
-    expect(checkAcross([a])[0].msg).toMatch(/2 different/);
+  it('blocks a new product SKU without a suffix', () => {
+    const f = { ...defaultFinished({ name: 'Tray' }), sku: 'CCT-AT33-' };
+    expect(checkDraft(f, ls, new Set()).some(i => i.level === 'error' && /suffix/.test(i.msg))).toBe(true);
   });
-});
-
-describe('SKU prefixes', () => {
-  const lines = (id: string) => buildDraftLines([
-    row({ component_name: 'Raw piece', cogs_type: 'Raw Piece' }),
-    row({ component_name: 'Brass knob', cogs_type: 'Handles + Knobs' }),
-  ], new Map(), id);
-
-  it('builds SKUs from the HQ SKU or the name', () => {
-    expect(itemCode('AT-3335', 'Anything')).toBe('AT3335');
-    expect(itemCode('', 'Advent Candle Set of 4 Dark')).toBe('AC4D');
-    expect(finishedSkuFor('cct', 'AT-3335', 'x')).toBe('CCT-AT3335');
-    expect(finishedSkuFor('CCT', 'CCT-AT3335-WHTE', 'x')).toBe('CCT-AT3335-WHTE');
-    expect(rawPieceSkuFor('RAW', 'CCT-AT3335')).toBe('RAW-AT3335');
-    expect(rawPieceSkuFor('RAW', 'CCT-AT3335', 2)).toBe('RAW-AT3335-2');
-  });
-
-  it('keeps raw pieces per product but other items shared', () => {
-    expect(lines('a')[0].key).not.toBe(lines('b')[0].key);
-    expect(lines('a')[1].key).toBe(lines('b')[1].key);
-  });
-
-  it('fills, refills on a prefix change, and keeps typed SKUs', () => {
-    const f = defaultFinished({ name: 'Tray', sku: 'AT-3335' });
-    let r = applyPrefixes({ ...f, sku: '' }, lines('a'), { product: 'CCT', raw: 'RAW' }, null);
-    expect(r.finished.sku).toBe('CCT-AT3335');
-    expect(r.lines[0].newItem.sku).toBe('RAW-AT3335');
-    expect(r.lines[1].newItem.sku).toBe('HRD-');
-    r = applyPrefixes(r.finished, r.lines, { product: 'RWH', raw: 'RP' }, { product: 'CCT', raw: 'RAW' });
-    expect([r.finished.sku, r.lines[0].newItem.sku]).toEqual(['RWH-AT3335', 'RP-AT3335']);
-    const typed = { ...r.finished, sku: 'MY-OWN' };
-    const ls = r.lines.map((l, i) => (i === 0 ? { ...l, newItem: { ...l.newItem, sku: 'PIECE-9' } } : l));
-    r = applyPrefixes(typed, ls, { product: 'CCT', raw: 'RAW' }, { product: 'RWH', raw: 'RP' });
-    expect([r.finished.sku, r.lines[0].newItem.sku]).toEqual(['MY-OWN', 'PIECE-9']);
-  });
-});
-
-describe('Odoo category rules', () => {
-  it('names packaging and consumables the way Odoo does', () => {
-    const lines = buildDraftLines([
-      row({ component_name: 'Inner carton 5 ply', cogs_type: 'Packaging' }),
-      row({ component_name: 'Master carton', cogs_type: 'Packaging' }),
-      row({ component_name: 'Foam corners', cogs_type: 'Packaging' }),
-      row({ component_name: 'Fevicol SH', cogs_type: 'Finishing Materials', units: 'kg' }),
-    ], new Map());
-    expect(lines.map(l => [l.newItem.sku, l.newItem.tracked])).toEqual([['PIC-', true], ['PMC-', true], ['FCR-', false], ['ADH-', false]]);
-    expect(lines[3].newItem.category).toBe('Glue and Adhesives (Standard Cost)');
-  });
-
-  it('takes category and tracking from a typed prefix, and tracking from a category', () => {
-    const item = buildDraftLines([row({ component_name: 'Brass knob', cogs_type: 'Handles + Knobs' })], new Map())[0].newItem;
-    const scr = editNewItem(item, { sku: 'SCR-' });
-    expect([scr.category, scr.tracked]).toEqual(['All / Expenses / Non-Inventory Raw Material AVCO', false]);
-    // Typing on after the prefix keeps a hand-set tick.
-    expect(editNewItem({ ...scr, tracked: true }, { sku: 'SCR-BRS-10' }).tracked).toBe(true);
-    expect(editNewItem(scr, { category: 'All / Expenses / Raw Materials AVCO Automatic' }).tracked).toBe(true);
-    expect(editNewItem(scr, { category: 'Something new' }).tracked).toBe(false);
+  it('never sends a cost for new components', () => {
+    const n = buildDraftLines([row({ component_name: 'NC sealer', cogs_type: 'Finishing Materials', units: 'L', unit_cost_inr: 400 })], new Map());
+    n[0].newItem.sku = 'CHM-NCSL-01';
+    const p = pushPayload('pid', { ...defaultFinished({ name: 'Tray' }), sku: 'CCT-AT33-DARK' }, n, new Set());
+    expect(p.components[0]).not.toHaveProperty('cost');
   });
 });

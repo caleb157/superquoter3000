@@ -25,14 +25,8 @@ export function SkuPrefixBar({ value, onChange }: Props) {
         <Input className="h-8 w-32 text-xs font-mono" list="odoo-prefix-saleable" placeholder="e.g. RWH"
           value={value.product} onChange={e => onChange({ ...value, product: clean(e.target.value) })} />
       </label>
-      <label className="space-y-1">
-        <span className="block text-xs text-muted-foreground">Raw piece SKU prefix</span>
-        <Input className="h-8 w-32 text-xs font-mono" list="odoo-prefix-other" placeholder="e.g. RAW"
-          value={value.raw} onChange={e => onChange({ ...value, raw: clean(e.target.value) })} />
-      </label>
       <p className="text-xs text-muted-foreground flex-1 min-w-[220px]">
-        Fills SKUs as PREFIX-ITEM (the HQ SKU without dashes, or the name's initials); raw pieces follow their product, e.g. RAW-AT3335.
-        SKUs you've typed yourself are kept.
+        Fills each product's SKU prefix (PREFIX-BASE-SUFFIX); add the suffix per product. SKUs you've typed yourself are kept.
       </p>
     </div>
   );
