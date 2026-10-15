@@ -122,8 +122,9 @@ export default function InquiryOdooExport() {
       const results = computeResults(b);
       const products = wanted.length ? b.products.filter(p => wanted.includes(p.id)) : b.products;
       const probe = products.map(p => buildDraftLines(results.get(p.id)?.resolvedCogsRows ?? [], new Map(), p.id));
-      const { links, available } = await loadLinks([...new Set(probe.flat().map(l => l.key))]);
-      setLinksAvailable(available);
+      void probe;
+      const links = new Map(); // matches are never remembered between products
+      setLinksAvailable(true);
       const nextBases: Base[] = products.map(p => {
         const r = results.get(p.id);
         let f = defaultFinished(p, { volumeM3: r?.finalUnitCbm ?? null });
