@@ -21,10 +21,10 @@ export const OPEN_STATUSES = ['active', 'projected_po'];
 
 export type OdooTerms = {
   so_name: string; margin_pct: number | null; cust_deposit_pct: number | null; ship_month: Month | null;
-  cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null;
+  cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null; cust_paid_usd: number | null;
 };
 type OdooRaw = {
-  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number }[];
+  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number; advance_usd?: number; cash_date?: string | null }[];
   invoices: { name: string; origin: string; due: string | null; date: string | null; residual_usd: number; total_usd: number }[];
   partner: string | null;
   fetched_at: string | null;
@@ -75,7 +75,8 @@ function mapOrders(inqs: any[], statusRows: any[], live: Record<string, { fob_us
       cust_deposit_pct: num(p.cust_deposit_pct, defaults.custDeposit),
       advance_pct: num(p.ie_deposit_pct, defaults.ieDeposit),
       po_month: po, ship_month: ship < po ? po : ship,
-      done: { cust_deposit: !!s.cust_deposit_done, advance: !!s.advance_done, cust_balance: !!s.cust_balance_done, pv_balance: !!s.pv_balance_done },
+      // Pipeline orders have no payments yet (deposits only start once it's a real sales order).
+      done: { cust_deposit: false, advance: false, cust_balance: false, pv_balance: false },
       excluded: !!s.excluded,
     } as DktOrder;
   });
@@ -173,16 +174,18 @@ export function useDktCashflow(thisMonth: Month) {
     return odoo.orders.map(o => {
       const t = terms.get(o.name);
       const po = toMonth(o.date) ?? thisMonth;
-      const shipAuto = toMonth(o.ship_date) ?? addMonths(po, 3);
+      // Ship month and what's been paid to PV come from PV's Odoo only (the date PV's cash flow uses).
+      const odooShip = toMonth(o.cash_date) ?? toMonth(o.ship_date);
+      const ship = odooShip ? (odooShip < thisMonth ? thisMonth : odooShip) : addMonths(po, 3);
       return {
         name: o.name, ref: o.ref, po_month: po,
-        ship_month: t?.ship_month ?? shipAuto,
-        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, pv_paid_usd: num(t?.pv_paid_usd, 0),
+        ship_month: ship,
+        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: 0, cust_paid_usd: t?.cust_paid_usd == null ? null : num(t.cust_paid_usd),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
         excluded: !!t?.excluded,
-        ship_month_set: !!t?.ship_month || !!o.ship_date, margin_set: t?.margin_pct != null, cust_set: t?.cust_deposit_pct != null,
+        ship_month_set: !!odooShip, margin_set: t?.margin_pct != null, cust_set: t?.cust_deposit_pct != null,
         invoices: odoo.invoices.filter(i => i.origin.split(',').map(s => s.trim()).includes(o.name)).map(toInvoice(thisMonth)),
       };
     });
@@ -199,7 +202,7 @@ export function useDktCashflow(thisMonth: Month) {
     async saveOdooTerms(soName: string, patch: Partial<Omit<OdooTerms, 'so_name'>>) {
       patchLocal(d => {
         const has = d.odooTerms.some(t => t.so_name === soName);
-        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false, pv_paid_usd: null };
+        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false, pv_paid_usd: null, cust_paid_usd: null };
         return { ...d, odooTerms: has ? d.odooTerms.map(t => (t.so_name === soName ? { ...t, ...patch } : t)) : [...d.odooTerms, { ...blank, ...patch }] };
       });
       const { error } = await db.from('dkt_odoo_order_terms').upsert({ so_name: soName, ...toDb(patch as any) }, { onConflict: 'so_name' });

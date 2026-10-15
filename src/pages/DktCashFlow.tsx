@@ -88,7 +88,7 @@ export default function DktCashFlow() {
               />
             </TabsContent>
             <TabsContent value="orders" className="mt-4">
-              <OrdersTab orders={data.orders} meta={data.orderMeta} settings={data.settings} dktEntityName={data.dktEntityName}
+              <OrdersTab orders={data.orders} odooRows={odoo.rows} meta={data.orderMeta} settings={data.settings} dktEntityName={data.dktEntityName}
                 saveOrder={api.saveOrder} saveStatus={api.saveOrderStatus} saveSettings={api.saveSettings}
                 odooCard={<OdooOrdersCard rows={odoo.rows} invoices={odoo.invoices} partner={odoo.partner} loading={odoo.loading} error={odoo.error}
                   thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />} />

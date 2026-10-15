@@ -57,10 +57,12 @@ export type OdooOrder = {
   ship_month: Month; // customer balance + PV's not-yet-invoiced amount
   pv_total_usd: number; // what PV bills DKT for the order
   to_invoice_usd: number; // part PV hasn't invoiced yet
-  pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in)
+  advance_usd?: number; // DKT's advance PV's Odoo applies to this order (from the not-yet-invoiced part)
+  pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in, for what Odoo doesn't show)
   margin_pct: number;
   cust_deposit_pct: number;
-  done: { cust_deposit: boolean; cust_balance: boolean };
+  cust_paid_usd?: number | null; // what the customer has paid DKT on this order so far (typed in)
+  done: { cust_deposit: boolean; cust_balance: boolean }; // older ticks, used only while cust_paid_usd is blank
   excluded: boolean;
 };
 export type OdooInvoice = { name: string; origin: string; due_month: Month; residual_usd: number };
@@ -176,20 +178,30 @@ export const odooFob = (o: Pick<OdooOrder, 'pv_total_usd' | 'margin_pct'>) => (o
 const origins = (inv: OdooInvoice) => inv.origin.split(',').map(s => s.trim()).filter(Boolean);
 
 /**
- * What DKT still owes PV on an order: Odoo's open amount (unpaid invoices + not yet invoiced), capped
- * by the order total minus what DKT says it has already paid. The cap covers prepayments PV hasn't
- * matched to an invoice in Odoo yet; once Odoo matches them, its own open amount is the smaller one.
+ * What DKT still owes PV on an order: Odoo's open amount (unpaid invoices + not yet invoiced, less the
+ * DKT advance PV's Odoo applies to the order, earliest order first as in PV's cash flow), capped by the
+ * order total minus anything DKT says it has paid that Odoo doesn't show.
  */
 export function odooOwed(o: OdooOrder, invoices: OdooInvoice[]): number {
-  const open = invoices.reduce((s, i) => s + Math.max(0, i.residual_usd), 0) + Math.max(0, o.to_invoice_usd);
+  const open = invoices.reduce((s, i) => s + Math.max(0, i.residual_usd), 0) + Math.max(0, o.to_invoice_usd - Math.max(0, o.advance_usd ?? 0));
   const paid = Math.max(0, o.pv_paid_usd ?? 0);
   return paid > 0 ? Math.max(0, Math.min(open, o.pv_total_usd - paid)) : open;
+}
+
+/** Everything DKT has paid PV on the order: the order total less what's still owed. */
+export const odooPaid = (o: OdooOrder, invoices: OdooInvoice[]) => Math.max(0, o.pv_total_usd - odooOwed(o, invoices));
+
+/** What the customer has paid DKT: the typed amount, else what the older deposit/balance ticks imply. */
+export function odooCustPaid(o: OdooOrder): number {
+  if (o.cust_paid_usd != null) return Math.max(0, o.cust_paid_usd);
+  const fob = odooFob(o);
+  return o.done.cust_balance ? fob : o.done.cust_deposit ? fob * o.cust_deposit_pct : 0;
 }
 
 /**
  * PV's side comes straight from Odoo: each unpaid invoice is paid by its due date, and whatever PV
  * hasn't invoiced yet is paid in the ship month, less anything DKT has already paid PV (odooOwed),
- * earliest payments first. The customer side uses DKT's terms on the order.
+ * earliest payments first. The customer pays the deposit now and the rest in the ship month.
  */
 export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMonth: Month): Flow[] {
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
@@ -212,11 +224,14 @@ export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMont
       left -= pay;
       if (pay > 0) out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -pay, label: invLabel(inv), ref: inv.name });
     }
-    const rest = Math.min(Math.max(0, o.to_invoice_usd), left);
+    const rest = Math.min(Math.max(0, o.to_invoice_usd - Math.max(0, o.advance_usd ?? 0)), left);
     if (rest > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -rest, label, ref: o.name });
-    const fob = odooFob(o);
-    if (!o.done.cust_deposit && fob * o.cust_deposit_pct > 0) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: fob * o.cust_deposit_pct, label, ref: o.name });
-    if (!o.done.cust_balance && fob * (1 - o.cust_deposit_pct) > 0) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: fob * (1 - o.cust_deposit_pct), label, ref: o.name });
+    // The customer's deposit is due now (the order is confirmed), the rest in the ship month; what
+    // they've already paid counts against the deposit first.
+    const fob = odooFob(o), paid = odooCustPaid(o), dep = fob * o.cust_deposit_pct;
+    if (dep - paid > 0.5) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: dep - paid, label, ref: o.name });
+    const bal = fob - Math.max(paid, dep);
+    if (bal > 0.5) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: bal, label, ref: o.name });
   }
   return out;
 }

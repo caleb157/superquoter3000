@@ -109,6 +109,11 @@ describe('odoo orders already paid to PV', () => {
     expect(f.filter(x => x.amount < 0)).toEqual([]);
     expect(f.find(x => x.kind === 'cust_balance')).toBeDefined();
   });
+  it('takes the advance PV\'s Odoo applies to the order off the not-yet-invoiced part', () => {
+    const f = odooFlows([{ ...so, advance_usd: 20000 }], [], '2026-10');
+    expect(f.find(x => x.kind === 'odoo_to_invoice')?.amount).toBeCloseTo(-8602);
+    expect(odooFlows([{ ...so, advance_usd: 28602 }], [], '2026-10').filter(x => x.amount < 0)).toEqual([]);
+  });
   it('pays only the rest after a partial prepayment, before and after Odoo matches it', () => {
     expect(odooFlows([{ ...so, pv_paid_usd: 20000 }], [], '2026-10').find(x => x.kind === 'odoo_to_invoice')?.amount).toBeCloseTo(-8602);
     // PV invoiced 10,000 and matched it to the prepayment: Odoo shows 18,602 open, DKT still owes 8,602.
@@ -116,6 +121,22 @@ describe('odoo orders already paid to PV', () => {
     // PV invoiced everything and matched 20,000: Odoo shows 8,602 unpaid on the invoice.
     const f = odooFlows([{ ...so, to_invoice_usd: 0, pv_paid_usd: 20000 }], [{ name: 'INV/9', origin: 'S00105', due_month: '2026-11', residual_usd: 8602 }], '2026-10');
     expect(f.filter(x => x.amount < 0).map(x => x.amount)).toEqual([-8602]);
+  });
+});
+
+describe('odoo orders, customer side', () => {
+  const so = { name: 'S1', ref: '', po_month: '2026-07', ship_month: '2026-12', pv_total_usd: 9500, to_invoice_usd: 9500, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: false, cust_balance: false }, excluded: false };
+  it('brings in what the customer still owes in the ship month', () => {
+    const f = odooFlows([{ ...so, cust_paid_usd: 4000 }], [], '2026-10');
+    expect(f.filter(x => x.amount > 0)).toEqual([expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 6000 })]);
+    expect(odooFlows([{ ...so, cust_paid_usd: 10000 }], [], '2026-10').filter(x => x.amount > 0)).toEqual([]);
+  });
+  it('asks for the unpaid deposit now and the rest at shipping', () => {
+    const f = odooFlows([{ ...so, cust_paid_usd: 1000 }], [], '2026-10').filter(x => x.amount > 0);
+    expect(f).toEqual([
+      expect.objectContaining({ month: '2026-10', kind: 'cust_deposit', amount: 2000 }),
+      expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 7000 }),
+    ]);
   });
 });
 

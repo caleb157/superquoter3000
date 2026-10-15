@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { monthLabel, odooFob, odooOwed, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
+import { monthLabel, odooCustPaid, odooFob, odooOwed, odooPaid, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
 import type { OdooRow, OdooTerms } from '@/hooks/use-dkt-cashflow';
-import { MonthField, NumField, usd } from './fields';
+import { NumField, usd } from './fields';
 
 type Props = {
   rows: OdooRow[];
@@ -28,9 +28,10 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
         <div className="space-y-1">
           <CardTitle className="text-sm">Confirmed orders in Odoo (PV → {partner || 'DKT'})</CardTitle>
           <p className="text-xs text-muted-foreground max-w-3xl">
-            Once an order is confirmed it is PV's sales order to DKT in Odoo, read live here and not copied. DKT pays every unpaid PV invoice by its due date
-            (overdue ones this month) and whatever PV hasn't invoiced yet in the ship month. If DKT has already paid PV something PV hasn't matched to an invoice, type the total under "Paid to PV" and only the rest is forecast. The customer side uses your DKT margin and deposit % on each order:
-            the customer pays the deposit in the order month and the balance in the ship month. Orders drop off once PV is fully invoiced and paid.
+            PV's confirmed sales orders to DKT, read live from Odoo. Paid to PV and the ship month come straight from PV's Odoo (DKT's
+            advances applied to the earliest orders first, dated as in PV's cash flow); what's still owed is paid as invoices fall due,
+            the rest in the ship month. DKT margin, the customer deposit % and what the customer has paid are typed here: the deposit is
+            due now, the rest in the ship month. Orders drop off once PV is fully invoiced and paid.
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={reload} disabled={loading}>
@@ -46,23 +47,24 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
             <thead className="text-muted-foreground text-left">
               <tr>
                 <th className="font-medium py-1.5 pr-2">Sales order</th>
-                <th className="font-medium px-1 text-right">PV bills DKT</th>
-                <th className="font-medium px-1 text-right">Unpaid invoices</th>
-                <th className="font-medium px-1 text-right">Not yet invoiced</th>
-                <th className="font-medium px-1 text-right" title="Everything DKT has paid PV on this order so far, including prepayments Odoo hasn't matched to an invoice">Paid to PV</th>
-                <th className="font-medium px-1 text-right">DKT margin</th>
-                <th className="font-medium px-1 text-right">Cust. deposit</th>
+                <th className="font-medium px-1 text-right">PV order total</th>
+                <th className="font-medium px-1 text-right" title="Everything DKT has paid PV on this order, from Odoo">Paid to PV</th>
+                <th className="font-medium px-1 text-right">Still owed to PV</th>
                 <th className="font-medium px-1">Ship month</th>
-                <th className="font-medium px-1">Customer paid</th>
+                <th className="font-medium px-1 text-right" title="DKT keeps this share of what the customer pays">DKT margin</th>
+                <th className="font-medium px-1 text-right">Cust. deposit</th>
+                <th className="font-medium px-1 text-right">Customer paid</th>
                 <th className="font-medium pl-1 text-center">Count</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(o => {
-                const unpaid = o.invoices.reduce((s, i) => s + i.residual_usd, 0);
                 const fob = odooFob(o);
                 const owed = odooOwed(o, o.invoices);
-                const next = [...o.invoices].sort((a, b) => a.due_month.localeCompare(b.due_month))[0];
+                const paid = odooPaid(o, o.invoices);
+                const custPaid = odooCustPaid(o);
+                const custDue = Math.max(0, fob - custPaid);
+                const next = [...o.invoices].filter(i => i.residual_usd > 0).sort((a, b) => a.due_month.localeCompare(b.due_month))[0];
                 return (
                   <tr key={o.name} className={cn('border-t align-top', o.excluded && 'opacity-50')}>
                     <td className="py-2 pr-2 min-w-[9rem]">
@@ -70,38 +72,30 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                       <div className="text-muted-foreground truncate max-w-[14rem]">{o.ref || `Ordered ${monthLabel(o.po_month)}`}</div>
                     </td>
                     <td className="py-2 px-1 text-right tabular-nums pt-3">{usd(o.pv_total_usd)}</td>
+                    <td className="py-2 px-1 text-right tabular-nums pt-3">{usd(paid)}</td>
                     <td className="py-2 px-1 text-right tabular-nums pt-3">
-                      {usd(unpaid)}
-                      {next && <div className={cn('text-[10px] mt-0.5', next.due_month < thisMonth ? 'text-destructive' : 'text-muted-foreground')}>{next.due_month < thisMonth ? 'overdue' : `due ${monthLabel(next.due_month)}`}</div>}
+                      <span className={cn(owed <= 0.5 && 'text-success')}>{owed > 0.5 ? usd(owed) : 'paid'}</span>
+                      {owed > 0.5 && (
+                        <div className={cn('text-[10px] mt-0.5', next && next.due_month < thisMonth ? 'text-destructive' : 'text-muted-foreground')}>
+                          {next ? (next.due_month < thisMonth ? 'invoice overdue' : `invoice due ${monthLabel(next.due_month)}`) : `in ${monthLabel(o.ship_month)}`}
+                        </div>
+                      )}
                     </td>
-                    <td className="py-2 px-1 text-right tabular-nums pt-3">{usd(o.to_invoice_usd)}</td>
-                    <td className="py-2 px-1 w-28">
-                      <NumField label="Paid to PV" value={o.pv_paid_usd || null} placeholder="0" onSave={v => save(o.name, { pv_paid_usd: v })} allowEmpty />
-                      <div className={cn('text-[10px] text-right mt-0.5', owed > 0 ? 'text-muted-foreground' : 'text-success')}>{owed > 0 ? `${usd(owed)} still to pay` : 'PV paid in full'}</div>
+                    <td className="py-2 px-1 pt-3 whitespace-nowrap">
+                      {monthLabel(o.ship_month)}
+                      {!o.ship_month_set && <div className="text-[10px] text-muted-foreground mt-0.5">no date in Odoo</div>}
                     </td>
                     <td className="py-2 px-1 w-20">
                       <NumField percent label="DKT margin" value={o.margin_pct} onSave={v => save(o.name, { margin_pct: v })} allowEmpty />
-                      <div className="text-[10px] text-muted-foreground text-right mt-0.5">{o.margin_set ? `FOB ${usd(fob)}` : 'default'}</div>
+                      <div className="text-[10px] text-muted-foreground text-right mt-0.5">customer {usd(fob)}</div>
                     </td>
                     <td className="py-2 px-1 w-20">
                       <NumField percent label="Customer deposit" value={o.cust_deposit_pct} onSave={v => save(o.name, { cust_deposit_pct: v })} allowEmpty />
                       <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(fob * o.cust_deposit_pct)}</div>
                     </td>
-                    <td className="py-2 px-1">
-                      <MonthField label="Ship month" value={o.ship_month} onSave={v => v && save(o.name, { ship_month: v })} />
-                      {!o.ship_month_set && <div className="text-[10px] text-muted-foreground mt-0.5">estimated</div>}
-                    </td>
-                    <td className="py-2 px-1">
-                      <div className="flex flex-col gap-1">
-                        <label className="flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
-                          <Checkbox checked={o.done.cust_deposit} onCheckedChange={v => save(o.name, { cust_deposit_done: !!v })} />
-                          <span className={cn(o.done.cust_deposit && 'line-through text-muted-foreground')}>Deposit</span>
-                        </label>
-                        <label className="flex items-center gap-1.5 whitespace-nowrap cursor-pointer">
-                          <Checkbox checked={o.done.cust_balance} onCheckedChange={v => save(o.name, { cust_balance_done: !!v })} />
-                          <span className={cn(o.done.cust_balance && 'line-through text-muted-foreground')}>Balance</span>
-                        </label>
-                      </div>
+                    <td className="py-2 px-1 w-28">
+                      <NumField label="Customer paid" value={o.cust_paid_usd ?? null} placeholder={usd(custPaid)} onSave={v => save(o.name, { cust_paid_usd: v })} allowEmpty />
+                      <div className="text-[10px] text-muted-foreground text-right mt-0.5">{custDue > 0.5 ? `${usd(custDue)} to come` : 'paid in full'}</div>
                     </td>
                     <td className="py-2 pl-1 text-center pt-3">
                       <Checkbox aria-label="Count this order" checked={!o.excluded} onCheckedChange={v => save(o.name, { excluded: !v })} />
