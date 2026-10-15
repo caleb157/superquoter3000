@@ -1,6 +1,6 @@
-- Tasks link to at most one thing (association_type/_id/_label; product_id deprecated; inquiry/customer synced for views) - new link kinds need no schema change.
+- Tasks link to at most one thing (association_type/_id/_label; product_id deprecated) - new link kinds need no schema change.
 - Recurring tasks are one living row: completing logs a done copy and rolls due_date (src/lib/task-recurrence.ts).
-- Odoo task events: task_automation_rules -> odoo-task-webhook (admin token); Odoo pushes, HQ never polls. HQ automations (inquiry created, customer->Lead) fire from DB triggers (run_hq_task_automation).
+- Odoo task events: task_automation_rules -> odoo-task-webhook; Odoo pushes, HQ never polls. HQ automations (inquiry created, customer->Lead) fire from DB triggers (run_hq_task_automation).
 - Master Analytics actuals come only from the latest analytics_snapshots row (odoo-analytics-sync, manual Refresh); pipeline is computed live (src/lib/master-analytics.ts).
 - Pipeline certainty: inquiry override -> booked 100%/cancelled 0% -> repeat default -> Settings default_certainty_pct (src/lib/projection-defaults.ts).
 - Projections are PV-only: other-entity sales pay PV via inter-entity deposit/balance; missing FOB/man-hours fall back to live costing (src/lib/pipeline-live.ts).
@@ -13,16 +13,16 @@
 - Running inches = longest + shortest side (Wood Table: long side, or override); finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
 - Inquiry clock: received (or created same-day) -> first saved quote or hand-set quoted_date; amber 3d, red 7d; repeats have no clock (src/lib/inquiry-clock.ts).
 - Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog.
-- Sent quotes never change: first save copies to a new draft (Q-…-v2 on quote_snapshots, src/lib/quote-versions.ts).
+- Sent quotes never change: first save copies to a new draft (Q-...-v2 on quote_snapshots, src/lib/quote-versions.ts).
 - Samples: sample_requests (per batch) + samples lines; pending=requested, completed=received. Clock = request date -> all live lines received (src/lib/sample-requests.ts); samples trigger sets sample_stage.
 - Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): medians of clocks stopped in the period, 6-mo trend.
-- Repeat orders: "Repeat of…" clones products recosted today, flags repeat_order -> 80% default certainty, own cash-flow line (src/lib/repeat-order.ts).
+- Repeat orders: "Repeat of..." clones products recosted today, flags repeat_order -> 80% default certainty, own cash-flow line (src/lib/repeat-order.ts).
 - Photo intake: estimate-product drafts photo + WxDxH as Costing Intake inputs (src/lib/photo-intake.ts); flagged "estimated" until Mark checked.
-- Cost history (product_cost_history, src/lib/cost-history.ts): written from shared save paths only when cost/price/rate/part moved (plain-words reason); read by the Cost history tab + re-quote warning; never on quote_snapshots.
+- Cost history (product_cost_history, src/lib/cost-history.ts): written from shared save paths only when cost/price/rate/part moved; read by the Cost history tab + re-quote warning; never on quote_snapshots.
 - Live rates (live-rates-sync -> global_settings.live_*) always drive costing (src/lib/live-rates.ts): inquiry overrides win, failed source keeps last value, sent quotes keep frozen rate.
 - Task Odoo order links: live search (odoo-order-search); store only order number + label.
 - Breakeven: math in src/lib/breakeven.ts; contribution = gross margin (price - bought-in/MO materials); live defaults from 12-mo finished Odoo orders; edits localStorage-only, Reset to live.
 - Send to Odoo: reviewed BOM from resolved COGS rows (src/lib/odoo-bom.ts); Odoo read live (odoo-product-lookup); picked links only (odoo_component_links by category+name); odoo-bom-push (admin) reuses SKUs, never a 2nd BOM - re-run safe. PREFIX_RULES: PIC/PMC/TMB/CHM/HRD tracked; SCR/LBL/ACC/FCR/PKS non-inventory; ADH/TAP/SND/CON/SUB/INH own category; packaging/consumables prefix from line name; PREFIX-ITEM autofill (hand-typed untouched); raw pieces PRODUCT_SPECIFIC.
 - Pcs/MC: one master carton plan (planMasterCarton, src/lib/calculations.ts) drives costing + packed CBM (orientations tried, upright wins ties; hand layout over search; per-MC override keeps carton size).
 - DKT Cash Flow: pipeline = Active/Projected PO DKT inquiries at 100% (inquiry_projections: margin selling_retention_pct, advance ie_deposit_pct); confirmed = live PV->DKT SOs + unpaid invoices (odoo-dkt-orders), terms in dkt_odoo_order_terms; math in src/lib/dkt-cashflow.ts + dkt-amazon.ts; never auto-draws credit.
-- supabase/functions/mcp/index.ts: plugin-generated from src/lib/mcp; banner removed + @ts-nocheck (deno check fails); to rebundle, delete the file, let the plugin regenerate, re-apply.
+- supabase/functions/mcp/index.ts: plugin-generated from src/lib/mcp; banner removed + @ts-nocheck (deno check fails); to rebundle: delete file, plugin regenerates, re-apply.
