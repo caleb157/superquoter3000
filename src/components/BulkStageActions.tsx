@@ -9,7 +9,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, X, CheckCircle2, Copy, Archive, ArchiveRestore, FileText } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, Copy, Archive, ArchiveRestore, FileText, Send } from 'lucide-react';
 import { STAGE_OPTIONS, STAGE_LABEL, type StageTrack } from '@/components/ProductStagePills';
 
 type Props = {
@@ -27,6 +27,7 @@ type Props = {
   onBulkSetType?: () => void;
   onLogRfs?: () => void;
   onVendorRfqSheet?: () => void;
+  onSendToOdoo?: () => void;
   onCopyToInquiry?: () => void;
   onBulkDeleteCogs?: () => void;
   onArchive?: () => void;
@@ -48,6 +49,7 @@ export function BulkStageActions({
   onBulkSetType,
   onLogRfs,
   onVendorRfqSheet,
+  onSendToOdoo,
   onCopyToInquiry,
   onBulkDeleteCogs,
   onArchive,
@@ -132,6 +134,12 @@ export function BulkStageActions({
       {onVendorRfqSheet && (
         <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={onVendorRfqSheet}>
           <FileText className="h-3.5 w-3.5" /> Vendor RFQ sheet
+        </Button>
+      )}
+
+      {onSendToOdoo && (
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={onSendToOdoo}>
+          <Send className="h-3.5 w-3.5" /> Send to Odoo
         </Button>
       )}
 
