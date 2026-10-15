@@ -58,6 +58,13 @@ export type FinishedDraft = {
   volumeM3: number | null;
   route: string;
   company: string;
+  /** The product is already in Odoo: no product is created, the new BOM attaches to `existing`. */
+  exists: boolean;
+  existing: OdooProduct | null;
+  /** Finished units one BOM makes (Odoo's BOM quantity); line quantities are multiplied by it. */
+  bomUnits: number;
+  /** HQ product photo, sent as the new Odoo product's image. */
+  imageUrl: string | null;
 };
 
 export const DEFAULT_COMPANY = 'Parable Ventures Private Limited';
@@ -216,11 +223,13 @@ export function convertQty(qty: number, fromUnit: string, toUnit: string): { qty
 // ---------- Draft ----------
 
 /** The Odoo unit and quantity a line will carry in the BOM file. */
-export function bomQty(l: DraftLine): { qty: number; uom: string; ok: boolean } {
+/** units = finished units per BOM: the per-unit quantity is multiplied by it. qtyOverride is per unit. */
+export function bomQty(l: DraftLine, units = 1): { qty: number; uom: string; ok: boolean } {
   const uom = l.status === 'match' ? (l.match?.uom || '') : l.newItem.uom;
-  if (l.qtyOverride != null) return { qty: l.qtyOverride, uom, ok: true };
+  const n = units > 0 ? units : 1;
+  if (l.qtyOverride != null) return { qty: round(l.qtyOverride * n), uom, ok: true };
   const c = convertQty(l.hqQty, l.hqUnit, uom);
-  return { ...c, uom };
+  return { ...c, qty: round(c.qty * n), uom };
 }
 
 /** The cogs_items fields a draft line reads (the engine's resolved rows carry them all). */
@@ -253,7 +262,6 @@ export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>
       const hqUnit = String(r.units || '').trim();
       const never = NEVER_BOM.includes(hqName.toLowerCase());
       // Cost per Odoo unit for a new item = HQ cost per HQ unit, converted.
-      const conv = convertQty(1, d.uom, hqUnit || d.uom);
       const unitCost = Number(r.unit_cost_inr) || 0;
       return {
         lineId: r.id,
@@ -268,12 +276,12 @@ export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>
         match: linked,
         newItem: {
           name: hqName,
-          sku: d.prefix ? `${d.prefix}-` : '',
+          sku: '',
           category: d.category,
           tracked: d.tracked,
           uom: hqUnit && unitInfo(hqUnit) ? canonicalUnit(hqUnit, d.uom) : d.uom,
           purchaseUom: '',
-          cost: unitCost > 0 ? round(unitCost * (conv.ok ? conv.qty : 1), 2) : null,
+          cost: null, // Odoo costs new raw materials itself from purchase orders
           hsn: '',
         },
         qtyOverride: null,
@@ -291,13 +299,16 @@ function canonicalUnit(hqUnit: string, fallback: string): string {
   return named[`${i.family}:${i.factor}`] ?? fallback;
 }
 
-export function defaultFinished(product: { name?: string | null; sku?: string | null; weight_kg?: number | null } | null | undefined, extra: { volumeM3?: number | null } = {}): FinishedDraft {
-  const sku = (product?.sku || '').trim();
+export function defaultFinished(product: { name?: string | null; sku?: string | null; weight_kg?: number | null; photo_url?: string | null } | null | undefined, extra: { volumeM3?: number | null } = {}): FinishedDraft {
+  const hqSku = (product?.sku || '').trim();
+  const name = (product?.name || '').trim();
+  // The HQ SKU is the customer's; the Odoo SKU is PREFIX-BASE-SUFFIX, with a suggested 4-character base.
+  const base = itemCode(hqSku, name).slice(0, 4);
   return {
-    name: (product?.name || '').trim(),
-    hqSku: sku,
-    sku,
-    code: sku,
+    name,
+    hqSku,
+    sku: base ? `-${base}-` : '',
+    code: '',
     category: FINISHED_CATEGORY,
     tracked: true,
     uom: 'Units',
@@ -305,8 +316,12 @@ export function defaultFinished(product: { name?: string | null; sku?: string | 
     hsn: '',
     weightKg: Number(product?.weight_kg) > 0 ? Number(product.weight_kg) : null,
     volumeM3: extra.volumeM3 && extra.volumeM3 > 0 ? round(extra.volumeM3, 4) : null,
-    route: 'Manufacture',
+    route: '',
     company: DEFAULT_COMPANY,
+    exists: false,
+    existing: null,
+    bomUnits: 1,
+    imageUrl: (product?.photo_url || '').trim() || null,
   };
 }
 
@@ -320,10 +335,15 @@ export type Issue = { level: 'error' | 'warn'; where: string; msg: string };
 export function checkDraft(f: FinishedDraft, lines: DraftLine[], existing: Set<string> | null): Issue[] {
   const out: Issue[] = [];
   const has = (sku: string) => !!existing && existing.has(sku.trim().toUpperCase());
-  if (!f.name.trim()) out.push({ level: 'error', where: 'Finished product', msg: 'Name is missing.' });
-  if (!f.sku.trim()) out.push({ level: 'error', where: 'Finished product', msg: 'SKU is missing.' });
-  else if (has(f.sku)) out.push({ level: 'warn', where: 'Finished product', msg: `${f.sku} is already in Odoo, so it is left out of the products file and the BOM attaches to it.` });
-  if (!f.category.trim()) out.push({ level: 'error', where: 'Finished product', msg: 'Category is missing.' });
+  if (f.exists) {
+    if (!f.existing) out.push({ level: 'error', where: 'Finished product', msg: 'Pick the Odoo product the BOM is for.' });
+  } else {
+    if (!f.name.trim()) out.push({ level: 'error', where: 'Finished product', msg: 'Name is missing.' });
+    if (!isFullSku(f.sku)) out.push({ level: 'error', where: 'Finished product', msg: 'SKU needs a prefix, a base and a suffix (e.g. CCT-WSS2016-CHST).' });
+    else if (has(f.sku)) out.push({ level: 'error', where: 'Finished product', msg: `${f.sku} is already in Odoo. Tick "Already in Odoo" and pick it instead.` });
+    if (!f.category.trim()) out.push({ level: 'error', where: 'Finished product', msg: 'Category is missing.' });
+  }
+  if (!(f.bomUnits > 0)) out.push({ level: 'error', where: 'BOM', msg: 'Units per BOM must be more than 0.' });
 
   const skus = new Map<string, number>();
   for (const l of lines) {
@@ -343,10 +363,10 @@ export function checkDraft(f: FinishedDraft, lines: DraftLine[], existing: Set<s
     const n = l.newItem;
     const sku = n.sku.trim();
     if (!n.name.trim()) out.push({ level: 'error', where, msg: 'New item name is missing.' });
-    if (!sku || /-$/.test(sku)) out.push({ level: 'error', where, msg: 'New item SKU is missing or unfinished.' });
+    if (!sku || /-$/.test(sku)) out.push({ level: 'error', where, msg: 'Type the new item\'s SKU, or pick an existing Odoo product.' });
     else if ((skus.get(sku.toUpperCase()) ?? 0) > 1) out.push({ level: 'error', where, msg: `SKU ${sku} is used on more than one line.` });
     else if (has(sku)) out.push({ level: 'error', where, msg: `SKU ${sku} already exists in Odoo. Match it instead of creating it.` });
-    if (sku && f.sku.trim() && sku.toUpperCase() === f.sku.trim().toUpperCase()) out.push({ level: 'error', where, msg: 'SKU is the same as the finished product.' });
+    if (sku && !f.exists && f.sku.trim() && sku.toUpperCase() === f.sku.trim().toUpperCase()) out.push({ level: 'error', where, msg: 'SKU is the same as the finished product.' });
     if (!n.category.trim()) out.push({ level: 'error', where, msg: 'Category is missing.' });
     if (!n.uom.trim()) out.push({ level: 'error', where, msg: 'Unit is missing.' });
     else if (!bomQty(l).ok) out.push({ level: 'warn', where, msg: `Can't convert ${l.hqUnit} to ${n.uom}; type the quantity in ${n.uom}.` });
@@ -366,12 +386,12 @@ const tf = (b: boolean) => (b ? 'True' : 'False');
 /** product.template import rows (technical field names, which Odoo's import matches automatically). */
 export function productsSheet(f: FinishedDraft, lines: DraftLine[], existing: Set<string> | null): (string | number | null)[][] {
   const header = ['name', 'default_code', 'type', 'is_storable', 'categ_id', 'uom_id', 'uom_po_id', 'sale_ok', 'purchase_ok',
-    'list_price', 'standard_price', 'route_ids', 'l10n_in_hsn_code', 'weight', 'volume', 'company_id'];
+    'list_price', 'l10n_in_hsn_code', 'weight', 'volume'];
   const rows: (string | number | null)[][] = [header];
   const inOdoo = (sku: string) => !!existing && existing.has(sku.trim().toUpperCase());
-  if (f.sku.trim() && !inOdoo(f.sku)) {
+  if (!f.exists && f.sku.trim() && !inOdoo(f.sku)) {
     rows.push([f.name.trim(), f.sku.trim(), 'Goods', tf(f.tracked), f.category, f.uom, f.uom, 'True', 'False',
-      f.salePrice, null, f.route || null, f.hsn || null, f.weightKg, f.volumeM3, f.company || null]);
+      f.salePrice, f.hsn || null, f.weightKg, f.volumeM3]);
   }
   const seen = new Set<string>();
   for (const l of lines) {
@@ -381,37 +401,44 @@ export function productsSheet(f: FinishedDraft, lines: DraftLine[], existing: Se
     if (!sku || seen.has(sku.toUpperCase()) || inOdoo(sku)) continue;
     seen.add(sku.toUpperCase());
     rows.push([n.name.trim(), sku, 'Goods', tf(n.tracked), n.category, n.uom, n.purchaseUom || n.uom, 'False', 'True',
-      null, n.cost, 'Buy', n.hsn || null, null, null, f.company || null]);
+      null, n.hsn || null, null, null]);
   }
   return rows;
 }
 
 /** mrp.bom import rows in the layout of Odoo's own BOM export: header fields on the first row only. */
 export function bomSheet(f: FinishedDraft, lines: DraftLine[]): (string | number | null)[][] {
-  const header = ['company_id', 'product_tmpl_id', 'code', 'type', 'product_qty',
+  const header = ['product_tmpl_id', 'code', 'type', 'product_qty',
     'bom_line_ids/product_id', 'bom_line_ids/product_qty', 'bom_line_ids/product_uom_id'];
   const rows: (string | number | null)[][] = [header];
   const live = lines.filter(l => l.status !== 'skip');
   live.forEach((l, i) => {
     const comp = l.status === 'match' && l.match ? l.match.display_name || displayName(l.match.sku, l.match.name) : displayName(l.newItem.sku, l.newItem.name);
-    const q = bomQty(l);
+    const q = bomQty(l, f.bomUnits);
     const head = i === 0
-      ? [f.company || null, displayName(f.sku, f.name), f.code || null, 'Manufacture this product', 1]
-      : [null, null, null, null, null];
+      ? [finishedRef(f), f.code || null, 'Manufacture this product', f.bomUnits > 0 ? f.bomUnits : 1]
+      : [null, null, null, null];
     rows.push([...head, comp, q.qty, q.uom || null]);
   });
   return rows;
 }
 
-export const fileStem = (f: FinishedDraft) => (f.sku.trim() || f.name.trim() || 'product').replace(/[^A-Za-z0-9._-]+/g, '-');
+/** How the BOM file names the finished product: the picked Odoo product, or the new one. */
+const finishedRef = (f: FinishedDraft) =>
+  f.exists && f.existing ? (f.existing.display_name || displayName(f.existing.sku, f.existing.name)) : displayName(f.sku, f.name);
+
+export const fileStem = (f: FinishedDraft) => ((f.exists ? f.existing?.sku : '') || f.sku.trim() || f.name.trim() || 'product').replace(/[^A-Za-z0-9._-]+/g, '-');
 
 // ---------- Direct send (odoo-bom-push) ----------
 
 export type PushPayload = {
   hqProductId: string | null;
-  company: string | null;
   code: string | null;
-  finished: Record<string, unknown>;
+  bomUnits: number;
+  existingProductId: number | null;
+  existingSku: string | null;
+  imageUrl: string | null;
+  finished: Record<string, unknown> | null;
   components: Record<string, unknown>[];
   lines: { productId: number | null; sku: string | null; qty: number; uom: string }[];
 };
@@ -425,19 +452,23 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     .filter(l => { const k = l.newItem.sku.trim().toUpperCase(); if (seen.has(k)) return false; seen.add(k); return true; })
     .map(l => ({
       sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), category: l.newItem.category, tracked: l.newItem.tracked,
-      uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, cost: l.newItem.cost, hsn: l.newItem.hsn || null, route: 'Buy',
+      uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, hsn: l.newItem.hsn || null,
     }));
+  const units = f.bomUnits > 0 ? f.bomUnits : 1;
   return {
     hqProductId,
-    company: f.company || null,
     code: f.code || null,
-    finished: {
+    bomUnits: units,
+    existingProductId: f.exists ? f.existing?.id ?? null : null,
+    existingSku: f.exists ? f.existing?.sku || null : null,
+    imageUrl: f.exists ? null : f.imageUrl,
+    finished: f.exists ? null : {
       sku: f.sku.trim(), name: f.name.trim(), category: f.category, tracked: f.tracked, uom: f.uom, purchaseUom: null,
-      salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3, route: f.route || null,
+      salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3,
     },
     components,
     lines: lines.filter(l => l.status !== 'skip').map(l => {
-      const q = bomQty(l);
+      const q = bomQty(l, units);
       return l.status === 'match' && l.match
         ? { productId: l.match.id, sku: l.match.sku || null, qty: q.qty, uom: q.uom }
         : { productId: null, sku: l.newItem.sku.trim(), qty: q.qty, uom: q.uom };
@@ -591,4 +622,47 @@ export function readLastPrefixes(): Prefixes {
 }
 export function writeLastPrefixes(p: Prefixes) {
   try { localStorage.setItem(LAST_PREFIXES, JSON.stringify(p)); } catch { /* per-browser convenience only */ }
+}
+
+// ---------- Finished SKU: PREFIX-BASE-SUFFIX ----------
+
+export type SkuParts = { prefix: string; base: string; suffix: string };
+
+/** Splits at the first two dashes; the suffix keeps any further characters (CHST_SMALL). */
+export function splitSku(sku: string): SkuParts {
+  const [prefix = '', base = '', ...rest] = (sku || '').split('-');
+  return { prefix, base, suffix: rest.join('-') };
+}
+export const joinSku = (p: SkuParts) => `${p.prefix}-${p.base}-${p.suffix}`;
+
+/** A finished SKU needs all three parts: CCT-WSS2016-CHST, CCT-WSS2016-CHST_SMALL. */
+export function isFullSku(sku: string): boolean {
+  return /^[A-Za-z0-9]+-[A-Za-z0-9]+-[A-Za-z0-9_]+$/.test((sku || '').trim());
+}
+
+// ---------- Cartons (PIC / PMC) ----------
+
+export type CartonSize = { w: number; d: number; h: number } | null;
+
+/**
+ * Suggested name and SKU for a new inner (PIC) or master (PMC) carton, from its estimated outside size:
+ * "Inner Carton for Tray / 103 x 41 x 13 inch / 5 ply", PIC-<base>-10341 (first two sides, decimals dropped).
+ * A missing size or ply is left out, and the SKU stays blank without a size or base.
+ */
+export function cartonItem(kind: 'PIC' | 'PMC', productName: string, base: string, size: CartonSize, ply: string | null): { name: string; sku: string } {
+  const label = kind === 'PIC' ? 'Inner Carton' : 'Master Carton';
+  const ok = !!size && size.w > 0 && size.d > 0 && size.h > 0;
+  const t = (n: number) => String(Math.trunc(n));
+  const parts = [`${label} for ${productName.trim()}`];
+  if (ok) parts.push(`${t(size!.w)} x ${t(size!.d)} x ${t(size!.h)} inch`);
+  if (ply && ply.trim()) parts.push(ply.trim());
+  const b = (base || '').trim().toUpperCase();
+  return { name: parts.join(' / '), sku: ok && b ? `${kind}-${b}-${t(size!.w)}${t(size!.d)}` : '' };
+}
+
+/** Which carton a costing line is, by name (IC Box → PIC, MC Box → PMC), or null. */
+export function cartonKind(cogsType: string, name: string): 'PIC' | 'PMC' | null {
+  if (cogsType !== 'Packaging') return null;
+  const p = prefixByName(cogsType, name);
+  return p === 'PIC' || p === 'PMC' ? p : null;
 }
