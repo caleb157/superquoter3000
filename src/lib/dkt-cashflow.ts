@@ -57,7 +57,8 @@ export type OdooOrder = {
   ship_month: Month; // customer balance + PV's not-yet-invoiced amount
   pv_total_usd: number; // what PV bills DKT for the order
   to_invoice_usd: number; // part PV hasn't invoiced yet
-  pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in)
+  advance_usd?: number; // DKT's advance PV's Odoo applies to this order (from the not-yet-invoiced part)
+  pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in, for what Odoo doesn't show)
   margin_pct: number;
   cust_deposit_pct: number;
   done: { cust_deposit: boolean; cust_balance: boolean };
@@ -176,12 +177,12 @@ export const odooFob = (o: Pick<OdooOrder, 'pv_total_usd' | 'margin_pct'>) => (o
 const origins = (inv: OdooInvoice) => inv.origin.split(',').map(s => s.trim()).filter(Boolean);
 
 /**
- * What DKT still owes PV on an order: Odoo's open amount (unpaid invoices + not yet invoiced), capped
- * by the order total minus what DKT says it has already paid. The cap covers prepayments PV hasn't
- * matched to an invoice in Odoo yet; once Odoo matches them, its own open amount is the smaller one.
+ * What DKT still owes PV on an order: Odoo's open amount (unpaid invoices + not yet invoiced, less the
+ * DKT advance PV's Odoo applies to the order, earliest order first as in PV's cash flow), capped by the
+ * order total minus anything DKT says it has paid that Odoo doesn't show.
  */
 export function odooOwed(o: OdooOrder, invoices: OdooInvoice[]): number {
-  const open = invoices.reduce((s, i) => s + Math.max(0, i.residual_usd), 0) + Math.max(0, o.to_invoice_usd);
+  const open = invoices.reduce((s, i) => s + Math.max(0, i.residual_usd), 0) + Math.max(0, o.to_invoice_usd - Math.max(0, o.advance_usd ?? 0));
   const paid = Math.max(0, o.pv_paid_usd ?? 0);
   return paid > 0 ? Math.max(0, Math.min(open, o.pv_total_usd - paid)) : open;
 }
@@ -212,7 +213,7 @@ export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMont
       left -= pay;
       if (pay > 0) out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -pay, label: invLabel(inv), ref: inv.name });
     }
-    const rest = Math.min(Math.max(0, o.to_invoice_usd), left);
+    const rest = Math.min(Math.max(0, o.to_invoice_usd - Math.max(0, o.advance_usd ?? 0)), left);
     if (rest > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -rest, label, ref: o.name });
     const fob = odooFob(o);
     if (!o.done.cust_deposit && fob * o.cust_deposit_pct > 0) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: fob * o.cust_deposit_pct, label, ref: o.name });

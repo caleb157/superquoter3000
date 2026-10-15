@@ -109,6 +109,11 @@ describe('odoo orders already paid to PV', () => {
     expect(f.filter(x => x.amount < 0)).toEqual([]);
     expect(f.find(x => x.kind === 'cust_balance')).toBeDefined();
   });
+  it('takes the advance PV\'s Odoo applies to the order off the not-yet-invoiced part', () => {
+    const f = odooFlows([{ ...so, advance_usd: 20000 }], [], '2026-10');
+    expect(f.find(x => x.kind === 'odoo_to_invoice')?.amount).toBeCloseTo(-8602);
+    expect(odooFlows([{ ...so, advance_usd: 28602 }], [], '2026-10').filter(x => x.amount < 0)).toEqual([]);
+  });
   it('pays only the rest after a partial prepayment, before and after Odoo matches it', () => {
     expect(odooFlows([{ ...so, pv_paid_usd: 20000 }], [], '2026-10').find(x => x.kind === 'odoo_to_invoice')?.amount).toBeCloseTo(-8602);
     // PV invoiced 10,000 and matched it to the prepayment: Odoo shows 18,602 open, DKT still owes 8,602.

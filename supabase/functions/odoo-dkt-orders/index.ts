@@ -1,6 +1,8 @@
 // @ts-nocheck
 // PV's open business with DKT, read live from Odoo for DKT Cash Flow (/tools/dkt-cash-flow):
 // confirmed sales orders to DKT that PV hasn't been fully paid for, and PV's unpaid invoices to DKT.
+// DKT's advances (its unmatched payments to PV, i.e. a negative customer balance) are applied to the
+// open orders earliest first, the same way PV's cash flow (odoo-analytics-sync) applies them.
 // Read-only and stores nothing (the app keeps no copy of Odoo orders). Amounts come back in USD.
 // Admin/team users only; Odoo credentials stay in edge-function secrets.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -103,10 +105,11 @@ Deno.serve(async (req) => {
     });
     const invoicedOrigins = new Set(invoices.flatMap(i => i.origin.split(',').map(s => s.trim())).filter(Boolean));
 
+    const today = new Date().toISOString().slice(0, 10);
     const since = new Date(); since.setMonth(since.getMonth() - 24);
     const sos = await sr('sale.order',
       [['state', 'in', ['sale', 'done']], ['partner_id', 'child_of', pIds], ['date_order', '>=', since.toISOString().slice(0, 10)]],
-      ['name', 'client_order_ref', 'date_order', 'commitment_date', 'expected_date', 'amount_untaxed', 'amount_total', 'amount_to_invoice', 'invoice_status', 'currency_id'],
+      ['name', 'client_order_ref', 'date_order', 'commitment_date', 'expected_date', 'signed_on', 'amount_untaxed', 'amount_total', 'amount_to_invoice', 'invoice_status', 'currency_id'],
       { order: 'date_order asc, id asc', limit: 300 });
     const orders = sos
       .map(r => {
@@ -115,15 +118,43 @@ Deno.serve(async (req) => {
           name: str(r.name), ref: str(r.client_order_ref),
           date: str(r.date_order).slice(0, 10) || null,
           ship_date: str(r.commitment_date || r.expected_date).slice(0, 10) || null,
+          // PV's cash-flow date for the order: delivery date, or the signing date if later.
+          cash_date: [str(r.commitment_date || r.expected_date).slice(0, 10), str(r.signed_on).slice(0, 10)].filter(Boolean).sort().pop() || today,
           total_usd: toUsd(num(r.amount_total), cur),
           to_invoice_usd: Math.max(0, toUsd(num(r.amount_to_invoice), cur)),
           currency: cur,
         };
       })
       // Open = PV still has something to invoice, or an invoice for it is unpaid.
-      .filter(o => o.to_invoice_usd > 0.5 || invoicedOrigins.has(o.name));
+      .filter(o => o.to_invoice_usd > 0.5 || invoicedOrigins.has(o.name))
+      .map(o => ({ ...o, advance_usd: 0 }));
 
-    return json({ partner: partners.map(p => str(p.name)).join(', '), orders, invoices, inr_per_usd: inrPerUsd, fetched_at: new Date().toISOString() });
+    // DKT's advances: a negative customer balance (credit) is money DKT paid PV that no invoice uses yet.
+    // PV company currency is INR, so convert like everything else.
+    let advanceUsd = 0;
+    try {
+      const bal = await sr('res.partner', [['id', 'in', pIds]], ['credit', 'commercial_partner_id'], { context: { active_test: false } });
+      const seen = new Set<number>();
+      for (const b of bal) {
+        const cp = id(b.commercial_partner_id) ?? b.id;
+        if (seen.has(cp)) continue;
+        seen.add(cp);
+        advanceUsd += toUsd(Math.max(0, -num(b.credit)), 'INR');
+      }
+    } catch { /* no balance, no advance */ }
+    // Earliest open order first, as PV's cash flow does.
+    let left = advanceUsd;
+    for (const o of [...orders].sort((a, b) => (a.cash_date < today ? today : a.cash_date).localeCompare(b.cash_date < today ? today : b.cash_date))) {
+      if (left <= 0) break;
+      const take = Math.min(left, o.to_invoice_usd);
+      o.advance_usd = take;
+      left -= take;
+    }
+
+    return json({
+      partner: partners.map(p => str(p.name)).join(', '), orders, invoices, advance_usd: advanceUsd, advance_unapplied_usd: Math.max(0, left),
+      inr_per_usd: inrPerUsd, fetched_at: new Date().toISOString(),
+    });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

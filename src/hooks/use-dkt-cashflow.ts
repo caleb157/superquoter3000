@@ -24,7 +24,7 @@ export type OdooTerms = {
   cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null;
 };
 type OdooRaw = {
-  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number }[];
+  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number; advance_usd?: number }[];
   invoices: { name: string; origin: string; due: string | null; date: string | null; residual_usd: number; total_usd: number }[];
   partner: string | null;
   fetched_at: string | null;
@@ -177,7 +177,7 @@ export function useDktCashflow(thisMonth: Month) {
       return {
         name: o.name, ref: o.ref, po_month: po,
         ship_month: t?.ship_month ?? shipAuto,
-        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, pv_paid_usd: num(t?.pv_paid_usd, 0),
+        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: num(t?.pv_paid_usd, 0),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },

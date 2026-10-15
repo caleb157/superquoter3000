@@ -29,7 +29,8 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
           <CardTitle className="text-sm">Confirmed orders in Odoo (PV → {partner || 'DKT'})</CardTitle>
           <p className="text-xs text-muted-foreground max-w-3xl">
             Once an order is confirmed it is PV's sales order to DKT in Odoo, read live here and not copied. DKT pays every unpaid PV invoice by its due date
-            (overdue ones this month) and whatever PV hasn't invoiced yet in the ship month. If DKT has already paid PV something PV hasn't matched to an invoice, type the total under "Paid to PV" and only the rest is forecast. The customer side uses your DKT margin and deposit % on each order:
+            (overdue ones this month) and whatever PV hasn't invoiced yet in the ship month. DKT's advances to PV come from Odoo and are applied to the earliest orders first, exactly as PV's cash flow shows them; only the rest is forecast.
+            If DKT paid something Odoo doesn't show yet, type DKT's total paid on the order under "Other paid". The customer side uses your DKT margin and deposit % on each order:
             the customer pays the deposit in the order month and the balance in the ship month. Orders drop off once PV is fully invoiced and paid.
           </p>
         </div>
@@ -49,7 +50,8 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                 <th className="font-medium px-1 text-right">PV bills DKT</th>
                 <th className="font-medium px-1 text-right">Unpaid invoices</th>
                 <th className="font-medium px-1 text-right">Not yet invoiced</th>
-                <th className="font-medium px-1 text-right" title="Everything DKT has paid PV on this order so far, including prepayments Odoo hasn't matched to an invoice">Paid to PV</th>
+                <th className="font-medium px-1 text-right" title="DKT's advance that PV's Odoo applies to this order">Advanced (Odoo)</th>
+                <th className="font-medium px-1 text-right" title="Only if Odoo doesn't show it: everything DKT has paid PV on this order">Other paid</th>
                 <th className="font-medium px-1 text-right">DKT margin</th>
                 <th className="font-medium px-1 text-right">Cust. deposit</th>
                 <th className="font-medium px-1">Ship month</th>
@@ -75,8 +77,9 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                       {next && <div className={cn('text-[10px] mt-0.5', next.due_month < thisMonth ? 'text-destructive' : 'text-muted-foreground')}>{next.due_month < thisMonth ? 'overdue' : `due ${monthLabel(next.due_month)}`}</div>}
                     </td>
                     <td className="py-2 px-1 text-right tabular-nums pt-3">{usd(o.to_invoice_usd)}</td>
+                    <td className="py-2 px-1 text-right tabular-nums pt-3">{(o.advance_usd ?? 0) > 0 ? usd(o.advance_usd ?? 0) : <span className="text-muted-foreground">·</span>}</td>
                     <td className="py-2 px-1 w-28">
-                      <NumField label="Paid to PV" value={o.pv_paid_usd || null} placeholder="0" onSave={v => save(o.name, { pv_paid_usd: v })} allowEmpty />
+                      <NumField label="Other paid" value={o.pv_paid_usd || null} placeholder="0" onSave={v => save(o.name, { pv_paid_usd: v })} allowEmpty />
                       <div className={cn('text-[10px] text-right mt-0.5', owed > 0 ? 'text-muted-foreground' : 'text-success')}>{owed > 0 ? `${usd(owed)} still to pay` : 'PV paid in full'}</div>
                     </td>
                     <td className="py-2 px-1 w-20">
