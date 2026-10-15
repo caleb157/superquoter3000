@@ -135,7 +135,7 @@ export function useDktCashflow(thisMonth: Month) {
       settings,
       orders, orderMeta: meta,
       costs: (costs.data || []).map((r: any) => ({ ...r, amount_usd: num(r.amount_usd), start_month: m(r, 'start_month'), end_month: m(r, 'end_month') })),
-      loans: (loans.data || []).map((r: any) => ({ ...r, balance_usd: num(r.balance_usd), rate_pct: num(r.rate_pct), due_month: m(r, 'due_month') })),
+      loans: (loans.data || []).map((r: any) => ({ ...r, balance_usd: num(r.balance_usd), rate_pct: num(r.rate_pct), due_month: m(r, 'due_month'), proceeds_usd: r.proceeds_usd == null ? null : num(r.proceeds_usd), proceeds_month: m(r, 'proceeds_month') })),
       loanPayments: (pays.data || []).map((r: any) => ({ ...r, principal_usd: num(r.principal_usd), interest_usd: num(r.interest_usd) })),
       creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct), maturity_month: m(r, 'maturity_month') })),
       creditDraws: (draws.data || []).map((r: any) => ({ ...r, month: m(r, 'month'), amount_usd: num(r.amount_usd) })),
@@ -275,7 +275,7 @@ const toInvoice = (thisMonth: Month) => (i: OdooRaw['invoices'][number]): OdooIn
   name: i.name, origin: i.origin, due_month: toMonth(i.due || i.date) ?? thisMonth, residual_usd: i.residual_usd,
 });
 
-const MONTH_COLS = new Set(['start_month', 'end_month', 'due_month', 'month', 'ship_month', 'maturity_month']);
+const MONTH_COLS = new Set(['start_month', 'end_month', 'due_month', 'month', 'ship_month', 'maturity_month', 'proceeds_month']);
 function toDb(row: Record<string, any>) {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(row)) out[k] = MONTH_COLS.has(k) && typeof v === 'string' && v.length === 7 ? `${v}-01` : v;

@@ -87,6 +87,8 @@ export type Loan = {
   pay_with_inquiry_id: string | null; // lump: pay when this order's customer balance arrives
   pay_with_so: string | null; // lump: or with this Odoo sales order's customer balance
   active: boolean;
+  proceeds_usd?: number | null; // a loan not received yet: money DKT gets, net of fees
+  proceeds_month?: Month | null; // ...and the month it arrives
 };
 
 export type CreditLine = {
@@ -98,7 +100,7 @@ export type CreditDraw = { id: string; line_id: string; month: Month; amount_usd
 export type FlowKind =
   | 'cust_deposit' | 'cust_balance' | 'pv_advance' | 'pv_balance'
   | 'income' | 'overhead' | 'expense'
-  | 'loan_principal' | 'loan_interest'
+  | 'loan_proceeds' | 'loan_principal' | 'loan_interest'
   | 'credit_draw' | 'credit_repay' | 'credit_interest'
   | 'amazon_in' | 'amazon_inventory' | 'amazon_freight'
   | 'odoo_invoice' | 'odoo_to_invoice';
@@ -109,12 +111,12 @@ export const FLOW_LABEL: Record<FlowKind, string> = {
   cust_deposit: 'Customer deposits', cust_balance: 'Customer balances', amazon_in: 'Amazon payouts', income: 'Other income',
   credit_draw: 'Credit line draws',
   pv_advance: 'Advances to PV', pv_balance: 'Balances to PV', overhead: 'Overhead', expense: 'Expenses',
-  loan_principal: 'Loan principal', loan_interest: 'Loan interest',
+  loan_proceeds: 'Loans received', loan_principal: 'Loan principal', loan_interest: 'Loan interest',
   credit_repay: 'Credit line repayments', credit_interest: 'Credit line interest',
   amazon_inventory: 'Amazon inventory (PO)', amazon_freight: 'Amazon freight',
   odoo_invoice: 'PV invoices due (Odoo)', odoo_to_invoice: 'PV orders not yet invoiced (Odoo)',
 };
-export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'credit_draw'];
+export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'loan_proceeds', 'credit_draw'];
 export const OUT_KINDS: FlowKind[] = [
   'odoo_invoice', 'odoo_to_invoice', 'pv_advance', 'pv_balance', 'overhead', 'expense', 'loan_principal', 'loan_interest',
   'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight',
@@ -245,8 +247,11 @@ export function overheadFlows(perMonth: number, months: Month[]): Flow[] {
 export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[], thisMonth: Month, odooOrders: OdooOrder[] = []): Flow[] {
   if (!loan.active) return [];
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
+  // A loan still to come: its money arrives in the proceeds month. Once that month has passed it's in current cash.
+  const proceeds = loan.proceeds_usd && loan.proceeds_usd > 0 && loan.proceeds_month && loan.proceeds_month >= thisMonth
+    ? [{ month: loan.proceeds_month, kind: 'loan_proceeds' as const, amount: loan.proceeds_usd, label: loan.name, ref: loan.id }] : [];
   if (loan.kind === 'schedule') {
-    const out: Flow[] = [];
+    const out: Flow[] = [...proceeds];
     for (const p of payments) {
       if (p.loan_id !== loan.id || p.paid) continue;
       const m = at(p.due_date.slice(0, 7));
@@ -256,8 +261,8 @@ export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[
     return out;
   }
   const month = lumpLoanMonth(loan, orders, odooOrders);
-  if (!month || !(loan.balance_usd > 0)) return [];
-  return [{ month: at(month), kind: 'loan_principal', amount: -loan.balance_usd, label: loan.name, ref: loan.id }];
+  if (!month || !(loan.balance_usd > 0)) return proceeds;
+  return [...proceeds, { month: at(month), kind: 'loan_principal', amount: -loan.balance_usd, label: loan.name, ref: loan.id }];
 }
 
 /** When a lump loan is planned to be repaid: with its linked order's customer balance, else its due month. */

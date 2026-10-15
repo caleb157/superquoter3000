@@ -113,6 +113,16 @@ function LoanCard({ loan: l, payments, orders, odooOrders, updateLoan, removeLoa
             </div>
           )}
         </div>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 items-end text-xs">
+          <label className="flex flex-col gap-1">
+            <span className="text-muted-foreground" title="For a loan you haven't received yet: what lands in DKT's account, after fees">Money still to receive</span>
+            <NumField label="Money still to receive" allowEmpty placeholder="Already received" value={l.proceeds_usd ?? null} onSave={v => updateLoan(l.id, { proceeds_usd: v })} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted-foreground">Arrives in</span>
+            <MonthField label="Arrives in" allowEmpty value={l.proceeds_month ?? null} onSave={v => updateLoan(l.id, { proceeds_month: v })} />
+          </label>
+        </div>
         <TextField label="Notes" placeholder="Notes" value={l.notes} onSave={v => updateLoan(l.id, { notes: v || null })} className="text-xs" />
         {l.kind === 'lump' && !when && l.active && <p className="text-xs text-warning">No repayment month yet, so this loan isn't in the forecast.</p>}
         {l.kind === 'schedule' && (
