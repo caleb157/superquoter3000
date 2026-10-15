@@ -61,7 +61,8 @@ export type OdooOrder = {
   pv_paid_usd?: number; // what DKT has already paid PV on this order in total (typed in, for what Odoo doesn't show)
   margin_pct: number;
   cust_deposit_pct: number;
-  done: { cust_deposit: boolean; cust_balance: boolean };
+  cust_paid_usd?: number | null; // what the customer has paid DKT on this order so far (typed in)
+  done: { cust_deposit: boolean; cust_balance: boolean }; // older ticks, used only while cust_paid_usd is blank
   excluded: boolean;
 };
 export type OdooInvoice = { name: string; origin: string; due_month: Month; residual_usd: number };
@@ -187,10 +188,20 @@ export function odooOwed(o: OdooOrder, invoices: OdooInvoice[]): number {
   return paid > 0 ? Math.max(0, Math.min(open, o.pv_total_usd - paid)) : open;
 }
 
+/** Everything DKT has paid PV on the order: the order total less what's still owed. */
+export const odooPaid = (o: OdooOrder, invoices: OdooInvoice[]) => Math.max(0, o.pv_total_usd - odooOwed(o, invoices));
+
+/** What the customer has paid DKT: the typed amount, else what the older deposit/balance ticks imply. */
+export function odooCustPaid(o: OdooOrder): number {
+  if (o.cust_paid_usd != null) return Math.max(0, o.cust_paid_usd);
+  const fob = odooFob(o);
+  return o.done.cust_balance ? fob : o.done.cust_deposit ? fob * o.cust_deposit_pct : 0;
+}
+
 /**
  * PV's side comes straight from Odoo: each unpaid invoice is paid by its due date, and whatever PV
  * hasn't invoiced yet is paid in the ship month, less anything DKT has already paid PV (odooOwed),
- * earliest payments first. The customer side uses DKT's terms on the order.
+ * earliest payments first. The customer pays the rest of the order's FOB in the ship month.
  */
 export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMonth: Month): Flow[] {
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
@@ -215,9 +226,9 @@ export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMont
     }
     const rest = Math.min(Math.max(0, o.to_invoice_usd - Math.max(0, o.advance_usd ?? 0)), left);
     if (rest > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -rest, label, ref: o.name });
-    const fob = odooFob(o);
-    if (!o.done.cust_deposit && fob * o.cust_deposit_pct > 0) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: fob * o.cust_deposit_pct, label, ref: o.name });
-    if (!o.done.cust_balance && fob * (1 - o.cust_deposit_pct) > 0) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: fob * (1 - o.cust_deposit_pct), label, ref: o.name });
+    // Whatever the customer still owes DKT arrives in the ship month.
+    const due = odooFob(o) - odooCustPaid(o);
+    if (due > 0.5) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: due, label, ref: o.name });
   }
   return out;
 }

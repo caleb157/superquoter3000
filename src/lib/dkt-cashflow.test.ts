@@ -124,6 +124,15 @@ describe('odoo orders already paid to PV', () => {
   });
 });
 
+describe('odoo orders, customer side', () => {
+  const so = { name: 'S1', ref: '', po_month: '2026-07', ship_month: '2026-12', pv_total_usd: 9500, to_invoice_usd: 9500, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: false, cust_balance: false }, excluded: false };
+  it('brings in what the customer still owes in the ship month', () => {
+    const f = odooFlows([{ ...so, cust_paid_usd: 4000 }], [], '2026-10');
+    expect(f.filter(x => x.amount > 0)).toEqual([expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 6000 })]);
+    expect(odooFlows([{ ...so, cust_paid_usd: 10000 }], [], '2026-10').filter(x => x.amount > 0)).toEqual([]);
+  });
+});
+
 describe('credit line maturity', () => {
   it('repays the whole balance in the maturity month and stops interest', () => {
     const f = creditFlows([{ id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 10000, rate_pct: 5, maturity_month: '2026-11' }], [], ['2026-10', '2026-11', '2026-12']);
