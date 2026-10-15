@@ -899,6 +899,412 @@ export type Database = {
         }
         Relationships: []
       }
+      dkt_amazon_scenarios: {
+        Row: {
+          created_at: string
+          funding: string
+          id: string
+          in_forecast: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funding?: string
+          id?: string
+          in_forecast?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funding?: string
+          id?: string
+          in_forecast?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dkt_amazon_skus: {
+        Row: {
+          created_at: string
+          freight_per_unit_usd: number
+          id: string
+          make_months: number
+          mode: string
+          name: string
+          net_margin_pct: number
+          order_qty: number
+          price_usd: number
+          reorder_months: number
+          scenario_id: string
+          ship_months: number
+          start_month: string | null
+          unit_cost_usd: number
+          units_per_month: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          freight_per_unit_usd?: number
+          id?: string
+          make_months?: number
+          mode?: string
+          name?: string
+          net_margin_pct?: number
+          order_qty?: number
+          price_usd?: number
+          reorder_months?: number
+          scenario_id: string
+          ship_months?: number
+          start_month?: string | null
+          unit_cost_usd?: number
+          units_per_month?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          freight_per_unit_usd?: number
+          id?: string
+          make_months?: number
+          mode?: string
+          name?: string
+          net_margin_pct?: number
+          order_qty?: number
+          price_usd?: number
+          reorder_months?: number
+          scenario_id?: string
+          ship_months?: number
+          start_month?: string | null
+          unit_cost_usd?: number
+          units_per_month?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dkt_amazon_skus_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "dkt_amazon_scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dkt_cash_items: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          end_month: string | null
+          frequency: string
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          start_month: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_usd?: number
+          created_at?: string
+          end_month?: string | null
+          frequency?: string
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          start_month?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          end_month?: string | null
+          frequency?: string
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          start_month?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dkt_cash_settings: {
+        Row: {
+          allegro_as_of: string | null
+          allegro_balance_usd: number
+          allegro_monthly_usd: number
+          cash_as_of: string | null
+          cash_usd: number
+          default_margin_pct: number
+          horizon_months: number
+          id: number
+          min_cash_usd: number
+          monthly_overhead_usd: number
+          updated_at: string
+        }
+        Insert: {
+          allegro_as_of?: string | null
+          allegro_balance_usd?: number
+          allegro_monthly_usd?: number
+          cash_as_of?: string | null
+          cash_usd?: number
+          default_margin_pct?: number
+          horizon_months?: number
+          id?: number
+          min_cash_usd?: number
+          monthly_overhead_usd?: number
+          updated_at?: string
+        }
+        Update: {
+          allegro_as_of?: string | null
+          allegro_balance_usd?: number
+          allegro_monthly_usd?: number
+          cash_as_of?: string | null
+          cash_usd?: number
+          default_margin_pct?: number
+          horizon_months?: number
+          id?: number
+          min_cash_usd?: number
+          monthly_overhead_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dkt_credit_draws: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          id: string
+          line_id: string
+          month: string
+        }
+        Insert: {
+          amount_usd?: number
+          created_at?: string
+          id?: string
+          line_id: string
+          month: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          id?: string
+          line_id?: string
+          month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dkt_credit_draws_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "dkt_credit_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dkt_credit_lines: {
+        Row: {
+          created_at: string
+          drawn_usd: number
+          id: string
+          limit_usd: number
+          maturity_month: string | null
+          name: string
+          notes: string | null
+          rate_pct: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drawn_usd?: number
+          id?: string
+          limit_usd?: number
+          maturity_month?: string | null
+          name?: string
+          notes?: string | null
+          rate_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drawn_usd?: number
+          id?: string
+          limit_usd?: number
+          maturity_month?: string | null
+          name?: string
+          notes?: string | null
+          rate_pct?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dkt_loan_payments: {
+        Row: {
+          created_at: string
+          due_date: string
+          id: string
+          interest_usd: number
+          loan_id: string
+          paid: boolean
+          principal_usd: number
+        }
+        Insert: {
+          created_at?: string
+          due_date: string
+          id?: string
+          interest_usd?: number
+          loan_id: string
+          paid?: boolean
+          principal_usd?: number
+        }
+        Update: {
+          created_at?: string
+          due_date?: string
+          id?: string
+          interest_usd?: number
+          loan_id?: string
+          paid?: boolean
+          principal_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dkt_loan_payments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "dkt_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dkt_loans: {
+        Row: {
+          active: boolean
+          balance_usd: number
+          created_at: string
+          due_month: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string | null
+          pay_with_inquiry_id: string | null
+          pay_with_so: string | null
+          rate_pct: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          balance_usd?: number
+          created_at?: string
+          due_month?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          pay_with_inquiry_id?: string | null
+          pay_with_so?: string | null
+          rate_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          balance_usd?: number
+          created_at?: string
+          due_month?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string | null
+          pay_with_inquiry_id?: string | null
+          pay_with_so?: string | null
+          rate_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dkt_loans_pay_with_inquiry_id_fkey"
+            columns: ["pay_with_inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dkt_odoo_order_terms: {
+        Row: {
+          cust_balance_done: boolean
+          cust_deposit_done: boolean
+          cust_deposit_pct: number | null
+          excluded: boolean
+          margin_pct: number | null
+          ship_month: string | null
+          so_name: string
+          updated_at: string
+        }
+        Insert: {
+          cust_balance_done?: boolean
+          cust_deposit_done?: boolean
+          cust_deposit_pct?: number | null
+          excluded?: boolean
+          margin_pct?: number | null
+          ship_month?: string | null
+          so_name: string
+          updated_at?: string
+        }
+        Update: {
+          cust_balance_done?: boolean
+          cust_deposit_done?: boolean
+          cust_deposit_pct?: number | null
+          excluded?: boolean
+          margin_pct?: number | null
+          ship_month?: string | null
+          so_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dkt_order_status: {
+        Row: {
+          advance_done: boolean
+          cust_balance_done: boolean
+          cust_deposit_done: boolean
+          excluded: boolean
+          inquiry_id: string
+          pv_balance_done: boolean
+          updated_at: string
+        }
+        Insert: {
+          advance_done?: boolean
+          cust_balance_done?: boolean
+          cust_deposit_done?: boolean
+          excluded?: boolean
+          inquiry_id: string
+          pv_balance_done?: boolean
+          updated_at?: string
+        }
+        Update: {
+          advance_done?: boolean
+          cust_balance_done?: boolean
+          cust_deposit_done?: boolean
+          excluded?: boolean
+          inquiry_id?: string
+          pv_balance_done?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dkt_order_status_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: true
+            referencedRelation: "customer_rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       export_documents: {
         Row: {
           created_at: string
@@ -1404,7 +1810,6 @@ export type Database = {
         Row: {
           analytics_targets: Json
           auto_transport_cost_per_cbm: number
-          below_moq_surcharge_percent: number
           created_at: string | null
           default_certainty_pct: number
           default_cust_deposit_pct: number
@@ -1412,6 +1817,7 @@ export type Database = {
           default_repeat_certainty_pct: number
           default_shipping_type: string | null
           exchange_rate: number
+          fallback_direct_rates: Json | null
           id: string
           indirect_overhead_per_mh: number
           live_burdened_per_mh: number | null
@@ -1430,7 +1836,6 @@ export type Database = {
         Insert: {
           analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
-          below_moq_surcharge_percent?: number
           created_at?: string | null
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
@@ -1438,6 +1843,7 @@ export type Database = {
           default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
+          fallback_direct_rates?: Json | null
           id?: string
           indirect_overhead_per_mh?: number
           live_burdened_per_mh?: number | null
@@ -1456,7 +1862,6 @@ export type Database = {
         Update: {
           analytics_targets?: Json
           auto_transport_cost_per_cbm?: number
-          below_moq_surcharge_percent?: number
           created_at?: string | null
           default_certainty_pct?: number
           default_cust_deposit_pct?: number
@@ -1464,6 +1869,7 @@ export type Database = {
           default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
           exchange_rate?: number
+          fallback_direct_rates?: Json | null
           id?: string
           indirect_overhead_per_mh?: number
           live_burdened_per_mh?: number | null
@@ -1478,30 +1884,6 @@ export type Database = {
           mc_height_buffer_inch?: number
           overhead_avg_months?: number
           packaging_cost_per_cbm?: number
-        }
-        Relationships: []
-      }
-      hardware_prices: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          unit_cost_inr: number
-          units: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          unit_cost_inr: number
-          units?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          unit_cost_inr?: number
-          units?: string | null
         }
         Relationships: []
       }
