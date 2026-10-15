@@ -18,6 +18,7 @@ export type DktSettings = {
   cash_usd: number;
   cash_as_of: string | null;
   min_cash_usd: number;
+  monthly_overhead_usd: number; // one figure, charged every month
   horizon_months: number;
   default_margin_pct: number; // 0..1
   allegro_balance_usd: number;
@@ -26,7 +27,7 @@ export type DktSettings = {
 };
 
 export const DEFAULT_SETTINGS: DktSettings = {
-  cash_usd: 0, cash_as_of: null, min_cash_usd: 5000, horizon_months: 12,
+  cash_usd: 0, cash_as_of: null, min_cash_usd: 5000, monthly_overhead_usd: 0, horizon_months: 12,
   default_margin_pct: 0.05,
   allegro_balance_usd: 3200, allegro_as_of: null, allegro_monthly_usd: 500,
 };
@@ -48,6 +49,21 @@ export type DktOrder = {
   excluded: boolean;
 };
 
+/** A confirmed PV → DKT sales order from Odoo, with DKT's own terms for its customer side. */
+export type OdooOrder = {
+  name: string; // SO number
+  ref: string;
+  po_month: Month; // SO date: when the customer deposit is due
+  ship_month: Month; // customer balance + PV's not-yet-invoiced amount
+  pv_total_usd: number; // what PV bills DKT for the order
+  to_invoice_usd: number; // part PV hasn't invoiced yet
+  margin_pct: number;
+  cust_deposit_pct: number;
+  done: { cust_deposit: boolean; cust_balance: boolean };
+  excluded: boolean;
+};
+export type OdooInvoice = { name: string; origin: string; due_month: Month; residual_usd: number };
+
 export type CostFrequency = 'monthly' | 'quarterly' | 'yearly' | 'once';
 export type CostItem = {
   id: string;
@@ -68,10 +84,14 @@ export type Loan = {
   rate_pct: number;
   due_month: Month | null; // lump: pay in this month
   pay_with_inquiry_id: string | null; // lump: pay when this order's customer balance arrives
+  pay_with_so: string | null; // lump: or with this Odoo sales order's customer balance
   active: boolean;
 };
 
-export type CreditLine = { id: string; name: string; limit_usd: number; drawn_usd: number; rate_pct: number };
+export type CreditLine = {
+  id: string; name: string; limit_usd: number; drawn_usd: number; rate_pct: number;
+  maturity_month?: Month | null; // whatever is drawn is repaid in full this month
+};
 export type CreditDraw = { id: string; line_id: string; month: Month; amount_usd: number }; // + draw, − repay
 
 export type FlowKind =
@@ -79,7 +99,8 @@ export type FlowKind =
   | 'income' | 'overhead' | 'expense'
   | 'loan_principal' | 'loan_interest'
   | 'credit_draw' | 'credit_repay' | 'credit_interest'
-  | 'amazon_in' | 'amazon_inventory' | 'amazon_freight';
+  | 'amazon_in' | 'amazon_inventory' | 'amazon_freight'
+  | 'odoo_invoice' | 'odoo_to_invoice';
 
 export type Flow = { month: Month; kind: FlowKind; amount: number; label: string; ref?: string };
 
@@ -90,10 +111,11 @@ export const FLOW_LABEL: Record<FlowKind, string> = {
   loan_principal: 'Loan principal', loan_interest: 'Loan interest',
   credit_repay: 'Credit line repayments', credit_interest: 'Credit line interest',
   amazon_inventory: 'Amazon inventory (PO)', amazon_freight: 'Amazon freight',
+  odoo_invoice: 'PV invoices due (Odoo)', odoo_to_invoice: 'PV orders not yet invoiced (Odoo)',
 };
 export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'credit_draw'];
 export const OUT_KINDS: FlowKind[] = [
-  'pv_advance', 'pv_balance', 'overhead', 'expense', 'loan_principal', 'loan_interest',
+  'odoo_invoice', 'odoo_to_invoice', 'pv_advance', 'pv_balance', 'overhead', 'expense', 'loan_principal', 'loan_interest',
   'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight',
 ];
 
@@ -144,6 +166,33 @@ export function orderFlows(o: DktOrder, thisMonth: Month): Flow[] {
   return out;
 }
 
+// ---------- Odoo orders (PV → DKT, already confirmed) ----------
+/** FOB the end customer pays DKT: PV's bill grossed up by DKT's margin. */
+export const odooFob = (o: Pick<OdooOrder, 'pv_total_usd' | 'margin_pct'>) => (o.margin_pct < 1 ? o.pv_total_usd / (1 - o.margin_pct) : o.pv_total_usd);
+
+/**
+ * PV's side comes straight from Odoo: each unpaid invoice is paid by its due date, and whatever PV
+ * hasn't invoiced yet is paid in the ship month. The customer side uses DKT's terms on the order.
+ */
+export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMonth: Month): Flow[] {
+  const at = (m: Month) => (m < thisMonth ? thisMonth : m);
+  const out: Flow[] = [];
+  const excluded = new Set(orders.filter(o => o.excluded).map(o => o.name));
+  for (const inv of invoices) {
+    if (!(inv.residual_usd > 0) || inv.origin.split(',').some(s => excluded.has(s.trim()))) continue;
+    out.push({ month: at(inv.due_month), kind: 'odoo_invoice', amount: -inv.residual_usd, label: `${inv.name}${inv.origin ? ` · ${inv.origin}` : ''}`, ref: inv.name });
+  }
+  for (const o of orders) {
+    if (o.excluded) continue;
+    const label = `${o.name}${o.ref ? ` · ${o.ref}` : ''}`;
+    if (o.to_invoice_usd > 0) out.push({ month: at(o.ship_month), kind: 'odoo_to_invoice', amount: -o.to_invoice_usd, label, ref: o.name });
+    const fob = odooFob(o);
+    if (!o.done.cust_deposit && fob * o.cust_deposit_pct > 0) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: fob * o.cust_deposit_pct, label, ref: o.name });
+    if (!o.done.cust_balance && fob * (1 - o.cust_deposit_pct) > 0) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: fob * (1 - o.cust_deposit_pct), label, ref: o.name });
+  }
+  return out;
+}
+
 // ---------- Overhead, expenses, other income ----------
 const STEP: Record<CostFrequency, number> = { monthly: 1, quarterly: 3, yearly: 12, once: 0 };
 export function costFlows(c: CostItem, months: Month[]): Flow[] {
@@ -160,8 +209,14 @@ export function costFlows(c: CostItem, months: Month[]): Flow[] {
   return out;
 }
 
+/** Overhead is one monthly figure, charged in every month of the forecast. */
+export function overheadFlows(perMonth: number, months: Month[]): Flow[] {
+  if (!(perMonth > 0)) return [];
+  return months.map(m => ({ month: m, kind: 'overhead' as const, amount: -perMonth, label: 'Monthly overhead' }));
+}
+
 // ---------- Loans ----------
-export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[], thisMonth: Month): Flow[] {
+export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[], thisMonth: Month, odooOrders: OdooOrder[] = []): Flow[] {
   if (!loan.active) return [];
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
   if (loan.kind === 'schedule') {
@@ -174,13 +229,17 @@ export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[
     }
     return out;
   }
-  const month = lumpLoanMonth(loan, orders);
+  const month = lumpLoanMonth(loan, orders, odooOrders);
   if (!month || !(loan.balance_usd > 0)) return [];
   return [{ month: at(month), kind: 'loan_principal', amount: -loan.balance_usd, label: loan.name, ref: loan.id }];
 }
 
 /** When a lump loan is planned to be repaid: with its linked order's customer balance, else its due month. */
-export function lumpLoanMonth(loan: Loan, orders: DktOrder[]): Month | null {
+export function lumpLoanMonth(loan: Loan, orders: DktOrder[], odooOrders: OdooOrder[] = []): Month | null {
+  if (loan.pay_with_so) {
+    const o = odooOrders.find(x => x.name === loan.pay_with_so);
+    if (o) return o.ship_month;
+  }
   if (loan.pay_with_inquiry_id) {
     const o = orders.find(x => x.inquiry_id === loan.pay_with_inquiry_id);
     if (o) return o.ship_month;
@@ -211,6 +270,10 @@ export function creditFlows(lines: CreditLine[], draws: CreditDraw[], months: Mo
         bal += amt;
         out.push({ month: m, kind: amt > 0 ? 'credit_draw' : 'credit_repay', amount: amt, label: line.name, ref: line.id });
       }
+      if (line.maturity_month && m === line.maturity_month && bal > 0) {
+        out.push({ month: m, kind: 'credit_repay', amount: -bal, label: `${line.name} (due in full)`, ref: line.id });
+        bal = 0;
+      }
       const interest = bal * (line.rate_pct / 100) / 12;
       if (interest > 0.005) out.push({ month: m, kind: 'credit_interest', amount: -interest, label: line.name, ref: line.id });
     }
@@ -224,6 +287,7 @@ export function creditBalances(lines: CreditLine[], draws: CreditDraw[], months:
     let bal = line.drawn_usd;
     res[line.id] = months.map(m => {
       for (const d of draws.filter(x => x.line_id === line.id && x.month === m)) bal = Math.max(0, bal + d.amount_usd);
+      if (line.maturity_month && m === line.maturity_month) bal = 0;
       return bal;
     });
   }
@@ -241,6 +305,8 @@ export type ForecastInput = {
   creditLines: CreditLine[];
   creditDraws: CreditDraw[];
   amazonSkus: AmazonSku[]; // only SKUs in forecast, funded by DKT
+  odooOrders?: OdooOrder[];
+  odooInvoices?: OdooInvoice[];
 };
 
 export type ForecastMonth = {
@@ -269,8 +335,10 @@ export function buildForecast(inp: ForecastInput): Forecast {
   const last = months[months.length - 1];
   const flows: Flow[] = [
     ...inp.orders.flatMap(o => orderFlows(o, inp.thisMonth)),
-    ...inp.costs.flatMap(c => costFlows(c, months)),
-    ...inp.loans.flatMap(l => loanFlows(l, inp.loanPayments, inp.orders, inp.thisMonth)),
+    ...odooFlows(inp.odooOrders ?? [], inp.odooInvoices ?? [], inp.thisMonth),
+    ...overheadFlows(Number(inp.settings.monthly_overhead_usd) || 0, months),
+    ...inp.costs.filter(c => c.kind !== 'overhead').flatMap(c => costFlows(c, months)),
+    ...inp.loans.flatMap(l => loanFlows(l, inp.loanPayments, inp.orders, inp.thisMonth, inp.odooOrders ?? [])),
     ...creditFlows(inp.creditLines, inp.creditDraws, months),
     ...inp.amazonSkus.flatMap(s => amazonSkuFlows(s, inp.thisMonth, last)),
   ].filter(f => f.month <= last);

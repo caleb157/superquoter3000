@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   addMonths, loanOutstanding, lumpLoanMonth, monthLabel,
-  type DktOrder, type Loan, type LoanPayment, type Month,
+  type DktOrder, type Loan, type LoanPayment, type Month, type OdooOrder,
 } from '@/lib/dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd } from './fields';
 
@@ -16,6 +16,7 @@ type Props = {
   loans: LoanRow[];
   payments: LoanPayment[];
   orders: DktOrder[];
+  odooOrders: OdooOrder[];
   thisMonth: Month;
   addLoan: () => void;
   updateLoan: (id: string, p: Partial<LoanRow>) => void;
@@ -26,16 +27,16 @@ type Props = {
 };
 
 export function LoansTab(p: Props) {
-  const { loans, payments, orders, thisMonth } = p;
+  const { loans, payments, orders, odooOrders, thisMonth } = p;
   const yearEnd = addMonths(thisMonth, 11);
   const dueThisYear = loans.filter(l => l.active).reduce((s, l) => {
     if (l.kind === 'schedule') {
       return s + payments.filter(x => x.loan_id === l.id && !x.paid && x.due_date.slice(0, 7) <= yearEnd).reduce((t, x) => t + x.principal_usd + x.interest_usd, 0);
     }
-    const m = lumpLoanMonth(l, orders);
+    const m = lumpLoanMonth(l, orders, odooOrders);
     return s + (m && m <= yearEnd ? l.balance_usd : 0);
   }, 0);
-  const undated = loans.filter(l => l.active && l.kind === 'lump' && !lumpLoanMonth(l, orders));
+  const undated = loans.filter(l => l.active && l.kind === 'lump' && !lumpLoanMonth(l, orders, odooOrders));
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
@@ -55,11 +56,11 @@ export function LoansTab(p: Props) {
   );
 }
 
-function LoanCard({ loan: l, payments, orders, updateLoan, removeLoan, addPayment, updatePayment, removePayment }: Props & { loan: LoanRow }) {
+function LoanCard({ loan: l, payments, orders, odooOrders, updateLoan, removeLoan, addPayment, updatePayment, removePayment }: Props & { loan: LoanRow }) {
   const mine = payments.filter(x => x.loan_id === l.id);
   const [open, setOpen] = useState(false);
   const next = mine.find(x => !x.paid);
-  const when = l.kind === 'lump' ? lumpLoanMonth(l, orders) : null;
+  const when = l.kind === 'lump' ? lumpLoanMonth(l, orders, odooOrders) : null;
   return (
     <Card className={cn(!l.active && 'opacity-60')}>
       <CardHeader className="pb-2 space-y-0">
@@ -89,13 +90,19 @@ function LoanCard({ loan: l, payments, orders, updateLoan, removeLoan, addPaymen
             <>
               <label className="flex flex-col gap-1">
                 <span className="text-muted-foreground">Pay back with order</span>
-                <SelectField className="w-full" label="Pay back with order" value={l.pay_with_inquiry_id ?? ''}
-                  options={[{ value: '', label: 'No order, use month' }, ...orders.map(o => ({ value: o.inquiry_id, label: `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''}` }))]}
-                  onSave={v => updateLoan(l.id, { pay_with_inquiry_id: v || null })} />
+                <SelectField className="w-full" label="Pay back with order"
+                  value={l.pay_with_so ? `so:${l.pay_with_so}` : l.pay_with_inquiry_id ? `inq:${l.pay_with_inquiry_id}` : ''}
+                  options={[
+                    { value: '', label: 'No order, use month' },
+                    ...odooOrders.map(o => ({ value: `so:${o.name}`, label: `${o.name}${o.ref ? ` · ${o.ref}` : ''} (Odoo)` })),
+                    ...(l.pay_with_so && !odooOrders.some(o => o.name === l.pay_with_so) ? [{ value: `so:${l.pay_with_so}`, label: `${l.pay_with_so} (not open in Odoo)` }] : []),
+                    ...orders.map(o => ({ value: `inq:${o.inquiry_id}`, label: `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''}` })),
+                  ]}
+                  onSave={v => updateLoan(l.id, { pay_with_so: v.startsWith('so:') ? v.slice(3) : null, pay_with_inquiry_id: v.startsWith('inq:') ? v.slice(4) : null })} />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">{l.pay_with_inquiry_id ? 'Paid in (from the order)' : 'Pay back in'}</span>
-                {l.pay_with_inquiry_id
+                <span className="text-muted-foreground">{(l.pay_with_inquiry_id || l.pay_with_so) ? 'Paid in (from the order)' : 'Pay back in'}</span>
+                {(l.pay_with_inquiry_id || l.pay_with_so)
                   ? <div className="h-8 flex items-center font-medium">{when ? monthLabel(when) : 'order not open'}</div>
                   : <MonthField label="Pay back in" allowEmpty value={l.due_month} onSave={v => updateLoan(l.id, { due_month: v })} />}
               </label>

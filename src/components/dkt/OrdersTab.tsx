@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { orderAmounts, type DktOrder, type DktSettings } from '@/lib/dkt-cashflow';
 import type { OrderMeta } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, Stat, usd } from './fields';
+import type { ReactNode } from 'react';
 
 type Props = {
   orders: DktOrder[];
@@ -16,6 +17,7 @@ type Props = {
   saveOrder: (id: string, p: Partial<DktOrder>) => void;
   saveStatus: (id: string, p: Partial<DktOrder['done']> & { excluded?: boolean }) => void;
   saveSettings: (p: Partial<DktSettings>) => void;
+  odooCard: ReactNode;
 };
 
 const DONE: { key: keyof DktOrder['done']; label: string; short: string }[] = [
@@ -25,7 +27,7 @@ const DONE: { key: keyof DktOrder['done']; label: string; short: string }[] = [
   { key: 'pv_balance', label: 'Balance paid to PV', short: 'PV bal.' },
 ];
 
-export function OrdersTab({ orders, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings }: Props) {
+export function OrdersTab({ orders, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
   const gapOpen = live.filter(o => !o.done.advance).reduce((s, o) => s + orderAmounts(o).gap, 0);
@@ -33,18 +35,20 @@ export function OrdersTab({ orders, meta, settings, dktEntityName, saveOrder, sa
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Stat label="Open DKT orders" value={live.length} sub={`FOB ${usd(live.reduce((s, o) => s + o.fob_usd, 0))}`} />
+        <Stat label="Pipeline orders (HQ)" value={live.length} sub={`FOB ${usd(live.reduce((s, o) => s + o.fob_usd, 0))}`} />
         <Stat label="DKT margin on them" value={usd(sum(a => a.margin))} />
         <Stat label="Still to advance PV" value={usd(live.filter(o => !o.done.advance).reduce((s, o) => s + orderAmounts(o).pvAdvance, 0))} />
         <Stat label="Working capital DKT funds" value={usd(gapOpen)} sub="Advances not covered by deposits" tone={gapOpen > 0 ? 'warning' : undefined} />
       </div>
 
+      {odooCard}
+
       <Card>
         <CardHeader className="pb-2 flex-row items-start justify-between gap-4 space-y-0 flex-wrap">
           <div className="space-y-1">
-            <CardTitle className="text-sm">Orders sold through {dktEntityName ?? 'DKT'}</CardTitle>
+            <CardTitle className="text-sm">Pipeline in HQ, not yet confirmed ({dktEntityName ?? 'DKT'} sells)</CardTitle>
             <p className="text-xs text-muted-foreground max-w-2xl">
-              Every open inquiry (Active, Projected PO, PO) whose selling entity is {dktEntityName ?? 'DKT'}, counted at 100%.
+              Every Active or Projected PO inquiry whose selling entity is {dktEntityName ?? 'DKT'}, counted at 100%. Once it's a PO it shows above from Odoo instead, so it's never counted twice.
               The customer deposit and the advance to PV happen in the PO month; the customer balance and PV's balance in the ship month.
               Edits here save to the inquiry's Projection tab, so PV analytics sees the same numbers. Tick a payment once it has happened: it is then in your current cash and leaves the forecast.
             </p>

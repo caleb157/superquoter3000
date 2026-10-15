@@ -4,6 +4,9 @@ import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, Responsiv
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import type { AmazonSku } from '@/lib/dkt-amazon';
+import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import {
   FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS,
   type DktSettings, type Flow, type FlowKind, type Forecast, type Month,
@@ -16,9 +19,12 @@ type Props = {
   saveSettings: (p: Partial<DktSettings>) => void;
   totalOwed: number;
   creditAvailable: number;
+  scenarios: AmazonScenario[];
+  skus: AmazonSku[];
+  setScenarioInForecast: (id: string, on: boolean) => void;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable, scenarios, skus, setScenarioInForecast }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: Flow[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
@@ -101,6 +107,8 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
         </CardContent>
       </Card>
 
+      <AmazonCounted forecast={forecast} scenarios={scenarios} skus={skus} setInForecast={setScenarioInForecast} />
+
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Month by month</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
@@ -151,6 +159,46 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Which Amazon scenarios are in this forecast, with a switch for each, and why a SKU adds nothing. */
+function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
+  forecast: Forecast; scenarios: AmazonScenario[]; skus: AmazonSku[]; setInForecast: (id: string, on: boolean) => void;
+}) {
+  if (!scenarios.length) return null;
+  const amazon = forecast.flows.filter(f => f.kind.startsWith('amazon_'));
+  const why = (s: AmazonSku) => {
+    if (!s.start_month) return 'no first sales month';
+    if (!(s.units_per_month > 0)) return 'no units per month';
+    if (!(s.price_usd > 0)) return 'no price';
+    if (s.mode === 'simple' && !(s.net_margin_pct > 0)) return 'no net margin';
+    return null;
+  };
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-sm">Amazon in this forecast</CardTitle></CardHeader>
+      <CardContent className="space-y-2 text-xs">
+        {scenarios.map(sc => {
+          const mine = skus.filter(k => k.scenario_id === sc.id);
+          const net = amazon.filter(f => mine.some(k => k.id === f.ref)).reduce((t, f) => t + f.amount, 0);
+          const allegro = sc.funding === 'allegro';
+          const problems = mine.map(k => ({ k, w: why(k) })).filter(x => x.w);
+          return (
+            <div key={sc.id} className="flex items-start gap-3 border-t pt-2 first:border-t-0 first:pt-0">
+              <Switch checked={sc.in_forecast && !allegro} disabled={allegro} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}</span></div>
+                {allegro ? <div className="text-muted-foreground">Paid by the Allegro fund, so it shows on the Allegro tab, not in DKT's cash. Switch it to "Paid by DKT cash" on the Amazon tab to count it here.</div>
+                  : !mine.length ? <div className="text-muted-foreground">No SKUs yet. Add them on the Amazon tab.</div>
+                  : problems.map(({ k, w }) => <div key={k.id} className="text-warning">{k.name || 'Unnamed SKU'}: {w}, so it adds nothing yet.</div>)}
+              </div>
+              {sc.in_forecast && !allegro && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 

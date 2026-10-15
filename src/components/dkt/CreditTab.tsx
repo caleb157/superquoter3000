@@ -67,6 +67,7 @@ export function CreditTab(p: Props) {
                   <th className="font-medium px-1 text-right">Limit</th>
                   <th className="font-medium px-1 text-right">Drawn today</th>
                   <th className="font-medium px-1 text-right">Rate (yearly %)</th>
+                  <th className="font-medium px-1" title="Everything drawn is repaid in full this month">Due in full</th>
                   <th className="font-medium px-1 text-right">Available</th>
                   <th className="font-medium px-1 text-right">Drawn at end of forecast</th>
                   <th className="font-medium px-1">Notes</th>
@@ -82,6 +83,7 @@ export function CreditTab(p: Props) {
                       <td className="py-1.5 px-1 w-28"><NumField label="Limit" value={l.limit_usd} onSave={v => p.updateLine(l.id, { limit_usd: v ?? 0 })} /></td>
                       <td className="py-1.5 px-1 w-28"><NumField label="Drawn" value={l.drawn_usd} onSave={v => p.updateLine(l.id, { drawn_usd: v ?? 0 })} /></td>
                       <td className="py-1.5 px-1 w-20"><NumField label="Rate" value={l.rate_pct} onSave={v => p.updateLine(l.id, { rate_pct: v ?? 0 })} /></td>
+                      <td className="py-1.5 px-1"><MonthField label="Due in full" allowEmpty value={l.maturity_month ?? null} onSave={v => p.updateLine(l.id, { maturity_month: v })} /></td>
                       <td className="py-1.5 px-1 text-right tabular-nums">{usd(l.limit_usd - l.drawn_usd)}</td>
                       <td className={cn('py-1.5 px-1 text-right tabular-nums', endBal > l.limit_usd && 'text-destructive font-medium')}>{usd(endBal)}{endBal > l.limit_usd ? ' (over limit)' : ''}</td>
                       <td className="py-1.5 px-1 min-w-[10rem]"><TextField label="Notes" value={l.notes} onSave={v => p.updateLine(l.id, { notes: v || null })} /></td>
@@ -99,7 +101,7 @@ export function CreditTab(p: Props) {
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2">
           <div>
             <CardTitle className="text-sm">Planned draws and repayments</CardTitle>
-            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Interest is charged monthly on what's drawn.</p>
+            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Interest is charged monthly on what's drawn, and a line with a "due in full" month is repaid in full that month.</p>
           </div>
           <Button size="sm" variant="outline" disabled={!lines.length} onClick={() => p.addDraw({ line_id: lines[0]?.id, month: thisMonth, amount_usd: 0 })}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Add draw
