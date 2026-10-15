@@ -140,7 +140,7 @@ export default function InquiryOdooExport() {
       // A saved decision wins, unless the item has since been linked to an Odoo product.
       if (saved) for (const [k, v] of Object.entries(saved.shared)) if (sh.has(k) && !(sh.get(k)!.match && !v.match)) sh.set(k, v);
       const fin: Record<string, FinishedDraft> = Object.fromEntries(nextBases.map(x => [x.productId, { ...x.finished, ...(saved?.finished?.[x.productId] ?? {}) }]));
-      const px = saved?.prefixes ?? { product: '', raw: readLastPrefixes().raw };
+      const px = saved?.prefixes ?? { product: '', raw: '' };
       const filled = fillPrefixes(nextBases, fin, sh, px, null);
       setBases(nextBases);
       setFinished(filled.finished);
