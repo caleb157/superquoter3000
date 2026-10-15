@@ -67,6 +67,14 @@ describe('loans', () => {
     const f = loanFlows(lump, [], [order()], '2026-10');
     expect(f).toEqual([expect.objectContaining({ month: '2027-02', amount: -5000 })]);
   });
+  it('brings in the money of a loan not received yet, then its payments', () => {
+    const sba: Loan = { ...lump, id: 'sba', kind: 'schedule', pay_with_inquiry_id: null, proceeds_usd: 81637, proceeds_month: '2026-11' };
+    const f = loanFlows(sba, [{ id: 'p1', loan_id: 'sba', due_date: '2026-12-15', principal_usd: 433.30, interest_usd: 710.94, paid: false }], [], '2026-10');
+    expect(f[0]).toMatchObject({ month: '2026-11', kind: 'loan_proceeds', amount: 81637 });
+    expect(f.filter(x => x.month === '2026-12').reduce((t, x) => t + x.amount, 0)).toBeCloseTo(-1144.24);
+    expect(loanFlows({ ...sba, active: false }, [], [], '2026-10')).toEqual([]);
+    expect(loanFlows(sba, [], [], '2026-12').some(x => x.kind === 'loan_proceeds')).toBe(false);
+  });
   it('leaves a lump loan with no date out of the forecast', () => {
     expect(loanFlows({ ...lump, pay_with_inquiry_id: null }, [], [], '2026-10')).toEqual([]);
   });
