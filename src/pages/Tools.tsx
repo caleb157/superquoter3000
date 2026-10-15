@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Calculator, Wrench, Ship, Weight } from 'lucide-react';
+import { Box, Calculator, Landmark, Wrench, Ship, Weight } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -22,6 +22,12 @@ const tools = [
     icon: Calculator,
     title: 'Breakeven Calculator',
     description: 'Revenue needed to cover overhead and the cash buffer at any trading / manufacturing mix, from live Odoo margins and overhead. Change any assumption to try it out.',
+  },
+  {
+    to: '/tools/dkt-cash-flow',
+    icon: Landmark,
+    title: 'DKT Cash Flow',
+    description: 'When DKT needs cash and how much: DKT orders and PV advances, overhead, loans, credit lines, Amazon SKUs and the Allegro fund, month by month.',
   },
   {
     to: '/freight-quotes',
