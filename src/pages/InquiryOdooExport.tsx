@@ -32,7 +32,7 @@ import {
   type DraftLine, type FinishedDraft, type Issue, type LineStatus, type OdooProduct, type Prefixes, type ProductDraft, type SharedItem,
 } from '@/lib/odoo-bom';
 import {
-  loadLinks, odooMeta, odooProductsBySku, pushToOdoo, removeLink, saveLink, suggestOdooProducts, type OdooMeta, type PushResult,
+  odooMeta, odooProductsBySku, pushToOdoo, suggestOdooProducts, type OdooMeta, type PushResult,
 } from '@/lib/odoo-products';
 
 type Base = { productId: string; finished: FinishedDraft; lines: DraftLine[] };
@@ -195,12 +195,11 @@ export default function InquiryOdooExport() {
 
   const pick = async (first: DraftLine, p: OdooProduct) => {
     patchShared(first.key, { status: 'match', match: p });
-    if (linksAvailable && !(await saveLink(first.key, first.cogsType, first.hqName, p))) setLinksAvailable(false);
   };
   const setStatus = async (first: DraftLine, status: LineStatus) => {
     const cur = shared.get(first.key);
     patchShared(first.key, { status, ...(status !== 'match' ? { match: null } : {}) });
-    if (status !== 'match' && cur?.match && linksAvailable) await removeLink(first.key);
+    void cur;
   };
 
   const download = (kind: 'products' | 'bom') => {
@@ -234,7 +233,6 @@ export default function InquiryOdooExport() {
           if (!pid) continue;
           const m: OdooProduct = { id: pid, sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), display_name: displayName(l.newItem.sku, l.newItem.name), uom: l.newItem.uom };
           next.set(l.key, { status: 'match', match: m, newItem: l.newItem });
-          if (linksAvailable) saveLink(l.key, l.cogsType, l.hqName, m);
         }
         sh = next;
         setShared(next);
