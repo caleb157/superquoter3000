@@ -2,7 +2,7 @@
 // search box can jump to a setting by name (e.g. "exchange rate" finds General, where Live rates sit).
 
 export type SectionId =
-  | 'task-automations' | 'general' | 'entities' | 'quote-terms' | 'projections'
+  | 'task-automations' | 'standard-bom' | 'general' | 'entities' | 'quote-terms' | 'projections'
   | 'product-types' | 'chemicals'
   | 'shipping' | 'fob-rates' | 'box-data'
   | 'finishing-difficulty'
@@ -27,6 +27,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'quote-terms', label: 'Quote Terms', keywords: ['terms and policies', 'clauses', 'validity', 'lead time', 'changelog', 'quote pdf'] },
       { id: 'projections', label: 'Projections', keywords: ['certainty', 'repeat order', 'deposit', 'inter-entity', 'cash flow'] },
       { id: 'task-automations', label: 'Task automations', keywords: ['tasks', 'odoo', 'webhook', 'rules', 'lead'] },
+      { id: 'standard-bom', label: 'Standard BOM components', keywords: ['bom', 'odoo', 'sandpaper', 'local transport', 'suggested components', 'send to odoo'] },
     ],
   },
   {
