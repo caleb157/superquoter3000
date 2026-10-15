@@ -2359,6 +2359,39 @@ export type Database = {
           },
         ]
       }
+      odoo_standard_bom_components: {
+        Row: {
+          created_at: string
+          default_qty: number
+          id: string
+          name: string
+          odoo_product_id: number | null
+          sku: string
+          sort_order: number
+          uom: string
+        }
+        Insert: {
+          created_at?: string
+          default_qty?: number
+          id?: string
+          name: string
+          odoo_product_id?: number | null
+          sku: string
+          sort_order?: number
+          uom?: string
+        }
+        Update: {
+          created_at?: string
+          default_qty?: number
+          id?: string
+          name?: string
+          odoo_product_id?: number | null
+          sku?: string
+          sort_order?: number
+          uom?: string
+        }
+        Relationships: []
+      }
       overhead_items: {
         Row: {
           created_at: string | null
