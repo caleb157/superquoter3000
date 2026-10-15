@@ -304,7 +304,7 @@ export type ForecastInput = {
   loanPayments: LoanPayment[];
   creditLines: CreditLine[];
   creditDraws: CreditDraw[];
-  amazonSkus: AmazonSku[]; // only SKUs in forecast, funded by DKT
+  amazonSkus: AmazonSku[]; // only SKUs in scenarios switched into the forecast
   odooOrders?: OdooOrder[];
   odooInvoices?: OdooInvoice[];
 };
@@ -373,15 +373,13 @@ export function buildForecast(inp: ForecastInput): Forecast {
 }
 
 // ---------- Allegro (emergency fund, outside DKT cash) ----------
-export type AllegroMonth = { month: Month; balance: number; added: number; skuNet: number };
+export type AllegroMonth = { month: Month; balance: number; added: number };
 /**
- * Allegro grows by its monthly top-up (money from outside DKT). SKUs funded by Allegro take their
- * PO and freight out of it and put their Amazon payouts back in.
+ * Allegro grows by its monthly top-up (money from outside DKT). It never enters DKT's forecast:
+ * it's cash available for investment, moved into DKT by hand when needed.
  */
-export function allegroProjection(settings: DktSettings, thisMonth: Month, n: number, skus: AmazonSku[]): AllegroMonth[] {
+export function allegroProjection(settings: DktSettings, thisMonth: Month, n: number): AllegroMonth[] {
   const months = monthRange(thisMonth, n);
-  const last = months[months.length - 1];
-  const flows = skus.flatMap(s => amazonSkuFlows(s, thisMonth, last));
   // The balance is as of allegro_as_of; months already passed since then have had their top-up.
   let bal = Number(settings.allegro_balance_usd) || 0;
   const add = Number(settings.allegro_monthly_usd) || 0;
@@ -390,8 +388,7 @@ export function allegroProjection(settings: DktSettings, thisMonth: Month, n: nu
   bal += gap * add;
   return months.map((m, i) => {
     const added = i === 0 ? 0 : add;
-    const skuNet = flows.filter(f => f.month === m).reduce((s, f) => s + f.amount, 0);
-    bal += added + skuNet;
-    return { month: m, balance: bal, added, skuNet };
+    bal += added;
+    return { month: m, balance: bal, added };
   });
 }

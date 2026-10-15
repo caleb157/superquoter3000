@@ -28,7 +28,7 @@ export function AmazonTab(p: Props) {
     <div className="space-y-4">
       <div className="flex justify-between items-start gap-3">
         <p className="text-xs text-muted-foreground max-w-3xl">
-          Each scenario is a saved set of SKUs. Switch "In forecast" on to put it in DKT's cash flow (or in the Allegro fund, if Allegro pays for it).
+          Each scenario is a saved set of SKUs. Switch "In DKT forecast" on to put it in DKT's cash flow.
           A <b>simple</b> SKU is an existing line: monthly sales × price × net margin, from its start month.
           A <b>new SKU</b> runs the full cycle: 100% of product cost at PO, freight when it ships (after the make months), first sales after the ship months,
           and a reorder whenever stock on hand plus on the way covers your reorder months or less. Net margin is what's left after Amazon fees and landed cost,
@@ -52,10 +52,9 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
       <CardHeader className="pb-2 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <TextField className="font-medium max-w-xs" label="Scenario name" value={s.name} onSave={v => updateScenario(s.id, { name: v })} />
-          <SelectField label="Paid for by" value={s.funding} options={[{ value: 'dkt', label: 'Paid by DKT cash' }, { value: 'allegro', label: 'Paid by Allegro fund' }]} onSave={v => updateScenario(s.id, { funding: v })} />
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Switch checked={s.in_forecast} onCheckedChange={v => updateScenario(s.id, { in_forecast: v })} />
-            In {s.funding === 'allegro' ? 'Allegro' : 'DKT'} forecast
+            In DKT forecast
           </label>
           <div className="ml-auto flex gap-1">
             <Button size="sm" variant="ghost" onClick={() => duplicateScenario(s)}><Copy className="h-3.5 w-3.5 mr-1" /> Duplicate</Button>

@@ -32,7 +32,7 @@ export default function DktCashFlow() {
 
   const forecast = useMemo(() => {
     if (!data) return null;
-    const inForecast = new Set(data.scenarios.filter(s => s.in_forecast && s.funding === 'dkt').map(s => s.id));
+    const inForecast = new Set(data.scenarios.filter(s => s.in_forecast).map(s => s.id));
     return buildForecast({
       settings: data.settings, thisMonth,
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
@@ -119,7 +119,7 @@ export default function DktCashFlow() {
             </TabsContent>
             <TabsContent value="amazon" className="mt-4">
               <AmazonTab scenarios={data.scenarios} skus={data.skus} thisMonth={thisMonth} lookahead={lookahead}
-                addScenario={() => api.insert('dkt_amazon_scenarios', { name: 'New scenario', funding: 'dkt', in_forecast: false })}
+                addScenario={() => api.insert('dkt_amazon_scenarios', { name: 'New scenario', in_forecast: false })}
                 duplicateScenario={sc => api.duplicateScenario(sc, data.skus)}
                 updateScenario={(id, p) => api.update('dkt_amazon_scenarios', id, p, 'scenarios')}
                 removeScenario={id => api.remove('dkt_amazon_scenarios', id, 'scenarios')}
@@ -128,8 +128,7 @@ export default function DktCashFlow() {
                 removeSku={id => api.remove('dkt_amazon_skus', id, 'skus')} />
             </TabsContent>
             <TabsContent value="allegro" className="mt-4">
-              <AllegroTab settings={data.settings} saveSettings={api.saveSettings} thisMonth={thisMonth} lookahead={lookahead}
-                scenarios={data.scenarios} skus={data.skus} />
+              <AllegroTab settings={data.settings} saveSettings={api.saveSettings} thisMonth={thisMonth} lookahead={lookahead} skus={data.skus} />
             </TabsContent>
           </Tabs>
         )}

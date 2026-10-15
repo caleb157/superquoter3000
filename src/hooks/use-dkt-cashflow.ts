@@ -31,7 +31,7 @@ type OdooRaw = {
 };
 export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
-export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean; funding: 'dkt' | 'allegro' };
+export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean };
 export type OrderMeta = { po_month_set: boolean; ship_month_set: boolean; margin_set: boolean; advance_set: boolean; cust_set: boolean };
 
 export type DktData = {
@@ -247,7 +247,7 @@ export function useDktCashflow(thisMonth: Month) {
     },
     async duplicateScenario(s: AmazonScenario, skus: AmazonSku[]) {
       const { data: row, error } = await db.from('dkt_amazon_scenarios')
-        .insert({ name: `${s.name} (copy)`, notes: s.notes, funding: s.funding, in_forecast: false }).select('id').single();
+        .insert({ name: `${s.name} (copy)`, notes: s.notes, in_forecast: false }).select('id').single();
       if (fail(error) || !row) return;
       const copies = skus.filter(x => x.scenario_id === s.id).map(({ id: _id, ...x }) => toDb({ ...x, scenario_id: row.id }));
       if (copies.length) fail((await db.from('dkt_amazon_skus').insert(copies)).error);

@@ -182,18 +182,16 @@ function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
         {scenarios.map(sc => {
           const mine = skus.filter(k => k.scenario_id === sc.id);
           const net = amazon.filter(f => mine.some(k => k.id === f.ref)).reduce((t, f) => t + f.amount, 0);
-          const allegro = sc.funding === 'allegro';
           const problems = mine.map(k => ({ k, w: why(k) })).filter(x => x.w);
           return (
             <div key={sc.id} className="flex items-start gap-3 border-t pt-2 first:border-t-0 first:pt-0">
-              <Switch checked={sc.in_forecast && !allegro} disabled={allegro} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
+              <Switch checked={sc.in_forecast} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}</span></div>
-                {allegro ? <div className="text-muted-foreground">Paid by the Allegro fund, so it shows on the Allegro tab, not in DKT's cash. Switch it to "Paid by DKT cash" on the Amazon tab to count it here.</div>
-                  : !mine.length ? <div className="text-muted-foreground">No SKUs yet. Add them on the Amazon tab.</div>
+                {!mine.length ? <div className="text-muted-foreground">No SKUs yet. Add them on the Amazon tab.</div>
                   : problems.map(({ k, w }) => <div key={k.id} className="text-warning">{k.name || 'Unnamed SKU'}: {w}, so it adds nothing yet.</div>)}
               </div>
-              {sc.in_forecast && !allegro && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
+              {sc.in_forecast && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
             </div>
           );
         })}
