@@ -24,7 +24,7 @@ export type OdooTerms = {
   cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null; cust_paid_usd: number | null;
 };
 type OdooRaw = {
-  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number; advance_usd?: number }[];
+  orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number; advance_usd?: number; cash_date?: string | null }[];
   invoices: { name: string; origin: string; due: string | null; date: string | null; residual_usd: number; total_usd: number }[];
   partner: string | null;
   fetched_at: string | null;
@@ -173,16 +173,18 @@ export function useDktCashflow(thisMonth: Month) {
     return odoo.orders.map(o => {
       const t = terms.get(o.name);
       const po = toMonth(o.date) ?? thisMonth;
-      const shipAuto = toMonth(o.ship_date) ?? addMonths(po, 3);
+      // Ship month and what's been paid to PV come from PV's Odoo only (the date PV's cash flow uses).
+      const odooShip = toMonth(o.cash_date) ?? toMonth(o.ship_date);
+      const ship = odooShip ? (odooShip < thisMonth ? thisMonth : odooShip) : addMonths(po, 3);
       return {
         name: o.name, ref: o.ref, po_month: po,
-        ship_month: t?.ship_month ?? shipAuto,
-        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: num(t?.pv_paid_usd, 0), cust_paid_usd: t?.cust_paid_usd == null ? null : num(t.cust_paid_usd),
+        ship_month: ship,
+        pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: 0, cust_paid_usd: t?.cust_paid_usd == null ? null : num(t.cust_paid_usd),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
         excluded: !!t?.excluded,
-        ship_month_set: !!t?.ship_month || !!o.ship_date, margin_set: t?.margin_pct != null, cust_set: t?.cust_deposit_pct != null,
+        ship_month_set: !!odooShip, margin_set: t?.margin_pct != null, cust_set: t?.cust_deposit_pct != null,
         invoices: odoo.invoices.filter(i => i.origin.split(',').map(s => s.trim()).includes(o.name)).map(toInvoice(thisMonth)),
       };
     });

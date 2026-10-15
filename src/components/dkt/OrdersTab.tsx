@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { statusLabel } from '@/lib/inquiry-status';
 import { cn } from '@/lib/utils';
-import { orderAmounts, type DktOrder, type DktSettings } from '@/lib/dkt-cashflow';
-import type { OrderMeta } from '@/hooks/use-dkt-cashflow';
+import { odooFob, odooOwed, orderAmounts, type DktOrder, type DktSettings } from '@/lib/dkt-cashflow';
+import type { OdooRow, OrderMeta } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, Stat, usd } from './fields';
 import type { ReactNode } from 'react';
 
 type Props = {
   orders: DktOrder[];
+  odooRows: OdooRow[];
   meta: Record<string, OrderMeta>;
   settings: DktSettings;
   dktEntityName: string | null;
@@ -27,18 +28,21 @@ const DONE: { key: keyof DktOrder['done']; label: string; short: string }[] = [
   { key: 'pv_balance', label: 'Balance paid to PV', short: 'PV bal.' },
 ];
 
-export function OrdersTab({ orders, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
+export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
-  const gapOpen = live.filter(o => !o.done.advance).reduce((s, o) => s + orderAmounts(o).gap, 0);
+  const real = odooRows.filter(o => !o.excluded);
+  const realFob = real.reduce((s, o) => s + odooFob(o), 0);
+  const realMargin = real.reduce((s, o) => s + odooFob(o) - o.pv_total_usd, 0);
+  const stillToPv = real.reduce((s, o) => s + odooOwed(o, o.invoices), 0);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Stat label="Pipeline orders (HQ)" value={live.length} sub={`FOB ${usd(live.reduce((s, o) => s + o.fob_usd, 0))}`} />
-        <Stat label="DKT margin on them" value={usd(sum(a => a.margin))} />
-        <Stat label="Still to advance PV" value={usd(live.filter(o => !o.done.advance).reduce((s, o) => s + orderAmounts(o).pvAdvance, 0))} />
-        <Stat label="Working capital DKT funds" value={usd(gapOpen)} sub="Advances not covered by deposits" tone={gapOpen > 0 ? 'warning' : undefined} />
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+        <Stat label="Orders (confirmed + pipeline)" value={real.length + live.length}
+          sub={`${real.length} confirmed · ${live.length} pipeline · FOB ${usd(realFob + live.reduce((s, o) => s + o.fob_usd, 0))}`} />
+        <Stat label="DKT margin on them" value={usd(realMargin + sum(a => a.margin))} />
+        <Stat label="Still to pay PV (confirmed orders)" value={usd(stillToPv)} sub="From Odoo" />
       </div>
 
       {odooCard}

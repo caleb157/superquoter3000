@@ -131,6 +131,13 @@ describe('odoo orders, customer side', () => {
     expect(f.filter(x => x.amount > 0)).toEqual([expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 6000 })]);
     expect(odooFlows([{ ...so, cust_paid_usd: 10000 }], [], '2026-10').filter(x => x.amount > 0)).toEqual([]);
   });
+  it('asks for the unpaid deposit now and the rest at shipping', () => {
+    const f = odooFlows([{ ...so, cust_paid_usd: 1000 }], [], '2026-10').filter(x => x.amount > 0);
+    expect(f).toEqual([
+      expect.objectContaining({ month: '2026-10', kind: 'cust_deposit', amount: 2000 }),
+      expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 7000 }),
+    ]);
+  });
 });
 
 describe('credit line maturity', () => {

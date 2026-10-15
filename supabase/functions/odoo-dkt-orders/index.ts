@@ -118,8 +118,12 @@ Deno.serve(async (req) => {
           name: str(r.name), ref: str(r.client_order_ref),
           date: str(r.date_order).slice(0, 10) || null,
           ship_date: str(r.commitment_date || r.expected_date).slice(0, 10) || null,
-          // PV's cash-flow date for the order: delivery date, or the signing date if later.
-          cash_date: [str(r.commitment_date || r.expected_date).slice(0, 10), str(r.signed_on).slice(0, 10)].filter(Boolean).sort().pop() || today,
+          // PV's cash-flow date for the order: delivery date, or the signing date if later; never before
+          // today (an overdue order ships now), exactly as odoo-analytics-sync dates pending SOs.
+          cash_date: (() => {
+            const d = [str(r.commitment_date || r.expected_date).slice(0, 10), str(r.signed_on).slice(0, 10)].filter(Boolean).sort().pop() || today;
+            return d < today ? today : d;
+          })(),
           total_usd: toUsd(num(r.amount_total), cur),
           to_invoice_usd: Math.max(0, toUsd(num(r.amount_to_invoice), cur)),
           currency: cur,
@@ -144,7 +148,7 @@ Deno.serve(async (req) => {
     } catch { /* no balance, no advance */ }
     // Earliest open order first, as PV's cash flow does.
     let left = advanceUsd;
-    for (const o of [...orders].sort((a, b) => (a.cash_date < today ? today : a.cash_date).localeCompare(b.cash_date < today ? today : b.cash_date))) {
+    for (const o of [...orders].sort((a, b) => a.cash_date.localeCompare(b.cash_date))) {
       if (left <= 0) break;
       const take = Math.min(left, o.to_invoice_usd);
       o.advance_usd = take;
