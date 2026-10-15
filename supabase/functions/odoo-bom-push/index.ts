@@ -2,11 +2,11 @@
 // Send to Odoo: creates a reviewed product, its new components and its BOM in Odoo through
 // the API, in that order (components → finished product → BOM). Admins only.
 //
-// Safe to run again: every product is looked up by SKU first (archived ones included) and
-// reused when it exists, and no BOM is created when the product already has one, so a run
-// that stopped half way picks up where it left off without duplicates. Every name the request
-// uses (categories, units, routes, company) is resolved before anything is created, so a
-// typo stops the run with nothing written. HQ stores only the result (odoo_push_log).
+// Components are looked up by SKU first (archived ones included) and reused when they exist.
+// Every push makes a new BOM (Odoo allows several per product). With existingProductId the
+// finished product is not created; the BOM attaches to it. New raw materials carry no cost
+// (Odoo costs them from purchase orders). Company and route are left to Odoo's defaults.
+// Every category/unit name is resolved before anything is written. Result -> odoo_push_log.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
@@ -21,12 +21,10 @@ const Item = z.object({
   tracked: z.boolean(),
   uom: z.string().trim().min(1).max(100),
   purchaseUom: z.string().trim().max(100).optional().nullable(),
-  cost: z.number().min(0).optional().nullable(),
   salePrice: z.number().min(0).optional().nullable(),
   hsn: z.string().trim().max(20).optional().nullable(),
   weightKg: z.number().min(0).optional().nullable(),
   volumeM3: z.number().min(0).optional().nullable(),
-  route: z.string().trim().max(100).optional().nullable(),
 });
 const Line = z.object({
   productId: z.number().int().positive().optional().nullable(), // existing Odoo product.product id
@@ -36,9 +34,12 @@ const Line = z.object({
 });
 const Body = z.object({
   hqProductId: z.string().uuid().optional().nullable(),
-  company: z.string().trim().max(300).optional().nullable(),
   code: z.string().trim().max(100).optional().nullable(),
-  finished: Item,
+  bomUnits: z.number().positive().max(100000).default(1),
+  existingProductId: z.number().int().positive().optional().nullable(),
+  existingSku: z.string().trim().max(100).optional().nullable(),
+  imageUrl: z.string().url().max(2000).optional().nullable(),
+  finished: Item.optional().nullable(),
   components: z.array(Item).max(100),
   lines: z.array(Line).min(1).max(200),
 });
@@ -120,13 +121,12 @@ Deno.serve(async (req) => {
     if (!parsed.success) return json({ error: 'The request was incomplete.', details: parsed.error.flatten().fieldErrors }, 400);
     body = parsed.data;
     const { finished, components, lines } = body;
+    if (!finished && !body.existingProductId && !body.existingSku) return json({ error: 'Pick the Odoo product, or fill in the new product.' }, 400);
 
     // ---- 1. Resolve every name before writing anything ----
-    const [cats, uoms, routes, companies] = await Promise.all([
+    const [cats, uoms] = await Promise.all([
       sr('product.category', [], ['complete_name', 'name']),
       sr('uom.uom', [], ['name']),
-      sr('stock.route', [['product_selectable', '=', true]], ['name']).catch(() => []),
-      sr('res.company', [], ['name']),
     ]);
     const byName = (rows: any[], key: string) => new Map(rows.map(r => [norm(String(r[key] || r.name || '')), r.id]));
     // Categories by full path ("All / Expenses / …"), and by their own name when that name is unique.
@@ -135,8 +135,6 @@ Deno.serve(async (req) => {
     for (const c of cats) { const k = norm(String(c.name || '')); leafCount.set(k, (leafCount.get(k) ?? 0) + 1); }
     for (const c of cats) { const k = norm(String(c.name || '')); if (k && leafCount.get(k) === 1 && !catId.has(k)) catId.set(k, c.id); }
     const uomId = byName(uoms, 'name');
-    const routeId = byName(routes, 'name');
-    const companyId = byName(companies, 'name');
 
     const problems: string[] = [];
     const need = (map: Map<string, number>, name: string | null | undefined, what: string) => {
@@ -145,22 +143,19 @@ Deno.serve(async (req) => {
       if (!id) problems.push(`${what} "${name}" was not found in Odoo.`);
       return id ?? null;
     };
-    const company = need(companyId, body.company, 'Company');
-    const items = [{ ...finished, finished: true }, ...components.map(c => ({ ...c, finished: false }))];
+    const items = [...(finished ? [{ ...finished, finished: true }] : []), ...components.map(c => ({ ...c, finished: false }))];
     const resolved = items.map(it => ({
       it,
       categ_id: need(catId, it.category, 'Category'),
       uom_id: need(uomId, it.uom, 'Unit'),
       uom_po_id: need(uomId, it.purchaseUom || it.uom, 'Purchase unit'),
-      // A route is a convenience: one Odoo doesn't have (or can't list) is left off rather than blocking the send.
-      route: routeId.get(norm(it.route || (it.finished ? 'Manufacture' : 'Buy'))) ?? null,
     }));
     const lineUoms = lines.map(l => need(uomId, l.uom, 'Unit'));
     for (const l of lines) if (!l.productId && !l.sku) problems.push('A BOM line has no product.');
     if (problems.length) return json({ error: 'Nothing was sent. Fix these first:', problems: [...new Set(problems)] }, 400);
 
     // Existing products by SKU (archived included, so they are reused, never duplicated).
-    const allSkus = [...new Set([...items.map(i => i.sku), ...lines.map(l => l.sku).filter(Boolean)] as string[])];
+    const allSkus = [...new Set([...items.map(i => i.sku), ...lines.map(l => l.sku).filter(Boolean), body.existingSku].filter(Boolean) as string[])];
     const existing = await sr('product.product', [['default_code', 'in', allSkus]], ['default_code', 'product_tmpl_id', 'active'],
       { context: { active_test: false } });
     const variantBySku = new Map<string, { id: number; tmpl: number }>();
@@ -172,6 +167,31 @@ Deno.serve(async (req) => {
     }
     if (problems.length) return json({ error: 'Nothing was sent. Fix these first:', problems: [...new Set(problems)] }, 400);
 
+    // The HQ photo for a new finished product (skipped quietly if it can't be fetched).
+    let image: string | null = null;
+    if (finished && body.imageUrl) {
+      try {
+        const res = await fetch(body.imageUrl);
+        if (res.ok) {
+          const buf = new Uint8Array(await res.arrayBuffer());
+          if (buf.length < 10_000_000) {
+            let bin = '';
+            for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+            image = btoa(bin);
+          }
+        }
+      } catch { /* no image */ }
+    }
+
+    // The existing finished product, when the BOM is for one already in Odoo.
+    let fin: { id: number; tmpl: number } | null = null;
+    if (!finished) {
+      const dom = body.existingProductId ? [['id', '=', body.existingProductId]] : [['default_code', '=', body.existingSku]];
+      const [p] = await sr('product.product', dom, ['id', 'product_tmpl_id'], { limit: 1, context: { active_test: false } });
+      if (!p) return json({ error: 'The picked Odoo product was not found. Nothing was sent.' }, 400);
+      fin = { id: p.id, tmpl: Array.isArray(p.product_tmpl_id) ? p.product_tmpl_id[0] : p.product_tmpl_id };
+    }
+
     // ---- 2. Create missing components, then the finished product ----
     const tmplFields = await fieldsOf('product.template');
     const createProduct = async (r: typeof resolved[number]) => {
@@ -181,10 +201,9 @@ Deno.serve(async (req) => {
       const vals: Record<string, unknown> = {
         name: it.name, default_code: it.sku, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
         sale_ok: it.finished, purchase_ok: !it.finished,
-        list_price: it.salePrice ?? undefined, standard_price: it.cost ?? undefined,
+        list_price: it.salePrice ?? undefined,
         l10n_in_hsn_code: it.hsn || undefined, weight: it.weightKg ?? undefined, volume: it.volumeM3 ?? undefined,
-        company_id: company ?? undefined,
-        route_ids: r.route ? [[6, 0, [r.route]]] : undefined,
+        image_1920: it.finished ? image ?? undefined : undefined,
       };
       if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }         // Odoo 18
       else if (tmplFields.has('detailed_type')) vals.detailed_type = it.tracked ? 'product' : 'consu';     // Odoo 17
@@ -196,25 +215,20 @@ Deno.serve(async (req) => {
       created.push({ kind: it.finished ? 'product' : 'component', sku: it.sku, id: out.id });
       return out;
     };
-    for (const r of resolved.slice(1)) await createProduct(r);
-    const fin = await createProduct(resolved[0]);
+    for (const r of resolved.filter(x => !x.it.finished)) await createProduct(r);
+    if (!fin) fin = await createProduct(resolved.find(x => x.it.finished)!);
 
-    // ---- 3. The BOM (only when the product has none yet) ----
-    const bomDomain = [['product_tmpl_id', '=', fin.tmpl]];
-    const boms = await sr('mrp.bom', bomDomain, ['id', 'code'], { context: { active_test: false } });
+    // ---- 3. A new BOM, always (a product can have several) ----
     let bomId: number | null = null;
-    let bomReused = false;
-    if (boms.length) {
-      bomId = boms[0].id;
-      bomReused = true;
-    } else {
+    const bomReused = false;
+    {
       const bomLines = lines.map((l, i) => {
         const pid = l.productId || variantBySku.get(norm(l.sku!))?.id;
         return [0, 0, { product_id: pid, product_qty: l.qty, product_uom_id: lineUoms[i] }];
       });
       bomId = await kw('mrp.bom', 'create', [await only('mrp.bom', {
-        product_tmpl_id: fin.tmpl, product_qty: 1, type: 'normal', code: body.code || undefined,
-        company_id: company ?? undefined, bom_line_ids: bomLines,
+        product_tmpl_id: fin.tmpl, product_qty: body.bomUnits, type: 'normal', code: body.code || undefined,
+        bom_line_ids: bomLines,
       })]);
     }
 

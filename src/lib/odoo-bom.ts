@@ -599,9 +599,11 @@ export type Prefixes = { product: string; raw: string };
  */
 export function applyPrefixes(f: FinishedDraft, lines: DraftLine[], next: Prefixes, prev: Prefixes | null): { finished: FinishedDraft; lines: DraftLine[] } {
   let finished = f;
-  if (next.product.trim() && isFillableSku(f.sku, prev?.product)) {
-    const sku = finishedSkuFor(next.product, f.hqSku, f.name);
-    finished = { ...f, sku, code: !f.code.trim() || f.code === f.sku ? sku : f.code };
+  const parts = splitSku(f.sku);
+  const p = alnum(next.product);
+  if (p && (!parts.prefix || parts.prefix.toUpperCase() === alnum(prev?.product || ''))) {
+    const sku = joinSku({ ...parts, prefix: p, base: parts.base || itemCode(f.hqSku, f.name).slice(0, 4) });
+    finished = { ...f, sku };
   }
   let n = 0;
   const out = lines.map(l => {
