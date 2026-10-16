@@ -98,6 +98,8 @@ export type Loan = {
 export type CreditLine = {
   id: string; name: string; limit_usd: number; drawn_usd: number; rate_pct: number;
   maturity_month?: Month | null; // whatever is drawn is repaid in full this month
+  term_months?: number | null; // installment line (e.g. Amex): each draw is repaid in this many equal monthly payments, from the next month
+  monthly_fee_pct?: number | null; // ...plus this % of the draw every month (instead of yearly interest)
 };
 export type CreditDraw = { id: string; line_id: string; month: Month; amount_usd: number }; // + draw, − repay
 
@@ -306,10 +308,31 @@ export function loanOutstanding(loan: Loan, payments: LoanPayment[]): number {
 
 // ---------- Credit lines ----------
 /** Planned draws/repayments plus monthly interest on each line's running balance (rate ÷ 12). */
+const isInstallment = (l: CreditLine) => (Number(l.term_months) || 0) > 0;
+
+/** An installment line's draws, each repaid in term_months equal parts from the month after, plus a flat monthly fee on the draw. */
+function installmentFlows(line: CreditLine, draws: CreditDraw[], months: Month[]): Flow[] {
+  const out: Flow[] = [];
+  const n = Math.round(Number(line.term_months));
+  const fee = (Number(line.monthly_fee_pct) || 0) / 100;
+  const last = months[months.length - 1];
+  for (const d of draws.filter(x => x.line_id === line.id && x.amount_usd > 0 && months.includes(x.month))) {
+    out.push({ month: d.month, kind: 'credit_draw', amount: d.amount_usd, label: line.name, ref: line.id });
+    for (let k = 1; k <= n; k++) {
+      const m = addMonths(d.month, k);
+      if (m > last) break;
+      out.push({ month: m, kind: 'credit_repay', amount: -d.amount_usd / n, label: line.name, ref: line.id });
+      if (fee > 0) out.push({ month: m, kind: 'credit_interest', amount: -d.amount_usd * fee, label: `${line.name} fee`, ref: line.id });
+    }
+  }
+  return out;
+}
+
 export function creditFlows(lines: CreditLine[], draws: CreditDraw[], months: Month[]): Flow[] {
   const out: Flow[] = [];
   if (!months.length) return out;
   for (const line of lines) {
+    if (isInstallment(line)) { out.push(...installmentFlows(line, draws, months)); continue; }
     let bal = line.drawn_usd;
     const mine = draws.filter(d => d.line_id === line.id);
     // Draws planned before the window are assumed to be in drawn_usd already.
@@ -335,6 +358,14 @@ export function creditBalances(lines: CreditLine[], draws: CreditDraw[], months:
   const res: Record<string, number[]> = {};
   for (const line of lines) {
     let bal = line.drawn_usd;
+    if (isInstallment(line)) {
+      const f = installmentFlows(line, draws, months);
+      res[line.id] = months.map(m => {
+        for (const x of f) if (x.month === m && x.kind !== 'credit_interest') bal = Math.max(0, bal + x.amount);
+        return bal;
+      });
+      continue;
+    }
     res[line.id] = months.map(m => {
       for (const d of draws.filter(x => x.line_id === line.id && x.month === m)) bal = Math.max(0, bal + d.amount_usd);
       if (line.maturity_month && m === line.maturity_month) bal = 0;
