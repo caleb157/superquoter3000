@@ -3,7 +3,7 @@ import {
   addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooOwed, orderAmounts, orderFlows,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
-import { scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
+import { demandFor, scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
 
 const order = (o: Partial<DktOrder> = {}): DktOrder => ({
   inquiry_id: 'i1', rfq_number: 'DKT-1', title: null, customer: 'Acme', status: 'po',
@@ -207,6 +207,19 @@ describe('amazon', () => {
     const pos = rows.filter(r => r.poUnits).map(r => r.month);
     expect(pos.slice(0, 3)).toEqual(['2026-11', '2027-05', '2027-11']);
     expect(simulateSku(sku({ order_qty: 50 }), '2027-12').some(r => r.stockout)).toBe(true);
+  });
+  it('models a launch: smaller first order, lower first-batch margin, sales ramping up', () => {
+    const s = sku({ first_order_qty: 150, launch_margin_pct: 0.1, launch_units_per_month: 25, ramp_months: 3 });
+    expect(['2027-03', '2027-04', '2027-05', '2027-06', '2027-09'].map(m => demandFor(s, m))).toEqual([25, 50, 75, 100, 100]);
+    const rows = simulateSku(s, '2027-12');
+    expect(rows[0]).toMatchObject({ month: '2026-11', poUnits: 150, cashOut: 1500 });
+    // March sells 25 first-batch units at 10%: 25 × 50 × 0.1 = 125 earned, plus 25 × 12 landed back.
+    expect(rows.find(r => r.month === '2027-03')).toMatchObject({ sold: 25, earned: 125, cashIn: 425, poUnits: 400 });
+    // Full margin once the first batch is gone.
+    const late = rows.find(r => r.month === '2027-09')!;
+    expect(late.earned).toBeCloseTo(late.sold * 50 * 0.2);
+    // Without launch terms nothing changes.
+    expect(simulateSku(sku({ first_order_qty: null, launch_units_per_month: null }), '2027-12')).toEqual(simulateSku(sku(), '2027-12'));
   });
   it('summarises peak cash and payback', () => {
     const s = scenarioSummary([sku()], '2028-06');

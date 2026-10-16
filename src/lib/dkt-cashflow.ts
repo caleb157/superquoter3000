@@ -508,11 +508,10 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
   const azRev: ProfitItem[] = [], azCost: ProfitItem[] = [];
   for (const s of inp.amazonSkus) {
     const price = Number(s.price_usd) || 0;
-    const margin = Number(s.net_margin_pct) || 0;
     for (const r of simulateSku(s, to)) {
       if (!inWindow(r.month) || !(r.sold > 0)) continue;
       azRev.push({ month: r.month, label: s.name, amount: r.sold * price });
-      azCost.push({ month: r.month, label: s.name, amount: -r.sold * price * (1 - margin) });
+      azCost.push({ month: r.month, label: s.name, amount: r.earned - r.sold * price });
     }
   }
   const revenue = [
