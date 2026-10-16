@@ -144,7 +144,8 @@ export default function InquiryDetail() {
         const { data: prods } = await (supabase as any)
           .from('products')
           .select('id, quantity')
-          .eq('customer_rfq_id', id);
+          .eq('customer_rfq_id', id)
+          .is('archived_at', null);
         const ids = (prods || []).map((p: any) => p.id);
         if (ids.length) {
           const priceMap = await computeProductPriceAndCost(ids);
