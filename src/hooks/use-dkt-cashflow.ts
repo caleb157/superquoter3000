@@ -31,7 +31,10 @@ type OdooRaw = {
   share?: OdooShare | null;
 };
 /** PV's invoiced revenue over the last 12 months, and how much of it was to DKT. */
-export type OdooShare = { since: string; total_usd: number; dkt_usd: number };
+export type OdooShare = {
+  since: string; total_usd: number; dkt_usd: number;
+  invoices?: { name: string; partner: string; date: string; origin: string; amount_usd: number; dkt: boolean }[];
+};
 export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
 export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean };
@@ -117,7 +120,7 @@ export function useDktCashflow(thisMonth: Month) {
       return;
     }
     const settings: DktSettings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(set.data || {}).filter(([, v]) => v != null)) } as DktSettings;
-    for (const k of ['cash_usd', 'min_cash_usd', 'monthly_overhead_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd'] as const) {
+    for (const k of ['cash_usd', 'min_cash_usd', 'monthly_overhead_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd', 'allegro_launch_usd'] as const) {
       (settings as any)[k] = num((settings as any)[k], (DEFAULT_SETTINGS as any)[k]);
     }
     const entities = (ents.data as any[]) || [];

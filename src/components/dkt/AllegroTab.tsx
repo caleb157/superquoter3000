@@ -1,5 +1,6 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { addMonths, allegroProjection, monthLabel, type DktSettings, type Month } from '@/lib/dkt-cashflow';
 import { landedPerUnit, type AmazonSku } from '@/lib/dkt-amazon';
 import { NumField, Stat, usd, usdK } from './fields';
@@ -16,6 +17,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus 
   const proj = allegroProjection(settings, thisMonth, lookahead);
   const at = (i: number) => proj[Math.min(i, proj.length - 1)]?.balance ?? 0;
   const last = addMonths(thisMonth, lookahead - 1);
+  const launch = proj.find(r => r.launch > 0);
   const chart = proj.map(r => ({ month: monthLabel(r.month), balance: Math.round(r.balance) }));
 
   const skuNames = new Map<string, AmazonSku>();
@@ -25,8 +27,21 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus 
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground max-w-3xl">
         Allegro is the emergency fund. It's kept apart from DKT's cash and grows by its monthly top-up from outside.
-        It isn't in DKT's forecast: treat it as cash available for investment, and when you use some, move it into DKT's current cash by hand.
+        It isn't in DKT's forecast except for the Amazon launch below: the month Allegro reaches the launch amount, that amount goes into
+        DKT's cash flow as money in from Allegro and the same amount out on the launch. For anything else, move it into DKT's current cash by hand.
       </p>
+      <div className="rounded-md border px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <Checkbox checked={settings.allegro_launch_on} onCheckedChange={v => saveSettings({ allegro_launch_on: !!v })} />
+          <span>Fund an Amazon launch of</span>
+        </label>
+        <NumField className="w-24" label="Amazon launch amount" value={settings.allegro_launch_usd} onSave={v => saveSettings({ allegro_launch_usd: v ?? 0 })} />
+        <span className={launch ? 'font-medium' : 'text-muted-foreground'}>
+          {!settings.allegro_launch_on ? 'Off: not in the cash flow.'
+            : launch ? `Allegro has it in ${monthLabel(launch.month)}. It's in the cash flow that month.`
+            : `Allegro doesn't reach it by ${monthLabel(last)}.`}
+        </span>
+      </div>
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <div className="rounded-md border px-3 py-2 space-y-1">
           <div className="text-[11px] text-muted-foreground">Balance now</div>
@@ -39,7 +54,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus 
           <div className="text-[11px] text-muted-foreground">From outside DKT</div>
         </div>
         <Stat label={`In 6 months (${monthLabel(proj[Math.min(6, proj.length - 1)].month)})`} value={usd(at(6))} />
-        <Stat label={`By ${monthLabel(last)}`} value={usd(at(lookahead - 1))} sub="If nothing is taken out" />
+        <Stat label={`By ${monthLabel(last)}`} value={usd(at(lookahead - 1))} sub={launch ? 'After the Amazon launch' : 'If nothing is taken out'} />
       </div>
 
       <Card>
