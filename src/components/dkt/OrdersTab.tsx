@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { statusLabel } from '@/lib/inquiry-status';
 import { cn } from '@/lib/utils';
 import { odooFob, odooOwed, orderAmounts, type DktOrder, type DktSettings } from '@/lib/dkt-cashflow';
-import type { OdooRow, OdooShare, OrderMeta } from '@/hooks/use-dkt-cashflow';
+import { TERM_KEYS, type OdooRow, type OdooShare, type OrderMeta, type TermKey } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, Stat, usd } from './fields';
 import type { ReactNode } from 'react';
 
@@ -17,12 +18,13 @@ type Props = {
   settings: DktSettings;
   dktEntityName: string | null;
   saveOrder: (id: string, p: Partial<DktOrder>) => void;
+  saveTermsToInquiry: (id: string) => void;
   saveStatus: (id: string, p: Partial<DktOrder['done']> & { excluded?: boolean }) => void;
   saveSettings: (p: Partial<DktSettings>) => void;
   odooCard: ReactNode;
 };
 
-export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
+export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveTermsToInquiry, saveStatus, saveSettings, odooCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
   const real = odooRows.filter(o => !o.excluded);
@@ -81,7 +83,7 @@ export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityNa
             <p className="text-xs text-muted-foreground max-w-2xl">
               Every Active or Projected PO inquiry whose selling entity is {dktEntityName ?? 'DKT'}, counted at 100%. Once it's a PO it shows above from Odoo instead, so it's never counted twice.
               The customer deposit and the advance to PV happen in the PO month; the customer balance and PV's balance in the ship month.
-              Edits here save to the inquiry's Projection tab, so PV analytics sees the same numbers.
+              DKT margin, customer deposit and advance to PV come from the inquiry's Projection tab; changing them here only changes the cash flow until you press Save to inquiry. FOB and months save straight to the inquiry.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
@@ -113,12 +115,23 @@ export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityNa
                 {orders.map(o => {
                   const a = orderAmounts(o);
                   const m = meta[o.inquiry_id];
+                  const differs = (k: TermKey) => !!m && Math.abs(o[k] - m.inquiry[k]) > 1e-9;
+                  const changed = TERM_KEYS.some(differs);
+                  const note = (k: TermKey, amount: string, fallback?: string) => differs(k)
+                    ? <div className="text-[10px] text-warning text-right mt-0.5" title="What the inquiry's Projection tab has">inquiry {Math.round(m!.inquiry[k] * 1000) / 10}%</div>
+                    : <div className="text-[10px] text-muted-foreground text-right mt-0.5">{fallback ?? amount}</div>;
                   return (
                     <tr key={o.inquiry_id} className={cn('border-t align-top', o.excluded && 'opacity-50')}>
                       <td className="py-2 pr-2 min-w-[11rem]">
                         <Link to={`/inquiry/${o.inquiry_id}`} className="font-mono font-medium hover:underline">{o.rfq_number}</Link>
                         <div className="text-muted-foreground truncate max-w-[14rem]">{o.customer ?? o.title ?? ''}</div>
                         <Badge variant="outline" className="mt-0.5 h-4 text-[10px]">{statusLabel(o.status)}</Badge>
+                        {changed && (
+                          <Button size="sm" variant="outline" className="mt-1 h-6 px-2 text-[11px] block" onClick={() => saveTermsToInquiry(o.inquiry_id)}
+                            title="Write this margin, customer deposit and advance into the inquiry's Projection tab">
+                            Save to inquiry
+                          </Button>
+                        )}
                       </td>
                       <td className="py-2 px-1 w-28">
                         <NumField label="FOB" value={Math.round(o.fob_usd)} onSave={v => saveOrder(o.inquiry_id, { fob_usd: v ?? 0 })} />
@@ -126,15 +139,15 @@ export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityNa
                       </td>
                       <td className="py-2 px-1 w-20">
                         <NumField percent label="DKT margin" value={o.margin_pct} onSave={v => saveOrder(o.inquiry_id, { margin_pct: v ?? 0 })} />
-                        <div className="text-[10px] text-muted-foreground text-right mt-0.5">{m?.margin_set ? usd(a.margin) : 'default'}</div>
+                        {note('margin_pct', usd(a.margin), m?.margin_set ? undefined : 'default')}
                       </td>
                       <td className="py-2 px-1 w-20">
                         <NumField percent label="Customer deposit" value={o.cust_deposit_pct} onSave={v => saveOrder(o.inquiry_id, { cust_deposit_pct: v ?? 0 })} />
-                        <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(a.custDeposit)}</div>
+                        {note('cust_deposit_pct', usd(a.custDeposit))}
                       </td>
                       <td className="py-2 px-1 w-20">
                         <NumField percent label="Advance to PV" value={o.advance_pct} onSave={v => saveOrder(o.inquiry_id, { advance_pct: v ?? 0 })} />
-                        <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(a.pvAdvance)}</div>
+                        {note('advance_pct', usd(a.pvAdvance))}
                       </td>
                       <td className="py-2 px-1">
                         <MonthField label="PO month" value={o.po_month} onSave={v => v && saveOrder(o.inquiry_id, { po_month: v, ...(o.ship_month < v ? { ship_month: v } : {}) })} />
