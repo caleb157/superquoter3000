@@ -65,6 +65,10 @@ export type FinishedDraft = {
   bomUnits: number;
   /** HQ product photo, sent as the new Odoo product's image. */
   imageUrl: string | null;
+  /** Value on Odoo's single global "variant" attribute (e.g. "Chestnut/Black"); blank = "Standard". */
+  variant: string;
+  /** Customer SKU, sent as the Odoo variant tag. */
+  customerSku: string;
 };
 
 export const DEFAULT_COMPANY = 'Parable Ventures Private Limited';
@@ -322,6 +326,8 @@ export function defaultFinished(product: { name?: string | null; sku?: string | 
     existing: null,
     bomUnits: 1,
     imageUrl: (product?.photo_url || '').trim() || null,
+    variant: '',
+    customerSku: hqSku,
   };
 }
 
@@ -431,7 +437,9 @@ export const fileStem = (f: FinishedDraft) => ((f.exists ? f.existing?.sku : '')
 
 // ---------- Direct send (odoo-bom-push) ----------
 
+export type PushMode = 'full' | 'product' | 'components';
 export type PushPayload = {
+  mode: PushMode;
   hqProductId: string | null;
   code: string | null;
   bomUnits: number;
@@ -444,7 +452,7 @@ export type PushPayload = {
 };
 
 /** What the odoo-bom-push function receives: the same draft the files are made from. */
-export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines: DraftLine[], existing: Set<string> | null): PushPayload {
+export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines: DraftLine[], existing: Set<string> | null, mode: PushMode = 'full'): PushPayload {
   const inOdoo = (sku: string) => !!existing && existing.has(sku.trim().toUpperCase());
   const seen = new Set<string>();
   const components = lines
@@ -456,6 +464,7 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     }));
   const units = f.bomUnits > 0 ? f.bomUnits : 1;
   return {
+    mode,
     hqProductId,
     code: f.code || null,
     bomUnits: units,
@@ -465,6 +474,7 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     finished: f.exists ? null : {
       sku: f.sku.trim(), name: f.name.trim(), category: f.category, tracked: f.tracked, uom: f.uom, purchaseUom: null,
       salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3,
+      variant: f.variant?.trim() || null, customerSku: f.customerSku?.trim() || null,
     },
     components,
     lines: lines.filter(l => l.status !== 'skip').map(l => {
@@ -667,4 +677,30 @@ export function cartonKind(cogsType: string, name: string): 'PIC' | 'PMC' | null
   if (cogsType !== 'Packaging') return null;
   const p = prefixByName(cogsType, name);
   return p === 'PIC' || p === 'PMC' ? p : null;
+}
+
+// ---------- Final products only (inquiry → Send to Odoo) ----------
+
+/** Problems that stop a finished product from being created on its own (no BOM yet). */
+export function checkFinishedOnly(f: FinishedDraft, existing: Set<string> | null): Issue[] {
+  const out: Issue[] = [];
+  if (!f.name.trim()) out.push({ level: 'error', where: 'Product', msg: 'Name is missing.' });
+  if (!isFullSku(f.sku)) out.push({ level: 'error', where: 'Product', msg: 'SKU needs a prefix, a base and a suffix (e.g. CCT-WSS2016-CHST).' });
+  else if (existing?.has(f.sku.trim().toUpperCase())) out.push({ level: 'error', where: 'Product', msg: `${f.sku} is already in Odoo.` });
+  if (!f.category.trim()) out.push({ level: 'error', where: 'Product', msg: 'Category is missing.' });
+  return out;
+}
+
+export const DKT_VENDOR = 'Parable Ventures Pvt Ltd';
+export const DKT_CATEGORY = 'Goods / Goods AVCO Dropship';
+
+/** The DKT-side Odoo import (no API there): name (customer SKU), vendor, category, type. */
+export function dktProductsSheet(rows: { name: string; customerSku?: string | null }[]): string[][] {
+  return [
+    ['Name', 'Vendor', 'Product Category', 'Product Type'],
+    ...rows.map(r => {
+      const c = (r.customerSku || '').trim();
+      return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods'];
+    }),
+  ];
 }
