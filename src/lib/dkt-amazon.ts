@@ -112,7 +112,7 @@ export function amazonSkuFlows(s: AmazonSku, from: Month, last: Month): Flow[] {
 }
 
 export type ScenarioSummary = {
-  months: { month: Month; net: number; cumulative: number }[];
+  months: { month: Month; cashIn: number; cashOut: number; net: number; cumulative: number }[];
   invested: number; // total paid out for stock and freight
   peakNeed: number; // most cash tied up at once (lowest cumulative, as a positive number)
   peakMonth: Month | null;
@@ -133,15 +133,17 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
   let cum = 0, peakNeed = 0, invested = 0;
   let peakMonth: Month | null = null, paybackMonth: Month | null = null;
   for (let m = start; m <= last; m = add(m, 1)) {
-    let net = 0;
+    let cashIn = 0, cashOut = 0;
     for (const { rows } of sims) {
       const r = rows.find(x => x.month === m);
-      if (r) { net += r.cashIn - r.cashOut; invested += r.cashOut; }
+      if (r) { cashIn += r.cashIn; cashOut += r.cashOut; }
     }
+    const net = cashIn - cashOut;
+    invested += cashOut;
     cum += net;
     if (-cum > peakNeed) { peakNeed = -cum; peakMonth = m; paybackMonth = null; }
     if (peakNeed > 0 && cum >= 0 && !paybackMonth) paybackMonth = m;
-    months.push({ month: m, net, cumulative: cum });
+    months.push({ month: m, cashIn, cashOut, net, cumulative: cum });
   }
   const stockValue = sims.reduce((t, { s, rows }) => t + (rows[rows.length - 1]?.stockEnd ?? 0) * landedPerUnit(s), 0);
   const stockoutMonths = sims.reduce((t, { rows }) => t + rows.filter(r => r.stockout).length, 0);

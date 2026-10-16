@@ -79,7 +79,7 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
           <CardTitle className="text-sm">Cash at the end of each month</CardTitle>
           <SelectField
             label="Months to forecast" value={String(settings.horizon_months)}
-            options={[12, 18, 24].map(n => ({ value: String(n), label: `${n} months` }))}
+            options={[9, 12, 18, 24].map(n => ({ value: String(n), label: `${n} months` }))}
             onSave={v => saveSettings({ horizon_months: Number(v) })}
           />
         </CardHeader>
