@@ -107,7 +107,7 @@ export type FlowKind =
   | 'loan_proceeds' | 'loan_principal' | 'loan_interest'
   | 'credit_draw' | 'credit_repay' | 'credit_interest'
   | 'amazon_in' | 'amazon_inventory' | 'amazon_freight'
-  | 'allegro_in' | 'amazon_launch'
+  | 'allegro_in'
   | 'odoo_invoice' | 'odoo_to_invoice';
 
 export type Flow = { month: Month; kind: FlowKind; amount: number; label: string; ref?: string };
@@ -119,13 +119,13 @@ export const FLOW_LABEL: Record<FlowKind, string> = {
   loan_proceeds: 'Loans received', loan_principal: 'Loan principal', loan_interest: 'Loan interest',
   credit_repay: 'Credit line repayments', credit_interest: 'Credit line interest',
   amazon_inventory: 'Amazon inventory (PO)', amazon_freight: 'Amazon freight',
-  allegro_in: 'From Allegro', amazon_launch: 'Amazon launch',
+  allegro_in: 'From Allegro (Amazon launch)',
   odoo_invoice: 'PV invoices due (Odoo)', odoo_to_invoice: 'PV orders not yet invoiced (Odoo)',
 };
 export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'loan_proceeds', 'allegro_in', 'credit_draw'];
 export const OUT_KINDS: FlowKind[] = [
   'odoo_invoice', 'odoo_to_invoice', 'pv_advance', 'pv_balance', 'overhead', 'expense', 'loan_principal', 'loan_interest',
-  'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight', 'amazon_launch',
+  'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight',
 ];
 
 // ---------- Months ----------
@@ -428,7 +428,7 @@ export type AllegroMonth = { month: Month; balance: number; added: number; launc
 /**
  * Allegro grows by its monthly top-up (money from outside DKT). It stays out of DKT's forecast
  * except for the planned Amazon launch: the first month the balance reaches the launch amount,
- * that amount moves into DKT and is spent on the launch (once).
+ * that amount moves into DKT (once). The launch's costs are the Amazon tab's SKUs.
  */
 export function allegroProjection(settings: DktSettings, thisMonth: Month, n: number): AllegroMonth[] {
   const months = monthRange(thisMonth, n);
@@ -457,8 +457,6 @@ export function allegroLaunchMonth(settings: DktSettings, thisMonth: Month, n: n
 export function allegroLaunchFlows(settings: DktSettings, thisMonth: Month, n: number): Flow[] {
   const r = allegroProjection(settings, thisMonth, n).find(x => x.launch > 0);
   if (!r) return [];
-  return [
-    { month: r.month, kind: 'allegro_in', amount: r.launch, label: 'Allegro fund for Amazon launch' },
-    { month: r.month, kind: 'amazon_launch', amount: -r.launch, label: 'Amazon launch (from Allegro)' },
-  ];
+  // Only the money in: the launch's costs come from the Amazon tab's SKUs.
+  return [{ month: r.month, kind: 'allegro_in', amount: r.launch, label: 'Allegro fund for Amazon launch' }];
 }

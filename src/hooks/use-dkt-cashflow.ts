@@ -38,7 +38,13 @@ export type OdooShare = {
 export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
 export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean };
-export type OrderMeta = { po_month_set: boolean; ship_month_set: boolean; margin_set: boolean; advance_set: boolean; cust_set: boolean };
+export type OrderMeta = {
+  po_month_set: boolean; ship_month_set: boolean; margin_set: boolean; advance_set: boolean; cust_set: boolean;
+  /** The three terms as the inquiry's Projection tab has them; the cash flow may use its own (dkt_order_status). */
+  inquiry: { margin_pct: number; cust_deposit_pct: number; advance_pct: number };
+};
+export const TERM_KEYS = ['margin_pct', 'cust_deposit_pct', 'advance_pct'] as const;
+export type TermKey = typeof TERM_KEYS[number];
 
 export type DktData = {
   settings: DktSettings;
@@ -70,16 +76,23 @@ function mapOrders(inqs: any[], statusRows: any[], live: Record<string, { fob_us
     const po = toMonth(poRaw) ?? thisMonth;
     const shipRaw = p.cust_final_month || p.ie_balance_month || p.shipping_month || p.delivery_month;
     const ship = toMonth(shipRaw) ?? addMonths(po, Math.max(1, num(p.duration_months, 3)) - 1);
+    const inquiry = {
+      margin_pct: num(p.selling_retention_pct, settings.default_margin_pct),
+      cust_deposit_pct: num(p.cust_deposit_pct, defaults.custDeposit),
+      advance_pct: num(p.ie_deposit_pct, defaults.ieDeposit),
+    };
     meta[i.id] = {
       po_month_set: !!poRaw, ship_month_set: !!shipRaw,
       margin_set: p.selling_retention_pct != null, advance_set: p.ie_deposit_pct != null, cust_set: p.cust_deposit_pct != null,
+      inquiry,
     };
     return {
       inquiry_id: i.id, rfq_number: i.rfq_number, title: i.title, customer: i.customers?.name ?? null, status: i.status,
       fob_usd: projFob || live[i.id]?.fob_usd || 0, fob_source: projFob ? 'projection' : 'live',
-      margin_pct: num(p.selling_retention_pct, settings.default_margin_pct),
-      cust_deposit_pct: num(p.cust_deposit_pct, defaults.custDeposit),
-      advance_pct: num(p.ie_deposit_pct, defaults.ieDeposit),
+      // The inquiry's terms unless the cash flow has its own.
+      margin_pct: num(s.margin_pct, inquiry.margin_pct),
+      cust_deposit_pct: num(s.cust_deposit_pct, inquiry.cust_deposit_pct),
+      advance_pct: num(s.advance_pct, inquiry.advance_pct),
       po_month: po, ship_month: ship < po ? po : ship,
       // Pipeline orders have no payments yet (deposits only start once it's a real sales order).
       done: { cust_deposit: false, advance: false, cust_balance: false, pv_balance: false },
@@ -222,15 +235,39 @@ export function useDktCashflow(thisMonth: Month) {
     },
     async saveOrder(inquiryId: string, patch: Partial<Pick<DktOrder, 'margin_pct' | 'cust_deposit_pct' | 'advance_pct' | 'po_month' | 'ship_month' | 'fob_usd'>>) {
       patchLocal(d => ({ ...d, orders: d.orders.map(o => (o.inquiry_id === inquiryId ? { ...o, ...patch, ...(patch.fob_usd != null ? { fob_source: 'projection' as const } : {}) } : o)) }));
+      // Margin, customer deposit and advance are the cash flow's own until pushed to the inquiry.
+      const terms: any = {};
+      for (const k of TERM_KEYS) if (patch[k] != null) terms[k] = patch[k];
+      if (Object.keys(terms).length) {
+        const { error } = await db.from('dkt_order_status').upsert({ inquiry_id: inquiryId, ...terms }, { onConflict: 'inquiry_id' });
+        fail(error);
+      }
       const row: any = { inquiry_id: inquiryId };
-      if (patch.margin_pct != null) row.selling_retention_pct = patch.margin_pct;
-      if (patch.cust_deposit_pct != null) { row.cust_deposit_pct = patch.cust_deposit_pct; row.cust_final_pct = Math.max(0, 1 - patch.cust_deposit_pct); }
-      if (patch.advance_pct != null) { row.ie_deposit_pct = patch.advance_pct; row.ie_balance_pct = Math.max(0, 1 - patch.advance_pct); }
       if (patch.po_month) { row.cust_deposit_month = monthToDate(patch.po_month); row.ie_deposit_month = monthToDate(patch.po_month); }
       if (patch.ship_month) { row.cust_final_month = monthToDate(patch.ship_month); row.ie_balance_month = monthToDate(patch.ship_month); }
       if (patch.fob_usd != null) row.projected_fob_revenue_usd = patch.fob_usd;
+      if (Object.keys(row).length === 1) return;
       const { error } = await db.from('inquiry_projections').upsert(row, { onConflict: 'inquiry_id' });
       fail(error);
+    },
+    /** Write the cash flow's margin / customer deposit / advance into the inquiry's projection, then drop the cash flow's own copy. */
+    async saveTermsToInquiry(inquiryId: string) {
+      const o = data?.orders.find(x => x.inquiry_id === inquiryId);
+      if (!o) return;
+      const { error } = await db.from('inquiry_projections').upsert({
+        inquiry_id: inquiryId,
+        selling_retention_pct: o.margin_pct,
+        cust_deposit_pct: o.cust_deposit_pct, cust_final_pct: Math.max(0, 1 - o.cust_deposit_pct),
+        ie_deposit_pct: o.advance_pct, ie_balance_pct: Math.max(0, 1 - o.advance_pct),
+      }, { onConflict: 'inquiry_id' });
+      if (fail(error)) return;
+      const { error: e2 } = await db.from('dkt_order_status').upsert({ inquiry_id: inquiryId, margin_pct: null, cust_deposit_pct: null, advance_pct: null }, { onConflict: 'inquiry_id' });
+      if (fail(e2)) return;
+      patchLocal(d => ({
+        ...d,
+        orderMeta: { ...d.orderMeta, [inquiryId]: { ...d.orderMeta[inquiryId], margin_set: true, advance_set: true, cust_set: true,
+          inquiry: { margin_pct: o.margin_pct, cust_deposit_pct: o.cust_deposit_pct, advance_pct: o.advance_pct } } },
+      }));
     },
     async saveOrderStatus(inquiryId: string, patch: Partial<DktOrder['done']> & { excluded?: boolean }) {
       patchLocal(d => ({
