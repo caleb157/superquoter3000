@@ -44,6 +44,34 @@ export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityNa
             : 'From PV invoices in Odoo'} />
       </div>
 
+      {share?.invoices?.length ? (
+        <details className="rounded-md border px-3 py-2 text-xs">
+          <summary className="cursor-pointer text-muted-foreground">PV invoices behind the DKT share ({share.invoices.length}, since {share.since}, before tax, credit notes negative)</summary>
+          <div className="grid gap-4 md:grid-cols-2 mt-2">
+            {[true, false].map(isDkt => {
+              const list = share.invoices!.filter(i => i.dkt === isDkt);
+              return (
+                <div key={String(isDkt)}>
+                  <div className="font-medium mb-1">{isDkt ? 'To DKT' : 'To other customers'} · {usd(list.reduce((s, i) => s + i.amount_usd, 0))}</div>
+                  <table className="w-full">
+                    <tbody>
+                      {list.map(i => (
+                        <tr key={i.name} className="border-t">
+                          <td className="py-1 pr-2 font-mono whitespace-nowrap">{i.name}</td>
+                          <td className="py-1 pr-2 text-muted-foreground truncate max-w-[12rem]">{isDkt ? i.origin : i.partner}</td>
+                          <td className="py-1 pr-2 text-muted-foreground whitespace-nowrap">{i.date}</td>
+                          <td className="py-1 text-right tabular-nums">{usd(i.amount_usd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      ) : null}
+
       {odooCard}
 
       <Card>

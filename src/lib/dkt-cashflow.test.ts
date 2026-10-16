@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooOwed, orderAmounts, orderFlows,
+  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooOwed, orderAmounts, orderFlows,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -183,5 +183,15 @@ describe('allegro', () => {
   it('grows by the monthly top-up', () => {
     const a = allegroProjection({ ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' }, '2026-10', 3);
     expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200]);
+  });
+  it('funds the $5k Amazon launch the month it gets there, in and out of DKT cash', () => {
+    const s = { ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' };
+    const a = allegroProjection(s, '2026-10', 6);
+    expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200, 4700, 200, 700]);
+    expect(allegroLaunchMonth(s, '2026-10', 6)).toBe('2027-02');
+    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [] });
+    const feb = f.months.find(m => m.month === '2027-02')!;
+    expect(feb.byKind).toMatchObject({ allegro_in: 5000, amazon_launch: -5000 });
+    expect(allegroLaunchMonth({ ...s, allegro_launch_on: false }, '2026-10', 6)).toBeNull();
   });
 });

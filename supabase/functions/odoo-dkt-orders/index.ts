@@ -157,15 +157,24 @@ Deno.serve(async (req) => {
 
     // Share of PV's invoiced revenue (untaxed, net of credit notes, company currency) that went to DKT
     // over the last 12 months.
-    let share: { since: string; total_usd: number; dkt_usd: number } | null = null;
+    type ShareInv = { name: string; partner: string; date: string; origin: string; amount_usd: number; dkt: boolean };
+    let share: { since: string; total_usd: number; dkt_usd: number; invoices: ShareInv[] } | null = null;
     try {
       const from = new Date(); from.setFullYear(from.getFullYear() - 1);
       const sinceYear = from.toISOString().slice(0, 10);
       const dom = [['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted'], ['invoice_date', '>=', sinceYear]];
       const sum = (rows: any[]) => rows.reduce((s, r) => s + num(r.amount_untaxed_signed), 0);
-      const all = await sr('account.move', dom, ['amount_untaxed_signed']);
-      const dkt = await sr('account.move', [...dom, ['partner_id', 'child_of', pIds]], ['amount_untaxed_signed']);
-      share = { since: sinceYear, total_usd: toUsd(sum(all), 'INR'), dkt_usd: toUsd(sum(dkt), 'INR') };
+      const cols = ['name', 'partner_id', 'invoice_date', 'invoice_origin', 'amount_untaxed_signed'];
+      const all = await sr('account.move', dom, cols, { order: 'invoice_date desc' });
+      const dkt = await sr('account.move', [...dom, ['partner_id', 'child_of', pIds]], ['id', 'amount_untaxed_signed']);
+      const dktIds = new Set(dkt.map(r => r.id));
+      share = {
+        since: sinceYear, total_usd: toUsd(sum(all), 'INR'), dkt_usd: toUsd(sum(dkt), 'INR'),
+        invoices: all.map(r => ({
+          name: str(r.name), partner: str(nm(r.partner_id)), date: str(r.invoice_date).slice(0, 10), origin: str(r.invoice_origin),
+          amount_usd: toUsd(num(r.amount_untaxed_signed), 'INR'), dkt: dktIds.has(r.id),
+        })),
+      };
     } catch { /* leave the share out */ }
 
     return json({
