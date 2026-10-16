@@ -120,8 +120,15 @@ export function OdooExportTab({ productId }: { productId: string }) {
       const saved = readSaved(productId);
       if (saved) {
         f = { ...f, ...saved.finished };
+        f = { ...f, variant: f.variant ?? '', customerSku: f.customerSku ?? (product?.sku || '') };
         ls = ls.map(l => (saved.lines[l.lineId] ? { ...l, ...saved.lines[l.lineId] } : l));
         ls = [...ls, ...(saved.added ?? [])];
+      }
+      // Already created from HQ: the BOM attaches to that Odoo product, never a second copy.
+      const linked = product as { odoo_product_id?: number | null; odoo_sku?: string | null } | undefined;
+      if (linked?.odoo_product_id) {
+        const sku = linked.odoo_sku || f.sku;
+        f = { ...f, exists: true, existing: { id: linked.odoo_product_id, sku, name: f.name, display_name: displayName(sku, f.name), uom: f.uom } };
       }
       setFinished(f);
       setLines(ls);
@@ -189,13 +196,13 @@ export function OdooExportTab({ productId }: { productId: string }) {
     XLSX.writeFile(wb, `${fileStem(finished)}_${kind}.xlsx`);
   };
 
-  const send = async () => {
+  const send = async (mode: 'full' | 'components' = 'full') => {
     if (!finished) return;
     setConfirmOpen(false);
     setSending(true);
     setSendError(null);
     try {
-      const r = await pushToOdoo(pushPayload(productId, finished, lines, existing));
+      const r = await pushToOdoo(pushPayload(productId, finished, lines, existing, mode));
       setResult(r);
       // New components now exist in Odoo: show them as matched so a second send doesn't recreate them.
       const bySku = new Map(r.created.concat(r.reused).map(c => [c.sku.toUpperCase(), c.id]));
@@ -214,7 +221,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
         setFinished(f);
       }
       checkOdoo(f, next);
-      toast.success('BOM created in Odoo.');
+      toast.success(mode === 'components' ? `${r.created.length} new item${r.created.length === 1 ? '' : 's'} created in Odoo.` : 'BOM created in Odoo.');
     } catch (e) {
       const err = e as Error & { details?: { problems?: string[] } | null };
       setSendError({ msg: err?.message || String(e), problems: err?.details?.problems });
@@ -265,6 +272,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
               Already in Odoo
             </label>
             {!finished.exists && <Badge variant="outline">New in Odoo</Badge>}
+            {finished.exists && finished.existing && <Badge variant="secondary">In Odoo · {finished.existing.sku}</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -284,6 +292,8 @@ export function OdooExportTab({ productId }: { productId: string }) {
                   <Input className="font-mono" placeholder="Suffix, e.g. CHST" value={parts.suffix} onChange={e => setPart('suffix', e.target.value)} />
                 </div>
               </Field>
+              <Field label="Variant (on the &quot;variant&quot; attribute)"><Input value={finished.variant} placeholder="Standard" onChange={e => patchFinished({ variant: e.target.value })} /></Field>
+              <Field label="Customer SKU (variant tag)"><Input value={finished.customerSku} onChange={e => patchFinished({ customerSku: e.target.value })} /></Field>
               <Field label="Category" wide><OptionCombobox value={finished.category} options={catList} loading={!meta} className="h-10" onChange={v => patchFinished({ category: v })} /></Field>
               <Field label="Unit"><OptionCombobox value={finished.uom} options={uomList} loading={!meta} className="h-10" onChange={v => patchFinished({ uom: v })} /></Field>
               <Field label="Track inventory">
@@ -443,9 +453,9 @@ export function OdooExportTab({ productId }: { productId: string }) {
         <div className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs space-y-1">
           <div className="flex items-center gap-1.5 font-medium"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Sent to Odoo</div>
           <div>Created: {result.created.length ? result.created.map(c => c.sku).join(', ') : 'nothing new'}{result.reused.length ? ` · already there: ${result.reused.map(c => c.sku).join(', ')}` : ''}</div>
-          <div>New BOM created.</div>
+          {result.bomId && <div>New BOM created.</div>}
           <div className="flex gap-3">
-            <a className="inline-flex items-center gap-1 underline" href={result.productUrl} target="_blank" rel="noopener noreferrer">Open product <ExternalLink className="h-3 w-3" /></a>
+            {result.productUrl && <a className="inline-flex items-center gap-1 underline" href={result.productUrl} target="_blank" rel="noopener noreferrer">Open product <ExternalLink className="h-3 w-3" /></a>}
             {result.bomUrl && <a className="inline-flex items-center gap-1 underline" href={result.bomUrl} target="_blank" rel="noopener noreferrer">Open BOM <ExternalLink className="h-3 w-3" /></a>}
           </div>
         </div>
@@ -456,6 +466,13 @@ export function OdooExportTab({ productId }: { productId: string }) {
           <Button onClick={() => setConfirmOpen(true)} disabled={sending || errors.length > 0 || !!lookupError}
             title={errors.length ? 'Fix the problems listed above first' : lookupError ? 'Odoo is not reachable' : undefined}>
             {sending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />} Send to Odoo
+          </Button>
+        )}
+        {isAdmin && (
+          <Button variant="outline" onClick={() => send('components')}
+            disabled={sending || newCount === 0 || !!lookupError || errors.some(e => e.where !== 'Finished product' && e.where !== 'BOM')}
+            title="Create just the new raw materials now; send the BOM later">
+            <Plus className="h-4 w-4 mr-1.5" /> Create {newCount} new item{newCount === 1 ? '' : 's'} only
           </Button>
         )}
         <Button variant="outline" onClick={() => download('products')} disabled={finished.exists}>
@@ -482,7 +499,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={send}>Send to Odoo</AlertDialogAction>
+            <AlertDialogAction onClick={() => send('full')}>Send to Odoo</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
