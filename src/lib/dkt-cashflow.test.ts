@@ -196,6 +196,8 @@ describe('amazon', () => {
   it('pays stock at PO, freight at ship and reorders in time to avoid running out', () => {
     const rows = simulateSku(sku(), '2027-12');
     expect(rows[0]).toMatchObject({ month: '2026-11', poUnits: 400, cashOut: 4000 });
+    expect(rows[0]).toMatchObject({ onOrder: 400, stockEnd: 0 });
+    expect(rows.find(r => r.month === '2027-03')).toMatchObject({ stockEnd: 300 });
     expect(rows.find(r => r.month === '2027-01')?.cashOut).toBe(800);
     expect(rows.filter(r => r.stockout)).toEqual([]);
     expect(rows.find(r => r.month === '2027-03')).toMatchObject({ sold: 100, cashIn: 100 * (50 * 0.2 + 12) });
