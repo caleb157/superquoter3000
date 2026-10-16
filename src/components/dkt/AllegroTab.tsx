@@ -28,7 +28,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus 
       <p className="text-xs text-muted-foreground max-w-3xl">
         Allegro is the emergency fund. It's kept apart from DKT's cash and grows by its monthly top-up from outside.
         It isn't in DKT's forecast except for the Amazon launch below: the month Allegro reaches the launch amount, that amount goes into
-        DKT's cash flow as money in from Allegro and the same amount out on the launch. For anything else, move it into DKT's current cash by hand.
+        DKT's cash flow as money in from Allegro; the launch's costs are the new SKUs on the Amazon tab. For anything else, move it into DKT's current cash by hand.
       </p>
       <div className="rounded-md border px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <label className="flex items-center gap-2 cursor-pointer">

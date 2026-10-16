@@ -151,7 +151,7 @@ describe('credit line maturity', () => {
 describe('forecast', () => {
   it('says when cash runs short and by how much at the worst point', () => {
     const fc = buildForecast({
-      settings: { ...DEFAULT_SETTINGS, cash_usd: 20000, min_cash_usd: 5000, horizon_months: 6 },
+      settings: { ...DEFAULT_SETTINGS, cash_usd: 20000, min_cash_usd: 5000, horizon_months: 6, allegro_launch_on: false },
       thisMonth: '2026-10', orders: [order()], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [],
     });
     // Nov: 20,000 + 30,000 − 90,250 = −40,250 → short 45,250 against a 5,000 minimum.
@@ -184,14 +184,14 @@ describe('allegro', () => {
     const a = allegroProjection({ ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' }, '2026-10', 3);
     expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200]);
   });
-  it('funds the $5k Amazon launch the month it gets there, in and out of DKT cash', () => {
+  it('moves the $5k Amazon launch fund into DKT cash the month it gets there', () => {
     const s = { ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01' };
     const a = allegroProjection(s, '2026-10', 6);
     expect(a.map(x => x.balance)).toEqual([3200, 3700, 4200, 4700, 200, 700]);
     expect(allegroLaunchMonth(s, '2026-10', 6)).toBe('2027-02');
     const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [] });
     const feb = f.months.find(m => m.month === '2027-02')!;
-    expect(feb.byKind).toMatchObject({ allegro_in: 5000, amazon_launch: -5000 });
+    expect(feb.byKind).toEqual({ allegro_in: 5000 });
     expect(allegroLaunchMonth({ ...s, allegro_launch_on: false }, '2026-10', 6)).toBeNull();
   });
 });
