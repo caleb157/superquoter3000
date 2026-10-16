@@ -1,6 +1,7 @@
 // Pure calculations for the Master Analytics page. Odoo/LaborTrax actuals come
 // from the cached snapshot; pipeline comes from HQ inquiries. No React here.
 import { effectiveCertainty } from '@/lib/projections';
+import { effectiveFobUsd, effectiveGpm } from '@/lib/inquiry-financials';
 
 export type Ccy = 'USD' | 'INR';
 export type Money = { amount_inr: number; amount_usd: number };
@@ -98,11 +99,13 @@ export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInq
       const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
       const certainty = effectiveCertainty(p, i.products || [], i.status);
       const live = opts.live[i.id] || { fob_usd: 0, gpm: 0, man_hours: 0 };
-      const projFob = Number(p.projected_fob_revenue_usd) || 0;
-      const fob = projFob || live.fob_usd;
+      // Same rule as the inquiry's Projection page: live costing until PO; a stored FOB
+      // only stands in for a projected PO that has no costed products yet.
+      const fob = effectiveFobUsd(p, i.status, live.fob_usd);
+      const fobFromProjection = fob !== live.fob_usd;
       const projMh = Number(p.estimated_man_hours) || 0;
       const mh = projMh || live.man_hours;
-      const gpm = p.project_gpm != null ? pct(Number(p.project_gpm)) : live.gpm;
+      const gpm = pct(effectiveGpm(p, i.status, live.gpm, live.fob_usd));
       const duration = Math.max(1, Number(p.duration_months) || 3);
       const start = (p.start_month || thisMonth).slice(0, 10);
       const ship = (p.shipping_month || p.delivery_month || p.cust_final_month || addMonths(start, duration - 1)).slice(0, 10);
@@ -135,7 +138,7 @@ export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInq
           { pct: Number(p.vendor_deposit_pct) || 0, month: p.vendor_deposit_month || null },
           { pct: Number(p.vendor_balance_pct) || 0, month: p.vendor_balance_month || null },
         ],
-        fob_source: projFob ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
+        fob_source: fobFromProjection ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
       } as PipelineInquiry;
     })
     .filter(x => x.certainty > 0 && (x.fob_usd > 0 || x.man_hours > 0));
