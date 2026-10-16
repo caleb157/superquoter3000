@@ -140,6 +140,21 @@ describe('odoo orders, customer side', () => {
   });
 });
 
+describe('installment credit line', () => {
+  it('repays an Amex draw in 6 equal payments plus 0.55% a month, from the next month', () => {
+    const line = { id: 'a', name: 'Amex', limit_usd: 15300, drawn_usd: 0, rate_pct: 6.6, term_months: 6, monthly_fee_pct: 0.55 };
+    const months = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05'];
+    const f = creditFlows([line], [{ id: 'd', line_id: 'a', month: '2026-10', amount_usd: 15300 }], months);
+    expect(f.filter(x => x.kind === 'credit_draw')).toEqual([expect.objectContaining({ month: '2026-10', amount: 15300 })]);
+    const repay = f.filter(x => x.kind === 'credit_repay');
+    expect(repay.map(x => x.month)).toEqual(['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04']);
+    expect(repay.every(x => Math.abs(x.amount + 2550) < 1e-9)).toBe(true);
+    const fees = f.filter(x => x.kind === 'credit_interest');
+    expect(fees).toHaveLength(6);
+    expect(Math.round(fees.reduce((s, x) => s + x.amount, 0) * 100) / 100).toBe(-504.9);
+  });
+});
+
 describe('credit line maturity', () => {
   it('repays the whole balance in the maturity month and stops interest', () => {
     const f = creditFlows([{ id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 10000, rate_pct: 5, maturity_month: '2026-11' }], [], ['2026-10', '2026-11', '2026-12']);
