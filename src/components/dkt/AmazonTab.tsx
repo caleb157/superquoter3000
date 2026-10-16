@@ -1,5 +1,5 @@
 import { Copy, Plus, Trash2 } from 'lucide-react';
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -45,7 +45,8 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
   const mine = skus.filter(x => x.scenario_id === s.id);
   const last = addMonths(thisMonth, lookahead - 1);
   const sum = scenarioSummary(mine, last);
-  const chart = sum.months.map(m => ({ month: monthLabel(m.month), cumulative: Math.round(m.cumulative) }));
+  const chart = sum.months.map(m => ({ month: monthLabel(m.month), in: Math.round(m.cashIn), out: -Math.round(m.cashOut), cumulative: Math.round(m.cumulative) }));
+  const seriesName: Record<string, string> = { in: 'Money in', out: 'Money out', cumulative: 'Running total' };
   const hasInventory = mine.some(x => x.mode === 'inventory');
   return (
     <Card className={cn(s.in_forecast && 'border-primary/40')}>
@@ -140,19 +141,22 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
         </div>
         {hasInventory && chart.length > 1 && (
           <div>
-            <div className="text-xs text-muted-foreground mb-1">Cumulative cash from this scenario</div>
-            <div className="h-44">
+            <div className="text-xs text-muted-foreground mb-1">Cash from this scenario, month by month</div>
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chart} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <ComposedChart data={chart} stackOffset="sign" margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                   <YAxis tickFormatter={usdK} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={52} />
-                  <Tooltip formatter={(v: number) => [usd(v), 'Cumulative cash']} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }} />
-                  <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
-                  <Line type="monotone" dataKey="cumulative" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                </LineChart>
+                  <Tooltip formatter={(v: number, k: string) => [usd(v), seriesName[k] ?? k]} contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }} />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                  <Bar dataKey="in" stackId="cash" fill="hsl(var(--success) / 0.55)" maxBarSize={24} />
+                  <Bar dataKey="out" stackId="cash" fill="hsl(var(--destructive) / 0.55)" maxBarSize={24} />
+                  <Line type="monotone" dataKey="cumulative" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Green bars: Amazon payouts that month. Red bars: stock and freight paid that month. Line: running total since the first PO.</p>
           </div>
         )}
       </CardContent>
