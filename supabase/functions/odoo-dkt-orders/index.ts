@@ -155,8 +155,21 @@ Deno.serve(async (req) => {
       left -= take;
     }
 
+    // Share of PV's invoiced revenue (untaxed, net of credit notes, company currency) that went to DKT
+    // over the last 12 months.
+    let share: { since: string; total_usd: number; dkt_usd: number } | null = null;
+    try {
+      const from = new Date(); from.setFullYear(from.getFullYear() - 1);
+      const sinceYear = from.toISOString().slice(0, 10);
+      const dom = [['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted'], ['invoice_date', '>=', sinceYear]];
+      const sum = (rows: any[]) => rows.reduce((s, r) => s + num(r.amount_untaxed_signed), 0);
+      const all = await sr('account.move', dom, ['amount_untaxed_signed']);
+      const dkt = await sr('account.move', [...dom, ['partner_id', 'child_of', pIds]], ['amount_untaxed_signed']);
+      share = { since: sinceYear, total_usd: toUsd(sum(all), 'INR'), dkt_usd: toUsd(sum(dkt), 'INR') };
+    } catch { /* leave the share out */ }
+
     return json({
-      partner: partners.map(p => str(p.name)).join(', '), orders, invoices, advance_usd: advanceUsd, advance_unapplied_usd: Math.max(0, left),
+      partner: partners.map(p => str(p.name)).join(', '), orders, invoices, advance_usd: advanceUsd, advance_unapplied_usd: Math.max(0, left), share,
       inr_per_usd: inrPerUsd, fetched_at: new Date().toISOString(),
     });
   } catch (e) {

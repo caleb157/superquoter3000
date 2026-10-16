@@ -5,13 +5,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { statusLabel } from '@/lib/inquiry-status';
 import { cn } from '@/lib/utils';
 import { odooFob, odooOwed, orderAmounts, type DktOrder, type DktSettings } from '@/lib/dkt-cashflow';
-import type { OdooRow, OrderMeta } from '@/hooks/use-dkt-cashflow';
+import type { OdooRow, OdooShare, OrderMeta } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, Stat, usd } from './fields';
 import type { ReactNode } from 'react';
 
 type Props = {
   orders: DktOrder[];
   odooRows: OdooRow[];
+  share: OdooShare | null;
   meta: Record<string, OrderMeta>;
   settings: DktSettings;
   dktEntityName: string | null;
@@ -21,7 +22,7 @@ type Props = {
   odooCard: ReactNode;
 };
 
-export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
+export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveStatus, saveSettings, odooCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
   const real = odooRows.filter(o => !o.excluded);
@@ -31,11 +32,16 @@ export function OrdersTab({ orders, odooRows, meta, settings, dktEntityName, sav
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Stat label="Orders (confirmed + pipeline)" value={real.length + live.length}
           sub={`${real.length} confirmed · ${live.length} pipeline · FOB ${usd(realFob + live.reduce((s, o) => s + o.fob_usd, 0))}`} />
         <Stat label="DKT margin on them" value={usd(realMargin + sum(a => a.margin))} />
         <Stat label="Still to pay PV (confirmed orders)" value={usd(stillToPv)} sub="From Odoo" />
+        <Stat label="PV sales to DKT, last 12 months"
+          value={share && share.total_usd > 0 ? `${Math.round((share.dkt_usd / share.total_usd) * 100)}%` : '–'}
+          sub={share && share.total_usd > 0
+            ? `${usd(share.dkt_usd)} DKT · ${usd(share.total_usd - share.dkt_usd)} others (${Math.round(100 - (share.dkt_usd / share.total_usd) * 100)}%), invoiced`
+            : 'From PV invoices in Odoo'} />
       </div>
 
       {odooCard}

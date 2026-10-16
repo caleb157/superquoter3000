@@ -28,7 +28,10 @@ type OdooRaw = {
   invoices: { name: string; origin: string; due: string | null; date: string | null; residual_usd: number; total_usd: number }[];
   partner: string | null;
   fetched_at: string | null;
+  share?: OdooShare | null;
 };
+/** PV's invoiced revenue over the last 12 months, and how much of it was to DKT. */
+export type OdooShare = { since: string; total_usd: number; dkt_usd: number };
 export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
 export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean };
@@ -164,7 +167,7 @@ export function useDktCashflow(thisMonth: Month) {
     const { data: res, error: err } = await supabase.functions.invoke('odoo-dkt-orders', { body: {} });
     setOdooLoading(false);
     if (err || res?.error) { setOdooError(typeof res?.error === 'string' ? res.error : err?.message || 'Could not load DKT orders from Odoo'); return; }
-    setOdoo({ orders: res.orders ?? [], invoices: res.invoices ?? [], partner: res.partner ?? null, fetched_at: res.fetched_at ?? null });
+    setOdoo({ orders: res.orders ?? [], invoices: res.invoices ?? [], partner: res.partner ?? null, fetched_at: res.fetched_at ?? null, share: res.share ?? null });
   }, []);
   useEffect(() => { loadOdoo(); }, [loadOdoo]);
 
@@ -270,7 +273,7 @@ export function useDktCashflow(thisMonth: Month) {
 
   return {
     data, loading, error, api,
-    odoo: { rows: odooRows, invoices: odooInvoices, partner: odoo?.partner ?? null, fetchedAt: odoo?.fetched_at ?? null, loading: odooLoading, error: odooError },
+    odoo: { rows: odooRows, invoices: odooInvoices, partner: odoo?.partner ?? null, share: odoo?.share ?? null, fetchedAt: odoo?.fetched_at ?? null, loading: odooLoading, error: odooError },
   };
 }
 
