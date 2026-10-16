@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Copy, Plus, Trash2 } from 'lucide-react';
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { addMonths, monthLabel, type Month } from '@/lib/dkt-cashflow';
-import { firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku } from '@/lib/dkt-amazon';
+import { demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
 
@@ -38,6 +39,34 @@ export function AmazonTab(p: Props) {
       </div>
       {p.scenarios.map(s => <ScenarioCard key={s.id} scenario={s} {...p} />)}
     </div>
+  );
+}
+
+/** Launch terms for a new SKU: smaller first order, lower first-batch margin, sales ramping up. Blank = same as the rest. */
+function LaunchRow({ sku: x, updateSku }: { sku: AmazonSku; updateSku: Props['updateSku'] }) {
+  const ramp = x.launch_units_per_month != null && (x.ramp_months ?? 0) > 0;
+  return (
+    <tr className="align-top">
+      <td colSpan={11} className="pb-2 pt-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">Launch</span>
+          <label className="flex items-center gap-1">First order
+            <NumField className="w-16" integer allowEmpty label="First order quantity" placeholder={String(x.order_qty)} value={x.first_order_qty ?? null} onSave={v => updateSku(x.id, { first_order_qty: v })} />
+            units</label>
+          <label className="flex items-center gap-1">at
+            <NumField className="w-14" percent allowEmpty label="First batch net margin" placeholder={`${Math.round(x.net_margin_pct * 100)}`} value={x.launch_margin_pct ?? null} onSave={v => updateSku(x.id, { launch_margin_pct: v })} />
+            net margin</label>
+          <label className="flex items-center gap-1">Sales start at
+            <NumField className="w-14" allowEmpty label="Launch units per month" placeholder={String(x.units_per_month)} value={x.launch_units_per_month ?? null} onSave={v => updateSku(x.id, { launch_units_per_month: v })} />
+            / mo, reaching {x.units_per_month} / mo after
+            <NumField className="w-12" integer allowEmpty label="Ramp-up months" placeholder="0" value={x.ramp_months ?? null} onSave={v => updateSku(x.id, { ramp_months: v })} />
+            months</label>
+          {ramp && x.start_month && (
+            <span>· {[0, 1, 2, 3, 4, 5].map(k => Math.round(demandFor(x, addMonths(x.start_month!, k)))).join(', ')}…</span>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -96,7 +125,8 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                 const inv = x.mode === 'inventory';
                 const po = firstPoMonth(x);
                 return (
-                  <tr key={x.id} className="border-t align-top">
+                  <Fragment key={x.id}>
+                  <tr className="border-t align-top">
                     <td className="py-1.5 pr-2 min-w-[9rem]">
                       <TextField label="SKU" value={x.name} placeholder="SKU name" onSave={v => updateSku(x.id, { name: v })} />
                       <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -130,6 +160,8 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                     ) : <td colSpan={4} className="py-1.5 px-1 text-muted-foreground pt-3">Existing line: no stock purchases modelled.</td>}
                     <td className="py-1.5 pl-1"><Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Delete SKU" onClick={() => removeSku(x.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                   </tr>
+                  {inv && <LaunchRow sku={x} updateSku={updateSku} />}
+                  </Fragment>
                 );
               })}
             </tbody>

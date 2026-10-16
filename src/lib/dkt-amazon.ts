@@ -5,6 +5,8 @@
 //    it ships (make_months later) and sells ship_months after that. It reorders order_qty as late as
 //    it can without running out: when stock on hand plus on the way no longer covers the make + ship
 //    time at units/month, so the new order lands before the shelf is empty.
+//    A launch can be modelled too: a smaller first order, a lower margin on that first batch, and
+//    sales that start lower and ramp up to units/month over a number of months.
 // Amazon pays out price − fees. Net margin is what is left after fees AND landed cost, so the
 // payout per unit is price × net margin + product cost + freight per unit.
 import type { Flow, Month } from './dkt-cashflow';
@@ -23,6 +25,11 @@ export type AmazonSku = {
   order_qty: number;
   make_months: number;
   ship_months: number;
+  // Launch (new SKUs only; blank = same as the rest)
+  first_order_qty?: number | null;
+  launch_margin_pct?: number | null; // net margin on the first batch
+  launch_units_per_month?: number | null; // sales in the first month, ramping up to units_per_month
+  ramp_months?: number | null; // months to reach units_per_month
 };
 
 function add(m: Month, n: number): Month {
@@ -39,6 +46,19 @@ export const leadMonths = (s: Pick<AmazonSku, 'make_months' | 'ship_months'>) =>
   Math.max(0, Math.round(Number(s.make_months) || 0)) + Math.max(0, Math.round(Number(s.ship_months) || 0));
 export const firstPoMonth = (s: AmazonSku): Month | null => (s.start_month ? add(s.start_month, -leadMonths(s)) : null);
 
+const hasLaunch = (s: AmazonSku) => s.mode === 'inventory';
+/** Units the SKU would sell in month m if stock allows, ramping from the launch rate to units/month. */
+export function demandFor(s: AmazonSku, m: Month): number {
+  if (!s.start_month || m < s.start_month) return 0;
+  const v = Math.max(0, Number(s.units_per_month) || 0);
+  const ramp = Math.max(0, Math.round(Number(s.ramp_months) || 0));
+  if (!hasLaunch(s) || !ramp || s.launch_units_per_month == null) return v;
+  const [y1, m1] = s.start_month.split('-').map(Number), [y2, m2] = m.split('-').map(Number);
+  const k = (y2 - y1) * 12 + (m2 - m1);
+  const v0 = Math.max(0, Number(s.launch_units_per_month) || 0);
+  return k >= ramp ? v : v0 + ((v - v0) * k) / ramp;
+}
+
 export type SkuMonth = {
   month: Month;
   poUnits: number; // units ordered this month
@@ -46,6 +66,7 @@ export type SkuMonth = {
   sold: number;
   stockEnd: number;
   stockout: boolean; // wanted to sell but ran out
+  earned: number; // net margin on what sold (first batch at the launch margin)
   cashIn: number;
   cashOut: number;
 };
@@ -53,22 +74,28 @@ export type SkuMonth = {
 /** Month-by-month simulation from the first PO (or start) through `last`. */
 export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
   if (!s.start_month) return [];
-  const v = Math.max(0, Number(s.units_per_month) || 0);
+  const price = Number(s.price_usd) || 0;
+  const margin = Number(s.net_margin_pct) || 0;
   const out: SkuMonth[] = [];
   if (s.mode === 'simple') {
+    const v = Math.max(0, Number(s.units_per_month) || 0);
     for (let m = s.start_month; m <= last; m = add(m, 1)) {
-      out.push({ month: m, poUnits: 0, arrived: 0, sold: v, stockEnd: 0, stockout: false, cashIn: v * payoutPerUnit(s), cashOut: 0 });
+      out.push({ month: m, poUnits: 0, arrived: 0, sold: v, stockEnd: 0, stockout: false, earned: v * price * margin, cashIn: v * payoutPerUnit(s), cashOut: 0 });
     }
     return out;
   }
   const qty = Math.max(0, Math.round(Number(s.order_qty) || 0));
+  const firstQty = s.first_order_qty == null ? qty : Math.max(0, Math.round(Number(s.first_order_qty) || 0));
+  const launchMargin = s.launch_margin_pct == null ? margin : Number(s.launch_margin_pct) || 0;
   const make = Math.max(0, Math.round(Number(s.make_months) || 0));
   const lead = leadMonths(s);
   const cost = Number(s.unit_cost_usd) || 0;
   const freight = Number(s.freight_per_unit_usd) || 0;
+  const landed = landedPerUnit(s);
   const first = firstPoMonth(s)!;
   const pos: { month: Month; units: number }[] = [];
   let stock = 0;
+  let firstLeft = firstQty; // first-batch units not sold yet (sold first)
   for (let m = first; m <= last; m = add(m, 1)) {
     let poUnits = 0;
     let cashOut = 0;
@@ -76,23 +103,30 @@ export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
     stock += arrived;
     let sold = 0;
     let stockout = false;
+    const want = demandFor(s, m);
     if (m >= s.start_month) {
-      sold = Math.min(v, stock);
-      stockout = v > 0 && sold < v;
+      sold = Math.min(want, stock);
+      stockout = want > 0 && sold < want - 1e-9;
       stock -= sold;
     }
+    const fromFirst = Math.min(sold, firstLeft);
+    firstLeft -= fromFirst;
+    const earned = fromFirst * price * launchMargin + (sold - fromFirst) * price * margin;
     const inbound = pos.filter(p => add(p.month, lead) > m).reduce((t, p) => t + p.units, 0);
     const firstOrder = m === first;
-    const covered = v > 0 ? (stock + inbound) / v : Infinity;
-    // Waiting another month means this stock must last until an order placed next month arrives.
-    if (qty > 0 && (firstOrder || (m >= s.start_month && covered < lead - 1e-9))) {
-      pos.push({ month: m, units: qty });
-      poUnits = qty;
+    // Waiting another month means this stock must last until an order placed next month arrives,
+    // i.e. cover the next `lead` months of (ramping) sales.
+    let need = 0;
+    for (let k = 1; k <= lead; k++) need += demandFor(s, add(m, k));
+    const reorderQty = firstOrder ? firstQty : qty;
+    if (reorderQty > 0 && (firstOrder || (m >= s.start_month && stock + inbound < need - 1e-9))) {
+      pos.push({ month: m, units: reorderQty });
+      poUnits = reorderQty;
     }
     cashOut += poUnits * cost;
     // Freight is paid when an order ships, make_months after its PO.
     cashOut += pos.filter(p => add(p.month, make) === m).reduce((t, p) => t + p.units, 0) * freight;
-    out.push({ month: m, poUnits, arrived, sold, stockEnd: stock, stockout, cashIn: sold * payoutPerUnit(s), cashOut });
+    out.push({ month: m, poUnits, arrived, sold, stockEnd: stock, stockout, earned, cashIn: earned + sold * landed, cashOut });
   }
   return out;
 }
