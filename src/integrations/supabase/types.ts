@@ -1037,6 +1037,8 @@ export type Database = {
         Row: {
           allegro_as_of: string | null
           allegro_balance_usd: number
+          allegro_launch_on: boolean
+          allegro_launch_usd: number
           allegro_monthly_usd: number
           cash_as_of: string | null
           cash_usd: number
@@ -1050,6 +1052,8 @@ export type Database = {
         Insert: {
           allegro_as_of?: string | null
           allegro_balance_usd?: number
+          allegro_launch_on?: boolean
+          allegro_launch_usd?: number
           allegro_monthly_usd?: number
           cash_as_of?: string | null
           cash_usd?: number
@@ -1063,6 +1067,8 @@ export type Database = {
         Update: {
           allegro_as_of?: string | null
           allegro_balance_usd?: number
+          allegro_launch_on?: boolean
+          allegro_launch_usd?: number
           allegro_monthly_usd?: number
           cash_as_of?: string | null
           cash_usd?: number
