@@ -2727,6 +2727,11 @@ export type Database = {
           notes_finishes: string | null
           notes_issues: string | null
           notes_vendors: string | null
+          odoo_product_id: number | null
+          odoo_pushed_at: string | null
+          odoo_sku: string | null
+          odoo_template_id: number | null
+          odoo_variant: string | null
           outsourced_unit_cost_inr: number | null
           outsourced_unit_cost_usd: number | null
           overhead_done: boolean | null
@@ -2781,6 +2786,11 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          odoo_product_id?: number | null
+          odoo_pushed_at?: string | null
+          odoo_sku?: string | null
+          odoo_template_id?: number | null
+          odoo_variant?: string | null
           outsourced_unit_cost_inr?: number | null
           outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null
@@ -2835,6 +2845,11 @@ export type Database = {
           notes_finishes?: string | null
           notes_issues?: string | null
           notes_vendors?: string | null
+          odoo_product_id?: number | null
+          odoo_pushed_at?: string | null
+          odoo_sku?: string | null
+          odoo_template_id?: number | null
+          odoo_variant?: string | null
           outsourced_unit_cost_inr?: number | null
           outsourced_unit_cost_usd?: number | null
           overhead_done?: boolean | null

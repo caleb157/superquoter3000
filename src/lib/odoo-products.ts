@@ -53,7 +53,7 @@ export type PushResult = {
   reused: { kind: string; sku: string; id: number }[];
   bomId: number | null;
   bomReused: boolean;
-  productUrl: string;
+  productUrl: string | null;
   bomUrl: string | null;
 };
 

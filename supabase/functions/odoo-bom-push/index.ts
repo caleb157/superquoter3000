@@ -25,6 +25,8 @@ const Item = z.object({
   hsn: z.string().trim().max(20).optional().nullable(),
   weightKg: z.number().min(0).optional().nullable(),
   volumeM3: z.number().min(0).optional().nullable(),
+  variant: z.string().trim().max(200).optional().nullable(),     // value on the global "variant" attribute
+  customerSku: z.string().trim().max(100).optional().nullable(), // Odoo variant tag
 });
 const Line = z.object({
   productId: z.number().int().positive().optional().nullable(), // existing Odoo product.product id
@@ -33,6 +35,8 @@ const Line = z.object({
   uom: z.string().trim().min(1).max(100),
 });
 const Body = z.object({
+  // full = components + product + BOM; product = finished product only; components = new raw materials only.
+  mode: z.enum(['full', 'product', 'components']).default('full'),
   hqProductId: z.string().uuid().optional().nullable(),
   code: z.string().trim().max(100).optional().nullable(),
   bomUnits: z.number().positive().max(100000).default(1),
@@ -41,7 +45,7 @@ const Body = z.object({
   imageUrl: z.string().url().max(2000).optional().nullable(),
   finished: Item.optional().nullable(),
   components: z.array(Item).max(100),
-  lines: z.array(Line).min(1).max(200),
+  lines: z.array(Line).max(200).default([]),
 });
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
@@ -90,6 +94,7 @@ async function only(model: string, vals: Record<string, unknown>) {
   const avail = await fieldsOf(model);
   return Object.fromEntries(Object.entries(vals).filter(([k, v]) => avail.has(k) && v !== undefined));
 }
+const VARIANT_ATTRIBUTE_ID = 31; // Odoo's single global "variant" attribute
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 Deno.serve(async (req) => {
@@ -120,8 +125,13 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: 'The request was incomplete.', details: parsed.error.flatten().fieldErrors }, 400);
     body = parsed.data;
-    const { finished, components, lines } = body;
-    if (!finished && !body.existingProductId && !body.existingSku) return json({ error: 'Pick the Odoo product, or fill in the new product.' }, 400);
+    const { finished, mode } = body;
+    const components = mode === 'product' ? [] : body.components;
+    const lines = mode === 'full' ? body.lines : [];
+    if (mode === 'full' && !lines.length) return json({ error: 'The BOM has no lines.' }, 400);
+    if (mode === 'product' && !finished) return json({ error: 'Fill in the new product.' }, 400);
+    if (mode === 'components' && !components.length) return json({ error: 'There are no new items to create.' }, 400);
+    if (mode === 'full' && !finished && !body.existingProductId && !body.existingSku) return json({ error: 'Pick the Odoo product, or fill in the new product.' }, 400);
 
     // ---- 1. Resolve every name before writing anything ----
     const [cats, uoms] = await Promise.all([
@@ -143,7 +153,7 @@ Deno.serve(async (req) => {
       if (!id) problems.push(`${what} "${name}" was not found in Odoo.`);
       return id ?? null;
     };
-    const items = [...(finished ? [{ ...finished, finished: true }] : []), ...components.map(c => ({ ...c, finished: false }))];
+    const items = [...(finished && mode !== 'components' ? [{ ...finished, finished: true }] : []), ...components.map(c => ({ ...c, finished: false }))];
     const resolved = items.map(it => ({
       it,
       categ_id: need(catId, it.category, 'Category'),
@@ -169,7 +179,7 @@ Deno.serve(async (req) => {
 
     // The HQ photo for a new finished product (skipped quietly if it can't be fetched).
     let image: string | null = null;
-    if (finished && body.imageUrl) {
+    if (finished && mode !== 'components' && body.imageUrl) {
       try {
         const res = await fetch(body.imageUrl);
         if (res.ok) {
@@ -185,7 +195,7 @@ Deno.serve(async (req) => {
 
     // The existing finished product, when the BOM is for one already in Odoo.
     let fin: { id: number; tmpl: number } | null = null;
-    if (!finished) {
+    if (!finished && mode === 'full') {
       const dom = body.existingProductId ? [['id', '=', body.existingProductId]] : [['default_code', '=', body.existingSku]];
       const [p] = await sr('product.product', dom, ['id', 'product_tmpl_id'], { limit: 1, context: { active_test: false } });
       if (!p) return json({ error: 'The picked Odoo product was not found. Nothing was sent.' }, 400);
@@ -198,6 +208,7 @@ Deno.serve(async (req) => {
       const it = r.it;
       const hit = variantBySku.get(norm(it.sku));
       if (hit) { reused.push({ kind: it.finished ? 'product' : 'component', sku: it.sku, id: hit.id }); return hit; }
+      if (it.finished) return createFinished(r);
       const vals: Record<string, unknown> = {
         name: it.name, default_code: it.sku, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
         sale_ok: it.finished, purchase_ok: !it.finished,
@@ -215,8 +226,64 @@ Deno.serve(async (req) => {
       created.push({ kind: it.finished ? 'product' : 'component', sku: it.sku, id: out.id });
       return out;
     };
+    // Finished product: template-level data on product.template (name, category, HSN, tracking),
+    // a single variant on the global "variant" attribute, and variant-level data on product.product
+    // (SKU, photo, volume, weight, customer-SKU tag). Further variants can be added in Odoo later.
+    async function createFinished(r: typeof resolved[number]) {
+      const it = r.it;
+      const hit = variantBySku.get(norm(it.sku));
+      if (hit) { reused.push({ kind: 'product', sku: it.sku, id: hit.id }); return hit; }
+      const label = (it.variant || '').trim() || 'Standard';
+      const [val] = await sr('product.attribute.value', [['attribute_id', '=', VARIANT_ATTRIBUTE_ID], ['name', '=ilike', label]], ['id'], { limit: 1 });
+      const valId = val?.id ?? await kw('product.attribute.value', 'create', [{ attribute_id: VARIANT_ATTRIBUTE_ID, name: label }]);
+      const vals: Record<string, unknown> = {
+        name: it.name, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
+        sale_ok: true, purchase_ok: false, list_price: it.salePrice ?? undefined,
+        l10n_in_hsn_code: it.hsn || undefined,
+        attribute_line_ids: [[0, 0, { attribute_id: VARIANT_ATTRIBUTE_ID, value_ids: [[6, 0, [valId]]] }]],
+      };
+      if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }
+      else if (tmplFields.has('detailed_type')) vals.detailed_type = it.tracked ? 'product' : 'consu';
+      else vals.type = it.tracked ? 'product' : 'consu';
+      const tmplId = await kw('product.template', 'create', [await only('product.template', vals)]);
+      const [v] = await sr('product.product', [['product_tmpl_id', '=', tmplId]], ['id'], { limit: 1, context: { active_test: false } });
+      if (!v?.id) throw new Error('Odoo created the product but no variant. Check the "variant" attribute in Odoo.');
+      const pv: Record<string, unknown> = { default_code: it.sku, weight: it.weightKg ?? undefined, volume: it.volumeM3 ?? undefined, image_1920: image ?? undefined };
+      if (it.customerSku) {
+        try {
+          const [tag] = await sr('product.tag', [['name', '=ilike', it.customerSku]], ['id'], { limit: 1 });
+          const tagId = tag?.id ?? await kw('product.tag', 'create', [{ name: it.customerSku }]);
+          pv.additional_product_tag_ids = [[4, tagId]];
+        } catch { /* tags are optional */ }
+      }
+      await kw('product.product', 'write', [[v.id], await only('product.product', pv)]);
+      const out = { id: v.id, tmpl: tmplId };
+      variantBySku.set(norm(it.sku), out);
+      created.push({ kind: 'product', sku: it.sku, id: out.id });
+      return out;
+    }
+
     for (const r of resolved.filter(x => !x.it.finished)) await createProduct(r);
-    if (!fin) fin = await createProduct(resolved.find(x => x.it.finished)!);
+    const finR = resolved.find(x => x.it.finished);
+    if (!fin && finR) fin = await createProduct(finR);
+
+    // Remember the Odoo product on the HQ product, so it shows as "In Odoo" and isn't created twice.
+    if (fin && body.hqProductId && (finished || mode === 'full')) {
+      try {
+        await sb.from('products').update({
+          odoo_product_id: fin.id, odoo_template_id: fin.tmpl, odoo_sku: finished?.sku ?? body.existingSku ?? null,
+          odoo_variant: finished?.variant || null, odoo_pushed_at: new Date().toISOString(),
+        }).eq('id', body.hqProductId);
+      } catch { /* the link is a convenience */ }
+    }
+    if (mode !== 'full') {
+      const result = {
+        ok: true, created, reused, bomId: null, bomReused: false, productTemplateId: fin?.tmpl ?? null, productId: fin?.id ?? null,
+        productUrl: fin ? `${ODOO_URL}/web#id=${fin.tmpl}&model=product.template&view_type=form` : null, bomUrl: null,
+      };
+      await log(true, result);
+      return json(result);
+    }
 
     // ---- 3. A new BOM, always (a product can have several) ----
     let bomId: number | null = null;
