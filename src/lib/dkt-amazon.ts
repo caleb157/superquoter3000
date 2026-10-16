@@ -154,13 +154,23 @@ export type ScenarioSummary = {
   profit: number; // cumulative cash at the end
   stockValue: number; // unsold stock at landed cost at the end
   stockoutMonths: number;
+  earnings: number; // net earnings: price × net margin on every unit sold (first batch at the launch margin)
+  spanMonths: number; // months from the first PO (or first sale) to `last`, inclusive
+  roi: number | null; // cash ROI: net earnings ÷ most cash tied up; null when no cash was tied up
+  annualRoi: number | null; // roi compounded to a 12-month rate over spanMonths
 };
+
+/** Annualized (compound) rate for a total return earned over `months`; null when it can't compound. */
+export function annualize(total: number, months: number): number | null {
+  if (months <= 0 || 1 + total <= 0) return null;
+  return Math.pow(1 + total, 12 / months) - 1;
+}
 
 /** Combined cash picture of a set of SKUs from the first PO to `last`. */
 export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary {
   const sims = skus.map(s => ({ s, rows: simulateSku(s, last) }));
   const all = sims.flatMap(x => x.rows.map(r => r.month));
-  const empty: ScenarioSummary = { months: [], invested: 0, peakNeed: 0, peakMonth: null, paybackMonth: null, profit: 0, stockValue: 0, stockoutMonths: 0 };
+  const empty: ScenarioSummary = { months: [], invested: 0, peakNeed: 0, peakMonth: null, paybackMonth: null, profit: 0, stockValue: 0, stockoutMonths: 0, earnings: 0, spanMonths: 0, roi: null, annualRoi: null };
   if (!all.length) return empty;
   const start = all.reduce((a, b) => (a < b ? a : b));
   const months: ScenarioSummary['months'] = [];
@@ -181,5 +191,11 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
   }
   const stockValue = sims.reduce((t, { s, rows }) => t + (rows[rows.length - 1]?.stockEnd ?? 0) * landedPerUnit(s), 0);
   const stockoutMonths = sims.reduce((t, { rows }) => t + rows.filter(r => r.stockout).length, 0);
-  return { months, invested, peakNeed, peakMonth, paybackMonth, profit: cum, stockValue, stockoutMonths };
+  const earnings = sims.reduce((t, { rows }) => t + rows.reduce((a, r) => a + r.earned, 0), 0);
+  const roi = peakNeed > 0.005 ? earnings / peakNeed : null;
+  const spanMonths = months.length;
+  return {
+    months, invested, peakNeed, peakMonth, paybackMonth, profit: cum, stockValue, stockoutMonths,
+    earnings, spanMonths, roi, annualRoi: roi == null ? null : annualize(roi, spanMonths),
+  };
 }
