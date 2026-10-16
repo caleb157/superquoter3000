@@ -1,12 +1,12 @@
 import { Fragment } from 'react';
 import { Copy, Plus, Trash2 } from 'lucide-react';
-import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { addMonths, monthLabel, type Month } from '@/lib/dkt-cashflow';
-import { demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku } from '@/lib/dkt-amazon';
+import { demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
 
@@ -69,6 +69,52 @@ function LaunchRow({ sku: x, updateSku }: { sku: AmazonSku; updateSku: Props['up
         </div>
       </td>
     </tr>
+  );
+}
+
+type InvRow = { month: string; stock: number; onOrder: number; sold: number; ordered: number; stockout: boolean };
+/** Units on the shelf and on the way at each month end, with units sold, across the scenario's new SKUs. */
+function InventoryChart({ months }: { months: ScenarioSummary['months'] }) {
+  const data: InvRow[] = months.map(m => ({
+    month: monthLabel(m.month), stock: Math.round(m.stock), onOrder: Math.round(m.onOrder), sold: Math.round(m.sold), ordered: Math.round(m.ordered), stockout: m.stockout,
+  }));
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">Inventory, month by month (units)</div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={52} allowDecimals={false} />
+            <Tooltip content={<InventoryTip />} />
+            <Bar dataKey="stock" stackId="inv" maxBarSize={24}>
+              {data.map((r, i) => <Cell key={i} fill={r.stockout ? 'hsl(var(--destructive) / 0.55)' : 'hsl(var(--primary) / 0.45)'} />)}
+            </Bar>
+            <Bar dataKey="onOrder" stackId="inv" fill="hsl(var(--muted-foreground) / 0.25)" maxBarSize={24} />
+            <Line type="monotone" dataKey="sold" stroke="hsl(var(--warning))" strokeWidth={2} dot={{ r: 2 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-1">
+        Solid bars: units on the shelf at month end (red if a month ran out). Light bars: units ordered and still being made or shipped. Line: units sold that month.
+      </p>
+    </div>
+  );
+}
+
+function InventoryTip({ active, payload }: { active?: boolean; payload?: { payload: InvRow }[] }) {
+  const r = active && payload?.[0]?.payload;
+  if (!r) return null;
+  return (
+    <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs space-y-0.5 tabular-nums">
+      <div className="font-medium">{r.month}</div>
+      <div>Sold: {r.sold}</div>
+      <div>On the shelf at month end: {r.stock}</div>
+      <div>On the way: {r.onOrder}</div>
+      {r.ordered > 0 && <div>Ordered this month: {r.ordered}</div>}
+      {r.stockout && <div className="text-destructive">Ran out this month</div>}
+    </div>
   );
 }
 
@@ -195,6 +241,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
             <p className="text-[11px] text-muted-foreground mt-1">Green bars: Amazon payouts that month. Red bars: stock and freight paid that month. Line: running total since the first PO.</p>
           </div>
         )}
+        {hasInventory && sum.months.length > 1 && <InventoryChart months={sum.months} />}
       </CardContent>
     </Card>
   );
