@@ -3,7 +3,7 @@
 - Odoo task events: task_automation_rules -> odoo-task-webhook; Odoo pushes, HQ never polls. HQ automations (inquiry created, customer->Lead) fire from DB triggers (run_hq_task_automation).
 - Master Analytics actuals come only from the latest analytics_snapshots row (odoo-analytics-sync, manual Refresh); pipeline is computed live (src/lib/master-analytics.ts).
 - Pipeline certainty: inquiry override -> booked 100%/cancelled 0% -> repeat default -> Settings default_certainty_pct (src/lib/projection-defaults.ts).
-- Projections are PV-only: other-entity sales pay PV via inter-entity deposit/balance; missing FOB/man-hours fall back to live costing (src/lib/pipeline-live.ts).
+- Projections are PV-only: other-entity sales pay PV via inter-entity deposit/balance; open-inquiry FOB/GPM follow the Projection page (live until PO, effectiveFobUsd), missing man-hours fall back to live costing (src/lib/pipeline-live.ts).
 - Analytics opening cash = sum of Odoo asset_cash in the snapshot; capacity = LaborTrax /api/public/capacity-forecast read straight from it (incl. WO overrides).
 - Costing Intake (src/lib/costing-intake.ts) is the one bulk-costing spreadsheet (Import creates, Bulk Editor updates); raw inputs only - the engine derives the rest.
 - Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx); sizes are separate W/D/H columns.

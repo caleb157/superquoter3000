@@ -93,7 +93,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
         (supabase as any).from('company_entities').select('id, name').order('name'),
         (supabase as any).from('customer_rfqs').select('status, exchange_rate_override, quoting_currency').eq('id', inquiryId).maybeSingle(),
-        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId),
+        (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId).is('archived_at', null),
       ]);
       setEntities(ent.data || []);
       setInquiryStatus(inq.data?.status ?? 'active');
