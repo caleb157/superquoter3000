@@ -14,7 +14,7 @@ const order = (o: Partial<DktOrder> = {}): DktOrder => ({
 
 const sku = (s: Partial<AmazonSku> = {}): AmazonSku => ({
   id: 's1', scenario_id: null, name: 'Stool', mode: 'inventory', price_usd: 50, net_margin_pct: 0.2, units_per_month: 100,
-  start_month: '2027-03', unit_cost_usd: 10, freight_per_unit_usd: 2, order_qty: 400, reorder_months: 4, make_months: 2, ship_months: 2, ...s,
+  start_month: '2027-03', unit_cost_usd: 10, freight_per_unit_usd: 2, order_qty: 400, make_months: 2, ship_months: 2, ...s,
 });
 
 describe('months', () => {
@@ -184,8 +184,13 @@ describe('amazon', () => {
     expect(rows.filter(r => r.stockout)).toEqual([]);
     expect(rows.find(r => r.month === '2027-03')).toMatchObject({ sold: 100, cashIn: 100 * (50 * 0.2 + 12) });
   });
-  it('flags stockouts when the reorder comes too late', () => {
-    expect(simulateSku(sku({ reorder_months: 2 }), '2027-12').some(r => r.stockout)).toBe(true);
+  it('reorders in time for the make + ship time, and flags stockouts when one order is too small', () => {
+    const rows = simulateSku(sku({ order_qty: 600 }), '2028-06');
+    expect(rows.filter(r => r.stockout)).toEqual([]);
+    // 4-month lead at 100/month: reorder once stock + on the way drops under 400.
+    const pos = rows.filter(r => r.poUnits).map(r => r.month);
+    expect(pos.slice(0, 3)).toEqual(['2026-11', '2027-05', '2027-11']);
+    expect(simulateSku(sku({ order_qty: 50 }), '2027-12').some(r => r.stockout)).toBe(true);
   });
   it('summarises peak cash and payback', () => {
     const s = scenarioSummary([sku()], '2028-06');

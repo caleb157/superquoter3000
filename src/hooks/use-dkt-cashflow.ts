@@ -163,7 +163,7 @@ export function useDktCashflow(thisMonth: Month) {
       skus: (skus.data || []).map((r: any) => ({
         ...r, price_usd: num(r.price_usd), net_margin_pct: num(r.net_margin_pct), units_per_month: num(r.units_per_month),
         start_month: m(r, 'start_month'), unit_cost_usd: num(r.unit_cost_usd), freight_per_unit_usd: num(r.freight_per_unit_usd),
-        order_qty: num(r.order_qty), reorder_months: num(r.reorder_months, 4), make_months: num(r.make_months, 2), ship_months: num(r.ship_months, 2),
+        order_qty: num(r.order_qty), make_months: num(r.make_months, 2), ship_months: num(r.ship_months, 2),
       })),
       dktEntityName: dkt?.name ?? null,
       odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
