@@ -31,7 +31,7 @@ export function AmazonTab(p: Props) {
           Each scenario is a saved set of SKUs. Switch "In DKT forecast" on to put it in DKT's cash flow.
           A <b>simple</b> SKU is an existing line: monthly sales × price × net margin, from its start month.
           A <b>new SKU</b> runs the full cycle: 100% of product cost at PO, freight when it ships (after the make months), first sales after the ship months,
-          and a reorder whenever stock on hand plus on the way covers your reorder months or less. Net margin is what's left after Amazon fees and landed cost,
+          and a reorder placed automatically so it arrives before stock runs out (make + ship months of sales at units per month). Net margin is what's left after Amazon fees and landed cost,
           so Amazon pays out price × net margin + landed cost per unit sold.
         </p>
         <Button size="sm" variant="outline" onClick={p.addScenario}><Plus className="h-3.5 w-3.5 mr-1" /> New scenario</Button>
@@ -70,7 +70,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
             {hasInventory && <Stat label="Paid back by" value={sum.paybackMonth ? monthLabel(sum.paybackMonth) : sum.peakNeed > 0 ? `after ${monthLabel(last)}` : '—'} />}
             <Stat label={`Net cash by ${monthLabel(last)}`} value={usd(sum.profit)} tone={sum.profit >= 0 ? 'success' : 'destructive'} />
             {hasInventory && <Stat label="Stock left (at cost)" value={usd(sum.stockValue)} sub={`Worth ${usd(sum.profit + sum.stockValue)} with cash`} />}
-            {hasInventory && <Stat label="Months out of stock" value={sum.stockoutMonths} tone={sum.stockoutMonths ? 'destructive' : undefined} sub={sum.stockoutMonths ? 'Reorder earlier or order more' : 'None'} />}
+            {hasInventory && <Stat label="Months out of stock" value={sum.stockoutMonths} tone={sum.stockoutMonths ? 'destructive' : undefined} sub={sum.stockoutMonths ? 'Order more per PO' : 'None'} />}
           </div>
         )}
         <div className="overflow-x-auto">
@@ -86,7 +86,6 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                 <th className="font-medium px-1 text-right">Product cost / unit</th>
                 <th className="font-medium px-1 text-right">Freight / unit</th>
                 <th className="font-medium px-1 text-right">Order qty</th>
-                <th className="font-medium px-1 text-right" title="Reorder when stock on hand + on the way covers this many months">Reorder at (mo)</th>
                 <th className="font-medium px-1 text-right" title="Months from PO to shipping, then shipping to first sale">Make / ship (mo)</th>
                 <th />
               </tr>
@@ -120,7 +119,6 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                           <NumField integer label="Order quantity" value={x.order_qty} onSave={v => updateSku(x.id, { order_qty: v ?? 0 })} />
                           <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(x.order_qty * landedPerUnit(x))}</div>
                         </td>
-                        <td className="py-1.5 px-1 w-16"><NumField label="Reorder at months of stock" value={x.reorder_months} onSave={v => updateSku(x.id, { reorder_months: v ?? 0 })} /></td>
                         <td className="py-1.5 px-1">
                           <div className="flex gap-1">
                             <NumField className="w-12" integer label="Make months" value={x.make_months} onSave={v => updateSku(x.id, { make_months: v ?? 0 })} />
@@ -128,7 +126,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                           </div>
                         </td>
                       </>
-                    ) : <td colSpan={5} className="py-1.5 px-1 text-muted-foreground pt-3">Existing line: no stock purchases modelled.</td>}
+                    ) : <td colSpan={4} className="py-1.5 px-1 text-muted-foreground pt-3">Existing line: no stock purchases modelled.</td>}
                     <td className="py-1.5 pl-1"><Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Delete SKU" onClick={() => removeSku(x.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                   </tr>
                 );

@@ -2,8 +2,9 @@
 //  - simple: an existing line, cash in = units/month × price × net margin from the start month
 //    (restocking is assumed to come out of the margin already).
 //  - inventory: a new or modelled SKU. DKT pays 100% of the product cost at PO, pays freight when
-//    it ships (make_months later) and sells ship_months after that. It reorders order_qty whenever
-//    stock on hand plus stock on the way covers reorder_months or less of sales.
+//    it ships (make_months later) and sells ship_months after that. It reorders order_qty as late as
+//    it can without running out: when stock on hand plus on the way no longer covers the make + ship
+//    time at units/month, so the new order lands before the shelf is empty.
 // Amazon pays out price − fees. Net margin is what is left after fees AND landed cost, so the
 // payout per unit is price × net margin + product cost + freight per unit.
 import type { Flow, Month } from './dkt-cashflow';
@@ -20,7 +21,6 @@ export type AmazonSku = {
   unit_cost_usd: number;
   freight_per_unit_usd: number;
   order_qty: number;
-  reorder_months: number;
   make_months: number;
   ship_months: number;
 };
@@ -64,7 +64,6 @@ export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
   const qty = Math.max(0, Math.round(Number(s.order_qty) || 0));
   const make = Math.max(0, Math.round(Number(s.make_months) || 0));
   const lead = leadMonths(s);
-  const reorder = Math.max(0, Number(s.reorder_months) || 0);
   const cost = Number(s.unit_cost_usd) || 0;
   const freight = Number(s.freight_per_unit_usd) || 0;
   const first = firstPoMonth(s)!;
@@ -85,7 +84,8 @@ export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
     const inbound = pos.filter(p => add(p.month, lead) > m).reduce((t, p) => t + p.units, 0);
     const firstOrder = m === first;
     const covered = v > 0 ? (stock + inbound) / v : Infinity;
-    if (qty > 0 && (firstOrder || (m >= s.start_month && covered <= reorder))) {
+    // Waiting another month means this stock must last until an order placed next month arrives.
+    if (qty > 0 && (firstOrder || (m >= s.start_month && covered < lead - 1e-9))) {
       pos.push({ month: m, units: qty });
       poUnits = qty;
     }
