@@ -10,6 +10,8 @@ import { demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary,
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
 
+const pctLabel = (r: number) => `${(r * 100).toFixed(Math.abs(r) < 0.1 ? 1 : 0)}%`;
+
 type Props = {
   scenarios: AmazonScenario[];
   skus: AmazonSku[];
@@ -95,12 +97,14 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
       </CardHeader>
       <CardContent className="space-y-3">
         {mine.length > 0 && (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
             {hasInventory && <Stat label="Most cash tied up" value={usd(sum.peakNeed)} sub={sum.peakMonth ? `in ${monthLabel(sum.peakMonth)}` : undefined} tone={sum.peakNeed > 0 ? 'warning' : undefined} />}
             {hasInventory && <Stat label="Paid back by" value={sum.paybackMonth ? monthLabel(sum.paybackMonth) : sum.peakNeed > 0 ? `after ${monthLabel(last)}` : '—'} />}
             <Stat label={`Net cash by ${monthLabel(last)}`} value={usd(sum.profit)} tone={sum.profit >= 0 ? 'success' : 'destructive'} />
             {hasInventory && <Stat label="Stock left (at cost)" value={usd(sum.stockValue)} sub={`Worth ${usd(sum.profit + sum.stockValue)} with cash`} />}
             {hasInventory && <Stat label="Months out of stock" value={sum.stockoutMonths} tone={sum.stockoutMonths ? 'destructive' : undefined} sub={sum.stockoutMonths ? 'Order more per PO' : 'None'} />}
+            <Stat label={`Net earnings by ${monthLabel(last)}`} value={usd(sum.earnings)} tone={sum.earnings >= 0 ? 'success' : 'destructive'} sub="Price × net margin on units sold" />
+            {hasInventory && <Stat label="Cash ROI (annualized)" value={sum.annualRoi == null ? '—' : pctLabel(sum.annualRoi)} tone={sum.annualRoi == null ? undefined : sum.annualRoi >= 0 ? 'success' : 'destructive'} sub={sum.roi == null ? 'No cash tied up' : `${pctLabel(sum.roi)} on ${usd(sum.peakNeed)} over ${sum.spanMonths} mo`} />}
           </div>
         )}
         <div className="overflow-x-auto">
