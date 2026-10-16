@@ -114,3 +114,19 @@ describe('existing finished product', () => {
     expect(p.components[0]).not.toHaveProperty('cost');
   });
 });
+
+import { dktProductsSheet as dktSheet, checkFinishedOnly as finOnly, defaultFinished as defFin } from './odoo-bom';
+describe('final products step', () => {
+  it('DKT sheet: name (customer SKU), Parable vendor, dropship category, Goods', () => {
+    expect(dktSheet([{ name: 'Crank Table', customerSku: 'CF3931CHETBK' }, { name: 'Stool', customerSku: '' }]).slice(1)).toEqual([
+      ['Crank Table (CF3931CHETBK)', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods'],
+      ['Stool', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods'],
+    ]);
+  });
+  it('blocks a SKU already in Odoo and one without a suffix', () => {
+    const f = { ...defFin({ name: 'Table' }), sku: 'CCT-CF3931-CHBL' };
+    expect(finOnly(f, new Set(['CCT-CF3931-CHBL'])).length).toBe(1);
+    expect(finOnly({ ...f, sku: 'CCT-CF3931-' }, null).length).toBe(1);
+    expect(finOnly(f, new Set())).toEqual([]);
+  });
+});
