@@ -9,7 +9,7 @@ import type { AmazonSku } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import {
   FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS,
-  type DktSettings, type Flow, type FlowKind, type Forecast, type Month,
+  type DktSettings, type FlowKind, type Forecast, type Month, type ProfitItem, type ProfitLine, type ProfitProjection,
 } from '@/lib/dkt-cashflow';
 import { NumField, SelectField, Stat, usd, usdK } from './fields';
 
@@ -25,7 +25,7 @@ type Props = {
 };
 
 export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable, scenarios, skus, setScenarioInForecast }: Props) {
-  const [cell, setCell] = useState<{ title: string; flows: Flow[] } | null>(null);
+  const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
   const inKinds = IN_KINDS.filter(k => used.has(k));
@@ -106,6 +106,8 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
           <p className="text-[11px] text-muted-foreground mt-1">Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum.</p>
         </CardContent>
       </Card>
+
+      <ProfitCard profit={forecast.profit} months={months.length} open={(title, items) => setCell({ title, flows: items })} />
 
       <AmazonCounted forecast={forecast} scenarios={scenarios} skus={skus} setInForecast={setScenarioInForecast} />
 
@@ -195,6 +197,60 @@ function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
             </div>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Net profit over the forecast months: what's earned, not when cash moves. */
+function ProfitCard({ profit: p, months, open }: { profit: ProfitProjection; months: number; open: (title: string, items: ProfitItem[]) => void }) {
+  const pct = (v: number) => (p.totalRevenue > 0.5 ? `${((v / p.totalRevenue) * 100).toFixed(1)}%` : '');
+  const lines = (ls: ProfitLine[]) => ls.filter(l => l.items.length).map(l => (
+    <tr key={l.key} className="border-t border-border/50">
+      <td className="py-1.5 pr-3 pl-3">{l.label}</td>
+      <td className={cn('py-1.5 text-right', l.amount < 0 && 'text-destructive')}>
+        <button type="button" className="hover:underline" onClick={() => open(`${l.label} · ${monthLabel(p.from)} to ${monthLabel(p.to)}`, l.items)}>{usd(l.amount)}</button>
+      </td>
+      <td />
+    </tr>
+  ));
+  const total = (label: string, v: number, big?: boolean) => (
+    <tr className={cn('border-t', big && 'bg-muted/40')}>
+      <td className={cn('py-1.5 pr-3 font-semibold', big && 'pl-1')}>{label}</td>
+      <td className={cn('py-1.5 text-right font-semibold', v < 0 && 'text-destructive')}>{usd(v)}</td>
+      <td className="py-1.5 pl-3 text-right text-muted-foreground w-16">{pct(v)}</td>
+    </tr>
+  );
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex-row items-baseline justify-between space-y-0 gap-3 flex-wrap">
+        <CardTitle className="text-sm">Net profit projection · next {months} months</CardTitle>
+        <span className="text-xs text-muted-foreground">{monthLabel(p.from)} to {monthLabel(p.to)}</span>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-[12rem_1fr]">
+        <div className="space-y-1">
+          <div className={cn('text-2xl font-semibold tabular-nums', p.netProfit < 0 && 'text-destructive')}>{usd(p.netProfit)}</div>
+          <div className="text-xs text-muted-foreground">Net profit before tax{p.totalRevenue > 0.5 ? `, ${pct(p.netProfit)} of revenue` : ''}</div>
+          <div className="text-xs text-muted-foreground pt-1">{usd(p.netProfit / Math.max(1, months))} a month on average</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs tabular-nums">
+            <tbody>
+              {lines(p.revenue)}
+              {total('Revenue', p.totalRevenue)}
+              {lines(p.costOfSales)}
+              {total('Gross profit', p.grossProfit)}
+              {lines(p.operating)}
+              {total('Operating profit', p.operatingProfit)}
+              {lines(p.interest)}
+              {total('Net profit', p.netProfit, true)}
+            </tbody>
+          </table>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Counted when earned, not when cash moves: HQ orders (confirmed and pipeline) in their ship month, Amazon on units sold.
+            Loans, credit draws and repayments, Allegro and stock still on the shelf aren't profit or cost. Click a number to see what's in it.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

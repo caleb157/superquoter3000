@@ -10,7 +10,7 @@
 //   PV balance        = FOB × (1 − DKT margin) × (1 − advance %) in the shipping month
 // A flow marked done is left out (it is already in current cash); one still open but dated in
 // the past lands in the current month.
-import { amazonSkuFlows, type AmazonSku } from './dkt-amazon';
+import { amazonSkuFlows, simulateSku, type AmazonSku } from './dkt-amazon';
 
 export type Month = string; // 'YYYY-MM'
 
@@ -408,6 +408,7 @@ export type Forecast = {
   need: { firstMonth: Month; peakMonth: Month; amount: number } | null;
   lowest: { month: Month; closing: number } | null;
   creditHeadroom: number;
+  profit: ProfitProjection;
 };
 
 export function buildForecast(inp: ForecastInput): Forecast {
@@ -451,7 +452,91 @@ export function buildForecast(inp: ForecastInput): Forecast {
     need: short.length && peak ? { firstMonth: short[0].month, peakMonth: peak.month, amount: peak.shortBy } : null,
     lowest: lowest ? { month: lowest.month, closing: lowest.closing } : null,
     creditHeadroom,
+    profit: profitProjection(inp, months, flows),
   };
+}
+
+// ---------- Net profit (earned, not cash) ----------
+export type ProfitItem = { month: Month; label: string; amount: number };
+export type ProfitLine = { key: string; label: string; amount: number; items: ProfitItem[] };
+export type ProfitProjection = {
+  from: Month;
+  to: Month;
+  revenue: ProfitLine[];
+  costOfSales: ProfitLine[];
+  operating: ProfitLine[];
+  interest: ProfitLine[];
+  totalRevenue: number;
+  grossProfit: number;
+  operatingProfit: number;
+  netProfit: number;
+};
+
+const line = (key: string, label: string, items: ProfitItem[]): ProfitLine =>
+  ({ key, label, items, amount: items.reduce((t, i) => t + i.amount, 0) });
+const fromFlows = (flows: Flow[], kinds: FlowKind[]): ProfitItem[] =>
+  flows.filter(f => kinds.includes(f.kind)).map(f => ({ month: f.month, label: f.label, amount: f.amount }));
+
+/**
+ * What DKT earns over the forecast months, counted when it's earned rather than when cash moves:
+ * an HQ order earns the customer's FOB minus PV's bill in its ship month; Amazon earns price × net
+ * margin on each unit sold (stock bought is a cost only once sold); other income, overhead, expenses
+ * and interest as they fall. Loans, credit draws and repayments, Allegro and stock purchases are cash
+ * only, not profit. Before tax.
+ */
+export function profitProjection(inp: ForecastInput, months: Month[], allFlows: Flow[]): ProfitProjection {
+  const from = months[0], to = months[months.length - 1];
+  const inWindow = (m: Month) => m >= from && m <= to;
+  const flows = allFlows.filter(f => inWindow(f.month));
+  const at = (m: Month) => (m < inp.thisMonth ? inp.thisMonth : m);
+  const hqRev: ProfitItem[] = [], hqCost: ProfitItem[] = [];
+  for (const o of inp.orders) {
+    const m = at(o.ship_month);
+    if (o.excluded || !(o.fob_usd > 0) || !inWindow(m)) continue;
+    const a = orderAmounts(o);
+    const label = `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''} (pipeline)`;
+    hqRev.push({ month: m, label, amount: o.fob_usd });
+    hqCost.push({ month: m, label, amount: -a.pvTotal });
+  }
+  for (const o of inp.odooOrders ?? []) {
+    const m = at(o.ship_month);
+    if (o.excluded || !(o.pv_total_usd > 0) || !inWindow(m)) continue;
+    const label = `${o.name}${o.ref ? ` · ${o.ref}` : ''}`;
+    hqRev.push({ month: m, label, amount: odooFob(o) });
+    hqCost.push({ month: m, label, amount: -o.pv_total_usd });
+  }
+  const azRev: ProfitItem[] = [], azCost: ProfitItem[] = [];
+  for (const s of inp.amazonSkus) {
+    const price = Number(s.price_usd) || 0;
+    const margin = Number(s.net_margin_pct) || 0;
+    for (const r of simulateSku(s, to)) {
+      if (!inWindow(r.month) || !(r.sold > 0)) continue;
+      azRev.push({ month: r.month, label: s.name, amount: r.sold * price });
+      azCost.push({ month: r.month, label: s.name, amount: -r.sold * price * (1 - margin) });
+    }
+  }
+  const revenue = [
+    line('hq', 'HQ orders (customer price)', hqRev),
+    line('amazon', 'Amazon sales', azRev),
+    line('income', 'Other income', fromFlows(flows, ['income'])),
+  ];
+  const costOfSales = [
+    line('pv', 'Paid to PV for those orders', hqCost),
+    line('amazon_cost', 'Amazon fees, stock and freight on units sold', azCost),
+  ];
+  const operating = [
+    line('overhead', 'Overhead', fromFlows(flows, ['overhead'])),
+    line('expense', 'Expenses', fromFlows(flows, ['expense'])),
+  ];
+  const interest = [
+    line('loan_interest', 'Loan interest', fromFlows(flows, ['loan_interest'])),
+    line('credit_interest', 'Credit line interest and fees', fromFlows(flows, ['credit_interest'])),
+  ];
+  const sum = (ls: ProfitLine[]) => ls.reduce((t, l) => t + l.amount, 0);
+  const totalRevenue = sum(revenue);
+  const grossProfit = totalRevenue + sum(costOfSales);
+  const operatingProfit = grossProfit + sum(operating);
+  return { from, to, revenue, costOfSales, operating, interest, totalRevenue, grossProfit, operatingProfit, netProfit: operatingProfit + sum(interest) };
 }
 
 // ---------- Allegro (emergency fund, outside DKT cash) ----------

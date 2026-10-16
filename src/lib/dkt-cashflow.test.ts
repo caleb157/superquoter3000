@@ -174,6 +174,22 @@ describe('forecast', () => {
     expect(Math.round(fc.need!.amount)).toBe(45250);
     expect(Math.round(fc.months[fc.months.length - 1].closing)).toBe(25000); // 20,000 + 5% of 100,000
   });
+  it('projects net profit from orders shipping in the window, overhead and interest, not cash moves', () => {
+    const fc = buildForecast({
+      settings: { ...DEFAULT_SETTINGS, monthly_overhead_usd: 1000, horizon_months: 6, allegro_launch_on: false },
+      thisMonth: '2026-10', orders: [order(), order({ inquiry_id: 'i2', ship_month: '2027-06' })],
+      costs: [], loans: [], loanPayments: [],
+      creditLines: [{ id: 'a', name: 'Amex', limit_usd: 15300, drawn_usd: 0, rate_pct: 0, term_months: 6, monthly_fee_pct: 0.55 }],
+      creditDraws: [{ id: 'd', line_id: 'a', month: '2026-10', amount_usd: 15300 }],
+      amazonSkus: [],
+    });
+    const p = fc.profit;
+    expect(p.totalRevenue).toBe(100000); // the June order ships after the window
+    expect(Math.round(p.grossProfit)).toBe(5000);
+    expect(p.operatingProfit).toBeCloseTo(-1000);
+    // Amex fee 0.55% of 15,300 for Nov–Mar; the draw and repayments aren't profit.
+    expect(p.netProfit).toBeCloseTo(-1000 - 5 * 84.15);
+  });
 });
 
 describe('amazon', () => {
