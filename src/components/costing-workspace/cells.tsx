@@ -147,7 +147,7 @@ export function NavCell({ nav, children, className, align = 'right' }: {
 // ---------- EditCell ----------
 
 /** Split clipboard text into rows × columns (tab-separated, like Excel/Sheets copy). */
-function parseClipboard(text: string) {
+export function parseClipboard(text: string) {
   return text.replace(/\r/g, '').replace(/\n$/, '').split('\n').map(l => l.split('\t'));
 }
 
@@ -243,6 +243,7 @@ export function EditCell({
     <input
       ref={ref}
       {...navAttrs(nav)}
+      data-editing={editing || undefined}
       title={title}
       className={cn(
         'h-8 w-full rounded-md bg-transparent px-2 text-sm tabular-nums outline-none transition-colors',

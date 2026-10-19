@@ -6,7 +6,7 @@
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, RefreshCw, Scale, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Undo2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -78,7 +78,9 @@ export default function CostingWorkspace() {
   }, { replace: true });
 
   const loader = useCallback(() => loadBundle(inquiryId!), [inquiryId]);
-  const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
+  const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t, undo, redo, canUndo, canRedo } = useCostingBundle(inquiryId ? loader : null);
+  const doUndo = () => { if (undo()) toast('Undone', { action: { label: 'Redo', onClick: () => { redo(); } } }); else toast.info('Nothing to undo'); };
+  const doRedo = () => { if (redo()) toast('Redone'); else toast.info('Nothing to redo'); };
   // Rupee customers get the whole workspace in ₹ (the inquiry's Quoting currency).
   const cur = quoteCurrencyOf(bundle?.inq);
   const cols = useMemo(() => layout(open, cur), [open, cur]);
@@ -155,6 +157,15 @@ export default function CostingWorkspace() {
       const el = e.target as HTMLElement;
       const tag = el?.tagName;
       const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || el?.isContentEditable;
+      // Ctrl+Z / Ctrl+Y undo saved edits, except while typing in a field (the field's own undo).
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'y')) {
+        const inGridCell = !!el?.closest?.('[data-grid]') && !el.closest('[data-editing]');
+        if (typing && !inGridCell) return;
+        e.preventDefault();
+        if (k === 'y' || e.shiftKey) doRedo(); else doUndo();
+        return;
+      }
       if (e.key === 'Escape' && openId && !e.defaultPrevented && (!typing || el.closest('[data-grid]'))) {
         setParam('sku', null); focusRow(openId); return;
       }
@@ -247,6 +258,20 @@ export default function CostingWorkspace() {
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-[72px]">
                 {saving > 0 ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</> : savedAt ? <><Check className="h-3.5 w-3.5 text-primary" /> Saved</> : null}
               </span>
+              <div className="flex">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-r-none" disabled={!canUndo} onClick={doUndo} aria-label="Undo"><Undo2 className="h-4 w-4" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Undo the last change (Ctrl+Z)</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="outline" className="-ml-px h-9 w-9 rounded-l-none" disabled={!canRedo} onClick={doRedo} aria-label="Redo"><Redo2 className="h-4 w-4" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
+                </Tooltip>
+              </div>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-4 w-4" /> Import sheet</Button>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
               <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
@@ -386,7 +411,12 @@ const SHORTCUTS: [string, string][] = [
   ['Esc', 'Undo the edit in progress, or close the product panel'],
   ['Ctrl+↑ ↓  ·  Home / End', 'First / last row  ·  first / last cell in the row'],
   ['Page Up / Down', 'Jump 10 rows'],
-  ['Ctrl+V', 'Paste a block from Excel or Sheets (fills down and across)'],
+  ['Ctrl+Z  ·  Ctrl+Y', 'Undo / redo any saved change, pastes and bulk sets included'],
+  ['Shift+arrows  ·  Shift+click', 'Select a block of cells'],
+  ['Ctrl+C', 'Copy the cell or block (pastes straight into Excel or Sheets)'],
+  ['Ctrl+V', 'Paste a block from Excel or Sheets (fills down and across); one value pasted on a block fills all of it'],
+  ['Ctrl+D', 'Fill down from the top of the block (or from the row above)'],
+  ['Delete', 'Clear the numbers in a block (overrides ✎ go back to the calculation)'],
   ['Space (on SKU)', 'Select the row (Shift+Space selects a range)'],
   ['Enter (on SKU)', 'Open the product panel; ↑ ↓ then step through SKUs'],
   ['Enter / Space (on a menu)', 'Open the dropdown; typing a letter picks an option'],

@@ -22,6 +22,8 @@ export type EditSpec = {
   display?: (row: WorkspaceRow) => string;
   options?: (b: Bundle) => { value: string; label: string }[];
   disabled?: (row: WorkspaceRow, b: Bundle) => string | null;
+  /** True when the value is calculated, not typed (no ✎). Fill down then sends the target rows back to the calculation instead of pinning a number. */
+  auto?: (row: WorkspaceRow) => boolean;
   /** Build the mutation that writes `raw` to every product in `ids`; null = invalid input. */
   write: (b: Bundle, ids: string[], raw: string) => Mutation | null;
 };
@@ -210,6 +212,7 @@ const laborHoursCol = (type: 'Finishing' | 'Packaging', id: string, label: strin
     get: r => { const h = r.labor[type]; return h ? Math.round(h.hours * 1000) / 1000 : ''; },
     display: r => { const h = r.labor[type]; return h ? `${num(h.hours, 2)}${h.auto ? '' : ' ✎'}` : ''; },
     disabled: r => (r.labor[type] ? null : `No ${type} labor row on this product`),
+    auto: r => !!r.labor[type]?.auto,
     write: (b, ids, raw) => {
       const t = raw.trim().toLowerCase();
       if (t === '' || t === 'auto') return setLaborHours(b, ids, type, 'auto');
@@ -283,6 +286,7 @@ const riCol: Col = {
     kind: 'number',
     get: r => (Number(r.p.running_inches_override) > 0 ? r.p.running_inches_override : Math.round(r.r.ri * 100) / 100),
     display: r => `${num(r.r.ri, 1)}${Number(r.p.running_inches_override) > 0 ? ' ✎' : ''}`,
+    auto: r => !(Number(r.p.running_inches_override) > 0),
     write: (b, ids, raw) => {
       if (raw.trim() === '') return patchProductsSame(b, ids, { running_inches_override: null });
       const n = parseNum(raw);
@@ -322,6 +326,7 @@ const perMcCol: Col = {
     disabled: r => (r.p.packaging_type || 'ic_mc') === 'ic_mc' ? null : 'Only for IC + MC packaging',
     get: r => r.cbmRow?.products_per_mc_override || r.r.productsPerMc || '',
     display: r => (r.r.productsPerMc ? `${r.r.productsPerMc}${r.r.mcPlan?.override != null ? ' ✎' : ''}` : '—'),
+    auto: r => !r.cbmRow?.products_per_mc_override,
     write: (b, ids, raw) => {
       if (raw.trim() === '') return patchCbm(b, ids, { products_per_mc_override: null });
       const n = parseNum(raw);

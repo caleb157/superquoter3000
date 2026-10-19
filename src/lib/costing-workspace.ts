@@ -678,6 +678,67 @@ export function chain(b: Bundle, steps: ((cur: Bundle) => Mutation | null)[]): M
   return { next: cur, touched: [...touched], commit: async () => { for (const c of commits) await c(); } };
 }
 
+// ----- Undo -----
+
+/** Bundle row lists that edits write, child tables first (deletes run in this order, inserts in reverse). */
+const ROW_TABLES = [
+  ['cogs', 'cogs_items'], ['nu', 'non_unit_cogs'], ['oh', 'overhead_items'], ['cbm', 'cbm_estimates'], ['products', 'products'],
+] as const;
+type RowKey = typeof ROW_TABLES[number][0];
+
+const sameValue = (a: unknown, b: unknown) =>
+  a === b || ((a ?? null) === null && (b ?? null) === null) || (typeof a === 'object' && typeof b === 'object' && JSON.stringify(a) === JSON.stringify(b));
+
+/**
+ * Puts back whatever changed between `from` and `to`, on top of `cur`: rows added since are
+ * deleted, rows removed are re-inserted, and changed fields get their `from` values. Fields
+ * the change didn't touch keep their current value, so a later edit elsewhere survives.
+ * Undo is restoreRows(cur, before, after); redo is restoreRows(cur, after, before).
+ */
+export function restoreRows(cur: Bundle, from: Bundle, to: Bundle): Mutation | null {
+  let next: Bundle = cur;
+  const deletes: (() => Promise<void>)[] = [];
+  const inserts: (() => Promise<void>)[] = [];
+  const updates: (() => Promise<void>)[] = [];
+  const touched = new Set<string>();
+  for (const [key, table] of ROW_TABLES) {
+    const before = from[key as RowKey] as any[];
+    const after = to[key as RowKey] as any[];
+    if (before === after) continue;
+    const beforeById = new Map(before.map(r => [r.id, r]));
+    const afterById = new Map(after.map(r => [r.id, r]));
+    const remove = new Set(after.filter(r => !beforeById.has(r.id)).map(r => r.id));
+    const curRows = next[key as RowKey] as any[];
+    const curIds = new Set(curRows.map(r => r.id));
+    const reinsert = before.filter(r => !afterById.has(r.id) && !curIds.has(r.id));
+    const patches = new Map<string, Record<string, any>>();
+    for (const r of before) {
+      const n = afterById.get(r.id);
+      if (!n || n === r) continue;
+      const patch: Record<string, any> = {};
+      for (const k of new Set([...Object.keys(r), ...Object.keys(n)])) if (!sameValue(r[k], n[k])) patch[k] = r[k] ?? null;
+      if (Object.keys(patch).length) patches.set(r.id, patch);
+    }
+    if (!remove.size && !reinsert.length && !patches.size) continue;
+    const productOf = (r: any) => (key === 'products' ? r.id : r.product_id);
+    [...after.filter(r => remove.has(r.id)), ...reinsert, ...before.filter(r => patches.has(r.id))].forEach(r => touched.add(productOf(r)));
+    next = {
+      ...next,
+      [key]: [...curRows.filter(r => !remove.has(r.id)).map(r => (patches.has(r.id) ? { ...r, ...patches.get(r.id) } : r)), ...reinsert],
+    };
+    const removeIds = [...remove].filter(id => curIds.has(id));
+    if (removeIds.length) deletes.push(async () => { check(await db.from(table).delete().in('id', removeIds)); });
+    if (reinsert.length) inserts.unshift(async () => { check(await db.from(table).insert(reinsert)); });
+    const patchList = [...patches].filter(([id]) => curIds.has(id));
+    if (patchList.length) updates.push(async () => { for (const [id, patch] of patchList) check(await db.from(table).update(patch).eq('id', id)); });
+  }
+  if (!touched.size) return null;
+  return {
+    next, touched: [...touched],
+    commit: async () => { for (const op of [...deletes, ...inserts, ...updates]) await op(); },
+  };
+}
+
 function ohMutation(b: Bundle, updates: { id: string; patch: any }[]): Mutation {
   const byId = new Map(updates.map(u => [u.id, u.patch]));
   return {

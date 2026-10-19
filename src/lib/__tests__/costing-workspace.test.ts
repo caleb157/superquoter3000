@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  chain, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -287,5 +287,34 @@ describe('quote currency targets', () => {
     expect(byId(m.next, 'c').editBuckets.hw_feet).toBe(0);
     const again = addPriceListLines(m.next, ['b'], [{ item: feet, qty: 6 }]);
     expect(again.next.cogs.filter(c => c.product_id === 'b' && c.cogs_type === 'Feet/Buffers').map(c => c.components_per_product)).toEqual([6]);
+  });
+
+  it('undo puts back exactly what an edit changed, and redo re-applies it', () => {
+    const before = bundle();
+    const costs = (b: Bundle) => rowsOf(b).map(r => r.costInr);
+    // A multi-table edit: packaging type rewrites cogs lines and the product.
+    const after = chain(before, [
+      cur => setPackagingType(cur, ['a', 'b'], 'bulk_pack'),
+      cur => setBucketTotal(cur, ['a'], 'raw_piece', 1234),
+      cur => patchProductsSame(cur, ['c'], { quantity: 999 }),
+    ]).next;
+    expect(costs(after)).not.toEqual(costs(before));
+    const undone = restoreRows(after, before, after)!;
+    expect(costs(undone.next)).toEqual(costs(before));
+    expect(undone.next.products.find(p => p.id === 'c')!.quantity).toBe(50);
+    expect(new Set(undone.touched)).toEqual(new Set(['a', 'b', 'c']));
+    const redone = restoreRows(undone.next, after, before)!;
+    expect(costs(redone.next)).toEqual(costs(after));
+  });
+
+  it('undo keeps later edits to other fields, and removes lines the edit added', () => {
+    const before = bundle();
+    const knob = { key: 'm:9', category: 'Accessories', name: 'Rope handle', unitCostInr: 30, units: 'pc' };
+    const after = addPriceListLines(before, ['b'], [{ item: knob, qty: 3 }]).next;
+    const later = patchProductsSame(after, ['b'], { markup_percent: 0.4 }).next;
+    const undone = restoreRows(later, before, after)!.next;
+    expect(undone.cogs.length).toBe(before.cogs.length);
+    expect(undone.products.find(p => p.id === 'b')!.markup_percent).toBe(0.4);
+    expect(restoreRows(before, before, before)).toBeNull();
   });
 });
