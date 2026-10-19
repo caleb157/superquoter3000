@@ -1,0 +1,1 @@
+- index.ts is plugin-generated from src/lib/mcp - never hand-edit or remove its banner (build refuses to overwrite); type-check looseness lives in its deno.json.
