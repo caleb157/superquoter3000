@@ -11,7 +11,6 @@ import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingSheet } from '@/components/ProductCostingSheet';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductCostHistoryTab } from '@/components/ProductCostHistoryTab';
-import { OdooExportTab } from '@/components/odoo-export/OdooExportTab';
 
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
 import { Input } from '@/components/ui/input';
@@ -192,8 +191,8 @@ const ProductDetail = () => {
 
   // All Odoo work lives on the inquiry's Odoo page; old ?tab=odoo links go to this product's BOM there.
   useEffect(() => {
-    if (tabParam === 'odoo' && product?.customer_rfq_id) navigate(`/inquiry/${product.customer_rfq_id}/odoo/${product.id}`, { replace: true });
-  }, [tabParam, product, navigate]);
+    if (searchParams.get('tab') === 'odoo' && product?.customer_rfq_id) navigate(`/inquiry/${product.customer_rfq_id}/odoo/${product.id}`, { replace: true });
+  }, [searchParams, product, navigate]);
 
   const setTab = (t: string) => {
     const next = new URLSearchParams(searchParams);
