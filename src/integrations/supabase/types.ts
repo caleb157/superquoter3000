@@ -932,14 +932,18 @@ export type Database = {
       dkt_amazon_skus: {
         Row: {
           created_at: string
+          first_order_qty: number | null
           freight_per_unit_usd: number
           id: string
+          launch_margin_pct: number | null
+          launch_units_per_month: number | null
           make_months: number
           mode: string
           name: string
           net_margin_pct: number
           order_qty: number
           price_usd: number
+          ramp_months: number | null
           reorder_months: number
           scenario_id: string
           ship_months: number
@@ -950,14 +954,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_order_qty?: number | null
           freight_per_unit_usd?: number
           id?: string
+          launch_margin_pct?: number | null
+          launch_units_per_month?: number | null
           make_months?: number
           mode?: string
           name?: string
           net_margin_pct?: number
           order_qty?: number
           price_usd?: number
+          ramp_months?: number | null
           reorder_months?: number
           scenario_id: string
           ship_months?: number
@@ -968,14 +976,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_order_qty?: number | null
           freight_per_unit_usd?: number
           id?: string
+          launch_margin_pct?: number | null
+          launch_units_per_month?: number | null
           make_months?: number
           mode?: string
           name?: string
           net_margin_pct?: number
           order_qty?: number
           price_usd?: number
+          ramp_months?: number | null
           reorder_months?: number
           scenario_id?: string
           ship_months?: number
@@ -1120,9 +1132,11 @@ export type Database = {
           id: string
           limit_usd: number
           maturity_month: string | null
+          monthly_fee_pct: number | null
           name: string
           notes: string | null
           rate_pct: number
+          term_months: number | null
           updated_at: string
         }
         Insert: {
@@ -1131,9 +1145,11 @@ export type Database = {
           id?: string
           limit_usd?: number
           maturity_month?: string | null
+          monthly_fee_pct?: number | null
           name?: string
           notes?: string | null
           rate_pct?: number
+          term_months?: number | null
           updated_at?: string
         }
         Update: {
@@ -1142,9 +1158,11 @@ export type Database = {
           id?: string
           limit_usd?: number
           maturity_month?: string | null
+          monthly_fee_pct?: number | null
           name?: string
           notes?: string | null
           rate_pct?: number
+          term_months?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -1288,28 +1306,37 @@ export type Database = {
       dkt_order_status: {
         Row: {
           advance_done: boolean
+          advance_pct: number | null
           cust_balance_done: boolean
           cust_deposit_done: boolean
+          cust_deposit_pct: number | null
           excluded: boolean
           inquiry_id: string
+          margin_pct: number | null
           pv_balance_done: boolean
           updated_at: string
         }
         Insert: {
           advance_done?: boolean
+          advance_pct?: number | null
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
+          cust_deposit_pct?: number | null
           excluded?: boolean
           inquiry_id: string
+          margin_pct?: number | null
           pv_balance_done?: boolean
           updated_at?: string
         }
         Update: {
           advance_done?: boolean
+          advance_pct?: number | null
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
+          cust_deposit_pct?: number | null
           excluded?: boolean
           inquiry_id?: string
+          margin_pct?: number | null
           pv_balance_done?: boolean
           updated_at?: string
         }
