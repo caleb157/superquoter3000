@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  EDITABLE_BUCKETS, bucketLines, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation,
   type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
@@ -36,11 +36,15 @@ export type Col = {
   width: number;
   align?: 'left' | 'right' | 'center';
   edit?: EditSpec;
+  /** Shown under an editable cell (e.g. the parts behind a bucket total). */
+  detail?: (row: WorkspaceRow, b: Bundle) => React.ReactNode;
   /** Read-only cell renderer. */
   render?: (row: WorkspaceRow, b: Bundle) => React.ReactNode;
   footer?: (rows: WorkspaceRow[]) => React.ReactNode;
   /** Shown in the bulk bar "Set" menu even though it isn't a column of the current view. */
   bulkOnly?: boolean;
+  /** Name in the bulk bar "Set" menu when the header alone is ambiguous there. */
+  bulkLabel?: string;
 };
 
 export type View = { id: string; label: string; hint: string; cols: Col[] };
@@ -87,7 +91,27 @@ function dimCols(idPrefix: string, group: string, opts: {
 /** "Piece W" for menus, where the group header isn't visible. */
 export const fullLabel = (c: Col) => (c.group ? `${c.group} ${c.label}` : c.label);
 
-const bucketCol = (key: string, label: string, width = 96): Col => ({
+/** The parts behind a bucket total, one per line: "2 × Brass knob". */
+function BucketParts({ row, b, bucketKey }: { row: WorkspaceRow; b: Bundle; bucketKey: string }) {
+  const lines = bucketLines(b, row.p.id, bucketKey);
+  if (!lines.length) return null;
+  return (
+    <div className="space-y-px pb-1 pl-2 pr-2 text-left text-[11px] leading-tight text-muted-foreground">
+      {lines.map(l => {
+        const qty = +(Number(l.components_per_product) || 0).toFixed(3);
+        const unnamed = !l.component_name || l.component_name === l.cogs_type;
+        return (
+          <div key={l.id} className="flex gap-1" title={`${l.component_name || l.cogs_type}: ${qty} × ${inr(Number(l.unit_cost_inr) || 0, 2)}`}>
+            <span className="shrink-0 tabular-nums">{qty} ×</span>
+            <span className={cn('truncate', unnamed && 'italic opacity-70')}>{unnamed ? 'no name' : l.component_name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const bucketCol = (key: string, label: string, width = 96, parts = false): Col => ({
   id: `bucket:${key}`, label: `${label} ₹`, width, align: 'right',
   hint: `Per-unit ${label.toLowerCase()} price as quoted, before waste (costing adds waste on top). Typing a total adjusts the main line so the bucket adds up to it.`,
   edit: {
@@ -96,6 +120,7 @@ const bucketCol = (key: string, label: string, width = 96): Col => ({
     display: r => (r.editBuckets[key] ? inr(r.editBuckets[key]) : ''),
     write: (b, ids, raw) => { const n = parseNum(raw); return n == null || n < 0 ? null : setBucketTotal(b, ids, key, n); },
   },
+  ...(parts ? { detail: (r: WorkspaceRow, b: Bundle) => <BucketParts row={r} b={b} bucketKey={key} /> } : {}),
 });
 
 const ro = (id: string, label: string, render: Col['render'], width = 96, extra: Partial<Col> = {}): Col =>
@@ -270,9 +295,9 @@ export const VIEWS: View[] = [
     cols: [], // rendered by QuotesGrid
   },
   {
-    id: 'hardware', label: 'Hardware', hint: 'Per-unit hardware and accessories',
+    id: 'hardware', label: 'Hardware', hint: 'Per-unit hardware and accessories, with the parts behind each total',
     cols: [
-      ...EDITABLE_BUCKETS.filter(x => x.key.startsWith('hw_') || x.key === 'accessories').map(x => bucketCol(x.key, x.label, 112)),
+      ...EDITABLE_BUCKETS.filter(x => x.key.startsWith('hw_') || x.key === 'accessories').map(x => bucketCol(x.key, x.label, 150, true)),
       ro('hw_total', 'Hardware total ₹', r => inr(EDITABLE_BUCKETS.filter(x => x.key.startsWith('hw_') || x.key === 'accessories').reduce((a, x) => a + r.editBuckets[x.key], 0)), 120),
     ],
   },
@@ -280,7 +305,7 @@ export const VIEWS: View[] = [
     id: 'packaging', label: 'Packaging & CBM', hint: 'Piece and carton sizes → packed CBM',
     cols: [
       {
-        id: 'pkg_type', label: 'Packaging', width: 132, align: 'left',
+        id: 'pkg_type', label: 'Packaging', bulkLabel: 'Packaging type', width: 132, align: 'left',
         edit: { kind: 'select', get: r => r.p.packaging_type || 'ic_mc', options: () => PACKAGING_OPTS,
           write: (b, ids, v) => setPackagingType(b, ids, v || 'ic_mc') },
       },
@@ -422,15 +447,31 @@ export function viewsFor(cur: QuoteCur): View[] {
 
 /** Every editable field, for the bulk bar's "Set" menu (deduplicated by id). */
 export function bulkFields(cur: QuoteCur = 'USD'): Col[] {
+  return bulkFieldGroups(cur).flatMap(g => g.cols);
+}
+
+/** Menu sections for the bulk bar: the views, with the two per-unit ₹ views folded into one. */
+const BULK_SECTION: Record<string, string> = {
+  price: 'Pricing', buildup: 'Cost per unit (₹)', hardware: 'Cost per unit (₹)',
+  packaging: 'Packaging & size', labor: 'Labor', setup: 'Product setup',
+};
+
+/** The bulk bar's editable fields in sections; each field sits under the first view that has it. */
+export function bulkFieldGroups(cur: QuoteCur = 'USD'): { label: string; cols: Col[] }[] {
   const seen = new Set<string>();
-  const out: Col[] = [];
+  const groups: { label: string; cols: Col[] }[] = [];
   for (const v of viewsFor(cur)) for (const c of v.cols) {
     if (!c.edit || seen.has(c.id)) continue;
     seen.add(c.id);
-    out.push(c);
+    const label = BULK_SECTION[v.id] ?? v.label;
+    const g = groups.find(x => x.label === label) ?? groups[groups.push({ label, cols: [] }) - 1];
+    g.cols.push(c);
   }
-  return out;
+  return groups;
 }
+
+/** A field's name in the bulk bar menu (Piece W", Packaging type), without the ₹ the section already says. */
+export const bulkLabel = (c: Col) => c.bulkLabel ?? fullLabel(c).replace(/ ₹$/, '');
 
 /**
  * Spreadsheet paste: cells[i][j] goes to row startRow+i and the j-th editable column from

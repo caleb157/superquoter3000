@@ -201,7 +201,7 @@ function Cell({ col, ci, cols, row, idx, rows, bundle, grid, apply }: {
   if (e.kind === 'select') {
     return <SelectCell nav={nav} value={String(v ?? '')} options={e.options?.(bundle) ?? []} disabled={!!disabled} onChange={val => apply(b => e.write(b, [row.p.id], val))} />;
   }
-  return (
+  const cell = (
     <EditCell
       nav={nav}
       kind={e.kind === 'number' ? 'number' : 'text'}
@@ -214,6 +214,8 @@ function Cell({ col, ci, cols, row, idx, rows, bundle, grid, apply }: {
       onPasteGrid={cells => apply(b => writeGrid(b, cols, ci, rows, idx, cells))}
     />
   );
+  const detail = col.detail?.(row, bundle);
+  return detail ? <div>{cell}{detail}</div> : cell;
 }
 
 // ---------- vendor quotes ----------

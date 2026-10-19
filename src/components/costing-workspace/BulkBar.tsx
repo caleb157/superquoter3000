@@ -1,16 +1,20 @@
-// Floating action bar for the ticked SKUs: set any field, scale a cost bucket, or run
-// one of the pricing shortcuts (price to target, target = price, cheapest quote wins).
+// Floating action bar for the ticked SKUs: set any field, scale a cost bucket, add price-list
+// items, or run one of the pricing shortcuts (price to target, target = price, cheapest quote wins).
 import { useMemo, useState } from 'react';
-import { Crosshair, FileText, Loader2, Percent, Trophy, Undo2, X } from 'lucide-react';
+import { Check, ChevronsUpDown, Crosshair, FileText, ListPlus, Loader2, Percent, Trophy, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import {
   EDITABLE_BUCKETS, chooseCheapestQuotes, markupToTarget, scaleBucket, targetFromPrice,
   type Apply, type Bundle, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
-import { bulkFields, fullLabel } from './columns';
+import { AddItemsDialog } from './AddItemsDialog';
+import { bulkFieldGroups, bulkLabel, type Col } from './columns';
 import { quoteCurrencyOf } from '@/lib/quote-currency';
 
 const selectCls = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
@@ -21,7 +25,9 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
   onQuote: () => void; quoting: boolean;
 }) {
   const cur = quoteCurrencyOf(bundle.inq);
-  const fields = useMemo(() => bulkFields(cur), [cur]);
+  const groups = useMemo(() => bulkFieldGroups(cur), [cur]);
+  const fields = useMemo(() => groups.flatMap(g => g.cols), [groups]);
+  const [adding, setAdding] = useState(false);
   const [fieldId, setFieldId] = useState('npm');
   const [value, setValue] = useState('');
   const [bucket, setBucket] = useState('raw_piece');
@@ -59,9 +65,7 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
 
       <form className="flex items-center gap-1.5" onSubmit={e => { e.preventDefault(); runSet(); }}>
         <span className="text-xs text-muted-foreground">Set</span>
-        <select className={`${selectCls} w-36`} value={fieldId} onChange={e => { setFieldId(e.target.value); setValue(''); }}>
-          {fields.map(f => <option key={f.id} value={f.id}>{fullLabel(f).replace(/ ₹$/, '')}</option>)}
-        </select>
+        <FieldPicker groups={groups} value={field} onChange={id => { setFieldId(id); setValue(''); }} />
         <span className="text-xs text-muted-foreground">to</span>
         {opts ? (
           <select className={`${selectCls} max-w-[180px]`} value={value || opts[0]?.value} onChange={e => setValue(e.target.value)}>
@@ -84,6 +88,18 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
         <Input className="h-8 w-16" value={scale} onChange={e => setScale(e.target.value)} placeholder="±%" />
         <Button size="sm" variant="outline" type="submit" className="h-8">Adjust</Button>
       </form>
+
+      <div className="h-6 w-px bg-border" />
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setAdding(true)}>
+            <ListPlus className="h-3.5 w-3.5" /> Add items
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">Add hardware, accessories or other materials from the price list to the selected SKUs, with a quantity per unit</TooltipContent>
+      </Tooltip>
+      <AddItemsDialog open={adding} onOpenChange={setAdding} ids={ids} bundle={bundle} apply={apply} />
 
       <div className="h-6 w-px bg-border" />
 
@@ -125,5 +141,38 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
         <TooltipContent className="max-w-xs">Makes a draft customer quote from the {ids.length} selected SKU{ids.length === 1 ? '' : 's'} at the prices shown, then opens it to edit</TooltipContent>
       </Tooltip>
     </div>
+  );
+}
+
+/** Searchable field menu in sections (Pricing, Cost per unit, Packaging & size, Labor, Product setup). */
+function FieldPicker({ groups, value, onChange }: { groups: { label: string; cols: Col[] }[]; value: Col; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="h-8 w-40 justify-between px-2 font-normal">
+          <span className="truncate">{bulkLabel(value)}</span>
+          <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start" side="top">
+        <Command>
+          <CommandInput placeholder="Find a field…" />
+          <CommandList className="max-h-[min(420px,60vh)]">
+            <CommandEmpty>No field found.</CommandEmpty>
+            {groups.map(g => (
+              <CommandGroup key={g.label} heading={g.label}>
+                {g.cols.map(c => (
+                  <CommandItem key={c.id} value={`${bulkLabel(c)} ${g.label}`} onSelect={() => { onChange(c.id); setOpen(false); }}>
+                    <Check className={cn('mr-2 h-3.5 w-3.5', c.id === value.id ? 'opacity-100' : 'opacity-0')} />
+                    {bulkLabel(c)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
