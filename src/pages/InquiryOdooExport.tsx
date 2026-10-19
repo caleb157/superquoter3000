@@ -265,6 +265,9 @@ export default function InquiryOdooExport() {
           <Button variant="outline" size="sm" onClick={() => checkOdoo(rows)} disabled={checking || loading}>
             {checking ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />} Check Odoo
           </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading} title="Reload photos and sizes from costing">
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh from costing
+          </Button>
           <Button variant="outline" size="sm" onClick={downloadDkt} disabled={!chosen.length}>
             <Download className="h-3.5 w-3.5 mr-1.5" /> DKT products file
           </Button>
@@ -324,6 +327,12 @@ export default function InquiryOdooExport() {
                         {multi && !inOdoo && (
                           <Badge variant="outline" className="gap-1"><Layers className="h-3 w-3" /> Variant {g.indexOf(r) + 1} of {g.length}{isLead ? ' · template from this one' : ` · template: ${g[0].finished.name}`}</Badge>
                         )}
+                        <Badge variant={progress[r.productId]?.materials ? 'secondary' : 'outline'} className="gap-1 text-[10px]">
+                          {progress[r.productId]?.materials ? <CheckCircle2 className="h-3 w-3" /> : null} Materials {progress[r.productId]?.materials ? 'sent' : 'not sent'}
+                        </Badge>
+                        <Badge variant={progress[r.productId]?.bom ? 'secondary' : 'outline'} className="gap-1 text-[10px]">
+                          {progress[r.productId]?.bom ? <CheckCircle2 className="h-3 w-3" /> : null} BOM {progress[r.productId]?.bom ? 'created' : 'not created'}
+                        </Badge>
                         <Button variant="ghost" size="sm" className="h-7 ml-auto" onClick={() => navigate(`/product/${r.productId}?tab=odoo`)}>
                           <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM
                         </Button>
