@@ -353,6 +353,10 @@ export default function InquiryOdooExport() {
                       ? <img src={f.imageUrl} alt={f.name} className="h-20 w-20 rounded object-cover border shrink-0" />
                       : <div className="h-20 w-20 rounded border bg-muted shrink-0 flex items-center justify-center text-[10px] text-muted-foreground">No photo</div>}
                     <div className="flex-1 min-w-0 space-y-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate" title={f.name}>{f.name || 'Unnamed product'}</div>
+                        {multi && !isLead && <div className="text-[11px] text-muted-foreground truncate">Variant of {g[0].finished.name}</div>}
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         {inOdoo
                           ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" /> In Odoo · {r.odooSku || f.sku}</Badge>
@@ -376,6 +380,7 @@ export default function InquiryOdooExport() {
                         </Button>
                       </div>
                       <fieldset disabled={inOdoo} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6 text-xs">
+                        <F label="Product name (template)" span={3}><Input className="h-8 text-xs" disabled={multi && !isLead} value={multi && !isLead ? g[0].finished.name : f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
                         <F label={multi && isLead ? `Template for ${g.length} variants` : 'Variant of (another product here)'} span={3}>
                           {multi && isLead
                             ? <div className="h-8 flex items-center text-muted-foreground">Name, category, HSN and tax set here apply to every variant below.</div>
@@ -388,7 +393,6 @@ export default function InquiryOdooExport() {
                                 </SelectContent>
                               </Select>}
                         </F>
-                        <F label="Product name (template)" span={3}><Input className="h-8 text-xs" disabled={multi && !isLead} value={multi && !isLead ? g[0].finished.name : f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
                         <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />}</F>
                         <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => { const c = v.replace(/\D/g, '').slice(0, 8); if (c.length === 8) pickHsn(r, c); else patch(r.productId, { hsn: c }); }} />}</F>
                         <F label={`Sales tax${(() => { const h = (multi && !isLead ? g[0].finished.hsn : f.hsn); const rt = h.length === 8 ? gstFor(r, h) : null; return rt != null ? ` · GST ${rt}% for this HSN` : ''; })()}`} span={2}>
