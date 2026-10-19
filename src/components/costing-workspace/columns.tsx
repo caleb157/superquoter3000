@@ -11,7 +11,7 @@ import {
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { fxOrFallback } from '@/lib/live-rates';
 import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
-import { CostMixBar, GapChip, inr, money, num, parseNum, pct } from './cells';
+import { GapChip, inr, money, num, parseNum, pct } from './cells';
 import { McPlanBreakdown, mcPlanShort } from './McPlan';
 
 export type EditSpec = {
@@ -241,7 +241,6 @@ export const VIEWS: View[] = [
     id: 'price', label: 'Price & target', hint: 'Where every SKU lands against its target, and what it would take to get there',
     cols: [
       qtyCol,
-      { id: 'mix', label: 'Cost mix', width: 150, render: r => <CostMixBar row={r} /> },
       costCol,
       npmCol,
       contribCol,
