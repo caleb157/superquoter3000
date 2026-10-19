@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  chain, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -316,5 +316,35 @@ describe('quote currency targets', () => {
     expect(undone.cogs.length).toBe(before.cogs.length);
     expect(undone.products.find(p => p.id === 'b')!.markup_percent).toBe(0.4);
     expect(restoreRows(before, before, before)).toBeNull();
+  });
+
+  it('copying costing makes the targets cost like the source, step by step', () => {
+    const before = bundle();
+    const src = byId(before, 'b');
+    const m = copyCosting(before, 'b', ['a', 'c', 'b'], { cogs: true });
+    expect(new Set(m.touched)).toEqual(new Set(['a', 'c']));
+    for (const id of ['a', 'c']) {
+      const r = byId(m.next, id);
+      expect(r.editBuckets.raw_piece).toBeCloseTo(src.editBuckets.raw_piece, 6);
+      expect(r.editBuckets.subcontract).toBeCloseTo(src.editBuckets.subcontract, 6);
+      expect(r.editBuckets.hw_handles_knobs).toBeCloseTo(src.editBuckets.hw_handles_knobs, 6);
+    }
+    // Labour and shipping untouched when not asked for.
+    expect(m.next.oh).toEqual(before.oh);
+    const lab = copyCosting(before, 'a', ['c'], { labour: true }).next;
+    expect(byId(lab, 'c').r.manHoursPerUnit).toBeCloseTo(byId(before, 'a').r.manHoursPerUnit, 6);
+    // Undo puts the targets back.
+    const undone = restoreRows(m.next, before, m.next)!.next;
+    rowsOf(undone).forEach((r, i) => expect(r.costInr).toBeCloseTo(rowsOf(before)[i].costInr, 6));
+  });
+
+  it('pasted lines are added (never doubling the chosen raw piece)', () => {
+    const before = bundle();
+    const lines = before.cogs.filter(c => c.product_id === 'a' && !c.is_auto_calculated);
+    const m = pasteCogsLines(before, ['c'], lines);
+    const added = m.next.cogs.filter(c => c.product_id === 'c').length - before.cogs.filter(c => c.product_id === 'c').length;
+    expect(added).toBe(lines.length);
+    const winners = m.next.cogs.filter(c => c.product_id === 'c' && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
+    expect(winners).toHaveLength(1);
   });
 });

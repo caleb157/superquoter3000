@@ -21,6 +21,8 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { cn } from '@/lib/utils';
 import { loadBundle, type WorkspaceRow } from '@/lib/costing-workspace';
+import { cloneProductToInquiry } from '@/lib/product-clone';
+import { supabase } from '@/integrations/supabase/client';
 import { useCostingBundle } from '@/hooks/use-costing-bundle';
 import { useGenerateQuote } from '@/hooks/use-generate-quote';
 import { BulkBar } from '@/components/costing-workspace/BulkBar';
@@ -93,6 +95,35 @@ export default function CostingWorkspace() {
     reference_price_inr: r.r.summary.unit_price_inr,
     target_price_usd: r.p.target_price_usd, markup_percent: r.p.markup_percent,
   })));
+  /** New SKUs with the same costing (the shared product clone), named "(copy)" with the SKU code left for the user. */
+  const [duplicating, setDuplicating] = useState(false);
+  const duplicate = async (ids: string[]) => {
+    if (!bundle?.inq?.id) return;
+    if (saving > 0) { toast.info('Still saving the last change. Try again in a moment.'); return; }
+    setDuplicating(true);
+    try {
+      const made: string[] = [];
+      for (const id of ids) {
+        const src = bundle.products.find(p => p.id === id);
+        if (!src) continue;
+        const newId = await cloneProductToInquiry(id, bundle.inq.id, `${src.name || 'Untitled'} (copy)`);
+        if (!newId) continue;
+        // Fields the generic clone leaves out but costing uses.
+        await (supabase as any).from('products').update({
+          sku: null, running_inches_override: src.running_inches_override ?? null, hard_moq: src.hard_moq ?? null,
+          target_price_inr: src.target_price_inr ?? null, cost_of_capital_enabled: src.cost_of_capital_enabled ?? null,
+          cost_of_capital_monthly_rate: src.cost_of_capital_monthly_rate ?? null, cost_of_capital_months: src.cost_of_capital_months ?? null,
+        }).eq('id', newId);
+        made.push(newId);
+      }
+      await load();
+      if (made.length) { setSelected(new Set(made)); toast.success(`Duplicated ${made.length} SKU${made.length === 1 ? '' : 's'}. Give ${made.length === 1 ? 'it' : 'them'} a SKU code.`); }
+      if (made.length < ids.length) toast.error(`Couldn’t duplicate ${ids.length - made.length} SKU${ids.length - made.length === 1 ? '' : 's'}`);
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   useEffect(() => {
     if (params.has('select')) setParam('select', null);
     if (VIEW_TO_OPEN[params.get('view') || '']) setParam('view', null);
@@ -391,7 +422,8 @@ export default function CostingWorkspace() {
           {selectedIds.length > 0 && (
             <div className="pointer-events-none absolute inset-x-4 bottom-5 z-30">
               <BulkBar ids={selectedIds} rows={rows} bundle={bundle} apply={apply} onClear={() => setSelected(new Set())}
-                onQuote={() => void generateQuote(selectedIds)} quoting={quote.busy} />
+                onQuote={() => void generateQuote(selectedIds)} quoting={quote.busy}
+                onDuplicate={() => void duplicate(selectedIds)} duplicating={duplicating} />
             </div>
           )}
         </div>

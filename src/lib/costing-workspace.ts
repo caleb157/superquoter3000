@@ -678,11 +678,94 @@ export function chain(b: Bundle, steps: ((cur: Bundle) => Mutation | null)[]): M
   return { next: cur, touched: [...touched], commit: async () => { for (const c of commits) await c(); } };
 }
 
+// ----- Copying costing between SKUs -----
+
+export type CopySteps = { cogs?: boolean; labour?: boolean; shipping?: boolean };
+
+const omitIds = ({ id: _id, product_id: _pid, created_at: _c, updated_at: _u, ...rest }: any) => rest;
+/** Lines the user typed (not engine-managed boxes, not domestic freight, which follows the source location). */
+const copyableLine = (c: any) => !c.is_auto_calculated && !isDomesticFreight(c);
+
+/** Fresh copies of COGS lines for another product (new ids), e.g. lines copied from one SKU and pasted on others. */
+export function pasteCogsLines(b: Bundle, ids: string[], lines: any[]): Mutation {
+  const inserts = ids.flatMap(pid => {
+    const maxSort = b.cogs.filter(c => c.product_id === pid).reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+    return lines.map((l, i) => ({ ...omitIds(l), id: uuid(), product_id: pid, sort_order: maxSort + 1 + i,
+      // A second winning raw piece would double the cost: pasted quotes come in unpicked when one is already in.
+      ...(l.cogs_type === 'Raw Piece' && b.cogs.some(c => c.product_id === pid && c.cogs_type === 'Raw Piece' && c.include === 'Yes') ? { include: 'No' } : {}) }));
+  });
+  return cogsMutation(b, [], inserts);
+}
+
+/**
+ * Makes the target SKUs cost like the source, step by step. COGS: the source's typed lines
+ * replace the targets' (engine-managed boxes recalculate). Labour: finish, wood %, product
+ * type, running-inch override and every labour row's hours. Shipping: packaging type, carton
+ * settings and shipping type. Piece size, quantity, price and target stay the targets' own.
+ */
+export function copyCosting(b: Bundle, sourceId: string, targetIds: string[], steps: CopySteps): Mutation {
+  const src = b.products.find(p => p.id === sourceId);
+  const ids = targetIds.filter(id => id !== sourceId);
+  if (!src || !ids.length) return chain(b, []);
+  const out: ((cur: Bundle) => Mutation | null)[] = [];
+  if (steps.cogs) {
+    out.push(cur => {
+      const lines = cur.cogs.filter(c => c.product_id === sourceId && copyableLine(c));
+      const drop = cur.cogs.filter(c => ids.includes(c.product_id) && copyableLine(c)).map(c => c.id);
+      const inserts = ids.flatMap(pid => lines.map(l => ({ ...omitIds(l), id: uuid(), product_id: pid })));
+      return cogsMutation(cur, [], inserts, drop);
+    });
+    out.push(cur => patchProductsSame(cur, ids, { source_location_id: src.source_location_id ?? null }));
+  }
+  if (steps.labour) {
+    out.push(cur => (src.product_type_id !== undefined ? setProductType(cur, ids, src.product_type_id ?? null) : null));
+    out.push(cur => patchProductsSame(cur, ids, {
+      finishing_difficulty: src.finishing_difficulty ?? null, percent_wood: src.percent_wood ?? null,
+      running_inches_override: src.running_inches_override ?? null,
+    }));
+    out.push(cur => {
+      const srcRows = cur.oh.filter(o => o.product_id === sourceId);
+      const updates: { id: string; patch: any }[] = [];
+      const inserts: any[] = [];
+      for (const pid of ids) for (const so of srcRows) {
+        const patch = { man_hours_per_unit: so.man_hours_per_unit, is_auto_estimated: so.is_auto_estimated, include: so.include };
+        const t = cur.oh.find(o => o.product_id === pid && o.labor_type === so.labor_type);
+        if (t) updates.push({ id: t.id, patch });
+        else inserts.push({ ...omitIds(so), id: uuid(), product_id: pid });
+      }
+      if (!updates.length && !inserts.length) return null;
+      const m = ohMutation(cur, updates);
+      if (!inserts.length) return m;
+      return {
+        next: { ...m.next, oh: [...m.next.oh, ...inserts] },
+        touched: [...new Set([...m.touched, ...inserts.map(i => i.product_id)])],
+        commit: async () => { await m.commit(); check(await db.from('overhead_items').insert(inserts)); },
+      };
+    });
+  }
+  if (steps.shipping) {
+    out.push(cur => setPackagingType(cur, ids, src.packaging_type || 'ic_mc'));
+    out.push(cur => {
+      const row = cur.cbm.find(c => c.product_id === sourceId);
+      if (!row) return null;
+      // The inner carton follows each piece's own size, so typed inner-carton sizes stay put.
+      const { ic_width: _w, ic_depth: _d, ic_height: _h, ...settings } = omitIds(row);
+      return patchCbm(cur, ids, settings);
+    });
+    out.push(cur => {
+      const ship = cur.shipItems.find(s => s.product_id === sourceId)?.shipping_type_id;
+      return ship && !cur.inq?.shipping_type_id_override ? setShippingType(cur, ids, ship) : null;
+    });
+  }
+  return chain(b, out);
+}
+
 // ----- Undo -----
 
 /** Bundle row lists that edits write, child tables first (deletes run in this order, inserts in reverse). */
 const ROW_TABLES = [
-  ['cogs', 'cogs_items'], ['nu', 'non_unit_cogs'], ['oh', 'overhead_items'], ['cbm', 'cbm_estimates'], ['products', 'products'],
+  ['cogs', 'cogs_items'], ['nu', 'non_unit_cogs'], ['oh', 'overhead_items'], ['cbm', 'cbm_estimates'], ['shipItems', 'shipping_items'],
+  ['products', 'products'],
 ] as const;
 type RowKey = typeof ROW_TABLES[number][0];
 

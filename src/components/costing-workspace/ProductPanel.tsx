@@ -5,10 +5,11 @@
 // mode, as the product page's Costing tab (with product details, chemicals and vendors).
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Plus, RotateCcw, Sparkles, Target, Trash2, X } from 'lucide-react';
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, Copy, ExternalLink, Plus, RotateCcw, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
@@ -24,11 +25,12 @@ import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, chooseQuote, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
-  isDomesticFreight, stepTotals,
+  isDomesticFreight, pasteCogsLines, stepTotals,
 } from '@/lib/costing-workspace';
 import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { ALL_COLS, BANDS, type Col, type StepId } from './columns';
 import { McPlanBreakdown } from './McPlan';
+import { copyLines, useCopiedLines } from './line-clipboard';
 
 const colById = (id: string): Col => ALL_COLS.find(c => c.id === id)!;
 const band = (id: StepId) => BANDS.find(b => b.id === id)!;
@@ -739,6 +741,8 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: Work
         <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => apply(b => addCogsLine(b, id, addType, addType === 'Raw Piece' ? { include: rawSlots.some(l => l.include === 'Yes') ? 'No' : 'Yes', sort_order: rawSlots.length, component_name: `Raw Piece ${rawSlots.length + 1}` } : {}))}>
           <Plus className="h-3.5 w-3.5" /> Add line
         </Button>
+        <CopyLinesButton row={row} lines={lines.filter(l => !l.is_auto_calculated)} />
+        <PasteLinesButton id={id} apply={apply} />
         {excluded.length > 0 && (
           <button className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowExcluded(s => !s)}>
             {showExcluded ? 'Hide' : 'Show'} {excluded.length} excluded line{excluded.length === 1 ? '' : 's'}
@@ -746,6 +750,53 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: Work
         )}
       </div>}
     </div>
+  );
+}
+
+/** Copy some of this SKU's typed cost lines, to paste onto other SKUs (their panel, or the selection bar). */
+function CopyLinesButton({ row, lines }: { row: WorkspaceRow; lines: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  if (!lines.length) return null;
+  const label = row.p.sku || row.p.name || 'this SKU';
+  return (
+    <Popover open={open} onOpenChange={o => { setOpen(o); if (o) setPicked(new Set(lines.filter(l => l.include !== 'No').map(l => l.id))); }}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" className="h-8 gap-1"><Copy className="h-3.5 w-3.5" /> Copy lines</Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-3" align="start">
+        <div className="mb-2 text-sm font-medium">Copy lines to paste on other SKUs</div>
+        <div className="max-h-64 space-y-1.5 overflow-y-auto">
+          {lines.map(l => (
+            <label key={l.id} className="flex items-center gap-2 text-sm">
+              <Checkbox checked={picked.has(l.id)} onCheckedChange={c => setPicked(s => { const n = new Set(s); if (c) n.add(l.id); else n.delete(l.id); return n; })} />
+              <span className="min-w-0 flex-1 truncate">{l.component_name || l.cogs_type}</span>
+              <span className="shrink-0 tabular-nums text-xs text-muted-foreground">{+(+l.components_per_product || 0).toFixed(3)} × {inr(+l.unit_cost_inr || 0, 2)}</span>
+            </label>
+          ))}
+        </div>
+        <Button size="sm" className="mt-3 w-full" disabled={!picked.size} onClick={() => {
+          copyLines(label, lines.filter(l => picked.has(l.id)));
+          setOpen(false);
+          toast.success(`Copied ${picked.size} line${picked.size === 1 ? '' : 's'}. Open another SKU, or tick several in the grid, and paste.`);
+        }}>Copy {picked.size} line{picked.size === 1 ? '' : 's'}</Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function PasteLinesButton({ id, apply }: { id: string; apply: Apply }) {
+  const copied = useCopiedLines();
+  if (!copied) return null;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => apply(b => pasteCogsLines(b, [id], copied.lines))}>
+          <ClipboardPaste className="h-3.5 w-3.5" /> Paste {copied.lines.length}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Add the {copied.lines.length} line{copied.lines.length === 1 ? '' : 's'} copied from {copied.from}</TooltipContent>
+    </Tooltip>
   );
 }
 
