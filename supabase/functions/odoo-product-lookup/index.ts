@@ -17,6 +17,8 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('search'), search: z.string().max(100).optional().nullable(), limit: z.number().int().min(1).max(50).optional() }),
   z.object({ action: z.literal('suggest'), names: z.array(z.string().max(200)).max(60) }),
   z.object({ action: z.literal('skus'), skus: z.array(z.string().max(100)).max(200) }),
+  z.object({ action: z.literal('details'), ids: z.array(z.number().int().positive()).max(200) }),
+  z.object({ action: z.literal('variants'), productId: z.number().int().positive() }),
 ]);
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
@@ -93,18 +95,50 @@ Deno.serve(async (req) => {
     const body = parsed.data;
 
     if (body.action === 'meta') {
-      const [cats, uoms, routes, companies] = await Promise.all([
+      const [cats, uoms, routes, companies, taxes] = await Promise.all([
         sr('product.category', [], ['complete_name', 'name'], { order: 'complete_name' }),
         sr('uom.uom', [], ['name', 'category_id'], { order: 'name' }),
         sr('stock.route', [['product_selectable', '=', true]], ['name'], { order: 'name' }).catch(() => []),
         sr('res.company', [], ['name'], { order: 'name' }),
+        sr('account.tax', [['type_tax_use', '=', 'sale']], ['name', 'amount', 'amount_type'], { order: 'amount, name' }).catch(() => []),
       ]);
       return json({
         categories: cats.map(c => str(c.complete_name) || str(c.name)),
         uoms: uoms.map(u => ({ name: str(u.name), category: nm(u.category_id) })),
         routes: routes.map(r => str(r.name)),
         companies: companies.map(c => str(c.name)),
+        taxes: taxes.map(t => ({ id: t.id, name: str(t.name), amount: Number(t.amount) || 0 })),
       });
+    }
+
+    if (body.action === 'details') {
+      // Live name, SKU, photo, HSN and taxes of products already in Odoo ("Check Odoo" on the Odoo page).
+      if (!body.ids.length) return json({ products: [] });
+      const rows = await sr('product.product', [['id', 'in', body.ids]],
+        ['default_code', 'name', 'product_tmpl_id', 'image_256', 'weight', 'volume', 'l10n_in_hsn_code', 'taxes_id', 'categ_id', 'product_template_attribute_value_ids'],
+        { context: { active_test: false } });
+      return json({ products: rows.map(r => ({
+        id: r.id, sku: str(r.default_code), name: str(r.name), category: nm(r.categ_id),
+        templateId: Array.isArray(r.product_tmpl_id) ? r.product_tmpl_id[0] : r.product_tmpl_id,
+        image: r.image_256 ? `data:image/png;base64,${r.image_256}` : null,
+        weightKg: Number(r.weight) || null, volumeM3: Number(r.volume) || null,
+        hsn: str(r.l10n_in_hsn_code), taxIds: Array.isArray(r.taxes_id) ? r.taxes_id : [],
+      })) });
+    }
+
+    if (body.action === 'variants') {
+      // Every variant on the product's template with its attribute values, for BOM "Apply on Variants".
+      const [p] = await sr('product.product', [['id', '=', body.productId]], ['product_tmpl_id'], { context: { active_test: false } });
+      if (!p) return json({ variants: [] });
+      const tmpl = Array.isArray(p.product_tmpl_id) ? p.product_tmpl_id[0] : p.product_tmpl_id;
+      const vs = await sr('product.product', [['product_tmpl_id', '=', tmpl]], ['default_code', 'product_template_attribute_value_ids']);
+      const ptavIds = vs.flatMap(v => v.product_template_attribute_value_ids || []);
+      const ptavs = ptavIds.length ? await sr('product.template.attribute.value', [['id', 'in', ptavIds]], ['name']) : [];
+      const label = new Map(ptavs.map(x => [x.id, str(x.name)]));
+      return json({ templateId: tmpl, variants: vs.map(v => ({
+        id: v.id, sku: str(v.default_code), ptavIds: v.product_template_attribute_value_ids || [],
+        label: (v.product_template_attribute_value_ids || []).map(i => label.get(i)).filter(Boolean).join(', ') || str(v.default_code),
+      })) });
     }
 
     if (body.action === 'prefixes') {
