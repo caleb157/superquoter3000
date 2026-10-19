@@ -26,6 +26,7 @@ import {
 import { OptionCombobox } from '@/components/odoo-export/OptionCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
 import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
