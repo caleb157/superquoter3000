@@ -14,7 +14,7 @@ const Body = z.object({
   details: z.string().trim().max(1500).optional().nullable(),
 });
 const Schema = z.object({
-  suggestions: z.array(z.object({ code: z.string(), description: z.string(), reason: z.string() })),
+  suggestions: z.array(z.object({ code: z.string(), description: z.string(), reason: z.string(), gstRate: z.number().nullable() })),
 });
 
 Deno.serve(async (req) => {
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const result = streamText({
       model: provider.responses('openai/gpt-6-astra'),
-      system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits.',
+      system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits. gstRate = the current GST rate in percent for that code under the GST 2.0 rate structure (Sept 2025 onwards), or null if unsure.',
       messages: [{
         role: 'user',
         content: `Product: ${parsed.data.name}\n${parsed.data.details ? `Details: ${parsed.data.details}\n` : ''}\nCodes this company already uses (prefer one if it truly fits):\n${knownList}`,
