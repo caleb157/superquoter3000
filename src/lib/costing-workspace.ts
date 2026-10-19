@@ -85,6 +85,9 @@ export const lineValue = (c: any) => calcCogsItemCost({
   waste_factor: Number(c.waste_factor) || 0,
 } as any).unit_cost;
 
+/** Per-unit INR of one COGS line before waste (qty × price as typed); costing adds waste on top. */
+export const linePrice = (c: any) => (c.include === 'No' ? 0 : (Number(c.components_per_product) || 0) * (Number(c.unit_cost_inr) || 0));
+
 // ---------- Rows ----------
 
 export type Quote = { slot: number; line: any | null; vendor: string; price: number; winner: boolean };
@@ -197,7 +200,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       const bk = isOutsourcedLine ? BUCKETS.find(x => x.key === 'outsourced')! : BUCKETS.find(x => (x.types as readonly string[]).includes(line.cogs_type));
       buckets[(bk?.key ?? 'other') as BucketKey] += v;
       const eb = EDITABLE_BUCKETS.find(x => x.types.includes(line.cogs_type));
-      if (eb && !isOutsourcedLine) editBuckets[eb.key] += v;
+      if (eb && !isOutsourcedLine) editBuckets[eb.key] += linePrice(line);
     }
     // Legacy outsourced cost (product-level field) is added by the engine on top of COGS lines.
     const linesTotal = Object.values(buckets).reduce((a, v) => a + v, 0) + freight;
@@ -483,10 +486,10 @@ export function setBucketTotal(b: Bundle, ids: string[], bucketKey: string, valu
       .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));
     const primary = lines.find(l => !l.is_auto_calculated) || lines[0];
     if (primary) {
-      const others = lines.filter(l => l !== primary).reduce((a, c) => a + lineValue(c), 0);
+      // The typed total is the price before waste (what the vendor quoted); costing adds waste on top.
+      const others = lines.filter(l => l !== primary).reduce((a, c) => a + linePrice(c), 0);
       const qty = Number(primary.components_per_product) > 0 ? Number(primary.components_per_product) : 1;
-      const waste = Math.min(Number(primary.waste_factor) || 0, 0.99);
-      const unit = Math.max(0, ((valueInr - others) * (1 - waste)) / qty);
+      const unit = Math.max(0, (valueInr - others) / qty);
       updates.push({ id: primary.id, patch: { unit_cost_inr: Math.round(unit * 100) / 100, components_per_product: qty, ...(primary.is_auto_calculated ? { is_auto_calculated: false } : {}) } });
     } else if (valueInr > 0) {
       const maxSort = b.cogs.filter(c => c.product_id === pid).reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
