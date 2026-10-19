@@ -26,13 +26,13 @@ import {
   type CartonSize, type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct,
 } from '@/lib/odoo-bom';
 import {
-  loadStandardComponents, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo,
+  loadStandardComponents, odooMeta, odooProductsBySku, odooSkuPrefixes, odooVariants, pushToOdoo, type OdooVariant,
   type OdooMeta, type PushResult, type SkuPrefix, type StandardComponent,
 } from '@/lib/odoo-products';
 import { OdooProductPicker } from './OdooProductPicker';
 import { OptionCombobox } from './OptionCombobox';
 
-type Saved = { finished: FinishedDraft; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride'>>; added?: DraftLine[] };
+type Saved = { finished: FinishedDraft; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride' | 'variantPtavIds'>>; added?: DraftLine[] };
 const storeKey = (id: string) => `odoo-bom-draft:v2:${id}`;
 const readSaved = (id: string): Saved | null => {
   try { const s = localStorage.getItem(storeKey(id)); return s ? JSON.parse(s) : null; } catch { return null; }
@@ -73,6 +73,8 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const [result, setResult] = useState<PushResult | null>(null);
   const [sendError, setSendError] = useState<{ msg: string; problems?: string[] } | null>(null);
   const ready = useRef(false);
+  // Variants on the final product's Odoo template, for "Apply on Variants" (2+ only).
+  const [variants, setVariants] = useState<OdooVariant[]>([]);
   const cartonAuto = useRef<Record<string, { name: string; sku: string }>>({});
 
   const checkOdoo = useCallback(async (f: FinishedDraft, ls: DraftLine[]) => {
@@ -153,7 +155,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
   useEffect(() => {
     if (!ready.current || !finished) return;
     const savedLines: Saved['lines'] = {};
-    for (const l of lines) if (l.cogsType !== ADDED) savedLines[l.lineId] = { status: l.status, match: l.match, newItem: l.newItem, qtyOverride: l.qtyOverride };
+    for (const l of lines) if (l.cogsType !== ADDED) savedLines[l.lineId] = { status: l.status, match: l.match, newItem: l.newItem, qtyOverride: l.qtyOverride, variantPtavIds: l.variantPtavIds };
     writeSaved(productId, { finished, lines: savedLines, added: lines.filter(l => l.cogsType === ADDED) });
   }, [finished, lines, productId]);
 
@@ -174,6 +176,13 @@ export function OdooExportTab({ productId }: { productId: string }) {
       return n.name === l.newItem.name && n.sku === l.newItem.sku ? l : { ...l, newItem: n };
     }));
   }, [cartons, base, fname]);
+
+  const linkedId = finished?.exists ? finished.existing?.id ?? null : null;
+  useEffect(() => {
+    if (!linkedId) { setVariants([]); return; }
+    odooVariants(linkedId).then(setVariants).catch(() => setVariants([]));
+  }, [linkedId]);
+  const multiVariant = variants.length > 1;
 
   const issues = useMemo(() => (finished ? checkDraft(finished, lines, existing) : []), [finished, lines, existing]);
   const errors = issues.filter(i => i.level === 'error');
@@ -250,6 +259,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-muted-foreground flex-1 min-w-[240px]">
           Match each raw material to an Odoo product (or create it), then create the BOM in Odoo.
+          {multiVariant && ` The BOM is for the whole template (${variants.length} variants); set "Apply on variants" on lines used by one variant only.`}
         </p>
         <Button variant="outline" size="sm" onClick={() => checkOdoo(finished, lines)} disabled={checking}>
           {checking ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />} Check Odoo
@@ -311,6 +321,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
                 <TableHead className="min-w-[260px]">Category · tracked</TableHead>
                 <TableHead className="w-[120px]">Unit</TableHead>
                 <TableHead className="w-[110px]">BOM qty</TableHead>
+                {multiVariant && <TableHead className="w-[160px]">Apply on variants</TableHead>}
                 <TableHead className="w-[40px]" />
               </TableRow>
             </TableHeader>
@@ -372,6 +383,20 @@ export function OdooExportTab({ productId }: { productId: string }) {
                           onChange={e => { const v = num(e.target.value); patchLine(l.lineId, { qtyOverride: v == null ? null : v / units }); }} />
                       )}
                     </TableCell>
+                    {multiVariant && (
+                      <TableCell className="align-top">
+                        {l.status !== 'skip' && (
+                          <Select value={l.variantPtavIds?.length ? String(variants.find(v => v.ptavIds.join(',') === l.variantPtavIds!.join(','))?.id ?? 'all') : 'all'}
+                            onValueChange={v => patchLine(l.lineId, { variantPtavIds: v === 'all' ? [] : variants.find(x => String(x.id) === v)?.ptavIds ?? [] })}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All variants</SelectItem>
+                              {variants.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.label}{v.sku ? ` · ${v.sku}` : ''}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="align-top">
                       {added && (
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(l.lineId)} aria-label="Remove line">
@@ -383,7 +408,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
                 );
               })}
               {lines.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">This product has no costed material lines.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={multiVariant ? 8 : 7} className="text-center text-muted-foreground py-6">This product has no costed material lines.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

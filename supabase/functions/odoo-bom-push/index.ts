@@ -27,12 +27,14 @@ const Item = z.object({
   volumeM3: z.number().min(0).optional().nullable(),
   variant: z.string().trim().max(200).optional().nullable(),     // value on the global "variant" attribute
   customerSku: z.string().trim().max(100).optional().nullable(), // Odoo variant tag
+  taxIds: z.array(z.number().int().positive()).max(10).optional().nullable(), // Odoo sales taxes
 });
 const Line = z.object({
   productId: z.number().int().positive().optional().nullable(), // existing Odoo product.product id
   sku: z.string().trim().max(100).optional().nullable(),          // SKU of an existing or new product
   qty: z.number().positive(),
   uom: z.string().trim().min(1).max(100),
+  variantPtavIds: z.array(z.number().int().positive()).max(50).optional().nullable(), // "Apply on Variants"
 });
 const Body = z.object({
   // full = components + product + BOM; product = finished product only; components = new raw materials only.
@@ -265,6 +267,7 @@ Deno.serve(async (req) => {
         name: it.name, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
         sale_ok: true, purchase_ok: false, list_price: it.salePrice ?? undefined,
         l10n_in_hsn_code: it.hsn || undefined,
+        taxes_id: it.taxIds?.length ? [[6, 0, it.taxIds]] : undefined,
         attribute_line_ids: [[0, 0, { attribute_id: VARIANT_ATTRIBUTE_ID, value_ids: [[6, 0, valIds]] }]],
       };
       if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }
@@ -333,13 +336,13 @@ Deno.serve(async (req) => {
     {
       const bomLines = lines.map((l, i) => {
         const pid = l.productId || variantBySku.get(norm(l.sku!))?.id;
-        return [0, 0, { product_id: pid, product_qty: l.qty, product_uom_id: lineUoms[i] }];
+        const ptav = l.variantPtavIds?.length ? l.variantPtavIds : null;
+        return [0, 0, { product_id: pid, product_qty: l.qty, product_uom_id: lineUoms[i], ...(ptav ? { bom_product_template_attribute_value_ids: [[6, 0, ptav]] } : {}) }];
       });
-      // On a template with 2+ variants, the BOM belongs to this variant only, so each variant
-      // keeps its own lines; a lone variant gets a template BOM as before.
-      const siblingsInOdoo = await sr('product.product', [['product_tmpl_id', '=', fin.tmpl]], ['id'], { context: { active_test: false } });
+      // The BOM belongs to the template (all variants); lines picked for one variant carry
+      // "Apply on Variants" (bom_product_template_attribute_value_ids), the rest apply to all.
       bomId = await kw('mrp.bom', 'create', [await only('mrp.bom', {
-        product_tmpl_id: fin.tmpl, product_id: siblingsInOdoo.length > 1 ? fin.id : undefined,
+        product_tmpl_id: fin.tmpl,
         product_qty: body.bomUnits, type: 'normal', code: body.code || undefined,
         bom_line_ids: bomLines,
       })]);

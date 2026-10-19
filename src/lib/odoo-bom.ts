@@ -42,6 +42,8 @@ export type DraftLine = {
   match: OdooProduct | null;
   newItem: NewItem;
   qtyOverride: number | null; // quantity in the Odoo unit, typed by hand
+  /** Odoo "Apply on Variants": product.template.attribute.value ids; empty/undefined = every variant. */
+  variantPtavIds?: number[];
 };
 
 export type FinishedDraft = {
@@ -71,6 +73,8 @@ export type FinishedDraft = {
   customerSku: string;
   /** Template group on the inquiry Odoo page: products sharing one become variants of one template. Blank = own template. */
   group?: string;
+  /** Odoo sales tax ids (account.tax, type sale) for the template. */
+  taxIds?: number[];
 };
 
 export const DEFAULT_COMPANY = 'Parable Ventures Private Limited';
@@ -451,7 +455,7 @@ export type PushPayload = {
   imageUrl: string | null;
   finished: Record<string, unknown> | null;
   components: Record<string, unknown>[];
-  lines: { productId: number | null; sku: string | null; qty: number; uom: string }[];
+  lines: { productId: number | null; sku: string | null; qty: number; uom: string; variantPtavIds?: number[] }[];
   variants?: { hqProductId: string; sku: string; variant: string; customerSku: string | null; weightKg: number | null; volumeM3: number | null; imageUrl: string | null }[];
 };
 
@@ -478,14 +482,14 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     finished: f.exists ? null : {
       sku: f.sku.trim(), name: f.name.trim(), category: f.category, tracked: f.tracked, uom: f.uom, purchaseUom: null,
       salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3,
-      variant: f.variant?.trim() || null, customerSku: f.customerSku?.trim() || null,
+      variant: f.variant?.trim() || null, customerSku: f.customerSku?.trim() || null, taxIds: f.taxIds ?? [],
     },
     components,
     lines: lines.filter(l => l.status !== 'skip').map(l => {
       const q = bomQty(l, units);
       return l.status === 'match' && l.match
-        ? { productId: l.match.id, sku: l.match.sku || null, qty: q.qty, uom: q.uom }
-        : { productId: null, sku: l.newItem.sku.trim(), qty: q.qty, uom: q.uom };
+        ? { productId: l.match.id, sku: l.match.sku || null, qty: q.qty, uom: q.uom, variantPtavIds: l.variantPtavIds ?? [] }
+        : { productId: null, sku: l.newItem.sku.trim(), qty: q.qty, uom: q.uom, variantPtavIds: l.variantPtavIds ?? [] };
     }),
   };
 }
@@ -736,7 +740,24 @@ export function templateGroups<T extends { productId: string; finished: Finished
     const key = g ? `g:${g}` : `p:${r.productId}`;
     by.set(key, [...(by.get(key) ?? []), r]);
   }
-  return [...by.values()];
+  // The product others were made variants of leads its template (supplies name/category/HSN/tax).
+  return [...by.values()].map(g => {
+    const key = (g[0].finished.group || '').trim().toLowerCase();
+    const i = g.findIndex(r => r.productId.toLowerCase() === key);
+    return i > 0 ? [g[i], ...g.slice(0, i), ...g.slice(i + 1)] : g;
+  });
+}
+
+/** Sets `childId` as a variant of `parentId` (or detaches it when parentId is null), keeping groups keyed by the lead's id. */
+export function setVariantOf<T extends { productId: string; finished: FinishedDraft }>(rows: T[], childId: string, parentId: string | null): T[] {
+  const parent = parentId ? rows.find(r => r.productId === parentId) : null;
+  const key = parent ? ((parent.finished.group || '').trim() || parent.productId) : '';
+  const set = rows.map(r => (r.productId === childId || (parent && r.productId === parent.productId) ? { ...r, finished: { ...r.finished, group: key } } : r));
+  // A group left with one member is no group.
+  return set.map(r => {
+    const g = (r.finished.group || '').trim();
+    return g && set.filter(x => (x.finished.group || '').trim() === g).length < 2 ? { ...r, finished: { ...r.finished, group: '' } } : r;
+  });
 }
 
 /** Per-variant problems on a template with 2+ variants: suffix and variant name required and unique. */

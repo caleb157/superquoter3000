@@ -1938,6 +1938,7 @@ export type Database = {
           created_at: string
           description: string
           examples: string[]
+          gst_rate: number | null
           keywords: string[]
           updated_at: string
         }
@@ -1946,6 +1947,7 @@ export type Database = {
           created_at?: string
           description?: string
           examples?: string[]
+          gst_rate?: number | null
           keywords?: string[]
           updated_at?: string
         }
@@ -1954,6 +1956,7 @@ export type Database = {
           created_at?: string
           description?: string
           examples?: string[]
+          gst_rate?: number | null
           keywords?: string[]
           updated_at?: string
         }

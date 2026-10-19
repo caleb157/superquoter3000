@@ -25,7 +25,21 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
   return res as T;
 }
 
-export type OdooMeta = { categories: string[]; uoms: { name: string; category: string }[]; routes: string[]; companies: string[] };
+export type OdooTax = { id: number; name: string; amount: number };
+export type OdooMeta = { categories: string[]; uoms: { name: string; category: string }[]; routes: string[]; companies: string[]; taxes?: OdooTax[] };
+
+export type OdooDetails = { id: number; sku: string; name: string; category: string; templateId: number; image: string | null; weightKg: number | null; volumeM3: number | null; hsn: string; taxIds: number[] };
+/** Live data of products already in Odoo, by product.product id. */
+export async function odooDetails(ids: number[]): Promise<OdooDetails[]> {
+  const list = [...new Set(ids.filter(i => i > 0))];
+  if (!list.length) return [];
+  return (await call<{ products: OdooDetails[] }>('odoo-product-lookup', { action: 'details', ids: list })).products ?? [];
+}
+export type OdooVariant = { id: number; sku: string; label: string; ptavIds: number[] };
+/** All variants on the template of an Odoo product (for BOM "Apply on Variants"). */
+export async function odooVariants(productId: number): Promise<OdooVariant[]> {
+  return (await call<{ variants: OdooVariant[] }>('odoo-product-lookup', { action: 'variants', productId })).variants ?? [];
+}
 
 export const odooMeta = () => call<OdooMeta>('odoo-product-lookup', { action: 'meta' });
 
