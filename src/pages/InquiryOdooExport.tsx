@@ -98,7 +98,8 @@ export default function InquiryOdooExport() {
       const next: Row[] = products.map(p => {
         let f = defaultFinished(p, { volumeM3: results.get(p.id)?.finalUnitCbm ?? null });
         const own = readDraft(p.id)?.finished;
-        if (own) f = { ...f, ...own, variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku };
+        // The photo always comes fresh from costing; a saved draft never pins an old one.
+        if (own) f = { ...f, ...own, variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
         return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null };
       });
@@ -111,6 +112,7 @@ export default function InquiryOdooExport() {
         if (hit) r.finished = { ...r.finished, hsn: hit.code };
       }
       setRows(next);
+      loadProgress(next.map(r => r.productId));
       setPicked(new Set(next.filter(r => !r.odooId).map(r => r.productId)));
       setSent({});
       ready.current = true;
