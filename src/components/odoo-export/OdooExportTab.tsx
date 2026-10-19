@@ -441,9 +441,9 @@ export function OdooExportTab({ productId }: { productId: string }) {
 
       <div className="flex flex-wrap items-center gap-2">
         {isAdmin && (
-          <Button onClick={() => setConfirmOpen(true)} disabled={sending || errors.length > 0 || !!lookupError}
-            title={errors.length ? 'Fix the problems listed above first' : lookupError ? 'Odoo is not reachable' : undefined}>
-            {sending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />} Send to Odoo
+          <Button onClick={() => setConfirmOpen(true)} disabled={sending || errors.length > 0 || !!lookupError || !finished.exists || newCount > 0}
+            title={!finished.exists ? 'Create the final product on the Odoo page first' : newCount > 0 ? 'Create the new materials first' : errors.length ? 'Fix the problems listed above first' : lookupError ? 'Odoo is not reachable' : undefined}>
+            {sending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />} Create BOM in Odoo
           </Button>
         )}
         {isAdmin && (
@@ -453,13 +453,10 @@ export function OdooExportTab({ productId }: { productId: string }) {
             <Plus className="h-4 w-4 mr-1.5" /> Create {newCount} new item{newCount === 1 ? '' : 's'} only
           </Button>
         )}
-        <Button variant="outline" onClick={() => download('products')} disabled={finished.exists}>
-          <Download className="h-4 w-4 mr-1.5" /> Products file
-        </Button>
         <Button variant="outline" onClick={() => download('bom')} disabled={live.length === 0}>
           <Download className="h-4 w-4 mr-1.5" /> BOM file
         </Button>
-        <span className="text-xs text-muted-foreground">Files: import the products file first, then the BOM file.</span>
+        <span className="text-xs text-muted-foreground">Order: final product (Odoo page) → new materials → BOM.</span>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
