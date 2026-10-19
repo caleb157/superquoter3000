@@ -1932,6 +1932,33 @@ export type Database = {
         }
         Relationships: []
       }
+      hsn_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          examples: string[]
+          keywords: string[]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string
+          examples?: string[]
+          keywords?: string[]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          examples?: string[]
+          keywords?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inquiry_projections: {
         Row: {
           actual_po_date: string | null
