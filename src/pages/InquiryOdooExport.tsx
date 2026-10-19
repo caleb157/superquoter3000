@@ -72,6 +72,23 @@ export default function InquiryOdooExport() {
   const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string }[] }>>({});
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkHsn, setBulkHsn] = useState('');
+  // Per product: materials created / BOM created, read from the Odoo send log.
+  const [progress, setProgress] = useState<Record<string, { materials: boolean; bom: boolean }>>({});
+  const loadProgress = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
+    const { data } = await supabase.from('odoo_push_log').select('product_id, request, result').eq('ok', true).in('product_id', ids);
+    const next: Record<string, { materials: boolean; bom: boolean }> = {};
+    for (const l of data ?? []) {
+      if (!l.product_id) continue;
+      const req = (l.request ?? {}) as { mode?: string };
+      const res = (l.result ?? {}) as { bomId?: number | null };
+      const cur = next[l.product_id] ?? { materials: false, bom: false };
+      if (req.mode === 'components' || req.mode === 'full') cur.materials = true;
+      if (res.bomId) cur.bom = true;
+      next[l.product_id] = cur;
+    }
+    setProgress(next);
+  }, []);
 
   const checkOdoo = useCallback(async (rs: Row[]) => {
     setChecking(true);
