@@ -12,6 +12,7 @@ import { ArrowLeft, CheckCircle2, Download, ExternalLink, Layers, Loader2, Refre
 import { supabase } from '@/integrations/supabase/client';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { confidentHsn, matchHsn, type HsnCode } from '@/lib/hsn-match';
+import { applyOdooBulkFields } from '@/lib/odoo-bulk-fields';
 import { AppLayout } from '@/components/AppLayout';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,6 +75,7 @@ export default function InquiryOdooExport() {
   const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string; gstRate?: number | null }[] }>>({});
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkHsn, setBulkHsn] = useState('');
+  const [bulkTax, setBulkTax] = useState('');
   // Per product: materials created / BOM created, read from the Odoo send log.
   const [progress, setProgress] = useState<Record<string, { materials: boolean; bom: boolean }>>({});
   const loadProgress = useCallback(async (ids: string[]) => {
@@ -250,8 +252,7 @@ export default function InquiryOdooExport() {
     if (h && h.length !== 8) { toast.error('HSN must be 8 digits.'); return; }
     setRows(prev => prev.map(r => {
       if (!picked.has(r.productId) || r.odooId) return r;
-      const parts = splitSku(r.finished.sku);
-      return { ...r, finished: { ...r.finished, ...(pre ? { sku: joinSku({ ...parts, prefix: pre }) } : {}), ...(h ? { hsn: h } : {}), ...(h && !(r.finished.taxIds ?? []).length && taxForRate(hsnList.find(x => x.code === h)?.gst_rate ?? null) ? { taxIds: [taxForRate(hsnList.find(x => x.code === h)?.gst_rate ?? null)!.id] } : {}) } };
+      return { ...r, finished: applyOdooBulkFields(r.finished, pre, h, bulkTax ? Number(bulkTax) : null) };
     }));
     toast.success('Applied to the selected products.');
   };
@@ -325,9 +326,10 @@ export default function InquiryOdooExport() {
             </label>
             <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-2 text-xs">
               <span className="text-muted-foreground self-center">For the selected products:</span>
-              <F label="SKU prefix"><div className="w-28"><OptionCombobox value={bulkPrefix} options={prefixOpts} allowCustom placeholder="e.g. LUX" className="h-8 text-xs font-mono" onChange={setBulkPrefix} /></div></F>
-              <F label="HSN (8 digits)"><div className="w-40"><OptionCombobox value={bulkHsn} options={hsnOpts} allowCustom placeholder="Pick or type" className="h-8 text-xs font-mono" onChange={setBulkHsn} /></div></F>
-              <Button size="sm" variant="outline" className="h-8" disabled={!chosen.length || (!bulkPrefix.trim() && !bulkHsn.trim())} onClick={applyBulk}>Apply</Button>
+              <F label="SKU prefix"><div className="w-28"><OptionCombobox value={bulkPrefix} options={prefixOpts} allowCustom clearable label="Bulk SKU prefix" placeholder="e.g. LUX" className="h-8 text-xs font-mono" onChange={setBulkPrefix} /></div></F>
+              <F label="HSN (8 digits)"><div className="w-40"><OptionCombobox value={bulkHsn} options={hsnOpts} allowCustom clearable label="Bulk HSN" placeholder="Pick or type" className="h-8 text-xs font-mono" onChange={setBulkHsn} /></div></F>
+              <F label="Sales tax (GST)"><div className="w-48"><OptionCombobox value={taxes.find(t => String(t.id) === bulkTax)?.name ?? ''} options={taxes.map(t => ({ value: t.name, hint: `${t.amount}%` }))} clearable label="Bulk sales tax" loading={!meta} placeholder="Leave unchanged" onChange={v => setBulkTax(v ? String(taxes.find(t => t.name === v)?.id ?? '') : '')} /></div></F>
+              <Button size="sm" variant="outline" className="h-8" disabled={!chosen.length || (!bulkPrefix.trim() && !bulkHsn.trim() && !bulkTax)} onClick={applyBulk}>Apply</Button>
             </div>
 
             {[...groups.flat(), ...rows.filter(r => r.odooId)].map(r => {
