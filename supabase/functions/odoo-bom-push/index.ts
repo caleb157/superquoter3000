@@ -335,8 +335,12 @@ Deno.serve(async (req) => {
         const pid = l.productId || variantBySku.get(norm(l.sku!))?.id;
         return [0, 0, { product_id: pid, product_qty: l.qty, product_uom_id: lineUoms[i] }];
       });
+      // On a template with 2+ variants, the BOM belongs to this variant only, so each variant
+      // keeps its own lines; a lone variant gets a template BOM as before.
+      const siblingsInOdoo = await sr('product.product', [['product_tmpl_id', '=', fin.tmpl]], ['id'], { context: { active_test: false } });
       bomId = await kw('mrp.bom', 'create', [await only('mrp.bom', {
-        product_tmpl_id: fin.tmpl, product_qty: body.bomUnits, type: 'normal', code: body.code || undefined,
+        product_tmpl_id: fin.tmpl, product_id: siblingsInOdoo.length > 1 ? fin.id : undefined,
+        product_qty: body.bomUnits, type: 'normal', code: body.code || undefined,
         bom_line_ids: bomLines,
       })]);
     }
