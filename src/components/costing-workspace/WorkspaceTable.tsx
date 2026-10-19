@@ -100,7 +100,7 @@ export function WorkspaceTable(p: Props) {
               {c.hint ? (
                 <Tooltip>
                   <TooltipTrigger asChild><span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">{c.hint}</TooltipContent>
+                  <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
                 </Tooltip>
               ) : c.label}
             </th>
