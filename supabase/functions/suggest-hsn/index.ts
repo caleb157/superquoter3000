@@ -65,7 +65,6 @@ Deno.serve(async (req) => {
       if (NoObjectGeneratedError.isInstance(e)) return json({ error: 'AI gave no usable answer. Try again.' }, 502);
       throw e;
     }
-    console.log('suggest-hsn raw', JSON.stringify(out));
     const suggestions = (out?.suggestions ?? [])
       .map(s => ({ ...s, code: String(s.code).replace(/\D/g, '') }))
       .filter(s => /^\d{8}$/.test(s.code))
