@@ -46,6 +46,16 @@ const Body = z.object({
   finished: Item.optional().nullable(),
   components: z.array(Item).max(100),
   lines: z.array(Line).max(200).default([]),
+  // Further variants of the same new template (mode product): the template data comes from `finished`.
+  variants: z.array(z.object({
+    hqProductId: z.string().uuid().optional().nullable(),
+    sku: z.string().trim().min(1).max(100),
+    variant: z.string().trim().min(1).max(200),
+    customerSku: z.string().trim().max(100).optional().nullable(),
+    weightKg: z.number().min(0).optional().nullable(),
+    volumeM3: z.number().min(0).optional().nullable(),
+    imageUrl: z.string().url().max(2000).optional().nullable(),
+  })).max(50).default([]),
 });
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
@@ -165,7 +175,15 @@ Deno.serve(async (req) => {
     if (problems.length) return json({ error: 'Nothing was sent. Fix these first:', problems: [...new Set(problems)] }, 400);
 
     // Existing products by SKU (archived included, so they are reused, never duplicated).
-    const allSkus = [...new Set([...items.map(i => i.sku), ...lines.map(l => l.sku).filter(Boolean), body.existingSku].filter(Boolean) as string[])];
+    const siblings = mode === 'product' ? body.variants : [];
+    if (siblings.length) {
+      const labels = [(finished!.variant || '').trim(), ...siblings.map(v => v.variant)].map(norm);
+      const skus = [finished!.sku, ...siblings.map(v => v.sku)].map(norm);
+      if (labels.some(l => !l) || new Set(labels).size !== labels.length) problems.push('Every variant on the template needs its own variant name.');
+      if (new Set(skus).size !== skus.length) problems.push('Every variant on the template needs its own SKU.');
+      if (problems.length) return json({ error: 'Nothing was sent. Fix these first:', problems }, 400);
+    }
+    const allSkus = [...new Set([...items.map(i => i.sku), ...siblings.map(v => v.sku), ...lines.map(l => l.sku).filter(Boolean), body.existingSku].filter(Boolean) as string[])];
     const existing = await sr('product.product', [['default_code', 'in', allSkus]], ['default_code', 'product_tmpl_id', 'active'],
       { context: { active_test: false } });
     const variantBySku = new Map<string, { id: number; tmpl: number }>();
@@ -175,23 +193,23 @@ Deno.serve(async (req) => {
         problems.push(`BOM line ${l.sku} is not in Odoo and is not marked new.`);
       }
     }
+    for (const v of siblings) if (variantBySku.has(norm(v.sku))) problems.push(`${v.sku} is already in Odoo.`);
     if (problems.length) return json({ error: 'Nothing was sent. Fix these first:', problems: [...new Set(problems)] }, 400);
 
-    // The HQ photo for a new finished product (skipped quietly if it can't be fetched).
-    let image: string | null = null;
-    if (finished && mode !== 'components' && body.imageUrl) {
+    // HQ photos for new finished products (skipped quietly if they can't be fetched).
+    const fetchImage = async (url?: string | null): Promise<string | null> => {
+      if (!url) return null;
       try {
-        const res = await fetch(body.imageUrl);
-        if (res.ok) {
-          const buf = new Uint8Array(await res.arrayBuffer());
-          if (buf.length < 10_000_000) {
-            let bin = '';
-            for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-            image = btoa(bin);
-          }
-        }
-      } catch { /* no image */ }
-    }
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.length >= 10_000_000) return null;
+        let bin = '';
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+        return btoa(bin);
+      } catch { return null; }
+    };
+    const image = finished && mode !== 'components' ? await fetchImage(body.imageUrl) : null;
 
     // The existing finished product, when the BOM is for one already in Odoo.
     let fin: { id: number; tmpl: number } | null = null;
@@ -233,36 +251,60 @@ Deno.serve(async (req) => {
       const it = r.it;
       const hit = variantBySku.get(norm(it.sku));
       if (hit) { reused.push({ kind: 'product', sku: it.sku, id: hit.id }); return hit; }
-      const label = (it.variant || '').trim() || 'Standard';
-      const [val] = await sr('product.attribute.value', [['attribute_id', '=', VARIANT_ATTRIBUTE_ID], ['name', '=ilike', label]], ['id'], { limit: 1 });
-      const valId = val?.id ?? await kw('product.attribute.value', 'create', [{ attribute_id: VARIANT_ATTRIBUTE_ID, name: label }]);
+      // One variant per value on the global attribute: this product first, then any siblings.
+      const specs = [
+        { hqProductId: body.hqProductId ?? null, sku: it.sku, label: (it.variant || '').trim() || 'Standard', customerSku: it.customerSku, weightKg: it.weightKg, volumeM3: it.volumeM3, image },
+        ...siblings.map(v => ({ hqProductId: v.hqProductId ?? null, sku: v.sku, label: v.variant, customerSku: v.customerSku, weightKg: v.weightKg, volumeM3: v.volumeM3, image: null as string | null, imageUrl: v.imageUrl })),
+      ];
+      const valIds: number[] = [];
+      for (const sp of specs) {
+        const [val] = await sr('product.attribute.value', [['attribute_id', '=', VARIANT_ATTRIBUTE_ID], ['name', '=ilike', sp.label]], ['id'], { limit: 1 });
+        valIds.push(val?.id ?? await kw('product.attribute.value', 'create', [{ attribute_id: VARIANT_ATTRIBUTE_ID, name: sp.label }]));
+      }
       const vals: Record<string, unknown> = {
         name: it.name, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
         sale_ok: true, purchase_ok: false, list_price: it.salePrice ?? undefined,
         l10n_in_hsn_code: it.hsn || undefined,
-        attribute_line_ids: [[0, 0, { attribute_id: VARIANT_ATTRIBUTE_ID, value_ids: [[6, 0, [valId]]] }]],
+        attribute_line_ids: [[0, 0, { attribute_id: VARIANT_ATTRIBUTE_ID, value_ids: [[6, 0, valIds]] }]],
       };
       if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }
       else if (tmplFields.has('detailed_type')) vals.detailed_type = it.tracked ? 'product' : 'consu';
       else vals.type = it.tracked ? 'product' : 'consu';
       const tmplId = await kw('product.template', 'create', [await only('product.template', vals)]);
-      const [v] = await sr('product.product', [['product_tmpl_id', '=', tmplId]], ['id'], { limit: 1, context: { active_test: false } });
-      if (!v?.id) throw new Error('Odoo created the product but no variant. Check the "variant" attribute in Odoo.');
-      const pv: Record<string, unknown> = { default_code: it.sku, weight: it.weightKg ?? undefined, volume: it.volumeM3 ?? undefined, image_1920: image ?? undefined };
-      if (it.customerSku) {
-        try {
-          const [tag] = await sr('product.tag', [['name', '=ilike', it.customerSku]], ['id'], { limit: 1 });
-          const tagId = tag?.id ?? await kw('product.tag', 'create', [{ name: it.customerSku }]);
-          pv.additional_product_tag_ids = [[4, tagId]];
-        } catch { /* tags are optional */ }
+      const variants = await sr('product.product', [['product_tmpl_id', '=', tmplId]], ['id', 'product_template_attribute_value_ids'], { context: { active_test: false } });
+      if (!variants.length) throw new Error('Odoo created the product but no variant. Check the "variant" attribute in Odoo.');
+      const ptavIds = variants.flatMap((x: any) => x.product_template_attribute_value_ids || []);
+      const ptavs = ptavIds.length ? await sr('product.template.attribute.value', [['id', 'in', ptavIds]], ['product_attribute_value_id']) : [];
+      const valOfPtav = new Map(ptavs.map((p: any) => [p.id, Array.isArray(p.product_attribute_value_id) ? p.product_attribute_value_id[0] : p.product_attribute_value_id]));
+      const variantOfVal = new Map<number, number>();
+      for (const x of variants) for (const pt of x.product_template_attribute_value_ids || []) { const vid = valOfPtav.get(pt); if (vid) variantOfVal.set(vid, x.id); }
+      let first: { id: number; tmpl: number } | null = null;
+      for (let i = 0; i < specs.length; i++) {
+        const sp = specs[i] as any;
+        const vid = specs.length === 1 ? variants[0].id : variantOfVal.get(valIds[i]);
+        if (!vid) throw new Error(`Odoo did not make the "${sp.label}" variant.`);
+        const img = i === 0 ? sp.image : await fetchImage(sp.imageUrl);
+        const pv: Record<string, unknown> = { default_code: sp.sku, weight: sp.weightKg ?? undefined, volume: sp.volumeM3 ?? undefined, image_1920: img ?? undefined };
+        if (sp.customerSku) {
+          try {
+            const [tag] = await sr('product.tag', [['name', '=ilike', sp.customerSku]], ['id'], { limit: 1 });
+            const tagId = tag?.id ?? await kw('product.tag', 'create', [{ name: sp.customerSku }]);
+            pv.additional_product_tag_ids = [[4, tagId]];
+          } catch { /* tags are optional */ }
+        }
+        await kw('product.product', 'write', [[vid], await only('product.product', pv)]);
+        const o = { id: vid, tmpl: tmplId };
+        variantBySku.set(norm(sp.sku), o);
+        created.push({ kind: 'product', sku: sp.sku, id: vid });
+        if (i === 0) first = o;
+        else if (sp.hqProductId) {
+          try {
+            await sb.from('products').update({ odoo_product_id: vid, odoo_template_id: tmplId, odoo_sku: sp.sku, odoo_variant: sp.label, odoo_pushed_at: new Date().toISOString() }).eq('id', sp.hqProductId);
+          } catch { /* the link is a convenience */ }
+        }
       }
-      await kw('product.product', 'write', [[v.id], await only('product.product', pv)]);
-      const out = { id: v.id, tmpl: tmplId };
-      variantBySku.set(norm(it.sku), out);
-      created.push({ kind: 'product', sku: it.sku, id: out.id });
-      return out;
+      return first!;
     }
-
     for (const r of resolved.filter(x => !x.it.finished)) await createProduct(r);
     const finR = resolved.find(x => x.it.finished);
     if (!fin && finR) fin = await createProduct(finR);
