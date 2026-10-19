@@ -472,6 +472,61 @@ export function addCogsLine(b: Bundle, productId: string, cogsType: string, extr
   }]);
 }
 
+// ----- Price list items (Settings → Materials & hardware) -----
+
+/** One priced item a costing line can be made from. */
+export type PriceListItem = { key: string; category: string; name: string; unitCostInr: number; units: string };
+
+/**
+ * Active rupee items from the materials & hardware price list, plus old hardware_prices rows
+ * not moved across yet (filed under Other Hardware). Only categories in `categories` are offered.
+ */
+export function priceListItems(b: Bundle, categories: string[]): PriceListItem[] {
+  const allowed = new Set(categories);
+  const out: PriceListItem[] = (b.rawMaterialCosts || [])
+    .filter((r: any) => r.active !== false && (r.currency || 'INR') === 'INR' && allowed.has(r.category) && (r.name || '').trim())
+    .map((r: any) => ({ key: `m:${r.id}`, category: r.category, name: r.name.trim(), unitCostInr: Number(r.cost) || 0, units: r.unit_type || 'pc' }));
+  if (allowed.has('Other Hardware')) {
+    for (const h of b.hardwarePrices || []) {
+      if (h.source !== 'legacy') continue;
+      out.push({ key: `h:${h.id}`, category: 'Other Hardware', name: h.name, unitCostInr: Number(h.unit_cost_inr) || 0, units: h.units || 'pc' });
+    }
+  }
+  return out.sort((x, y) => x.name.localeCompare(y.name));
+}
+
+/**
+ * Adds price-list items to many products at `qty` per unit, at the list price. A product that
+ * already has a manual line for the same item (same category and name) has that line updated
+ * instead, so applying twice never doubles up.
+ */
+export function addPriceListLines(b: Bundle, ids: string[], items: { item: PriceListItem; qty: number }[]): Mutation {
+  const updates: { id: string; patch: any }[] = [];
+  const inserts: any[] = [];
+  for (const pid of ids) {
+    let sort = b.cogs.filter(c => c.product_id === pid).reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
+    for (const { item, qty } of items) {
+      const patch = { components_per_product: qty, unit_cost_inr: item.unitCostInr, units: item.units, include: 'Yes' };
+      const existing = b.cogs.find(c => c.product_id === pid && c.cogs_type === item.category && !c.is_auto_calculated
+        && lc(c.component_name).trim() === lc(item.name).trim());
+      if (existing) { updates.push({ id: existing.id, patch }); continue; }
+      inserts.push({
+        id: uuid(), product_id: pid, cogs_type: item.category, component_name: item.name, waste_factor: 0, is_auto_calculated: false,
+        sort_order: ++sort, vendor_name: null, chemical_price_id: null, created_at: new Date().toISOString(), ...patch,
+      });
+    }
+  }
+  return cogsMutation(b, updates, inserts);
+}
+
+/** A product's included lines in an editable bucket, in sheet order (what its total adds up). */
+export function bucketLines(b: Bundle, productId: string, bucketKey: string): any[] {
+  const types = EDITABLE_BUCKETS.find(x => x.key === bucketKey)?.types ?? [];
+  return b.cogs
+    .filter(c => c.product_id === productId && types.includes(c.cogs_type) && c.include === 'Yes' && lc(c.component_name) !== 'outsourced product' && !isDomesticFreight(c))
+    .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));
+}
+
 /**
  * Sets a bucket's per-unit total for many products. The first included line of the bucket
  * absorbs the difference (other lines stay as they are); a line is created if none exists.
@@ -481,9 +536,7 @@ export function setBucketTotal(b: Bundle, ids: string[], bucketKey: string, valu
   const updates: { id: string; patch: any }[] = [];
   const inserts: any[] = [];
   for (const pid of ids) {
-    const lines = b.cogs
-      .filter(c => c.product_id === pid && types.includes(c.cogs_type) && c.include === 'Yes' && (c.component_name || '').toLowerCase() !== 'outsourced product' && !isDomesticFreight(c))
-      .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));
+    const lines = bucketLines(b, pid, bucketKey);
     const primary = lines.find(l => !l.is_auto_calculated) || lines[0];
     if (primary) {
       // The typed total is the price before waste (what the vendor quoted); costing adds waste on top.

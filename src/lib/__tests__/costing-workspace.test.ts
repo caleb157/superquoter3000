@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine, targetFromPrice, lineValue,
+  patchCogsLine, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -246,5 +246,37 @@ describe('quote currency targets', () => {
     expect(targetPatch({ target_price_inr: 450 }, 'USD', 5, 90)).toEqual({ target_price_usd: 5, target_price_inr: null });
     expect(targetPatch({}, 'INR', 900, 90)).toEqual({ target_price_inr: 900, target_price_usd: 10 });
     expect(targetPatch({ target_price_inr: 1 }, 'INR', null, 90)).toEqual({ target_price_usd: null, target_price_inr: null });
+  });
+
+  it('price list offers active rupee items in allowed categories, plus unmoved old hardware', () => {
+    const b = bundle();
+    b.rawMaterialCosts = [
+      { id: 'm1', category: 'Handles + Knobs', name: 'Brass knob', cost: 60, unit_type: 'pc', currency: 'INR', active: true },
+      { id: 'm2', category: 'Handles + Knobs', name: 'Old knob', cost: 10, unit_type: 'pc', currency: 'INR', active: false },
+      { id: 'm3', category: 'Accessories', name: 'Glass top', cost: 5, unit_type: 'pc', currency: 'USD', active: true },
+      { id: 'm4', category: 'Raw Piece', name: 'Teak blank', cost: 900, unit_type: 'pc', currency: 'INR', active: true },
+    ];
+    b.hardwarePrices = [{ id: 'h1', name: 'Hinge', unit_cost_inr: 12, units: 'pc', source: 'legacy' }, { id: 'm1', name: 'Brass knob', unit_cost_inr: 60, units: 'pc', source: 'materials' }];
+    const items = priceListItems(b, ['Handles + Knobs', 'Accessories', 'Other Hardware']);
+    expect(items.map(i => [i.name, i.category, i.unitCostInr])).toEqual([['Brass knob', 'Handles + Knobs', 60], ['Hinge', 'Other Hardware', 12]]);
+  });
+
+  it('adding a price-list item puts it on every ticked SKU at its qty, and re-adding updates instead of doubling', () => {
+    const knob = { key: 'm:1', category: 'Handles + Knobs', name: 'Handles + Knobs', unitCostInr: 50, units: 'pc' };
+    const feet = { key: 'm:2', category: 'Feet/Buffers', name: 'Felt pad', unitCostInr: 2, units: 'pc' };
+    const before = bundle();
+    const m = addPriceListLines(before, ['a', 'b'], [{ item: knob, qty: 4 }, { item: feet, qty: 8 }]);
+    expect(new Set(m.touched)).toEqual(new Set(['a', 'b']));
+    // a already had a manual "Handles + Knobs" line: updated in place, not duplicated
+    const aKnobs = m.next.cogs.filter(c => c.product_id === 'a' && c.cogs_type === 'Handles + Knobs');
+    expect(aKnobs).toHaveLength(1);
+    expect(aKnobs[0]).toMatchObject({ components_per_product: 4, unit_cost_inr: 50, include: 'Yes' });
+    const bLines = m.next.cogs.filter(c => c.product_id === 'b' && ['Handles + Knobs', 'Feet/Buffers'].includes(c.cogs_type));
+    expect(bLines.map(c => [c.component_name, c.components_per_product, c.unit_cost_inr])).toEqual([['Handles + Knobs', 4, 50], ['Felt pad', 8, 2]]);
+    expect(byId(m.next, 'b').editBuckets.hw_handles_knobs).toBeCloseTo(200, 6);
+    expect(byId(m.next, 'b').editBuckets.hw_feet).toBeCloseTo(16, 6);
+    expect(byId(m.next, 'c').editBuckets.hw_feet).toBe(0);
+    const again = addPriceListLines(m.next, ['b'], [{ item: feet, qty: 6 }]);
+    expect(again.next.cogs.filter(c => c.product_id === 'b' && c.cogs_type === 'Feet/Buffers').map(c => c.components_per_product)).toEqual([6]);
   });
 });
