@@ -452,6 +452,7 @@ export type PushPayload = {
   finished: Record<string, unknown> | null;
   components: Record<string, unknown>[];
   lines: { productId: number | null; sku: string | null; qty: number; uom: string }[];
+  variants?: { hqProductId: string; sku: string; variant: string; customerSku: string | null; weightKg: number | null; volumeM3: number | null; imageUrl: string | null }[];
 };
 
 /** What the odoo-bom-push function receives: the same draft the files are made from. */
