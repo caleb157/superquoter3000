@@ -245,6 +245,10 @@
 [data-grid]:not([data-col="name"]) {
   scroll-margin: var(--cw-scroll-top, 0) 4px var(--cw-scroll-bottom, 0) var(--cw-scroll-left, 0);
 }
+/* Costing Workspace: cells inside a Shift-selected block (copy, fill down, clear). */
+td.cw-in-range {
+  background-color: hsl(var(--primary) / 0.09) !important;
+}
 
 /* iOS Safari zooms the whole page in when a field under 16px gets focus, and
    stays zoomed — which pushes dialogs and toolbars off the left/right edge.

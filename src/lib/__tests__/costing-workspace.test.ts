@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -19,6 +19,15 @@ describe('costing workspace', () => {
     for (const r of rowsOf(bundle())) {
       const sum = Object.values(r.buckets).reduce((a, v) => a + v, 0) + r.r.capitalPerUnitInr;
       expect(sum).toBeCloseTo(r.costInr, 6);
+    }
+  });
+
+  it('the four steps (COGS, labour, shipping, capital) add up to the unit cost', () => {
+    for (const r of rowsOf(bundle())) {
+      const s = stepTotals(r);
+      expect(s.cogs + s.labour + s.shipping + s.capital).toBeCloseTo(r.costInr, 6);
+      expect(s.labour).toBe(r.buckets.labor);
+      expect(s.shipping).toBe(r.buckets.shipping);
     }
   });
 
@@ -278,5 +287,64 @@ describe('quote currency targets', () => {
     expect(byId(m.next, 'c').editBuckets.hw_feet).toBe(0);
     const again = addPriceListLines(m.next, ['b'], [{ item: feet, qty: 6 }]);
     expect(again.next.cogs.filter(c => c.product_id === 'b' && c.cogs_type === 'Feet/Buffers').map(c => c.components_per_product)).toEqual([6]);
+  });
+
+  it('undo puts back exactly what an edit changed, and redo re-applies it', () => {
+    const before = bundle();
+    const costs = (b: Bundle) => rowsOf(b).map(r => r.costInr);
+    // A multi-table edit: packaging type rewrites cogs lines and the product.
+    const after = chain(before, [
+      cur => setPackagingType(cur, ['a', 'b'], 'bulk_pack'),
+      cur => setBucketTotal(cur, ['a'], 'raw_piece', 1234),
+      cur => patchProductsSame(cur, ['c'], { quantity: 999 }),
+    ]).next;
+    expect(costs(after)).not.toEqual(costs(before));
+    const undone = restoreRows(after, before, after)!;
+    expect(costs(undone.next)).toEqual(costs(before));
+    expect(undone.next.products.find(p => p.id === 'c')!.quantity).toBe(50);
+    expect(new Set(undone.touched)).toEqual(new Set(['a', 'b', 'c']));
+    const redone = restoreRows(undone.next, after, before)!;
+    expect(costs(redone.next)).toEqual(costs(after));
+  });
+
+  it('undo keeps later edits to other fields, and removes lines the edit added', () => {
+    const before = bundle();
+    const knob = { key: 'm:9', category: 'Accessories', name: 'Rope handle', unitCostInr: 30, units: 'pc' };
+    const after = addPriceListLines(before, ['b'], [{ item: knob, qty: 3 }]).next;
+    const later = patchProductsSame(after, ['b'], { markup_percent: 0.4 }).next;
+    const undone = restoreRows(later, before, after)!.next;
+    expect(undone.cogs.length).toBe(before.cogs.length);
+    expect(undone.products.find(p => p.id === 'b')!.markup_percent).toBe(0.4);
+    expect(restoreRows(before, before, before)).toBeNull();
+  });
+
+  it('copying costing makes the targets cost like the source, step by step', () => {
+    const before = bundle();
+    const src = byId(before, 'b');
+    const m = copyCosting(before, 'b', ['a', 'c', 'b'], { cogs: true });
+    expect(new Set(m.touched)).toEqual(new Set(['a', 'c']));
+    for (const id of ['a', 'c']) {
+      const r = byId(m.next, id);
+      expect(r.editBuckets.raw_piece).toBeCloseTo(src.editBuckets.raw_piece, 6);
+      expect(r.editBuckets.subcontract).toBeCloseTo(src.editBuckets.subcontract, 6);
+      expect(r.editBuckets.hw_handles_knobs).toBeCloseTo(src.editBuckets.hw_handles_knobs, 6);
+    }
+    // Labour and shipping untouched when not asked for.
+    expect(m.next.oh).toEqual(before.oh);
+    const lab = copyCosting(before, 'a', ['c'], { labour: true }).next;
+    expect(byId(lab, 'c').r.manHoursPerUnit).toBeCloseTo(byId(before, 'a').r.manHoursPerUnit, 6);
+    // Undo puts the targets back.
+    const undone = restoreRows(m.next, before, m.next)!.next;
+    rowsOf(undone).forEach((r, i) => expect(r.costInr).toBeCloseTo(rowsOf(before)[i].costInr, 6));
+  });
+
+  it('pasted lines are added (never doubling the chosen raw piece)', () => {
+    const before = bundle();
+    const lines = before.cogs.filter(c => c.product_id === 'a' && !c.is_auto_calculated);
+    const m = pasteCogsLines(before, ['c'], lines);
+    const added = m.next.cogs.filter(c => c.product_id === 'c').length - before.cogs.filter(c => c.product_id === 'c').length;
+    expect(added).toBe(lines.length);
+    const winners = m.next.cogs.filter(c => c.product_id === 'c' && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
+    expect(winners).toHaveLength(1);
   });
 });

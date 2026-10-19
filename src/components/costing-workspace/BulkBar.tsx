@@ -1,7 +1,8 @@
 // Floating action bar for the ticked SKUs: set any field, scale a cost bucket, add price-list
-// items, or run one of the pricing shortcuts (price to target, target = price, cheapest quote wins).
+// items, copy costing from another SKU, paste copied lines, duplicate, or run one of the
+// pricing shortcuts (price to target, target = price, cheapest quote wins).
 import { useMemo, useState } from 'react';
-import { Check, ChevronsUpDown, Crosshair, FileText, ListPlus, Loader2, Percent, Trophy, Undo2, X } from 'lucide-react';
+import { Check, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Crosshair, FileText, ListPlus, Loader2, Percent, Trophy, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
@@ -9,18 +10,22 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, chooseCheapestQuotes, markupToTarget, scaleBucket, targetFromPrice,
+  EDITABLE_BUCKETS, chooseCheapestQuotes, markupToTarget, pasteCogsLines, scaleBucket, targetFromPrice,
   type Apply, type Bundle, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
 import { AddItemsDialog } from './AddItemsDialog';
+import { CopyCostingDialog } from './CopyCostingDialog';
+import { useCopiedLines } from './line-clipboard';
 import { bulkFieldGroups, bulkLabel, type Col } from './columns';
 import { quoteCurrencyOf } from '@/lib/quote-currency';
 
 const selectCls = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
 
-export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }: {
+export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, onDuplicate, duplicating }: {
   ids: string[]; rows: WorkspaceRow[]; bundle: Bundle; apply: Apply; onClear: () => void;
+  /** Copy the ticked SKUs, with all their costing, into this inquiry. */
+  onDuplicate: () => void; duplicating: boolean;
   /** Make a draft customer quote from the ticked SKUs at the prices shown. */
   onQuote: () => void; quoting: boolean;
 }) {
@@ -28,6 +33,8 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
   const groups = useMemo(() => bulkFieldGroups(cur), [cur]);
   const fields = useMemo(() => groups.flatMap(g => g.cols), [groups]);
   const [adding, setAdding] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const copied = useCopiedLines();
   const [fieldId, setFieldId] = useState('npm');
   const [value, setValue] = useState('');
   const [bucket, setBucket] = useState('raw_piece');
@@ -100,6 +107,33 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting }:
         <TooltipContent className="max-w-xs">Add hardware, accessories or other materials from the price list to the selected SKUs, with a quantity per unit</TooltipContent>
       </Tooltip>
       <AddItemsDialog open={adding} onOpenChange={setAdding} ids={ids} bundle={bundle} apply={apply} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setCopying(true)}>
+            <Copy className="h-3.5 w-3.5" /> Copy from…
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">Make the selected SKUs cost like another SKU: its COGS lines, labour and/or shipping</TooltipContent>
+      </Tooltip>
+      <CopyCostingDialog open={copying} onOpenChange={setCopying} ids={ids} rows={rows} bundle={bundle} apply={apply} />
+      {copied && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => apply(b => pasteCogsLines(b, ids, copied.lines))}>
+              <ClipboardPaste className="h-3.5 w-3.5" /> Paste {copied.lines.length} line{copied.lines.length === 1 ? '' : 's'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">Add the cost lines copied from {copied.from} to each selected SKU</TooltipContent>
+        </Tooltip>
+      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={duplicating} onClick={onDuplicate}>
+            {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CopyPlus className="h-3.5 w-3.5" />} Duplicate
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">Copy the selected SKUs, with all their costing, as new SKUs in this inquiry (named “(copy)”, SKU code left blank)</TooltipContent>
+      </Tooltip>
 
       <div className="h-6 w-px bg-border" />
 

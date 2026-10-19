@@ -1,16 +1,27 @@
-// The bulk grid: one row per SKU, columns from the active view. Sticky header, sticky
-// name column and a totals footer; the name cell opens the product panel.
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus, Sparkles } from 'lucide-react';
+// The bulk grid: one row per SKU, columns in costing order (COGS, labour, shipping, margin),
+// each step a band that opens to its detail or folds to its subtotal. Sticky header, sticky
+// name column and a totals footer; the name cell opens the product panel. Like a
+// spreadsheet, Shift+arrows (or Shift+click) select a block of cells to copy, fill down
+// (Ctrl+D), clear (Delete) or paste into.
+import { useRef } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
-import { chooseQuote, setQuote, type Apply, type Bundle, type WorkspaceRow } from '@/lib/costing-workspace';
-import { EditCell, GapChip, NavCell, SelectCell, Thumb, inr, moveForKey, navigate, navKeyDown, parseNum, money } from './cells';
-import { writeGrid, type Col, type View } from './columns';
+import { chain, chooseQuote, setQuote, type Apply, type Bundle, type Mutation, type WorkspaceRow } from '@/lib/costing-workspace';
+import { EditCell, GapChip, NavCell, SelectCell, Thumb, focusCell, inr, moveForKey, navigate, navKeyDown, parseClipboard, parseNum, money } from './cells';
+import { BANDS, writeGrid, type Col, type LaidCol, type OpenState } from './columns';
 
 type Props = {
-  view: View;
+  /** Visible columns, from layout(). */
+  cols: LaidCol[];
+  /** Vendor quotes side by side instead of the steps. */
+  quotes: boolean;
+  open: OpenState;
+  /** Open or fold a step or sub-group by id. */
+  onToggleOpen: (id: string) => void;
   rows: WorkspaceRow[];
   bundle: Bundle;
   selected: Set<string>;
@@ -34,9 +45,9 @@ const COMPACT_COLS: Col[] = [
 ];
 
 export function WorkspaceTable(p: Props) {
-  const { view, rows, bundle, selected, openId, compact } = p;
-  const cols = compact ? COMPACT_COLS : view.cols;
-  const isQuotes = view.id === 'quotes' && !compact;
+  const { rows, bundle, selected, openId, compact } = p;
+  const cols: LaidCol[] = compact ? COMPACT_COLS : p.cols;
+  const isQuotes = p.quotes && !compact;
   const allSelected = rows.length > 0 && rows.every(r => selected.has(r.p.id));
   const someSelected = rows.some(r => selected.has(r.p.id));
   const hasFooter = !isQuotes && cols.some(c => c.footer);
@@ -49,16 +60,29 @@ export function WorkspaceTable(p: Props) {
         return acc;
       }, [])
     : null;
-  const grid = isQuotes ? 'quotes' : compact ? 'compact' : view.id;
+  const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
+  // One header cell per step over its columns (lead columns get a blank one).
+  const bands = !isQuotes && !compact
+    ? cols.reduce<{ id?: string; span: number }[]>((acc, c) => {
+        const last = acc[acc.length - 1];
+        if (last && last.id === c.band) last.span++;
+        else acc.push({ id: c.band, span: 1 });
+        return acc;
+      }, [])
+    : null;
+  const bandStart = new Set(cols.filter((c, i) => c.band && cols[i - 1]?.band !== c.band).map(c => c.id));
+  const headTop = (bands ? 32 : 0) + (groups ? 28 : 0);
 
   const nameWidth = compact ? 220 : 280;
   const dataWidth = isQuotes ? 72 + p.quoteSlots * QUOTE_W + 44 + 104 + 120 : cols.reduce((a, c) => a + c.width, 0);
 
+  const block = useBlockSelection({ enabled: grid === 'sheet', cols, rows, bundle, apply: p.apply });
+
   return (
-    <table className="w-full table-fixed border-separate border-spacing-0 text-sm" style={{
+    <table ref={block.ref} {...block.handlers} className="w-full table-fixed border-separate border-spacing-0 text-sm" style={{
       minWidth: nameWidth + dataWidth + 16,
       // Keep keyboard-focused cells clear of the sticky header, footer and name column.
-      ['--cw-scroll-top' as any]: `${groups ? 72 : 44}px`,
+      ['--cw-scroll-top' as any]: `${headTop + 44}px`,
       ['--cw-scroll-bottom' as any]: `${hasFooter ? 44 : 4}px`,
       ['--cw-scroll-left' as any]: `${nameWidth + 4}px`,
     }}>
@@ -69,8 +93,37 @@ export function WorkspaceTable(p: Props) {
         <col style={{ width: 16 }} />
       </colgroup>
       <thead>
+        {bands && (
+          <tr className="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:h-8 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:px-1 [&>th]:pt-1">
+            <th className="left-0 z-20" />
+            {bands.map((g, i) => {
+              const band = BANDS.find(b => b.id === g.id);
+              if (!band) return <th key={i} colSpan={g.span} />;
+              const isOpen = !!p.open[band.id];
+              return (
+                <th key={band.id} colSpan={g.span} className="border-l border-border/70 text-left">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => p.onToggleOpen(band.id)} aria-expanded={isOpen}
+                        className="flex h-6 w-full items-center gap-1.5 rounded-md border-t-[3px] px-1.5 text-xs font-semibold text-foreground hover:bg-background/70"
+                        style={{ borderTopColor: band.color }}>
+                        <span className="text-muted-foreground tabular-nums">{band.n}</span>
+                        <span className="truncate">{band.label}</span>
+                        {isOpen ? <ChevronLeft className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      {band.hint}. {isOpen ? 'Click to fold to the subtotal' : 'Click to open the detail'} (key {band.n}).
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
+              );
+            })}
+            <th />
+          </tr>
+        )}
         {groups && (
-          <tr className="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:h-7 [&>th]:px-2 [&>th]:pt-1.5 [&>th]:text-[11px] [&>th]:font-medium [&>th]:text-muted-foreground">
+          <tr className={cn('[&>th]:sticky [&>th]:z-10', bands ? '[&>th]:top-8' : '[&>th]:top-0', '[&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:h-7 [&>th]:px-2 [&>th]:pt-1.5 [&>th]:text-[11px] [&>th]:font-medium [&>th]:text-muted-foreground')}>
             <th className="left-0 z-20" />
             {groups.map((g, i) => (
               <th key={i} colSpan={g.span} className="text-center">
@@ -81,7 +134,7 @@ export function WorkspaceTable(p: Props) {
           </tr>
         )}
         <tr className={cn('[&>th]:sticky [&>th]:z-10 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:border-b [&>th]:h-10 [&>th]:px-2 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground',
-          groups ? '[&>th]:top-7' : '[&>th]:top-0')}>
+          headTop === 60 ? '[&>th]:top-[60px]' : headTop === 32 ? '[&>th]:top-8' : headTop === 28 ? '[&>th]:top-7' : '[&>th]:top-0')}>
           <th className="left-0 z-20 text-left">
             <div className="flex items-center gap-3 pl-1">
               <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={p.onToggleAll} aria-label="Select all" />
@@ -96,13 +149,17 @@ export function WorkspaceTable(p: Props) {
           {isQuotes ? (
             <QuoteHeaders slots={p.quoteSlots} onAdd={p.onAddQuoteSlot} />
           ) : cols.map(c => (
-            <th key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left')}>
-              {c.hint ? (
-                <Tooltip>
-                  <TooltipTrigger asChild><span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
-                </Tooltip>
-              ) : c.label}
+            <th key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left',
+              bandStart.has(c.id) && 'border-l border-l-border/70', c.sub?.open && 'bg-muted')}>
+              <span className="inline-flex max-w-full items-center gap-1">
+                {c.sub?.first && <SubToggle sub={c.sub} onToggle={() => p.onToggleOpen(c.sub!.id)} />}
+                {c.hint ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild><span className="cursor-help truncate underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
+                  </Tooltip>
+                ) : <span className="truncate">{c.label}</span>}
+              </span>
             </th>
           ))}
           <th />
@@ -160,7 +217,8 @@ export function WorkspaceTable(p: Props) {
               {isQuotes ? (
                 <QuoteCells row={row} idx={idx} rows={rows} bundle={bundle} slots={p.quoteSlots} apply={p.apply} />
               ) : cols.map((c, ci) => (
-                <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums')}>
+                <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums',
+                  bandStart.has(c.id) && 'border-l border-l-border/70')}>
                   <Cell col={c} ci={ci} cols={cols} row={row} idx={idx} rows={rows} bundle={bundle} grid={grid} apply={p.apply} />
                 </td>
               ))}
@@ -173,12 +231,27 @@ export function WorkspaceTable(p: Props) {
         <tfoot>
           <tr className="[&>td]:sticky [&>td]:bottom-0 [&>td]:z-10 [&>td]:bg-muted/95 [&>td]:backdrop-blur [&>td]:border-t [&>td]:h-10 [&>td]:px-3 [&>td]:text-sm [&>td]:font-semibold [&>td]:tabular-nums">
             <td className="left-0 z-20 text-muted-foreground font-medium">Totals</td>
-            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left')}>{c.footer?.(rows) ?? ''}</td>)}
+            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left', bandStart.has(c.id) && 'border-l border-l-border/70')}>{c.footer?.(rows) ?? ''}</td>)}
             <td />
           </tr>
         </tfoot>
       )}
     </table>
+  );
+}
+
+/** Opens or folds a sub-group (hardware by type, cartons) from its first column's header. */
+function SubToggle({ sub, onToggle }: { sub: NonNullable<LaidCol['sub']>; onToggle: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button onClick={onToggle} aria-expanded={sub.open} aria-label={`${sub.open ? 'Fold' : 'Open'} ${sub.label}`}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded border bg-background text-muted-foreground hover:text-foreground">
+          {sub.open ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs">{sub.open ? `Fold ${sub.label.toLowerCase()} back to its total` : `Open ${sub.label.toLowerCase()}: ${sub.hint ?? ''}`}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -325,4 +398,163 @@ function QuoteCells({ row, idx, rows, bundle, slots, apply }: {
       </td>
     </>
   );
+}
+
+// ---------- block selection ----------
+
+type Pos = { r: number; c: number };
+type Block = { r0: number; r1: number; c0: number; c1: number };
+
+const toBlock = (a: Pos, b: Pos): Block => ({ r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r), c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c) });
+const ARROWS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+
+/** The text a cell copies as: the raw number for an editable cell, a select's label, what's shown otherwise. */
+function cellText(col: Col, row: WorkspaceRow, b: Bundle, td: HTMLElement | undefined): string {
+  const e = col.edit;
+  if (!e) return (td?.innerText ?? '').replace(/\s+/g, ' ').trim().replace(/^—$/, '');
+  const v = e.get(row);
+  if (e.kind === 'bool') return v ? 'Yes' : '';
+  if (e.kind === 'select') return e.options?.(b).find(o => o.value === String(v ?? ''))?.label ?? '';
+  return v == null ? '' : String(v);
+}
+
+/** A pasted value as the column takes it (a select matches value or label); null skips the cell. Tick boxes are never pasted. */
+function coerce(col: Col, raw: string, b: Bundle): string | null {
+  const e = col.edit;
+  const v = raw.trim();
+  if (!e || e.kind === 'bool' || v === '') return null;
+  if (e.kind !== 'select') return raw;
+  return e.options?.(b).find(o => o.value === v || o.label.toLowerCase() === v.toLowerCase())?.value ?? null;
+}
+
+/**
+ * Spreadsheet-style block selection over the sheet grid. Focus sets the anchor; Shift+arrow or
+ * Shift+click stretches the block. The block is painted straight onto the cells (no re-render),
+ * the same DOM-lookup approach as keyboard navigation.
+ */
+function useBlockSelection({ enabled, cols, rows, bundle, apply }: {
+  enabled: boolean; cols: Col[]; rows: WorkspaceRow[]; bundle: Bundle; apply: Apply;
+}) {
+  const ref = useRef<HTMLTableElement>(null);
+  const anchor = useRef<Pos | null>(null);
+  const head = useRef<Pos | null>(null);
+  const stretching = useRef(false);
+
+  const td = (r: number, c: number) => ref.current?.tBodies[0]?.rows[r]?.cells[c + 1] as HTMLElement | undefined;
+  const current = (): Block | null => (anchor.current && head.current ? toBlock(anchor.current, head.current) : null);
+  const isMulti = (bl: Block | null) => !!bl && (bl.r0 !== bl.r1 || bl.c0 !== bl.c1);
+
+  const paint = () => {
+    ref.current?.querySelectorAll('td.cw-in-range').forEach(el => el.classList.remove('cw-in-range'));
+    const bl = current();
+    if (!isMulti(bl)) return;
+    for (let r = bl!.r0; r <= bl!.r1; r++) for (let c = bl!.c0; c <= bl!.c1; c++) td(r, c)?.classList.add('cw-in-range');
+  };
+
+  const posOf = (el: EventTarget | null): Pos | null => {
+    const cell = (el as HTMLElement | null)?.closest?.<HTMLElement>('[data-grid="sheet"]');
+    if (!cell || cell.dataset.col === 'name') return null;
+    const c = cols.findIndex(x => x.id === cell.dataset.col);
+    const r = Number(cell.dataset.row);
+    return c < 0 || !Number.isFinite(r) ? null : { r, c };
+  };
+  const editing = (el: EventTarget | null) => !!(el as HTMLElement | null)?.closest?.('[data-editing]');
+
+  /** One mutation writing `raw(row, col)` to every editable, enabled cell of the block. */
+  const writeBlock = (bl: Block, raw: (r: number, c: number) => string | null) => (b: Bundle): Mutation | null => {
+    const steps: ((cur: Bundle) => Mutation | null)[] = [];
+    for (let c = bl.c0; c <= bl.c1; c++) {
+      const e = cols[c]?.edit;
+      if (!e) continue;
+      for (let r = bl.r0; r <= bl.r1; r++) {
+        const row = rows[r];
+        const v = row ? raw(r, c) : null;
+        if (v == null) continue;
+        steps.push(cur => (e.disabled?.(row, cur) ? null : e.write(cur, [row.p.id], v)));
+      }
+    }
+    const m = chain(b, steps);
+    return m.touched.length ? m : null;
+  };
+
+  const fillDown = (bl: Block) => {
+    // One row selected: copy from the row above, like Excel.
+    const src = bl.r0 === bl.r1 ? bl.r0 - 1 : bl.r0;
+    const from = rows[src];
+    if (!from) return;
+    const targets = { ...bl, r0: bl.r0 === bl.r1 ? bl.r0 : bl.r0 + 1 };
+    apply(writeBlock(targets, (_r, c) => {
+      const e = cols[c].edit!;
+      if (e.auto?.(from)) return '';
+      const v = e.get(from);
+      return v == null ? '' : String(v);
+    }));
+  };
+
+  const handlers = !enabled ? {} : {
+    onMouseDownCapture: (e: React.MouseEvent) => { stretching.current = e.shiftKey && !!anchor.current; },
+    onFocusCapture: (e: React.FocusEvent) => {
+      const pos = posOf(e.target);
+      if (!pos) { anchor.current = head.current = null; paint(); return; }
+      if (stretching.current && anchor.current) head.current = pos;
+      else { anchor.current = pos; head.current = pos; }
+      stretching.current = false;
+      paint();
+    },
+    onKeyDownCapture: (e: React.KeyboardEvent) => {
+      if (editing(e.target) || !posOf(e.target)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const arrow = ARROWS[e.key];
+      if (arrow && e.shiftKey && !mod && !e.altKey && head.current) {
+        e.preventDefault(); e.stopPropagation();
+        const r = Math.max(0, Math.min(rows.length - 1, head.current.r + arrow[0]));
+        const c = Math.max(0, Math.min(cols.length - 1, head.current.c + arrow[1]));
+        stretching.current = true;
+        if (!focusCell('sheet', r, cols[c].id)) { head.current = { r, c }; stretching.current = false; paint(); }
+        return;
+      }
+      const bl = current();
+      if (!bl) return;
+      if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); e.stopPropagation(); fillDown(bl); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && isMulti(bl)) {
+        e.preventDefault(); e.stopPropagation();
+        // Numbers only: clearing a menu or tick box by accident is easy to miss.
+        const clear = writeBlock(bl, (_r, c) => (cols[c].edit!.kind === 'number' || cols[c].edit!.kind === 'text' ? '' : null));
+        if (clear(bundle)) apply(clear);
+        else toast.info('Those cells can’t be blank. Overrides (✎) go back to the calculation when cleared.');
+      }
+    },
+    onCopyCapture: (e: React.ClipboardEvent) => {
+      if (editing(e.target)) return;
+      const bl = current();
+      if (!bl || !posOf(e.target)) return;
+      const lines: string[] = [];
+      for (let r = bl.r0; r <= bl.r1; r++) {
+        const row = rows[r];
+        if (!row) continue;
+        const cells: string[] = [];
+        for (let c = bl.c0; c <= bl.c1; c++) cells.push(cellText(cols[c], row, bundle, td(r, c)));
+        lines.push(cells.join('\t'));
+      }
+      e.preventDefault();
+      e.clipboardData.setData('text/plain', lines.join('\n'));
+      if (isMulti(bl)) toast.success(`Copied ${bl.r1 - bl.r0 + 1} × ${bl.c1 - bl.c0 + 1} cells`);
+    },
+    onPasteCapture: (e: React.ClipboardEvent) => {
+      const bl = current();
+      if (editing(e.target) || !isMulti(bl) || !posOf(e.target)) return;
+      // A block is selected: one copied value fills all of it; a copied block lands at its top-left.
+      e.preventDefault(); e.stopPropagation();
+      const clip = parseClipboard(e.clipboardData.getData('text/plain'));
+      const single = clip.length === 1 && clip[0].length === 1;
+      if (single) { apply(writeBlock(bl!, (_r, c) => coerce(cols[c], clip[0][0], bundle))); return; }
+      const editable = cols.map((c, i) => (c.edit && c.edit.kind !== 'bool' ? i : -1)).filter(i => i >= bl!.c0);
+      apply(writeBlock({ r0: bl!.r0, r1: bl!.r0 + clip.length - 1, c0: bl!.c0, c1: cols.length - 1 }, (r, c) => {
+        const j = editable.indexOf(c);
+        const v = j < 0 ? undefined : clip[r - bl!.r0]?.[j];
+        return v == null ? null : coerce(cols[c], v, bundle);
+      }));
+    },
+  };
+  return { ref, handlers };
 }
