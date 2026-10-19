@@ -27,10 +27,10 @@ import { OptionCombobox } from '@/components/odoo-export/OptionCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, splitSku, templateGroups, withVariantDefaults, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
+import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
 
-type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null };
+type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; rmTotal: number; rmPending: number };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
 
 const draftKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -54,7 +54,7 @@ export default function InquiryOdooExport() {
   const wanted = useMemo(() => (params.get('products') || '').split(',').filter(Boolean), [params]);
 
   const [title, setTitle] = useState('Inquiry');
-  useDocumentTitle(`Send to Odoo · ${title}`);
+  useDocumentTitle(`Odoo · ${title}`);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -118,7 +118,13 @@ export default function InquiryOdooExport() {
         // The photo always comes fresh from costing; a saved draft never pins an old one.
         if (own) f = { ...f, ...own, variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
-        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null };
+        // Raw materials still to sort out: lines set to "New item" (not yet in Odoo) or "Existing" with nothing picked.
+        const saved = readDraft(p.id) as { lines?: Record<string, Partial<DraftLine>>; added?: DraftLine[] } | null;
+        const cogs = results.get(p.id)?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === p.id);
+        const ls = [...buildDraftLines(cogs, new Map(), p.id).map(l => ({ ...l, ...(saved?.lines?.[l.lineId] ?? {}) })), ...(saved?.added ?? [])];
+        const live = ls.filter(l => l.status !== 'skip');
+        const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
+        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, rmTotal: live.length, rmPending };
       });
       const { data: hsn } = await hsnTable().select('code, description, keywords, examples').order('code');
       const codes = (hsn ?? []) as HsnCode[];
@@ -255,11 +261,11 @@ export default function InquiryOdooExport() {
           <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={() => navigate(`/inquiry/${inquiryId}`)}>
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Button>
-          <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/inquiries' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Send to Odoo" />
+          <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Odoo" />
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[240px]">
-            <h1 className="page-title">Send to Odoo · final products</h1>
+            <h1 className="page-title">Odoo · final products</h1>
             <p className="text-xs text-muted-foreground">Step 1: create the final products. Step 2, any time later: open each product's BOM to create its materials and the BOM.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => checkOdoo(rows)} disabled={checking || loading}>
@@ -327,13 +333,16 @@ export default function InquiryOdooExport() {
                         {multi && !inOdoo && (
                           <Badge variant="outline" className="gap-1"><Layers className="h-3 w-3" /> Variant {g.indexOf(r) + 1} of {g.length}{isLead ? ' · template from this one' : ` · template: ${g[0].finished.name}`}</Badge>
                         )}
-                        <Badge variant={progress[r.productId]?.materials ? 'secondary' : 'outline'} className="gap-1 text-[10px]">
-                          {progress[r.productId]?.materials ? <CheckCircle2 className="h-3 w-3" /> : null} Materials {progress[r.productId]?.materials ? 'sent' : 'not sent'}
-                        </Badge>
-                        <Badge variant={progress[r.productId]?.bom ? 'secondary' : 'outline'} className="gap-1 text-[10px]">
-                          {progress[r.productId]?.bom ? <CheckCircle2 className="h-3 w-3" /> : null} BOM {progress[r.productId]?.bom ? 'created' : 'not created'}
-                        </Badge>
-                        <Button variant="ghost" size="sm" className="h-7 ml-auto" onClick={() => navigate(`/product/${r.productId}?tab=odoo`)}>
+                        <span className="ml-auto" />
+                        {r.rmTotal === 0
+                          ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('idle')}`}>No raw materials</Badge>
+                          : r.rmPending > 0
+                            ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>{r.rmPending} of {r.rmTotal} RMs pending</Badge>
+                            : <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> All {r.rmTotal} RMs in Odoo</Badge>}
+                        {progress[r.productId]?.bom
+                          ? <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> BOM pushed</Badge>
+                          : <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>BOM pending</Badge>}
+                        <Button variant="ghost" size="sm" className="h-7" onClick={() => navigate(`/inquiry/${inquiryId}/odoo/${r.productId}`)}>
                           <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM
                         </Button>
                       </div>
