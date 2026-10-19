@@ -41,6 +41,9 @@ const writeFinished = (id: string, f: FinishedDraft) => {
   try { const d = readDraft(id) ?? { lines: {} }; localStorage.setItem(draftKey(id), JSON.stringify({ ...d, finished: f })); } catch { /* per-browser */ }
 };
 const num = (v: string) => (v.trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+// hsn_codes is newer than the generated types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hsnTable = () => (supabase.from as unknown as (t: string) => any)('hsn_codes');
 const upper = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export default function InquiryOdooExport() {
@@ -99,7 +102,7 @@ export default function InquiryOdooExport() {
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
         return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null };
       });
-      const { data: hsn } = await supabase.from('hsn_codes').select('code, description, keywords, examples').order('code');
+      const { data: hsn } = await hsnTable().select('code, description, keywords, examples').order('code');
       const codes = (hsn ?? []) as HsnCode[];
       setHsnList(codes);
       for (const r of next) {
@@ -198,7 +201,7 @@ export default function InquiryOdooExport() {
     setAi(prev => ({ ...prev, [r.productId]: items.length ? { items } : { error: 'No suggestion.' } }));
   };
   const saveToList = async (code: string, description: string, exampleName: string) => {
-    const { error } = await supabase.from('hsn_codes').upsert({ code, description, keywords: [], examples: [exampleName] }, { onConflict: 'code', ignoreDuplicates: true });
+    const { error } = await hsnTable().upsert({ code, description, keywords: [], examples: [exampleName] }, { onConflict: 'code', ignoreDuplicates: true });
     if (error) { toast.error(error.message); return; }
     setHsnList(prev => (prev.some(h => h.code === code) ? prev : [...prev, { code, description, keywords: [], examples: [exampleName] }]));
     toast.success(`${code} added to the HSN list.`);
