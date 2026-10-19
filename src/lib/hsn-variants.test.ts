@@ -58,3 +58,17 @@ describe('HSN', () => {
     expect(matchHsn('Brass rickshaw', codes)).toEqual([]);
   });
 });
+
+import { setVariantOf as svo, templateGroups as tg, defaultFinished as df } from './odoo-bom';
+describe('variant of', () => {
+  const row = (id: string) => ({ productId: id, finished: df({ name: id }) });
+  it('makes the picked product the template lead', () => {
+    const rows = svo([row('a'), row('b'), row('c')], 'a', 'b');
+    const g = tg(rows).find(x => x.length > 1)!;
+    expect(g.map(r => r.productId)).toEqual(['b', 'a']);
+  });
+  it('detaching the last sibling clears the group', () => {
+    const rows = svo(svo([row('a'), row('b')], 'a', 'b'), 'a', null);
+    expect(rows.every(r => !r.finished.group)).toBe(true);
+  });
+});

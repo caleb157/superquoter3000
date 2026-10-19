@@ -752,17 +752,11 @@ export function templateGroups<T extends { productId: string; finished: Finished
 export function setVariantOf<T extends { productId: string; finished: FinishedDraft }>(rows: T[], childId: string, parentId: string | null): T[] {
   const parent = parentId ? rows.find(r => r.productId === parentId) : null;
   const key = parent ? ((parent.finished.group || '').trim() || parent.productId) : '';
-  const oldKey = (rows.find(r => r.productId === childId)?.finished.group || '').trim();
-  return rows.map(r => {
-    if (r.productId === childId) return { ...r, finished: { ...r.finished, group: key } };
-    if (parent && r.productId === parent.productId) return { ...r, finished: { ...r.finished, group: key } };
-    // A product that was the lead of the child's old group keeps its siblings together under the child's id only if it was the child.
-    if (!parent && oldKey && oldKey === childId && (r.finished.group || '').trim() === oldKey) return r;
-    return r;
-  }).map((r, _, all) => {
-    // A group left with one member is no group.
+  const set = rows.map(r => (r.productId === childId || (parent && r.productId === parent.productId) ? { ...r, finished: { ...r.finished, group: key } } : r));
+  // A group left with one member is no group.
+  return set.map(r => {
     const g = (r.finished.group || '').trim();
-    return g && all.filter(x => (x.finished.group || '').trim() === g).length < 2 ? { ...r, finished: { ...r.finished, group: '' } } : r;
+    return g && set.filter(x => (x.finished.group || '').trim() === g).length < 2 ? { ...r, finished: { ...r.finished, group: '' } } : r;
   });
 }
 
