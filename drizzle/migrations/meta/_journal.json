@@ -106,6 +106,13 @@
       "when": 1792129603249,
       "tag": "0014_products_odoo_link",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792409614034,
+      "tag": "0015_hsn_gst_rate",
+      "breakpoints": true
     }
   ]
 }
