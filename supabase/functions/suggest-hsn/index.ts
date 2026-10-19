@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
       apiKey,
       headers: { 'Lovable-API-Key': apiKey, 'X-Lovable-AIG-SDK': 'vercel-ai-sdk' },
     });
+    // deno-lint-ignore no-explicit-any
     const result = streamText({
       model: provider.responses('openai/gpt-6-astra'),
       system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits.',
@@ -49,13 +50,17 @@ Deno.serve(async (req) => {
         role: 'user',
         content: `Product: ${parsed.data.name}\n${parsed.data.details ? `Details: ${parsed.data.details}\n` : ''}\nCodes this company already uses (prefer one if it truly fits):\n${knownList}`,
       }],
+      output: Output.object({ schema: Schema }),
       experimental_output: Output.object({ schema: Schema }),
       abortSignal: req.signal,
       providerOptions: { openai: { store: false, forceReasoning: true, reasoningEffort: 'low', reasoningSummary: 'auto', include: ['reasoning.encrypted_content'] } },
     });
     let out: z.infer<typeof Schema>;
     try {
-      out = await result.experimental_output;
+      // deno-lint-ignore no-explicit-any
+      const r = result as any;
+      out = await (r.output ?? r.experimental_output);
+      if (!out) { const t = await result.text; out = JSON.parse(t); }
     } catch (e) {
       if (NoObjectGeneratedError.isInstance(e)) return json({ error: 'AI gave no usable answer. Try again.' }, 502);
       throw e;
