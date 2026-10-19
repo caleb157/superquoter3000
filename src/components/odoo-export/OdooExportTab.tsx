@@ -266,13 +266,14 @@ export function OdooExportTab({ productId }: { productId: string }) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex flex-wrap items-center gap-3">
-            Finished product
+            Final product
+            {finished.exists && finished.existing
+              ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" /> In Odoo · {finished.existing.sku}</Badge>
+              : <Badge variant="outline">Not in Odoo yet</Badge>}
             <label className="flex items-center gap-1.5 text-xs font-normal">
               <Checkbox checked={finished.exists} onCheckedChange={v => patchFinished({ exists: v === true })} />
-              Already in Odoo
+              Made in Odoo by hand (pick it)
             </label>
-            {!finished.exists && <Badge variant="outline">New in Odoo</Badge>}
-            {finished.exists && finished.existing && <Badge variant="secondary">In Odoo · {finished.existing.sku}</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -281,34 +282,11 @@ export function OdooExportTab({ productId }: { productId: string }) {
               <OdooProductPicker value={finished.existing} onPick={p => patchFinished({ existing: p })} />
             </Field>
           ) : (
-            <>
-              <Field label="Name" wide><Input value={finished.name} onChange={e => patchFinished({ name: e.target.value })} /></Field>
-              <Field label="SKU (prefix - base - suffix)" wide>
-                <div className="flex items-center gap-1">
-                  <div className="w-28"><OptionCombobox value={parts.prefix} options={prefixOpts} allowCustom placeholder="Prefix" className="h-10 font-mono" onChange={v => setPart('prefix', v)} /></div>
-                  <span className="text-muted-foreground">-</span>
-                  <Input className="font-mono" placeholder="Base" value={parts.base} onChange={e => setPart('base', e.target.value)} />
-                  <span className="text-muted-foreground">-</span>
-                  <Input className="font-mono" placeholder="Suffix, e.g. CHST" value={parts.suffix} onChange={e => setPart('suffix', e.target.value)} />
-                </div>
-              </Field>
-              <Field label="Variant (on the &quot;variant&quot; attribute)"><Input value={finished.variant} placeholder="Standard" onChange={e => patchFinished({ variant: e.target.value })} /></Field>
-              <Field label="Customer SKU (variant tag)"><Input value={finished.customerSku} onChange={e => patchFinished({ customerSku: e.target.value })} /></Field>
-              <Field label="Category" wide><OptionCombobox value={finished.category} options={catList} loading={!meta} className="h-10" onChange={v => patchFinished({ category: v })} /></Field>
-              <Field label="Unit"><OptionCombobox value={finished.uom} options={uomList} loading={!meta} className="h-10" onChange={v => patchFinished({ uom: v })} /></Field>
-              <Field label="Track inventory">
-                <div className="h-10 flex items-center"><Checkbox checked={finished.tracked} onCheckedChange={v => patchFinished({ tracked: v === true })} /></div>
-              </Field>
-              <Field label="Sales price"><Input inputMode="decimal" value={finished.salePrice ?? ''} onChange={e => patchFinished({ salePrice: num(e.target.value) })} /></Field>
-              <Field label="HSN code"><Input value={finished.hsn} onChange={e => patchFinished({ hsn: e.target.value })} /></Field>
-              <Field label="Weight (kg)"><Input inputMode="decimal" value={finished.weightKg ?? ''} onChange={e => patchFinished({ weightKg: num(e.target.value) })} /></Field>
-              <Field label="Volume (m³)"><Input inputMode="decimal" value={finished.volumeM3 ?? ''} onChange={e => patchFinished({ volumeM3: num(e.target.value) })} /></Field>
-              <Field label="Image">
-                {finished.imageUrl
-                  ? <img src={finished.imageUrl} alt={finished.name} className="h-10 w-10 rounded object-cover border" />
-                  : <span className="text-xs text-muted-foreground h-10 flex items-center">No HQ photo</span>}
-              </Field>
-            </>
+            <div className="sm:col-span-2 text-xs text-muted-foreground flex items-center gap-2">
+              {finished.imageUrl && <img src={finished.imageUrl} alt={finished.name} className="h-10 w-10 rounded object-cover border" />}
+              <span><span className="font-medium text-foreground">{finished.name}</span> · {finished.sku || 'no SKU yet'}<br />
+                Create the final product on the inquiry's Odoo page first. You can still create its materials now; the BOM waits for the product.</span>
+            </div>
           )}
           <Field label="BOM reference"><Input value={finished.code} placeholder="optional" onChange={e => patchFinished({ code: e.target.value })} /></Field>
           <Field label="Units per BOM">
