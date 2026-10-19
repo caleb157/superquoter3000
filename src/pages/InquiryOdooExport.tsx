@@ -141,7 +141,7 @@ export default function InquiryOdooExport() {
       setLoadError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [inquiryId, wanted, checkOdoo]);
+  }, [inquiryId, wanted, checkOdoo, loadProgress]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (ready.current) for (const r of rows) writeFinished(r.productId, r.finished); }, [rows]);

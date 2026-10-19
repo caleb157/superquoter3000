@@ -560,6 +560,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
           <Button size="sm" variant="outline" className="h-9 gap-1.5 border-primary/40 text-primary hover:text-primary" onClick={() => navigate(`/inquiry/${inquiryId}/costing`)}>
             <Calculator className="h-4 w-4" /> Badass Costing Workspace
           </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => navigate(`/inquiry/${inquiryId}/odoo`)}>
+            <Send className="h-4 w-4" /> Odoo
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="h-9 gap-1.5">
@@ -572,6 +575,9 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/container-plan`)}>
                 <TableIcon className="h-4 w-4 mr-2" /> Container planner
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/inquiry/${inquiryId}/odoo`)}>
+                <Send className="h-4 w-4 mr-2" /> Odoo workspace
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
