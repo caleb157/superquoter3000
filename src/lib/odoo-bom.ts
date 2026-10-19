@@ -69,6 +69,8 @@ export type FinishedDraft = {
   variant: string;
   /** Customer SKU, sent as the Odoo variant tag. */
   customerSku: string;
+  /** Template group on the inquiry Odoo page: products sharing one become variants of one template. Blank = own template. */
+  group?: string;
 };
 
 export const DEFAULT_COMPANY = 'Parable Ventures Private Limited';
@@ -328,6 +330,7 @@ export function defaultFinished(product: { name?: string | null; sku?: string | 
     imageUrl: (product?.photo_url || '').trim() || null,
     variant: '',
     customerSku: hqSku,
+    group: '',
   };
 }
 
@@ -703,4 +706,59 @@ export function dktProductsSheet(rows: { name: string; customerSku?: string | nu
       return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods'];
     }),
   ];
+}
+
+// ---------- Template groups (variants) ----------
+
+export const DEFAULT_SUFFIX = 'STND';
+export const DEFAULT_VARIANT = 'Standard';
+
+/**
+ * A product alone on its template may leave the SKU suffix and variant name blank: they become
+ * STND / Standard. Once a template has two or more variants, nothing is defaulted.
+ */
+export function withVariantDefaults(f: FinishedDraft, variantsOnTemplate: number): FinishedDraft {
+  if (variantsOnTemplate > 1) return f;
+  const p = splitSku(f.sku);
+  return {
+    ...f,
+    sku: p.prefix || p.base ? joinSku({ ...p, suffix: p.suffix.trim() || DEFAULT_SUFFIX }) : f.sku,
+    variant: f.variant.trim() || DEFAULT_VARIANT,
+  };
+}
+
+/** Rows grouped into templates, in page order; a blank group is a template of its own. */
+export function templateGroups<T extends { productId: string; finished: FinishedDraft }>(rows: T[]): T[][] {
+  const by = new Map<string, T[]>();
+  for (const r of rows) {
+    const g = (r.finished.group || '').trim().toLowerCase();
+    const key = g ? `g:${g}` : `p:${r.productId}`;
+    by.set(key, [...(by.get(key) ?? []), r]);
+  }
+  return [...by.values()];
+}
+
+/** Per-variant problems on a template with 2+ variants: suffix and variant name required and unique. */
+export function checkVariantGroup(group: { productId: string; finished: FinishedDraft }[]): Map<string, Issue[]> {
+  const out = new Map<string, Issue[]>(group.map(r => [r.productId, []]));
+  if (group.length < 2) return out;
+  const key = (s: string) => s.trim().toUpperCase();
+  const count = (vals: string[]) => vals.reduce((m, v) => (v ? m.set(v, (m.get(v) ?? 0) + 1) : m), new Map<string, number>());
+  const suffixes = group.map(r => key(splitSku(r.finished.sku).suffix));
+  const names = group.map(r => key(r.finished.variant));
+  const sufN = count(suffixes); const nameN = count(names);
+  group.forEach((r, i) => {
+    const list = out.get(r.productId)!;
+    if (!suffixes[i]) list.push({ level: 'error', where: 'Variant', msg: 'SKU suffix is required when a template has more than one variant.' });
+    else if ((sufN.get(suffixes[i]) ?? 0) > 1) list.push({ level: 'error', where: 'Variant', msg: `SKU suffix ${suffixes[i]} is used by another variant on this template.` });
+    if (!names[i]) list.push({ level: 'error', where: 'Variant', msg: 'Variant name is required when a template has more than one variant.' });
+    else if ((nameN.get(names[i]) ?? 0) > 1) list.push({ level: 'error', where: 'Variant', msg: `Variant name "${r.finished.variant.trim()}" is used by another variant on this template.` });
+  });
+  return out;
+}
+
+/** HSN on final products is always the full 8 digits (blank is allowed). */
+export function hsnIssue(hsn: string): Issue | null {
+  const h = (hsn || '').trim();
+  return h && !/^\d{8}$/.test(h) ? { level: 'error', where: 'Product', msg: 'HSN must be 8 digits.' } : null;
 }
