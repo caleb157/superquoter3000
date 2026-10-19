@@ -89,7 +89,7 @@ export const fullLabel = (c: Col) => (c.group ? `${c.group} ${c.label}` : c.labe
 
 const bucketCol = (key: string, label: string, width = 96): Col => ({
   id: `bucket:${key}`, label: `${label} ₹`, width, align: 'right',
-  hint: `Per-unit ${label.toLowerCase()} cost. Typing a total adjusts the main line so the bucket adds up to it.`,
+  hint: `Per-unit ${label.toLowerCase()} price as quoted, before waste (costing adds waste on top). Typing a total adjusts the main line so the bucket adds up to it.`,
   edit: {
     kind: 'number',
     get: r => Math.round(r.editBuckets[key] * 100) / 100,

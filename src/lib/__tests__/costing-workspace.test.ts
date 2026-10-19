@@ -41,10 +41,21 @@ describe('costing workspace', () => {
     expect(t.contribution).toBeGreaterThan(t.margin);
   });
 
-  it('counts waste the way the engine does (qty ÷ (1 − waste))', () => {
+  it('editable buckets show the price as typed; the cost buckets add waste (qty ÷ (1 − waste))', () => {
     const a = byId(bundle(), 'a');
-    expect(a.editBuckets.raw_piece).toBeCloseTo(900 / 0.9, 6);
+    expect(a.editBuckets.raw_piece).toBeCloseTo(900, 6);
+    expect(a.buckets.raw_piece).toBeCloseTo(900 / 0.9, 6);
     expect(a.editBuckets.hw_handles_knobs).toBeCloseTo(90, 6);
+  });
+
+  it('a typed raw price is stored as typed and waste is added once in costing', () => {
+    const m = setBucketTotal(bundle(), ['a'], 'raw_piece', 2300);
+    const line = m.next.cogs.find(c => c.product_id === 'a' && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
+    expect(line.unit_cost_inr).toBe(2300);
+    const a = byId(m.next, 'a');
+    expect(a.quotes[0].price).toBe(2300);
+    expect(a.editBuckets.raw_piece).toBeCloseTo(2300, 6);
+    expect(a.buckets.raw_piece).toBeCloseTo(2300 / 0.9, 6);
   });
 
   it('setting a bucket total lands exactly on that total', () => {
