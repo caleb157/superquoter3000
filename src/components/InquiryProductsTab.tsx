@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Upload, X, Copy, Table as TableIcon, Target, Calculator, ChevronDown, Wrench, Archive, ArchiveRestore, Clock, Camera } from 'lucide-react';
+import { Plus, Search, Upload, X, Copy, Table as TableIcon, Target, Calculator, ChevronDown, Wrench, Archive, ArchiveRestore, Clock, Camera, Send } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { toast } from 'sonner';
