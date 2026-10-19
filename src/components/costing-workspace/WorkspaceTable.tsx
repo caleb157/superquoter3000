@@ -1,16 +1,23 @@
-// The bulk grid: one row per SKU, columns from the active view. Sticky header, sticky
+// The bulk grid: one row per SKU, columns in costing order (COGS, labour, shipping, margin),
+// each step a band that opens to its detail or folds to its subtotal. Sticky header, sticky
 // name column and a totals footer; the name cell opens the product panel.
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
 import { chooseQuote, setQuote, type Apply, type Bundle, type WorkspaceRow } from '@/lib/costing-workspace';
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, inr, moveForKey, navigate, navKeyDown, parseNum, money } from './cells';
-import { writeGrid, type Col, type View } from './columns';
+import { BANDS, writeGrid, type Col, type LaidCol, type OpenState } from './columns';
 
 type Props = {
-  view: View;
+  /** Visible columns, from layout(). */
+  cols: LaidCol[];
+  /** Vendor quotes side by side instead of the steps. */
+  quotes: boolean;
+  open: OpenState;
+  /** Open or fold a step or sub-group by id. */
+  onToggleOpen: (id: string) => void;
   rows: WorkspaceRow[];
   bundle: Bundle;
   selected: Set<string>;
@@ -34,9 +41,9 @@ const COMPACT_COLS: Col[] = [
 ];
 
 export function WorkspaceTable(p: Props) {
-  const { view, rows, bundle, selected, openId, compact } = p;
-  const cols = compact ? COMPACT_COLS : view.cols;
-  const isQuotes = view.id === 'quotes' && !compact;
+  const { rows, bundle, selected, openId, compact } = p;
+  const cols: LaidCol[] = compact ? COMPACT_COLS : p.cols;
+  const isQuotes = p.quotes && !compact;
   const allSelected = rows.length > 0 && rows.every(r => selected.has(r.p.id));
   const someSelected = rows.some(r => selected.has(r.p.id));
   const hasFooter = !isQuotes && cols.some(c => c.footer);
@@ -49,7 +56,18 @@ export function WorkspaceTable(p: Props) {
         return acc;
       }, [])
     : null;
-  const grid = isQuotes ? 'quotes' : compact ? 'compact' : view.id;
+  const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
+  // One header cell per step over its columns (lead columns get a blank one).
+  const bands = !isQuotes && !compact
+    ? cols.reduce<{ id?: string; span: number }[]>((acc, c) => {
+        const last = acc[acc.length - 1];
+        if (last && last.id === c.band) last.span++;
+        else acc.push({ id: c.band, span: 1 });
+        return acc;
+      }, [])
+    : null;
+  const bandStart = new Set(cols.filter((c, i) => c.band && cols[i - 1]?.band !== c.band).map(c => c.id));
+  const headTop = (bands ? 32 : 0) + (groups ? 28 : 0);
 
   const nameWidth = compact ? 220 : 280;
   const dataWidth = isQuotes ? 72 + p.quoteSlots * QUOTE_W + 44 + 104 + 120 : cols.reduce((a, c) => a + c.width, 0);
@@ -58,7 +76,7 @@ export function WorkspaceTable(p: Props) {
     <table className="w-full table-fixed border-separate border-spacing-0 text-sm" style={{
       minWidth: nameWidth + dataWidth + 16,
       // Keep keyboard-focused cells clear of the sticky header, footer and name column.
-      ['--cw-scroll-top' as any]: `${groups ? 72 : 44}px`,
+      ['--cw-scroll-top' as any]: `${headTop + 44}px`,
       ['--cw-scroll-bottom' as any]: `${hasFooter ? 44 : 4}px`,
       ['--cw-scroll-left' as any]: `${nameWidth + 4}px`,
     }}>
@@ -69,8 +87,37 @@ export function WorkspaceTable(p: Props) {
         <col style={{ width: 16 }} />
       </colgroup>
       <thead>
+        {bands && (
+          <tr className="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:h-8 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:px-1 [&>th]:pt-1">
+            <th className="left-0 z-20" />
+            {bands.map((g, i) => {
+              const band = BANDS.find(b => b.id === g.id);
+              if (!band) return <th key={i} colSpan={g.span} />;
+              const isOpen = !!p.open[band.id];
+              return (
+                <th key={band.id} colSpan={g.span} className="border-l border-border/70 text-left">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => p.onToggleOpen(band.id)} aria-expanded={isOpen}
+                        className="flex h-6 w-full items-center gap-1.5 rounded-md border-t-[3px] px-1.5 text-xs font-semibold text-foreground hover:bg-background/70"
+                        style={{ borderTopColor: band.color }}>
+                        <span className="text-muted-foreground tabular-nums">{band.n}</span>
+                        <span className="truncate">{band.label}</span>
+                        {isOpen ? <ChevronLeft className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      {band.hint}. {isOpen ? 'Click to fold to the subtotal' : 'Click to open the detail'} (key {band.n}).
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
+              );
+            })}
+            <th />
+          </tr>
+        )}
         {groups && (
-          <tr className="[&>th]:sticky [&>th]:top-0 [&>th]:z-10 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:h-7 [&>th]:px-2 [&>th]:pt-1.5 [&>th]:text-[11px] [&>th]:font-medium [&>th]:text-muted-foreground">
+          <tr className={cn('[&>th]:sticky [&>th]:z-10', bands ? '[&>th]:top-8' : '[&>th]:top-0', '[&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:h-7 [&>th]:px-2 [&>th]:pt-1.5 [&>th]:text-[11px] [&>th]:font-medium [&>th]:text-muted-foreground')}>
             <th className="left-0 z-20" />
             {groups.map((g, i) => (
               <th key={i} colSpan={g.span} className="text-center">
@@ -81,7 +128,7 @@ export function WorkspaceTable(p: Props) {
           </tr>
         )}
         <tr className={cn('[&>th]:sticky [&>th]:z-10 [&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:border-b [&>th]:h-10 [&>th]:px-2 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground',
-          groups ? '[&>th]:top-7' : '[&>th]:top-0')}>
+          headTop === 60 ? '[&>th]:top-[60px]' : headTop === 32 ? '[&>th]:top-8' : headTop === 28 ? '[&>th]:top-7' : '[&>th]:top-0')}>
           <th className="left-0 z-20 text-left">
             <div className="flex items-center gap-3 pl-1">
               <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={p.onToggleAll} aria-label="Select all" />
@@ -96,13 +143,17 @@ export function WorkspaceTable(p: Props) {
           {isQuotes ? (
             <QuoteHeaders slots={p.quoteSlots} onAdd={p.onAddQuoteSlot} />
           ) : cols.map(c => (
-            <th key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left')}>
-              {c.hint ? (
-                <Tooltip>
-                  <TooltipTrigger asChild><span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
-                </Tooltip>
-              ) : c.label}
+            <th key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left',
+              bandStart.has(c.id) && 'border-l border-l-border/70', c.sub?.open && 'bg-muted')}>
+              <span className="inline-flex max-w-full items-center gap-1">
+                {c.sub?.first && <SubToggle sub={c.sub} onToggle={() => p.onToggleOpen(c.sub!.id)} />}
+                {c.hint ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild><span className="cursor-help truncate underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
+                  </Tooltip>
+                ) : <span className="truncate">{c.label}</span>}
+              </span>
             </th>
           ))}
           <th />
@@ -160,7 +211,8 @@ export function WorkspaceTable(p: Props) {
               {isQuotes ? (
                 <QuoteCells row={row} idx={idx} rows={rows} bundle={bundle} slots={p.quoteSlots} apply={p.apply} />
               ) : cols.map((c, ci) => (
-                <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums')}>
+                <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums',
+                  bandStart.has(c.id) && 'border-l border-l-border/70')}>
                   <Cell col={c} ci={ci} cols={cols} row={row} idx={idx} rows={rows} bundle={bundle} grid={grid} apply={p.apply} />
                 </td>
               ))}
@@ -173,12 +225,27 @@ export function WorkspaceTable(p: Props) {
         <tfoot>
           <tr className="[&>td]:sticky [&>td]:bottom-0 [&>td]:z-10 [&>td]:bg-muted/95 [&>td]:backdrop-blur [&>td]:border-t [&>td]:h-10 [&>td]:px-3 [&>td]:text-sm [&>td]:font-semibold [&>td]:tabular-nums">
             <td className="left-0 z-20 text-muted-foreground font-medium">Totals</td>
-            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left')}>{c.footer?.(rows) ?? ''}</td>)}
+            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left', bandStart.has(c.id) && 'border-l border-l-border/70')}>{c.footer?.(rows) ?? ''}</td>)}
             <td />
           </tr>
         </tfoot>
       )}
     </table>
+  );
+}
+
+/** Opens or folds a sub-group (hardware by type, cartons) from its first column's header. */
+function SubToggle({ sub, onToggle }: { sub: NonNullable<LaidCol['sub']>; onToggle: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button onClick={onToggle} aria-expanded={sub.open} aria-label={`${sub.open ? 'Fold' : 'Open'} ${sub.label}`}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded border bg-background text-muted-foreground hover:text-foreground">
+          {sub.open ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs">{sub.open ? `Fold ${sub.label.toLowerCase()} back to its total` : `Open ${sub.label.toLowerCase()}: ${sub.hint ?? ''}`}</TooltipContent>
+    </Tooltip>
   );
 }
 

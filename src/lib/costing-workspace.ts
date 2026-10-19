@@ -300,6 +300,19 @@ function attachFlags(rows: WorkspaceRow[]) {
   }
 }
 
+/**
+ * Per-unit INR for the four costing steps, in costing-sheet order: COGS, then labour, then
+ * shipping; cost of capital is carried on all three. cogs + labour + shipping + capital = unit cost.
+ */
+export type StepTotals = { cogs: number; labour: number; shipping: number; capital: number; cost: number };
+
+export function stepTotals(row: WorkspaceRow): StepTotals {
+  const labour = row.buckets.labor;
+  const shipping = row.buckets.shipping;
+  const cogs = Object.values(row.buckets).reduce((a, v) => a + v, 0) - labour - shipping;
+  return { cogs, labour, shipping, capital: row.r.capitalPerUnitInr || 0, cost: row.costInr };
+}
+
 /** Money totals are in the inquiry's quote currency (`cur`). */
 export type Totals = {
   cur: QuoteCur;

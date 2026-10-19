@@ -1,12 +1,12 @@
 // Costing Workspace — one place to cost an inquiry.
 //
-// Start from the whole inquiry (the bulk grid: price vs target, cost build-up, vendor
-// quotes, hardware, packaging, setup) and drill into any SKU (the product panel) without
-// leaving the page. Replaces the separate Pricing Grid, Target Grid and Bulk Costing Editor.
+// Start from the whole inquiry (the bulk grid, laid out like the costing sheet: COGS, then
+// labour, then shipping, then margin, each step folding to its subtotal) and drill into any
+// SKU (the product panel, same four steps) without leaving the page. Replaces the separate Pricing Grid, Target Grid and Bulk Costing Editor.
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Download, FileSpreadsheet, Keyboard, Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, RefreshCw, Scale, Search, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
@@ -27,10 +27,20 @@ import { BulkBar } from '@/components/costing-workspace/BulkBar';
 import { ProductPanel } from '@/components/costing-workspace/ProductPanel';
 import { WorkspaceTable } from '@/components/costing-workspace/WorkspaceTable';
 import { QuotesToolbar } from '@/components/costing-workspace/QuotesToolbar';
-import { viewsFor } from '@/components/costing-workspace/columns';
+import { BANDS, DEFAULT_OPEN, layout, type OpenState } from '@/components/costing-workspace/columns';
 import { Stat, focusCell, focusNavEl, pct } from '@/components/costing-workspace/cells';
 import { formatMoney, quoteCurrencyOf } from '@/lib/quote-currency';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+const OPEN_KEY = 'costing-workspace-open';
+/** Old ?view= links (from before the four steps) open the step that now holds those columns. */
+const VIEW_TO_OPEN: Record<string, string[]> = {
+  price: ['margin'], buildup: ['cogs'], hardware: ['cogs', 'hardware'], packaging: ['shipping', 'cartons'], labor: ['labour'], setup: ['cogs', 'labour'],
+};
+function readOpen(): OpenState {
+  try { const v = JSON.parse(localStorage.getItem(OPEN_KEY) || 'null'); if (v && typeof v === 'object') return v; } catch { /* private mode */ }
+  return DEFAULT_OPEN;
+}
 
 type Filter = 'all' | 'over' | 'flagged' | 'notarget';
 type Sort = 'sheet' | 'gap' | 'price' | 'name' | 'name_desc' | 'sku' | 'sku_desc';
@@ -51,7 +61,15 @@ export default function CostingWorkspace() {
   const [extraSlots, setExtraSlots] = useState(0);
   const [intakeOpen, setIntakeOpen] = useState(false);
 
-  const viewId = params.get('view') || 'price';
+  const quotesMode = params.get('view') === 'quotes';
+  const [open, setOpen] = useState<OpenState>(() => {
+    const legacy = VIEW_TO_OPEN[params.get('view') || ''];
+    return legacy ? { ...readOpen(), ...Object.fromEntries(legacy.map(k => [k, true])) } : readOpen();
+  });
+  useEffect(() => { try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch { /* private mode */ } }, [open]);
+  const toggleOpen = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }));
+  const setAllOpen = (on: boolean) => setOpen(o => ({ ...o, ...Object.fromEntries(BANDS.map(b => [b.id, on])) }));
+  const allOpen = BANDS.every(b => open[b.id]);
   const openId = params.get('sku');
   const setParam = (k: string, v: string | null) => setParams(prev => {
     const next = new URLSearchParams(prev);
@@ -63,8 +81,7 @@ export default function CostingWorkspace() {
   const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t } = useCostingBundle(inquiryId ? loader : null);
   // Rupee customers get the whole workspace in ₹ (the inquiry's Quoting currency).
   const cur = quoteCurrencyOf(bundle?.inq);
-  const views = useMemo(() => viewsFor(cur), [cur]);
-  const view = views.find(v => v.id === viewId) ?? views[0];
+  const cols = useMemo(() => layout(open, cur), [open, cur]);
   const m = (n: number, d = 0) => formatMoney(n, cur, d);
   const quote = useGenerateQuote(inquiryId);
   /** Draft quote from the ticked SKUs at the prices the grid shows (same engine numbers). */
@@ -74,7 +91,10 @@ export default function CostingWorkspace() {
     reference_price_inr: r.r.summary.unit_price_inr,
     target_price_usd: r.p.target_price_usd, markup_percent: r.p.markup_percent,
   })));
-  useEffect(() => { if (params.has('select')) setParam('select', null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (params.has('select')) setParam('select', null);
+    if (VIEW_TO_OPEN[params.get('view') || '']) setParam('view', null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
 
@@ -124,7 +144,7 @@ export default function CostingWorkspace() {
     const next = visibleRows[openIdx + d];
     if (next) setParam('sku', next.p.id);
   };
-  const gridId = view.id === 'quotes' && !openId ? 'quotes' : openId ? 'compact' : view.id;
+  const gridId = quotesMode && !openId ? 'quotes' : openId ? 'compact' : 'sheet';
   /** Put keyboard focus on a row's name cell (or the first row when none is given). */
   const focusRow = (pid?: string | null) => requestAnimationFrame(() => {
     const el = pid ? document.querySelector<HTMLElement>(`[data-col="name"][data-pid="${pid}"]`) : null;
@@ -143,7 +163,9 @@ export default function CostingWorkspace() {
       if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); return; }
       if (e.key === 'g') { e.preventDefault(); focusRow(openId); return; }
       const n = Number(e.key);
-      if (n >= 1 && n <= views.length) { setParam('view', views[n - 1].id === 'price' ? null : views[n - 1].id); return; }
+      const band = BANDS.find(b => b.n === n);
+      if (band) { if (quotesMode) setParam('view', null); setOpen(o => ({ ...o, [band.id]: quotesMode ? true : !o[band.id] })); return; }
+      if (e.key === 'q') { setParam('view', quotesMode ? null : 'quotes'); return; }
       if (openId && (e.key === 'j' || e.key === 'ArrowDown')) { e.preventDefault(); go(1); }
       if (openId && (e.key === 'k' || e.key === 'ArrowUp')) { e.preventDefault(); go(-1); }
     };
@@ -249,17 +271,31 @@ export default function CostingWorkspace() {
               onClick={() => setFilter(f => (f === 'flagged' ? 'all' : 'flagged'))} active={filter === 'flagged'} />
           </div>
 
-          {/* View switcher + filters */}
+          {/* Step controls + filters */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex h-10 items-center rounded-md bg-muted p-1 text-muted-foreground">
-              {views.map(v => (
-                <button key={v.id} onClick={() => setParam('view', v.id === 'price' ? null : v.id)} title={v.hint}
-                  className={cn('rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
-                    v.id === view.id ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground')}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            {quotesMode ? (
+              <>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setParam('view', null)}><ArrowLeft className="h-4 w-4" /> Back to costing</Button>
+                <span className="text-sm text-muted-foreground">COGS · raw piece quotes side by side. Pick the winner per SKU.</span>
+              </>
+            ) : (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAllOpen(!allOpen)}>
+                      {allOpen ? <><ChevronsRightLeft className="h-4 w-4" /> Fold all steps</> : <><ChevronsLeftRight className="h-4 w-4" /> Open all steps</>}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">Folded, each step shows only its subtotal: COGS + labour + shipping = unit cost, then price. Keys 1 to 4 open or fold one step.</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setParam('view', 'quotes')}><Scale className="h-4 w-4" /> Vendor quotes</Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">Compare raw piece quotes from each vendor side by side and pick the one that goes into COGS (key Q)</TooltipContent>
+                </Tooltip>
+              </>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -291,7 +327,7 @@ export default function CostingWorkspace() {
             </div>
           </div>
 
-          {view.id === 'quotes' && (
+          {quotesMode && (
             <QuotesToolbar bundle={bundle} rows={visibleRows} slots={quoteSlots} targetIds={selectedIds} apply={apply} onImported={() => void load()} />
           )}
 
@@ -304,7 +340,7 @@ export default function CostingWorkspace() {
                 </div>
               ) : (
                 <WorkspaceTable
-                  view={view} rows={visibleRows} bundle={bundle} apply={apply}
+                  cols={cols} quotes={quotesMode} open={open} onToggleOpen={toggleOpen} rows={visibleRows} bundle={bundle} apply={apply}
                   selected={selected} onToggle={toggleRow} onToggleAll={toggleAll}
                   nameSort={sort === 'name' ? 'asc' : sort === 'name_desc' ? 'desc' : null}
                   onSortName={() => setSort(s => (s === 'name' ? 'name_desc' : s === 'name_desc' ? 'sheet' : 'name'))}
@@ -356,7 +392,8 @@ const SHORTCUTS: [string, string][] = [
   ['Enter / Space (on a menu)', 'Open the dropdown; typing a letter picks an option'],
   ['/', 'Search'],
   ['g', 'Jump into the grid'],
-  ['1 – 6', 'Switch view'],
+  ['1 – 4', 'Open or fold COGS, Labour, Shipping, Margin'],
+  ['q', 'Vendor quotes side by side (again to go back)'],
 ];
 
 function ShortcutsButton() {

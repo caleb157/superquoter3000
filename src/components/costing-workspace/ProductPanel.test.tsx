@@ -29,17 +29,20 @@ function setup(page: boolean) {
 }
 
 describe('ProductPanel', () => {
-  it('page mode shows product details, chemicals, shipping and done flags, without the drawer header', () => {
+  it('page mode shows product details, chemicals, the four steps in order and done flags, without the drawer header', () => {
     const { apply } = setup(true);
     expect(screen.getByText('Product details')).toBeTruthy();
     expect(screen.getByText('chemicals picker')).toBeTruthy();
-    expect(screen.getByLabelText('Shipping done')).toBeTruthy();
+    expect(screen.getByLabelText('3. Shipping done')).toBeTruthy();
     expect(screen.getByText(/Max raw piece at target/)).toBeTruthy();
     // Quantity and MOQs come first, ahead of the cost figures.
     const order = ['Qty', 'MOQ', 'Hard MOQ', 'Unit cost'].map(t => screen.getAllByText(t)[0]);
     for (let i = 1; i < order.length; i++) expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The steps run in costing-sheet order: COGS, labour, shipping, margin.
+    const steps = ['1. COGS', '2. Labour', '3. Shipping', '4. Margin'].map(t => screen.getAllByText(t)[0]);
+    for (let i = 1; i < steps.length; i++) expect(steps[i - 1].compareDocumentPosition(steps[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByLabelText('Next SKU')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Materials & components done'));
+    fireEvent.click(screen.getByLabelText('1. COGS done'));
     expect(apply).toHaveBeenCalledTimes(1);
   });
 

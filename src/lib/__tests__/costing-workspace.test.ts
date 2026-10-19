@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  patchCogsLine, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  patchCogsLine, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -19,6 +19,15 @@ describe('costing workspace', () => {
     for (const r of rowsOf(bundle())) {
       const sum = Object.values(r.buckets).reduce((a, v) => a + v, 0) + r.r.capitalPerUnitInr;
       expect(sum).toBeCloseTo(r.costInr, 6);
+    }
+  });
+
+  it('the four steps (COGS, labour, shipping, capital) add up to the unit cost', () => {
+    for (const r of rowsOf(bundle())) {
+      const s = stepTotals(r);
+      expect(s.cogs + s.labour + s.shipping + s.capital).toBeCloseTo(r.costInr, 6);
+      expect(s.labour).toBe(r.buckets.labor);
+      expect(s.shipping).toBe(r.buckets.shipping);
     }
   });
 

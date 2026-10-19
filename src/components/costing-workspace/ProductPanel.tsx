@@ -1,6 +1,7 @@
-// One SKU's full costing: price vs target with a solver, the cost waterfall, and every
-// costing row (COGS lines, labor, order-level costs, packaging, shipping, product setup)
-// editable in place. Used as the drill-in panel of the Costing Workspace and, in page
+// One SKU's full costing in costing-sheet order: 1. COGS (where it comes from and every
+// material line), 2. Labour (what sets the hours, then the hours), 3. Shipping (packing,
+// CBM, freight), 4. Margin (unit cost, NPM, price vs target with a solver), all editable
+// in place. Used as the drill-in panel of the Costing Workspace and, in page
 // mode, as the product page's Costing tab (with product details, chemicals and vendors).
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -23,13 +24,14 @@ import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, chooseQuote, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
-  isDomesticFreight,
+  isDomesticFreight, stepTotals,
 } from '@/lib/costing-workspace';
-import { CostMixBar, EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
-import { VIEWS, type Col } from './columns';
+import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
+import { ALL_COLS, BANDS, type Col, type StepId } from './columns';
 import { McPlanBreakdown } from './McPlan';
 
-const colById = (id: string): Col => VIEWS.flatMap(v => v.cols).find(c => c.id === id)!;
+const colById = (id: string): Col => ALL_COLS.find(c => c.id === id)!;
+const band = (id: StepId) => BANDS.find(b => b.id === id)!;
 
 export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, position, page, onReload }: {
   row: WorkspaceRow; bundle: Bundle; apply: Apply; onClose?: () => void; onPrev?: () => void; onNext?: () => void; position?: string;
@@ -49,6 +51,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   // Highest raw piece price that still meets the target at the current NPM.
   const maxRawInr = row.maxCostInr != null ? row.maxCostInr - (row.costInr - row.buckets.raw_piece) : null;
   const pkg = p.packaging_type || 'ic_mc';
+  const steps = stepTotals(row);
 
   return (
     <div className={cn('flex flex-col bg-card', page ? 'rounded-lg border border-border/70 shadow-sm' : 'h-full')}>
@@ -82,40 +85,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 
         <QuantityBar row={row} bundle={bundle} apply={apply} />
 
-        {/* Price vs target */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px border-b bg-border">
-          <Figure label="Unit cost" value={inr(row.costInr)} sub={isInr ? 'per unit' : usd(row.cost)} />
-          <Figure label="NPM" sub={`markup ${pct(row.markup)}`}>
-            <PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} big />
-          </Figure>
-          <Figure label="Price" value={<span className="text-primary">{money(row.price, row.cur)}</span>} sub={isInr ? `markup on ${inr(row.costInr)}` : inr(row.priceInr)} />
-          <Figure label="Target" sub={<GapChip row={row} />}>
-            <PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} big placeholder="none" />
-          </Figure>
-        </div>
-        {over && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-destructive/[0.04] px-4 py-2.5 text-sm">
-            <span className="text-muted-foreground">To hit {money(row.target, row.cur)}:</span>
-            <span>NPM <b className="tabular-nums">{npmNeeded != null ? pct(npmNeeded) : 'n/a'}</b></span>
-            {npmNeeded != null && npmNeeded > 0 && (
-              <Button size="sm" variant="outline" className="h-7"
-                disabled={bundle.inq?.markup_percent_override != null}
-                onClick={() => apply(b => patchProductsSame(b, [id], { markup_percent: Math.round(npmToMarkup(npmNeeded) * 10000) / 10000 }))}>
-                Apply
-              </Button>
-            )}
-            <span className="text-muted-foreground">or cut cost by</span>
-            <b className="tabular-nums">{inr(row.costInr - (row.maxCostInr ?? 0))}</b>
-            <span className="text-muted-foreground">({pct((row.costInr - (row.maxCostInr ?? 0)) / (row.costInr || 1))}) to {inr(row.maxCostInr)}</span>
-          </div>
-        )}
-        {maxRawInr != null && row.buckets.raw_piece > 0 && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm">
-            <span className="text-muted-foreground">Max raw piece at target:</span>
-            <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-success' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
-            <span className="text-muted-foreground tabular-nums">{isInr ? '' : `(${usd(maxRawInr / (r.exchangeRate || 1))}) · `}headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
-          </div>
-        )}
+        <FlowStrip row={row} />
 
         {page && (
           <Section title="Product details" defaultOpen>
@@ -123,35 +93,10 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           </Section>
         )}
 
-        {/* Waterfall */}
-        <Section title="Where the price comes from" defaultOpen done={done('revenue_done')}>
-          <CostMixBar row={row} showLegend />
-          <table className="mt-3 w-full text-sm tabular-nums">
-            <thead>
-              <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
-                <th className="text-left">Per unit</th><th className="text-right">₹</th><th className="text-right">of price</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr>td]:py-1">
-              {BUCKETS.filter(b => row.buckets[b.key] > 0.005).map(b => (
-                <tr key={b.key}>
-                  <td><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: b.color }} />{b.label}</td>
-                  <td className="text-right">{inr(row.buckets[b.key], 2)}</td>
-                  <td className="w-20 text-right text-muted-foreground">{pct(row.buckets[b.key] / (row.priceInr || 1))}</td>
-                </tr>
-              ))}
-              {r.capitalPerUnitInr > 0 && (
-                <tr><td className="pl-[18px]">Cost of capital</td><td className="text-right">{inr(r.capitalPerUnitInr, 2)}</td><td className="text-right text-muted-foreground">{pct(r.capitalPerUnitInr / (row.priceInr || 1))}</td></tr>
-              )}
-              <tr className="border-t font-medium"><td className="pt-2">Unit cost</td><td className="pt-2 text-right">{inr(row.costInr, 2)}</td><td className="pt-2 text-right text-muted-foreground">{pct(row.costInr / (row.priceInr || 1))}</td></tr>
-              <tr className="text-primary"><td>Margin ({pct(row.margin)} NPM)</td><td className="text-right">{inr(row.priceInr - row.costInr, 2)}</td><td className="text-right">{pct(row.margin)}</td></tr>
-              <tr className="border-t font-semibold"><td className="pt-2">Price</td><td className="pt-2 text-right">{inr(row.priceInr, 2)}</td><td className="pt-2 text-right">{isInr ? '' : usd(row.price)}</td></tr>
-            </tbody>
-          </table>
-          <div className="mt-2 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · {r.finalUnitCbm.toFixed(4)} CBM/unit · {num(r.manHoursPerUnit, 2)} man-hrs/unit</div>
-        </Section>
-
-        <Section title="Materials & components" count={bundle.cogs.filter(c => c.product_id === id && c.include !== 'No' && !isDomesticFreight(c)).length} defaultOpen done={done('cogs_done')} review={cogsReview}>
+        <Section step="cogs" sub={inr(steps.cogs) + '/unit'} count={bundle.cogs.filter(c => c.product_id === id && c.include !== 'No' && !isDomesticFreight(c)).length} defaultOpen done={done('cogs_done')} review={cogsReview}>
+          <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {['source', 'outsourced'].map(cid => <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />)}
+          </div>
           {page && onReload && (
             <div className="mb-3">
               <ProductChemicalsPicker productId={id} chemicals={bundle.chemicalPrices} cogsItems={bundle.cogs.filter(c => c.product_id === id)} onChanged={onReload} />
@@ -160,15 +105,18 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <CogsLines row={row} bundle={bundle} apply={apply} show={l => !isDomesticFreight(l)} />
         </Section>
 
-        <Section title="Labor & overhead" sub={inr(row.buckets.labor) + '/unit'} defaultOpen={page} done={done('overhead_done')} review={ohReview}>
+        <Section step="labour" sub={`${num(r.manHoursPerUnit, 2)} MH · ${inr(steps.labour)}/unit`} defaultOpen={page} done={done('overhead_done')} review={ohReview}>
+          <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
+            {['ptype', 'difficulty', 'wood', 'ri'].map(cid => <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />)}
+          </div>
           <LaborLines row={row} bundle={bundle} apply={apply} />
         </Section>
 
-        <Section title="Packaging & CBM" sub={`${r.finalUnitCbm.toFixed(4)} CBM/pc${pkg === 'ic_mc' || pkg === 'bulk_pack' ? ` · ${r.productsPerMc || 1} pcs/MC` : ''}`} defaultOpen={page} done={done('cbm_done')}>
+        <Section step="shipping" sub={`${r.finalUnitCbm.toFixed(4)} CBM${pkg === 'ic_mc' || pkg === 'bulk_pack' ? ` · ${r.productsPerMc || 1}/MC` : ''} · ${inr(steps.shipping)}/unit`} defaultOpen={page}
+          done={{ checked: !!p.cbm_done && !!p.shipping_done, onChange: v => apply(b => patchProductsSame(b, [id], { cbm_done: v, shipping_done: v })) }}>
+          <SubHead>Packing and CBM</SubHead>
           <PackagingFields row={row} bundle={bundle} apply={apply} />
-        </Section>
-
-        <Section title="Shipping" sub={inr(row.buckets.shipping) + '/unit'} defaultOpen={page} done={done('shipping_done')}>
+          <SubHead className="mt-4">Freight</SubHead>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <Field col={colById('shipping')} row={row} bundle={bundle} apply={apply} />
             <div className="text-sm"><div className="text-xs text-muted-foreground">Per unit</div><div className="h-8 flex items-center tabular-nums font-medium">{inr(r.shippingPerUnit, 2)} · {r.finalUnitCbm.toFixed(4)} CBM</div></div>
@@ -179,12 +127,65 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           )}
         </Section>
 
-        <Section title="Product setup" defaultOpen={page}>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            {['ptype', 'difficulty', 'wood', 'source', 'outsourced'].map(cid => (
-              <Field key={cid} col={colById(cid)} row={row} bundle={bundle} apply={apply} />
-            ))}
+        <Section step="margin" sub={`${pct(row.margin)} NPM · ${money(row.price, row.cur)}`} defaultOpen done={done('revenue_done')}>
+          <div className="-mx-4 grid grid-cols-2 gap-px border-y bg-border sm:grid-cols-4">
+            <Figure label="Unit cost" value={inr(row.costInr)} sub={isInr ? 'per unit' : usd(row.cost)} />
+            <Figure label="NPM" sub={`markup ${pct(row.markup)}`}>
+              <PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} big />
+            </Figure>
+            <Figure label="Price" value={<span className="text-primary">{money(row.price, row.cur)}</span>} sub={isInr ? `markup on ${inr(row.costInr)}` : inr(row.priceInr)} />
+            <Figure label="Target" sub={<GapChip row={row} />}>
+              <PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} big placeholder="none" />
+            </Figure>
           </div>
+          {over && (
+            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-destructive/[0.04] px-4 py-2.5 text-sm">
+              <span className="text-muted-foreground">To hit {money(row.target, row.cur)}:</span>
+              <span>NPM <b className="tabular-nums">{npmNeeded != null ? pct(npmNeeded) : 'n/a'}</b></span>
+              {npmNeeded != null && npmNeeded > 0 && (
+                <Button size="sm" variant="outline" className="h-7"
+                  disabled={bundle.inq?.markup_percent_override != null}
+                  onClick={() => apply(b => patchProductsSame(b, [id], { markup_percent: Math.round(npmToMarkup(npmNeeded) * 10000) / 10000 }))}>
+                  Apply
+                </Button>
+              )}
+              <span className="text-muted-foreground">or cut cost by</span>
+              <b className="tabular-nums">{inr(row.costInr - (row.maxCostInr ?? 0))}</b>
+              <span className="text-muted-foreground">({pct((row.costInr - (row.maxCostInr ?? 0)) / (row.costInr || 1))}) to {inr(row.maxCostInr)}</span>
+            </div>
+          )}
+          {maxRawInr != null && row.buckets.raw_piece > 0 && (
+            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm">
+              <span className="text-muted-foreground">Max raw piece at target:</span>
+              <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-success' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
+              <span className="text-muted-foreground tabular-nums">{isInr ? '' : `(${usd(maxRawInr / (r.exchangeRate || 1))}) · `}headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
+            </div>
+          )}
+
+          <table className="mt-3 w-full text-sm tabular-nums">
+            <thead>
+              <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
+                <th className="text-left">Per unit</th><th className="text-right">₹</th><th className="text-right">of price</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr>td]:py-1">
+              {([['cogs', steps.cogs], ['labour', steps.labour], ['shipping', steps.shipping]] as const).map(([k, v]) => (
+                <tr key={k}>
+                  <td><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: band(k).color }} />{band(k).n}. {band(k).label}</td>
+                  <td className="text-right">{inr(v, 2)}</td>
+                  <td className="w-20 text-right text-muted-foreground">{pct(v / (row.priceInr || 1))}</td>
+                </tr>
+              ))}
+              {steps.capital > 0 && (
+                <tr><td className="pl-[18px]">Cost of capital</td><td className="text-right">{inr(steps.capital, 2)}</td><td className="text-right text-muted-foreground">{pct(steps.capital / (row.priceInr || 1))}</td></tr>
+              )}
+              <tr className="border-t font-medium"><td className="pt-2">Unit cost</td><td className="pt-2 text-right">{inr(row.costInr, 2)}</td><td className="pt-2 text-right text-muted-foreground">{pct(row.costInr / (row.priceInr || 1))}</td></tr>
+              <tr className="text-primary"><td>Margin ({pct(row.margin)} NPM)</td><td className="text-right">{inr(row.priceInr - row.costInr, 2)}</td><td className="text-right">{pct(row.margin)}</td></tr>
+              <tr className="border-t font-semibold"><td className="pt-2">Price</td><td className="pt-2 text-right">{inr(row.priceInr, 2)}</td><td className="pt-2 text-right">{isInr ? '' : usd(row.price)}</td></tr>
+            </tbody>
+          </table>
+          <div className="mt-2 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · contribution {pct(row.contribution)}</div>
+
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
             <label className="flex items-center gap-2">
               <Checkbox checked={!!p.cost_of_capital_enabled} onCheckedChange={c => apply(b => patchProductsSame(b, [id], { cost_of_capital_enabled: !!c }))} />
@@ -396,13 +397,44 @@ function PhotoEstimateNote({ est, onChecked }: { est: PhotoEstimateRecord; onChe
 
 type Done = { checked: boolean; onChange: (v: boolean) => void };
 
-function Section({ title, sub, count, defaultOpen, done, review, children }: {
-  title: string; sub?: string; count?: number; defaultOpen?: boolean; done?: Done;
+/** One costing step as the panel shows it: the four steps run 1. COGS → 4. Margin, like the grid. */
+function FlowStrip({ row }: { row: WorkspaceRow }) {
+  const s = stepTotals(row);
+  const part = (k: StepId, v: number) => (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span className="inline-block h-2 w-2 rounded-sm" style={{ background: band(k).color }} />
+      <span className="text-muted-foreground">{band(k).label}</span>
+      <b className="font-medium tabular-nums">{inr(s[k as 'cogs' | 'labour' | 'shipping'])}</b>
+    </span>
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-4 py-2.5 text-sm">
+      {part('cogs', s.cogs)}<span className="text-muted-foreground">+</span>
+      {part('labour', s.labour)}<span className="text-muted-foreground">+</span>
+      {part('shipping', s.shipping)}
+      {s.capital > 0 && <><span className="text-muted-foreground">+</span><span className="whitespace-nowrap"><span className="text-muted-foreground">capital </span><b className="font-medium tabular-nums">{inr(s.capital)}</b></span></>}
+      <span className="text-muted-foreground">=</span>
+      <span className="whitespace-nowrap"><span className="text-muted-foreground">cost </span><b className="tabular-nums">{inr(s.cost)}</b></span>
+      <span className="text-muted-foreground">→</span>
+      <span className="whitespace-nowrap"><b className="tabular-nums text-primary">{money(row.price, row.cur)}</b><span className="text-muted-foreground"> at {pct(row.margin)} NPM</span></span>
+      <span className="ml-auto"><GapChip row={row} /></span>
+    </div>
+  );
+}
+
+function SubHead({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('mb-2 text-xs font-medium text-muted-foreground', className)}>{children}</div>;
+}
+
+function Section({ title: titleProp, step, sub, count, defaultOpen, done, review, children }: {
+  title?: string; step?: StepId; sub?: string; count?: number; defaultOpen?: boolean; done?: Done;
   /** Lines in this section flagged for review; the badge opens the section and jumps to the first one. */
   review?: number; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   const ref = useRef<HTMLDivElement>(null);
+  const st = step ? band(step) : null;
+  const title = st ? `${st.n}. ${st.label}` : titleProp ?? '';
   const jumpToReview = (e: React.SyntheticEvent) => {
     e.stopPropagation();
     setOpen(true);
@@ -415,7 +447,7 @@ function Section({ title, sub, count, defaultOpen, done, review, children }: {
     });
   };
   return (
-    <div className="border-b" ref={ref}>
+    <div className="border-b" ref={ref} style={st ? { borderLeft: `3px solid ${st.color}` } : undefined}>
       <div className="flex w-full items-center gap-2 px-4 py-3 hover:bg-muted/40">
         <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setOpen(o => !o)}>
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')} />
