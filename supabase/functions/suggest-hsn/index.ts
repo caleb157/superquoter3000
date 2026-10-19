@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const result = streamText({
       model: provider.responses('openai/gpt-6-astra'),
-      system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits. gstRate = the current GST rate in percent for that code under the GST 2.0 rate structure (Sept 2025 onwards), or null if unsure.',
+      system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits. gstRate = the current GST rate in percent under GST 2.0 (effective 22 Sept 2025): the 12% slab is essentially gone - wooden tableware/kitchenware, wooden boxes/decor/handicrafts, marble/stone articles, iron/steel/brass kitchen and household articles, games and festive items are 5%; furniture and seats (chapter 94) are 18%; 40% only for luxury/sin goods. Never answer 12% unless certain it still applies. null if unsure.',
       messages: [{
         role: 'user',
         content: `Product: ${parsed.data.name}\n${parsed.data.details ? `Details: ${parsed.data.details}\n` : ''}\nCodes this company already uses (prefer one if it truly fits):\n${knownList}`,
