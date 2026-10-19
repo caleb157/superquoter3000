@@ -1,1 +1,0 @@
-ALTER TABLE public.hsn_codes ADD COLUMN IF NOT EXISTS gst_rate numeric CHECK (gst_rate IS NULL OR (gst_rate >= 0 AND gst_rate <= 100));

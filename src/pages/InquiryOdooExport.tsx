@@ -28,8 +28,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
-import { odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
+import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
+import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; rmTotal: number; rmPending: number };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
@@ -70,7 +71,7 @@ export default function InquiryOdooExport() {
   const [sent, setSent] = useState<Record<string, SendState>>({});
   const ready = useRef(false);
   const [hsnList, setHsnList] = useState<HsnCode[]>([]);
-  const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string }[] }>>({});
+  const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string; gstRate?: number | null }[] }>>({});
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkHsn, setBulkHsn] = useState('');
   // Per product: materials created / BOM created, read from the Odoo send log.
@@ -96,6 +97,18 @@ export default function InquiryOdooExport() {
     try {
       const found = await odooProductsBySku(rs.map(r => r.finished.sku).filter(s => /^[^-]+-[^-]+-[^-]+$/.test(s.trim())));
       setExisting(new Set(found.map(p => p.sku.trim().toUpperCase())));
+      // Products already in Odoo: name, SKU, photo, HSN and taxes come back from Odoo.
+      const live = await odooDetails(rs.map(r => r.odooId ?? 0));
+      if (live.length) {
+        const byId = new Map(live.map(d => [d.id, d]));
+        setRows(prev => prev.map(r => {
+          const d = r.odooId ? byId.get(r.odooId) : undefined;
+          if (!d) return r;
+          return { ...r, odooSku: d.sku || r.odooSku, finished: { ...r.finished, name: d.name || r.finished.name, sku: d.sku || r.finished.sku,
+            imageUrl: d.image ?? r.finished.imageUrl, hsn: d.hsn || r.finished.hsn, taxIds: d.taxIds, category: d.category || r.finished.category,
+            weightKg: d.weightKg ?? r.finished.weightKg, volumeM3: d.volumeM3 ?? r.finished.volumeM3 } };
+        }));
+      }
       setLookupError(null);
     } catch (e) {
       setLookupError(e instanceof Error ? e.message : String(e));
@@ -127,7 +140,7 @@ export default function InquiryOdooExport() {
         const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
         return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, rmTotal: live.length, rmPending };
       });
-      const { data: hsn } = await hsnTable().select('code, description, keywords, examples').order('code');
+      const { data: hsn } = await hsnTable().select('code, description, keywords, examples, gst_rate').order('code');
       const codes = (hsn ?? []) as HsnCode[];
       setHsnList(codes);
       for (const r of next) {
@@ -223,13 +236,13 @@ export default function InquiryOdooExport() {
       setAi(prev => ({ ...prev, [r.productId]: { error: msg } }));
       return;
     }
-    const items = (data?.suggestions ?? []) as { code: string; description: string; reason: string }[];
+    const items = (data?.suggestions ?? []) as { code: string; description: string; reason: string; gstRate?: number | null }[];
     setAi(prev => ({ ...prev, [r.productId]: items.length ? { items } : { error: 'No suggestion.' } }));
   };
-  const saveToList = async (code: string, description: string, exampleName: string) => {
-    const { error } = await hsnTable().upsert({ code, description, keywords: [], examples: [exampleName] }, { onConflict: 'code', ignoreDuplicates: true });
+  const saveToList = async (code: string, description: string, exampleName: string, gst: number | null = null) => {
+    const { error } = await hsnTable().upsert({ code, description, keywords: [], examples: [exampleName], gst_rate: gst }, { onConflict: 'code', ignoreDuplicates: true });
     if (error) { toast.error(error.message); return; }
-    setHsnList(prev => (prev.some(h => h.code === code) ? prev : [...prev, { code, description, keywords: [], examples: [exampleName] }]));
+    setHsnList(prev => (prev.some(h => h.code === code) ? prev : [...prev, { code, description, keywords: [], examples: [exampleName], gst_rate: gst }]));
     toast.success(`${code} added to the HSN list.`);
   };
   const applyBulk = () => {
@@ -238,11 +251,27 @@ export default function InquiryOdooExport() {
     setRows(prev => prev.map(r => {
       if (!picked.has(r.productId) || r.odooId) return r;
       const parts = splitSku(r.finished.sku);
-      return { ...r, finished: { ...r.finished, ...(pre ? { sku: joinSku({ ...parts, prefix: pre }) } : {}), ...(h ? { hsn: h } : {}) } };
+      return { ...r, finished: { ...r.finished, ...(pre ? { sku: joinSku({ ...parts, prefix: pre }) } : {}), ...(h ? { hsn: h } : {}), ...(h && !(r.finished.taxIds ?? []).length && taxForRate(hsnList.find(x => x.code === h)?.gst_rate ?? null) ? { taxIds: [taxForRate(hsnList.find(x => x.code === h)?.gst_rate ?? null)!.id] } : {}) } };
     }));
     toast.success('Applied to the selected products.');
   };
-  const groupNames = [...new Set(rows.map(r => (r.finished.group || '').trim()).filter(Boolean))];
+  const gstFor = (r: Row, hsn: string): number | null => {
+    const known = hsnList.find(h => h.code === hsn.trim())?.gst_rate;
+    if (known != null) return Number(known);
+    return ai[r.productId]?.items?.find(i => i.code === hsn.trim())?.gstRate ?? null;
+  };
+  const taxes = meta?.taxes ?? [];
+  // Intra-state GST first (e.g. "18% GST"), IGST as the fallback.
+  const taxForRate = (rate: number | null) => {
+    if (rate == null) return null;
+    const same = taxes.filter(t => Math.abs(t.amount - rate) < 0.001);
+    return same.find(t => /gst/i.test(t.name) && !/igst/i.test(t.name)) ?? same[0] ?? null;
+  };
+  const pickHsn = (r: Row, code: string, gst?: number | null) => {
+    const rate = gst ?? hsnList.find(h => h.code === code)?.gst_rate ?? null;
+    const t = taxForRate(rate == null ? null : Number(rate));
+    patch(r.productId, { hsn: code, ...(t && !(r.finished.taxIds ?? []).length ? { taxIds: [t.id] } : {}) });
+  };
   const hsnOpts = hsnList.map(h => ({ value: h.code, hint: h.description }));
 
   const downloadDkt = () => {
@@ -300,9 +329,8 @@ export default function InquiryOdooExport() {
               <F label="HSN (8 digits)"><div className="w-40"><OptionCombobox value={bulkHsn} options={hsnOpts} allowCustom placeholder="Pick or type" className="h-8 text-xs font-mono" onChange={setBulkHsn} /></div></F>
               <Button size="sm" variant="outline" className="h-8" disabled={!chosen.length || (!bulkPrefix.trim() && !bulkHsn.trim())} onClick={applyBulk}>Apply</Button>
             </div>
-            <datalist id="odoo-template-groups">{groupNames.map(g => <option key={g} value={g} />)}</datalist>
 
-            {rows.map(r => {
+            {[...groups.flat(), ...rows.filter(r => r.odooId)].map(r => {
               const f = r.finished;
               const parts = splitSku(f.sku);
               const setPart = (k: 'prefix' | 'base' | 'suffix', v: string) =>
@@ -317,7 +345,7 @@ export default function InquiryOdooExport() {
               const matches = matchHsn(f.name, hsnList).filter(m => m.code !== f.hsn.trim());
               const aiState = ai[r.productId];
               return (
-                <Card key={r.productId} className={picked.has(r.productId) ? '' : 'opacity-60'}>
+                <Card key={r.productId} className={`${picked.has(r.productId) ? '' : 'opacity-60'} ${multi && !isLead ? 'ml-8 border-l-4 border-l-primary/50' : multi ? 'border-l-4 border-l-primary' : ''}`}>
                   <CardContent className="p-3 flex gap-3">
                     <Checkbox className="mt-1" checked={picked.has(r.productId)}
                       onCheckedChange={v => setPicked(prev => { const n = new Set(prev); if (v === true) n.add(r.productId); else n.delete(r.productId); return n; })} />
@@ -348,12 +376,32 @@ export default function InquiryOdooExport() {
                         </Button>
                       </div>
                       <fieldset disabled={inOdoo} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6 text-xs">
-                        <F label="Template group (same group = variants of one product)" span={3}>
-                          <Input className="h-8 text-xs" list="odoo-template-groups" placeholder="Blank = its own product" value={f.group ?? ''} onChange={e => patch(r.productId, { group: e.target.value })} />
+                        <F label={multi && isLead ? `Template for ${g.length} variants` : 'Variant of (another product here)'} span={3}>
+                          {multi && isLead
+                            ? <div className="h-8 flex items-center text-muted-foreground">Name, category, HSN and tax set here apply to every variant below.</div>
+                            : <Select value={multi ? g[0].productId : 'none'} onValueChange={v => setRows(prev => setVariantOf(prev, r.productId, v === 'none' ? null : v))}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Not a variant (own product)</SelectItem>
+                                  {rows.filter(o => o.productId !== r.productId && !o.odooId && (!(groupOf.get(o.productId)?.length > 1) || groupOf.get(o.productId)![0].productId === o.productId))
+                                    .map(o => <SelectItem key={o.productId} value={o.productId}>{o.finished.name || o.productId}</SelectItem>)}
+                                </SelectContent>
+                              </Select>}
                         </F>
                         <F label="Product name (template)" span={3}><Input className="h-8 text-xs" disabled={multi && !isLead} value={multi && !isLead ? g[0].finished.name : f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
                         <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />}</F>
-                        <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => patch(r.productId, { hsn: v.replace(/\D/g, '').slice(0, 8) })} />}</F>
+                        <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => { const c = v.replace(/\D/g, '').slice(0, 8); if (c.length === 8) pickHsn(r, c); else patch(r.productId, { hsn: c }); }} />}</F>
+                        <F label={`Sales tax${(() => { const h = (multi && !isLead ? g[0].finished.hsn : f.hsn); const rt = h.length === 8 ? gstFor(r, h) : null; return rt != null ? ` · GST ${rt}% for this HSN` : ''; })()}`} span={2}>
+                          {multi && !isLead
+                            ? <Input className="h-8 text-xs" disabled value={taxes.filter(t => (g[0].finished.taxIds ?? []).includes(t.id)).map(t => t.name).join(', ') || '—'} />
+                            : <Select value={String((f.taxIds ?? [])[0] ?? 'none')} onValueChange={v => patch(r.productId, { taxIds: v === 'none' ? [] : [Number(v)] })}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={meta ? 'Pick' : 'Loading…'} /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No tax (Odoo default)</SelectItem>
+                                  {taxes.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>}
+                        </F>
                         <F label="SKU (prefix - base - suffix)" span={3}>
                           <div className="flex items-center gap-1">
                             <div className="w-24"><OptionCombobox value={parts.prefix} options={prefixOpts} allowCustom placeholder="Prefix" className="h-8 text-xs font-mono" onChange={v => setPart('prefix', v)} /></div>
@@ -371,8 +419,8 @@ export default function InquiryOdooExport() {
                         <div className="flex flex-wrap items-center gap-1.5 text-xs">
                           {matches.length > 0 && <span className="text-muted-foreground">HSN by name:</span>}
                           {matches.map(m => (
-                            <button key={m.code} type="button" title={m.description} onClick={() => patch(r.productId, { hsn: m.code })}
-                              className="rounded-full border px-2 py-0.5 font-mono hover:bg-accent">{m.code} <span className="font-sans text-muted-foreground">{m.description.slice(0, 40)}</span></button>
+                            <button key={m.code} type="button" title={m.description} onClick={() => pickHsn(r, m.code)}
+                              className="rounded-full border px-2 py-0.5 font-mono hover:bg-accent">{m.code} <span className="font-sans text-muted-foreground">{m.description.slice(0, 40)}</span>{hsnList.find(h => h.code === m.code)?.gst_rate != null ? <span className="font-sans"> · {hsnList.find(h => h.code === m.code)!.gst_rate}% GST</span> : null}</button>
                           ))}
                           {!matches.length && !f.hsn.trim() && <span className="text-muted-foreground">No HSN match from the name.</span>}
                           <Button type="button" variant="ghost" size="sm" className="h-6 px-2 gap-1" disabled={aiState?.loading || !f.name.trim()} onClick={() => askAi(r)}>
@@ -383,9 +431,10 @@ export default function InquiryOdooExport() {
                             const known = hsnList.some(h => h.code === m.code);
                             return (
                               <span key={m.code} className="inline-flex items-center gap-1 rounded-full border border-primary/40 px-2 py-0.5">
-                                <button type="button" title={m.reason} onClick={() => patch(r.productId, { hsn: m.code })} className="font-mono hover:underline">{m.code}</button>
+                                <button type="button" title={m.reason} onClick={() => pickHsn(r, m.code, m.gstRate)} className="font-mono hover:underline">{m.code}</button>
+                                {m.gstRate != null && <span className="font-medium">{m.gstRate}% GST</span>}
                                 <span className="text-muted-foreground" title={m.reason}>{m.description.slice(0, 50)}</span>
-                                {!known && <button type="button" className="underline text-primary" onClick={() => saveToList(m.code, m.description, f.name)}>Add to list</button>}
+                                {!known && <button type="button" className="underline text-primary" onClick={() => saveToList(m.code, m.description, f.name, m.gstRate ?? null)}>Add to list</button>}
                               </span>
                             );
                           })}

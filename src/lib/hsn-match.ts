@@ -3,7 +3,7 @@
 // Score = match words found in the name (phrases count more) + name words shared with the
 // code's example product names, weighted so words common to every code (acacia, wood…) count little.
 
-export type HsnCode = { code: string; description: string; keywords: string[]; examples: string[] };
+export type HsnCode = { code: string; description: string; keywords: string[]; examples: string[]; gst_rate?: number | null };
 export type HsnMatch = { code: string; description: string; score: number };
 
 const STOP = new Set(['and', 'with', 'the', 'for', 'set', 'inch', 'inches', 'cm', 'mm', 'piece', 'pieces', 'of', 'in', 'x']);
