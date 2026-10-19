@@ -8,7 +8,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Download, ExternalLink, Loader2, RefreshCw, Send, Wrench, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Download, ExternalLink, Layers, Loader2, RefreshCw, Send, Sparkles, Wrench, XCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { confidentHsn, matchHsn, type HsnCode } from '@/lib/hsn-match';
 import { AppLayout } from '@/components/AppLayout';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,7 +27,7 @@ import { OptionCombobox } from '@/components/odoo-export/OptionCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { checkFinishedOnly, defaultFinished, dktProductsSheet, joinSku, pushPayload, splitSku, type FinishedDraft } from '@/lib/odoo-bom';
+import { checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, splitSku, templateGroups, withVariantDefaults, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
 
 type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null };
@@ -38,6 +41,9 @@ const writeFinished = (id: string, f: FinishedDraft) => {
   try { const d = readDraft(id) ?? { lines: {} }; localStorage.setItem(draftKey(id), JSON.stringify({ ...d, finished: f })); } catch { /* per-browser */ }
 };
 const num = (v: string) => (v.trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+// hsn_codes is newer than the generated types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hsnTable = () => (supabase.from as unknown as (t: string) => any)('hsn_codes');
 const upper = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export default function InquiryOdooExport() {
@@ -62,6 +68,10 @@ export default function InquiryOdooExport() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<Record<string, SendState>>({});
   const ready = useRef(false);
+  const [hsnList, setHsnList] = useState<HsnCode[]>([]);
+  const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string }[] }>>({});
+  const [bulkPrefix, setBulkPrefix] = useState('');
+  const [bulkHsn, setBulkHsn] = useState('');
 
   const checkOdoo = useCallback(async (rs: Row[]) => {
     setChecking(true);
@@ -92,6 +102,14 @@ export default function InquiryOdooExport() {
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
         return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null };
       });
+      const { data: hsn } = await hsnTable().select('code, description, keywords, examples').order('code');
+      const codes = (hsn ?? []) as HsnCode[];
+      setHsnList(codes);
+      for (const r of next) {
+        if (r.odooId || r.finished.hsn.trim()) continue;
+        const hit = confidentHsn(matchHsn(r.finished.name, codes));
+        if (hit) r.finished = { ...r.finished, hsn: hit.code };
+      }
       setRows(next);
       setPicked(new Set(next.filter(r => !r.odooId).map(r => r.productId)));
       setSent({});
@@ -112,30 +130,94 @@ export default function InquiryOdooExport() {
   const patch = (id: string, p: Partial<FinishedDraft>) =>
     setRows(prev => prev.map(r => (r.productId === id ? { ...r, finished: { ...r.finished, ...p } } : r)));
 
-  const issues = useMemo(() => new Map(rows.map(r => [r.productId, r.odooId ? [] : checkFinishedOnly(r.finished, existing)])), [rows, existing]);
+  // Templates: rows sharing a group (and not yet in Odoo) become variants of one template; the first is the lead.
+  const groups = useMemo(() => templateGroups(rows.filter(r => !r.odooId)), [rows]);
+  const groupOf = useMemo(() => new Map(groups.flatMap(g => g.map(r => [r.productId, g] as const))), [groups]);
+  const effective = (r: Row) => withVariantDefaults(r.finished, groupOf.get(r.productId)?.length ?? 1);
+  const issues = useMemo(() => {
+    const m = new Map<string, Issue[]>();
+    for (const g of groups) {
+      const gi = checkVariantGroup(g);
+      g.forEach((r, i) => {
+        const f = withVariantDefaults(r.finished, g.length);
+        const lead = withVariantDefaults(g[0].finished, g.length);
+        const own = checkFinishedOnly({ ...f, name: lead.name, category: lead.category }, existing);
+        const h = i === 0 ? hsnIssue(f.hsn) : null;
+        m.set(r.productId, [...own, ...(h ? [h] : []), ...(gi.get(r.productId) ?? [])]);
+      });
+    }
+    return m;
+  }, [groups, existing]);
   const chosen = rows.filter(r => picked.has(r.productId));
-  const sendable = chosen.filter(r => !r.odooId && sent[r.productId]?.state !== 'done' && !(issues.get(r.productId) ?? []).length);
+  const isOpen = (r: Row) => !r.odooId && sent[r.productId]?.state !== 'done';
+  // A template is sent whole: every variant picked, open and without problems.
+  const sendableGroups = groups.filter(g => g.every(r => picked.has(r.productId) && isOpen(r) && !(issues.get(r.productId) ?? []).length));
+  const sendable = sendableGroups.flat();
 
   const sendAll = async () => {
     setConfirmOpen(false);
     setSending(true);
     let ok = 0;
-    for (const r of sendable) {
-      setSent(prev => ({ ...prev, [r.productId]: { state: 'sending' } }));
+    for (const g of sendableGroups) {
+      const [lead, ...rest] = g;
+      const ids = g.map(r => r.productId);
+      setSent(prev => ({ ...prev, ...Object.fromEntries(ids.map(id => [id, { state: 'sending' as const }])) }));
       try {
-        const res = await pushToOdoo(pushPayload(r.productId, { ...r.finished, exists: false, existing: null }, [], existing, 'product'));
-        const prod = res.created.concat(res.reused).find(c => c.kind === 'product');
-        setSent(prev => ({ ...prev, [r.productId]: { state: 'done', url: res.productUrl } }));
-        setRows(prev => prev.map(x => (x.productId === r.productId ? { ...x, odooId: prod?.id ?? x.odooId, odooSku: r.finished.sku } : x)));
-        ok += 1;
+        const lf = withVariantDefaults(lead.finished, g.length);
+        const payload = pushPayload(lead.productId, { ...lf, exists: false, existing: null }, [], existing, 'product');
+        payload.variants = rest.map(r => ({
+          hqProductId: r.productId, sku: r.finished.sku.trim(), variant: r.finished.variant.trim(),
+          customerSku: r.finished.customerSku?.trim() || null, weightKg: r.finished.weightKg, volumeM3: r.finished.volumeM3, imageUrl: r.finished.imageUrl,
+        }));
+        const res = await pushToOdoo(payload);
+        const prods = res.created.concat(res.reused).filter(c => c.kind === 'product');
+        const idBySku = new Map(prods.map(p => [p.sku.trim().toUpperCase(), p.id]));
+        setSent(prev => ({ ...prev, ...Object.fromEntries(ids.map(id => [id, { state: 'done' as const, url: res.productUrl }])) }));
+        setRows(prev => prev.map(x => {
+          if (!ids.includes(x.productId)) return x;
+          const sku = (x.productId === lead.productId ? lf.sku : x.finished.sku).trim();
+          return { ...x, odooId: idBySku.get(sku.toUpperCase()) ?? x.odooId ?? -1, odooSku: sku };
+        }));
+        ok += g.length;
       } catch (e) {
         const err = e as Error & { details?: { problems?: string[] } | null };
-        setSent(prev => ({ ...prev, [r.productId]: { state: 'error', error: err?.message || String(e), problems: err?.details?.problems } }));
+        setSent(prev => ({ ...prev, ...Object.fromEntries(ids.map(id => [id, { state: 'error' as const, error: err?.message || String(e), problems: err?.details?.problems }])) }));
       }
     }
     setSending(false);
     if (ok) toast.success(`${ok} product${ok === 1 ? '' : 's'} created in Odoo.`);
   };
+
+  const askAi = async (r: Row) => {
+    setAi(prev => ({ ...prev, [r.productId]: { loading: true } }));
+    const { data, error } = await supabase.functions.invoke('suggest-hsn', { body: { name: r.finished.name, details: r.finished.category } });
+    if (error) {
+      let msg = error.message;
+      if (error instanceof FunctionsHttpError) { try { msg = (await error.context.json())?.error || msg; } catch { /* keep */ } }
+      setAi(prev => ({ ...prev, [r.productId]: { error: msg } }));
+      return;
+    }
+    const items = (data?.suggestions ?? []) as { code: string; description: string; reason: string }[];
+    setAi(prev => ({ ...prev, [r.productId]: items.length ? { items } : { error: 'No suggestion.' } }));
+  };
+  const saveToList = async (code: string, description: string, exampleName: string) => {
+    const { error } = await hsnTable().upsert({ code, description, keywords: [], examples: [exampleName] }, { onConflict: 'code', ignoreDuplicates: true });
+    if (error) { toast.error(error.message); return; }
+    setHsnList(prev => (prev.some(h => h.code === code) ? prev : [...prev, { code, description, keywords: [], examples: [exampleName] }]));
+    toast.success(`${code} added to the HSN list.`);
+  };
+  const applyBulk = () => {
+    const pre = upper(bulkPrefix); const h = bulkHsn.replace(/\D/g, '');
+    if (h && h.length !== 8) { toast.error('HSN must be 8 digits.'); return; }
+    setRows(prev => prev.map(r => {
+      if (!picked.has(r.productId) || r.odooId) return r;
+      const parts = splitSku(r.finished.sku);
+      return { ...r, finished: { ...r.finished, ...(pre ? { sku: joinSku({ ...parts, prefix: pre }) } : {}), ...(h ? { hsn: h } : {}) } };
+    }));
+    toast.success('Applied to the selected products.');
+  };
+  const groupNames = [...new Set(rows.map(r => (r.finished.group || '').trim()).filter(Boolean))];
+  const hsnOpts = hsnList.map(h => ({ value: h.code, hint: h.description }));
 
   const downloadDkt = () => {
     if (!chosen.length) return;
@@ -183,6 +265,13 @@ export default function InquiryOdooExport() {
                 onCheckedChange={v => setPicked(v === true ? new Set(rows.map(r => r.productId)) : new Set())} />
               {chosen.length} of {rows.length} selected
             </label>
+            <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-2 text-xs">
+              <span className="text-muted-foreground self-center">For the selected products:</span>
+              <F label="SKU prefix"><div className="w-28"><OptionCombobox value={bulkPrefix} options={prefixOpts} allowCustom placeholder="e.g. LUX" className="h-8 text-xs font-mono" onChange={setBulkPrefix} /></div></F>
+              <F label="HSN (8 digits)"><div className="w-40"><OptionCombobox value={bulkHsn} options={hsnOpts} allowCustom placeholder="Pick or type" className="h-8 text-xs font-mono" onChange={setBulkHsn} /></div></F>
+              <Button size="sm" variant="outline" className="h-8" disabled={!chosen.length || (!bulkPrefix.trim() && !bulkHsn.trim())} onClick={applyBulk}>Apply</Button>
+            </div>
+            <datalist id="odoo-template-groups">{groupNames.map(g => <option key={g} value={g} />)}</datalist>
 
             {rows.map(r => {
               const f = r.finished;
@@ -192,6 +281,12 @@ export default function InquiryOdooExport() {
               const s = sent[r.productId];
               const errs = issues.get(r.productId) ?? [];
               const inOdoo = !!r.odooId;
+              const g = groupOf.get(r.productId) ?? [r];
+              const multi = g.length > 1;
+              const isLead = g[0].productId === r.productId;
+              const eff = effective(r);
+              const matches = matchHsn(f.name, hsnList).filter(m => m.code !== f.hsn.trim());
+              const aiState = ai[r.productId];
               return (
                 <Card key={r.productId} className={picked.has(r.productId) ? '' : 'opacity-60'}>
                   <CardContent className="p-3 flex gap-3">
@@ -207,27 +302,60 @@ export default function InquiryOdooExport() {
                           : errs.length ? <Badge variant="destructive">{errs.length} to fix</Badge> : <Badge variant="outline">Ready</Badge>}
                         {s?.state === 'sending' && <span className="inline-flex items-center gap-1 text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Creating…</span>}
                         {s?.state === 'done' && s.url && <a className="inline-flex items-center gap-0.5 text-xs underline" href={s.url} target="_blank" rel="noopener noreferrer">Open in Odoo <ExternalLink className="h-3 w-3" /></a>}
+                        {multi && !inOdoo && (
+                          <Badge variant="outline" className="gap-1"><Layers className="h-3 w-3" /> Variant {g.indexOf(r) + 1} of {g.length}{isLead ? ' · template from this one' : ` · template: ${g[0].finished.name}`}</Badge>
+                        )}
                         <Button variant="ghost" size="sm" className="h-7 ml-auto" onClick={() => navigate(`/product/${r.productId}?tab=odoo`)}>
                           <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM
                         </Button>
                       </div>
                       <fieldset disabled={inOdoo} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6 text-xs">
-                        <F label="Product name (template)" span={3}><Input className="h-8 text-xs" value={f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
-                        <F label="Category" span={2}><OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} /></F>
-                        <F label="HSN"><Input className="h-8 text-xs" value={f.hsn} onChange={e => patch(r.productId, { hsn: e.target.value })} /></F>
+                        <F label="Template group (same group = variants of one product)" span={3}>
+                          <Input className="h-8 text-xs" list="odoo-template-groups" placeholder="Blank = its own product" value={f.group ?? ''} onChange={e => patch(r.productId, { group: e.target.value })} />
+                        </F>
+                        <F label="Product name (template)" span={3}><Input className="h-8 text-xs" disabled={multi && !isLead} value={multi && !isLead ? g[0].finished.name : f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
+                        <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />}</F>
+                        <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => patch(r.productId, { hsn: v.replace(/\D/g, '').slice(0, 8) })} />}</F>
                         <F label="SKU (prefix - base - suffix)" span={3}>
                           <div className="flex items-center gap-1">
                             <div className="w-24"><OptionCombobox value={parts.prefix} options={prefixOpts} allowCustom placeholder="Prefix" className="h-8 text-xs font-mono" onChange={v => setPart('prefix', v)} /></div>
                             <span>-</span><Input className="h-8 text-xs font-mono" placeholder="Base" value={parts.base} onChange={e => setPart('base', e.target.value)} />
-                            <span>-</span><Input className="h-8 text-xs font-mono" placeholder="Suffix" value={parts.suffix} onChange={e => setPart('suffix', e.target.value)} />
+                            <span>-</span><Input className="h-8 text-xs font-mono" placeholder={multi ? 'Required' : 'STND'} value={parts.suffix} onChange={e => setPart('suffix', e.target.value)} />
                           </div>
                         </F>
-                        <F label="Variant"><Input className="h-8 text-xs" placeholder="Standard" value={f.variant} onChange={e => patch(r.productId, { variant: e.target.value })} /></F>
+                        <F label="Variant"><Input className="h-8 text-xs" placeholder={multi ? 'Required' : 'Standard'} value={f.variant} onChange={e => patch(r.productId, { variant: e.target.value })} /></F>
                         <F label="Customer SKU (tag)"><Input className="h-8 text-xs" value={f.customerSku} onChange={e => patch(r.productId, { customerSku: e.target.value })} /></F>
                         <F label="Tracked"><div className="h-8 flex items-center"><Checkbox checked={f.tracked} onCheckedChange={v => patch(r.productId, { tracked: v === true })} /></div></F>
                         <F label="Volume (m³)"><Input className="h-8 text-xs" inputMode="decimal" value={f.volumeM3 ?? ''} onChange={e => patch(r.productId, { volumeM3: num(e.target.value) })} /></F>
                         <F label="Weight (kg)"><Input className="h-8 text-xs" inputMode="decimal" value={f.weightKg ?? ''} onChange={e => patch(r.productId, { weightKg: num(e.target.value) })} /></F>
                       </fieldset>
+                      {!inOdoo && (!multi || isLead) && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          {matches.length > 0 && <span className="text-muted-foreground">HSN by name:</span>}
+                          {matches.map(m => (
+                            <button key={m.code} type="button" title={m.description} onClick={() => patch(r.productId, { hsn: m.code })}
+                              className="rounded-full border px-2 py-0.5 font-mono hover:bg-accent">{m.code} <span className="font-sans text-muted-foreground">{m.description.slice(0, 40)}</span></button>
+                          ))}
+                          {!matches.length && !f.hsn.trim() && <span className="text-muted-foreground">No HSN match from the name.</span>}
+                          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 gap-1" disabled={aiState?.loading || !f.name.trim()} onClick={() => askAi(r)}>
+                            {aiState?.loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} AI suggest
+                          </Button>
+                          {aiState?.error && <span className="text-destructive">{aiState.error}</span>}
+                          {aiState?.items?.map(m => {
+                            const known = hsnList.some(h => h.code === m.code);
+                            return (
+                              <span key={m.code} className="inline-flex items-center gap-1 rounded-full border border-primary/40 px-2 py-0.5">
+                                <button type="button" title={m.reason} onClick={() => patch(r.productId, { hsn: m.code })} className="font-mono hover:underline">{m.code}</button>
+                                <span className="text-muted-foreground" title={m.reason}>{m.description.slice(0, 50)}</span>
+                                {!known && <button type="button" className="underline text-primary" onClick={() => saveToList(m.code, m.description, f.name)}>Add to list</button>}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {!inOdoo && !multi && (eff.sku !== f.sku || eff.variant !== f.variant) && (
+                        <div className="text-[11px] text-muted-foreground">Sends as {eff.sku} · {eff.variant}</div>
+                      )}
                       {!inOdoo && errs.map((i, n) => <div key={n} className="flex items-center gap-1.5 text-xs text-destructive"><XCircle className="h-3 w-3" /> {i.msg}</div>)}
                       {s?.state === 'error' && <div className="text-xs text-destructive">{s.error}{s.problems?.map(p => <div key={p}>{p}</div>)}</div>}
                     </div>
@@ -245,7 +373,7 @@ export default function InquiryOdooExport() {
                 </Button>
               )}
               <Button variant="outline" onClick={downloadDkt} disabled={!chosen.length}><Download className="h-4 w-4 mr-1.5" /> DKT products file</Button>
-              <span className="text-xs text-muted-foreground">Products already in Odoo are skipped, so nothing is created twice.</span>
+              <span className="text-xs text-muted-foreground">Products already in Odoo are skipped, so nothing is created twice. A template is only sent when all its variants are selected and ready.</span>
             </div>
 
             <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -254,7 +382,7 @@ export default function InquiryOdooExport() {
                   <AlertDialogTitle>Create {sendable.length} product{sendable.length === 1 ? '' : 's'} in Odoo?</AlertDialogTitle>
                   <AlertDialogDescription asChild>
                     <div className="space-y-1 text-sm">
-                      <div>Each becomes a product with one variant (on the "variant" attribute), its SKU, photo, volume, weight and customer-SKU tag.</div>
+                      <div>{sendableGroups.length} Odoo product{sendableGroups.length === 1 ? '' : 's'}; grouped products become variants of one template (on the "variant" attribute), each with its SKU, photo, volume, weight and customer-SKU tag.</div>
                       <div>No materials or BOMs are created now.</div>
                       <div className="text-muted-foreground pt-1">Odoo records can be archived afterwards but not undone from HQ.</div>
                     </div>
