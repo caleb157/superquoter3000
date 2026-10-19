@@ -249,7 +249,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-muted-foreground flex-1 min-w-[240px]">
-          Pick each line's Odoo product (or create it), then send the product and a new BOM to Odoo, or download the import files.
+          Match each raw material to an Odoo product (or create it), then create the BOM in Odoo.
         </p>
         <Button variant="outline" size="sm" onClick={() => checkOdoo(finished, lines)} disabled={checking}>
           {checking ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />} Check Odoo
@@ -272,7 +272,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
               : <Badge variant="outline">Not in Odoo yet</Badge>}
             <label className="flex items-center gap-1.5 text-xs font-normal">
               <Checkbox checked={finished.exists} onCheckedChange={v => patchFinished({ exists: v === true })} />
-              Made in Odoo by hand (pick it)
+              Link to an Odoo product
             </label>
           </CardTitle>
         </CardHeader>
