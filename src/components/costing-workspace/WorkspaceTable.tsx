@@ -172,8 +172,11 @@ export function WorkspaceTable(p: Props) {
           const issues = row.flags.filter(f => f.kind !== 'target');
           return (
             <tr key={row.p.id}
-              className={cn('group [&>td]:border-b [&>td]:h-12 [&>td]:px-1.5',
-                isOpen ? '[&>td]:bg-primary/[0.07]' : isSel ? '[&>td]:bg-primary/[0.04]' : '[&>td]:bg-card hover:[&>td]:bg-muted/40')}>
+              // Tints sit on an opaque card colour so the sticky name cell hides what scrolls under it.
+              className={cn('group [&>td]:border-b [&>td]:h-12 [&>td]:px-1.5 [&>td]:bg-card',
+                isOpen ? '[&>td]:bg-[linear-gradient(hsl(var(--primary)/0.07),hsl(var(--primary)/0.07))]'
+                  : isSel ? '[&>td]:bg-[linear-gradient(hsl(var(--primary)/0.04),hsl(var(--primary)/0.04))]'
+                  : '[&:hover>td]:bg-[linear-gradient(hsl(var(--muted)/0.4),hsl(var(--muted)/0.4))]')}>
               <td className="sticky left-0 z-[5] border-r">
                 <div className="flex items-center gap-2.5 pl-1 min-w-0">
                   <Checkbox tabIndex={-1} checked={isSel} onClick={e => { e.preventDefault(); p.onToggle(idx, e.shiftKey); }} aria-label={`Select ${row.p.name}`} />
