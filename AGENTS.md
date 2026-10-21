@@ -20,11 +20,10 @@
 - Photo intake: estimate-product drafts photo + WxDxH as Costing Intake inputs (src/lib/photo-intake.ts); flagged "estimated" until Mark checked.
 - Cost history (product_cost_history, src/lib/cost-history.ts): written from shared save paths only when cost/price/rate/part moved; read by the Cost history tab + re-quote warning; never on quote_snapshots.
 - Live rates (live-rates-sync -> global_settings.live_*) always drive costing (src/lib/live-rates.ts): inquiry overrides win, failed source keeps last value, sent quotes keep frozen rate.
-- Task Odoo order links: live search (odoo-order-search); store only order number + label.
 - Breakeven: math in src/lib/breakeven.ts; contribution = gross margin (price - bought-in/MO materials); live defaults from 12-mo finished Odoo orders; edits localStorage-only, Reset to live.
 - Odoo (odoo-bom.ts): inquiry creates final products; lead-id groups share templates/attribute 31; lone variant STND/Standard, 2+ unique suffix+name; tax from account.tax/hsn_codes.gst_rate. BOM page: materials, template BOM, Apply on Variants; reuse SKUs, new BOMs, no costs. Bulk edits use odoo-bulk-fields.ts: blanks skip changes; tax requires selection.
 - Pcs/MC: one master carton plan (planMasterCarton, src/lib/calculations.ts) drives costing + packed CBM (orientations tried, upright wins ties; hand layout over search; per-MC override keeps carton size).
 - DKT Cash Flow: pipeline = Active/Projected PO DKT inquiries at 100% (inquiry_projections: margin selling_retention_pct, advance ie_deposit_pct); confirmed = live PV->DKT SOs + unpaid invoices (odoo-dkt-orders), terms in dkt_odoo_order_terms; math in src/lib/dkt-cashflow.ts + dkt-amazon.ts; never auto-draws credit.
 - Final-product HSN: 8 digits only; name lookup against hsn_codes (src/lib/hsn-match.ts, no AI); AI (suggest-hsn) only on a manual click.
 - Subdirectories may have their own AGENTS.md; read it before changing files there.
-- Learnings (learnings) and HR Notes (hr_notes, hr_note_tags) are separate from tasks with their own dialogs (src/components/notes); HR Notes are admin-only; employees come live from Odoo (odoo-employee-search), SO links reuse OdooOrderPicker.
+- Learnings/HR Notes: own tables + dialogs (src/components/notes), not tasks; HR admin-only. Odoo SO/MO links (tasks, learnings) and employees are live searches storing only id/number + label.
