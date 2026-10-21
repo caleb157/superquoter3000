@@ -27,3 +27,4 @@
 - DKT Cash Flow: pipeline = Active/Projected PO DKT inquiries at 100% (inquiry_projections: margin selling_retention_pct, advance ie_deposit_pct); confirmed = live PV->DKT SOs + unpaid invoices (odoo-dkt-orders), terms in dkt_odoo_order_terms; math in src/lib/dkt-cashflow.ts + dkt-amazon.ts; never auto-draws credit.
 - Final-product HSN: 8 digits only; name lookup against hsn_codes (src/lib/hsn-match.ts, no AI); AI (suggest-hsn) only on a manual click.
 - Subdirectories may have their own AGENTS.md; read it before changing files there.
+- Learnings (learnings) and HR Notes (hr_notes, hr_note_tags) are separate from tasks with their own dialogs (src/components/notes); HR Notes are admin-only; employees come live from Odoo (odoo-employee-search), SO links reuse OdooOrderPicker.
