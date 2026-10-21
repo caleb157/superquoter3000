@@ -1875,6 +1875,7 @@ export type Database = {
           live_rates_warnings: string[] | null
           local_transport_cost_per_cbm: number | null
           mc_height_buffer_inch: number
+          odoo_operation_labor_map: Json | null
           overhead_avg_months: number
           packaging_cost_per_cbm: number
         }
@@ -1901,6 +1902,7 @@ export type Database = {
           live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
+          odoo_operation_labor_map?: Json | null
           overhead_avg_months?: number
           packaging_cost_per_cbm?: number
         }
@@ -1927,6 +1929,7 @@ export type Database = {
           live_rates_warnings?: string[] | null
           local_transport_cost_per_cbm?: number | null
           mc_height_buffer_inch?: number
+          odoo_operation_labor_map?: Json | null
           overhead_avg_months?: number
           packaging_cost_per_cbm?: number
         }
@@ -2800,6 +2803,7 @@ export type Database = {
           quantity: number
           quote_notes: string | null
           quote_stage: string | null
+          repeat_odoo: Json | null
           revenue_done: boolean | null
           running_inches_override: number | null
           sample_stage: string | null
@@ -2859,6 +2863,7 @@ export type Database = {
           quantity?: number
           quote_notes?: string | null
           quote_stage?: string | null
+          repeat_odoo?: Json | null
           revenue_done?: boolean | null
           running_inches_override?: number | null
           sample_stage?: string | null
@@ -2918,6 +2923,7 @@ export type Database = {
           quantity?: number
           quote_notes?: string | null
           quote_stage?: string | null
+          repeat_odoo?: Json | null
           revenue_done?: boolean | null
           running_inches_override?: number | null
           sample_stage?: string | null
