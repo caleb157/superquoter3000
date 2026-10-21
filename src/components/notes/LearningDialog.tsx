@@ -1,3 +1,4 @@
+import { SignedImg } from '@/lib/storage-urls';
 import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,7 @@ export function LearningDialog({ open, onOpenChange, learning, onSaved }: {
             <div className="flex flex-wrap gap-2 mt-1.5">
               {photos.map(u => (
                 <div key={u} className="relative h-16 w-16">
-                  <img src={u} alt="" className="h-16 w-16 rounded object-cover border" />
+                  <SignedImg src={u} alt="" className="h-16 w-16 rounded object-cover border" />
                   <button type="button" aria-label="Remove photo" onClick={() => setPhotos(p => p.filter(x => x !== u))}
                     className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-background border flex items-center justify-center"><X className="h-3 w-3" /></button>
                 </div>
