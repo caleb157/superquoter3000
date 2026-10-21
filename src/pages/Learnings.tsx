@@ -1,3 +1,4 @@
+import { SignedImg } from '@/lib/storage-urls';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ export default function Learnings() {
           {shown.length === 0 && <div className="p-6 text-sm text-muted-foreground text-center">No learnings yet.</div>}
           {shown.map(r => (
             <button key={r.id} type="button" onClick={() => { setEditing(r); setOpen(true); }} className="w-full text-left p-3 flex gap-3 hover:bg-muted/50">
-              {r.photo_urls[0] ? <img src={r.photo_urls[0]} alt="" className="h-12 w-12 rounded object-cover border shrink-0" /> : <div className="h-12 w-12 rounded bg-muted flex items-center justify-center shrink-0"><Lightbulb className="h-5 w-5 text-muted-foreground" /></div>}
+              {r.photo_urls[0] ? <SignedImg src={r.photo_urls[0]} alt="" className="h-12 w-12 rounded object-cover border shrink-0" /> : <div className="h-12 w-12 rounded bg-muted flex items-center justify-center shrink-0"><Lightbulb className="h-5 w-5 text-muted-foreground" /></div>}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2"><span className="font-medium text-sm truncate">{r.title}</span><Badge variant="outline">{r.status}</Badge></div>
                 {r.notes && <p className="text-xs text-muted-foreground line-clamp-2">{r.notes}</p>}
