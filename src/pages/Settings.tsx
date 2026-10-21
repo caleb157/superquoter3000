@@ -11,6 +11,7 @@ import TaskAutomationsSettings from '@/components/TaskAutomationsSettings';
 import StandardBomSettings from '@/components/StandardBomSettings';
 import ProjectionDefaultsSettings from '@/components/ProjectionDefaultsSettings';
 import LiveRatesSettings from '@/components/LiveRatesSettings';
+import OdooLabourMapSettings from '@/components/OdooLabourMapSettings';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
@@ -183,6 +184,7 @@ const Settings = () => {
         return (
           <div className="space-y-8">
             <GeneralPart id="live-rates" title="Live rates"><LiveRatesSettings /></GeneralPart>
+            <GeneralPart id="odoo-labour" title="Odoo labour mapping"><OdooLabourMapSettings /></GeneralPart>
             <GeneralPart id="currencies" title="Currencies"><CurrenciesSettings /></GeneralPart>
             <GeneralPart id="team" title="Team"><TeamManagementContent /></GeneralPart>
           </div>
