@@ -6,7 +6,7 @@
 - Projections are PV-only: other-entity sales pay PV via inter-entity deposit/balance; open-inquiry FOB/GPM follow the Projection page (live until PO, effectiveFobUsd), missing man-hours fall back to live costing (src/lib/pipeline-live.ts).
 - Analytics opening cash = sum of Odoo asset_cash in the snapshot; capacity = LaborTrax /api/public/capacity-forecast read straight from it (incl. WO overrides).
 - Costing Intake (src/lib/costing-intake.ts) is the one bulk-costing spreadsheet (Import creates, Bulk Editor updates); raw inputs only - the engine derives the rest.
-- Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx); sizes are separate W/D/H columns.
+- Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx).
 - Contribution = (net profit + indirect OH absorbed) / FOB, indirect share carries cost of capital (src/lib/costing-workspace.ts); bought-in items -> contribution = NPM.
 - Iron Weight: math in src/lib/iron-weight-core.ts (untouched); draft in localStorage, builds in iron_builds (free-text SKU + label); photo estimate drafts parts only.
 - Task postpone (1d/1w/1mo) counts from later of today and due date (src/lib/task-postpone.ts); saves with Undo.
@@ -15,7 +15,7 @@
 - Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog.
 - Sent quotes never change: first save copies to a new draft (Q-...-v2 on quote_snapshots, src/lib/quote-versions.ts).
 - Samples: sample_requests (per batch) + samples lines; pending=requested, completed=received. Clock = request date -> all live lines received (src/lib/sample-requests.ts); samples trigger sets sample_stage.
-- Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): medians of clocks stopped in the period, 6-mo trend.
+- Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): period medians, 6-mo trend.
 - Repeat orders: "Repeat of..." clones products recosted today, flags repeat_order -> 80% default certainty, own cash-flow line (src/lib/repeat-order.ts).
 - Photo intake: estimate-product drafts photo + WxDxH as Costing Intake inputs (src/lib/photo-intake.ts); flagged "estimated" until Mark checked.
 - Cost history (product_cost_history, src/lib/cost-history.ts): written from shared save paths only when cost/price/rate/part moved; read by the Cost history tab + re-quote warning; never on quote_snapshots.
