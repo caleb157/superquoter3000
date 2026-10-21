@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TrendingUp, Images,
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, FolderKanban, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning,
+  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, FolderKanban, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning, Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -62,6 +62,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/analytics', label: 'Kickass Analytics Dashboard', icon: BarChart3 },
     { to: '/profitability', label: 'Profitability', icon: TrendingUp },
     { to: '/tools', label: 'Tools', icon: Wrench },
+    { to: '/learnings', label: 'Learnings', icon: Lightbulb },
+    ...(isAdmin ? [{ to: '/hr-notes', label: 'HR Notes', icon: Users }] : []),
   ] : [];
   const directoryNav = isAdminOrTeam ? [
     { to: '/customers', label: 'Customers', icon: Users },

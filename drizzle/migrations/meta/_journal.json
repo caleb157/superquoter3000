@@ -113,6 +113,13 @@
       "when": 1792409614034,
       "tag": "0015_hsn_gst_rate",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792602185836,
+      "tag": "0016_learnings_hr_notes",
+      "breakpoints": true
     }
   ]
 }

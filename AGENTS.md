@@ -6,24 +6,24 @@
 - Projections are PV-only: other-entity sales pay PV via inter-entity deposit/balance; open-inquiry FOB/GPM follow the Projection page (live until PO, effectiveFobUsd), missing man-hours fall back to live costing (src/lib/pipeline-live.ts).
 - Analytics opening cash = sum of Odoo asset_cash in the snapshot; capacity = LaborTrax /api/public/capacity-forecast read straight from it (incl. WO overrides).
 - Costing Intake (src/lib/costing-intake.ts) is the one bulk-costing spreadsheet (Import creates, Bulk Editor updates); raw inputs only - the engine derives the rest.
-- Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx); sizes are separate W/D/H columns.
+- Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx).
 - Contribution = (net profit + indirect OH absorbed) / FOB, indirect share carries cost of capital (src/lib/costing-workspace.ts); bought-in items -> contribution = NPM.
 - Iron Weight: math in src/lib/iron-weight-core.ts (untouched); draft in localStorage, builds in iron_builds (free-text SKU + label); photo estimate drafts parts only.
 - Task postpone (1d/1w/1mo) counts from later of today and due date (src/lib/task-postpone.ts); saves with Undo.
-- Running inches = longest + shortest side (Wood Table: long side, or override); finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
+- Running inches = longest + shortest side; finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
 - Inquiry clock: received (or created same-day) -> first saved quote or hand-set quoted_date; amber 3d, red 7d; repeats have no clock (src/lib/inquiry-clock.ts).
 - Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog.
 - Sent quotes never change: first save copies to a new draft (Q-...-v2 on quote_snapshots, src/lib/quote-versions.ts).
 - Samples: sample_requests (per batch) + samples lines; pending=requested, completed=received. Clock = request date -> all live lines received (src/lib/sample-requests.ts); samples trigger sets sample_stage.
-- Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): medians of clocks stopped in the period, 6-mo trend.
+- Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): period medians, 6-mo trend.
 - Repeat orders: "Repeat of..." clones products recosted today, flags repeat_order -> 80% default certainty, own cash-flow line (src/lib/repeat-order.ts).
 - Photo intake: estimate-product drafts photo + WxDxH as Costing Intake inputs (src/lib/photo-intake.ts); flagged "estimated" until Mark checked.
 - Cost history (product_cost_history, src/lib/cost-history.ts): written from shared save paths only when cost/price/rate/part moved; read by the Cost history tab + re-quote warning; never on quote_snapshots.
 - Live rates (live-rates-sync -> global_settings.live_*) always drive costing (src/lib/live-rates.ts): inquiry overrides win, failed source keeps last value, sent quotes keep frozen rate.
-- Task Odoo order links: live search (odoo-order-search); store only order number + label.
 - Breakeven: math in src/lib/breakeven.ts; contribution = gross margin (price - bought-in/MO materials); live defaults from 12-mo finished Odoo orders; edits localStorage-only, Reset to live.
 - Odoo (odoo-bom.ts): inquiry creates final products; lead-id groups share templates/attribute 31; lone variant STND/Standard, 2+ unique suffix+name; tax from account.tax/hsn_codes.gst_rate. BOM page: materials, template BOM, Apply on Variants; reuse SKUs, new BOMs, no costs. Bulk edits use odoo-bulk-fields.ts: blanks skip changes; tax requires selection.
 - Pcs/MC: one master carton plan (planMasterCarton, src/lib/calculations.ts) drives costing + packed CBM (orientations tried, upright wins ties; hand layout over search; per-MC override keeps carton size).
 - DKT Cash Flow: pipeline = Active/Projected PO DKT inquiries at 100% (inquiry_projections: margin selling_retention_pct, advance ie_deposit_pct); confirmed = live PV->DKT SOs + unpaid invoices (odoo-dkt-orders), terms in dkt_odoo_order_terms; math in src/lib/dkt-cashflow.ts + dkt-amazon.ts; never auto-draws credit.
 - Final-product HSN: 8 digits only; name lookup against hsn_codes (src/lib/hsn-match.ts, no AI); AI (suggest-hsn) only on a manual click.
 - Subdirectories may have their own AGENTS.md; read it before changing files there.
+- Learnings/HR Notes: own tables + dialogs (src/components/notes), not tasks; HR admin-only. Odoo SO/MO links (tasks, learnings) and employees are live searches storing only id/number + label.
