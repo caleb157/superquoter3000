@@ -78,19 +78,41 @@ export const LABOR_TYPES = LABOR_COLS.map(c => c.laborType);
 export const SKIP_OPERATION = 'skip';
 export type OperationMap = Record<string, string>;
 
-/** Used until an operation is set in Settings. Sanding and rework are finishing work. */
-export const DEFAULT_OPERATION_MAP: OperationMap = {
-  Manufacturing: 'Manufacturing', Sanding: 'Finishing', Finishing: 'Finishing', Rework: 'Finishing',
-  Assembly: 'Assembly', Packaging: 'Packaging', QC: 'QC', Market: 'Market',
-};
+/**
+ * Auto-mapping by the operation's wording, used until an operation is set in Settings.
+ * Odoo has a few hundred product-specific names ("Finish KK", "Package Bean Vial"…); the
+ * verb tells the type. First match wins, so the order matters (Caleb, 2026-10-21):
+ * laser work is a subcontracting COGS line, not labour, and General Work Order stays out;
+ * "Assemble & Pack" is packing; rework counts as finishing for now.
+ */
+export const OPERATION_RULES: [RegExp, string][] = [
+  [/\blaser\b/i, SKIP_OPERATION],
+  [/^general work order$/i, SKIP_OPERATION],
+  [/^assemble\s*(&|and)\s*pack|^assembly\s*(&|and)\s*pack/i, 'Packaging'],
+  [/\brework\b/i, 'Finishing'],
+  [/\bmarket\b/i, 'Market'],
+  [/\b(finish|finishing|sand|sanding|spray|char|powder\s*coat)\b/i, 'Finishing'],
+  [/^(assemble|assembly)\b/i, 'Assembly'],
+  [/^(pack|package|packaging)\b/i, 'Packaging'],
+  [/^qc\b/i, 'QC'],
+  [/\b(manufacture|manufacturing|make|cut|cnc|drill|lathe|bend|carve)\b/i, 'Manufacturing'],
+];
 
-/** The PDHQ labour type an Odoo operation's hours count as, or null (skipped or not mapped). */
+/** What the rules make of an operation: a labour type, SKIP_OPERATION, or null when no rule matches. */
+export function autoLaborType(operation: string): string | null {
+  const name = operation.trim();
+  if (LABOR_TYPES.includes(name)) return name;
+  return OPERATION_RULES.find(([re]) => re.test(name))?.[1] ?? null;
+}
+
+/** The PDHQ labour type an Odoo operation's hours count as, or null (left out, or nothing matches). */
 export function laborTypeFor(operation: string, map: OperationMap | null | undefined): string | null {
-  const v = map?.[operation] ?? DEFAULT_OPERATION_MAP[operation] ?? (LABOR_TYPES.includes(operation) ? operation : null);
+  const v = map?.[operation] ?? autoLaborType(operation);
   return v && v !== SKIP_OPERATION ? v : null;
 }
+/** False only when neither Settings nor a rule says what an operation is (flagged on the Past cost tab). */
 export const isOperationMapped = (operation: string, map: OperationMap | null | undefined) =>
-  (map?.[operation] ?? DEFAULT_OPERATION_MAP[operation] ?? (LABOR_TYPES.includes(operation) ? operation : null)) != null;
+  (map?.[operation] ?? autoLaborType(operation)) != null;
 
 export async function loadOperationMap(): Promise<OperationMap> {
   const { data, error } = await db.from('global_settings').select('id, odoo_operation_labor_map').limit(1).maybeSingle();
