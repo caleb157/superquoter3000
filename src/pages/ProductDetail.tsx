@@ -5,12 +5,16 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
-import { ArrowLeft, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, Send, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Repeat, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, Send, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
 import { ProductCostingSheet } from '@/components/ProductCostingSheet';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductCostHistoryTab } from '@/components/ProductCostHistoryTab';
+import { RepeatCostTab } from '@/components/RepeatCostTab';
+import { OdooSaleProductPicker } from '@/components/OdooSaleProductPicker';
+import { Checkbox } from '@/components/ui/checkbox';
+import { saleLineLabel, saveRepeatLink, type RepeatLink } from '@/lib/repeat-cost';
 
 import { ProductStagePills, type StageTrack } from '@/components/ProductStagePills';
 import { Input } from '@/components/ui/input';
@@ -39,7 +43,7 @@ type ProductHeader = {
   inspiration_url: string | null;
 };
 
-const VALID_TABS = ['costing', 'cost-history', 'variants', 'sample-log', 'summary'] as const;
+const VALID_TABS = ['costing', 'repeat', 'cost-history', 'variants', 'sample-log', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
 
 const ProductDetail = () => {
@@ -59,6 +63,36 @@ const ProductDetail = () => {
   const [historyTrack, setHistoryTrack] = useState<StageTrack | null>(null);
   const [inspirationDraft, setInspirationDraft] = useState<string | null>(null);
   const [inspirationSaving, setInspirationSaving] = useState(false);
+  // Repeat product: the past Odoo product this one is checked against (products.repeat_odoo).
+  const [repeatLink, setRepeatLink] = useState<RepeatLink | null>(null);
+  const [repeatOn, setRepeatOn] = useState(false);
+  const [repeatUnavailable, setRepeatUnavailable] = useState(false);
+
+  const fetchRepeat = useCallback(async () => {
+    if (!id) return;
+    // Read on its own so the page still opens before the repeat_odoo column exists.
+    const { data, error } = await (supabase as any).from('products').select('repeat_odoo').eq('id', id).maybeSingle();
+    if (error) { setRepeatUnavailable(true); return; }
+    const link = (data?.repeat_odoo as RepeatLink | null) ?? null;
+    setRepeatLink(link);
+    setRepeatOn(!!link);
+  }, [id]);
+  useEffect(() => { void fetchRepeat(); }, [fetchRepeat]);
+
+  const updateRepeatLink = async (link: RepeatLink | null) => {
+    if (!product) return;
+    const prev = repeatLink;
+    setRepeatLink(link);
+    try { await saveRepeatLink(product.id, link); }
+    catch (e: any) { setRepeatLink(prev); toast.error(`Couldn’t save: ${e?.message || e}`); }
+  };
+  const toggleRepeat = (on: boolean) => {
+    setRepeatOn(on);
+    if (!on && repeatLink) {
+      void updateRepeatLink(null);
+      if (activeTab === 'repeat') setTab('costing');
+    }
+  };
 
   const saveInspirationUrl = async (value: string) => {
     if (!product) return;
@@ -329,6 +363,30 @@ const ProductDetail = () => {
           )}
         </div>
 
+        {/* Repeat product: check this product's costing against a past Odoo production run */}
+        {!repeatUnavailable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <Checkbox checked={repeatOn} onCheckedChange={v => toggleRepeat(v === true)} />
+              Repeat product
+            </label>
+            {repeatOn && (
+              <OdooSaleProductPicker
+                value={repeatLink?.sale_line_id ?? null}
+                label={repeatLink?.label ?? ''}
+                initialSearch={repeatLink ? '' : product.sku ?? ''}
+                onPick={line => {
+                  void updateRepeatLink({ odoo_product_id: line.product_id, sale_line_id: line.sale_line_id, mo_id: null, label: saleLineLabel(line) });
+                  setTab('repeat');
+                }}
+              />
+            )}
+            {repeatLink && activeTab !== 'repeat' && (
+              <Button variant="link" size="sm" className="h-8 px-1" onClick={() => setTab('repeat')}>Compare with past cost</Button>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setTab}>
           <ResponsiveTabs
@@ -336,6 +394,7 @@ const ProductDetail = () => {
             onValueChange={setTab}
             options={[
               { value: 'costing', label: 'Costing', icon: DollarSign },
+              ...(repeatLink ? [{ value: 'repeat', label: 'Past cost', icon: Repeat }] : []),
               { value: 'cost-history', label: 'Cost history', icon: TrendingUp },
               { value: 'sample-log', label: 'Sample Log', icon: Package2 },
               { value: 'summary', label: 'Summary', icon: FileText },
@@ -347,6 +406,9 @@ const ProductDetail = () => {
           </TabsContent>
           <TabsContent value="costing">
             {activeTab === 'costing' && <ProductCostingSheet productId={product.id} onSummaryChange={setCostingSummary} />}
+          </TabsContent>
+          <TabsContent value="repeat">
+            {activeTab === 'repeat' && repeatLink && <RepeatCostTab productId={product.id} link={repeatLink} onLinkChange={l => void updateRepeatLink(l)} />}
           </TabsContent>
           <TabsContent value="cost-history">
             {activeTab === 'cost-history' && <ProductCostHistoryTab productId={product.id} />}

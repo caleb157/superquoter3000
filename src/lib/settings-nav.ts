@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
         'currencies', 'currency', 'import rate', 'export rate', 'fx', 'gbp', 'eur', 'aud',
         'team', 'users', 'members', 'roles', 'admin', 'access', 'assignee',
         'employees', 'labor rates', 'hourly rate', 'wages', 'finishing rate', 'packaging rate',
+        'odoo labour mapping', 'operations', 'work orders', 'repeat product', 'past cost',
       ] },
       { id: 'entities', label: 'Company entities', keywords: ['entity', 'parable ventures', 'dkt', 'logo', 'address', 'bank', 'gst'] },
       { id: 'quote-terms', label: 'Quote Terms', keywords: ['terms and policies', 'clauses', 'validity', 'lead time', 'changelog', 'quote pdf'] },
@@ -65,6 +66,7 @@ export const MERGED_SECTIONS: Record<string, { section: SectionId; anchor: strin
   'live-rates': { section: 'general', anchor: 'live-rates' },
   currencies: { section: 'general', anchor: 'currencies' },
   team: { section: 'general', anchor: 'team' },
+  'odoo-labour': { section: 'general', anchor: 'odoo-labour' },
   employees: { section: 'general', anchor: 'live-rates' }, // replaced by fallback rates in Live rates
   hardware: { section: 'raw-materials', anchor: 'materials' },
   'cogs-categories': { section: 'raw-materials', anchor: 'cogs-categories' },
