@@ -10,7 +10,7 @@
 - Contribution = (net profit + indirect OH absorbed) / FOB, indirect share carries cost of capital (src/lib/costing-workspace.ts); bought-in items -> contribution = NPM.
 - Iron Weight: math in src/lib/iron-weight-core.ts (untouched); draft in localStorage, builds in iron_builds (free-text SKU + label); photo estimate drafts parts only.
 - Task postpone (1d/1w/1mo) counts from later of today and due date (src/lib/task-postpone.ts); saves with Undo.
-- Running inches = longest + shortest side (Wood Table: long side, or override); finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
+- Running inches = longest + shortest side; finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
 - Inquiry clock: received (or created same-day) -> first saved quote or hand-set quoted_date; amber 3d, red 7d; repeats have no clock (src/lib/inquiry-clock.ts).
 - Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog.
 - Sent quotes never change: first save copies to a new draft (Q-...-v2 on quote_snapshots, src/lib/quote-versions.ts).
