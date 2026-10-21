@@ -1935,6 +1935,60 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_note_tags: {
+        Row: {
+          created_at: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      hr_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_name: string
+          employee_odoo_id: number | null
+          id: string
+          notes: string | null
+          status: string
+          tag: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_name: string
+          employee_odoo_id?: number | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tag: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_name?: string
+          employee_odoo_id?: number | null
+          id?: string
+          notes?: string | null
+          status?: string
+          tag?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hsn_codes: {
         Row: {
           code: string
@@ -2238,6 +2292,45 @@ export type Database = {
           hourly_rate_inr?: number
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      learnings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          photo_urls: string[]
+          so_label: string | null
+          so_number: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[]
+          so_label?: string | null
+          so_number?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[]
+          so_label?: string | null
+          so_number?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
