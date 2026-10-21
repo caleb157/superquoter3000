@@ -13,6 +13,8 @@ import { lazyPage } from "@/lib/lazy-page";
 
 // Each page is its own chunk, downloaded the first time it is opened, so the first
 // visit no longer loads the whole app (spreadsheet, PDF and chart libraries included).
+const Learnings = lazyPage(() => import("./pages/Learnings"));
+const HrNotes = lazyPage(() => import("./pages/HrNotes"));
 const Dashboard = lazyPage(() => import("./pages/Dashboard"));
 const Settings = lazyPage(() => import("./pages/Settings"));
 const Products = lazyPage(() => import("./pages/Products"));
@@ -220,6 +222,8 @@ const App = () => (
               <Route path="/media" element={
                 <ProtectedRoute requireAdminOrTeam><MediaGallery /></ProtectedRoute>
               } />
+              <Route path="/learnings" element={<ProtectedRoute requireAdminOrTeam><Learnings /></ProtectedRoute>} />
+              <Route path="/hr-notes" element={<ProtectedRoute requireAdminOrTeam><HrNotes /></ProtectedRoute>} />
               <Route path="/tools" element={
                 <ProtectedRoute requireAdminOrTeam><Tools /></ProtectedRoute>
               } />
