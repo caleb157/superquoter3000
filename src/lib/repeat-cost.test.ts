@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildRows, computeResults, type Bundle } from '@/lib/costing-workspace';
 import { bundle } from '@/lib/__tests__/workspace-fixture';
 import {
-  applyAll, applyCogsPair, cogsTypeForOdoo, compare, laborTypeFor, linePatchFor, newLineIds, skuPrefix, soPriceInr, suggestTargets,
+  applyAll, applyCogsPair, cogsTypeForOdoo, isOperationMapped, compare, laborTypeFor, linePatchFor, newLineIds, skuPrefix, soPriceInr, suggestTargets,
   type OdooComponent, type OdooPastCost,
 } from './repeat-cost';
 
@@ -47,6 +47,34 @@ describe('operation → labour type', () => {
     expect(laborTypeFor('Sanding', { Sanding: 'Assembly' })).toBe('Assembly');
     expect(laborTypeFor('QC', { QC: 'skip' })).toBeNull();
     expect(laborTypeFor('Polishing', {})).toBeNull();
+  });
+
+  it('maps Odoo\'s product-specific operations by their wording', () => {
+    const t = (op: string) => laborTypeFor(op, {});
+    expect(t('Finish KK')).toBe('Finishing');
+    expect(t('BDT Sanding')).toBe('Finishing');
+    expect(t('Sand and Putty')).toBe('Finishing');
+    expect(t('REwork DGJ')).toBe('Finishing');
+    expect(t('Powder Coat SC Seat')).toBe('Finishing');
+    expect(t('Char BC')).toBe('Finishing');
+    expect(t('Spray Candle')).toBe('Finishing');
+    expect(t('Assemble Bean Vial')).toBe('Assembly');
+    expect(t('Assemble & Package KI')).toBe('Packaging');
+    expect(t('Assembly and Packaging')).toBe('Packaging');
+    expect(t('Package Bean Vial')).toBe('Packaging');
+    expect(t('Pack Candle')).toBe('Packaging');
+    expect(t('QC Pipe Stand')).toBe('QC');
+    expect(t('CP Market Running')).toBe('Market');
+    expect(t('Ornaments Market')).toBe('Market');
+    expect(t('Cut, Drill, and Carve KK')).toBe('Manufacturing');
+    expect(t('Lathe Turn BV Lid')).toBe('Manufacturing');
+    expect(t('Make CP Base')).toBe('Manufacturing');
+    // Laser is a subcontracting COGS line and General Work Order stays out: not counted, and not flagged.
+    expect(t('Laser Engrave Cups')).toBeNull();
+    expect(t('General Work Order')).toBeNull();
+    expect(isOperationMapped('Laser Cut TH', {})).toBe(true);
+    expect(isOperationMapped('Polishing', {})).toBe(false);
+    expect(laborTypeFor('Finish KK', { 'Finish KK': 'Assembly' })).toBe('Assembly');
   });
 });
 
