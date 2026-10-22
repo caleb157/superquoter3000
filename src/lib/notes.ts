@@ -8,6 +8,19 @@ export type HrStatus = typeof HR_STATUSES[number];
 
 export interface OdooEmployee { id: number; name: string; job: string; department: string }
 
+export type HrWorker = Pick<OdooEmployee, 'id' | 'name'> & { id: number | null };
+
+export function hrWorkers(note: { employees?: unknown; employee_odoo_id: number | null; employee_name: string }): HrWorker[] {
+  if (Array.isArray(note.employees) && note.employees.length > 0) {
+    return note.employees.filter((e): e is HrWorker => e != null && typeof e === 'object' && typeof e.name === 'string' && (typeof e.id === 'number' || e.id === null));
+  }
+  return note.employee_name ? [{ id: note.employee_odoo_id, name: note.employee_name }] : [];
+}
+
+export function addHrWorker(workers: HrWorker[], worker: HrWorker): HrWorker[] {
+  return workers.some(w => worker.id != null ? w.id === worker.id : w.id == null && w.name === worker.name) ? workers : [...workers, worker];
+}
+
 export async function searchOdooEmployees(search: string): Promise<OdooEmployee[]> {
   const { data, error } = await supabase.functions.invoke('odoo-employee-search', { body: { search: search.trim() || null, limit: 30 } });
   if (error) {

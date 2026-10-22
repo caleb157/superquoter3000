@@ -120,6 +120,13 @@
       "when": 1792602185836,
       "tag": "0016_learnings_hr_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792650838166,
+      "tag": "0017_hr_note_multiple_workers",
+      "breakpoints": true
     }
   ]
 }
