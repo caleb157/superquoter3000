@@ -26,4 +26,5 @@
 - DKT Cash Flow: pipeline = Active/Projected PO DKT inquiries at 100% (inquiry_projections: margin selling_retention_pct, advance ie_deposit_pct); confirmed = live PV->DKT SOs + unpaid invoices (odoo-dkt-orders), terms in dkt_odoo_order_terms; math in src/lib/dkt-cashflow.ts + dkt-amazon.ts; never auto-draws credit.
 - Final-product HSN: 8 digits only; name lookup against hsn_codes (src/lib/hsn-match.ts, no AI); AI (suggest-hsn) only on a manual click.
 - Subdirectories may have their own AGENTS.md; read it before changing files there.
-- Learnings/HR Notes: own tables + dialogs (src/components/notes), not tasks; HR admin-only. Odoo SO/MO links (tasks, learnings) and employees are live searches storing only id/number + label.
+- Learnings/HR Notes: own tables + dialogs (src/components/notes), not tasks; HR admin-only. HR workers are an employees JSON array of Odoo IDs/names; legacy employee fields mirror the first worker for compatibility. Live Odoo searches store only IDs/numbers + labels.
+- Task dates are validated in the shared helper and at the database boundary; offset-free automation templates default to the event day in Asia/Kolkata so legacy automations remain compatible.

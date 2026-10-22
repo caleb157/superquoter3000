@@ -1956,6 +1956,7 @@ export type Database = {
           created_by: string | null
           employee_name: string
           employee_odoo_id: number | null
+          employees: Json
           id: string
           notes: string | null
           status: string
@@ -1968,6 +1969,7 @@ export type Database = {
           created_by?: string | null
           employee_name: string
           employee_odoo_id?: number | null
+          employees?: Json
           id?: string
           notes?: string | null
           status?: string
@@ -1980,6 +1982,7 @@ export type Database = {
           created_by?: string | null
           employee_name?: string
           employee_odoo_id?: number | null
+          employees?: Json
           id?: string
           notes?: string | null
           status?: string

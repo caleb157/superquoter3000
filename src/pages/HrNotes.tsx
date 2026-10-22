@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { HR_STATUSES } from '@/lib/notes';
+import { HR_STATUSES, hrWorkers } from '@/lib/notes';
 import { HrNoteDialog, type HrNote } from '@/components/notes/HrNoteDialog';
 
 export default function HrNotes() {
@@ -28,7 +28,7 @@ export default function HrNotes() {
   const tags = useMemo(() => [...new Set(rows.map(r => r.tag))].sort(), [rows]);
   const shown = useMemo(() => rows.filter(r =>
     (status === 'all' || r.status === status) && (tag === 'all' || r.tag === tag) &&
-    (!q || [r.employee_name, r.title, r.notes].some(v => v?.toLowerCase().includes(q.toLowerCase())))), [rows, status, tag, q]);
+     (!q || [...hrWorkers(r).map(w => w.name), r.title, r.notes].some(v => v?.toLowerCase().includes(q.toLowerCase())))), [rows, status, tag, q]);
 
   return (
     <AppLayout>
@@ -53,7 +53,7 @@ export default function HrNotes() {
           {shown.map(r => (
             <button key={r.id} type="button" onClick={() => { setEditing(r); setOpen(true); }} className="w-full text-left p-3 hover:bg-muted/50">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm">{r.employee_name}</span>
+                <span className="font-medium text-sm">{hrWorkers(r).map(w => w.name).join(', ')}</span>
                 <Badge variant="secondary">{r.tag}</Badge><Badge variant="outline">{r.status}</Badge>
                 <span className="text-xs text-muted-foreground ml-auto">{new Date(r.created_at).toLocaleDateString()}</span>
               </div>

@@ -105,7 +105,7 @@ export default function Tasks() {
         <div className="flex items-center justify-between">
           <h1 className="page-title">Tasks</h1>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => openNew(true)} className="gap-1.5" title="Log a change needed in this app">
+            <Button size="sm" variant="outline" onClick={() => openNew(true)} className="gap-1.5" title="App fix">
               <Wrench className="h-4 w-4" /> App fix
             </Button>
             <Button size="sm" onClick={() => openNew(false)} className="gap-1.5">
@@ -221,7 +221,6 @@ const SORT_COLUMNS: { key: TaskSortKey; label: string; className: string }[] = [
   { key: 'priority',   label: 'Priority', className: 'w-16 shrink-0 text-right' },
   { key: 'status',     label: 'Status',   className: 'w-16 shrink-0 text-right' },
   { key: 'assignee',   label: 'Assignee', className: 'hidden md:block w-20 shrink-0 text-right' },
-  { key: 'created_at', label: 'Created',  className: 'hidden lg:block w-20 shrink-0 text-right' },
 ];
 
 function SortHeaderBar({
