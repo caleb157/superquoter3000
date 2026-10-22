@@ -1,0 +1,4 @@
+- [ ] Support multiple workers per HR note, preserving existing notes.
+- [ ] Require dates for all task creation/edit paths and resolve existing undated tasks.
+- [ ] Remove Created from task lists, retain it in dialogs, highlight today's tasks yellow, shorten App fix option.
+- [ ] Run focused tests and verify saved changes through the signed-in app.
