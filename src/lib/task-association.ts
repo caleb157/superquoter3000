@@ -3,7 +3,7 @@
 
 export type AssociationType = 'inquiry' | 'customer' | 'project' | 'odoo_so' | 'odoo_mo' | 'complaint' | 'app_fix';
 
-// An app fix is a needed change to this app itself; it links to nothing, the type is the tag.
+// An app fix is a needed change to any app; it links to nothing, the type is the tag.
 export const APP_FIX: AssociationType = 'app_fix';
 
 // A project (projects table): association_id = project id, association_label = project name.
@@ -16,7 +16,7 @@ export const ASSOCIATION_TYPES: { value: AssociationType; label: string; short: 
   { value: 'odoo_so', label: 'Sales order (Odoo)', short: 'SO', idLabel: 'SO number', detailLabel: 'Customer / reference', idPlaceholder: 'S00108', detailPlaceholder: 'West Elm · Dining Table Fall Drop' },
   { value: 'odoo_mo', label: 'Manufacturing order (Odoo)', short: 'MO', idLabel: 'MO number', detailLabel: 'SKU', idPlaceholder: 'WH/MO/00225', detailPlaceholder: 'TBL-ACACIA-84' },
   { value: 'complaint', label: 'Customer complaint', short: 'Complaint', idLabel: 'Complaint' },
-  { value: 'app_fix', label: 'App fix (change to this app)', short: 'App fix', idLabel: '' },
+  { value: 'app_fix', label: 'App fix', short: 'App fix', idLabel: '' },
 ];
 
 export function associationMeta(t: string | null | undefined) {

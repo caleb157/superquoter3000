@@ -8,7 +8,7 @@ export type HrStatus = typeof HR_STATUSES[number];
 
 export interface OdooEmployee { id: number; name: string; job: string; department: string }
 
-export type HrWorker = Pick<OdooEmployee, 'id' | 'name'> & { id: number | null };
+export type HrWorker = { id: number | null; name: string };
 
 export function hrWorkers(note: { employees?: unknown; employee_odoo_id: number | null; employee_name: string }): HrWorker[] {
   if (Array.isArray(note.employees) && note.employees.length > 0) {

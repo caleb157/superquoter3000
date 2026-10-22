@@ -22,6 +22,7 @@ import { parseRule, ruleLabel, type RecurrenceRule, type RecurrenceFreq } from '
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { OdooOrderPicker } from '@/components/OdooOrderPicker';
 import { isOpenProject, projectStatusMeta } from '@/lib/projects';
+import { localDateStr, taskDueDateError } from '@/lib/task-helpers';
 
 type TaskDialogProps = {
   open: boolean;
@@ -53,6 +54,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
   const [description, setDescription] = useState('');
   const [assignee, setAssignee] = useState<string>('unassigned');
   const [dueDate, setDueDate] = useState<string>('');
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [priority, setPriority] = useState<TaskPriority>('normal');
   const [status, setStatus] = useState<'open' | 'done'>('open');
   const [rule, setRule] = useState<RecurrenceRule | null>(null);
@@ -107,6 +109,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
           setExtId(ext ? (d.association_id ?? '') : '');
           setExtDetail(ext ? (d.association_label ?? '') : '');
           setTitle(d.title);
+          setCreatedAt(d.created_at ?? null);
           setDescription(d.description ?? '');
           setAssignee(d.assignee ?? 'unassigned');
           setDueDate(d.due_date ?? ''); setPostponedFrom(null);
@@ -141,7 +144,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     setAssocType('none');
     setInquiryId(null); setCustomerId(null); setProjectId(null); setExtId(''); setExtDetail('');
     setTitle(''); setDescription(''); setAssignee(assigneeCode || 'unassigned');
-    setDueDate(''); setPriority('normal'); setStatus('open'); setRule(null);
+    setDueDate(localDateStr()); setCreatedAt(null); setPriority('normal'); setStatus('open'); setRule(null);
     setPhotoUrls([]);
   };
 
@@ -213,6 +216,8 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
 
   const handleSave = async (addAnother = false) => {
     if (!title.trim()) { toast.error('Title is required'); return; }
+    const dueError = taskDueDateError(dueDate);
+    if (dueError) { toast.error(dueError); return; }
     if (assocType === 'inquiry' && !inquiryId) { toast.error('Pick an inquiry or remove the link'); return; }
     if (assocType === 'customer' && !customerId) { toast.error('Pick a customer or remove the link'); return; }
     if (assocType === 'project' && !projectId) { toast.error('Pick a project or remove the link'); return; }
@@ -220,7 +225,6 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
       toast.error(`Pick the ${associationMeta(assocType)?.idLabel} from Odoo or remove the link`); return;
     }
     if (assocType === 'complaint' && !extId) { toast.error('Pick a complaint or remove the link'); return; }
-    if (rule && !dueDate) { toast.error('Repeating tasks need a first due date'); return; }
 
     const inq = inquiries.find(i => i.id === inquiryId);
     const cust = customers.find(c => c.id === customerId);
@@ -237,7 +241,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
       title: title.trim(),
       description: description.trim() || null,
       assignee: assignee === 'unassigned' ? null : assignee,
-      due_date: dueDate || null,
+      due_date: dueDate,
       priority,
       photo_urls: photoUrls,
       association_type: assocType === 'none' ? null : assocType,
@@ -321,9 +325,9 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs">Due date</Label>
+              <Label className="text-xs" htmlFor="task-due-date">Due date *</Label>
               <div className="mt-1 flex gap-1.5">
-                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-9 text-sm min-w-0 flex-1" />
+                <Input id="task-due-date" type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-9 text-sm min-w-0 flex-1" />
                 {status === 'open' && <PostponeMenu due={dueDate || null} onPick={d => void postpone(d)} className="h-9 w-9 border" />}
               </div>
               {postponedFrom != null && (
@@ -376,7 +380,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                     const on = rule.weekdays?.includes(i);
                     return (
                       <button key={i} type="button"
-                        onClick={() => setRule({ ...rule, weekdays: on ? rule.weekdays!.filter(d => d !== i) : [...(rule.weekdays ?? []), i] })}
+                        onClick={() => setRule({ ...rule, weekdays: on ? (rule.weekdays ?? []).filter(d => d !== i) : [...(rule.weekdays ?? []), i] })}
                         className={cn('h-7 w-7 rounded-full text-[11px] border transition',
                           on ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground')}
                       >{w}</button>
@@ -488,10 +492,6 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               </Popover>
             )}
 
-            {assocType === 'app_fix' && (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">Shows in Tasks with an App fix label. Say where in the app and what should change.</p>
-            )}
-
             {(assocType === 'odoo_so' || assocType === 'odoo_mo') && (
               <OdooOrderPicker
                 kind={assocType === 'odoo_so' ? 'so' : 'mo'} value={extId} label={extDetail}
@@ -512,6 +512,11 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
               </Select>
             </div>
           )}
+
+          <div>
+            <Label className="text-xs">Created</Label>
+            <p className="mt-1 text-xs text-muted-foreground">{createdAt ? new Date(createdAt).toLocaleString() : 'On save'}</p>
+          </div>
 
           {/* Photos */}
           <div>

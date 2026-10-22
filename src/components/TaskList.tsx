@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil, Paperclip, Flag, Repeat, Wrench, FolderKanban } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatDueDate, localDateStr, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
+import { formatDueDate, taskDueState, localDateStr, priorityText, priorityRing, priorityStripe, PRIORITY_LABEL } from '@/lib/task-helpers';
 import { parseRule, ruleLabel, nextDueDate } from '@/lib/task-recurrence';
 import { associationMeta, APP_FIX, PROJECT } from '@/lib/task-association';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -221,11 +221,9 @@ export function TaskList({
       <ul className="divide-y">
         {filteredSorted.map(t => {
           const due = formatDueDate(t.due_date);
-          const overdueOpen = due.isOverdue && t.status === 'open';
+          const dueState = taskDueState(t.due_date, t.status);
+          const dueClass = dueState === 'overdue' ? 'bg-destructive/15 text-destructive' : dueState === 'today' ? 'bg-due-today text-due-today-foreground' : 'text-muted-foreground';
           const photos = Array.isArray((t as any).photo_urls) ? ((t as any).photo_urls as string[]) : [];
-          const createdLabel = t.created_at
-            ? new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-            : '';
           const rule = parseRule((t as any).recurrence_rule);
           const aType: string | null = (t as any).association_type ?? (t.inquiry ? 'inquiry' : t.customer ? 'customer' : null);
           const aLabel: string | null = (t as any).association_label;
@@ -271,7 +269,7 @@ export function TaskList({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className={cn(
                     'text-[10px] px-1.5 py-0.5 rounded',
-                    overdueOpen ? 'bg-destructive/15 text-destructive' : 'bg-muted text-muted-foreground',
+                    dueClass,
                   )}>{due.text}</span>
                   <span className={cn(
                     'text-[10px] px-1.5 py-0.5 rounded capitalize',
@@ -330,7 +328,7 @@ export function TaskList({
               <div className="w-16 shrink-0 text-right">
                 <span className={cn(
                   'text-[11px] px-1.5 py-0.5 rounded inline-block',
-                  overdueOpen ? 'bg-destructive/15 text-destructive' : 'text-muted-foreground',
+                  dueClass,
                 )}>{due.text}</span>
               </div>
 
@@ -354,13 +352,6 @@ export function TaskList({
               {!compact && (
                 <div className="hidden md:block w-20 shrink-0 text-right">
                   <span className="text-[11px] text-muted-foreground">{t.assignee || '—'}</span>
-                </div>
-              )}
-
-              {/* Created column */}
-              {!compact && (
-                <div className="hidden lg:block w-20 shrink-0 text-right">
-                  <span className="text-[11px] text-muted-foreground">{createdLabel}</span>
                 </div>
               )}
 

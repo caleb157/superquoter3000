@@ -127,6 +127,13 @@
       "when": 1792650838166,
       "tag": "0017_hr_note_multiple_workers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792650899404,
+      "tag": "0018_require_task_due_dates",
+      "breakpoints": true
     }
   ]
 }

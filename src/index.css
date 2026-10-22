@@ -34,6 +34,8 @@
     --success-foreground: 0 0% 100%;
     --warning: 30 90% 40%;
     --warning-foreground: 0 0% 100%;
+    --due-today: 48 96% 76%;
+    --due-today-foreground: 42 90% 20%;
     /* Neutral information (sent, ready, links to other records). */
     --info: 214 78% 46%;
     --info-foreground: 0 0% 100%;
@@ -86,6 +88,8 @@
     --success-foreground: 220 15% 7%;
     --warning: 34 92% 56%;
     --warning-foreground: 220 15% 7%;
+    --due-today: 48 90% 28%;
+    --due-today-foreground: 50 100% 82%;
     --info: 212 85% 66%;
     --info-foreground: 220 15% 7%;
     --highlight: 262 75% 74%;
