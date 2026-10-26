@@ -41,6 +41,21 @@ const writeSaved = (id: string, s: Saved) => { try { localStorage.setItem(storeK
 const clearSaved = (id: string) => { try { localStorage.removeItem(storeKey(id)); } catch { /* ignore */ } };
 
 const num = (v: string) => (v.trim() === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+
+/** Number cell that keeps the typed text while focused, so "0.", "" and select-and-type all work. */
+function NumCell({ value, onCommit, className, inputMode = 'decimal' }: {
+  value: number; onCommit: (v: number | null) => void; className?: string; inputMode?: 'decimal' | 'numeric';
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input className={className} inputMode={inputMode}
+      value={draft ?? String(value)}
+      onFocus={e => { setDraft(String(value)); e.currentTarget.select(); }}
+      onChange={e => { const t = e.target.value; setDraft(t); const v = num(t); if (v != null) onCommit(v); }}
+      onBlur={() => { if (draft != null && num(draft) == null) onCommit(null); setDraft(null); }}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+  );
+}
 const upper = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const ADDED = 'Added';
 
@@ -300,7 +315,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
           )}
           <Field label="BOM reference"><Input value={finished.code} placeholder="optional" onChange={e => patchFinished({ code: e.target.value })} /></Field>
           <Field label="Units per BOM">
-            <Input inputMode="numeric" value={finished.bomUnits || ''} onChange={e => patchFinished({ bomUnits: num(e.target.value) ?? 0 })} />
+            <NumCell inputMode="numeric" value={finished.bomUnits || 1} onCommit={v => patchFinished({ bomUnits: v && v > 0 ? v : 1 })} />
           </Field>
         </CardContent>
       </Card>
@@ -378,9 +393,9 @@ export function OdooExportTab({ productId }: { productId: string }) {
                     </TableCell>
                     <TableCell className="align-top">
                       {l.status !== 'skip' && (
-                        <Input className={`h-8 text-xs ${q.ok ? '' : 'border-warning'}`} inputMode="decimal"
+                        <NumCell className={`h-8 text-xs ${q.ok ? '' : 'border-warning'}`}
                           value={q.qty}
-                          onChange={e => { const v = num(e.target.value); patchLine(l.lineId, { qtyOverride: v == null ? null : v / units }); }} />
+                          onCommit={v => patchLine(l.lineId, { qtyOverride: v == null ? null : v / (units > 0 ? units : 1) })} />
                       )}
                     </TableCell>
                     {multiVariant && (

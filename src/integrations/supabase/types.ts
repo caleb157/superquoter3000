@@ -134,6 +134,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_flow_manual_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          end_date: string | null
+          id: string
+          kind: string
+          name: string
+          scope: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          end_date?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          scope?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          end_date?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          scope?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cbm_estimates: {
         Row: {
           created_at: string | null
