@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
+import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { addMonths, buildForecast, loanOutstanding, type Month } from '@/lib/dkt-cashflow';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
@@ -27,6 +28,7 @@ export default function DktCashFlow() {
   useDocumentTitle('DKT Cash Flow');
   const thisMonth: Month = useMemo(() => new Date().toISOString().slice(0, 7), []);
   const { data, loading, error, api, odoo } = useDktCashflow(thisMonth);
+  const manual = useManualCashEntries('dkt');
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
 
@@ -38,9 +40,9 @@ export default function DktCashFlow() {
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: data.skus.filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
-      odooOrders: odoo.rows, odooInvoices: odoo.invoices,
+      odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
     });
-  }, [data, thisMonth, odoo.rows, odoo.invoices]);
+  }, [data, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
 
   const horizon = data?.settings.horizon_months ?? 12;
   const lookahead = Math.max(horizon, 24);
@@ -85,6 +87,7 @@ export default function DktCashFlow() {
                 creditAvailable={data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - l.drawn_usd), 0)}
                 scenarios={data.scenarios} skus={data.skus}
                 setScenarioInForecast={(id, on) => api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios')}
+                manual={manual}
               />
             </TabsContent>
             <TabsContent value="orders" className="mt-4">

@@ -2,6 +2,7 @@
 // from the cached snapshot; pipeline comes from HQ inquiries. No React here.
 import { effectiveCertainty } from '@/lib/projections';
 import { effectiveFobUsd, effectiveGpm } from '@/lib/inquiry-financials';
+import { spreadEntry, type ManualEntry } from '@/lib/manual-cash-entries';
 
 export type Ccy = 'USD' | 'INR';
 export type Money = { amount_inr: number; amount_usd: number };
@@ -15,7 +16,7 @@ export type SnapshotSO = Money & {
   /** True when every linked MO is 'done' in Odoo (older snapshots: undefined). */
   all_mos_done?: boolean; mos_done_date?: string | null;
 };
-export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
+export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
@@ -157,6 +158,17 @@ export function pipelineCashItems(pipe: PipelineInquiry[], hqRate: number, today
   return out;
 }
 
+/** Manual entries typed under the cash flow chart, as cash items (spread ones split per month). */
+export function manualCashItems(entries: ManualEntry[], months: string[], inrPerUsd: number): CashItem[] {
+  return entries.flatMap(e => spreadEntry(e, months).map(({ month, amount }) => {
+    const abs = Math.abs(amount);
+    const money: Money = e.currency === 'INR'
+      ? { amount_inr: abs, amount_usd: inrPerUsd ? abs / inrPerUsd : 0 }
+      : { amount_usd: abs, amount_inr: abs * inrPerUsd };
+    return { kind: amount >= 0 ? 'manual_in' as const : 'manual_out' as const, ref: e.name || 'Manual entry', partner: 'Manual entry', date: `${month}-01`, sign: amount >= 0 ? 1 as const : -1 as const, ...money };
+  }));
+}
+
 // ---------- Months ----------
 export function nextMonths(today: string, n = 12): string[] {
   const d = new Date(today.slice(0, 7) + '-01T00:00:00Z');
@@ -171,17 +183,19 @@ export function fyBounds(today: string) {
 }
 
 // ---------- Cash flow table ----------
-export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out';
+export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'manual_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out' | 'manual_out';
 export const CASH_ROWS: { key: CashRowKey; label: string; dir: 1 | -1 }[] = [
   { key: 'so', label: 'Pending SOs (customer)', dir: 1 },
   { key: 'invoice', label: 'Open customer invoices', dir: 1 },
   { key: 'igst', label: 'IGST refunds (178)', dir: 1 },
   { key: 'pipeline_in', label: 'Pipeline inflows, new (weighted)', dir: 1 },
   { key: 'pipeline_repeat_in', label: 'Pipeline inflows, repeat orders (weighted)', dir: 1 },
+  { key: 'manual_in', label: 'Manual income', dir: 1 },
   { key: 'po', label: 'Pending POs & RFQs', dir: -1 },
   { key: 'bill', label: 'Open vendor bills', dir: -1 },
   { key: 'overhead', label: 'Overhead (non-PO)', dir: -1 },
   { key: 'pipeline_out', label: 'Pipeline vendor costs (weighted)', dir: -1 },
+  { key: 'manual_out', label: 'Manual expenses', dir: -1 },
 ];
 
 export function cashflowTable(items: CashItem[], months: string[], ccy: Ccy, overheadPerMonth: number, opening: number) {

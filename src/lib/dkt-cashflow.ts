@@ -11,6 +11,7 @@
 // A flow marked done is left out (it is already in current cash); one still open but dated in
 // the past lands in the current month.
 import { amazonSkuFlows, simulateSku, type AmazonSku } from './dkt-amazon';
+import { spreadEntry, type ManualEntry } from './manual-cash-entries';
 
 export type Month = string; // 'YYYY-MM'
 
@@ -110,7 +111,8 @@ export type FlowKind =
   | 'credit_draw' | 'credit_repay' | 'credit_interest'
   | 'amazon_in' | 'amazon_inventory' | 'amazon_freight'
   | 'allegro_in'
-  | 'odoo_invoice' | 'odoo_to_invoice';
+  | 'odoo_invoice' | 'odoo_to_invoice'
+  | 'manual_in' | 'manual_out';
 
 export type Flow = { month: Month; kind: FlowKind; amount: number; label: string; ref?: string };
 
@@ -123,11 +125,12 @@ export const FLOW_LABEL: Record<FlowKind, string> = {
   amazon_inventory: 'Amazon inventory (PO)', amazon_freight: 'Amazon freight',
   allegro_in: 'From Allegro (Amazon launch)',
   odoo_invoice: 'PV invoices due (Odoo)', odoo_to_invoice: 'PV orders not yet invoiced (Odoo)',
+  manual_in: 'Manual income', manual_out: 'Manual expenses',
 };
-export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'loan_proceeds', 'allegro_in', 'credit_draw'];
+export const IN_KINDS: FlowKind[] = ['cust_deposit', 'cust_balance', 'amazon_in', 'income', 'loan_proceeds', 'allegro_in', 'credit_draw', 'manual_in'];
 export const OUT_KINDS: FlowKind[] = [
   'odoo_invoice', 'odoo_to_invoice', 'pv_advance', 'pv_balance', 'overhead', 'expense', 'loan_principal', 'loan_interest',
-  'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight',
+  'credit_interest', 'credit_repay', 'amazon_inventory', 'amazon_freight', 'manual_out',
 ];
 
 // ---------- Months ----------
@@ -256,6 +259,12 @@ export function costFlows(c: CostItem, months: Month[]): Flow[] {
     if (hit) out.push({ month: m, kind: c.kind, amount: sign * c.amount_usd, label: c.name, ref: c.id });
   }
   return out;
+}
+
+/** A manual entry: all in its month, or split evenly from its date to its end date. */
+export function manualFlows(e: ManualEntry, months: Month[]): Flow[] {
+  return spreadEntry(e, months).map(({ month, amount }) =>
+    ({ month, kind: amount >= 0 ? 'manual_in' as const : 'manual_out' as const, amount, label: e.name || 'Manual entry', ref: e.id }));
 }
 
 /** Overhead is one monthly figure, charged in every month of the forecast. */
@@ -388,6 +397,8 @@ export type ForecastInput = {
   amazonSkus: AmazonSku[]; // only SKUs in scenarios switched into the forecast
   odooOrders?: OdooOrder[];
   odooInvoices?: OdooInvoice[];
+  /** Manual entries typed under the forecast chart (USD). */
+  manual?: ManualEntry[];
 };
 
 export type ForecastMonth = {
@@ -424,6 +435,7 @@ export function buildForecast(inp: ForecastInput): Forecast {
     ...creditFlows(inp.creditLines, inp.creditDraws, months),
     ...inp.amazonSkus.flatMap(s => amazonSkuFlows(s, inp.thisMonth, last)),
     ...allegroLaunchFlows(inp.settings, inp.thisMonth, n),
+    ...(inp.manual ?? []).flatMap(e => manualFlows(e, months)),
   ].filter(f => f.month <= last);
 
   let cash = Number(inp.settings.cash_usd) || 0;
