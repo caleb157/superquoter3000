@@ -83,6 +83,8 @@ export type PipelineInquiry = {
 };
 const BOOKED = new Set(['po', 'complete', 'cancelled', 'paused']);
 const pct = (v: number) => (v > 1 ? v / 100 : v);
+/** Vendor deposit when an inquiry has no saved split (the Projection tab's default). */
+const VENDOR_DEPOSIT = 0.3;
 const addMonths = (ym: string, n: number) => { const d = new Date(ym.slice(0, 7) + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); };
 
 export type PipelineOpts = {
@@ -135,9 +137,11 @@ export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInq
         certainty, repeat: !!p.repeat_order, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
         revenue_month: ship, start_month: start, duration_months: duration,
         cust,
+        // Vendors are paid on the same schedule as the money coming in: their deposit in the
+        // deposit month, their balance in the balance month (stored vendor months can drift).
         vend: [
-          { pct: Number(p.vendor_deposit_pct) || 0, month: p.vendor_deposit_month || null },
-          { pct: Number(p.vendor_balance_pct) || 0, month: p.vendor_balance_month || null },
+          { pct: p.vendor_deposit_pct != null ? pct(Number(p.vendor_deposit_pct)) : VENDOR_DEPOSIT, month: cust[0].month },
+          { pct: p.vendor_balance_pct != null ? pct(Number(p.vendor_balance_pct)) : 1 - VENDOR_DEPOSIT, month: cust[1].month },
         ],
         fob_source: fobFromProjection ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
       } as PipelineInquiry;
