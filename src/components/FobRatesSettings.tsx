@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { DEFAULT_FOB_RATES, type FclRates, type LclRates } from '@/lib/fob';
+import { DEFAULT_FOB_RATES, fobCardFor, type FclRates, type LclRates } from '@/lib/fob';
 import { loadFobRates } from '@/lib/fob-rates';
 import { invalidateShipmentPool } from '@/lib/shipment-pool';
 
@@ -22,6 +22,7 @@ export function FobRatesSettings() {
   const [lcl, setLcl] = useState<{ vendor: string; rates: LclRates }>({ vendor: '', rates: DEFAULT_FOB_RATES.lcl });
   const [fcl, setFcl] = useState<{ vendor: string; rates: FclRates }>({ vendor: '', rates: DEFAULT_FOB_RATES.fcl });
   const [saving, setSaving] = useState(false);
+  const [shipTypes, setShipTypes] = useState<{ name: string; per_unit: string }[]>([]);
 
   useEffect(() => {
     (supabase as any).from('fob_rates').select('mode, vendor, rates').then(({ data }: any) => {
@@ -30,7 +31,19 @@ export function FobRatesSettings() {
         if (r.mode === 'FCL') setFcl({ vendor: r.vendor || '', rates: { ...DEFAULT_FOB_RATES.fcl, ...r.rates } });
       }
     });
+    supabase.from('shipping_types').select('name, per_unit').order('name').then(({ data }) => data && setShipTypes(data));
   }, []);
+
+  // Shipping types that price from a card, so the link between the two lists is visible.
+  const usedBy = (card: 'FCL' | 'LCL') => {
+    const names = shipTypes.filter(t => fobCardFor(t.per_unit) === card).map(t => t.name);
+    return (
+      <p className="text-xs text-muted-foreground">
+        Used by shipping {names.length === 1 ? 'type' : 'types'}: {names.length ? <b className="text-foreground">{names.join(', ')}</b> : 'none'}
+        {' · '}<a href="#shipping" className="underline">Shipping types</a>
+      </p>
+    );
+  };
 
   const save = async () => {
     setSaving(true);
@@ -54,6 +67,7 @@ export function FobRatesSettings() {
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">LCL rate card</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          {usedBy('LCL')}
           <div><Label className="text-xs">Vendor</Label><Input className="h-8 mt-1" value={lcl.vendor} onChange={e => setLcl({ ...lcl, vendor: e.target.value })} /></div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {LCL_FIELDS.map(([k, label]) => (
@@ -65,8 +79,9 @@ export function FobRatesSettings() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">FCL rate card (per container, incl. factory → ICD transport)</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">FCL rate card (per container, factory → Jodhpur ICD → train to Mundra)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          {usedBy('FCL')}
           <div><Label className="text-xs">Vendor</Label><Input className="h-8 mt-1" value={fcl.vendor} onChange={e => setFcl({ ...fcl, vendor: e.target.value })} /></div>
           <table className="w-full text-xs">
             <thead><tr className="text-muted-foreground"><th className="text-left font-normal">Line item</th><th className="w-32 font-normal">20ft ₹</th><th className="w-32 font-normal">40ft ₹</th><th className="w-10" /></tr></thead>

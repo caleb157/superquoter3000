@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeFcl, computeLcl, computeFob } from '@/lib/fob';
+import { computeFcl, computeLcl, computeFob, fobCardFor } from '@/lib/fob';
 
 const fx = 94;
 
@@ -31,5 +31,15 @@ describe('FOB calculator (Jodhpur ICD FCL + LCL)', () => {
   it('computeFob selects the requested type', () => {
     expect(computeFob('FOB_LCL_NO_TRUCK', 10, 50, fx).selected.mode).toBe('FOB_LCL_NO_TRUCK');
     expect(computeFob('FOB_FCL', 10, 50, fx).selected.mode).toBe('FOB_FCL');
+  });
+});
+
+describe('fobCardFor', () => {
+  it('maps shipping Per Unit to the rate card it prices from', () => {
+    expect(fobCardFor('FOB_FCL')).toBe('FCL');
+    expect(fobCardFor('FOB_LCL')).toBe('LCL');
+    expect(fobCardFor('FOB_LCL_NO_TRUCK')).toBe('LCL');
+    expect(fobCardFor('CBM')).toBeNull();
+    expect(fobCardFor('KG')).toBeNull();
   });
 });
