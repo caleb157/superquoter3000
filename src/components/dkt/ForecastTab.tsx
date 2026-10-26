@@ -252,7 +252,7 @@ function ProfitCard({ profit: p, months, open }: { profit: ProfitProjection; mon
           </table>
           <p className="text-[11px] text-muted-foreground mt-2">
             Counted when earned, not when cash moves: HQ orders (confirmed and pipeline) in their ship month, Amazon on units sold.
-            Loans, credit draws and repayments, Allegro and stock still on the shelf aren't profit or cost. Click a number to see what's in it.
+            Loans, credit draws and repayments, Allegro, manual entries and stock still on the shelf aren't profit or cost. Click a number to see what's in it.
           </p>
         </div>
       </CardContent>

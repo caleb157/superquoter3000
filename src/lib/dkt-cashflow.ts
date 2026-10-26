@@ -529,7 +529,7 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
   const revenue = [
     line('hq', 'HQ orders (customer price)', hqRev),
     line('amazon', 'Amazon sales', azRev),
-    line('income', 'Other income', fromFlows(flows, ['income', 'manual_in'])),
+    line('income', 'Other income', fromFlows(flows, ['income'])),
   ];
   const costOfSales = [
     line('pv', 'Paid to PV for those orders', hqCost),
@@ -537,7 +537,7 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
   ];
   const operating = [
     line('overhead', 'Overhead', fromFlows(flows, ['overhead'])),
-    line('expense', 'Expenses', fromFlows(flows, ['expense', 'manual_out'])),
+    line('expense', 'Expenses', fromFlows(flows, ['expense'])),
   ];
   const interest = [
     line('loan_interest', 'Loan interest', fromFlows(flows, ['loan_interest'])),
