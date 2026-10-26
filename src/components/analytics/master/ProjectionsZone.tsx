@@ -14,8 +14,10 @@ import { toast } from 'sonner';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { liveInquiryFinancials } from '@/lib/pipeline-live';
 import { cn } from '@/lib/utils';
+import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
+import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import {
-  buildPipeline, pipelineCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
+  buildPipeline, pipelineCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
   type Ccy, type Snapshot, type CashItem, type PipelineInquiry,
 } from '@/lib/master-analytics';
 
@@ -31,6 +33,7 @@ export function ProjectionsZone(p: Props) {
   const [capacity, setCapacity] = useState(0);
   const [cell, setCell] = useState<{ title: string; items: CashItem[] } | null>(null);
   const [fyOpen, setFyOpen] = useState(false);
+  const manual = useManualCashEntries('pv');
   const todayIso = snapshot?.today ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -87,13 +90,17 @@ export function ProjectionsZone(p: Props) {
   // ---------- Cash ----------
   const openingInr = snapshot?.opening_cash_inr ?? 0;
   const cash = useMemo(() => {
-    const items = [...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : [])];
+    const items = [
+      ...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : []),
+      ...manualCashItems(manual.entries, months, snapshot?.inr_per_usd || hqRate),
+    ];
     const oh = snapshot ? (ccy === 'USD' ? snapshot.overhead_monthly.inr / (snapshot.inr_per_usd || hqRate) : snapshot.overhead_monthly.inr) : 0;
     const opening = ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr;
     return cashflowTable(items, months, ccy, oh, opening);
-  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr]);
+  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr, manual.entries]);
   const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
-  const rows = CASH_ROWS.filter(r => includePipeline || !r.key.startsWith('pipeline'));
+  const rows = CASH_ROWS.filter(r => (includePipeline || !r.key.startsWith('pipeline'))
+    && (!r.key.startsWith('manual') || months.some(m => cash.cells[r.key][m])));
 
   const copyCash = () => {
     const lines = [['', ...months.map(monthLabel)].join('\t')];
@@ -205,6 +212,8 @@ export function ProjectionsZone(p: Props) {
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+          <ManualCashEntriesCard className="mt-3" {...manual} currencies={['INR', 'USD']} defaultCurrency={ccy}
+            fmt={(v, c) => fmtMoney(v, c, false)} />
           <TableToggle label="View cash flow breakdown table">
           <div className="overflow-x-auto">
             <Table className="text-xs">

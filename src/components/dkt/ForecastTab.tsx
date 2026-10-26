@@ -12,6 +12,8 @@ import {
   type DktSettings, type FlowKind, type Forecast, type Month, type ProfitItem, type ProfitLine, type ProfitProjection,
 } from '@/lib/dkt-cashflow';
 import { NumField, SelectField, Stat, usd, usdK } from './fields';
+import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
+import type { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 
 type Props = {
   forecast: Forecast;
@@ -22,9 +24,10 @@ type Props = {
   scenarios: AmazonScenario[];
   skus: AmazonSku[];
   setScenarioInForecast: (id: string, on: boolean) => void;
+  manual: ReturnType<typeof useManualCashEntries>;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable, scenarios, skus, setScenarioInForecast }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable, scenarios, skus, setScenarioInForecast, manual }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
@@ -104,6 +107,7 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
             </ResponsiveContainer>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum.</p>
+          <ManualCashEntriesCard className="mt-3" {...manual} currencies={['USD']} fmt={v => usd(v)} />
         </CardContent>
       </Card>
 
