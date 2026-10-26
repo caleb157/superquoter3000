@@ -247,8 +247,9 @@ export function useDktCashflow(thisMonth: Month) {
         fail(error);
       }
       const row: any = { inquiry_id: inquiryId };
-      if (patch.po_month) { row.cust_deposit_month = monthToDate(patch.po_month); row.ie_deposit_month = monthToDate(patch.po_month); }
-      if (patch.ship_month) { row.cust_final_month = monthToDate(patch.ship_month); row.ie_balance_month = monthToDate(patch.ship_month); }
+      // Vendor payments move with the customer's, so PV's cash flow keeps them in the same months.
+      if (patch.po_month) { row.cust_deposit_month = row.ie_deposit_month = row.vendor_deposit_month = monthToDate(patch.po_month); }
+      if (patch.ship_month) { row.cust_final_month = row.ie_balance_month = row.vendor_balance_month = monthToDate(patch.ship_month); }
       if (patch.fob_usd != null) row.projected_fob_revenue_usd = patch.fob_usd;
       if (Object.keys(row).length === 1) return;
       const { error } = await db.from('inquiry_projections').upsert(row, { onConflict: 'inquiry_id' });
