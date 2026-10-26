@@ -72,6 +72,8 @@ export type FobEstimate = {
 
 export const FOB_PER_UNITS: FobPerUnit[] = ['FOB_FCL', 'FOB_LCL', 'FOB_LCL_NO_TRUCK'];
 export const isFobPerUnit = (u: any): u is FobPerUnit => FOB_PER_UNITS.includes(u);
+/** Which FOB rate card a shipping type's Per Unit prices from (null = it uses its own Cost). */
+export const fobCardFor = (u: any): 'FCL' | 'LCL' | null => (u === 'FOB_FCL' ? 'FCL' : u === 'FOB_LCL' || u === 'FOB_LCL_NO_TRUCK' ? 'LCL' : null);
 
 const LABEL: Record<FobPerUnit, string> = { FOB_FCL: 'FCL ex-Jodhpur', FOB_LCL: 'LCL incl. truck', FOB_LCL_NO_TRUCK: 'LCL excl. truck' };
 

@@ -23,6 +23,7 @@ import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefau
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { ALL_SECTIONS, resolveSettingsHash, searchSettings, type SectionId } from '@/lib/settings-nav';
 import { EditableTable } from '@/components/EditableTable';
+import { fobCardFor } from '@/lib/fob';
 
 
 // Shipping defaults (global_settings fields), shown above the shipping types.
@@ -235,6 +236,13 @@ const Settings = () => {
           <ShippingDefaults />
           <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix ex-Jodhpur ICD · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
+            {(['FCL', 'LCL'] as const).map(card => {
+              const names = shippingTypes.filter(t => fobCardFor(t.per_unit) === card).map(t => t.name);
+              return <div key={card}><a href="#fob-rates" className="underline">{card} rate card</a> → {names.length ? <b>{names.join(', ')}</b> : <span className="text-muted-foreground">no shipping type</span>}</div>;
+            })}
+            <div className="text-muted-foreground">Every other row uses its own Cost (₹) × CBM or KG, not a rate card.</div>
+          </div>
           <EditableTable
             tableName="shipping_types"
             data={shippingTypes} setData={setShippingTypes}
