@@ -79,7 +79,7 @@ export function FobRatesSettings() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">FCL rate card (per container, incl. factory → ICD transport)</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">FCL rate card (per container, factory → Jodhpur ICD → train to Mundra)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {usedBy('FCL')}
           <div><Label className="text-xs">Vendor</Label><Input className="h-8 mt-1" value={fcl.vendor} onChange={e => setFcl({ ...fcl, vendor: e.target.value })} /></div>

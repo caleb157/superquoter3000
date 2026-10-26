@@ -235,7 +235,7 @@ const Settings = () => {
           <div className="space-y-4">
           <ShippingDefaults />
           <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix ex-Jodhpur ICD · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
+          <p className="text-xs text-muted-foreground">Per Unit: <b>CBM</b> = cost × unit CBM · <b>KG</b> = cost × unit weight · <b>FOB_FCL</b> = cheapest 20ft/40ft mix, Jodhpur ICD by train to Mundra · <b>FOB_LCL</b> = LCL incl. trucking · <b>FOB_LCL_NO_TRUCK</b> = LCL excl. trucking. FOB types ignore Cost, price the whole inquiry shipment and use Settings → FOB Rates.</p>
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
             {(['FCL', 'LCL'] as const).map(card => {
               const names = shippingTypes.filter(t => fobCardFor(t.per_unit) === card).map(t => t.name);
