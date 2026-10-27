@@ -1,17 +1,26 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
+// 'dialup' and 'vaporwave' are the Dial-Up design system's two themes
+// (Desktop and Vaporwave). They sit on top of light / dark: vaporwave also
+// sets `dark`, so anything that only knows light vs dark still behaves.
+export type Theme = 'light' | 'dark' | 'system' | 'dialup' | 'vaporwave';
 type Resolved = 'light' | 'dark';
+
+export const THEMES: Theme[] = ['light', 'dark', 'system', 'dialup', 'vaporwave'];
+export const isTheme = (v: unknown): v is Theme => THEMES.includes(v as Theme);
 
 interface ThemeContextValue {
   theme: Theme;
   resolved: Resolved;
+  /** True while a Dial-Up theme (Desktop or Vaporwave) is on. */
+  dialup: boolean;
   setTheme: (t: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'system',
   resolved: 'light',
+  dialup: false,
   setTheme: () => {},
 });
 
@@ -25,15 +34,37 @@ const getSystem = (): Resolved =>
 // theme application (provider mount, OS scheme change) can't re-add `dark`.
 let forceLightCount = 0;
 let lastResolved: Resolved = 'light';
+let lastDialup = false;
 
-const apply = (resolved: Resolved) => {
+const isDialup = (t: Theme) => t === 'dialup' || t === 'vaporwave';
+const resolve = (t: Theme): Resolved =>
+  t === 'system' ? getSystem() : t === 'dark' || t === 'vaporwave' ? 'dark' : 'light';
+
+// Dial-Up's display and pixel faces load only once someone turns the theme on.
+const DIALUP_FONTS = 'https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;700&family=VT323&display=swap';
+const loadDialupFonts = () => {
+  if (document.getElementById('dialup-fonts')) return;
+  const link = document.createElement('link');
+  link.id = 'dialup-fonts';
+  link.rel = 'stylesheet';
+  link.href = DIALUP_FONTS;
+  document.head.appendChild(link);
+};
+
+const apply = (resolved: Resolved, dialup = lastDialup) => {
   lastResolved = resolved;
-  const effective: Resolved = forceLightCount > 0 ? 'light' : resolved;
+  lastDialup = dialup;
+  const forced = forceLightCount > 0;
+  const effective: Resolved = forced ? 'light' : resolved;
+  const du = dialup && !forced;
   const root = document.documentElement;
   root.classList.toggle('dark', effective === 'dark');
+  root.classList.toggle('dialup', du);
+  if (du) loadDialupFonts();
   // For mobile browser UI / status bar
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', effective === 'dark' ? '#10131a' : '#ffffff');
+  const color = du ? (effective === 'dark' ? '#140a2e' : '#3bc4c4') : effective === 'dark' ? '#10131a' : '#ffffff';
+  if (meta) meta.setAttribute('content', color);
 };
 
 /** Force light theme while the calling component is mounted. */
@@ -52,18 +83,16 @@ export const useForceLightTheme = (enabled = true) => {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system';
-    return (localStorage.getItem(STORAGE_KEY) as Theme) || 'system';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return isTheme(stored) ? stored : 'system';
   });
-  const [resolved, setResolved] = useState<Resolved>(() => {
-    const stored = (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY)) as Theme | null;
-    if (stored === 'dark' || stored === 'light') return stored;
-    return typeof window !== 'undefined' ? getSystem() : 'light';
-  });
+  const [resolved, setResolved] = useState<Resolved>(() =>
+    typeof window !== 'undefined' ? resolve(theme) : 'light');
 
   useEffect(() => {
-    const r = theme === 'system' ? getSystem() : theme;
+    const r = resolve(theme);
     setResolved(r);
-    apply(r);
+    apply(r, isDialup(theme));
   }, [theme]);
 
   useEffect(() => {
@@ -84,7 +113,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, resolved, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolved, dialup: isDialup(theme), setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

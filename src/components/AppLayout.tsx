@@ -116,10 +116,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="app-shell min-h-screen bg-background flex flex-col">
       {/* Top nav */}
       <header
-        className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60"
+        className="app-header sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="flex h-12 items-center px-3 sm:px-4 gap-2 sm:gap-3">
@@ -131,7 +131,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             <span className="hidden sm:inline">Product HQ</span>
           </Link>
           {currentLabel && <span className="hidden sm:inline text-muted-foreground">/</span>}
-          <div className="text-sm font-medium truncate flex-1 min-w-0">{currentLabel}</div>
+          <div className="app-section-label text-sm font-medium truncate flex-1 min-w-0">{currentLabel}</div>
 
           <div className="ml-auto flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSearchOpen(true)} aria-label="Search (⌘K)" title="Search (⌘K)">
@@ -195,7 +195,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       </Sheet>
 
       <main
-        className="flex-1 p-3 sm:p-4 pb-24 md:pb-6"
+        className="app-main flex-1 p-3 sm:p-4 pb-24 md:pb-6"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5.5rem)' }}
       >
         {children}
@@ -203,7 +203,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Mobile bottom tab bar */}
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85"
+        className="app-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="grid grid-cols-5 h-14">
