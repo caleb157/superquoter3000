@@ -65,6 +65,7 @@ export type OdooOrder = {
   margin_pct: number;
   cust_deposit_pct: number;
   cust_paid_usd?: number | null; // what the customer has paid DKT on this order so far (typed in)
+  cust_paid_in_cash_usd?: number | null; // how much of that is already in "Current cash" (set when current cash is saved)
   done: { cust_deposit: boolean; cust_balance: boolean }; // older ticks, used only while cust_paid_usd is blank
   excluded: boolean;
 };
@@ -208,9 +209,19 @@ export function odooCustPaid(o: OdooOrder): number {
 }
 
 /**
+ * Customer money received since "Current cash" was last typed: it isn't in the bank figure yet, so the
+ * forecast adds it this month. Older tick-based payments are taken as already in cash.
+ */
+export function odooCustReceived(o: OdooOrder): number {
+  if (o.cust_paid_usd == null) return 0;
+  return Math.max(0, odooCustPaid(o) - Math.max(0, o.cust_paid_in_cash_usd ?? 0));
+}
+
+/**
  * PV's side comes straight from Odoo: each unpaid invoice is paid by its due date, and whatever PV
  * hasn't invoiced yet is paid in the ship month, less anything DKT has already paid PV (odooOwed),
- * earliest payments first. The customer pays the deposit now and the rest in the ship month.
+ * earliest payments first. The customer pays the deposit now and the rest in the ship month; money the
+ * customer has paid since current cash was typed comes in this month.
  */
 export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMonth: Month): Flow[] {
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
@@ -241,6 +252,15 @@ export function odooFlows(orders: OdooOrder[], invoices: OdooInvoice[], thisMont
     if (dep - paid > 0.5) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: dep - paid, label, ref: o.name });
     const bal = fob - Math.max(paid, dep);
     if (bal > 0.5) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: bal, label, ref: o.name });
+    // Received but not yet in current cash: the deposit part first, any more against the balance.
+    const got = odooCustReceived(o);
+    if (got > 0.5) {
+      const before = paid - got;
+      const toDep = Math.max(0, Math.min(paid, dep) - Math.min(before, dep));
+      const rcv = `${label} · received`;
+      if (toDep > 0.5) out.push({ month: thisMonth, kind: 'cust_deposit', amount: toDep, label: rcv, ref: o.name });
+      if (got - toDep > 0.5) out.push({ month: thisMonth, kind: 'cust_balance', amount: got - toDep, label: rcv, ref: o.name });
+    }
   }
   return out;
 }

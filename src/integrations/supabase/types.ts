@@ -1308,6 +1308,7 @@ export type Database = {
           cust_balance_done: boolean
           cust_deposit_done: boolean
           cust_deposit_pct: number | null
+          cust_paid_in_cash_usd: number | null
           cust_paid_usd: number | null
           excluded: boolean
           margin_pct: number | null
@@ -1320,6 +1321,7 @@ export type Database = {
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
           cust_deposit_pct?: number | null
+          cust_paid_in_cash_usd?: number | null
           cust_paid_usd?: number | null
           excluded?: boolean
           margin_pct?: number | null
@@ -1332,6 +1334,7 @@ export type Database = {
           cust_balance_done?: boolean
           cust_deposit_done?: boolean
           cust_deposit_pct?: number | null
+          cust_paid_in_cash_usd?: number | null
           cust_paid_usd?: number | null
           excluded?: boolean
           margin_pct?: number | null

@@ -22,6 +22,7 @@ export const OPEN_STATUSES = ['active', 'projected_po'];
 export type OdooTerms = {
   so_name: string; margin_pct: number | null; cust_deposit_pct: number | null; ship_month: Month | null;
   cust_deposit_done: boolean; cust_balance_done: boolean; excluded: boolean; pv_paid_usd: number | null; cust_paid_usd: number | null;
+  cust_paid_in_cash_usd: number | null;
 };
 type OdooRaw = {
   orders: { name: string; ref: string; date: string | null; ship_date: string | null; total_usd: number; to_invoice_usd: number; advance_usd?: number; cash_date?: string | null }[];
@@ -204,6 +205,8 @@ export function useDktCashflow(thisMonth: Month) {
         name: o.name, ref: o.ref, po_month: po,
         ship_month: ship,
         pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: 0, cust_paid_usd: t?.cust_paid_usd == null ? null : num(t.cust_paid_usd),
+        // Until the in-cash column exists, every typed payment counts as already in current cash.
+        cust_paid_in_cash_usd: t && !('cust_paid_in_cash_usd' in t) ? t.cust_paid_usd : t?.cust_paid_in_cash_usd == null ? null : num(t.cust_paid_in_cash_usd),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
@@ -225,7 +228,7 @@ export function useDktCashflow(thisMonth: Month) {
     async saveOdooTerms(soName: string, patch: Partial<Omit<OdooTerms, 'so_name'>>) {
       patchLocal(d => {
         const has = d.odooTerms.some(t => t.so_name === soName);
-        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false, pv_paid_usd: null, cust_paid_usd: null };
+        const blank: OdooTerms = { so_name: soName, margin_pct: null, cust_deposit_pct: null, ship_month: null, cust_deposit_done: false, cust_balance_done: false, excluded: false, pv_paid_usd: null, cust_paid_usd: null, cust_paid_in_cash_usd: null };
         return { ...d, odooTerms: has ? d.odooTerms.map(t => (t.so_name === soName ? { ...t, ...patch } : t)) : [...d.odooTerms, { ...blank, ...patch }] };
       });
       const { error } = await db.from('dkt_odoo_order_terms').upsert({ so_name: soName, ...toDb(patch as any) }, { onConflict: 'so_name' });
@@ -233,9 +236,20 @@ export function useDktCashflow(thisMonth: Month) {
     },
     reload: load,
     async saveSettings(patch: Partial<DktSettings>) {
-      patchLocal(d => ({ ...d, settings: { ...d.settings, ...patch } }));
+      // A new current cash figure includes every customer payment typed so far, so mark them as in cash.
+      const rollIn = patch.cash_usd != null;
+      patchLocal(d => ({
+        ...d, settings: { ...d.settings, ...patch },
+        odooTerms: rollIn ? d.odooTerms.map(t => ({ ...t, cust_paid_in_cash_usd: t.cust_paid_usd })) : d.odooTerms,
+      }));
       const { error } = await db.from('dkt_cash_settings').upsert({ id: 1, ...patch });
-      fail(error);
+      if (fail(error) || !rollIn) return;
+      const pending = (data?.odooTerms ?? []).filter(t => t.cust_paid_usd != null && Number(t.cust_paid_in_cash_usd ?? 0) !== Number(t.cust_paid_usd));
+      if (!pending.length || !('cust_paid_in_cash_usd' in pending[0])) return;
+      for (const t of pending) {
+        const { error: e2 } = await db.from('dkt_odoo_order_terms').update({ cust_paid_in_cash_usd: t.cust_paid_usd }).eq('so_name', t.so_name);
+        if (fail(e2)) return;
+      }
     },
     async saveOrder(inquiryId: string, patch: Partial<Pick<DktOrder, 'margin_pct' | 'cust_deposit_pct' | 'advance_pct' | 'po_month' | 'ship_month' | 'fob_usd'>>) {
       patchLocal(d => ({ ...d, orders: d.orders.map(o => (o.inquiry_id === inquiryId ? { ...o, ...patch, ...(patch.fob_usd != null ? { fob_source: 'projection' as const } : {}) } : o)) }));

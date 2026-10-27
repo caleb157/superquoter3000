@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooOwed, orderAmounts, orderFlows,
+  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooCustReceived, odooOwed, orderAmounts, orderFlows,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { demandFor, scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -127,16 +127,41 @@ describe('odoo orders already paid to PV', () => {
 describe('odoo orders, customer side', () => {
   const so = { name: 'S1', ref: '', po_month: '2026-07', ship_month: '2026-12', pv_total_usd: 9500, to_invoice_usd: 9500, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: false, cust_balance: false }, excluded: false };
   it('brings in what the customer still owes in the ship month', () => {
-    const f = odooFlows([{ ...so, cust_paid_usd: 4000 }], [], '2026-10');
+    const f = odooFlows([{ ...so, cust_paid_usd: 4000, cust_paid_in_cash_usd: 4000 }], [], '2026-10');
     expect(f.filter(x => x.amount > 0)).toEqual([expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 6000 })]);
-    expect(odooFlows([{ ...so, cust_paid_usd: 10000 }], [], '2026-10').filter(x => x.amount > 0)).toEqual([]);
+    expect(odooFlows([{ ...so, cust_paid_usd: 10000, cust_paid_in_cash_usd: 10000 }], [], '2026-10').filter(x => x.amount > 0)).toEqual([]);
   });
   it('asks for the unpaid deposit now and the rest at shipping', () => {
-    const f = odooFlows([{ ...so, cust_paid_usd: 1000 }], [], '2026-10').filter(x => x.amount > 0);
+    const f = odooFlows([{ ...so, cust_paid_usd: 1000, cust_paid_in_cash_usd: 1000 }], [], '2026-10').filter(x => x.amount > 0);
     expect(f).toEqual([
       expect.objectContaining({ month: '2026-10', kind: 'cust_deposit', amount: 2000 }),
       expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 7000 }),
     ]);
+  });
+});
+
+describe('odoo orders, customer money received since current cash', () => {
+  // FOB 10,000, deposit 30% = 3,000.
+  const so = { name: 'S1', ref: '', po_month: '2026-07', ship_month: '2026-12', pv_total_usd: 9500, to_invoice_usd: 9500, margin_pct: 0.05, cust_deposit_pct: 0.3, done: { cust_deposit: false, cust_balance: false }, excluded: false };
+  const ins = (o: object) => odooFlows([{ ...so, ...o }], [], '2026-10').filter(x => x.amount > 0);
+  const total = (o: object) => ins(o).reduce((s, x) => s + x.amount, 0);
+  it('adds a new payment this month instead of dropping it, and still expects the rest', () => {
+    const f = ins({ cust_paid_usd: 7000 });
+    expect(f).toEqual([
+      expect.objectContaining({ month: '2026-12', kind: 'cust_balance', amount: 3000 }),
+      expect.objectContaining({ month: '2026-10', kind: 'cust_deposit', amount: 3000 }),
+      expect.objectContaining({ month: '2026-10', kind: 'cust_balance', amount: 4000 }),
+    ]);
+    expect(total({ cust_paid_usd: 7000 })).toBeCloseTo(10000);
+  });
+  it('counts only the part not yet in current cash, never twice', () => {
+    expect(ins({ cust_paid_usd: 7000, cust_paid_in_cash_usd: 2000 }).filter(x => x.month === '2026-10')).toEqual([
+      expect.objectContaining({ kind: 'cust_deposit', amount: 1000 }),
+      expect.objectContaining({ kind: 'cust_balance', amount: 4000 }),
+    ]);
+    expect(total({ cust_paid_usd: 7000, cust_paid_in_cash_usd: 2000 })).toBeCloseTo(8000);
+    expect(total({ cust_paid_usd: 7000, cust_paid_in_cash_usd: 7000 })).toBeCloseTo(3000);
+    expect(odooCustReceived({ ...so, cust_paid_usd: 7000, cust_paid_in_cash_usd: 7000 })).toBe(0);
   });
 });
 
