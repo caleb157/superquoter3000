@@ -264,3 +264,259 @@ td.cw-in-range {
     font-size: 16px !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Dial-Up theme (from Caleb's Dial-Up design system): teal desktop, cream
+   windows, 2px ink outlines and hard offset shadows. Two flavours: Desktop
+   (.dialup) and Vaporwave (.dialup.dark). Switched from the theme menu in the
+   top bar; customer-facing quote pages stay light.
+   Brand hues are fills; text on them is ink. Status colours that double as
+   text use darker "-ink" shades so they pass 4.5:1 on the cream surface.
+   ─────────────────────────────────────────────────────────────────────────── */
+.dialup {
+  --du-ground: #3bc4c4;
+  --du-surface: #fff6d6;
+  --du-sunken: #ffffff;
+  --du-ink: #1a0f2e;
+  --du-line: #1a0f2e;
+  --du-teal: #3bc4c4;
+  --du-magenta: #ff4fa3;
+  --du-yellow: #ffd400;
+  --du-violet: #7b2ff7;
+  --du-coral: #f25c54;
+  --du-on-fill: #1a0f2e;
+  --du-focus: #7b2ff7;
+  --du-shadow: 4px 4px 0 0 #1a0f2e;
+  --du-shadow-sm: 2px 2px 0 0 #1a0f2e;
+  --du-shadow-lg: 8px 8px 0 0 #1a0f2e;
+  --du-pressed: inset 2px 2px 0 0 rgba(26, 15, 46, 0.35);
+  --du-display: Bungee, 'Arial Black', Impact, sans-serif;
+  --du-sans: 'Space Grotesk', 'Trebuchet MS', system-ui, sans-serif;
+  --du-pixel: VT323, 'Courier New', monospace;
+
+  --background: 47 100% 92%;        /* surface */
+  --foreground: 261 51% 12%;        /* ink */
+  --card: 47 100% 92%;
+  --card-foreground: 261 51% 12%;
+  --popover: 0 0% 100%;             /* surface-sunken */
+  --popover-foreground: 261 51% 12%;
+  --primary: 182 80% 28%;           /* teal-ink: links, active text, rings */
+  --primary-foreground: 47 100% 92%;
+  --secondary: 180 54% 50%;         /* teal fill, ink text */
+  --secondary-foreground: 261 51% 12%;
+  --muted: 0 0% 100%;
+  --muted-foreground: 268 20% 36%;  /* ink-muted */
+  --accent: 50 100% 50%;            /* yellow hover fill */
+  --accent-foreground: 261 51% 12%;
+  --destructive: 3 62% 45%;
+  --destructive-foreground: 47 100% 92%;
+  --border: 268 20% 36%;            /* hairlines; outlines use --du-line */
+  --input: 261 51% 12%;
+  --ring: 263 93% 58%;              /* focus violet */
+  --radius: 0.5rem;
+  --success: 182 80% 28%;
+  --success-foreground: 47 100% 92%;
+  --warning: 35 100% 32%;
+  --warning-foreground: 47 100% 92%;
+  --due-today: 50 100% 50%;
+  --due-today-foreground: 261 51% 12%;
+  --info: 202 66% 36%;
+  --info-foreground: 47 100% 92%;
+  --highlight: 263 93% 58%;
+  --highlight-foreground: 47 100% 92%;
+  --sidebar-background: 47 100% 92%;
+  --sidebar-foreground: 261 51% 12%;
+  --sidebar-primary: 182 80% 28%;
+  --sidebar-primary-foreground: 47 100% 92%;
+  --sidebar-accent: 50 100% 50%;
+  --sidebar-accent-foreground: 261 51% 12%;
+  --sidebar-border: 261 51% 12%;
+  --sidebar-ring: 263 93% 58%;
+}
+
+.dialup.dark {
+  --du-ground: #140a2e;
+  --du-surface: #241650;
+  --du-sunken: #1a0f3c;
+  --du-ink: #fff4e8;
+  --du-line: #b388ff;
+  --du-teal: #3ee6e6;
+  --du-violet: #b388ff;
+  --du-focus: #ffd400;
+  --du-shadow: 4px 4px 0 0 #ff4fa3;
+  --du-shadow-sm: 2px 2px 0 0 #ff4fa3;
+  --du-shadow-lg: 8px 8px 0 0 #ff4fa3;
+
+  --background: 254 57% 20%;
+  --foreground: 31 100% 95%;
+  --card: 254 57% 20%;
+  --card-foreground: 31 100% 95%;
+  --popover: 255 60% 15%;
+  --popover-foreground: 31 100% 95%;
+  --primary: 180 77% 57%;
+  --primary-foreground: 261 51% 12%;
+  --secondary: 262 100% 77%;        /* violet fill, on-violet text */
+  --secondary-foreground: 261 51% 12%;
+  --muted: 255 60% 15%;
+  --muted-foreground: 262 36% 75%;
+  --accent: 50 100% 50%;
+  --accent-foreground: 261 51% 12%;
+  --destructive: 3 86% 64%;
+  --destructive-foreground: 261 51% 12%;
+  --border: 262 36% 50%;
+  --input: 262 100% 77%;
+  --ring: 50 100% 50%;
+  --success: 180 77% 57%;
+  --success-foreground: 261 51% 12%;
+  --warning: 38 93% 55%;
+  --warning-foreground: 261 51% 12%;
+  --due-today: 50 100% 50%;
+  --due-today-foreground: 261 51% 12%;
+  --info: 200 65% 57%;
+  --info-foreground: 261 51% 12%;
+  --highlight: 331 100% 65%;
+  --highlight-foreground: 261 51% 12%;
+  --sidebar-background: 254 57% 20%;
+  --sidebar-foreground: 31 100% 95%;
+  --sidebar-primary: 180 77% 57%;
+  --sidebar-primary-foreground: 261 51% 12%;
+  --sidebar-accent: 50 100% 50%;
+  --sidebar-accent-foreground: 261 51% 12%;
+  --sidebar-border: 262 100% 77%;
+  --sidebar-ring: 50 100% 50%;
+}
+
+/* Type: Space Grotesk for reading, Bungee for page titles, VT323 for chrome. */
+.dialup body,
+.dialup input,
+.dialup textarea,
+.dialup select,
+.dialup button,
+.dialup h1, .dialup h2, .dialup h3, .dialup h4 {
+  font-family: var(--du-sans);
+  letter-spacing: 0;
+}
+.dialup h1, .dialup h2, .dialup h3, .dialup h4 { font-weight: 700; }
+.dialup .page-title {
+  font-family: var(--du-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+/* The desktop: teal ground around one big window holding the page. */
+.dialup .app-shell { background: var(--du-ground); }
+.dialup .app-header {
+  background: var(--du-magenta);
+  color: var(--du-on-fill);
+  border-bottom: 2px solid var(--du-line);
+  backdrop-filter: none;
+}
+.dialup .app-header .ui-btn { color: var(--du-on-fill); }
+.dialup .app-header .text-muted-foreground { color: var(--du-on-fill); }
+.dialup .app-section-label {
+  font-family: var(--du-pixel);
+  font-size: 22px;
+  line-height: 22px;
+  text-transform: uppercase;
+}
+.dialup .app-section-label:not(:empty)::after { content: '.EXE'; }
+.dialup .app-main {
+  background: var(--du-surface);
+  border: 2px solid var(--du-line);
+  border-radius: 8px;
+  box-shadow: var(--du-shadow-lg);
+  margin: 16px 20px 24px 12px;
+  min-width: 0;
+}
+@media (max-width: 639px) {
+  .dialup .app-main { margin: 8px 10px 12px 6px; box-shadow: var(--du-shadow); }
+}
+.dialup .app-bottom-nav {
+  background: var(--du-surface);
+  border-top: 2px solid var(--du-line);
+  backdrop-filter: none;
+}
+
+/* Windows: cards, dialogs, menus and popovers get chunky outlines and hard shadows. */
+.dialup .ui-card {
+  border: 2px solid var(--du-line);
+  border-radius: 8px;
+  box-shadow: var(--du-shadow);
+}
+.dialup .ui-card .ui-card { box-shadow: var(--du-shadow-sm); }
+.dialup .ui-window,
+.dialup [role="alertdialog"] {
+  border: 2px solid var(--du-line);
+  border-radius: 8px;
+  box-shadow: var(--du-shadow-lg);
+}
+.dialup [role="menu"],
+.dialup [role="listbox"],
+.dialup [data-radix-popper-content-wrapper] > [role="dialog"] {
+  border: 2px solid var(--du-line);
+  border-radius: 4px;
+  box-shadow: var(--du-shadow);
+}
+
+/* Buttons: outlined, hard shadow, press down-right. One yellow primary. */
+.dialup .ui-btn:not(.btn-ghost):not(.btn-link) {
+  border: 2px solid var(--du-line);
+  border-radius: 4px;
+  box-shadow: var(--du-shadow-sm);
+  font-weight: 700;
+  transition: transform 60ms, box-shadow 60ms, background-color 120ms;
+}
+.dialup .ui-btn:not(.btn-ghost):not(.btn-link):active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: var(--du-pressed);
+}
+.dialup .ui-btn.btn-default {
+  background: var(--du-yellow);
+  color: var(--du-on-fill);
+}
+.dialup .ui-btn.btn-default:hover { background: var(--du-yellow); filter: brightness(1.05); }
+.dialup .ui-btn.btn-destructive {
+  background: var(--du-coral);
+  color: var(--du-on-fill);
+}
+.dialup .ui-btn.btn-outline { background: var(--du-surface); color: var(--du-ink); }
+.dialup .ui-btn.btn-outline:hover { background: var(--du-yellow); color: var(--du-on-fill); }
+.dialup .ui-btn:focus-visible,
+.dialup .ui-input:focus-visible {
+  outline: 3px solid var(--du-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* Fields: inset white wells with the chunky outline. Borderless table cells stay borderless. */
+.dialup .ui-input:not(.border-transparent):not(.border-0) {
+  border: 2px solid var(--du-line);
+  border-radius: 4px;
+  background-color: var(--du-sunken);
+  box-shadow: var(--du-pressed);
+}
+
+/* Stickers. */
+.dialup .ui-badge {
+  border: 2px solid var(--du-line);
+  font-weight: 700;
+}
+
+/* Tabs: pixel folder tabs. */
+.dialup [role="tablist"] {
+  border: 2px solid var(--du-line);
+  border-radius: 4px;
+  background: var(--du-sunken);
+}
+.dialup [role="tab"] { font-family: var(--du-pixel); font-size: 20px; line-height: 20px; font-weight: 400; }
+.dialup [role="tab"][data-state="active"] {
+  background: var(--du-yellow);
+  color: var(--du-on-fill);
+  box-shadow: none;
+}
+
+/* Tables: ink header row like a list-view header. */
+.dialup thead { border-bottom: 2px solid var(--du-line); }
