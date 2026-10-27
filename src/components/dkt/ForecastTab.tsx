@@ -20,6 +20,8 @@ type Props = {
   settings: DktSettings;
   saveSettings: (p: Partial<DktSettings>) => void;
   totalOwed: number;
+  /** Customer payments typed on Odoo orders since current cash was last saved. */
+  custReceived: number;
   creditAvailable: number;
   scenarios: AmazonScenario[];
   skus: AmazonSku[];
@@ -27,7 +29,7 @@ type Props = {
   manual: ReturnType<typeof useManualCashEntries>;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, creditAvailable, scenarios, skus, setScenarioInForecast, manual }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, scenarios, skus, setScenarioInForecast, manual }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
@@ -44,6 +46,11 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, credi
           <div className="text-[11px] text-muted-foreground">Cash in the bank now</div>
           <NumField label="Current cash" value={settings.cash_usd} onSave={v => saveSettings({ cash_usd: v ?? 0, cash_as_of: new Date().toISOString().slice(0, 10) })} />
           <div className="text-[11px] text-muted-foreground">{settings.cash_as_of ? `Updated ${settings.cash_as_of}` : 'Type today’s balance'}</div>
+          {custReceived > 0.5 && (
+            <div className="text-[11px] text-success" title="Typed under Customer paid on the Orders tab after current cash was saved. The forecast adds it this month; saving a new current cash figure takes it in.">
+              + {usd(custReceived)} customer payments since, added this month
+            </div>
+          )}
         </div>
         <div className="rounded-md border px-3 py-2 space-y-1">
           <div className="text-[11px] text-muted-foreground">Keep at least</div>

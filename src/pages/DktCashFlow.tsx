@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
-import { addMonths, buildForecast, loanOutstanding, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, buildForecast, loanOutstanding, odooCustReceived, type Month } from '@/lib/dkt-cashflow';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
@@ -84,6 +84,7 @@ export default function DktCashFlow() {
               <ForecastTab
                 forecast={forecast} settings={data.settings} saveSettings={api.saveSettings}
                 totalOwed={data.loans.filter(l => l.active).reduce((s, l) => s + loanOutstanding(l, data.loanPayments), 0)}
+                custReceived={odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
                 creditAvailable={data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - l.drawn_usd), 0)}
                 scenarios={data.scenarios} skus={data.skus}
                 setScenarioInForecast={(id, on) => api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios')}

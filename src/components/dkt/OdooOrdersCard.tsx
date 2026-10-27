@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { monthLabel, odooCustPaid, odooFob, odooOwed, odooPaid, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
+import { monthLabel, odooCustPaid, odooCustReceived, odooFob, odooOwed, odooPaid, type Month, type OdooInvoice } from '@/lib/dkt-cashflow';
 import type { OdooRow, OdooTerms } from '@/hooks/use-dkt-cashflow';
 import { NumField, usd } from './fields';
 
@@ -31,7 +31,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
             PV's confirmed sales orders to DKT, read live from Odoo. Paid to PV and the ship month come straight from PV's Odoo (DKT's
             advances applied to the earliest orders first, dated as in PV's cash flow); what's still owed is paid as invoices fall due,
             the rest in the ship month. DKT margin, the customer deposit % and what the customer has paid are typed here: the deposit is
-            due now, the rest in the ship month. Orders drop off once PV is fully invoiced and paid.
+            due now, the rest in the ship month. A payment typed after current cash was saved is added to this month's cash. Orders drop off once PV is fully invoiced and paid.
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={reload} disabled={loading}>
@@ -64,6 +64,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                 const paid = odooPaid(o, o.invoices);
                 const custPaid = odooCustPaid(o);
                 const custDue = Math.max(0, fob - custPaid);
+                const custNew = odooCustReceived(o);
                 const next = [...o.invoices].filter(i => i.residual_usd > 0).sort((a, b) => a.due_month.localeCompare(b.due_month))[0];
                 return (
                   <tr key={o.name} className={cn('border-t align-top', o.excluded && 'opacity-50')}>
@@ -96,6 +97,7 @@ export function OdooOrdersCard({ rows, invoices, partner, loading, error, thisMo
                     <td className="py-2 px-1 w-28">
                       <NumField label="Customer paid" value={o.cust_paid_usd ?? null} placeholder={usd(custPaid)} onSave={v => save(o.name, { cust_paid_usd: v })} allowEmpty />
                       <div className="text-[10px] text-muted-foreground text-right mt-0.5">{custDue > 0.5 ? `${usd(custDue)} to come` : 'paid in full'}</div>
+                      {custNew > 0.5 && <div className="text-[10px] text-success text-right" title="Not in current cash yet, so the forecast adds it this month. Saving a new current cash figure takes it in.">{usd(custNew)} received, in cash this month</div>}
                     </td>
                     <td className="py-2 pl-1 text-center pt-3">
                       <Checkbox aria-label="Count this order" checked={!o.excluded} onCheckedChange={v => save(o.name, { excluded: !v })} />
