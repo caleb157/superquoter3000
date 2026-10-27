@@ -206,7 +206,7 @@ export function useDktCashflow(thisMonth: Month) {
         ship_month: ship,
         pv_total_usd: o.total_usd, to_invoice_usd: o.to_invoice_usd, advance_usd: num(o.advance_usd, 0), pv_paid_usd: 0, cust_paid_usd: t?.cust_paid_usd == null ? null : num(t.cust_paid_usd),
         // Until the in-cash column exists, every typed payment counts as already in current cash.
-        cust_paid_in_cash_usd: t && !('cust_paid_in_cash_usd' in t) ? t.cust_paid_usd : t?.cust_paid_in_cash_usd == null ? null : num(t.cust_paid_in_cash_usd),
+        cust_paid_in_cash_usd: t && !('cust_paid_in_cash_usd' in (t as object)) ? t.cust_paid_usd : t?.cust_paid_in_cash_usd == null ? null : num(t.cust_paid_in_cash_usd),
         margin_pct: num(t?.margin_pct, data.settings.default_margin_pct),
         cust_deposit_pct: num(t?.cust_deposit_pct, data.defaults.custDeposit),
         done: { cust_deposit: !!t?.cust_deposit_done, cust_balance: !!t?.cust_balance_done },
