@@ -259,6 +259,38 @@ Deno.serve(async (req) => {
       cash.push(...waterfall(items, 'vend'));
     } catch (e) { warnings.push('Pending POs: ' + e.message); }
 
+    // ================= PO spend per SO (Project) =================
+    // A PO counts against an SO when it sits on the SO's project in Odoo (how the team links
+    // them); a Source Document naming the SO or one of its MOs also counts. Untaxed, every
+    // state but cancelled, so the app can net it off a booked order's planned vendor cost.
+    // A PO naming several orders is split evenly.
+    let poBySo: Record<string, { amount_inr: number; amount_usd: number; pos: string[] }> | undefined = {};
+    try {
+      const soByMo = new Map<string, string>();
+      for (const [so, list] of mosBySo) for (const m of list) soByMo.set(String(m.name), so);
+      const soNames = new Set(sos.map(o => o.name));
+      const soByProject = new Map<number, string>();
+      for (const o of sos) { const pid = pidOf(o); if (pid && !soByProject.has(pid)) soByProject.set(pid, o.name); }
+      const pos = await sr('purchase.order', [['state', '!=', 'cancel'], ['date_order', '>=', since + ' 00:00:00'], '|', ['project_id', '!=', false], ['origin', '!=', false]],
+        ['name', 'origin', 'project_id', 'currency_id', 'currency_rate', 'amount_untaxed', 'state'], { limit: 5000 });
+      for (const p of pos) {
+        const targets = new Set<string>();
+        const byProject = soByProject.get(id(p.project_id) as number);
+        if (byProject) targets.add(byProject);
+        else for (const tok of String(p.origin || '').split(/[,;\s]+/)) {
+          const t = tok.trim();
+          if (soNames.has(t)) targets.add(t); else if (soByMo.has(t)) targets.add(soByMo.get(t)!);
+        }
+        if (!targets.size) continue;
+        const m = money(num(p.amount_untaxed), nm(p.currency_id) || 'INR', num(p.currency_rate));
+        for (const so of targets) {
+          const e = (poBySo![so] ||= { amount_inr: 0, amount_usd: 0, pos: [] });
+          e.amount_inr += m.inr / targets.size; e.amount_usd += m.usd / targets.size;
+          e.pos.push(p.name + (p.state !== 'purchase' && p.state !== 'done' ? ' (RFQ)' : ''));
+        }
+      }
+    } catch (e) { poBySo = undefined; warnings.push('PO spend per SO: ' + e.message); }
+
     // ================= CASH: open invoices & bills (incl. draft) =================
     try {
       const moves = await sr('account.move', [['move_type', 'in', ['out_invoice', 'out_refund', 'in_invoice', 'in_refund']], '|', ['state', '=', 'draft'], '&', ['state', '=', 'posted'], ['payment_state', 'not in', ['paid', 'in_payment', 'reversed']]],
@@ -366,7 +398,7 @@ Deno.serve(async (req) => {
       sales_orders: salesOrders, cash_items: cash, invoiced, pending_so_revenue: pendingSoRevenue,
       overhead_monthly: overheadMonthly, actual_hours_by_month: actualHoursByMonth, booked_hours_by_month: bookedHoursByMonth,
       capacity_hours_by_month: capacityHoursByMonth, lt_weekly_capacity: ltWeeklyCapacity, lt_capacity_weekly: ltCapacityWeekly,
-      labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings,
+      labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings, po_by_so: poBySo,
     };
     const duration = Date.now() - started;
     await admin.from('analytics_snapshots').insert({ payload, synced_by: userId, status: warnings.length ? 'partial' : 'ok', duration_ms: duration });

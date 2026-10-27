@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import {
-  buildPipeline, pipelineCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
-  type Ccy, type Snapshot, type CashItem, type PipelineInquiry,
+  buildPipeline, pipelineCashItems, buildBookedOrders, bookedVendorCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
+  type Ccy, type Snapshot, type CashItem, type PipelineInquiry, type PipelineOpts,
 } from '@/lib/master-analytics';
 
 type Props = {
@@ -30,6 +30,8 @@ type Props = {
 export function ProjectionsZone(p: Props) {
   const { snapshot, ccy, hqRate, includePipeline } = p;
   const [pipe, setPipe] = useState<PipelineInquiry[]>([]);
+  const [booked, setBooked] = useState<{ inquiries: any[]; opts: PipelineOpts } | null>(null);
+  const [bookedOpen, setBookedOpen] = useState(false);
   const [capacity, setCapacity] = useState(0);
   const [cell, setCell] = useState<{ title: string; items: CashItem[] } | null>(null);
   const [fyOpen, setFyOpen] = useState(false);
@@ -46,9 +48,13 @@ export function ProjectionsZone(p: Props) {
       ]);
       setCapacity(((lab.data as any[]) || []).reduce((s, r) => s + (Number(r.num_laborers) || 0) * (Number(r.available_hours_per_month) || 0), 0));
       const pv = ((ents.data as any[]) || []).find(e => /parable/i.test(e.name || '') || e.entity_type === 'India');
-      const open = ((inq.data as any[]) || []).filter(i => !['po', 'complete', 'cancelled', 'paused'].includes(i.status));
-      const live = await liveInquiryFinancials(open.map(i => i.id));
-      setPipe(buildPipeline(open, { today: todayIso, pvEntityId: pv?.id ?? null, defaults, live }));
+      const all = (inq.data as any[]) || [];
+      const open = all.filter(i => !['po', 'complete', 'cancelled', 'paused'].includes(i.status));
+      const bookedInq = all.filter(i => i.status === 'po');
+      const live = await liveInquiryFinancials([...open, ...bookedInq].map(i => i.id));
+      const opts: PipelineOpts = { today: todayIso, pvEntityId: pv?.id ?? null, defaults, live };
+      setPipe(buildPipeline(open, opts));
+      setBooked({ inquiries: bookedInq, opts });
     })();
   }, [todayIso]);
 
@@ -87,20 +93,31 @@ export function ProjectionsZone(p: Props) {
     return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline), capacity: Math.round(cap) };
   }), [months, snapshot, pipe, includePipeline, hasLtCap, ltCap, capacity]);
 
+  // ---------- Booked SOs still waiting on POs ----------
+  // Needs a snapshot that carries PO spend per SO; without it the planned cost would
+  // double count POs already raised, so the line stays out.
+  const bookedOrders = useMemo(
+    () => (booked && snapshot?.po_by_so ? buildBookedOrders(booked.inquiries, booked.opts, snapshot, hqRate) : []),
+    [booked, snapshot, hqRate],
+  );
+  const unlinked = bookedOrders.filter(o => o.state === 'no_so' || o.state === 'so_not_found');
+
   // ---------- Cash ----------
   const openingInr = snapshot?.opening_cash_inr ?? 0;
   const cash = useMemo(() => {
     const items = [
-      ...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : []),
+      ...(snapshot?.cash_items ?? []), ...bookedVendorCashItems(bookedOrders, hqRate, today),
+      ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : []),
       ...manualCashItems(manual.entries, months, snapshot?.inr_per_usd || hqRate),
     ];
     const oh = snapshot ? (ccy === 'USD' ? snapshot.overhead_monthly.inr / (snapshot.inr_per_usd || hqRate) : snapshot.overhead_monthly.inr) : 0;
     const opening = ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr;
     return cashflowTable(items, months, ccy, oh, opening);
-  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr, manual.entries]);
+  }, [snapshot, pipe, bookedOrders, includePipeline, ccy, hqRate, months, openingInr, manual.entries]);
   const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
   const rows = CASH_ROWS.filter(r => (includePipeline || !r.key.startsWith('pipeline'))
-    && (!r.key.startsWith('manual') || months.some(m => cash.cells[r.key][m])));
+    && (!r.key.startsWith('manual') || months.some(m => cash.cells[r.key][m]))
+    && (r.key !== 'so_vendor' || !!snapshot?.po_by_so));
 
   const copyCash = () => {
     const lines = [['', ...months.map(monthLabel)].join('\t')];
@@ -256,6 +273,16 @@ export function ProjectionsZone(p: Props) {
           {snapshot && <p className="text-[11px] text-muted-foreground mt-2">
             Overdue items roll to this month (POs to tomorrow). Customer and vendor advances are applied to each partner's earliest items first. Amounts include GST. Click any figure for its line items.
           </p>}
+          {snapshot && !snapshot.po_by_so && <p className="text-[11px] text-muted-foreground mt-1">
+            Vendor costs of booked SOs without POs yet are left out until the next refresh from Odoo.
+          </p>}
+          {snapshot?.po_by_so && booked && booked.inquiries.length > 0 && (
+            <button type="button" className="text-[11px] text-muted-foreground mt-1 hover:underline text-left" onClick={() => setBookedOpen(true)}>
+              Booked SOs: {bookedOrders.filter(o => o.remaining_inr > 0).length} still expecting POs
+              {unlinked.length > 0 && <span className="text-warning"> · {unlinked.length} inquir{unlinked.length === 1 ? 'y has' : 'ies have'} no Odoo SO linked</span>}
+              {' '}· view
+            </button>
+          )}
         </CardContent>
       </Card>
 
@@ -270,6 +297,38 @@ export function ProjectionsZone(p: Props) {
                   <TableCell>{it.ref}</TableCell><TableCell>{it.partner ?? '—'}</TableCell><TableCell>{it.date}</TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}{it.advance_covered ? ' · fully covered' : ''}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtMoney(pickAmt(it, ccy) * it.sign, ccy, false)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bookedOpen} onOpenChange={setBookedOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
+          <DialogHeader><DialogTitle>Booked SOs · vendor costs not on POs yet</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Planned vendor cost from each inquiry, less the POs and RFQs on that SO's project in Odoo, before GST.
+            An order stops counting once it ships or "All POs placed" is ticked on its Projection tab. Link the SO there too.
+          </p>
+          <Table className="text-xs">
+            <TableHeader><TableRow>
+              <TableHead>SO</TableHead><TableHead>Inquiry</TableHead><TableHead>Customer</TableHead>
+              <TableHead className="text-right">Planned</TableHead><TableHead className="text-right">On POs</TableHead><TableHead className="text-right">Still expected</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {bookedOrders.slice().sort((a, b) => b.remaining_inr - a.remaining_inr).map(o => (
+                <TableRow key={o.inquiry_id}>
+                  <TableCell className="whitespace-nowrap">{o.so_name ?? <span className="text-warning">Not linked</span>}{o.state === 'so_not_found' && <span className="text-warning"> · not found in Odoo</span>}</TableCell>
+                  <TableCell><a className="hover:underline" href={`/inquiry/${o.inquiry_id}`}>{o.rfq_number}</a></TableCell>
+                  <TableCell>{o.customer ?? '—'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtMoney(ccy === 'USD' ? o.planned_usd : o.planned_usd * hqRate, ccy, false)}</TableCell>
+                  <TableCell className="text-right tabular-nums" title={o.po_names.join(', ')}>{o.on_pos_inr ? fmtMoney(ccy === 'USD' ? o.on_pos_inr / hqRate : o.on_pos_inr, ccy, false) : '—'}{o.po_names.length > 0 && <span className="text-muted-foreground"> ({o.po_names.length})</span>}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {o.state === 'all_pos_placed' ? <span className="text-muted-foreground">All POs placed</span>
+                      : o.state === 'shipped' ? <span className="text-muted-foreground">Shipped</span>
+                      : o.state === 'counting' ? fmtMoney(ccy === 'USD' ? o.remaining_inr / hqRate : o.remaining_inr, ccy, false) : '—'}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -37,6 +37,7 @@ import {
 import { ChevronDown, Lock } from 'lucide-react';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { REPEAT_ORDER_EVENT } from '@/components/InquiryClockStrip';
+import { OdooOrderPicker } from '@/components/OdooOrderPicker';
 
 type Props = { inquiryId: string };
 
@@ -648,6 +649,21 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Input type="date" value={proj?.actual_ready_date ?? ''}
               onChange={e => persist({ actual_ready_date: e.target.value || null })}
               className="h-9 mt-1" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Odoo sales order</Label>
+            <OdooOrderPicker kind="so" value={proj?.odoo_so_name ?? ''} label=""
+              onPick={name => persist({ odoo_so_name: name })} />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Once booked, the cash flow counts this order's planned vendor cost less the POs on the SO's project in Odoo.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 md:pt-6">
+            <Checkbox id="all-pos-placed" checked={!!proj?.all_pos_placed}
+              onCheckedChange={v => persist({ all_pos_placed: v === true })} />
+            <Label htmlFor="all-pos-placed" className="text-xs leading-snug font-normal">
+              All POs placed <span className="text-muted-foreground">(stop counting the leftover planned vendor cost)</span>
+            </Label>
           </div>
         </CardContent>
       </Card>
