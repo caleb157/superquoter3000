@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import {
-  buildPipeline, pipelineCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
+  buildPipeline, pipelineCashItems, splitPendingSos, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
   type Ccy, type Snapshot, type CashItem, type PipelineInquiry,
 } from '@/lib/master-analytics';
 
@@ -30,6 +30,7 @@ type Props = {
 export function ProjectionsZone(p: Props) {
   const { snapshot, ccy, hqRate, includePipeline } = p;
   const [pipe, setPipe] = useState<PipelineInquiry[]>([]);
+  const [soTerms, setSoTerms] = useState<{ pvEntityId: string | null; defaults: { custDeposit: number; ieDeposit: number }; projBySo: Record<string, any> } | null>(null);
   const [capacity, setCapacity] = useState(0);
   const [cell, setCell] = useState<{ title: string; items: CashItem[] } | null>(null);
   const [fyOpen, setFyOpen] = useState(false);
@@ -46,6 +47,12 @@ export function ProjectionsZone(p: Props) {
       ]);
       setCapacity(((lab.data as any[]) || []).reduce((s, r) => s + (Number(r.num_laborers) || 0) * (Number(r.available_hours_per_month) || 0), 0));
       const pv = ((ents.data as any[]) || []).find(e => /parable/i.test(e.name || '') || e.entity_type === 'India');
+      const projBySo: Record<string, any> = {};
+      for (const i of (inq.data as any[]) || []) {
+        const pr = Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections;
+        if (pr?.odoo_so_name) projBySo[String(pr.odoo_so_name).trim()] = pr;
+      }
+      setSoTerms({ pvEntityId: pv?.id ?? null, defaults, projBySo });
       const open = ((inq.data as any[]) || []).filter(i => !['po', 'complete', 'cancelled', 'paused'].includes(i.status));
       const live = await liveInquiryFinancials(open.map(i => i.id));
       setPipe(buildPipeline(open, { today: todayIso, pvEntityId: pv?.id ?? null, defaults, live }));
@@ -91,16 +98,17 @@ export function ProjectionsZone(p: Props) {
   const openingInr = snapshot?.opening_cash_inr ?? 0;
   const cash = useMemo(() => {
     const items = [
-      ...(snapshot?.cash_items ?? []), ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : []),
+      ...splitPendingSos(snapshot?.cash_items ?? [], { today, pvEntityId: soTerms?.pvEntityId ?? null, defaults: soTerms?.defaults ?? { custDeposit: 0.3, ieDeposit: 0.8 }, projBySo: soTerms?.projBySo ?? {} }),
+      ...(includePipeline ? pipelineCashItems(pipe, hqRate, today) : []),
       ...manualCashItems(manual.entries, months, snapshot?.inr_per_usd || hqRate),
     ];
     const oh = snapshot ? (ccy === 'USD' ? snapshot.overhead_monthly.inr / (snapshot.inr_per_usd || hqRate) : snapshot.overhead_monthly.inr) : 0;
     const opening = ccy === 'USD' ? openingInr / (snapshot?.inr_per_usd || hqRate) : openingInr;
     return cashflowTable(items, months, ccy, oh, opening);
-  }, [snapshot, pipe, includePipeline, ccy, hqRate, months, openingInr, manual.entries]);
+  }, [snapshot, pipe, soTerms, includePipeline, ccy, hqRate, months, openingInr, manual.entries]);
   const cashChart = months.map(m => ({ month: monthLabel(m), net: Math.round(cash.net[m] || 0), ending: Math.round(cash.ending[m] || 0) }));
   const rows = CASH_ROWS.filter(r => (includePipeline || !r.key.startsWith('pipeline'))
-    && (!r.key.startsWith('manual') || months.some(m => cash.cells[r.key][m])));
+    && (!(r.key.startsWith('manual') || r.key.startsWith('transit')) || months.some(m => cash.cells[r.key][m])));
 
   const copyCash = () => {
     const lines = [['', ...months.map(monthLabel)].join('\t')];
@@ -254,7 +262,7 @@ export function ProjectionsZone(p: Props) {
           </TableToggle>
           </>)}
           {snapshot && <p className="text-[11px] text-muted-foreground mt-2">
-            Overdue items roll to this month (POs to tomorrow). Customer and vendor advances are applied to each partner's earliest items first. Amounts include GST. Click any figure for its line items.
+            Overdue items roll to this month (POs to tomorrow). Pending SOs split into the customer deposit, due now, and the balance at delivery; the deposit % is the linked inquiry's, else the Settings default. Customer payments whose memo names the SO's PO number pay that SO's deposit first; other customer and vendor advances go to each partner's earliest items. Amounts include GST. Click any figure for its line items.
           </p>}
         </CardContent>
       </Card>
@@ -268,7 +276,7 @@ export function ProjectionsZone(p: Props) {
               {cell?.items.slice().sort((a, b) => pickAmt(b, ccy) - pickAmt(a, ccy)).map((it, i) => (
                 <TableRow key={i}>
                   <TableCell>{it.ref}</TableCell><TableCell>{it.partner ?? '—'}</TableCell><TableCell>{it.date}</TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}{it.advance_covered ? ' · fully covered' : ''}</TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">{it.advance_applied_inr ? fmtMoney(it.advance_applied_inr, 'INR') : ''}{it.advance_covered ? ' · fully covered' : ''}{it.so_part !== 'balance' && it.paid_by_ref?.length ? ` · ${it.paid_by_ref.join(', ')}` : ''}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtMoney(pickAmt(it, ccy) * it.sign, ccy, false)}</TableCell>
                 </TableRow>
               ))}
