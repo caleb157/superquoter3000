@@ -16,7 +16,9 @@ export type SnapshotSO = Money & {
   /** True when every linked MO is 'done' in Odoo (older snapshots: undefined). */
   all_mos_done?: boolean; mos_done_date?: string | null;
 };
-export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
+/** Odoo POs/RFQs (not cancelled) whose Source Document names an SO, or an MO of that SO. Untaxed. */
+export type SoPoSpend = Money & { pos: string[] };
+export type CashItem = Money & { kind: 'so' | 'po' | 'so_vendor' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
@@ -31,6 +33,8 @@ export type Snapshot = {
   capacity_hours_by_month?: Record<string, number>;
   lt_weekly_capacity?: number | null;
   labortrax_entry_count: number; labortrax_fields: string[]; warnings: string[];
+  /** PO spend per SO name (older snapshots: undefined, so booked vendor costs are left out). */
+  po_by_so?: Record<string, SoPoSpend>;
 };
 
 export const MIN_ORDER_USD = 100;
@@ -95,58 +99,61 @@ export type PipelineOpts = {
 };
 
 export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInquiry[] {
-  const thisMonth = opts.today.slice(0, 7) + '-01';
   return inquiries
     .filter(i => !BOOKED.has(i.status))
-    .map(i => {
-      const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
-      const certainty = effectiveCertainty(p, i.products || [], i.status);
-      const live = opts.live[i.id] || { fob_usd: 0, gpm: 0, man_hours: 0 };
-      // Same rule as the inquiry's Projection page: live costing until PO; a stored FOB
-      // only stands in for a projected PO that has no costed products yet.
-      const fob = effectiveFobUsd(p, i.status, live.fob_usd);
-      const fobFromProjection = fob !== live.fob_usd;
-      const projMh = Number(p.estimated_man_hours) || 0;
-      const mh = projMh || live.man_hours;
-      const gpm = pct(effectiveGpm(p, i.status, live.gpm, live.fob_usd));
-      const duration = Math.max(1, Number(p.duration_months) || 3);
-      const start = (p.start_month || thisMonth).slice(0, 10);
-      const ship = (p.shipping_month || p.delivery_month || p.cust_final_month || addMonths(start, duration - 1)).slice(0, 10);
-      const viaOther = !!(p.selling_entity_id && opts.pvEntityId && p.selling_entity_id !== opts.pvEntityId);
-      const retention = viaOther ? pct(Number(p.selling_retention_pct) || 0) : 0;
-      const pvRev = fob * (1 - retention);
-      let cust: { pct: number; month: string | null }[];
-      if (viaOther) {
-        const dep = p.ie_deposit_pct != null ? pct(Number(p.ie_deposit_pct)) : opts.defaults.ieDeposit;
-        const bal = p.ie_balance_pct != null && p.ie_deposit_pct != null ? pct(Number(p.ie_balance_pct)) : 1 - dep;
-        cust = [
-          { pct: dep, month: p.ie_deposit_month || p.cust_deposit_month || start },
-          { pct: bal, month: p.ie_balance_month || ship },
-        ];
-      } else {
-        const dep = p.cust_deposit_pct != null ? pct(Number(p.cust_deposit_pct)) : opts.defaults.custDeposit;
-        const fin = p.cust_final_pct != null ? pct(Number(p.cust_final_pct)) : 1 - dep - (Number(p.cust_other_pct) || 0);
-        cust = [
-          { pct: dep, month: p.cust_deposit_month || start },
-          { pct: fin, month: p.cust_final_month || ship },
-          { pct: pct(Number(p.cust_other_pct) || 0), month: p.cust_other_month },
-        ];
-      }
-      return {
-        id: i.id, rfq_number: i.rfq_number, title: i.title, status: i.status, customer: i.customers?.name ?? null,
-        certainty, repeat: !!p.repeat_order, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
-        revenue_month: ship, start_month: start, duration_months: duration,
-        cust,
-        // Vendors are paid on the same schedule as the money coming in: their deposit in the
-        // deposit month, their balance in the balance month (stored vendor months can drift).
-        vend: [
-          { pct: p.vendor_deposit_pct != null ? pct(Number(p.vendor_deposit_pct)) : VENDOR_DEPOSIT, month: cust[0].month },
-          { pct: p.vendor_balance_pct != null ? pct(Number(p.vendor_balance_pct)) : 1 - VENDOR_DEPOSIT, month: cust[1].month },
-        ],
-        fob_source: fobFromProjection ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
-      } as PipelineInquiry;
-    })
+    .map(i => projectInquiry(i, opts))
     .filter(x => x.certainty > 0 && (x.fob_usd > 0 || x.man_hours > 0));
+}
+
+/** One inquiry's revenue, cost and payment months, as the Projection tab works them out. */
+function projectInquiry(i: any, opts: PipelineOpts): PipelineInquiry {
+  const thisMonth = opts.today.slice(0, 7) + '-01';
+  const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
+  const certainty = effectiveCertainty(p, i.products || [], i.status);
+  const live = opts.live[i.id] || { fob_usd: 0, gpm: 0, man_hours: 0 };
+  // Same rule as the inquiry's Projection page: live costing until PO; a stored FOB
+  // only stands in for a projected PO that has no costed products yet.
+  const fob = effectiveFobUsd(p, i.status, live.fob_usd);
+  const fobFromProjection = fob !== live.fob_usd;
+  const projMh = Number(p.estimated_man_hours) || 0;
+  const mh = projMh || live.man_hours;
+  const gpm = pct(effectiveGpm(p, i.status, live.gpm, live.fob_usd));
+  const duration = Math.max(1, Number(p.duration_months) || 3);
+  const start = (p.start_month || thisMonth).slice(0, 10);
+  const ship = (p.shipping_month || p.delivery_month || p.cust_final_month || addMonths(start, duration - 1)).slice(0, 10);
+  const viaOther = !!(p.selling_entity_id && opts.pvEntityId && p.selling_entity_id !== opts.pvEntityId);
+  const retention = viaOther ? pct(Number(p.selling_retention_pct) || 0) : 0;
+  const pvRev = fob * (1 - retention);
+  let cust: { pct: number; month: string | null }[];
+  if (viaOther) {
+    const dep = p.ie_deposit_pct != null ? pct(Number(p.ie_deposit_pct)) : opts.defaults.ieDeposit;
+    const bal = p.ie_balance_pct != null && p.ie_deposit_pct != null ? pct(Number(p.ie_balance_pct)) : 1 - dep;
+    cust = [
+      { pct: dep, month: p.ie_deposit_month || p.cust_deposit_month || start },
+      { pct: bal, month: p.ie_balance_month || ship },
+    ];
+  } else {
+    const dep = p.cust_deposit_pct != null ? pct(Number(p.cust_deposit_pct)) : opts.defaults.custDeposit;
+    const fin = p.cust_final_pct != null ? pct(Number(p.cust_final_pct)) : 1 - dep - (Number(p.cust_other_pct) || 0);
+    cust = [
+      { pct: dep, month: p.cust_deposit_month || start },
+      { pct: fin, month: p.cust_final_month || ship },
+      { pct: pct(Number(p.cust_other_pct) || 0), month: p.cust_other_month },
+    ];
+  }
+  return {
+    id: i.id, rfq_number: i.rfq_number, title: i.title, status: i.status, customer: i.customers?.name ?? null,
+    certainty, repeat: !!p.repeat_order, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
+    revenue_month: ship, start_month: start, duration_months: duration,
+    cust,
+    // Vendors are paid on the same schedule as the money coming in: their deposit in the
+    // deposit month, their balance in the balance month (stored vendor months can drift).
+    vend: [
+      { pct: p.vendor_deposit_pct != null ? pct(Number(p.vendor_deposit_pct)) : VENDOR_DEPOSIT, month: cust[0].month },
+      { pct: p.vendor_balance_pct != null ? pct(Number(p.vendor_balance_pct)) : 1 - VENDOR_DEPOSIT, month: cust[1].month },
+    ],
+    fob_source: fobFromProjection ? 'projection' : 'live', mh_source: projMh ? 'projection' : 'live',
+  } as PipelineInquiry;
 }
 
 const usdMoney = (usd: number, rate: number): Money => ({ amount_usd: usd, amount_inr: usd * rate });
@@ -158,6 +165,61 @@ export function pipelineCashItems(pipe: PipelineInquiry[], hqRate: number, today
     for (const c of p.cust) if (c.pct && c.month) out.push({ kind: p.repeat ? 'pipeline_repeat_in' : 'pipeline_in', ref: p.rfq_number + (p.via_other_entity ? ' (via DKT)' : ''), partner: p.customer, date: clamp(c.month), sign: 1, ...usdMoney(p.pv_revenue_usd * pct(c.pct) * p.certainty, hqRate) });
     const cost = p.fob_usd * (1 - pct(p.gpm));
     for (const v of p.vend) if (v.pct && v.month) out.push({ kind: 'pipeline_out', ref: p.rfq_number, partner: p.customer, date: clamp(v.month), sign: -1, ...usdMoney(cost * pct(v.pct) * p.certainty, hqRate) });
+  }
+  return out;
+}
+
+// ---------- Booked SOs whose POs aren't all placed yet ----------
+export type BookedOrder = {
+  inquiry_id: string; rfq_number: string; customer: string | null; so_name: string | null;
+  /** Planned vendor cost (USD), from the inquiry's FOB × (1 − GPM). */
+  planned_usd: number;
+  /** INR on POs/RFQs whose Source Document names this SO. */
+  on_pos_inr: number; po_names: string[];
+  /** INR still expected on POs not yet raised (0 once closed). */
+  remaining_inr: number;
+  state: 'counting' | 'all_pos_placed' | 'shipped' | 'no_so' | 'so_not_found';
+  vend: { pct: number; month: string | null }[];
+};
+
+/** Inquiries marked PO (booked in Odoo): planned vendor cost minus what is already on that SO's POs.
+ *  Each PO raised moves money from this line to "Pending POs & RFQs", so nothing counts twice. */
+export function buildBookedOrders(inquiries: any[], opts: PipelineOpts, snap: Pick<Snapshot, 'sales_orders' | 'po_by_so'>, hqRate: number): BookedOrder[] {
+  const soByName = new Map(snap.sales_orders.map(s => [s.name, s]));
+  return inquiries.filter(i => i.status === 'po').map(i => {
+    const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
+    const x = projectInquiry(i, opts);
+    const soName = String(p.odoo_so_name || '').trim() || null;
+    const spend = soName ? snap.po_by_so?.[soName] : undefined;
+    const planned = x.fob_usd * (1 - pct(x.gpm));
+    const onPos = spend?.amount_inr ?? 0;
+    const so = soName ? soByName.get(soName) : undefined;
+    const state: BookedOrder['state'] = !soName ? 'no_so' : !so ? 'so_not_found' : p.all_pos_placed ? 'all_pos_placed'
+      : so.delivery_status === 'full' || so.invoice_status === 'invoiced' ? 'shipped' : 'counting';
+    return {
+      inquiry_id: i.id, rfq_number: i.rfq_number, customer: x.customer, so_name: soName,
+      planned_usd: planned, on_pos_inr: onPos, po_names: spend?.pos ?? [],
+      remaining_inr: state === 'counting' ? Math.max(0, planned * hqRate - onPos) : 0,
+      state, vend: x.vend,
+    };
+  });
+}
+
+/** Spreads each order's remaining cost over its vendor deposit/balance months. POs already raised
+ *  use up the deposit first, then the balance. */
+export function bookedVendorCashItems(orders: BookedOrder[], hqRate: number, today: string): CashItem[] {
+  const out: CashItem[] = [];
+  const clamp = (m: string | null) => { const d = (m || today).slice(0, 10); return d < today ? today : d; };
+  for (const o of orders) {
+    if (o.remaining_inr <= 0) continue;
+    let used = o.planned_usd * hqRate - o.remaining_inr;
+    for (const v of o.vend) {
+      const part = o.planned_usd * hqRate * pct(v.pct);
+      const take = Math.min(part, Math.max(0, used));
+      used -= take;
+      const left = part - take;
+      if (left > 0.5) out.push({ kind: 'so_vendor', ref: `${o.so_name} · ${o.rfq_number}`, partner: o.customer, date: clamp(v.month), sign: -1, amount_inr: left, amount_usd: hqRate ? left / hqRate : 0 });
+    }
   }
   return out;
 }
@@ -187,7 +249,7 @@ export function fyBounds(today: string) {
 }
 
 // ---------- Cash flow table ----------
-export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'manual_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out' | 'manual_out';
+export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'manual_in' | 'po' | 'so_vendor' | 'bill' | 'overhead' | 'pipeline_out' | 'manual_out';
 export const CASH_ROWS: { key: CashRowKey; label: string; dir: 1 | -1 }[] = [
   { key: 'so', label: 'Pending SOs (customer)', dir: 1 },
   { key: 'invoice', label: 'Open customer invoices', dir: 1 },
@@ -196,6 +258,7 @@ export const CASH_ROWS: { key: CashRowKey; label: string; dir: 1 | -1 }[] = [
   { key: 'pipeline_repeat_in', label: 'Pipeline inflows, repeat orders (weighted)', dir: 1 },
   { key: 'manual_in', label: 'Manual income', dir: 1 },
   { key: 'po', label: 'Pending POs & RFQs', dir: -1 },
+  { key: 'so_vendor', label: 'Booked SOs, vendor costs not on POs yet', dir: -1 },
   { key: 'bill', label: 'Open vendor bills', dir: -1 },
   { key: 'overhead', label: 'Overhead (non-PO)', dir: -1 },
   { key: 'pipeline_out', label: 'Pipeline vendor costs (weighted)', dir: -1 },

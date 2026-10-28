@@ -33,6 +33,10 @@ export type InquiryProjection = {
   vendor_balance_pct: number | null;
   vendor_balance_month: string | null;
   notes: string | null;
+  /** Odoo sales order number once the inquiry is booked (only the number is kept). */
+  odoo_so_name?: string | null;
+  /** Ticked when every PO for the order is in Odoo: its leftover planned vendor cost stops counting. */
+  all_pos_placed?: boolean | null;
 };
 
 /** Team-wide projection defaults (Settings → Projections). Loaded once, cached in-module. */
