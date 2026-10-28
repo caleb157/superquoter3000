@@ -16,7 +16,11 @@ export type SnapshotSO = Money & {
   /** True when every linked MO is 'done' in Odoo (older snapshots: undefined). */
   all_mos_done?: boolean; mos_done_date?: string | null;
 };
-export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
+export type CashItem = Money & { kind: 'so' | 'so_deposit' | 'transit_in' | 'transit_out' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean;
+  /** Pending SOs: uninvoiced total before any credit, the SO's date and Customer Reference, and
+   *  payments matched to it by the PO number in their memo (newer snapshots only). */
+  gross_inr?: number; gross_usd?: number; so_date?: string | null; customer_ref?: string | null; paid_by_ref_inr?: number; paid_by_ref?: string[];
+  deposit_pct?: number; so_part?: 'deposit' | 'balance' };
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
@@ -163,6 +167,40 @@ export function pipelineCashItems(pipe: PipelineInquiry[], hqRate: number, today
   return out;
 }
 
+/** Splits each pending SO into the customer deposit (due now: it's owed once the PO is in) and the
+ *  balance on its delivery date. The deposit % is the linked inquiry's (odoo_so_name): the DKT→PV
+ *  advance when another entity sells, else the customer deposit; unlinked SOs use the Settings default.
+ *  Money already received (payments matched by PO number, then the partner's other credit) pays the
+ *  deposit first, the balance after. */
+export function splitPendingSos(items: CashItem[], opts: {
+  today: string; pvEntityId: string | null; defaults: { custDeposit: number; ieDeposit: number };
+  projBySo: Record<string, any>;
+}): CashItem[] {
+  return items.flatMap(it => {
+    if (it.kind !== 'so' || it.so_part) return [it];
+    const p = opts.projBySo[it.ref];
+    const viaOther = !!(p?.selling_entity_id && opts.pvEntityId && p.selling_entity_id !== opts.pvEntityId);
+    const raw = p ? (viaOther ? p.ie_deposit_pct : p.cust_deposit_pct) : null;
+    const dep = Math.min(1, Math.max(0, raw != null ? pct(Number(raw)) : viaOther ? opts.defaults.ieDeposit : opts.defaults.custDeposit));
+    const covered = it.advance_applied_inr || 0;
+    const grossInr = it.gross_inr ?? it.amount_inr + covered;
+    if (!dep || grossInr <= 0) return [it];
+    const usdPerInr = it.gross_usd != null && it.gross_inr ? it.gross_usd / it.gross_inr : it.amount_inr ? it.amount_usd / it.amount_inr : 0;
+    const depInr = grossInr * dep;
+    const depCovered = Math.min(covered, depInr), balCovered = covered - depCovered;
+    const part = (so_part: 'deposit' | 'balance', inr: number, applied: number, date: string): CashItem => ({
+      ...it, kind: so_part === 'deposit' ? 'so_deposit' : 'so', so_part, deposit_pct: dep, date,
+      ref: `${it.ref} · ${so_part === 'deposit' ? `deposit ${Math.round(dep * 100)}%` : 'balance'}`,
+      amount_inr: inr <= 0.5 ? 0 : inr, amount_usd: inr <= 0.5 ? 0 : inr * usdPerInr,
+      advance_applied_inr: applied || undefined, advance_covered: inr <= 0.5 && applied > 0 ? true : undefined,
+    });
+    return [
+      part('deposit', depInr - depCovered, depCovered, opts.today),
+      part('balance', grossInr - depInr - balCovered, balCovered, it.date),
+    ];
+  });
+}
+
 /** Manual entries typed under the cash flow chart, as cash items (spread ones split per month). */
 export function manualCashItems(entries: ManualEntry[], months: string[], inrPerUsd: number): CashItem[] {
   return entries.flatMap(e => spreadEntry(e, months).map(({ month, amount }) => {
@@ -188,14 +226,17 @@ export function fyBounds(today: string) {
 }
 
 // ---------- Cash flow table ----------
-export type CashRowKey = 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'manual_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out' | 'manual_out';
+export type CashRowKey = 'transit_in' | 'so_deposit' | 'so' | 'invoice' | 'igst' | 'pipeline_in' | 'pipeline_repeat_in' | 'manual_in' | 'po' | 'bill' | 'overhead' | 'pipeline_out' | 'manual_out' | 'transit_out';
 export const CASH_ROWS: { key: CashRowKey; label: string; dir: 1 | -1 }[] = [
-  { key: 'so', label: 'Pending SOs (customer)', dir: 1 },
+  { key: 'transit_in', label: 'Advances received, not yet in bank', dir: 1 },
+  { key: 'so_deposit', label: 'Customer deposits due (booked SOs)', dir: 1 },
+  { key: 'so', label: 'Booked SO balances (at delivery)', dir: 1 },
   { key: 'invoice', label: 'Open customer invoices', dir: 1 },
   { key: 'igst', label: 'IGST refunds (178)', dir: 1 },
   { key: 'pipeline_in', label: 'Pipeline inflows, new (weighted)', dir: 1 },
   { key: 'pipeline_repeat_in', label: 'Pipeline inflows, repeat orders (weighted)', dir: 1 },
   { key: 'manual_in', label: 'Manual income', dir: 1 },
+  { key: 'transit_out', label: 'Payments sent, not yet cleared', dir: -1 },
   { key: 'po', label: 'Pending POs & RFQs', dir: -1 },
   { key: 'bill', label: 'Open vendor bills', dir: -1 },
   { key: 'overhead', label: 'Overhead (non-PO)', dir: -1 },

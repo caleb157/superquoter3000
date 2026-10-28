@@ -56,6 +56,11 @@ const num = (v: any) => (v == null || v === false ? 0 : Number(v) || 0);
 const d10 = (v: any) => (v ? String(v).slice(0, 10) : null);
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const addDays = (s: string, n: number) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+/** Customer PO numbers in a memo or reference ("P00038", "PO1093"), normalised so P00038 = P38 = PO38.
+ *  P0102/P0103 are RBI purpose codes on every bank memo, not PO numbers. */
+const poRefTokens = (s: string) => [...String(s).toUpperCase().matchAll(/\bP(?:O)?[-\s]?0*(\d{2,})\b/g)]
+  .filter(m => !/^P010[0-9]$/.test(m[0].replace(/\s|-/g, '')))
+  .map(m => 'P' + m[1]);
 const maxDate = (...xs: (string | null)[]) => xs.filter(Boolean).sort().pop() ?? null;
 
 Deno.serve(async (req) => {
@@ -100,11 +105,20 @@ Deno.serve(async (req) => {
     };
 
     // --- partner advances (customer credit<0 = advance; vendor debit<0 = advance) ---
+    // Items carry the commercial partner's id: an SO booked to a contact (e.g. "DKT, Caleb Quinones")
+    // has no balance of its own; the company holds it.
     const advanceCache = new Map<number, { cust: number; vend: number }>();
+    const commercialOf = new Map<number, number>();
+    const company = (pid: number | null) => (pid ? commercialOf.get(pid) ?? pid : pid);
     async function loadAdvances(pids: number[]) {
-      const need = pids.filter(p => p && !advanceCache.has(p));
-      if (!need.length) return;
       try {
+        const newPids = [...new Set(pids.filter(p => p && !commercialOf.has(p)))];
+        if (newPids.length) {
+          const rows = await sr('res.partner', [['id', 'in', newPids]], ['commercial_partner_id'], { context: { active_test: false } });
+          for (const r of rows) commercialOf.set(r.id, id(r.commercial_partner_id) ?? r.id);
+        }
+        const need = [...new Set(pids.map(company))].filter(p => p && !advanceCache.has(p)) as number[];
+        if (!need.length) return;
         const rows = await sr('res.partner', [['id', 'in', need]], ['credit', 'debit'], { context: { active_test: false } });
         for (const r of rows) advanceCache.set(r.id, { cust: Math.max(0, -num(r.credit)), vend: Math.max(0, -num(r.debit)) });
       } catch (e) { warnings.push('Partner balances: ' + e.message); }
@@ -114,13 +128,14 @@ Deno.serve(async (req) => {
       const byPartner = new Map<number, any[]>();
       for (const it of items) { if (!byPartner.has(it.partner_id)) byPartner.set(it.partner_id, []); byPartner.get(it.partner_id)!.push(it); }
       for (const [pid, list] of byPartner) {
-        let leftInr = advanceCache.get(pid)?.[key] ?? 0;
+        // Payments already matched to an item by its PO reference come out of the pool first.
+        let leftInr = Math.max(0, (advanceCache.get(pid)?.[key] ?? 0) - list.reduce((s, it) => s + (it.advance_applied_inr || 0), 0));
         list.sort((a, b) => a.date.localeCompare(b.date));
         for (const it of list) {
           if (leftInr <= 0) break;
           const take = Math.min(leftInr, it.amount_inr);
           const ratio = it.amount_inr > 0 ? take / it.amount_inr : 0;
-          it.advance_applied_inr = take;
+          it.advance_applied_inr = (it.advance_applied_inr || 0) + take;
           it.amount_inr -= take;
           it.amount_usd -= it.amount_usd * ratio;
           leftInr -= take;
@@ -134,7 +149,7 @@ Deno.serve(async (req) => {
     const since = addDays(today, -730);
     const sos = await sr('sale.order', [['state', 'in', ['sale', 'done']], ['date_order', '>=', since + ' 00:00:00']],
       ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'currency_id', 'currency_rate', 'invoice_status',
-        'delivery_status', 'commitment_date', 'expected_date', 'effective_date', 'signed_on', 'project_id', 'state', 'x_studio_original_delivery_date'],
+        'delivery_status', 'commitment_date', 'expected_date', 'effective_date', 'signed_on', 'project_id', 'state', 'x_studio_original_delivery_date', 'client_order_ref'],
       { order: 'date_order desc', limit: 2000 });
 
     // MOs linked by project or origin
@@ -220,13 +235,45 @@ Deno.serve(async (req) => {
         agg.set(id(l.order_id), a);
       }
       await loadAdvances(openSos.map(o => id(o.partner_id)));
+      // Deposits arrive as unmatched customer payments whose memo starts with the customer's PO
+      // number, the same number as the SO's Customer Reference (e.g. "P00038 UTC …" ↔ "P00038 Urban Tribes").
+      const paidByRef = new Map<string, { inr: number; names: string[] }>();
+      try {
+        const companies = [...new Set(openSos.map(o => company(id(o.partner_id))).filter(Boolean))];
+        const pays = companies.length ? await sr('account.payment', [['partner_id', 'child_of', companies], ['payment_type', '=', 'inbound'],
+          ['state', 'in', ['in_process', 'paid']], ['is_reconciled', '=', false]],
+          ['name', 'memo', 'ref', 'amount', 'amount_company_currency_signed', 'currency_id', 'partner_id'], { limit: 2000 }) : [];
+        for (const pay of pays) {
+          const inr = Math.abs(num(pay.amount_company_currency_signed)) || money(num(pay.amount), nm(pay.currency_id), 0).inr;
+          for (const tok of poRefTokens(`${pay.memo || ''} ${pay.ref || ''}`)) {
+            const k = `${company(id(pay.partner_id))}|${tok}`;
+            const e = paidByRef.get(k) || { inr: 0, names: [] }; e.inr += inr; e.names.push(pay.name); paidByRef.set(k, e);
+            break; // a payment counts toward its first PO number only
+          }
+        }
+      } catch (e) { warnings.push('Customer deposits: ' + e.message); }
       const items: any[] = [];
       for (const [oid, a] of agg) {
         const o = soById.get(oid)!; const cur = nm(o.currency_id) || 'INR';
         const g = money(a.gross, cur, num(o.currency_rate)), n = money(a.net, cur, num(o.currency_rate));
         let date = maxDate(d10(o.commitment_date) || d10(o.expected_date), d10(o.signed_on)) || today;
         if (date < today) date = today;
-        items.push({ kind: 'so', ref: o.name, partner: nm(o.partner_id), partner_id: id(o.partner_id), date, amount_inr: g.inr, amount_usd: g.usd, sign: 1 });
+        const pid = company(id(o.partner_id));
+        const item: any = { kind: 'so', ref: o.name, partner: nm(o.partner_id), partner_id: pid, date, so_date: d10(o.date_order), customer_ref: o.client_order_ref || null,
+          gross_inr: g.inr, gross_usd: g.usd, amount_inr: g.inr, amount_usd: g.usd, sign: 1 };
+        // Payments that name this SO's PO number are applied to it before the partner's other credit.
+        for (const tok of poRefTokens(o.client_order_ref || '')) {
+          const e = paidByRef.get(`${pid}|${tok}`);
+          if (!e || e.inr <= 0) continue;
+          const take = Math.min(e.inr, item.amount_inr);
+          if (take <= 0) break;
+          e.inr -= take;
+          item.amount_usd -= item.amount_inr > 0 ? item.amount_usd * (take / item.amount_inr) : 0;
+          item.amount_inr -= take;
+          item.advance_applied_inr = take; item.paid_by_ref_inr = take; item.paid_by_ref = e.names;
+          break;
+        }
+        items.push(item);
         pendingSoRevenue.push({ ref: o.name, partner: nm(o.partner_id), date, amount_inr: n.inr, amount_usd: n.usd });
       }
       cash.push(...waterfall(items, 'cust'));
@@ -254,7 +301,7 @@ Deno.serve(async (req) => {
         const p = poById.get(pid)!; const cur = nm(p.currency_id) || 'INR';
         const m = money(amt, cur, num(p.currency_rate));
         let date = d10(p.date_planned) || tomorrow; if (date < tomorrow) date = tomorrow;
-        items.push({ kind: 'po', ref: p.name + (p.state !== 'purchase' ? ' (RFQ)' : ''), partner: nm(p.partner_id), partner_id: id(p.partner_id), date, amount_inr: m.inr, amount_usd: m.usd, sign: -1 });
+        items.push({ kind: 'po', ref: p.name + (p.state !== 'purchase' ? ' (RFQ)' : ''), partner: nm(p.partner_id), partner_id: company(id(p.partner_id)), date, amount_inr: m.inr, amount_usd: m.usd, sign: -1 });
       }
       cash.push(...waterfall(items, 'vend'));
     } catch (e) { warnings.push('Pending POs: ' + e.message); }
@@ -325,6 +372,23 @@ Deno.serve(async (req) => {
         openingCashInr = ls.reduce((s, l) => s + num(l.balance), 0);
       } else warnings.push('Opening cash: no asset_cash accounts found');
     } catch (e) { warnings.push('Opening cash: ' + e.message); }
+
+    // ================= Payments not yet in the bank =================
+    // A payment recorded in Odoo but not yet matched to a bank statement sits in Outstanding
+    // Receipts / Payments, not in a cash account, while it already reduces what the partner owes.
+    // Count those balances as cash this month so the money doesn't drop out of the forecast.
+    try {
+      const accts = await sr('account.account', ['|', ['name', 'ilike', 'Outstanding Receipts'], ['name', 'ilike', 'Outstanding Payments']], ['id', 'code', 'name', 'current_balance']);
+      const pending = await sr('account.payment', [['state', '=', 'in_process'], ['is_matched', '=', false]], ['name', 'payment_type', 'partner_id', 'memo'], { limit: 200 });
+      for (const a of accts) {
+        const bal = num(a.current_balance);
+        if (Math.abs(bal) < 0.5) continue;
+        const receipts = /receipt/i.test(a.name);
+        const names = pending.filter(p => p.payment_type === (receipts ? 'inbound' : 'outbound')).map(p => [nm(p.partner_id), p.memo].filter(Boolean).join(' '));
+        cash.push({ kind: receipts ? 'transit_in' : 'transit_out', ref: `${a.code ? a.code + ' ' : ''}${a.name}`, partner: names.slice(0, 6).join(' · ') || null, date: today,
+          amount_inr: Math.abs(bal), amount_usd: inrPerUsd ? Math.abs(bal) / inrPerUsd : 0, sign: bal >= 0 ? 1 : -1 });
+      }
+    } catch (e) { warnings.push('Outstanding receipts/payments: ' + e.message); }
 
     // ================= Overhead (account tag) =================
     let overheadMonthly = { inr: 0, months: overheadMonths, history: {} as Record<string, number> };
