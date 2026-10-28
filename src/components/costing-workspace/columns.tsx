@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, bucketLines, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  EDITABLE_BUCKETS, bucketLines, linePrice, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation, stepTotals,
   type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
@@ -104,6 +104,26 @@ function BucketParts({ row, b, bucketKey }: { row: WorkspaceRow; b: Bundle; buck
           <div key={l.id} className="flex gap-1" title={`${l.component_name || l.cogs_type}: ${qty} × ${inr(Number(l.unit_cost_inr) || 0, 2)}`}>
             <span className="shrink-0 tabular-nums">{qty} ×</span>
             <span className={cn('truncate', unnamed && 'italic opacity-70')}>{unnamed ? 'no name' : l.component_name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The raw piece costs behind the total, one per line: name, then ₹ per unit as quoted (before waste). */
+function RawParts({ row, b }: { row: WorkspaceRow; b: Bundle }) {
+  const lines = bucketLines(b, row.p.id, 'raw_piece');
+  if (!lines.length) return null;
+  return (
+    <div className="space-y-px pb-1 pl-2 pr-2 text-left text-[11px] leading-tight text-muted-foreground">
+      {lines.map(l => {
+        const unnamed = !l.component_name || l.component_name === l.cogs_type;
+        const name = unnamed ? (l.vendor_name || 'no name') : l.component_name;
+        return (
+          <div key={l.id} className="flex gap-1" title={[name, l.vendor_name && !unnamed ? l.vendor_name : null, inr(linePrice(l), 2)].filter(Boolean).join(' · ')}>
+            <span className={cn('min-w-0 flex-1 truncate', unnamed && !l.vendor_name && 'italic opacity-70')}>{name}</span>
+            <span className="shrink-0 tabular-nums">{inr(linePrice(l))}</span>
           </div>
         );
       })}
@@ -412,7 +432,9 @@ export const BANDS: Band[] = [
     summary: [cogsTotalCol],
     items: [
       sourceCol, outsourcedCol,
-      bucketCol('raw_piece', 'Raw piece'),
+      { id: 'raw', label: 'Raw piece', hint: 'Open to see each raw piece cost that is ticked, with its name and price',
+        summary: [bucketCol('raw_piece', 'Raw piece')],
+        items: [{ ...bucketCol('raw_piece', 'Raw piece', 200), detail: (r: WorkspaceRow, b: Bundle) => <RawParts row={r} b={b} /> }] },
       bucketCol('subcontract', 'Subcontract'),
       ro('outs', 'Outsourced ₹', r => (r.buckets.outsourced ? inr(r.buckets.outsourced) : dash)),
       { id: 'hardware', label: 'Hardware', hint: 'Per-unit hardware and accessories by type, with the parts behind each total',

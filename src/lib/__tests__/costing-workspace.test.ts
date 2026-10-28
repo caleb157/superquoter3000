@@ -3,7 +3,7 @@
 // cheapest quote) — all measured through the same engine the costing sheet uses.
 import { describe, expect, it } from 'vitest';
 import {
-  DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType,
+  DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType, toggleQuote,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
   chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
@@ -95,6 +95,18 @@ describe('costing workspace', () => {
     // A new quote on a SKU that already has a winner does not displace it.
     const m2 = setQuote(m.next, 'a', 2, { vendor_name: 'SK', unit_cost_inr: 10 });
     expect(byId(m2.next, 'a').quotes.filter(q => q.winner)).toHaveLength(1);
+  });
+
+  it('quotes: ticking several raw piece costs adds them up', () => {
+    const b0 = bundle();
+    const a0 = byId(b0, 'a');
+    const both = byId(toggleQuote(b0, 'a', 1).next, 'a');
+    expect(both.quotes.map(q => q.winner)).toEqual([true, true]);
+    expect(both.editBuckets.raw_piece).toBeCloseTo(a0.quotes[0].price + a0.quotes[1].price, 6);
+    expect(both.rawVendor.split(', ').sort()).toEqual([...new Set(a0.quotes.map(q => q.vendor))].sort());
+    expect(both.costInr).toBeGreaterThan(a0.costInr);
+    const onlySecond = byId(toggleQuote(toggleQuote(b0, 'a', 1).next, 'a', 0).next, 'a');
+    expect(onlySecond.quotes.map(q => q.winner)).toEqual([false, true]);
   });
 });
 

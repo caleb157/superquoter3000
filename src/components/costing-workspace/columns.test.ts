@@ -31,6 +31,9 @@ describe('costing grid steps', () => {
     expect(hw).toContain('bucket:hw_feet');
     expect(hw).toContain('ic_w');
     expect(new Set(hw).size).toBe(hw.length);
+    // Raw piece folds to its total and opens to the costs behind it.
+    expect(layout({ cogs: true }).find(c => c.id === 'bucket:raw_piece')!.detail).toBeUndefined();
+    expect(layout({ cogs: true, raw: true }).find(c => c.id === 'bucket:raw_piece')!.detail).toBeDefined();
   });
 
   it('every field has one home', () => {

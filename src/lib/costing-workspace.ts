@@ -211,7 +211,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     buckets.shipping = r.shippingPerUnit + freight;
 
     const quotes = quotesFor(myCogs);
-    const winner = quotes.find(q => q.winner);
+    const rawVendors = [...new Set(quotes.filter(q => q.winner && q.vendor).map(q => q.vendor))];
     const shipItem = b.shipItems.find(s => s.product_id === p.id);
     const shipId = b.inq?.shipping_type_id_override || shipItem?.shipping_type_id || null;
     const costInr = r.summary.product_cost_per_unit_inr;
@@ -242,7 +242,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       cbmRow: b.cbm.find(c => c.product_id === p.id) || null,
       qty: Number(p.quantity) || 0,
       buckets, editBuckets, quotes,
-      rawVendor: winner?.vendor || '',
+      rawVendor: rawVendors.join(', '),
       shippingId: shipId,
       shippingName: shipId ? ((shipTypeById.get(shipId) as any)?.name || '—') : '—',
       costInr, priceInr, cur, price,
@@ -577,7 +577,7 @@ export function scaleBucket(b: Bundle, ids: string[], bucketKey: string, pct: nu
   return cogsMutation(b, updates, []);
 }
 
-// ----- Vendor quotes (raw piece slots, one winner) -----
+// ----- Vendor quotes (raw piece slots; every ticked slot counts, so costs can add up) -----
 
 export function setQuote(b: Bundle, productId: string, slot: number, patch: { vendor_name?: string | null; unit_cost_inr?: number }): Mutation {
   const quotes = quotesFor(b.cogs.filter(c => c.product_id === productId));
@@ -596,6 +596,13 @@ export function setQuote(b: Bundle, productId: string, slot: number, patch: { ve
   }]);
 }
 
+/** Ticks or unticks one raw piece slot; the costing adds up every ticked slot. */
+export function toggleQuote(b: Bundle, productId: string, slot: number): Mutation {
+  const q = quotesFor(b.cogs.filter(c => c.product_id === productId))[slot];
+  return cogsMutation(b, q?.line ? [{ id: q.line.id, patch: { include: q.winner ? 'No' : 'Yes' } }] : [], []);
+}
+
+/** Makes one slot the only ticked one. */
 export function chooseQuote(b: Bundle, productId: string, slot: number): Mutation {
   const quotes = quotesFor(b.cogs.filter(c => c.product_id === productId));
   const updates = quotes.filter(q => q.line).map(q => ({ id: q.line!.id, patch: { include: q.slot === slot ? 'Yes' : 'No' } }))
