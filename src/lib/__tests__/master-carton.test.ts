@@ -71,7 +71,8 @@ describe('packed CBM uses the same plan', () => {
     const args = { product, cbmRow, boxData: [], productType: null, globalSettings: { mc_height_buffer_inch: 2.5 } };
     const plan = productMasterCartonPlan(args);
     expect(plan.pieces).toBe(16);
-    const vol = (plan.mc.width * plan.mc.depth * plan.mc.height) / 61020;
+    // No Box prices rows, so the 7 ply board adds its standard thickness to the master carton's outside.
+    const vol = ((plan.mc.width + 0.375) * (plan.mc.depth + 0.375) * (plan.mc.height + 1.25)) / 61020;
     expect(computePackagedUnitCbm(args)).toBeCloseTo(vol / 16, 8);
   });
 });

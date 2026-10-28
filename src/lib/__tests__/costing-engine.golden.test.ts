@@ -69,7 +69,11 @@ function legacyComputeOne(args: {
       mc_buffer_inch: cbmRow?.mc_buffer_inch || 1, mc_height_buffer_inch: cbmRow?.mc_height_buffer_inch ?? gs?.mc_height_buffer_inch ?? 2.5,
       mc_weight_limit_kg: cbmRow?.mc_weight_limit_kg || 20, mc_empty_weight_kg: cbmRow?.mc_empty_weight_kg || 1.5,
       product_weight_kg: p.weight_kg || 0, quantity: qty, products_per_ic: productsPerIc,
-      ic_width: icDims.ic_width, ic_depth: icDims.ic_depth, ic_height: icDims.ic_height,
+      // The master carton holds the inner carton's outside (inside + board thickness).
+      ...(() => {
+        const od = calc.calcIcOd(icDims.ic_width, icDims.ic_depth, icDims.ic_height, calc.getBoxOdOffsets(boxData, icType));
+        return { ic_width: od.ic_od_width, ic_depth: od.ic_od_depth, ic_height: od.ic_od_height };
+      })(),
     });
     const mcBoxes = boxData.filter((b: any) => b.box_type === mcType && b.cost_per_sq_in > 0);
     const avgMc = mcBoxes.length ? mcBoxes.reduce((s, b) => s + b.cost_per_sq_in, 0) / mcBoxes.length : 0;
