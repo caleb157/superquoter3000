@@ -9,13 +9,15 @@ export function loadProjectionDefaults(force = false): Promise<ProjectionDefault
   loading = (async () => {
     const { data } = await (supabase as any)
       .from('global_settings')
-      .select('default_certainty_pct, default_repeat_certainty_pct, default_cust_deposit_pct, default_ie_deposit_pct')
+      // '*' so a database without default_vendor_deposit_pct yet still loads the other defaults.
+      .select('*')
       .limit(1).maybeSingle();
     if (data) setProjectionDefaults({
       certainty: Number(data.default_certainty_pct ?? 0.3),
       repeatCertainty: Number(data.default_repeat_certainty_pct ?? 0.8),
       custDeposit: Number(data.default_cust_deposit_pct ?? 0.3),
       ieDeposit: Number(data.default_ie_deposit_pct ?? 0.8),
+      vendorDeposit: Number(data.default_vendor_deposit_pct ?? 0.5),
     });
     return getProjectionDefaults();
   })();

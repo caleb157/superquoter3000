@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildPipeline, pipelineCashItems } from './master-analytics';
 
-const opts = { today: '2026-10-26', pvEntityId: 'pv', defaults: { custDeposit: 0.3, ieDeposit: 0.8 }, live: { a: { fob_usd: 10000, gpm: 0.25, man_hours: 0 } } };
+const opts = { today: '2026-10-26', pvEntityId: 'pv', defaults: { custDeposit: 0.3, ieDeposit: 0.8, vendorDeposit: 0.5 }, live: { a: { fob_usd: 10000, gpm: 0.25, man_hours: 0 } } };
 const inquiry = (p: any) => ({ id: 'a', rfq_number: 'RFQ-1', status: 'active', products: [], inquiry_projections: { certainty_override: 1, ...p } });
 const months = (p: any) => {
   const items = pipelineCashItems(buildPipeline([inquiry(p)], opts), 90, opts.today);
@@ -23,5 +23,11 @@ describe('pipeline cash months', () => {
   it('follows the inter-entity schedule when another entity sells', () => {
     const m = months({ selling_entity_id: 'dkt', ie_deposit_month: '2027-01-01', ie_balance_month: '2027-05-01', vendor_deposit_month: '2026-11-01' });
     expect(m.cout).toEqual(['2027-01', '2027-05']);
+  });
+  it('splits vendor cost by the Settings default unless the inquiry has its own advance %', () => {
+    const outs = (p: any) => pipelineCashItems(buildPipeline([inquiry({ start_month: '2026-11-01', duration_months: 3, ...p })], opts), 1, opts.today)
+      .filter(i => i.kind === 'pipeline_out').map(i => Math.round(i.amount_usd));
+    expect(outs({})).toEqual([3750, 3750]);
+    expect(outs({ vendor_deposit_pct: 0.3, vendor_balance_pct: 0.7 })).toEqual([2250, 5250]);
   });
 });

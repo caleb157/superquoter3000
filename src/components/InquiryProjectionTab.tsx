@@ -47,8 +47,9 @@ const EMPTY: Partial<InquiryProjection> = {
   cust_final_pct: 0.70,
   ie_deposit_pct: 0.30,
   ie_balance_pct: 0.70,
-  vendor_deposit_pct: 0.30,
-  vendor_balance_pct: 0.70,
+  // Vendor split stays empty so the inquiry follows Settings → Projections defaults.
+  vendor_deposit_pct: null,
+  vendor_balance_pct: null,
 };
 
 export function InquiryProjectionTab({ inquiryId }: Props) {
@@ -62,9 +63,9 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const [autoFob, setAutoFob] = useState<number>(0);
   const [autoGpm, setAutoGpm] = useState<number>(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [defaults, setDefaults] = useState({ custDeposit: 0.3, ieDeposit: 0.8 });
+  const [defaults, setDefaults] = useState({ custDeposit: 0.3, ieDeposit: 0.8, vendorDeposit: 0.5 });
   useEffect(() => {
-    loadProjectionDefaults().then(d => setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit })).catch(() => {});
+    loadProjectionDefaults().then(d => setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit, vendorDeposit: d.vendorDeposit })).catch(() => {});
   }, []);
   // The clock strip above the tabs can flip the repeat flag too (and creates the projection row if needed).
   useEffect(() => {
@@ -153,7 +154,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
         }
       } else {
         const d = await loadProjectionDefaults();
-        setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit });
+        setDefaults({ custDeposit: d.custDeposit, ieDeposit: d.ieDeposit, vendorDeposit: d.vendorDeposit });
         setProj({ inquiry_id: inquiryId, ...EMPTY, cust_deposit_pct: d.custDeposit, cust_final_pct: 1 - d.custDeposit, ie_deposit_pct: d.ieDeposit, ie_balance_pct: 1 - d.ieDeposit });
         setExisted(false);
       }
@@ -222,6 +223,8 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const sellingRetentionPct = Number(proj?.selling_retention_pct || 0);
   const ieTotal = fob * (1 - sellingRetentionPct);
   const vendorTotal = fob * (1 - gpm);
+  const vendorDep = proj?.vendor_deposit_pct != null ? Number(proj.vendor_deposit_pct) : defaults.vendorDeposit;
+  const vendorBal = proj?.vendor_deposit_pct != null && proj?.vendor_balance_pct != null ? Number(proj.vendor_balance_pct) : 1 - vendorDep;
 
   const showIE = !!(
     proj?.selling_entity_id &&
@@ -282,17 +285,17 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       amount: ieTotal * Number(proj.ie_balance_pct),
     });
   }
-  if (proj?.vendor_deposit_pct) scheduleRows.push({
+  if (vendorDep) scheduleRows.push({
     group: 'Vendor',
-    label: `Deposit (${Math.round(Number(proj.vendor_deposit_pct) * 100)}%)`,
-    month: proj.vendor_deposit_month,
-    amount: vendorTotal * Number(proj.vendor_deposit_pct),
+    label: `Advance (${Math.round(vendorDep * 100)}%)`,
+    month: proj?.vendor_deposit_month,
+    amount: vendorTotal * vendorDep,
   });
-  if (proj?.vendor_balance_pct) scheduleRows.push({
+  if (vendorBal) scheduleRows.push({
     group: 'Vendor',
-    label: `Balance (${Math.round(Number(proj.vendor_balance_pct) * 100)}%)`,
-    month: proj.vendor_balance_month,
-    amount: vendorTotal * Number(proj.vendor_balance_pct),
+    label: `Balance (${Math.round(vendorBal * 100)}%)`,
+    month: proj?.vendor_balance_month,
+    amount: vendorTotal * vendorBal,
   });
   if (proj?.paying_shipping && ship.cost) {
     scheduleRows.push({
@@ -417,6 +420,24 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               />
               <p className="text-[11px] text-muted-foreground mt-1">
                 Final: {Math.round(Math.max(0, 1 - Number(proj?.cust_deposit_pct ?? defaults.custDeposit) - (Number(proj?.cust_other_pct) || 0)) * 100)}%
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Vendor advance %</Label>
+              <Input
+                type="number" step="1" min={0} max={100}
+                placeholder={`Default: ${Math.round(defaults.vendorDeposit * 100)}%`}
+                value={pct(proj?.vendor_deposit_pct)}
+                onChange={e => setField({ vendor_deposit_pct: parsePct(e.target.value) })}
+                onBlur={e => {
+                  // Empty clears the override so the inquiry follows the Settings default again.
+                  const d = parsePct(e.target.value);
+                  persist({ vendor_deposit_pct: d == null ? null : Math.max(0, Math.min(1, d)), vendor_balance_pct: d == null ? null : Math.max(0, 1 - d) });
+                }}
+                className="h-9 mt-1"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Balance: {Math.round(vendorBal * 100)}%{proj?.vendor_deposit_pct == null ? ' · following the default' : ''}
               </p>
             </div>
           </div>
@@ -620,7 +641,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
               </div>
             )}
             <p className="text-[11px] text-muted-foreground mt-2">
-              Months auto-derive from start + duration. Customer and inter-entity deposit % are editable above; balance = 100% − deposit.
+              Months auto-derive from start + duration. Customer deposit, vendor advance and inter-entity deposit % are editable above; balance = 100% − deposit.
             </p>
           </div>
         </CardContent>

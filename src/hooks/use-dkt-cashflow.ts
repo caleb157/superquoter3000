@@ -60,13 +60,13 @@ export type DktData = {
   skus: AmazonSku[];
   dktEntityName: string | null;
   odooTerms: OdooTerms[];
-  defaults: { custDeposit: number; ieDeposit: number };
+  defaults: { custDeposit: number; ieDeposit: number; vendorDeposit: number };
 };
 
 const num = (v: any, d = 0) => (v == null || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
 export const monthToDate = (m: Month | null) => (m ? `${m}-01` : null);
 
-function mapOrders(inqs: any[], statusRows: any[], live: Record<string, { fob_usd: number }>, settings: DktSettings, defaults: { custDeposit: number; ieDeposit: number }, thisMonth: Month) {
+function mapOrders(inqs: any[], statusRows: any[], live: Record<string, { fob_usd: number }>, settings: DktSettings, defaults: { custDeposit: number; ieDeposit: number; vendorDeposit: number }, thisMonth: Month) {
   const st = new Map(statusRows.map((r: any) => [r.inquiry_id, r]));
   const meta: Record<string, OrderMeta> = {};
   const orders: DktOrder[] = inqs.map(i => {
