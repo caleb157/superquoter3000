@@ -11,12 +11,13 @@ const FIELDS = [
   { col: 'default_repeat_certainty_pct', label: 'Repeat order certainty %', help: 'Used instead of the default for inquiries marked as a repeat order, unless they have their own certainty.' },
   { col: 'default_cust_deposit_pct', label: 'Default customer deposit %', help: 'Customer advance when Parable Ventures sells directly. The rest is paid in the shipping month.' },
   { col: 'default_ie_deposit_pct', label: 'Default inter-entity deposit %', help: 'Advance DKT pays Parable Ventures when DKT is the selling entity. The rest is paid in the shipping month.' },
-] as const;
+  { col: 'default_vendor_deposit_pct', label: 'Default vendor advance %', help: 'Share of the vendor cost we pay up front, in the deposit month. The balance is paid in the shipping month.', fallback: 0.5 },
+] as const satisfies readonly { col: string; label: string; help: string; fallback?: number }[];
 
 export default function ProjectionDefaultsSettings() {
   const [row, setRow] = useState<any>(null);
   useEffect(() => {
-    (supabase as any).from('global_settings').select('id, default_certainty_pct, default_repeat_certainty_pct, default_cust_deposit_pct, default_ie_deposit_pct').limit(1).maybeSingle()
+    (supabase as any).from('global_settings').select('*').limit(1).maybeSingle()
       .then(({ data }: any) => setRow(data));
   }, []);
 
@@ -37,11 +38,11 @@ export default function ProjectionDefaultsSettings() {
         <CardTitle>Projections defaults</CardTitle>
         <CardDescription>Used by the analytics projections and as starting values in each inquiry's Projections tab. Any inquiry can override them.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+      <CardContent className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
         {FIELDS.map(f => (
           <div key={f.col} className="space-y-1.5">
             <Label className="text-xs">{f.label}</Label>
-            <Input type="number" min={0} max={100} step={1} defaultValue={Math.round(Number(row[f.col]) * 100)} onBlur={e => save(f.col, e.target.value)} className="h-9" />
+            <Input type="number" min={0} max={100} step={1} defaultValue={Math.round(Number(row[f.col] ?? ('fallback' in f ? f.fallback : 0)) * 100)} onBlur={e => save(f.col, e.target.value)} className="h-9" />
             <p className="text-[11px] text-muted-foreground">{f.help}</p>
           </div>
         ))}

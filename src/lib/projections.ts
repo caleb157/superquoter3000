@@ -36,8 +36,8 @@ export type InquiryProjection = {
 };
 
 /** Team-wide projection defaults (Settings → Projections). Loaded once, cached in-module. */
-export type ProjectionDefaults = { certainty: number; repeatCertainty: number; custDeposit: number; ieDeposit: number };
-let projectionDefaults: ProjectionDefaults = { certainty: 0.3, repeatCertainty: 0.8, custDeposit: 0.3, ieDeposit: 0.8 };
+export type ProjectionDefaults = { certainty: number; repeatCertainty: number; custDeposit: number; ieDeposit: number; vendorDeposit: number };
+let projectionDefaults: ProjectionDefaults = { certainty: 0.3, repeatCertainty: 0.8, custDeposit: 0.3, ieDeposit: 0.8, vendorDeposit: 0.5 };
 export const getProjectionDefaults = () => projectionDefaults;
 export function setProjectionDefaults(d: Partial<ProjectionDefaults>) { projectionDefaults = { ...projectionDefaults, ...d }; }
 
