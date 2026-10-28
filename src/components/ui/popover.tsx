@@ -10,7 +10,7 @@ const PopoverTrigger = PopoverPrimitive.Trigger;
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+>(({ className, align = "center", sideOffset = 4, onWheel, onTouchMove, ...props }, ref) => (
   <PopoverPrimitive.Portal>
     <PopoverPrimitive.Content
       ref={ref}
@@ -21,6 +21,10 @@ const PopoverContent = React.forwardRef<
         className,
       )}
       {...props}
+      // A popover opened from inside a Dialog is portalled outside it, and the Dialog's
+      // scroll lock then swallows wheel and touch scrolling. Keep those events here.
+      onWheel={(e) => { e.stopPropagation(); onWheel?.(e); }}
+      onTouchMove={(e) => { e.stopPropagation(); onTouchMove?.(e); }}
     />
   </PopoverPrimitive.Portal>
 ));

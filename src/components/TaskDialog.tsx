@@ -32,7 +32,11 @@ type TaskDialogProps = {
   onSaved?: () => void;
 };
 
-type Inquiry = { id: string; rfq_number: string; title: string | null; updated_at: string };
+type Inquiry = { id: string; rfq_number: string; title: string | null; status: string; updated_at: string };
+
+/** Same as the Inquiries page's default "Open" view: everything except paused, complete and cancelled. */
+const isOpenInquiry = (i: Inquiry) => i.status !== 'cancelled' && i.status !== 'complete' && i.status !== 'paused';
+
 type Customer = { id: string; name: string; company: string | null };
 type ProjectOption = { id: string; name: string; status: string };
 type ComplaintOpt = { id: string; label: string };
@@ -74,7 +78,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
     if (!open) return;
     (async () => {
       const [iRes, cRes, pRes, tRes, prRes, kRes] = await Promise.all([
-        supabase.from('customer_rfqs').select('id, rfq_number, title, updated_at').order('updated_at', { ascending: false }),
+        supabase.from('customer_rfqs').select('id, rfq_number, title, status, updated_at').order('updated_at', { ascending: false }),
         (supabase as any).from('customers').select('id, name, company').order('name'),
         (supabase as any).from('profiles').select('assignee_code'),
         supabase.from('tasks').select('assignee'),
@@ -429,16 +433,23 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                     <CommandInput placeholder={assocType === 'inquiry' ? 'Search inquiries...' : assocType === 'project' ? 'Search projects...' : 'Search customers...'} />
                     <CommandList>
                       <CommandEmpty>Nothing found.</CommandEmpty>
-                      <CommandGroup>
-                        {assocType === 'inquiry'
-                          ? inquiries.map(i => (
+                      {assocType === 'inquiry' && [
+                        { heading: 'Active and PO', items: inquiries.filter(isOpenInquiry) },
+                        { heading: 'Paused, complete and cancelled', items: inquiries.filter(i => !isOpenInquiry(i)) },
+                      ].filter(g => g.items.length > 0).map(g => (
+                        <CommandGroup key={g.heading} heading={g.heading}>
+                          {g.items.map(i => (
                             <CommandItem key={i.id} value={`${i.rfq_number} ${i.title ?? ''}`}
                               onSelect={() => { setInquiryId(i.id); setPickerOpen(false); }}>
                               <Check className={cn('mr-2 h-4 w-4', inquiryId === i.id ? 'opacity-100' : 'opacity-0')} />
                               <span className="truncate">{i.rfq_number} — {i.title || 'Untitled'}</span>
                             </CommandItem>
-                          ))
-                          : assocType === 'project'
+                          ))}
+                        </CommandGroup>
+                      ))}
+                      {assocType !== 'inquiry' && (
+                      <CommandGroup>
+                        {assocType === 'project'
                           ? projectOptions.map(p => (
                             <CommandItem key={p.id} value={`${p.name} ${p.id}`}
                               onSelect={() => { setProjectId(p.id); setPickerOpen(false); }}>
@@ -458,6 +469,7 @@ export function TaskDialog({ open, onOpenChange, taskId, context, onSaved }: Tas
                             </CommandItem>
                           ))}
                       </CommandGroup>
+                      )}
                     </CommandList>
                   </Command>
                 </PopoverContent>
