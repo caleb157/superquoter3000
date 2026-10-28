@@ -332,7 +332,7 @@ export default function CostingWorkspace() {
             {quotesMode ? (
               <>
                 <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setParam('view', null)}><ArrowLeft className="h-4 w-4" /> Back to costing</Button>
-                <span className="text-sm text-muted-foreground">COGS · raw piece quotes side by side. Pick the winner per SKU.</span>
+                <span className="text-sm text-muted-foreground">COGS · raw piece quotes side by side. Tick the costs to use per SKU; ticked costs add up.</span>
               </>
             ) : (
               <>

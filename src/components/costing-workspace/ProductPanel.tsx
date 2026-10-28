@@ -23,7 +23,7 @@ import { COGS_CATEGORY_FALLBACK, isHardwareCogsType, useCogsCategories } from '@
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
-  BUCKETS, addCogsLine, addNonUnit, chooseQuote, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
+  BUCKETS, addCogsLine, addNonUnit, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
   isDomesticFreight, pasteCogsLines, stepTotals,
 } from '@/lib/costing-workspace';
@@ -667,7 +667,7 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: Work
           </thead>
           {types.map(t => (
             <tbody key={t}>
-              {!fixed && <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ' — pick one quote' : ''}</td></tr>}
+              {!fixed && <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ` — ticked costs add up: ${inr(rawSlots.filter(l => l.include !== 'No').reduce((a, l) => a + lineValue(l), 0), 2)}` : ''}</td></tr>}
               {visible.filter(l => l.cogs_type === t).map(l => {
                 const auto = !!l.is_auto_calculated;
                 const off = l.include === 'No';
@@ -676,15 +676,7 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: Work
                 return (
                   <tr key={l.id} data-review={review || undefined} className={cn('[&>td]:py-0.5', off && 'opacity-50', review && reviewRow)}>
                     <td>
-                      {t === 'Raw Piece' ? (
-                        <button onClick={() => apply(b => chooseQuote(b, id, rawSlots.indexOf(l)))}
-                          className={cn('h-4 w-4 rounded-full border-2 grid place-items-center', !off ? 'border-primary' : 'border-muted-foreground/40 hover:border-primary')}
-                          aria-label="Use this quote">
-                          {!off && <span className="h-2 w-2 rounded-full bg-primary" />}
-                        </button>
-                      ) : (
-                        <IncludeToggle value={l.include} onChange={v => save(l.id, { include: v })} />
-                      )}
+                      <IncludeToggle value={l.include} onChange={v => save(l.id, { include: v })} />
                     </td>
                     <td className="min-w-0">
                       <div className="flex items-center gap-1 min-w-0">

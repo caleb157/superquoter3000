@@ -4,13 +4,13 @@
 // spreadsheet, Shift+arrows (or Shift+click) select a block of cells to copy, fill down
 // (Ctrl+D), clear (Delete) or paste into.
 import { useRef } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
-import { chain, chooseQuote, setQuote, type Apply, type Bundle, type Mutation, type WorkspaceRow } from '@/lib/costing-workspace';
+import { chain, setQuote, toggleQuote, type Apply, type Bundle, type Mutation, type WorkspaceRow } from '@/lib/costing-workspace';
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, focusCell, inr, moveForKey, navigate, navKeyDown, parseClipboard, parseNum, money } from './cells';
 import { BANDS, writeGrid, type Col, type LaidCol, type OpenState } from './columns';
 
@@ -327,7 +327,7 @@ function QuoteHeaders({ slots, onAdd }: { slots: number; onAdd: () => void }) {
           <TooltipContent>Add a quote column</TooltipContent>
         </Tooltip>
       </th>
-      <th className="text-right">Chosen ₹</th>
+      <th className="text-right" title="Sum of the ticked quotes">Chosen ₹</th>
       <th className="text-left">vs cheapest</th>
     </>
   );
@@ -338,7 +338,10 @@ function QuoteCells({ row, idx, rows, bundle, slots, apply }: {
 }) {
   const priced = row.quotes.filter(q => q.price > 0);
   const cheapest = priced.length ? Math.min(...priced.map(q => q.price)) : null;
-  const winner = row.quotes.find(q => q.winner);
+  const winners = row.quotes.filter(q => q.winner);
+  // One ticked quote compares against the cheapest; several are parts that add up.
+  const winner = winners.length === 1 ? winners[0] : null;
+  const chosen = winners.reduce((a, q) => a + q.price, 0);
   const pasteDown = (slot: number, field: 'vendor_name' | 'unit_cost_inr') => (lines: string[]) => apply(b => {
     let cur = b; const commits: (() => Promise<void>)[] = []; const touched: string[] = [];
     lines.forEach((raw, i) => {
@@ -366,15 +369,15 @@ function QuoteCells({ row, idx, rows, bundle, slots, apply }: {
                     data-grid="quotes" data-row={idx} data-col={`w${slot}`}
                     disabled={!q?.line}
                     onKeyDown={navKeyDown}
-                    onClick={() => apply(b => chooseQuote(b, row.p.id, slot))}
-                    className={cn('h-5 w-5 shrink-0 rounded-full border-2 grid place-items-center disabled:opacity-25',
-                      isWin ? 'border-primary' : 'border-muted-foreground/40 hover:border-primary')}
-                    aria-label={`Use quote ${slot + 1}`}
+                    onClick={() => apply(b => toggleQuote(b, row.p.id, slot))}
+                    className={cn('h-5 w-5 shrink-0 rounded border-2 grid place-items-center disabled:opacity-25',
+                      isWin ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary')}
+                    aria-label={`Use quote ${slot + 1}`} aria-pressed={isWin}
                   >
-                    {isWin && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                    {isWin && <Check className="h-3.5 w-3.5" />}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>{isWin ? 'This quote is in the costing' : 'Use this quote in the costing'}</TooltipContent>
+                <TooltipContent>{isWin ? 'In the costing. Click to take it out' : 'Add this cost to the raw piece (ticked costs add up)'}</TooltipContent>
               </Tooltip>
               <EditCell kind="text" align="left" placeholder="Vendor" value={q?.vendor ?? ''} className="flex-1 min-w-0"
                 nav={{ grid: 'quotes', row: idx, col: `v${slot}` }}
@@ -390,13 +393,14 @@ function QuoteCells({ row, idx, rows, bundle, slots, apply }: {
       })}
       <td />
       <td className="text-right tabular-nums px-1.5 font-medium">
-        <NavCell nav={{ grid: 'quotes', row: idx, col: 'chosen' }}>{winner?.price ? inr(winner.price) : <span className="text-muted-foreground/50">—</span>}</NavCell>
+        <NavCell nav={{ grid: 'quotes', row: idx, col: 'chosen' }}>{chosen ? inr(chosen) : <span className="text-muted-foreground/50">—</span>}</NavCell>
       </td>
       <td className="px-1.5 text-xs">
         <NavCell nav={{ grid: 'quotes', row: idx, col: 'vs' }} align="left">
         {winner && cheapest != null && winner.price > cheapest
           ? <span className="text-warning">+{inr(winner.price - cheapest)} over cheapest</span>
-          : winner && priced.length > 1 ? <span className="text-primary">Cheapest</span> : <span className="text-muted-foreground/50">—</span>}
+          : winner && priced.length > 1 ? <span className="text-primary">Cheapest</span>
+          : winners.length > 1 ? <span className="text-muted-foreground">{winners.length} costs added</span> : <span className="text-muted-foreground/50">—</span>}
         </NavCell>
       </td>
     </>
