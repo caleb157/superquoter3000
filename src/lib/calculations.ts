@@ -282,16 +282,45 @@ export function calcMCPacking(config: MCConfig & {
 // Box OD offsets (Phase 3a)
 // ============================================================
 
-export function getBoxOdOffsets(
-  boxData: Array<{ box_type: string; od_length_add_in?: number; od_width_add_in?: number; od_height_add_in?: number }>,
-  boxType: string,
-): { lAdd: number; wAdd: number; hAdd: number } {
-  const matching = boxData.filter(b => b.box_type === boxType);
-  if (matching.length === 0) return { lAdd: 0, wAdd: 0, hAdd: 0 };
-  const lAdd = matching.reduce((s, b) => s + (b.od_length_add_in || 0), 0) / matching.length;
-  const wAdd = matching.reduce((s, b) => s + (b.od_width_add_in || 0), 0) / matching.length;
-  const hAdd = matching.reduce((s, b) => s + (b.od_height_add_in || 0), 0) / matching.length;
-  return { lAdd, wAdd, hAdd };
+type BoxOdRow = { box_type: string; od_length_add_in?: number | null; od_width_add_in?: number | null; od_height_add_in?: number | null };
+
+/** Board thickness added to the inside size, by ply, when Box prices has no figure for that board. */
+export const STANDARD_BOX_OD_OFFSETS: Record<number, { lAdd: number; wAdd: number; hAdd: number }> = {
+  3: { lAdd: 0.125, wAdd: 0.125, hAdd: 0.25 },
+  5: { lAdd: 0.25, wAdd: 0.25, hAdd: 0.75 },
+  7: { lAdd: 0.375, wAdd: 0.375, hAdd: 1.25 },
+  9: { lAdd: 0.5, wAdd: 0.5, hAdd: 1.75 },
+};
+
+/** The ply count in a board name ("5 Ply Premium with Print" → 5), or null. */
+export function boxPly(boxType: string | null | undefined): number | null {
+  const m = String(boxType || '').match(/(\d+)\s*-?\s*ply/i);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * How much bigger the outside of a carton is than its inside (OD − ID) for a board.
+ * Uses the offsets typed on Settings › Box prices for that exact board; when that board has
+ * no rows or only zero offsets, the rows for the same ply count; and failing that, the
+ * standard thickness for the ply. The outside size is what the master carton has to hold,
+ * so a carton's OD must never quietly equal its ID.
+ */
+export function getBoxOdOffsets(boxData: BoxOdRow[], boxType: string): { lAdd: number; wAdd: number; hAdd: number } {
+  const hasOffsets = (b: BoxOdRow) => (b.od_length_add_in || 0) + (b.od_width_add_in || 0) + (b.od_height_add_in || 0) > 0;
+  const avg = (rows: BoxOdRow[]) => ({
+    lAdd: rows.reduce((s, b) => s + (b.od_length_add_in || 0), 0) / rows.length,
+    wAdd: rows.reduce((s, b) => s + (b.od_width_add_in || 0), 0) / rows.length,
+    hAdd: rows.reduce((s, b) => s + (b.od_height_add_in || 0), 0) / rows.length,
+  });
+  const rows = boxData || [];
+  const exact = rows.filter(b => b.box_type === boxType && hasOffsets(b));
+  if (exact.length) return avg(exact);
+  const ply = boxPly(boxType);
+  if (ply == null) return { lAdd: 0, wAdd: 0, hAdd: 0 };
+  const samePly = rows.filter(b => boxPly(b.box_type) === ply && hasOffsets(b));
+  if (samePly.length) return avg(samePly);
+  const std = ply <= 3 ? 3 : ply <= 5 ? 5 : ply <= 7 ? 7 : 9;
+  return { ...STANDARD_BOX_OD_OFFSETS[std] };
 }
 
 export function calcIcOd(

@@ -17,7 +17,7 @@ import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { shrinkImageForUpload } from '@/lib/image-resize';
-import { avgRateByDesignation, npmToMarkup } from '@/lib/calculations';
+import { avgRateByDesignation, getBoxOdOffsets, npmToMarkup } from '@/lib/calculations';
 import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 import { COGS_CATEGORY_FALLBACK, isHardwareCogsType, useCogsCategories } from '@/lib/cogs-categories';
 import { cn } from '@/lib/utils';
@@ -244,6 +244,11 @@ function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bu
     </div>
   );
   const mcSize = r.mcDims.mc_width ? `${num(r.mcDims.mc_width, 1)} × ${num(r.mcDims.mc_depth, 1)} × ${num(r.mcDims.mc_height, 1)} in` : null;
+  const icOd = hasIc ? (r.mcPlan?.icOd ?? (() => {
+    const o = getBoxOdOffsets(bundle.boxData, cbmRow.ic_type || '7 ply');
+    const { ic_width: w, ic_depth: d, ic_height: h } = r.icDims;
+    return w && d && h ? { w: w + o.lAdd, d: d + o.wAdd, h: h + o.hAdd } : null;
+  })()) : null;
   const cartons = hasMc && r.productsPerMc > 0 && row.qty > 0 ? Math.ceil(row.qty / r.productsPerMc) : null;
 
   return (
@@ -269,6 +274,11 @@ function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bu
         <PkgGroup title="Inner carton" note="Size is the inside; it follows the piece size unless typed.">
           <PkgRow label="Inside size" unit="in">{dims('ic')}</PkgRow>
           <PkgRow label="Board">{one(field('ic_type'), undefined, true)}</PkgRow>
+          {icOd && (
+            <PkgRow label="Outside size" unit="in" hint="Inside size plus the board thickness (Settings › Box prices). The master carton is sized to hold this.">
+              <div className="pl-[18px] text-sm tabular-nums">{num(icOd.w, 2)} × {num(icOd.d, 2)} × {num(icOd.h, 2)}</div>
+            </PkgRow>
+          )}
           <PkgRow label="Pieces per carton">{one(field('per_ic'))}</PkgRow>
         </PkgGroup>
       )}
