@@ -8,8 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import type { AmazonSku } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import {
-  FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS,
-  type DktSettings, type FlowKind, type Forecast, type Month, type ProfitItem, type ProfitLine, type ProfitProjection,
+  dayLabel, drawTerms, FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS, realDrawStatus, termsLabel,
+  type CreditDraw, type CreditLine, type DktSettings, type FlowKind, type Forecast, type Month, type ProfitItem, type ProfitLine, type ProfitProjection,
 } from '@/lib/dkt-cashflow';
 import { NumField, SelectField, Stat, usd, usdK } from './fields';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
@@ -23,19 +23,33 @@ type Props = {
   /** Customer payments typed on Odoo orders since current cash was last saved. */
   custReceived: number;
   creditAvailable: number;
+  creditLines: CreditLine[];
+  creditDraws: CreditDraw[];
   scenarios: AmazonScenario[];
   skus: AmazonSku[];
   setScenarioInForecast: (id: string, on: boolean) => void;
   manual: ReturnType<typeof useManualCashEntries>;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, scenarios, skus, setScenarioInForecast, manual }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
   const inKinds = IN_KINDS.filter(k => used.has(k));
   const outKinds = OUT_KINDS.filter(k => used.has(k));
   const chart = months.map(m => ({ month: monthLabel(m.month), net: Math.round(m.net), closing: Math.round(m.closing) }));
+  // Credit draws in the window (real and planned), marked on the chart.
+  const drawMarks = useMemo(() => {
+    const first = months[0]?.month;
+    const byMonth = new Map<string, string[]>();
+    for (const d of creditDraws) {
+      const line = creditLines.find(l => l.id === d.line_id);
+      if (!line || d.amount_usd <= 0 || d.month < first) continue;
+      const m = d.month;
+      byMonth.set(m, [...(byMonth.get(m) ?? []), `${line.name} ${usdK(d.amount_usd)}${d.actual ? '' : ' (planned)'}`]);
+    }
+    return [...byMonth].filter(([m]) => months.some(x => x.month === m)).map(([m, names]) => ({ x: monthLabel(m), label: names.join(', ') }));
+  }, [creditDraws, creditLines, months]);
   const open = (title: string, month: Month | null, kinds: FlowKind[]) =>
     setCell({ title, flows: forecast.flows.filter(f => (!month || f.month === month) && kinds.includes(f.kind)) });
 
@@ -109,11 +123,16 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
                 <Bar dataKey="net" radius={[3, 3, 0, 0]} maxBarSize={28}>
                   {chart.map((r, i) => <Cell key={i} fill={r.net >= 0 ? 'hsl(var(--success) / 0.55)' : 'hsl(var(--destructive) / 0.55)'} />)}
                 </Bar>
+                {drawMarks.map(d => (
+                  <ReferenceLine key={d.x} x={d.x} stroke="hsl(var(--primary) / 0.5)" strokeDasharray="2 3"
+                    label={{ value: d.label, position: 'insideTopLeft', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                ))}
                 <Line type="monotone" dataKey="closing" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2.5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum. Dotted lines: credit draws.</p>
+          <CreditDrawsList lines={creditLines} draws={creditDraws} months={months.map(m => m.month)} />
           <ManualCashEntriesCard className="mt-3" {...manual} currencies={['USD']} fmt={v => usd(v)} />
         </CardContent>
       </Card>
@@ -171,6 +190,41 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Credit drawn and planned, each with its terms, so the forecast shows what it's repaying. */
+function CreditDrawsList({ lines, draws, months }: { lines: CreditLine[]; draws: CreditDraw[]; months: Month[] }) {
+  const real = realDrawStatus(lines, draws, months).filter(r => r.left > 0.5 || r.next);
+  const planned = draws.filter(d => !d.actual && d.amount_usd > 0 && months.includes(d.month));
+  if (!real.length && !planned.length) return null;
+  return (
+    <div className="mt-3 rounded-md border px-3 py-2 text-xs">
+      <div className="font-medium mb-1">Credit in this forecast</div>
+      <div className="divide-y">
+        {real.map(r => (
+          <div key={r.draw.id} className="flex flex-wrap justify-between gap-x-3 py-1">
+            <span>
+              <b>{r.line.name}</b> · drew {usd(r.draw.amount_usd)} {r.draw.draw_date ? `on ${dayLabel(r.draw.draw_date)} ${r.draw.draw_date.slice(0, 4)}` : `in ${monthLabel(r.draw.month)}`}
+              <span className="text-muted-foreground"> · {termsLabel(r.terms)}</span>
+            </span>
+            <span className="tabular-nums text-muted-foreground">
+              {usd(r.left)} owed{r.next ? ` · next ${usd(r.next.amount)} in ${monthLabel(r.next.month)}` : ''}
+            </span>
+          </div>
+        ))}
+        {planned.map(d => {
+          const line = lines.find(l => l.id === d.line_id);
+          if (!line) return null;
+          return (
+            <div key={d.id} className="flex flex-wrap justify-between gap-x-3 py-1">
+              <span><b>{line.name}</b> · plan to draw {usd(d.amount_usd)} in {monthLabel(d.month)}<span className="text-muted-foreground"> · {termsLabel(drawTerms(line, d))}</span></span>
+              <span className="text-muted-foreground">planned</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
