@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import {
-  buildPipeline, pipelineCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt,
+  buildPipeline, pipelineCashItems, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt, mfgShareOf,
   type Ccy, type Snapshot, type CashItem, type PipelineInquiry,
 } from '@/lib/master-analytics';
 
@@ -66,7 +66,12 @@ export function ProjectionsZone(p: Props) {
     const a = invoiced.reduce((s, i) => s + pickAmt(i, ccy), 0);
     const b = pending.reduce((s, i) => s + pickAmt(i, ccy), 0);
     const c = pipeIn.reduce((s, x) => s + usdToCcy(x.pv_revenue_usd * x.certainty), 0);
-    return { invoiced, pending, pipeIn, a, b, c, total: a + b + (includePipeline ? c : 0) };
+    // Manufacturing share, by the SO's Odoo Trading / Manufacturing tag (MO guess when untagged).
+    // Pipeline inquiries are PDHQ manufacturing quotes, so they count in full when included.
+    const hasKinds = [...invoiced, ...pending].some(x => x.kind !== undefined);
+    const mfg = [...invoiced, ...pending].reduce((s, i) => s + pickAmt(i, ccy) * mfgShareOf(i), 0) + (includePipeline ? c : 0);
+    const untagged = [...invoiced, ...pending].filter(x => x.kind !== undefined && !x.tagged).length;
+    return { invoiced, pending, pipeIn, a, b, c, total: a + b + (includePipeline ? c : 0), mfg, hasKinds, untagged };
   }, [snapshot, pipe, ccy, includePipeline, hqRate]);
 
   // ---------- Capacity ----------
@@ -127,6 +132,14 @@ export function ProjectionsZone(p: Props) {
           <div className="col-span-2">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Projected revenue · {fy.label}</div>
             <div className="text-3xl font-bold tabular-nums">{fyRev ? f(fyRev.total) : '—'}</div>
+            {fyRev && (
+              <div className="text-sm text-muted-foreground tabular-nums mt-0.5">
+                Manufacturing revenue{' '}
+                {fyRev.hasKinds
+                  ? <><span className="font-semibold text-foreground">{f(fyRev.mfg)}</span>{fyRev.total ? ` · ${Math.round((fyRev.mfg / fyRev.total) * 100)}%` : ''}</>
+                  : <span title="Sync from Odoo to split by the Trading / Manufacturing tags">— (sync to update)</span>}
+              </div>
+            )}
           </div>
           <Stat label="Invoiced YTD" v={fyRev ? f(fyRev.a) : '—'} />
           <Stat label="Booked, not invoiced" v={fyRev ? f(fyRev.b) : '—'} />
@@ -281,8 +294,12 @@ export function ProjectionsZone(p: Props) {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
           <DialogHeader><DialogTitle>{fy.label} revenue build-up</DialogTitle></DialogHeader>
           {fyRev && <div className="space-y-4 text-xs">
-            <Section title={`Invoiced since ${fy.start} — ${f(fyRev.a)}`} rows={fyRev.invoiced.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
-            <Section title={`Booked SOs not yet invoiced, due by ${fy.end} — ${f(fyRev.b)}`} rows={fyRev.pending.map(i => [i.ref, i.partner, i.date, fmtMoney(pickAmt(i, ccy), ccy, false)])} />
+            {fyRev.hasKinds && <div className="text-muted-foreground">
+              Manufacturing revenue {f(fyRev.mfg)}, from the Trading / Manufacturing tags on each Odoo sales order{includePipeline ? ', plus weighted pipeline' : ''}.
+              {fyRev.untagged ? ` ${fyRev.untagged} untagged ${fyRev.untagged === 1 ? 'entry is' : 'entries are'} guessed from MOs (marked *).` : ''}
+            </div>}
+            <Section title={`Invoiced since ${fy.start} — ${f(fyRev.a)}`} rows={fyRev.invoiced.map(i => [i.ref, i.partner, i.date, kindLabel(i), fmtMoney(pickAmt(i, ccy), ccy, false)])} />
+            <Section title={`Booked SOs not yet invoiced, due by ${fy.end} — ${f(fyRev.b)}`} rows={fyRev.pending.map(i => [i.ref, i.partner, i.date, kindLabel(i), fmtMoney(pickAmt(i, ccy), ccy, false)])} />
             <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.pv_revenue_usd * x.certainty), ccy, false)])} />
           </div>}
         </DialogContent>
@@ -291,6 +308,12 @@ export function ProjectionsZone(p: Props) {
   );
 }
 
+function kindLabel(x: { kind?: string | null; tagged?: boolean; mfg_share?: number }) {
+  if (x.kind === undefined) return null;
+  if (!x.kind) return 'No SO';
+  if (x.mfg_share != null) return `Mixed · ${Math.round(x.mfg_share * 100)}% mfg` + (x.tagged ? '' : '*');
+  return (x.kind === 'manufacturing' ? 'Mfg' : 'Trading') + (x.tagged ? '' : '*');
+}
 function Stat({ label, v, muted }: { label: string; v: string; muted?: boolean }) {
   return <div className={cn(muted && 'opacity-40')}><div className="text-[11px] text-muted-foreground">{label}</div><div className="text-lg font-semibold tabular-nums">{v}</div></div>;
 }
