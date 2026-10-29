@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     const since = addDays(today, -730);
     const sos = await sr('sale.order', [['state', 'in', ['sale', 'done']], ['date_order', '>=', since + ' 00:00:00']],
       ['name', 'date_order', 'partner_id', 'amount_untaxed', 'amount_total', 'currency_id', 'currency_rate', 'invoice_status',
-        'delivery_status', 'commitment_date', 'expected_date', 'effective_date', 'signed_on', 'project_id', 'state', 'x_studio_original_delivery_date'],
+        'delivery_status', 'commitment_date', 'expected_date', 'effective_date', 'signed_on', 'project_id', 'state', 'x_studio_original_delivery_date', 'tag_ids'],
       { order: 'date_order desc', limit: 2000 });
 
     // MOs linked by project or origin
@@ -146,6 +146,26 @@ Deno.serve(async (req) => {
       const pid = pidOf(o);
       mosBySo.set(o.name, mos.filter(m => (pid && id(m.project_id) === pid) || (m.origin && String(m.origin).includes(o.name))));
     }
+
+    // Trading vs manufacturing per SO, from its Odoo tags ("Trading" / "Manufacturing"); with neither
+    // tag (or both), any MO on the order counts as manufacturing (same rule as src/lib/order-kind.ts).
+    const tagName = new Map<number, string>();
+    const soKind = (o: any): { kind: 'trading' | 'manufacturing'; tagged: boolean } => {
+      const t = new Set((Array.isArray(o.tag_ids) ? o.tag_ids : []).map((x: number) => String(tagName.get(x) ?? '').trim().toLowerCase()));
+      const tr = t.has('trading'), mf = t.has('manufacturing');
+      if (tr !== mf) return { kind: tr ? 'trading' : 'manufacturing', tagged: true };
+      const pid = pidOf(o);
+      const has = mosBySo.has(o.name) ? mosBySo.get(o.name)!.length > 0
+        : mos.some(m => (pid && id(m.project_id) === pid) || (m.origin && String(m.origin).includes(o.name)));
+      return { kind: has ? 'manufacturing' : 'trading', tagged: false };
+    };
+    const loadTagNames = async (orders: any[]) => {
+      const ids = [...new Set(orders.flatMap(o => (Array.isArray(o.tag_ids) ? o.tag_ids : [])))].filter(x => !tagName.has(x));
+      if (!ids.length) return;
+      try { for (const t of await sr('crm.tag', [['id', 'in', ids]], ['name'])) tagName.set(t.id, t.name); }
+      catch (e) { warnings.push('SO tags: ' + e.message); }
+    };
+    await loadTagNames(sos);
 
     // ================= LABORTRAX =================
     let ltEntries: any[] = [];
@@ -227,7 +247,7 @@ Deno.serve(async (req) => {
         let date = maxDate(d10(o.commitment_date) || d10(o.expected_date), d10(o.signed_on)) || today;
         if (date < today) date = today;
         items.push({ kind: 'so', ref: o.name, partner: nm(o.partner_id), partner_id: id(o.partner_id), date, amount_inr: g.inr, amount_usd: g.usd, sign: 1 });
-        pendingSoRevenue.push({ ref: o.name, partner: nm(o.partner_id), date, amount_inr: n.inr, amount_usd: n.usd });
+        pendingSoRevenue.push({ ref: o.name, partner: nm(o.partner_id), date, amount_inr: n.inr, amount_usd: n.usd, ...soKind(o) });
       }
       cash.push(...waterfall(items, 'cust'));
     } catch (e) { warnings.push('Pending SOs: ' + e.message); }
@@ -285,12 +305,51 @@ Deno.serve(async (req) => {
     try {
       const fyStartYear = new Date().getUTCMonth() >= 3 ? new Date().getUTCFullYear() - 1 : new Date().getUTCFullYear() - 2;
       const inv = await sr('account.move', [['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted'], ['invoice_date', '>=', `${fyStartYear}-04-01`]],
-        ['name', 'move_type', 'partner_id', 'invoice_date', 'currency_id', 'amount_untaxed', 'amount_untaxed_signed'], { limit: 5000 });
+        ['name', 'move_type', 'partner_id', 'invoice_date', 'currency_id', 'amount_untaxed', 'amount_untaxed_signed', 'invoice_origin'], { limit: 5000 });
+      // An invoice takes the kind of the SO in its origin. One billing several SOs ("S00113, S00115") of
+      // different kinds is split by its lines' SO lines into a manufacturing share.
+      const origins = (mv: any) => String(mv.invoice_origin || '').split(',').map(x => x.trim()).filter(Boolean);
+      const soByName = new Map<string, any>(sos.map(o => [o.name, o]));
+      const missing = [...new Set(inv.flatMap(origins).filter(n => !soByName.has(n)))];
+      if (missing.length) {
+        try {
+          const extra = await sr('sale.order', [['name', 'in', missing]], ['name', 'project_id', 'tag_ids']);
+          await loadTagNames(extra);
+          for (const o of extra) soByName.set(o.name, o);
+        } catch (e) { warnings.push('Invoice SOs: ' + e.message); }
+      }
+      const kindOf = (name: string) => { const o = soByName.get(name); return o ? soKind(o) : null; };
+      const mixed = inv.filter(mv => new Set(origins(mv).map(n => kindOf(n)?.kind ?? null)).size > 1);
+      const mfgShare = new Map<number, number>();
+      if (mixed.length) {
+        try {
+          const lines = await sr('account.move.line', [['move_id', 'in', mixed.map(m => m.id)], ['display_type', '=', 'product']], ['move_id', 'price_subtotal', 'sale_line_ids']);
+          const slIds = [...new Set(lines.flatMap(l => l.sale_line_ids || []))];
+          const sl = slIds.length ? await sr('sale.order.line', [['id', 'in', slIds]], ['order_id']) : [];
+          const soOfLine = new Map<number, string>(sl.map(l => [l.id, nm(l.order_id)]));
+          const tot = new Map<number, { all: number; mfg: number }>();
+          for (const l of lines) {
+            const t = tot.get(id(l.move_id)) || { all: 0, mfg: 0 };
+            const so = soOfLine.get((l.sale_line_ids || [])[0]);
+            t.all += num(l.price_subtotal);
+            if (so && kindOf(so)?.kind === 'manufacturing') t.mfg += num(l.price_subtotal);
+            tot.set(id(l.move_id), t);
+          }
+          for (const [mid, t] of tot) if (t.all) mfgShare.set(mid, t.mfg / t.all);
+        } catch (e) { warnings.push('Mixed-SO invoices: ' + e.message); }
+      }
       invoiced = inv.map(mv => {
         const cur = nm(mv.currency_id) || 'INR';
         const inr = num(mv.amount_untaxed_signed);
         const usd = cur === 'USD' ? num(mv.amount_untaxed) * Math.sign(inr || 1) : inrPerUsd ? inr / inrPerUsd : 0;
-        return { ref: mv.name, partner: nm(mv.partner_id), date: d10(mv.invoice_date), amount_inr: inr, amount_usd: usd };
+        const names = origins(mv);
+        const ks = names.map(kindOf).filter(Boolean) as { kind: 'trading' | 'manufacturing'; tagged: boolean }[];
+        const share = mfgShare.get(mv.id);
+        const kind = share != null ? (share >= 0.5 ? 'manufacturing' : 'trading') : ks[0]?.kind ?? null;
+        return {
+          ref: mv.name, partner: nm(mv.partner_id), date: d10(mv.invoice_date), amount_inr: inr, amount_usd: usd,
+          so: names.join(', ') || null, kind, tagged: ks.length > 0 && ks.every(k => k.tagged), ...(share != null ? { mfg_share: share } : {}),
+        };
       });
     } catch (e) { warnings.push('Invoiced revenue: ' + e.message); }
 

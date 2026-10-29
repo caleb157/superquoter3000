@@ -1156,8 +1156,8 @@ export type Database = {
           draw_date?: string | null
           id?: string
           line_id: string
-          month: string
           maturity_month?: string | null
+          month: string
           monthly_fee_pct?: number | null
           notes?: string | null
           rate_pct?: number | null
@@ -1171,8 +1171,8 @@ export type Database = {
           draw_date?: string | null
           id?: string
           line_id?: string
-          month?: string
           maturity_month?: string | null
+          month?: string
           monthly_fee_pct?: number | null
           notes?: string | null
           rate_pct?: number | null
@@ -1930,6 +1930,7 @@ export type Database = {
           default_ie_deposit_pct: number
           default_repeat_certainty_pct: number
           default_shipping_type: string | null
+          default_vendor_deposit_pct: number
           exchange_rate: number
           fallback_direct_rates: Json | null
           id: string
@@ -1957,6 +1958,7 @@ export type Database = {
           default_ie_deposit_pct?: number
           default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
+          default_vendor_deposit_pct?: number
           exchange_rate?: number
           fallback_direct_rates?: Json | null
           id?: string
@@ -1984,6 +1986,7 @@ export type Database = {
           default_ie_deposit_pct?: number
           default_repeat_certainty_pct?: number
           default_shipping_type?: string | null
+          default_vendor_deposit_pct?: number
           exchange_rate?: number
           fallback_direct_rates?: Json | null
           id?: string

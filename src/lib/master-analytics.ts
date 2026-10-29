@@ -17,13 +17,23 @@ export type SnapshotSO = Money & {
   all_mos_done?: boolean; mos_done_date?: string | null;
 };
 export type CashItem = Money & { kind: 'so' | 'po' | 'invoice' | 'bill' | 'igst' | 'overhead' | 'pipeline_in' | 'pipeline_repeat_in' | 'pipeline_out' | 'manual_in' | 'manual_out'; ref: string; partner: string | null; date: string; sign: 1 | -1; advance_applied_inr?: number; advance_covered?: boolean };
+/** Trading vs manufacturing from the SO's Odoo tags (tagged) or its MOs (guess). Absent on snapshots
+ *  synced before this was added; null on an invoice with no sales order behind it. */
+export type OrderKindTag = {
+  kind?: 'trading' | 'manufacturing' | null; tagged?: boolean;
+  /** Invoice billing SOs of both kinds: the manufacturing part of it (0..1), by its lines. */
+  mfg_share?: number;
+};
+/** The manufacturing part of an invoice or booked SO (1, 0, or a mixed invoice's share). */
+export const mfgShareOf = (x: OrderKindTag) => x.mfg_share ?? (x.kind === 'manufacturing' ? 1 : 0);
+
 export type Snapshot = {
   inr_per_usd: number; today: string; overhead_months: number;
   /** Sum of Odoo asset_cash account balances (INR) at sync time. */
   opening_cash_inr?: number;
   sales_orders: SnapshotSO[]; cash_items: CashItem[];
-  invoiced: (Money & { ref: string; partner: string | null; date: string | null })[];
-  pending_so_revenue: (Money & { ref: string; partner: string | null; date: string })[];
+  invoiced: (Money & OrderKindTag & { ref: string; partner: string | null; date: string | null; so?: string | null })[];
+  pending_so_revenue: (Money & OrderKindTag & { ref: string; partner: string | null; date: string })[];
   overhead_monthly: { inr: number; months: number; history: Record<string, number> };
   actual_hours_by_month: Record<string, number>;
   booked_hours_by_month: Record<string, number>;
