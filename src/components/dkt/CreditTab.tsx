@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
-  creditBalances, creditDrawnToday, drawTerms, monthLabel, monthRange, realDrawStatus, toMonth,
+  creditBalances, creditDrawnToday, drawTerms, monthDiff, monthLabel, monthRange, realDrawStatus, toMonth,
   type CreditDraw, type CreditLine, type Forecast, type Month,
 } from '@/lib/dkt-cashflow';
 import { fieldCls, MonthField, NumField, SelectField, Stat, TextField, usd } from './fields';
@@ -81,6 +81,7 @@ export function CreditTab(p: Props) {
                   <th className="font-medium px-1" title="Everything drawn is repaid in full this month">Due in full</th>
                   <th className="font-medium px-1 text-right" title="Each draw is repaid in this many equal monthly payments, starting the month after. Leave blank for a revolving line.">Repay over (months)</th>
                   <th className="font-medium px-1 text-right" title="Fee each month as a % of the draw, while it's being repaid (used instead of the yearly rate)">Monthly fee %</th>
+                  <th className="font-medium px-1" title="Revolving lines: interest paid every month, or built up and paid with the principal on the due date (balloon)">Interest paid</th>
                   <th className="font-medium px-1 text-right">Available</th>
                   <th className="font-medium px-1 text-right">Drawn at end of forecast</th>
                   <th className="font-medium px-1">Notes</th>
@@ -107,6 +108,7 @@ export function CreditTab(p: Props) {
                       <td className="py-1.5 px-1"><MonthField label="Due in full" allowEmpty value={l.maturity_month ?? null} onSave={v => p.updateLine(l.id, { maturity_month: v })} /></td>
                       <td className="py-1.5 px-1 w-20"><NumField integer allowEmpty label="Repay over (months)" value={l.term_months ?? null} onSave={v => p.updateLine(l.id, { term_months: v })} /></td>
                       <td className="py-1.5 px-1 w-20"><NumField allowEmpty label="Monthly fee %" value={l.monthly_fee_pct ?? null} onSave={v => p.updateLine(l.id, { monthly_fee_pct: v })} /></td>
+                      <td className="py-1.5 px-1"><BalloonField value={!!l.balloon} onSave={v => p.updateLine(l.id, { balloon: v })} /></td>
                       <td className="py-1.5 px-1 text-right tabular-nums">{usd(l.limit_usd - owed(l))}</td>
                       <td className={cn('py-1.5 px-1 text-right tabular-nums', endBal > l.limit_usd && 'text-destructive font-medium')}>{usd(endBal)}{endBal > l.limit_usd ? ' (over limit)' : ''}</td>
                       <td className="py-1.5 px-1 min-w-[10rem]"><TextField label="Notes" value={l.notes} onSave={v => p.updateLine(l.id, { notes: v || null })} /></td>
@@ -141,6 +143,7 @@ export function CreditTab(p: Props) {
                   <th className="font-medium px-1 text-right" title="Repaid in this many equal monthly payments, from the month after. Blank: revolving, interest on what's owed.">Repay over (months)</th>
                   <th className="font-medium px-1 text-right" title="Fee each month as a % of the draw while it's being repaid">Monthly fee %</th>
                   <th className="font-medium px-1 text-right">Rate (yearly %)</th>
+                  <th className="font-medium px-1" title="Revolving draws: interest paid every month, or built up and paid with the principal on the due date (balloon)">Interest paid</th>
                   <th className="font-medium px-1">Due in full</th>
                   <th className="font-medium px-1 text-right">Owed now</th>
                   <th className="font-medium px-1 text-right">Next payment</th>
@@ -159,6 +162,7 @@ export function CreditTab(p: Props) {
                     <td className="py-1.5 px-1 w-20"><NumField integer allowEmpty label="Repay over (months)" value={terms.term_months} onSave={v => p.updateDraw(d.id, { term_months: v })} /></td>
                     <td className="py-1.5 px-1 w-20"><NumField allowEmpty label="Monthly fee %" value={terms.monthly_fee_pct} onSave={v => p.updateDraw(d.id, { monthly_fee_pct: v })} /></td>
                     <td className="py-1.5 px-1 w-20"><NumField label="Rate" value={terms.rate_pct} onSave={v => p.updateDraw(d.id, { rate_pct: v ?? 0 })} /></td>
+                    <td className="py-1.5 px-1"><BalloonField value={terms.balloon} onSave={v => p.updateDraw(d.id, { balloon: v })} /></td>
                     <td className="py-1.5 px-1"><MonthField label="Due in full" allowEmpty value={terms.maturity_month} onSave={v => p.updateDraw(d.id, { maturity_month: v })} /></td>
                     <td className="py-1.5 px-1 text-right tabular-nums">{usd(left)}</td>
                     <td className="py-1.5 px-1 text-right tabular-nums whitespace-nowrap">{next ? <>{usd(next.amount)} <span className="text-muted-foreground">{monthLabel(next.month)}</span></> : '—'}</td>
@@ -215,6 +219,14 @@ export function CreditTab(p: Props) {
   );
 }
 
+function BalloonField({ value, onSave, className }: { value: boolean; onSave: (v: boolean) => void; className?: string }) {
+  return (
+    <SelectField className={className} label="Interest paid" value={value ? 'end' : 'monthly'}
+      options={[{ value: 'monthly', label: 'Monthly' }, { value: 'end', label: 'At the end (balloon)' }]}
+      onSave={v => onSave(v === 'end')} />
+  );
+}
+
 function DateField({ value, onSave, label }: { value: string; onSave: (v: string) => void; label: string }) {
   return (
     <input type="date" aria-label={label} className={cn(fieldCls, 'w-[9.5rem]')} value={value}
@@ -263,13 +275,22 @@ function NewDrawDialog({ lines, owed, onClose, onAdd }: {
           <label className="space-y-1"><div className={label}>Due in full</div>
             <MonthField allowEmpty label="Due in full" value={f.maturity_month ?? null} onSave={v => set({ maturity_month: v })} />
           </label>
+          {!installment && (
+            <label className="col-span-2 space-y-1"><div className={label}>Interest paid</div>
+              <BalloonField className="w-full" value={!!f.balloon} onSave={v => set({ balloon: v })} />
+            </label>
+          )}
           <label className="col-span-2 space-y-1"><div className={label}>Notes</div>
             <TextField label="Notes" value={f.notes ?? null} onSave={v => set({ notes: v || null })} />
           </label>
           <p className="col-span-2 text-xs text-muted-foreground">
             {amt > 0 && (installment
               ? `${Math.round(Number(f.term_months))} payments of ${usd(amt / Number(f.term_months) + amt * (Number(f.monthly_fee_pct) || 0) / 100)} a month from the month after.`
-              : `About ${usd(amt * (Number(f.rate_pct) || 0) / 100 / 12)} interest a month${f.maturity_month ? `, all due ${monthLabel(f.maturity_month)}` : ''}.`)}
+              : f.balloon
+                ? f.maturity_month
+                  ? `One payment of ${usd(amt * (1 + (Number(f.rate_pct) || 0) / 100 / 12 * Math.max(0, monthDiff(toMonth(f.draw_date) ?? f.maturity_month, f.maturity_month))))} (principal + interest) in ${monthLabel(f.maturity_month)}.`
+                  : 'Interest builds up until it is paid. Set a "due in full" month for the balloon payment.'
+                : `About ${usd(amt * (Number(f.rate_pct) || 0) / 100 / 12)} interest a month${f.maturity_month ? `, all due ${monthLabel(f.maturity_month)}` : ''}.`)}
             {amt > room + 0.5 && <span className="text-destructive"> That's more than the {usd(room)} available.</span>}
           </p>
         </div>

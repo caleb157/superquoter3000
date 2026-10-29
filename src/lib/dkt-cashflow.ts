@@ -102,6 +102,7 @@ export type CreditLine = {
   maturity_month?: Month | null; // whatever is drawn is repaid in full this month
   term_months?: number | null; // installment line (e.g. Amex): each draw is repaid in this many equal monthly payments, from the next month
   monthly_fee_pct?: number | null; // ...plus this % of the draw every month (instead of yearly interest)
+  balloon?: boolean | null; // revolving: interest builds up and is paid with the principal in the "due in full" month (Sooie)
 };
 export type CreditDraw = {
   id: string; line_id: string; month: Month; amount_usd: number; // + draw, − repay
@@ -109,6 +110,7 @@ export type CreditDraw = {
   draw_date?: string | null; // real draws: the day it was drawn (YYYY-MM-DD)
   // The draw's own terms, seeded from its line; blank uses the line's.
   term_months?: number | null; monthly_fee_pct?: number | null; rate_pct?: number | null; maturity_month?: Month | null;
+  balloon?: boolean | null;
   notes?: string | null;
 };
 
@@ -347,16 +349,17 @@ export function loanOutstanding(loan: Loan, payments: LoanPayment[]): number {
 // rate_pct / maturity_month win, and anything left blank falls back to its line's. A tranche with
 // term_months is repaid in that many equal payments from the month after it was drawn, plus the
 // monthly fee on the draw; without one it accrues rate ÷ 12 each month until its "due in full"
-// month or a repayment; a "due in full" month also ends an installment draw early. Real draws
+// month or a repayment (or, as a balloon, builds up and is paid with the principal in that month);
+// a "due in full" month also ends an installment draw early. Real draws
 // (actual) are what's owed today; planned ones are what-ifs.
 const isInstallment = (l: { term_months?: number | null }) => (Number(l.term_months) || 0) > 0;
 
-export type DrawTerms = { term_months: number | null; monthly_fee_pct: number | null; rate_pct: number; maturity_month: Month | null };
+export type DrawTerms = { term_months: number | null; monthly_fee_pct: number | null; rate_pct: number; maturity_month: Month | null; balloon: boolean };
 /** A draw's terms. A real draw keeps its own (seeded from the line when it was recorded; blank means
  *  none); a planned draw uses its line's wherever it has none of its own. */
 export function drawTerms(line: CreditLine, d?: Partial<CreditDraw>): DrawTerms {
   if (d?.actual) {
-    return { term_months: d.term_months ?? null, monthly_fee_pct: d.monthly_fee_pct ?? null, rate_pct: Number(d.rate_pct ?? line.rate_pct) || 0, maturity_month: d.maturity_month ?? null };
+    return { term_months: d.term_months ?? null, monthly_fee_pct: d.monthly_fee_pct ?? null, rate_pct: Number(d.rate_pct ?? line.rate_pct) || 0, maturity_month: d.maturity_month ?? null, balloon: !!d.balloon };
   }
   const pick = <T,>(own: T | null | undefined, fallback: T | null | undefined) => (own != null ? own : fallback ?? null);
   return {
@@ -364,12 +367,14 @@ export function drawTerms(line: CreditLine, d?: Partial<CreditDraw>): DrawTerms 
     monthly_fee_pct: pick(d?.monthly_fee_pct, line.monthly_fee_pct),
     rate_pct: Number(pick(d?.rate_pct, line.rate_pct)) || 0,
     maturity_month: pick(d?.maturity_month, line.maturity_month),
+    balloon: !!pick(d?.balloon, line.balloon),
   };
 }
 
 /** Short description of a draw's terms, e.g. "6 payments + 0.55%/mo" or "5%/yr, due Mar 2027". */
 export function termsLabel(t: DrawTerms): string {
   if (isInstallment(t)) return `${Math.round(Number(t.term_months))} monthly payments${Number(t.monthly_fee_pct) ? ` + ${t.monthly_fee_pct}%/mo fee` : ''}`;
+  if (t.balloon) return `${t.rate_pct}%/yr, principal + interest${t.maturity_month ? ` due ${monthLabel(t.maturity_month)}` : ' at the end'} (balloon)`;
   return [`${t.rate_pct}%/yr`, t.maturity_month ? `due ${monthLabel(t.maturity_month)}` : null].filter(Boolean).join(', ');
 }
 
@@ -380,7 +385,10 @@ export const dayLabel = (d: string) => {
 /** How a real draw is named in the forecast: "Amex draw 29 Oct". */
 export const drawName = (line: CreditLine, d: CreditDraw) => `${line.name} draw ${d.draw_date ? dayLabel(d.draw_date) : monthLabel(d.month)}`;
 
-type Tranche = { draw?: CreditDraw; start: Month; amount: number; left: number; open: number; t: DrawTerms; label: string; planned: boolean };
+type Tranche = {
+  draw?: CreditDraw; start: Month; amount: number; left: number; open: number; t: DrawTerms; label: string; planned: boolean;
+  accrued: number; // balloon: interest built up and not yet paid
+};
 type LineSim = { flows: Flow[]; opening: number; balances: number[]; tranches: Tranche[] };
 
 /**
@@ -404,7 +412,7 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
   };
   const inCash = (d: CreditDraw) => !cashAsOf || (d.draw_date || `${d.month}-01`) <= cashAsOf;
 
-  if (line.drawn_usd > 0) tranches.push({ start: m0, amount: line.drawn_usd, left: line.drawn_usd, open: line.drawn_usd, t: { ...lineTerms, term_months: null }, label: line.name, planned: false });
+  if (line.drawn_usd > 0) tranches.push({ start: m0, amount: line.drawn_usd, left: line.drawn_usd, open: line.drawn_usd, t: { ...lineTerms, term_months: null }, label: line.name, planned: false, accrued: 0 });
 
   // Real draws up to this month: what's still owed at the start of the window.
   for (const d of mine.filter(x => x.actual && x.month <= m0)) {
@@ -421,7 +429,9 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     }
     if (t.maturity_month && t.maturity_month < m0) left = 0;
     if (left <= 0.005) continue;
-    tranches.push({ draw: d, start: d.month, amount: d.amount_usd, left, open: left, t, label: drawName(line, d), planned: false });
+    // A balloon draw's interest from the month it was drawn up to this month is still owed.
+    const accrued = t.balloon && !isInstallment(t) ? left * t.rate_pct / 100 / 12 * Math.max(0, monthDiff(d.month, m0)) : 0;
+    tranches.push({ draw: d, start: d.month, amount: d.amount_usd, left, open: left, t, label: drawName(line, d), planned: false, accrued });
     if (d.month === m0 && !inCash(d)) flows.push({ month: m0, kind: 'credit_draw', amount: d.amount_usd, label: `${drawName(line, d)} (${termsLabel(t)})`, ref: line.id });
   }
   const opening = tranches.reduce((s, x) => s + x.left, 0);
@@ -436,7 +446,7 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
         continue;
       }
       const label = d.actual ? drawName(line, d) : line.name;
-      tranches.push({ draw: d, start: m, amount: d.amount_usd, left: d.amount_usd, open: 0, t, label, planned: !d.actual });
+      tranches.push({ draw: d, start: m, amount: d.amount_usd, left: d.amount_usd, open: 0, t, label, planned: !d.actual, accrued: 0 });
       flows.push({ month: m, kind: 'credit_draw', amount: d.amount_usd, label: d.actual ? `${label} (${termsLabel(t)})` : label, ref: line.id });
     }
     for (const x of tranches) {
@@ -465,10 +475,12 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     for (const x of revolving()) {
       if (x.t.maturity_month && x.t.maturity_month === m) {
         flows.push({ month: m, kind: 'credit_repay', amount: -x.left, label: `${x.label} (due in full)`, ref: line.id });
-        x.left = 0;
+        if (x.accrued > 0.005) flows.push({ month: m, kind: 'credit_interest', amount: -x.accrued, label: `${x.label} interest (balloon)`, ref: line.id });
+        x.left = 0; x.accrued = 0;
         continue;
       }
-      interest += x.left * x.t.rate_pct / 100 / 12;
+      if (x.t.balloon) x.accrued += x.left * x.t.rate_pct / 100 / 12;
+      else interest += x.left * x.t.rate_pct / 100 / 12;
     }
     if (interest > 0.005) flows.push({ month: m, kind: 'credit_interest', amount: -interest, label: line.name, ref: line.id });
     return tranches.reduce((s, x) => s + Math.max(0, x.left), 0);
@@ -504,7 +516,7 @@ export function realDrawStatus(lines: CreditLine[], draws: CreditDraw[], months:
     for (const d of draws.filter(x => x.line_id === line.id && x.actual && x.amount_usd > 0)) {
       const tr = sim.tranches.find(x => x.draw?.id === d.id);
       const pay = tr ? sim.flows.find(f => f.kind === 'credit_repay' && (f.label === tr.label || f.label === `${tr.label} (due in full)`)) : undefined;
-      const fee = pay ? sim.flows.filter(f => f.month === pay.month && f.label === `${tr!.label} fee`).reduce((s, f) => s - f.amount, 0) : 0;
+      const fee = pay ? sim.flows.filter(f => f.month === pay.month && (f.label === `${tr!.label} fee` || f.label === `${tr!.label} interest (balloon)`)).reduce((s, f) => s - f.amount, 0) : 0;
       out.push({
         draw: d, line, terms: drawTerms(line, d),
         left: !tr ? 0 : d.month <= months[0] ? tr.open : d.amount_usd,
