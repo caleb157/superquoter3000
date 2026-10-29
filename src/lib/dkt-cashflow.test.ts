@@ -336,3 +336,21 @@ describe('real draw terms', () => {
     ]);
   });
 });
+
+describe('balloon credit', () => {
+  const sooie = { id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 0, rate_pct: 6, maturity_month: '2027-03', balloon: true };
+  const months = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03'];
+  it('pays no interest monthly, then principal plus all interest since the draw in the due month', () => {
+    const draws = [{ id: 'd', line_id: 's', month: '2026-08', amount_usd: 10000, actual: true, rate_pct: 6, maturity_month: '2027-03', balloon: true }];
+    const f = creditFlows([sooie], draws, months);
+    expect(f.filter(x => x.month !== '2027-03')).toEqual([]);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2027-03', amount: -10000 });
+    // Aug through Feb: 7 months at 0.5% of 10,000.
+    expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(350);
+    expect(realDrawStatus([sooie], draws, months)[0].next).toMatchObject({ month: '2027-03', amount: 10350 });
+  });
+  it('a planned draw on a balloon line is a balloon too', () => {
+    const f = creditFlows([sooie], [{ id: 'p', line_id: 's', month: '2026-12', amount_usd: 5000 }], months);
+    expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(75);
+  });
+});

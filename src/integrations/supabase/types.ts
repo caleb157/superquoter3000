@@ -1136,6 +1136,7 @@ export type Database = {
         Row: {
           actual: boolean
           amount_usd: number
+          balloon: boolean | null
           created_at: string
           draw_date: string | null
           id: string
@@ -1150,6 +1151,7 @@ export type Database = {
         Insert: {
           actual?: boolean
           amount_usd?: number
+          balloon?: boolean | null
           created_at?: string
           draw_date?: string | null
           id?: string
@@ -1164,6 +1166,7 @@ export type Database = {
         Update: {
           actual?: boolean
           amount_usd?: number
+          balloon?: boolean | null
           created_at?: string
           draw_date?: string | null
           id?: string
@@ -1187,6 +1190,7 @@ export type Database = {
       }
       dkt_credit_lines: {
         Row: {
+          balloon: boolean
           created_at: string
           drawn_usd: number
           id: string
@@ -1200,6 +1204,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          balloon?: boolean
           created_at?: string
           drawn_usd?: number
           id?: string
@@ -1213,6 +1218,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          balloon?: boolean
           created_at?: string
           drawn_usd?: number
           id?: string
