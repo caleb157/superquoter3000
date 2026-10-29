@@ -159,7 +159,11 @@ export function useDktCashflow(thisMonth: Month) {
       loans: (loans.data || []).map((r: any) => ({ ...r, balance_usd: num(r.balance_usd), rate_pct: num(r.rate_pct), due_month: m(r, 'due_month'), proceeds_usd: r.proceeds_usd == null ? null : num(r.proceeds_usd), proceeds_month: m(r, 'proceeds_month') })),
       loanPayments: (pays.data || []).map((r: any) => ({ ...r, principal_usd: num(r.principal_usd), interest_usd: num(r.interest_usd) })),
       creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct), maturity_month: m(r, 'maturity_month'), term_months: r.term_months == null ? null : num(r.term_months), monthly_fee_pct: r.monthly_fee_pct == null ? null : num(r.monthly_fee_pct) })),
-      creditDraws: (draws.data || []).map((r: any) => ({ ...r, month: m(r, 'month'), amount_usd: num(r.amount_usd) })),
+      creditDraws: (draws.data || []).map((r: any) => ({
+        ...r, month: m(r, 'month'), amount_usd: num(r.amount_usd), actual: !!r.actual, maturity_month: m(r, 'maturity_month'),
+        term_months: r.term_months == null ? null : num(r.term_months), monthly_fee_pct: r.monthly_fee_pct == null ? null : num(r.monthly_fee_pct),
+        rate_pct: r.rate_pct == null ? null : num(r.rate_pct),
+      })),
       scenarios: scen.data || [],
       skus: (skus.data || []).map((r: any) => ({
         ...r, price_usd: num(r.price_usd), net_margin_pct: num(r.net_margin_pct), units_per_month: num(r.units_per_month),

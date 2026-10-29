@@ -1134,25 +1134,46 @@ export type Database = {
       }
       dkt_credit_draws: {
         Row: {
+          actual: boolean
           amount_usd: number
           created_at: string
+          draw_date: string | null
           id: string
           line_id: string
+          maturity_month: string | null
           month: string
+          monthly_fee_pct: number | null
+          notes: string | null
+          rate_pct: number | null
+          term_months: number | null
         }
         Insert: {
+          actual?: boolean
           amount_usd?: number
           created_at?: string
+          draw_date?: string | null
           id?: string
           line_id: string
           month: string
+          maturity_month?: string | null
+          monthly_fee_pct?: number | null
+          notes?: string | null
+          rate_pct?: number | null
+          term_months?: number | null
         }
         Update: {
+          actual?: boolean
           amount_usd?: number
           created_at?: string
+          draw_date?: string | null
           id?: string
           line_id?: string
           month?: string
+          maturity_month?: string | null
+          monthly_fee_pct?: number | null
+          notes?: string | null
+          rate_pct?: number | null
+          term_months?: number | null
         }
         Relationships: [
           {

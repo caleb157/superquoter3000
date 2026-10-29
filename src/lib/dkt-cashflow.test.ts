@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooCustReceived, odooOwed, orderAmounts, orderFlows,
+  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditBalances, creditDrawnToday, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooCustReceived, odooOwed, orderAmounts, orderFlows, realDrawStatus,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { demandFor, scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -269,5 +269,70 @@ describe('allegro', () => {
     const feb = f.months.find(m => m.month === '2027-02')!;
     expect(feb.byKind).toEqual({ allegro_in: 5000 });
     expect(allegroLaunchMonth({ ...s, allegro_launch_on: false }, '2026-10', 6)).toBeNull();
+  });
+});
+
+describe('real credit draws', () => {
+  const months = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04'];
+  const sooie = { id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 0, rate_pct: 5, maturity_month: '2027-03' };
+  const amex = { id: 'a', name: 'Amex', limit_usd: 15300, drawn_usd: 0, rate_pct: 6.6, term_months: 6, monthly_fee_pct: 0.55 };
+
+  it('counts an earlier revolving draw as owed today, charges interest and repays it when due', () => {
+    const draws = [{ id: 'd', line_id: 's', month: '2026-08', draw_date: '2026-08-15', amount_usd: 10000, actual: true, rate_pct: 5, maturity_month: '2027-03' }];
+    expect(creditDrawnToday([sooie], draws, '2026-10')).toEqual({ s: 10000 });
+    const f = creditFlows([sooie], draws, months, '2026-10-01');
+    expect(f.filter(x => x.kind === 'credit_draw')).toEqual([]);
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => Math.round(-x.amount))).toEqual([42, 42, 42, 42, 42]);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2027-03', amount: -10000 });
+  });
+
+  it('a real draw keeps its own terms, not the line’s', () => {
+    const draws = [{ id: 'd', line_id: 's', month: '2026-08', amount_usd: 10000, actual: true, rate_pct: 12, maturity_month: '2026-12' }];
+    const f = creditFlows([sooie], draws, months);
+    expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(100);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2026-12' });
+  });
+
+  it('adds a draw taken after cash was saved as cash in this month, then repays it in installments', () => {
+    const draws = [{ id: 'd', line_id: 'a', month: '2026-10', draw_date: '2026-10-29', amount_usd: 10000, actual: true, term_months: 6, monthly_fee_pct: 0.55 }];
+    const f = creditFlows([amex], draws, months, '2026-10-20');
+    expect(f.filter(x => x.kind === 'credit_draw')).toEqual([expect.objectContaining({ month: '2026-10', amount: 10000 })]);
+    expect(f.filter(x => x.kind === 'credit_repay').map(x => Math.round(-x.amount))).toEqual([1667, 1667, 1667, 1667, 1667, 1667]);
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => Math.round(-x.amount))).toEqual([55, 55, 55, 55, 55, 55]);
+    // Already in the cash balance once cash is saved on or after the draw date.
+    expect(creditFlows([amex], draws, months, '2026-10-29').filter(x => x.kind === 'credit_draw')).toEqual([]);
+    expect(creditDrawnToday([amex], draws, '2026-10')).toEqual({ a: 10000 });
+  });
+
+  it('leaves out installments already paid before this month', () => {
+    const draws = [{ id: 'd', line_id: 'a', month: '2026-08', amount_usd: 6000, actual: true, term_months: 6, monthly_fee_pct: 0.55 }];
+    expect(Math.round(creditDrawnToday([amex], draws, '2026-10').a)).toBe(5000); // September's payment is behind us
+    const st = realDrawStatus([amex], draws, months)[0];
+    expect(st.next).toMatchObject({ month: '2026-10' });
+    expect(Math.round(st.next!.amount)).toBe(1033); // 1,000 + 0.55% of 6,000
+  });
+
+  it('a planned draw on top of a real one adds to the balance', () => {
+    const draws = [
+      { id: 'r', line_id: 's', month: '2026-08', amount_usd: 10000, actual: true, rate_pct: 5 },
+      { id: 'p', line_id: 's', month: '2026-12', amount_usd: 5000 },
+    ];
+    expect(creditBalances([sooie], draws, months).s.slice(0, 3)).toEqual([10000, 10000, 15000]);
+  });
+});
+
+describe('real draw terms', () => {
+  const line = { id: 'a', name: 'Amex', limit_usd: 15300, drawn_usd: 0, rate_pct: 6.6, term_months: 6, monthly_fee_pct: 0.55, maturity_month: '2027-03' };
+  it('a real draw left without a repayment period is revolving even when its line has one', () => {
+    const f = creditFlows([line], [{ id: 'd', line_id: 'a', month: '2026-10', amount_usd: 10000, actual: true, rate_pct: 6, term_months: null, maturity_month: null }], ['2026-10', '2026-11']);
+    expect(f.filter(x => x.kind === 'credit_repay')).toEqual([]);
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => Math.round(-x.amount))).toEqual([50, 50]);
+  });
+  it('pays what is left of an installment draw in its due-in-full month', () => {
+    const f = creditFlows([line], [{ id: 'd', line_id: 'a', month: '2026-10', amount_usd: 6000, actual: true, rate_pct: 6.6, term_months: 6, monthly_fee_pct: 0.55, maturity_month: '2027-03' }],
+      ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04']);
+    expect(f.filter(x => x.kind === 'credit_repay').map(x => [x.month, Math.round(-x.amount)])).toEqual([
+      ['2026-11', 1000], ['2026-12', 1000], ['2027-01', 1000], ['2027-02', 1000], ['2027-03', 2000],
+    ]);
   });
 });
