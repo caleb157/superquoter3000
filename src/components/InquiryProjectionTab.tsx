@@ -37,6 +37,7 @@ import {
 import { ChevronDown, Lock } from 'lucide-react';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { REPEAT_ORDER_EVENT } from '@/components/InquiryClockStrip';
+import { pipelineKind } from '@/lib/master-analytics';
 
 type Props = { inquiryId: string };
 
@@ -202,6 +203,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
 
   const autoMh = useMemo(() => effectiveManHours({ estimated_man_hours: null } as any, productMh), [productMh]);
   const effMh = useMemo(() => effectiveManHours(proj as any, productMh), [proj, productMh]);
+  const autoKind = pipelineKind(null, effMh).kind;
 
   // Hard lock = real PO/complete; projected_po stays editable and switches to live once products exist.
   const locked = inquiryStatus === 'po' || inquiryStatus === 'complete';
@@ -358,6 +360,21 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 />
                 Repeat order
               </label>
+            </div>
+            <div>
+              <Label className="text-xs">Trading or manufacturing</Label>
+              <Select
+                value={proj?.order_kind ?? '__auto__'}
+                onValueChange={v => persist({ order_kind: v === '__auto__' ? null : (v as 'trading' | 'manufacturing') })}
+              >
+                <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">Auto: {autoKind === 'manufacturing' ? 'Manufacturing' : 'Trading'}</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                  <SelectItem value="trading">Trading</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Auto: labour man-hours mean manufacturing, none mean trading.</p>
             </div>
           </div>
 
