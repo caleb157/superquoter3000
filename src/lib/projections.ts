@@ -4,6 +4,8 @@ export type InquiryProjection = {
   selling_entity_id: string | null;
   producing_entity_id: string | null;
   repeat_order: boolean;
+  /** Trading or manufacturing, picked on the inquiry; null = auto (labour man-hours → manufacturing). */
+  order_kind?: 'trading' | 'manufacturing' | null;
   shipping_method: 'air' | 'sea' | 'ground' | null;
   paying_shipping: boolean;
   duration_months: number | null;

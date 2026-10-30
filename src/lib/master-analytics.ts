@@ -86,6 +86,8 @@ export type PipelineInquiry = {
   pv_revenue_usd: number;
   via_other_entity: boolean;
   gpm: number; man_hours: number;
+  /** Picked on the inquiry, else labour man-hours mean manufacturing and none mean trading. */
+  kind: 'trading' | 'manufacturing'; kind_auto: boolean;
   revenue_month: string | null; start_month: string; duration_months: number;
   /** Inflows to PV (customer payments, or inter-entity payments when DKT sells). */
   cust: { pct: number; month: string | null }[]; vend: { pct: number; month: string | null }[];
@@ -101,6 +103,11 @@ export type PipelineOpts = {
   defaults: { custDeposit: number; ieDeposit: number; vendorDeposit: number };
   live: Record<string, { fob_usd: number; gpm: number; man_hours: number }>;
 };
+
+export function pipelineKind(picked: string | null | undefined, manHours: number): { kind: 'trading' | 'manufacturing'; kind_auto: boolean } {
+  if (picked === 'trading' || picked === 'manufacturing') return { kind: picked, kind_auto: false };
+  return { kind: manHours > 0 ? 'manufacturing' : 'trading', kind_auto: true };
+}
 
 export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInquiry[] {
   const thisMonth = opts.today.slice(0, 7) + '-01';
@@ -146,6 +153,7 @@ export function buildPipeline(inquiries: any[], opts: PipelineOpts): PipelineInq
       return {
         id: i.id, rfq_number: i.rfq_number, title: i.title, status: i.status, customer: i.customers?.name ?? null,
         certainty, repeat: !!p.repeat_order, fob_usd: fob, pv_revenue_usd: pvRev, via_other_entity: viaOther, gpm, man_hours: mh,
+        ...pipelineKind(p.order_kind, mh),
         revenue_month: ship, start_month: start, duration_months: duration,
         cust,
         // Vendors are paid on the same schedule as the money coming in: their deposit in the

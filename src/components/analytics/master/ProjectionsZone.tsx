@@ -67,9 +67,9 @@ export function ProjectionsZone(p: Props) {
     const b = pending.reduce((s, i) => s + pickAmt(i, ccy), 0);
     const c = pipeIn.reduce((s, x) => s + usdToCcy(x.pv_revenue_usd * x.certainty), 0);
     // Manufacturing share, by the SO's Odoo Trading / Manufacturing tag (MO guess when untagged).
-    // Pipeline inquiries are PDHQ manufacturing quotes, so they count in full when included.
+    // Pipeline inquiries use the kind picked on the inquiry, else labour man-hours = manufacturing.
     const hasKinds = [...invoiced, ...pending].some(x => x.kind !== undefined);
-    const mfg = [...invoiced, ...pending].reduce((s, i) => s + pickAmt(i, ccy) * mfgShareOf(i), 0) + (includePipeline ? c : 0);
+    const mfg = [...invoiced, ...pending].reduce((s, i) => s + pickAmt(i, ccy) * mfgShareOf(i), 0) + (includePipeline ? pipeIn.filter(x => x.kind === 'manufacturing').reduce((s, x) => s + usdToCcy(x.pv_revenue_usd * x.certainty), 0) : 0);
     const untagged = [...invoiced, ...pending].filter(x => x.kind !== undefined && !x.tagged).length;
     return { invoiced, pending, pipeIn, a, b, c, total: a + b + (includePipeline ? c : 0), mfg, hasKinds, untagged };
   }, [snapshot, pipe, ccy, includePipeline, hqRate]);
@@ -295,12 +295,12 @@ export function ProjectionsZone(p: Props) {
           <DialogHeader><DialogTitle>{fy.label} revenue build-up</DialogTitle></DialogHeader>
           {fyRev && <div className="space-y-4 text-xs">
             {fyRev.hasKinds && <div className="text-muted-foreground">
-              Manufacturing revenue {f(fyRev.mfg)}, from the Trading / Manufacturing tags on each Odoo sales order{includePipeline ? ', plus weighted pipeline' : ''}.
+              Manufacturing revenue {f(fyRev.mfg)}, from the Trading / Manufacturing tags on each Odoo sales order{includePipeline ? ' and, for pipeline, the kind picked on each inquiry (else labour man-hours = manufacturing)' : ''}.
               {fyRev.untagged ? ` ${fyRev.untagged} untagged ${fyRev.untagged === 1 ? 'entry is' : 'entries are'} guessed from MOs (marked *).` : ''}
             </div>}
             <Section title={`Invoiced since ${fy.start} — ${f(fyRev.a)}`} rows={fyRev.invoiced.map(i => [i.ref, i.partner, i.date, kindLabel(i), fmtMoney(pickAmt(i, ccy), ccy, false)])} />
             <Section title={`Booked SOs not yet invoiced, due by ${fy.end} — ${f(fyRev.b)}`} rows={fyRev.pending.map(i => [i.ref, i.partner, i.date, kindLabel(i), fmtMoney(pickAmt(i, ccy), ccy, false)])} />
-            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, fmtMoney(usdToCcy(x.pv_revenue_usd * x.certainty), ccy, false)])} />
+            <Section title={`Pipeline (weighted) — ${f(fyRev.c)}${includePipeline ? '' : ' (excluded)'}`} rows={fyRev.pipeIn.map(x => [x.rfq_number, x.customer, `${Math.round(x.certainty * 100)}%`, kindLabel({ kind: x.kind, tagged: !x.kind_auto }), fmtMoney(usdToCcy(x.pv_revenue_usd * x.certainty), ccy, false)])} />
           </div>}
         </DialogContent>
       </Dialog>
