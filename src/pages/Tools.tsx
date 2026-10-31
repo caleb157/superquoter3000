@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Calculator, Landmark, Wrench, Ship, Weight } from 'lucide-react';
+import { Box, Calculator, Landmark, Wrench, Ship, Weight, AlarmClock } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const tools = [
@@ -28,6 +28,12 @@ const tools = [
     icon: Landmark,
     title: 'DKT Cash Flow',
     description: 'When DKT needs cash and how much: DKT orders and PV advances, overhead, loans, credit lines, Amazon SKUs and the Allegro fund, month by month.',
+  },
+  {
+    to: '/tools/late-report',
+    icon: AlarmClock,
+    title: 'Late Report',
+    description: 'Late and very-late sign-ins from Odoo attendance for any date range, with rupee penalties, warnings and one-click HR notes.',
   },
   {
     to: '/freight-quotes',

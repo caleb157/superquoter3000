@@ -2031,6 +2031,7 @@ export type Database = {
           employees: Json
           id: string
           notes: string | null
+          source_key: string | null
           status: string
           tag: string
           title: string
@@ -2044,6 +2045,7 @@ export type Database = {
           employees?: Json
           id?: string
           notes?: string | null
+          source_key?: string | null
           status?: string
           tag: string
           title: string
@@ -2057,6 +2059,7 @@ export type Database = {
           employees?: Json
           id?: string
           notes?: string | null
+          source_key?: string | null
           status?: string
           tag?: string
           title?: string
@@ -2116,6 +2119,7 @@ export type Database = {
           ie_deposit_pct: number | null
           inquiry_id: string
           notes: string | null
+          order_kind: string | null
           paying_shipping: boolean
           producing_entity_id: string | null
           project_gpm: number | null
@@ -2153,6 +2157,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id: string
           notes?: string | null
+          order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
@@ -2190,6 +2195,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id?: string
           notes?: string | null
+          order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
@@ -2367,6 +2373,42 @@ export type Database = {
           hourly_rate_inr?: number
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      late_report_settings: {
+        Row: {
+          grace_count: number
+          hr_tag: string
+          id: boolean
+          late_end: string
+          late_start: string
+          penalty_inr: number
+          updated_at: string
+          very_late_limit: number
+          very_late_start: string
+        }
+        Insert: {
+          grace_count?: number
+          hr_tag?: string
+          id?: boolean
+          late_end?: string
+          late_start?: string
+          penalty_inr?: number
+          updated_at?: string
+          very_late_limit?: number
+          very_late_start?: string
+        }
+        Update: {
+          grace_count?: number
+          hr_tag?: string
+          id?: boolean
+          late_end?: string
+          late_start?: string
+          penalty_inr?: number
+          updated_at?: string
+          very_late_limit?: number
+          very_late_start?: string
         }
         Relationships: []
       }

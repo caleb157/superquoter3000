@@ -1,4 +1,5 @@
 import { Suspense, useEffect } from "react";
+import LateReport from './pages/LateReport';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -233,6 +234,7 @@ const App = () => (
               <Route path="/tools/iron-weight" element={
                 <ProtectedRoute requireAdminOrTeam><IronWeightCalculator /></ProtectedRoute>
               } />
+              <Route path="/tools/late-report" element={<ProtectedRoute requireAdmin><LateReport /></ProtectedRoute>} />
               <Route path="/tools/breakeven" element={
                 <ProtectedRoute requireAdminOrTeam><BreakevenCalculator /></ProtectedRoute>
               } />
