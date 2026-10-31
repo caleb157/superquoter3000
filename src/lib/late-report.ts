@@ -28,6 +28,7 @@ export function buildLateReport(entries: AttendanceEntry[], s: LateSettings, fro
   const first = new Map<string, { e: AttendanceEntry; date: string; time: string }>();
   for (const e of entries) {
     const { date, time } = toIst(e.check_in);
+    if (time === '00:00') continue; // Odoo midnight stamps are system-made, not real sign-ins
     const k = `${e.employee_id}|${date}`;
     const cur = first.get(k);
     if (!cur || time < cur.time) first.set(k, { e, date, time });

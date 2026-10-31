@@ -22,6 +22,10 @@ describe('late report', () => {
     const [r] = buildLateReport(days, s, '2026-10-01', '2026-10-31');
     expect(r.warnings.map(w => w.date)).toEqual(['2026-10-03', '2026-10-04']);
   });
+  it('ignores midnight system check-ins', () => {
+    const [r] = buildLateReport([e('2026-10-01', '00:00'), e('2026-10-01', '09:20')], s, '2026-10-01', '2026-10-31');
+    expect(r.lateCount).toBe(1);
+  });
   it('only the first check-in of the day counts', () => {
     const [r] = buildLateReport([e('2026-10-01', '09:00'), e('2026-10-01', '14:00')], s, '2026-10-01', '2026-10-31') ;
     expect(r).toBeUndefined();
