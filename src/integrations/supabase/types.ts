@@ -2116,6 +2116,7 @@ export type Database = {
           ie_deposit_pct: number | null
           inquiry_id: string
           notes: string | null
+          order_kind: string | null
           paying_shipping: boolean
           producing_entity_id: string | null
           project_gpm: number | null
@@ -2153,6 +2154,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id: string
           notes?: string | null
+          order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
@@ -2190,6 +2192,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id?: string
           notes?: string | null
+          order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
           project_gpm?: number | null
