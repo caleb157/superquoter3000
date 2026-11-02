@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -36,6 +36,8 @@ import { sumInquiryTotals, type InquiryTotals } from '@/lib/inquiry-totals';
 import { withStoredMh } from '@/lib/stored-man-hours';
 import { readSnapshot, writeSnapshot } from '@/lib/page-snapshot';
 import { fetchAllRows } from '@/lib/supabase-paged';
+import { dktSharePct, pickEntities, sumListTotals, type ProjectionShare } from '@/lib/inquiry-list-totals';
+import { DEFAULT_SETTINGS as DKT_DEFAULTS } from '@/lib/dkt-cashflow';
 
 type StatusFilter = 'all' | 'active' | 'paused' | 'projected_po' | 'po' | 'cancelled' | 'complete' | 'open';
 
@@ -102,6 +104,9 @@ const Dashboard = () => {
   const [newInquiryStatus, setNewInquiryStatus] = useState<'active' | 'projected_po'>('active');
 
   const [reviewProductIds, setReviewProductIds] = useState<Set<string>>(snap?.reviewProductIds ?? new Set());
+  // DKT share: each inquiry's selling entity + retention % (Projections tab), DKT default margin.
+  const [dktInfo, setDktInfo] = useState<{ proj: Record<string, ProjectionShare>; ent: { pvId: string | null; dktId: string | null }; defaultPct: number }>(
+    { proj: {}, ent: { pvId: null, dktId: null }, defaultPct: DKT_DEFAULTS.default_margin_pct });
 
   const mobileListRef = useRef<HTMLDivElement>(null);
   const desktopListRef = useRef<HTMLDivElement>(null);
@@ -128,6 +133,18 @@ const Dashboard = () => {
       ohRev.forEach((r: any) => r.product_id && rset.add(r.product_id));
       setReviewProductIds(rset);
       setLoading(false);
+      const [projRes, entRes, dktSet] = await Promise.all([
+        (supabase as any).from('inquiry_projections').select('inquiry_id, selling_entity_id, selling_retention_pct'),
+        (supabase as any).from('company_entities').select('id, name, entity_type'),
+        (supabase as any).from('dkt_cash_settings').select('default_margin_pct').eq('id', 1).maybeSingle(),
+      ]);
+      const proj: Record<string, ProjectionShare> = {};
+      for (const r of (projRes.data as any[]) ?? []) if (r.inquiry_id) proj[r.inquiry_id] = r;
+      const dm = Number(dktSet.data?.default_margin_pct);
+      setDktInfo({
+        proj, ent: pickEntities((entRes.data as any[]) ?? []),
+        defaultPct: Number.isFinite(dm) && dktSet.data?.default_margin_pct != null ? dm : DKT_DEFAULTS.default_margin_pct,
+      });
     })();
   }, [refreshKey]);
 
@@ -186,6 +203,15 @@ const Dashboard = () => {
     return out;
   }, [liveTotals]);
 
+  const dktByInquiry = useMemo(() => {
+    const out: Record<string, { pct: number; isDefault: boolean }> = {};
+    for (const [id, p] of Object.entries(dktInfo.proj)) {
+      const d = dktSharePct(p, dktInfo.ent, dktInfo.defaultPct);
+      if (d) out[id] = d;
+    }
+    return out;
+  }, [dktInfo]);
+
   const reviewInquiryIds = useMemo(() => {
     const s = new Set<string>();
     for (const p of products) {
@@ -226,6 +252,15 @@ const Dashboard = () => {
     }
     return list;
   }, [inquiries, customerMap, productsByInquiry, mhByInquiry, cbmByInquiry, search, statusFilter, sortColumn, sortDirection, sortItems]);
+
+  // Totals row: the rows the current search and status filter show.
+  const listTotals = useMemo(() => sumListTotals(visibleInquiries.map(i => ({
+    products: productsByInquiry[i.id]?.length ?? 0,
+    manHours: mhByInquiry[i.id], cbm: cbmByInquiry[i.id],
+    totals: totalsByInquiry[i.id], dktPct: dktByInquiry[i.id]?.pct ?? null,
+  }))), [visibleInquiries, productsByInquiry, mhByInquiry, cbmByInquiry, totalsByInquiry, dktByInquiry]);
+  const totalsStillLoading = visibleInquiries.some(i => totalsPending.has(i.id));
+  const anyInr = visibleInquiries.some(i => i.quoting_currency === 'INR' && totalsByInquiry[i.id]?.revenueUsd);
 
   const stageCounts = (prods: Product[] | undefined, track: 'design' | 'quote' | 'sample') => {
     const counts: Record<string, number> = {};
@@ -344,7 +379,8 @@ const Dashboard = () => {
                 {inquiries.length === 0 ? 'No inquiries yet.' : 'No matches.'}
               </CardContent></Card>
             ) : (
-              visibleInquiries.map(inq => {
+              <>
+              {visibleInquiries.map(inq => {
                 const prods = productsByInquiry[inq.id];
                 const cust = inq.customer_id ? customerMap[inq.customer_id] : null;
                 const noProducts = !prods || prods.length === 0;
@@ -410,7 +446,23 @@ const Dashboard = () => {
                   </Card>
                   </RowContextMenu>
                 );
-              })
+              })}
+              <Card className="bg-muted/40">
+                <CardContent className="p-3 text-xs space-y-1">
+                  <div className="font-semibold uppercase tracking-wide">
+                    Total · {listTotals.rows} {listTotals.rows === 1 ? 'inquiry' : 'inquiries'}
+                    {totalsStillLoading && <span className="ml-1 font-normal normal-case text-muted-foreground">(still calculating…)</span>}
+                  </div>
+                  <div className="text-muted-foreground tabular-nums">
+                    {listTotals.products} products · {listTotals.manHours.toFixed(1)} MH · {listTotals.cbm.toFixed(2)} CBM
+                  </div>
+                  <div className="tabular-nums">
+                    Order value {fmt.usd(listTotals.revenueUsd)} · NPM <span className="text-success">{fmt.usd(listTotals.profitUsd)}{listTotals.margin != null && ` (${(listTotals.margin * 100).toFixed(1)}%)`}</span> · DKT NPM <span className="text-info">{fmt.usd(listTotals.dktUsd)}</span>
+                  </div>
+                  {anyInr && <div className="text-[10px] text-muted-foreground">Money in USD; rupee orders at the live rate</div>}
+                </CardContent>
+              </Card>
+              </>
             )}
           </div>
 
@@ -440,7 +492,7 @@ const Dashboard = () => {
                       <SortableHeader column="cbm" label="CBM" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} className="text-xs w-[70px] text-right" />
                       <TableHead className="text-xs text-right w-[110px]">Order value</TableHead>
                       <TableHead className="text-xs text-right w-[100px]">NPM</TableHead>
-                      
+                      <TableHead className="text-xs text-right w-[100px]" title="DKT's share when DKT sells the order: order value × selling entity retention % (inquiry Projections tab; blank uses the DKT Cash Flow default margin)">DKT NPM</TableHead>
                       <TableHead className="text-xs text-right w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -521,11 +573,13 @@ const Dashboard = () => {
                           {(() => {
                             const t = totalsByInquiry[inq.id];
                             const npm = t && t.revenueUsd > 0 ? t.margin : null;
+                            const dkt = dktByInquiry[inq.id];
                             if (!t && totalsPending.has(inq.id)) {
                               return (
                                 <>
                                   <TableCell className="text-right text-sm text-muted-foreground/60">…</TableCell>
                                   <TableCell className="text-right text-sm text-muted-foreground/60">…</TableCell>
+                                  <TableCell className="text-right text-sm text-muted-foreground/60">{dkt ? '…' : '—'}</TableCell>
                                 </>
                               );
                             }
@@ -539,6 +593,17 @@ const Dashboard = () => {
                                     <div className="leading-tight">
                                       <div>{orderMoney(inq, t!, 'profit')}</div>
                                       <div className="text-[10px]">{(npm * 100).toFixed(1)}%</div>
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell
+                                  className={cn('text-right text-sm tabular-nums', dkt && t && t.revenueUsd > 0 && 'text-info')}
+                                  title={dkt ? `DKT keeps ${(dkt.pct * 100).toFixed(1)}% of the order value${dkt.isDefault ? ' (DKT Cash Flow default; no % set on the inquiry)' : ''}` : 'Not sold through DKT'}
+                                >
+                                  {!dkt || !t || t.revenueUsd <= 0 ? <span className="text-muted-foreground/60">—</span> : (
+                                    <div className="leading-tight">
+                                      <div>{fmt.usd(t.revenueUsd * dkt.pct)}</div>
+                                      <div className="text-[10px]">{(dkt.pct * 100).toFixed(1)}%{dkt.isDefault ? '*' : ''}</div>
                                     </div>
                                   )}
                                 </TableCell>
@@ -564,6 +629,31 @@ const Dashboard = () => {
                       );
                     })}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={3} className="text-xs font-semibold uppercase tracking-wide">
+                        Total · {listTotals.rows} {listTotals.rows === 1 ? 'inquiry' : 'inquiries'}
+                        {totalsStillLoading && <span className="ml-1 font-normal normal-case text-muted-foreground">(still calculating…)</span>}
+                        {anyInr && <div className="text-[10px] font-normal normal-case text-muted-foreground">Money in USD; rupee orders at the live rate</div>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums font-semibold">{listTotals.products}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums font-semibold">{listTotals.manHours > 0 ? listTotals.manHours.toFixed(1) : '—'}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums font-semibold">{listTotals.cbm > 0 ? listTotals.cbm.toFixed(2) : '—'}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums font-semibold">{listTotals.revenueUsd > 0 ? fmt.usd(listTotals.revenueUsd) : '—'}</TableCell>
+                      <TableCell className={cn('text-right text-sm tabular-nums font-semibold', listTotals.margin == null ? '' : listTotals.margin < 0 ? 'text-destructive' : 'text-success')}>
+                        {listTotals.margin == null ? '—' : (
+                          <div className="leading-tight">
+                            <div>{fmt.usd(listTotals.profitUsd)}</div>
+                            <div className="text-[10px] font-normal">{(listTotals.margin * 100).toFixed(1)}%</div>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className={cn('text-right text-sm tabular-nums font-semibold', listTotals.dktUsd > 0 && 'text-info')}>
+                        {listTotals.dktUsd > 0 ? fmt.usd(listTotals.dktUsd) : '—'}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               )}
             </CardContent>
