@@ -971,6 +971,7 @@ export type Database = {
       dkt_amazon_skus: {
         Row: {
           created_at: string
+          excluded: boolean
           first_order_qty: number | null
           freight_per_unit_usd: number
           id: string
@@ -993,6 +994,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          excluded?: boolean
           first_order_qty?: number | null
           freight_per_unit_usd?: number
           id?: string
@@ -1015,6 +1017,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          excluded?: boolean
           first_order_qty?: number | null
           freight_per_unit_usd?: number
           id?: string

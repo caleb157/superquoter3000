@@ -12,6 +12,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { addMonths, buildForecast, creditDrawnToday, loanOutstanding, odooCustReceived, type Month } from '@/lib/dkt-cashflow';
+import { countedSkus } from '@/lib/dkt-amazon';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
@@ -39,7 +40,7 @@ export default function DktCashFlow() {
       settings: data.settings, thisMonth,
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
-      amazonSkus: data.skus.filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
+      amazonSkus: countedSkus(data.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
       odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
     });
   }, [data, thisMonth, odoo.rows, odoo.invoices, manual.entries]);

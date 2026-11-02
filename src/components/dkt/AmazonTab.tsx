@@ -1,12 +1,12 @@
 import { Fragment } from 'react';
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { Copy, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { addMonths, monthLabel, type Month } from '@/lib/dkt-cashflow';
-import { demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
+import { countedSkus, demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
 
@@ -32,6 +32,7 @@ export function AmazonTab(p: Props) {
       <div className="flex justify-between items-start gap-3">
         <p className="text-xs text-muted-foreground max-w-3xl">
           Each scenario is a saved set of SKUs. Switch "In DKT forecast" on to put it in DKT's cash flow.
+          The eye next to a SKU leaves it out of the scenario's numbers and the forecast without deleting it.
           A <b>simple</b> SKU is an existing line: monthly sales × price × net margin, from its start month.
           A <b>new SKU</b> runs the full cycle: 100% of product cost at PO, freight when it ships (after the make months), first sales after the ship months,
           and a reorder placed automatically so it arrives before stock runs out (make + ship months of sales at units per month). Net margin is what's left after Amazon fees and landed cost,
@@ -45,10 +46,10 @@ export function AmazonTab(p: Props) {
 }
 
 /** Launch terms for a new SKU: smaller first order, lower first-batch margin, sales ramping up. Blank = same as the rest. */
-function LaunchRow({ sku: x, updateSku }: { sku: AmazonSku; updateSku: Props['updateSku'] }) {
+function LaunchRow({ sku: x, updateSku, className }: { sku: AmazonSku; updateSku: Props['updateSku']; className?: string }) {
   const ramp = x.launch_units_per_month != null && (x.ramp_months ?? 0) > 0;
   return (
-    <tr className="align-top">
+    <tr className={cn('align-top', className)}>
       <td colSpan={11} className="pb-2 pt-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
           <span className="font-medium text-foreground">Launch</span>
@@ -120,11 +121,13 @@ function InventoryTip({ active, payload }: { active?: boolean; payload?: { paylo
 
 function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenario, updateScenario, removeScenario, addSku, updateSku, removeSku }: Props & { scenario: AmazonScenario }) {
   const mine = skus.filter(x => x.scenario_id === s.id);
+  const counted = countedSkus(mine);
+  const leftOut = mine.length - counted.length;
   const last = addMonths(thisMonth, lookahead - 1);
-  const sum = scenarioSummary(mine, last);
+  const sum = scenarioSummary(counted, last);
   const chart = sum.months.map(m => ({ month: monthLabel(m.month), in: Math.round(m.cashIn), out: -Math.round(m.cashOut), cumulative: Math.round(m.cumulative) }));
   const seriesName: Record<string, string> = { in: 'Money in', out: 'Money out', cumulative: 'Running total' };
-  const hasInventory = mine.some(x => x.mode === 'inventory');
+  const hasInventory = counted.some(x => x.mode === 'inventory');
   return (
     <Card className={cn(s.in_forecast && 'border-primary/40')}>
       <CardHeader className="pb-2 space-y-2">
@@ -142,7 +145,12 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
         <TextField className="text-xs" label="Notes" placeholder="Notes" value={s.notes} onSave={v => updateScenario(s.id, { notes: v || null })} />
       </CardHeader>
       <CardContent className="space-y-3">
-        {mine.length > 0 && (
+        {leftOut > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            {leftOut} SKU{leftOut === 1 ? ' is' : 's are'} left out of this projection (greyed out below). Click the eye to count {leftOut === 1 ? 'it' : 'them'} again.
+          </p>
+        )}
+        {counted.length > 0 && (
           <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
             {hasInventory && <Stat label="Most cash tied up" value={usd(sum.peakNeed)} sub={sum.peakMonth ? `in ${monthLabel(sum.peakMonth)}` : undefined} tone={sum.peakNeed > 0 ? 'warning' : undefined} />}
             {hasInventory && <Stat label="Paid back by" value={sum.paybackMonth ? monthLabel(sum.paybackMonth) : sum.peakNeed > 0 ? `after ${monthLabel(last)}` : '—'} />}
@@ -174,43 +182,59 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
               {mine.map(x => {
                 const inv = x.mode === 'inventory';
                 const po = firstPoMonth(x);
+                const off = !!x.excluded;
+                const dim = off ? 'opacity-40' : undefined;
                 return (
                   <Fragment key={x.id}>
-                  <tr className="border-t align-top">
+                  <tr className={cn('border-t align-top', off && 'bg-muted/30')}>
                     <td className="py-1.5 pr-2 min-w-[9rem]">
+                      <div className={dim}>
                       <TextField label="SKU" value={x.name} placeholder="SKU name" onSave={v => updateSku(x.id, { name: v })} />
                       <div className="text-[10px] text-muted-foreground mt-0.5">
                         Payout {usd(payoutPerUnit(x))}/unit{inv && po ? ` · first PO ${monthLabel(po)}` : ''}
                       </div>
-                      {!x.start_month && <div className="text-[10px] text-warning mt-0.5">Set a first sales month to count it</div>}
+                      {!off && !x.start_month && <div className="text-[10px] text-warning mt-0.5">Set a first sales month to count it</div>}
+                      </div>
+                      {off && <div className="text-[10px] font-medium text-muted-foreground mt-0.5">Left out of the projection</div>}
                     </td>
-                    <td className="py-1.5 px-1"><SelectField label="Type" value={x.mode} options={[{ value: 'simple', label: 'Simple' }, { value: 'inventory', label: 'New SKU' }]} onSave={v => updateSku(x.id, { mode: v })} /></td>
-                    <td className="py-1.5 px-1 w-20"><NumField label="Price" value={x.price_usd} onSave={v => updateSku(x.id, { price_usd: v ?? 0 })} /></td>
-                    <td className="py-1.5 px-1 w-20"><NumField percent label="Net margin" value={x.net_margin_pct} onSave={v => updateSku(x.id, { net_margin_pct: v ?? 0 })} /></td>
-                    <td className="py-1.5 px-1 w-20"><NumField label="Units per month" value={x.units_per_month} onSave={v => updateSku(x.id, { units_per_month: v ?? 0 })} /></td>
-                    <td className="py-1.5 px-1"><MonthField label="First sales month" allowEmpty value={x.start_month} onSave={v => updateSku(x.id, { start_month: v })} /></td>
+                    <td className={cn('py-1.5 px-1', dim)}><SelectField label="Type" value={x.mode} options={[{ value: 'simple', label: 'Simple' }, { value: 'inventory', label: 'New SKU' }]} onSave={v => updateSku(x.id, { mode: v })} /></td>
+                    <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Price" value={x.price_usd} onSave={v => updateSku(x.id, { price_usd: v ?? 0 })} /></td>
+                    <td className={cn('py-1.5 px-1 w-20', dim)}><NumField percent label="Net margin" value={x.net_margin_pct} onSave={v => updateSku(x.id, { net_margin_pct: v ?? 0 })} /></td>
+                    <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Units per month" value={x.units_per_month} onSave={v => updateSku(x.id, { units_per_month: v ?? 0 })} /></td>
+                    <td className={cn('py-1.5 px-1', dim)}><MonthField label="First sales month" allowEmpty value={x.start_month} onSave={v => updateSku(x.id, { start_month: v })} /></td>
                     {inv ? (
                       <>
-                        <td className="py-1.5 px-1 w-20"><NumField label="Product cost per unit" value={x.unit_cost_usd} onSave={v => updateSku(x.id, { unit_cost_usd: v ?? 0 })} /></td>
-                        <td className="py-1.5 px-1 w-20">
+                        <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Product cost per unit" value={x.unit_cost_usd} onSave={v => updateSku(x.id, { unit_cost_usd: v ?? 0 })} /></td>
+                        <td className={cn('py-1.5 px-1 w-20', dim)}>
                           <NumField label="Freight per unit" value={x.freight_per_unit_usd} onSave={v => updateSku(x.id, { freight_per_unit_usd: v ?? 0 })} />
                           <div className="text-[10px] text-muted-foreground text-right mt-0.5">landed {usd(landedPerUnit(x))}</div>
                         </td>
-                        <td className="py-1.5 px-1 w-20">
+                        <td className={cn('py-1.5 px-1 w-20', dim)}>
                           <NumField integer label="Order quantity" value={x.order_qty} onSave={v => updateSku(x.id, { order_qty: v ?? 0 })} />
                           <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(x.order_qty * landedPerUnit(x))}</div>
                         </td>
-                        <td className="py-1.5 px-1">
+                        <td className={cn('py-1.5 px-1', dim)}>
                           <div className="flex gap-1">
                             <NumField className="w-12" integer label="Make months" value={x.make_months} onSave={v => updateSku(x.id, { make_months: v ?? 0 })} />
                             <NumField className="w-12" integer label="Ship months" value={x.ship_months} onSave={v => updateSku(x.id, { ship_months: v ?? 0 })} />
                           </div>
                         </td>
                       </>
-                    ) : <td colSpan={4} className="py-1.5 px-1 text-muted-foreground pt-3">Existing line: no stock purchases modelled.</td>}
-                    <td className="py-1.5 pl-1"><Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Delete SKU" onClick={() => removeSku(x.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+                    ) : <td colSpan={4} className={cn('py-1.5 px-1 text-muted-foreground pt-3', dim)}>Existing line: no stock purchases modelled.</td>}
+                    <td className="py-1.5 pl-1">
+                      <div className="flex">
+                        <Button size="icon" variant="ghost" className={cn('h-7 w-7', off && 'text-muted-foreground')}
+                          aria-label={off ? 'Count this SKU in the projection' : 'Leave this SKU out of the projection'}
+                          title={off ? 'Left out: click to count it again' : 'Leave out of the projection (keeps the SKU)'}
+                          aria-pressed={off}
+                          onClick={() => updateSku(x.id, { excluded: !off })}>
+                          {off ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Delete SKU" onClick={() => removeSku(x.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </td>
                   </tr>
-                  {inv && <LaunchRow sku={x} updateSku={updateSku} />}
+                  {inv && <LaunchRow sku={x} updateSku={updateSku} className={dim} />}
                   </Fragment>
                 );
               })}
