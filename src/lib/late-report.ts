@@ -61,3 +61,13 @@ export function buildLateReport(entries: AttendanceEntry[], s: LateSettings, fro
   }
   return [...byEmp.values()].filter(r => r.arrivals.length > 0).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
+
+/** Pay periods: 1st–15th and 16th–end of month. `today` is YYYY-MM-DD. */
+export function payPeriod(today: string, offset: 0 | -1 = 0): { from: string; to: string } {
+  let [y, m, d] = today.split('-').map(Number);
+  let half = d <= 15 ? 0 : 1;
+  if (offset === -1) { if (half === 1) half = 0; else { half = 1; m -= 1; if (m === 0) { m = 12; y -= 1; } } }
+  const mm = String(m).padStart(2, '0');
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return half === 0 ? { from: `${y}-${mm}-01`, to: `${y}-${mm}-15` } : { from: `${y}-${mm}-16`, to: `${y}-${mm}-${last}` };
+}

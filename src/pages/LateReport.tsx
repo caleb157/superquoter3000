@@ -12,19 +12,18 @@ import { AlarmClock, ChevronDown, ChevronRight, Loader2, Settings } from 'lucide
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { buildLateReport, type AttendanceEntry, type LateSettings, type EmployeeLateRow, type Warning } from '@/lib/late-report';
+import { buildLateReport, type AttendanceEntry, type LateSettings, type EmployeeLateRow, type Warning, payPeriod } from '@/lib/late-report';
 
 const DEFAULTS: LateSettings = { late_start: '09:15', late_end: '09:45', very_late_start: '09:45', very_late_limit: 2, grace_count: 0, penalty_inr: 100, hr_tag: 'Discipline' };
 const hm = (t: string) => t.slice(0, 5);
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-const monthStart = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
 const today = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
 
 export default function LateReport() {
   useDocumentTitle('Late Report');
   const [settings, setSettings] = useState<LateSettings>(DEFAULTS);
-  const [from, setFrom] = useState(monthStart());
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(() => payPeriod(today()).from);
+  const [to, setTo] = useState(() => payPeriod(today()).to);
   const [entries, setEntries] = useState<AttendanceEntry[] | null>(null);
   const [ran, setRan] = useState<{ from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,6 +86,8 @@ export default function LateReport() {
         <div className="flex flex-wrap items-end gap-2">
           <div><Label className="text-xs">From</Label><Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="h-8 w-40" /></div>
           <div><Label className="text-xs">To</Label><Input type="date" value={to} onChange={e => setTo(e.target.value)} className="h-8 w-40" /></div>
+          <Button size="sm" variant="outline" onClick={() => { const p = payPeriod(today()); setFrom(p.from); setTo(p.to); }}>Current pay period</Button>
+          <Button size="sm" variant="outline" onClick={() => { const p = payPeriod(today(), -1); setFrom(p.from); setTo(p.to); }}>Previous pay period</Button>
           <Button size="sm" onClick={run} disabled={loading}>{loading && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Run report</Button>
           <p className="text-xs text-muted-foreground ml-auto">
             Late {settings.late_start}–{settings.late_end} · Very late from {settings.very_late_start} · {settings.grace_count} forgiven · {inr(settings.penalty_inr)}/late · warning after {settings.very_late_limit} very late
