@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-import type { AmazonSku } from '@/lib/dkt-amazon';
+import { countedSkus, type AmazonSku } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import {
   dayLabel, drawTerms, FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS, realDrawStatus, termsLabel,
@@ -247,15 +247,17 @@ function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
       <CardHeader className="pb-2"><CardTitle className="text-sm">Amazon in this forecast</CardTitle></CardHeader>
       <CardContent className="space-y-2 text-xs">
         {scenarios.map(sc => {
-          const mine = skus.filter(k => k.scenario_id === sc.id);
+          const all = skus.filter(k => k.scenario_id === sc.id);
+          const mine = countedSkus(all);
+          const left = all.length - mine.length;
           const net = amazon.filter(f => mine.some(k => k.id === f.ref)).reduce((t, f) => t + f.amount, 0);
           const problems = mine.map(k => ({ k, w: why(k) })).filter(x => x.w);
           return (
             <div key={sc.id} className="flex items-start gap-3 border-t pt-2 first:border-t-0 first:pt-0">
               <Switch checked={sc.in_forecast} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
               <div className="min-w-0 flex-1">
-                <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}</span></div>
-                {!mine.length ? <div className="text-muted-foreground">No SKUs yet. Add them on the Amazon tab.</div>
+                <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}{left ? `, ${left} left out` : ''}</span></div>
+                {!mine.length ? <div className="text-muted-foreground">{left ? 'Every SKU is left out. Switch them back on in the Amazon tab.' : 'No SKUs yet. Add them on the Amazon tab.'}</div>
                   : problems.map(({ k, w }) => <div key={k.id} className="text-warning">{k.name || 'Unnamed SKU'}: {w}, so it adds nothing yet.</div>)}
               </div>
               {sc.in_forecast && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
