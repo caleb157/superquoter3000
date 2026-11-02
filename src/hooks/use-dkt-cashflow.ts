@@ -15,6 +15,20 @@ import {
 import type { AmazonSku } from '@/lib/dkt-amazon';
 
 const db = supabase as any;
+
+// "Leave out of the projection" flag on Amazon SKUs. Saved in dkt_amazon_skus.excluded; until that
+// column exists (sql/amazon-sku-excluded.sql) it is kept in this browser so the toggle still works.
+const SKU_EXCLUDED_KEY = 'dkt-amazon-sku-excluded';
+const localExcluded = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(SKU_EXCLUDED_KEY) || '[]')); } catch { return new Set(); }
+};
+const setLocalExcluded = (id: string, on: boolean) => {
+  const ids = localExcluded();
+  if (on) ids.add(id); else ids.delete(id);
+  try { localStorage.setItem(SKU_EXCLUDED_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
+};
+const missingColumn = (e: { code?: string; message?: string } | null, col: string) => !!e && (e.code === '42703' || e.code === 'PGRST204') && String(e.message || '').includes(col);
+let skuExcludedColumn = true;
 // Before PO the order lives in HQ; once confirmed it is a PV → DKT sales order in Odoo (read live),
 // the same split Master Analytics uses, so an order is never counted twice.
 export const OPEN_STATUSES = ['active', 'projected_po'];
@@ -125,6 +139,8 @@ export function useDktCashflow(thisMonth: Month) {
       loadProjectionDefaults(),
       db.from('dkt_odoo_order_terms').select('*'),
     ]);
+    if (skus.data?.length) skuExcludedColumn = 'excluded' in skus.data[0];
+    const leftOut = skuExcludedColumn ? null : localExcluded();
     const firstErr = [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus].find(r => r.error)?.error;
     if (firstErr) {
       setError(/relation|does not exist|schema cache/i.test(firstErr.message || '')
@@ -173,6 +189,7 @@ export function useDktCashflow(thisMonth: Month) {
         launch_margin_pct: r.launch_margin_pct == null ? null : num(r.launch_margin_pct),
         launch_units_per_month: r.launch_units_per_month == null ? null : num(r.launch_units_per_month),
         ramp_months: r.ramp_months == null ? null : num(r.ramp_months),
+        excluded: leftOut ? leftOut.has(r.id) : !!r.excluded,
       })),
       dktEntityName: dkt?.name ?? null,
       odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
@@ -318,13 +335,19 @@ export function useDktCashflow(thisMonth: Month) {
       const { data: row, error } = await db.from('dkt_amazon_scenarios')
         .insert({ name: `${s.name} (copy)`, notes: s.notes, in_forecast: false }).select('id').single();
       if (fail(error) || !row) return;
-      const copies = skus.filter(x => x.scenario_id === s.id).map(({ id: _id, ...x }) => toDb({ ...x, scenario_id: row.id }));
+      const copies = skus.filter(x => x.scenario_id === s.id).map(({ id: _id, excluded, ...x }) => toDb({ ...x, scenario_id: row.id, ...(skuExcludedColumn ? { excluded: !!excluded } : {}) }));
       if (copies.length) fail((await db.from('dkt_amazon_skus').insert(copies)).error);
       await load();
     },
     async update(table: string, id: string, patch: Record<string, any>, listKey: keyof DktData) {
       patchLocal(d => ({ ...d, [listKey]: (d[listKey] as any[]).map(r => (r.id === id ? { ...r, ...patch } : r)) }));
+      if (table === 'dkt_amazon_skus' && 'excluded' in patch && !skuExcludedColumn) { setLocalExcluded(id, !!patch.excluded); return; }
       const { error } = await db.from(table).update(toDb(patch)).eq('id', id);
+      if (table === 'dkt_amazon_skus' && 'excluded' in patch && missingColumn(error, 'excluded')) {
+        skuExcludedColumn = false;
+        setLocalExcluded(id, !!patch.excluded);
+        return;
+      }
       fail(error);
     },
     async remove(table: string, id: string, listKey: keyof DktData) {
