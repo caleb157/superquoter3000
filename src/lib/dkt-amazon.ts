@@ -30,7 +30,11 @@ export type AmazonSku = {
   launch_margin_pct?: number | null; // net margin on the first batch
   launch_units_per_month?: number | null; // sales in the first month, ramping up to units_per_month
   ramp_months?: number | null; // months to reach units_per_month
+  excluded?: boolean; // kept in the scenario but left out of every projection
 };
+
+/** The SKUs that count in a projection: everything not switched off with the eye toggle. */
+export const countedSkus = <T extends Pick<AmazonSku, 'excluded'>>(skus: T[]): T[] => skus.filter(s => !s.excluded);
 
 function add(m: Month, n: number): Month {
   const [y, mo] = m.split('-').map(Number);

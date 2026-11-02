@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annualize, scenarioSummary, type AmazonSku } from './dkt-amazon';
+import { annualize, countedSkus, scenarioSummary, type AmazonSku } from './dkt-amazon';
 
 const sku = (over: Partial<AmazonSku> = {}): AmazonSku => ({
   id: 's1', scenario_id: 'sc', name: 'URNS', mode: 'inventory',
@@ -34,5 +34,14 @@ describe('scenarioSummary earnings and ROI', () => {
     expect(sum.earnings).toBeCloseTo(75 * 12 * 70 * 0.2, 6);
     expect(sum.roi).toBeNull();
     expect(sum.annualRoi).toBeNull();
+  });
+});
+
+describe('countedSkus', () => {
+  it('drops SKUs left out of the projection, so the scenario totals ignore them', () => {
+    const a = sku();
+    const b = sku({ id: 's2', excluded: true, price_usd: 999 });
+    expect(countedSkus([a, b]).map(x => x.id)).toEqual(['s1']);
+    expect(scenarioSummary(countedSkus([a, b]), '2028-09').earnings).toBeCloseTo(scenarioSummary([a], '2028-09').earnings, 9);
   });
 });
