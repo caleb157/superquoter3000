@@ -36,3 +36,11 @@ describe('late report', () => {
     expect(r.veryLateCount).toBe(2);
   });
 });
+
+import { payPeriod } from './late-report';
+describe('payPeriod', () => {
+  it('15th is in the first half', () => expect(payPeriod('2026-11-15')).toEqual({ from: '2026-11-01', to: '2026-11-15' }));
+  it('16th starts second half to month end', () => expect(payPeriod('2026-02-16')).toEqual({ from: '2026-02-16', to: '2026-02-28' }));
+  it('previous of first half is prior month second half', () => expect(payPeriod('2026-01-02', -1)).toEqual({ from: '2025-12-16', to: '2025-12-31' }));
+  it('previous of second half is same month first half', () => expect(payPeriod('2026-11-20', -1)).toEqual({ from: '2026-11-01', to: '2026-11-15' }));
+});

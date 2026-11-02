@@ -61,7 +61,10 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400);
     const { from, to } = parsed.data;
-    const domain = [['check_in', '>=', istToUtc(from, '00:00:00')], ['check_in', '<=', istToUtc(to, '23:59:59')]];
+    // Accounts staff (hr.job id 3) are excluded from the Late Report.
+    const EXCLUDED_JOB_IDS = [3];
+    const domain = [['check_in', '>=', istToUtc(from, '00:00:00')], ['check_in', '<=', istToUtc(to, '23:59:59')],
+      '|', ['employee_id.job_id', '=', false], ['employee_id.job_id', 'not in', EXCLUDED_JOB_IDS]];
     const out: { employee_id: number; employee_name: string; check_in: string }[] = [];
     for (let offset = 0; ; offset += 2000) {
       const rows = await kw('hr.attendance', 'search_read', [domain], { fields: ['employee_id', 'check_in'], order: 'check_in asc', limit: 2000, offset });
