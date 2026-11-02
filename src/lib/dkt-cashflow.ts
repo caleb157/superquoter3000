@@ -99,7 +99,7 @@ export type Loan = {
 
 export type CreditLine = {
   id: string; name: string; limit_usd: number; drawn_usd: number; rate_pct: number;
-  maturity_month?: Month | null; // whatever is drawn is repaid in full this month
+  maturity_month?: Month | null; // no longer used: due dates are set on each draw (column kept for old data)
   term_months?: number | null; // installment line (e.g. Amex): each draw is repaid in this many equal monthly payments, from the next month
   monthly_fee_pct?: number | null; // ...plus this % of the draw every month (instead of yearly interest)
   balloon?: boolean | null; // revolving: interest builds up and is paid with the principal in the "due in full" month (Sooie)
@@ -346,7 +346,8 @@ export function loanOutstanding(loan: Loan, payments: LoanPayment[]): number {
 
 // ---------- Credit lines ----------
 // Every draw is its own tranche with its own terms: a draw's own term_months / monthly_fee_pct /
-// rate_pct / maturity_month win, and anything left blank falls back to its line's. A tranche with
+// rate_pct win, and anything left blank falls back to its line's. The due-in-full month is the
+// draw's own only: a line has no due date (its old maturity_month is ignored). A tranche with
 // term_months is repaid in that many equal payments from the month after it was drawn, plus the
 // monthly fee on the draw; without one it accrues rate ÷ 12 each month until its "due in full"
 // month or a repayment (or, as a balloon, builds up and is paid with the principal in that month);
@@ -366,7 +367,7 @@ export function drawTerms(line: CreditLine, d?: Partial<CreditDraw>): DrawTerms 
     term_months: pick(d?.term_months, line.term_months),
     monthly_fee_pct: pick(d?.monthly_fee_pct, line.monthly_fee_pct),
     rate_pct: Number(pick(d?.rate_pct, line.rate_pct)) || 0,
-    maturity_month: pick(d?.maturity_month, line.maturity_month),
+    maturity_month: d?.maturity_month ?? null,
     balloon: !!pick(d?.balloon, line.balloon),
   };
 }
@@ -404,10 +405,16 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
   const mine = draws.filter(d => d.line_id === line.id && d.amount_usd).sort((a, b) => (a.draw_date || a.month).localeCompare(b.draw_date || b.month));
   const lineTerms = drawTerms(line);
   const revolving = () => tranches.filter(x => !isInstallment(x.t) && x.left > 0.005);
-  /** Pays `amt` off revolving tranches, oldest first; returns what was actually owed. */
+  /** Pays `amt` off revolving tranches, oldest first; returns what was actually owed. A balloon
+   *  tranche's built-up interest is paid in the same share (added to `interestPaid`). */
+  let interestPaid = 0;
   const repay = (amt: number) => {
     let rest = amt;
-    for (const x of revolving()) { const p = Math.min(rest, x.left); x.left -= p; rest -= p; if (rest <= 0.005) break; }
+    for (const x of revolving()) {
+      const p = Math.min(rest, x.left);
+      if (x.accrued > 0.005) { const i = x.accrued * p / x.left; x.accrued -= i; interestPaid += i; }
+      x.left -= p; rest -= p; if (rest <= 0.005) break;
+    }
     return amt - rest;
   };
   const inCash = (d: CreditDraw) => !cashAsOf || (d.draw_date || `${d.month}-01`) <= cashAsOf;
@@ -441,8 +448,10 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     for (const d of mine.filter(x => x.month === m && (!x.actual || x.month > m0))) {
       const t = drawTerms(line, d);
       if (d.amount_usd < 0) {
+        interestPaid = 0;
         const paid = repay(-d.amount_usd);
         if (paid > 0.005) flows.push({ month: m, kind: 'credit_repay', amount: -paid, label: line.name, ref: line.id });
+        if (interestPaid > 0.005) flows.push({ month: m, kind: 'credit_interest', amount: -interestPaid, label: `${line.name} interest (balloon)`, ref: line.id });
         continue;
       }
       const label = d.actual ? drawName(line, d) : line.name;
