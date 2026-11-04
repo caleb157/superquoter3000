@@ -278,7 +278,9 @@ export default function SoProfitability() {
                         {o.name}
                         {!!o.tags?.length && <div className="text-[10px] font-normal text-muted-foreground">{o.tags.join(', ')}</div>}
                       </TableCell>
-                      <TableCell className="py-2 text-xs">{o.customer}</TableCell>
+                      <TableCell className="py-2 text-xs">{o.customer}{o.original_currency && o.original_currency !== 'USD' && o.original_currency !== 'INR' && (
+                        <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground" title={`Sold in ${o.original_currency}; converted to USD at Odoo's rate`}>{o.original_currency}</span>
+                      )}</TableCell>
                       <TableCell className="py-2 text-xs">{o.project_name ?? <span className="text-muted-foreground">No project</span>}</TableCell>
                       <TableCell className="py-2 text-xs"><OrderKindBadge o={o} /></TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.revenue)}</TableCell>
