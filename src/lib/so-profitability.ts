@@ -18,6 +18,8 @@ export type SoMo = { id: number; name: string; state: string; qty: number; qty_p
 export type SoOrder = {
   id: number; name: string; date_order: string; customer: string | null;
   project_id: number | null; project_name: string | null; currency: string;
+  /** Odoo SO currency when it was not USD/INR (amounts already converted to USD at Odoo's rate). */
+  original_currency?: string; fx_to_usd?: number;
   amount_untaxed: number; amount_total: number; state: string; status: 'Completed' | 'In Progress';
   /** Odoo SO tags; "Trading" / "Manufacturing" set the order kind (src/lib/order-kind.ts). */
   tags?: string[];
