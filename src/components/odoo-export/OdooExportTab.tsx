@@ -385,11 +385,13 @@ export function OdooExportTab({ productId }: { productId: string }) {
                     </TableCell>
                     <TableCell className="align-top">
                       {l.status === 'new' ? (
+                        <div>
                         <div className="flex items-center gap-2">
                           <OptionCombobox value={l.newItem.category} options={catList} loading={!meta} placeholder="Pick a category" onChange={v => patchNew(l.lineId, { category: v })} />
                           <Checkbox checked={l.newItem.tracked} onCheckedChange={v => patchNew(l.lineId, { tracked: v === true })} title="Track inventory" />
                         </div>
                         <CategoryPills sku={l.newItem.sku} current={l.newItem.category} prefixes={prefixList} onPick={v => patchNew(l.lineId, { category: v })} />
+                        </div>
                       ) : l.status === 'match' && l.match ? (
                         <span className="text-muted-foreground">{[l.match.category, l.match.tracked == null ? null : l.match.tracked ? 'tracked' : 'not tracked'].filter(Boolean).join(' · ') || 'In Odoo'}</span>
                       ) : null}
