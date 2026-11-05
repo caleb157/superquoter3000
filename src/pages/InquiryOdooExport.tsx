@@ -131,8 +131,9 @@ export default function InquiryOdooExport() {
       const next: Row[] = products.map(p => {
         let f = defaultFinished(p, { volumeM3: results.get(p.id)?.finalUnitCbm ?? null });
         const own = readDraft(p.id)?.finished;
-        // The photo always comes fresh from costing; a saved draft never pins an old one.
-        if (own) f = { ...f, ...own, variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
+        // Photo and name always come fresh from costing; a saved draft never pins old ones
+        // (products already in Odoo get their live name from Check Odoo instead).
+        if (own) f = { ...f, ...own, name: f.name || own.name || '', variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
         // Raw materials still to sort out: lines set to "New item" (not yet in Odoo) or "Existing" with nothing picked.
         const saved = readDraft(p.id) as { lines?: Record<string, Partial<DraftLine>>; added?: DraftLine[] } | null;
