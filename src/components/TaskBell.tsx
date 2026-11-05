@@ -21,7 +21,7 @@ export function TaskBell() {
   const [listKey, setListKey] = useState(0);
 
   const refresh = useCallback(async () => {
-    if (!assigneeCode) return;
+    if (!assigneeCode || document.visibilityState !== 'visible') return;
     const { count: n } = await supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
@@ -34,14 +34,29 @@ export function TaskBell() {
   // Re-count on page changes, when the tab comes back into view, and every few minutes.
   useEffect(() => { void refresh(); }, [refresh, location.pathname]);
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    if (!assigneeCode) return;
+    let timer: number | undefined;
+    const stopPolling = () => {
+      window.clearInterval(timer);
+      timer = undefined;
+    };
+    const startPolling = () => {
+      stopPolling();
+      if (document.visibilityState === 'visible') {
+        timer = window.setInterval(() => void refresh(), 5 * 60 * 1000);
+      }
+    };
+    const onVisible = () => {
+      startPolling();
+      if (document.visibilityState === 'visible') void refresh();
+    };
     document.addEventListener('visibilitychange', onVisible);
-    const timer = window.setInterval(() => void refresh(), 5 * 60 * 1000);
+    startPolling();
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
-      window.clearInterval(timer);
+      stopPolling();
     };
-  }, [refresh]);
+  }, [refresh, assigneeCode]);
 
   if (!assigneeCode) return null;
 
