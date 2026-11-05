@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     if (body.action === 'vendors') {
       // Existing Odoo vendors only (supplier_rank > 0); HQ never creates vendors.
       const q = (body.search || '').trim();
-      const dom: unknown[] = [['supplier_rank', '>', 0], ['is_company', '=', true]];
+      const dom: unknown[] = [['supplier_rank', '>', 0]];
       if (q) dom.push(['name', 'ilike', q]);
       const rows = await sr('res.partner', dom, ['name'], { limit: body.limit ?? 20, order: 'name' });
       return json({

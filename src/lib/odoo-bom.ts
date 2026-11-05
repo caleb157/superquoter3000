@@ -27,6 +27,10 @@ export type NewItem = {
   purchaseUom: string;
   cost: number | null;    // ₹ per unit of `uom`
   hsn: string;
+  /** Photo sent to Odoo with the new item (public URL). */
+  imageUrl?: string | null;
+  /** Existing Odoo vendor (res.partner) added to the item at price 0; HQ never creates vendors. */
+  vendor?: { id: number; name: string } | null;
 };
 
 export type DraftLine = {
@@ -469,6 +473,7 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     .map(l => ({
       sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), category: l.newItem.category, tracked: l.newItem.tracked,
       uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, hsn: l.newItem.hsn || null,
+      imageUrl: l.newItem.imageUrl || null, vendorId: l.newItem.vendor?.id ?? null,
     }));
   const units = f.bomUnits > 0 ? f.bomUnits : 1;
   return {
