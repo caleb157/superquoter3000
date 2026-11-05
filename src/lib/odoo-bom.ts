@@ -473,7 +473,8 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     .map(l => ({
       sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), category: l.newItem.category, tracked: l.newItem.tracked,
       uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, hsn: l.newItem.hsn || null,
-      imageUrl: l.newItem.imageUrl || null, vendorId: l.newItem.vendor?.id ?? null,
+      imageUrl: /^https?:\/\//.test(l.newItem.imageUrl ?? '') ? l.newItem.imageUrl : null,
+      vendorId: Number(l.newItem.vendor?.id) > 0 ? Number(l.newItem.vendor?.id) : null,
     }));
   const units = f.bomUnits > 0 ? f.bomUnits : 1;
   return {
@@ -484,13 +485,13 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     existingProductId: f.exists ? f.existing?.id ?? null : null,
     existingSku: f.exists ? f.existing?.sku || null : null,
     imageUrl: f.exists ? null : f.imageUrl,
-    finished: f.exists ? null : {
+    finished: f.exists || mode === 'components' ? null : {
       sku: f.sku.trim(), name: f.name.trim(), category: f.category, tracked: f.tracked, uom: f.uom, purchaseUom: null,
       salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3,
       variant: f.variant?.trim() || null, customerSku: f.customerSku?.trim() || null, taxIds: f.taxIds ?? [],
     },
     components,
-    lines: lines.filter(l => l.status !== 'skip').map(l => {
+    lines: mode !== 'full' ? [] : lines.filter(l => l.status !== 'skip').map(l => {
       const q = bomQty(l, units);
       return l.status === 'match' && l.match
         ? { productId: l.match.id, sku: l.match.sku || null, qty: q.qty, uom: q.uom, variantPtavIds: l.variantPtavIds ?? [] }
