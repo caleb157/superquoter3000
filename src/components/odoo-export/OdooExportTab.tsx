@@ -61,7 +61,7 @@ const ADDED = 'Added';
 
 type Sibling = { productId: string; name: string; imageUrl: string | null; odooProductId: number | null };
 // Subtle row tints per variant (lines for all variants stay plain).
-const VARIANT_TINTS = ['bg-primary/10', 'bg-success/10', 'bg-warning/10', 'bg-destructive/10', 'bg-accent'];
+const VARIANT_TINTS = ['bg-[hsl(var(--variant-1)/0.14)]', 'bg-[hsl(var(--variant-2)/0.14)]', 'bg-[hsl(var(--variant-3)/0.14)]', 'bg-[hsl(var(--variant-4)/0.14)]', 'bg-[hsl(var(--variant-5)/0.14)]'];
 
 function addedLine(match: OdooProduct | null, qtyPerUnit: number | null): DraftLine {
   return {
