@@ -28,6 +28,8 @@ const Item = z.object({
   variant: z.string().trim().max(200).optional().nullable(),     // value on the global "variant" attribute
   customerSku: z.string().trim().max(100).optional().nullable(), // Odoo variant tag
   taxIds: z.array(z.number().int().positive()).max(10).optional().nullable(), // Odoo sales taxes
+  imageUrl: z.string().url().max(2000).optional().nullable(),   // raw-material photo
+  vendorId: z.number().int().positive().optional().nullable(),  // existing Odoo vendor (res.partner), price 0
 });
 const Line = z.object({
   productId: z.number().int().positive().optional().nullable(), // existing Odoo product.product id
@@ -234,7 +236,7 @@ Deno.serve(async (req) => {
         sale_ok: it.finished, purchase_ok: !it.finished,
         list_price: it.salePrice ?? undefined,
         l10n_in_hsn_code: it.hsn || undefined, weight: it.weightKg ?? undefined, volume: it.volumeM3 ?? undefined,
-        image_1920: it.finished ? image ?? undefined : undefined,
+        image_1920: it.finished ? image ?? undefined : (await fetchImage(it.imageUrl)) ?? undefined,
       };
       if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }         // Odoo 18
       else if (tmplFields.has('detailed_type')) vals.detailed_type = it.tracked ? 'product' : 'consu';     // Odoo 17
@@ -244,6 +246,12 @@ Deno.serve(async (req) => {
       const out = { id: v?.id, tmpl: tmplId };
       variantBySku.set(norm(it.sku), out);
       created.push({ kind: it.finished ? 'product' : 'component', sku: it.sku, id: out.id });
+      // Vendor picked in HQ (never created from HQ): one vendor line on the template, price 0.
+      if (!it.finished && it.vendorId) {
+        await kw('product.supplierinfo', 'create', [await only('product.supplierinfo', {
+          partner_id: it.vendorId, product_tmpl_id: tmplId, price: 0, min_qty: 0,
+        })]);
+      }
       return out;
     };
     // Finished product: template-level data on product.template (name, category, HSN, tracking),

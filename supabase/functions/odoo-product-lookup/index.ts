@@ -19,6 +19,7 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('skus'), skus: z.array(z.string().max(100)).max(200) }),
   z.object({ action: z.literal('details'), ids: z.array(z.number().int().positive()).max(200) }),
   z.object({ action: z.literal('variants'), productId: z.number().int().positive() }),
+  z.object({ action: z.literal('vendors'), search: z.string().max(100).optional().nullable(), limit: z.number().int().min(1).max(50).optional() }),
 ]);
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
@@ -124,6 +125,18 @@ Deno.serve(async (req) => {
         weightKg: Number(r.weight) || null, volumeM3: Number(r.volume) || null,
         hsn: str(r.l10n_in_hsn_code), taxIds: Array.isArray(r.taxes_id) ? r.taxes_id : [],
       })) });
+    }
+
+    if (body.action === 'vendors') {
+      // Existing Odoo vendors only (supplier_rank > 0); HQ never creates vendors.
+      const q = (body.search || '').trim();
+      const dom: unknown[] = [['supplier_rank', '>', 0]];
+      if (q) dom.push(['name', 'ilike', q]);
+      const rows = await sr('res.partner', dom, ['name'], { limit: body.limit ?? 20, order: 'name' });
+      return json({
+        vendors: rows.map(r => ({ id: r.id, name: str(r.name) })),
+        createUrl: `${ODOO_URL}/web#action=account.res_partner_action_supplier&model=res.partner&view_type=form`,
+      });
     }
 
     if (body.action === 'variants') {

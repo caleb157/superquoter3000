@@ -118,3 +118,10 @@ export async function loadStandardComponents(): Promise<StandardComponent[]> {
   if (error) throw error;
   return (data || []).map((r: StandardComponent) => ({ ...r, default_qty: Number(r.default_qty) || 1 }));
 }
+
+export type OdooVendor = { id: number; name: string };
+/** Existing Odoo vendors by name, plus the link to Odoo's Purchase → Vendors "new" form. */
+export async function searchOdooVendors(search: string): Promise<{ vendors: OdooVendor[]; createUrl: string | null }> {
+  const r = await call<{ vendors: OdooVendor[]; createUrl?: string }>('odoo-product-lookup', { action: 'vendors', search: search.trim() || null, limit: 20 });
+  return { vendors: r.vendors ?? [], createUrl: r.createUrl ?? null };
+}
