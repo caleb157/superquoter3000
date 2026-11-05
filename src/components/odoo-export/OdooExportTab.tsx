@@ -19,11 +19,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { computeResults, loadProductBundle } from '@/lib/costing-workspace';
-import { calcICDimensions, calcIcOd, calcMcOd, getBoxOdOffsets, productMasterCartonPlan } from '@/lib/calculations';
 import {
-  bomQty, bomSheet, buildDraftLines, cartonItem, cartonKind, checkDraft, defaultFinished, displayName, editNewItem, fileStem,
-  joinSku, productsSheet, pushPayload, splitSku,
-  type CartonSize, type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct,
+  bomQty, bomSheet, buildDraftLines, categorySuggestions, checkDraft, defaultFinished, displayName, editNewItem, fileStem,
+  joinSku, mergeVariantLines, productsSheet, pushPayload, splitSku,
+  type DraftLine, type FinishedDraft, type LineStatus, type OdooProduct,
 } from '@/lib/odoo-bom';
 import {
   loadStandardComponents, odooMeta, odooProductsBySku, odooSkuPrefixes, odooVariants, pushToOdoo, type OdooVariant,
@@ -31,7 +30,7 @@ import {
 } from '@/lib/odoo-products';
 import { OdooProductPicker } from './OdooProductPicker';
 import { OptionCombobox } from './OptionCombobox';
-import { ItemPhoto, VendorPicker } from './NewItemExtras';
+import { ItemPhoto, VendorPicker, type FinishedPhoto } from './NewItemExtras';
 
 type Saved = { finished: FinishedDraft; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride' | 'variantPtavIds'>>; added?: DraftLine[] };
 const storeKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -60,13 +59,15 @@ function NumCell({ value, onCommit, className, inputMode = 'decimal' }: {
 const upper = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const ADDED = 'Added';
 
-type Cartons = { PIC: { size: CartonSize; ply: string | null }; PMC: { size: CartonSize; ply: string | null } };
+type Sibling = { productId: string; name: string; imageUrl: string | null; odooProductId: number | null };
+// Subtle row tints per variant (lines for all variants stay plain).
+const VARIANT_TINTS = ['bg-primary/10', 'bg-success/10', 'bg-warning/10', 'bg-destructive/10', 'bg-accent'];
 
 function addedLine(match: OdooProduct | null, qtyPerUnit: number | null): DraftLine {
   return {
     lineId: `added:${crypto.randomUUID()}`, key: '', cogsType: ADDED, hqName: match?.name || '', hqQty: 1, hqUnit: match?.uom || 'Units',
     hqCostPerUnit: 0, vendor: '', status: 'match', match,
-    newItem: { name: '', sku: '', category: 'All / Expenses / Raw Materials AVCO Automatic', tracked: true, uom: 'Units', purchaseUom: '', cost: null, hsn: '' },
+    newItem: { name: '', sku: '', category: '', tracked: true, uom: 'Units', purchaseUom: '', cost: null, hsn: '' },
     qtyOverride: qtyPerUnit,
   };
 }
@@ -77,7 +78,9 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finished, setFinished] = useState<FinishedDraft | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([]);
-  const [cartons, setCartons] = useState<Cartons | null>(null);
+  const [siblings, setSiblings] = useState<Sibling[]>([]);
+  // Line -> HQ variant product it came from (null = every variant), for Apply on Variants.
+  const lineVariant = useRef<Record<string, string | null>>({});
   const [meta, setMeta] = useState<OdooMeta | null>(null);
   const [prefixList, setPrefixList] = useState<SkuPrefix[]>([]);
   const [standard, setStandard] = useState<StandardComponent[]>([]);
@@ -91,7 +94,6 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const ready = useRef(false);
   // Variants on the final product's Odoo template, for "Apply on Variants" (2+ only).
   const [variants, setVariants] = useState<OdooVariant[]>([]);
-  const cartonAuto = useRef<Record<string, { name: string; sku: string }>>({});
 
   const checkOdoo = useCallback(async (f: FinishedDraft, ls: DraftLine[]) => {
     setChecking(true);
@@ -112,28 +114,30 @@ export function OdooExportTab({ productId }: { productId: string }) {
     setLoading(true);
     setLoadError(null);
     ready.current = false;
-    cartonAuto.current = {};
     try {
       const b = await loadProductBundle(productId);
       if (!b) throw new Error('Product not found.');
       const product = b.products.find(p => p.id === productId);
       const res = computeResults(b).get(productId);
-      const rows = res?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === productId);
 
-      // Estimated outside carton sizes (as costed) for the PIC / PMC names and SKUs.
-      const cbmRow = b.cbm.find(c => c.product_id === productId) || null;
-      const productType = b.productTypes.find(t => t.id === product?.product_type_id) || null;
-      const icAuto = calcICDimensions(Number(product?.width_inch) || 0, Number(product?.depth_inch) || 0, Number(product?.height_inch) || 0, productType?.pkg_ic_add_per_side_in ?? 0.5);
-      const icOd = calcIcOd(cbmRow?.ic_width ?? icAuto.ic_width, cbmRow?.ic_depth ?? icAuto.ic_depth, cbmRow?.ic_height ?? icAuto.ic_height,
-        getBoxOdOffsets(b.boxData || [], cbmRow?.ic_type || '7 ply'));
-      const plan = productMasterCartonPlan({ product, cbmRow, boxData: b.boxData, productType, globalSettings: b.gs });
-      const mcOd = calcMcOd(plan.mc.width, plan.mc.depth, plan.mc.height, getBoxOdOffsets(b.boxData || [], cbmRow?.mc_type || '7 ply'));
-      setCartons({
-        PIC: { size: { w: icOd.ic_od_width, d: icOd.ic_od_depth, h: icOd.ic_od_height }, ply: cbmRow?.ic_type || null },
-        PMC: { size: { w: mcOd.mc_od_width, d: mcOd.mc_od_depth, h: mcOd.mc_od_height }, ply: cbmRow?.mc_type || null },
-      });
-
-      let ls = buildDraftLines(rows, new Map(), productId);
+      // A template's BOM covers every variant: pull the costing lines of all of them.
+      const me = product as { odoo_template_id?: number | null; odoo_product_id?: number | null } | undefined;
+      const myGroup = (readSaved(productId)?.finished?.group || '').trim();
+      const sibs = b.products.filter(p => {
+        if (p.id === productId) return true;
+        const q = p as { odoo_template_id?: number | null };
+        if (me?.odoo_template_id) return q.odoo_template_id === me.odoo_template_id;
+        return !!myGroup && (readSaved(p.id)?.finished?.group || '').trim() === myGroup;
+      }).sort((x, y) => (x.id === productId ? -1 : y.id === productId ? 1 : (x.name || '').localeCompare(y.name || '')));
+      const all = computeResults(b);
+      const merged = mergeVariantLines(sibs.map(p => ({
+        productId: p.id,
+        lines: buildDraftLines(all.get(p.id)?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === p.id), new Map(), p.id),
+      })));
+      lineVariant.current = Object.fromEntries(merged.map(l => [l.lineId, sibs.length > 1 ? l.variantOf : null]));
+      setSiblings(sibs.map(p => ({ productId: p.id, name: p.name || '', imageUrl: (p as { photo_url?: string | null }).photo_url ?? null,
+        odooProductId: (p as { odoo_product_id?: number | null }).odoo_product_id ?? null })));
+      let ls: DraftLine[] = merged.map(({ variantOf: _v, ...l }) => l);
       let f = defaultFinished(product, { volumeM3: res?.finalUnitCbm ?? null });
       const saved = readSaved(productId);
       if (saved) {
@@ -175,29 +179,21 @@ export function OdooExportTab({ productId }: { productId: string }) {
     writeSaved(productId, { finished, lines: savedLines, added: lines.filter(l => l.cogsType === ADDED) });
   }, [finished, lines, productId]);
 
-  // Carton names and SKUs follow the product name and base SKU, until someone types over them.
-  const base = finished ? splitSku(finished.sku).base : '';
-  const fname = finished?.name ?? '';
-  useEffect(() => {
-    if (!cartons || !ready.current) return;
-    setLines(prev => prev.map(l => {
-      const kind = cartonKind(l.cogsType, l.hqName);
-      if (!kind) return l;
-      const next = cartonItem(kind, fname, base, cartons[kind].size, cartons[kind].ply);
-      const last = cartonAuto.current[l.lineId];
-      const n = { ...l.newItem };
-      if (!last ? n.name === l.hqName || !n.name : n.name === last.name) n.name = next.name;
-      if (!last ? !n.sku : n.sku === last.sku) n.sku = next.sku;
-      cartonAuto.current[l.lineId] = next;
-      return n.name === l.newItem.name && n.sku === l.newItem.sku ? l : { ...l, newItem: n };
-    }));
-  }, [cartons, base, fname]);
-
   const linkedId = finished?.exists ? finished.existing?.id ?? null : null;
   useEffect(() => {
     if (!linkedId) { setVariants([]); return; }
-    odooVariants(linkedId).then(setVariants).catch(() => setVariants([]));
-  }, [linkedId]);
+    odooVariants(linkedId).then(vs => {
+      setVariants(vs);
+      // Lines from one variant's costing default to that variant (unless already chosen by hand).
+      const byHq = new Map(siblings.map(s => [s.productId, s.odooProductId]));
+      setLines(prev => prev.map(l => {
+        if (l.variantPtavIds !== undefined) return l;
+        const hq = lineVariant.current[l.lineId];
+        const v = hq ? vs.find(x => x.id === byHq.get(hq)) : undefined;
+        return v ? { ...l, variantPtavIds: v.ptavIds } : l;
+      }));
+    }).catch(() => setVariants([]));
+  }, [linkedId, siblings]);
   const multiVariant = variants.length > 1;
 
   const issues = useMemo(() => (finished ? checkDraft(finished, lines, existing) : []), [finished, lines, existing]);
@@ -269,6 +265,14 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const prefixOpts = prefixList.filter(p => p.saleable > 0).map(p => ({ value: p.prefix, hint: `${p.saleable} products · e.g. ${p.sample}` }));
   const inBom = new Set(lines.filter(l => l.status === 'match' && l.match).map(l => l.match!.sku.trim().toUpperCase()));
   const chips = standard.filter(s => !inBom.has(s.sku.trim().toUpperCase()));
+  const finishedPhotos: FinishedPhoto[] = siblings.length > 1
+    ? siblings.filter(s => s.imageUrl).map(s => ({ label: s.name, url: s.imageUrl! }))
+    : finished.imageUrl ? [{ label: finished.name, url: finished.imageUrl }] : [];
+  const tintFor = (l: DraftLine) => {
+    if (!multiVariant || !l.variantPtavIds?.length || l.status === 'skip') return '';
+    const i = variants.findIndex(v => v.ptavIds.join(',') === l.variantPtavIds!.join(','));
+    return i < 0 ? '' : VARIANT_TINTS[i % VARIANT_TINTS.length];
+  };
 
   return (
     <div className="space-y-4 pt-2">
@@ -347,7 +351,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
                 const skuTaken = l.status === 'new' && !!existing?.has(l.newItem.sku.trim().toUpperCase());
                 const added = l.cogsType === ADDED;
                 return (
-                  <TableRow key={l.lineId} className={l.status === 'skip' ? 'opacity-50' : ''}>
+                  <TableRow key={l.lineId} className={`${l.status === 'skip' ? 'opacity-50' : ''} ${tintFor(l)}`}>
                     <TableCell className="align-top">
                       {added ? (
                         <div className="text-muted-foreground italic">Added line</div>
@@ -375,16 +379,17 @@ export function OdooExportTab({ productId }: { productId: string }) {
                           <Input className="h-8 text-xs" placeholder="Name" value={l.newItem.name} onChange={e => patchNew(l.lineId, { name: e.target.value })} />
                           <Input className={`h-8 text-xs font-mono ${skuTaken ? 'border-destructive' : ''}`} placeholder="SKU" value={l.newItem.sku} onChange={e => patchNew(l.lineId, { sku: e.target.value })} />
                           <VendorPicker value={l.newItem.vendor ?? null} hqVendor={l.vendor} onPick={v => patchNew(l.lineId, { vendor: v })} />
-                          <ItemPhoto value={l.newItem.imageUrl} finishedUrl={finished.imageUrl} onChange={u => patchNew(l.lineId, { imageUrl: u })} />
+                          <ItemPhoto value={l.newItem.imageUrl} finishedPhotos={finishedPhotos} onChange={u => patchNew(l.lineId, { imageUrl: u })} />
                         </>
                       )}
                     </TableCell>
                     <TableCell className="align-top">
                       {l.status === 'new' ? (
                         <div className="flex items-center gap-2">
-                          <OptionCombobox value={l.newItem.category} options={catList} loading={!meta} onChange={v => patchNew(l.lineId, { category: v })} />
+                          <OptionCombobox value={l.newItem.category} options={catList} loading={!meta} placeholder="Pick a category" onChange={v => patchNew(l.lineId, { category: v })} />
                           <Checkbox checked={l.newItem.tracked} onCheckedChange={v => patchNew(l.lineId, { tracked: v === true })} title="Track inventory" />
                         </div>
+                        <CategoryPills sku={l.newItem.sku} current={l.newItem.category} prefixes={prefixList} onPick={v => patchNew(l.lineId, { category: v })} />
                       ) : l.status === 'match' && l.match ? (
                         <span className="text-muted-foreground">{[l.match.category, l.match.tracked == null ? null : l.match.tracked ? 'tracked' : 'not tracked'].filter(Boolean).join(' · ') || 'In Odoo'}</span>
                       ) : null}
@@ -530,6 +535,20 @@ function Field({ label, wide, children }: { label: string; wide?: boolean; child
     <div className={`space-y-1 ${wide ? 'sm:col-span-2' : ''}`}>
       <span className="text-xs text-muted-foreground block">{label}</span>
       {children}
+    </div>
+  );
+}
+
+/** Odoo categories used by items with the same SKU prefix, as clickable pills. */
+function CategoryPills({ sku, current, prefixes, onPick }: { sku: string; current: string; prefixes: SkuPrefix[]; onPick: (v: string) => void }) {
+  const cats = categorySuggestions(sku, prefixes).filter(c => c.name !== current);
+  if (!cats.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {cats.slice(0, 4).map(c => (
+        <button key={c.name} type="button" onClick={() => onPick(c.name)} title={`${c.count} Odoo item${c.count === 1 ? '' : 's'} with this prefix`}
+          className="rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent">{c.name}</button>
+      ))}
     </div>
   );
 }
