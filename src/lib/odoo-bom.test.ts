@@ -31,9 +31,15 @@ describe('draft lines', () => {
     expect(lines.map(l => [l.hqName, l.status])).toEqual([['Mango wood', 'new'], ['Polishing', 'skip']]);
     expect(lines[0].newItem).toMatchObject({ sku: '', cost: null, uom: 'cu ft' });
   });
-  it('keeps a typed tracking tick when the category changes it', () => {
+  it('never defaults a category, even from the SKU prefix', () => {
     const item = buildDraftLines([row({ component_name: 'Knob', cogs_type: 'Handles + Knobs' })], new Map())[0].newItem;
-    expect(editNewItem(item, { sku: 'SCR-X' }).tracked).toBe(false);
+    expect(item.category).toBe('');
+    expect(editNewItem(item, { sku: 'SCR-X' }).category).toBe('');
+  });
+  it('leaves carton names blank for the user to type', () => {
+    const [l] = buildDraftLines([row({ component_name: 'MC Box', cogs_type: 'Packaging' })], new Map());
+    expect(l.newItem.name).toBe('');
+    expect(l.newItem.sku).toBe('');
   });
 });
 
@@ -124,9 +130,26 @@ describe('final products step', () => {
     ]);
   });
   it('blocks a SKU already in Odoo and one without a suffix', () => {
-    const f = { ...defFin({ name: 'Table' }), sku: 'CCT-CF3931-CHBL' };
+    const f = { ...defFin({ name: 'Table' }), sku: 'CCT-CF3931-CHBL', category: 'All / Saleable' };
+    expect(defFin({ name: 'Table' }).category).toBe('');
     expect(finOnly(f, new Set(['CCT-CF3931-CHBL'])).length).toBe(1);
     expect(finOnly({ ...f, sku: 'CCT-CF3931-' }, null).length).toBe(1);
     expect(finOnly(f, new Set())).toEqual([]);
+  });
+});
+
+import { categorySuggestions, mergeVariantLines, buildDraftLines as bdl } from './odoo-bom';
+const r2 = (id: string, name: string, qty: number) => ({ id, product_id: 'x', component_name: name, cogs_type: 'Hardware', components_per_product: qty, include: 'Yes' } as never);
+describe('template BOM', () => {
+  it('suggests every Odoo category used by the SKU prefix, most used first', () => {
+    const list = [{ prefix: 'BWL', categories: [{ name: 'A', count: 5 }, { name: 'B', count: 2 }] }];
+    expect(categorySuggestions('BWL-CPRL-0707', list).map(c => c.name)).toEqual(['A', 'B']);
+    expect(categorySuggestions('PMC-X', list)).toEqual([]);
+  });
+  it('keeps shared lines once for all variants and variant-only lines with their variant', () => {
+    const a = bdl([r2('a1', 'Screw', 4), r2('a2', 'Knob', 1)], new Map());
+    const b = bdl([r2('b1', 'Screw', 4), r2('b2', 'Knob', 2)], new Map());
+    const m = mergeVariantLines([{ productId: 'A', lines: a }, { productId: 'B', lines: b }]);
+    expect(m.map(l => [l.hqName, l.variantOf])).toEqual([['Screw', null], ['Knob', 'A'], ['Knob', 'B']]);
   });
 });
