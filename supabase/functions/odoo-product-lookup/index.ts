@@ -156,17 +156,20 @@ Deno.serve(async (req) => {
 
     if (body.action === 'prefixes') {
       // SKU prefixes in use (the part before the first "-"), split into finished goods and the rest.
-      const rows = await sr('product.product', [['default_code', '!=', false]], ['default_code', 'sale_ok', 'name']);
-      const by = new Map<string, { prefix: string; saleable: number; other: number; sample: string }>();
+      const rows = await sr('product.product', [['default_code', '!=', false]], ['default_code', 'sale_ok', 'name', 'categ_id']);
+      const by = new Map<string, { prefix: string; saleable: number; other: number; sample: string; cats: Record<string, number> }>();
       for (const r of rows) {
         const code = str(r.default_code).trim().toUpperCase();
         const m = /^([A-Z0-9]{2,6})-/.exec(code);
         if (!m) continue;
-        const e = by.get(m[1]) ?? { prefix: m[1], saleable: 0, other: 0, sample: `${code} ${str(r.name)}`.slice(0, 80) };
+        const e = by.get(m[1]) ?? { prefix: m[1], saleable: 0, other: 0, sample: `${code} ${str(r.name)}`.slice(0, 80), cats: {} };
         if (r.sale_ok) e.saleable += 1; else e.other += 1;
+        const c = nm(r.categ_id);
+        if (c) e.cats[c] = (e.cats[c] ?? 0) + 1;
         by.set(m[1], e);
       }
-      return json({ prefixes: [...by.values()].sort((a, b) => (b.saleable + b.other) - (a.saleable + a.other)) });
+      return json({ prefixes: [...by.values()].map(({ cats, ...e }) => ({ ...e,
+        categories: Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) })).sort((a, b) => (b.saleable + b.other) - (a.saleable + a.other)) });
     }
 
     if (body.action === 'search') {
