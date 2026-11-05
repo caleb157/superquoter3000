@@ -29,7 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
+import { buildDraftLines, categorySuggestions, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -421,7 +421,17 @@ export default function InquiryOdooExport() {
                                 </SelectContent>
                               </Select>}
                         </F>
-                        <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />}</F>
+                        <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <>
+                          <OptionCombobox value={f.category} options={catList} loading={!meta} placeholder="Pick a category" className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />
+                          {!inOdoo && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {categorySuggestions(f.sku, prefixList).filter(c => c.name !== f.category).slice(0, 4).map(c => (
+                                <button key={c.name} type="button" title={`${c.count} Odoo item${c.count === 1 ? '' : 's'} with this prefix`} onClick={() => patch(r.productId, { category: c.name })}
+                                  className="rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent">{c.name}</button>
+                              ))}
+                            </div>
+                          )}
+                        </>}</F>
                         <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => { const c = v.replace(/\D/g, '').slice(0, 8); if (c.length === 8) pickHsn(r, c); else patch(r.productId, { hsn: c }); }} />}</F>
                         <F label={`Sales tax${(() => { const h = (multi && !isLead ? g[0].finished.hsn : f.hsn); const rt = h.length === 8 ? gstFor(r, h) : null; return rt != null ? ` · GST ${rt}% for this HSN` : ''; })()}`} span={2}>
                           {multi && !isLead
