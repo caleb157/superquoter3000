@@ -106,8 +106,12 @@ export function VendorPicker({ value, hqVendor, onPick }: { value: OdooVendor | 
   );
 }
 
-export function ItemPhoto({ value, finishedUrl, onChange }: { value: string | null | undefined; finishedUrl: string | null; onChange: (url: string | null) => void }) {
+export type FinishedPhoto = { label: string; url: string };
+
+/** Photo for a new material; "Copy from final product" offers each variant's photo when they differ. */
+export function ItemPhoto({ value, finishedPhotos, onChange }: { value: string | null | undefined; finishedPhotos: FinishedPhoto[]; onChange: (url: string | null) => void }) {
   const input = useRef<HTMLInputElement>(null);
+  const distinct = finishedPhotos.filter((p, i, a) => p.url && a.findIndex(x => x.url === p.url) === i);
   const [busy, setBusy] = useState(false);
   const upload = async (file: File) => {
     setBusy(true);
@@ -135,8 +139,26 @@ export function ItemPhoto({ value, finishedUrl, onChange }: { value: string | nu
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5 mr-1" />}{busy ? '' : 'Photo'}
         </Button>
       )}
-      {!value && finishedUrl && (
-        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => onChange(finishedUrl)}>Copy from final product</Button>
+      {!value && distinct.length === 1 && (
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => onChange(distinct[0].url)}>Copy from final product</Button>
+      )}
+      {!value && distinct.length > 1 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs">Copy from final product…</Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="text-[11px] text-muted-foreground mb-1.5">Pick a variant's photo</div>
+            <div className="flex flex-wrap gap-2 max-w-[320px]">
+              {distinct.map(p => (
+                <button key={p.url} type="button" onClick={() => onChange(p.url)} className="flex flex-col items-center gap-1 rounded border p-1 hover:bg-accent w-20">
+                  <img src={p.url} alt={p.label} className="h-14 w-14 rounded object-cover" />
+                  <span className="text-[10px] leading-tight text-center line-clamp-2">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );
