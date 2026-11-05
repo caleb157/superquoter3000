@@ -134,16 +134,11 @@ export function trackedForCategory(category: string): boolean | null {
 export const skuPrefix = (sku: string) => /^([A-Za-z0-9]{2,6})-/.exec((sku || '').trim())?.[1].toUpperCase() ?? '';
 
 /**
- * Applies an edit to a new item and keeps it consistent: a new SKU prefix picks its category and
- * tracking, a new category picks its tracking. A tracking tick is always taken as given.
+ * Applies an edit to a new item and keeps it consistent: a new category picks its tracking
+ * (the category itself is never defaulted - it is suggested from Odoo by SKU prefix). A tracking tick is always taken as given.
  */
 export function editNewItem(item: NewItem, patch: Partial<NewItem>): NewItem {
   const next = { ...item, ...patch };
-  if (patch.sku !== undefined && patch.category === undefined && patch.tracked === undefined) {
-    const p = skuPrefix(patch.sku);
-    const rule = p && p !== skuPrefix(item.sku) ? PREFIX_RULES[p] : undefined;
-    if (rule) return { ...next, category: rule.category, tracked: rule.tracked };
-  }
   if (patch.category !== undefined && patch.tracked === undefined) {
     const t = trackedForCategory(patch.category);
     if (t != null) next.tracked = t;
@@ -289,9 +284,10 @@ export function buildDraftLines(rows: CogsRow[], links: Map<string, OdooProduct>
         status: never ? 'skip' : linked ? 'match' : d.status,
         match: linked,
         newItem: {
-          name: hqName,
+          // Box and carton names from costing are rarely right: the user types them.
+          name: cartonKind(cogsType, hqName) ? '' : hqName,
           sku: '',
-          category: d.category,
+          category: '',
           tracked: d.tracked,
           uom: hqUnit && unitInfo(hqUnit) ? canonicalUnit(hqUnit, d.uom) : d.uom,
           purchaseUom: '',
@@ -323,7 +319,7 @@ export function defaultFinished(product: { name?: string | null; sku?: string | 
     hqSku,
     sku: base ? `-${base}-` : '',
     code: '',
-    category: FINISHED_CATEGORY,
+    category: '', // never defaulted: picked by hand, suggested from Odoo by SKU prefix
     tracked: true,
     uom: 'Units',
     salePrice: null,
@@ -789,4 +785,40 @@ export function checkVariantGroup(group: { productId: string; finished: Finished
 export function hsnIssue(hsn: string): Issue | null {
   const h = (hsn || '').trim();
   return h && !/^\d{8}$/.test(h) ? { level: 'error', where: 'Product', msg: 'HSN must be 8 digits.' } : null;
+}
+
+// ---------- Category suggestions (by SKU prefix, from Odoo) ----------
+
+/** Odoo categories used by products sharing this SKU's prefix, most used first. */
+export function categorySuggestions(sku: string, prefixes: { prefix: string; categories?: { name: string; count: number }[] }[]): { name: string; count: number }[] {
+  const p = skuPrefix(sku);
+  if (!p) return [];
+  return prefixes.find(x => x.prefix.toUpperCase() === p)?.categories ?? [];
+}
+
+// ---------- Template BOM: lines from every variant ----------
+
+/**
+ * Merges each variant's draft lines into one template BOM. A line costed the same way (same
+ * key and quantity) on every variant appears once for all variants; any other line stays with its
+ * variant (variantOf = that HQ product id).
+ */
+export function mergeVariantLines(perVariant: { productId: string; lines: DraftLine[] }[]): (DraftLine & { variantOf: string | null })[] {
+  if (perVariant.length < 2) return (perVariant[0]?.lines ?? []).map(l => ({ ...l, variantOf: null }));
+  const sig = (l: DraftLine) => `${l.cogsType}|${l.hqName.trim().toLowerCase()}|${round(l.hqQty, 4)}`;
+  const counts = new Map<string, number>();
+  for (const v of perVariant) for (const k of new Set(v.lines.map(sig))) counts.set(k, (counts.get(k) ?? 0) + 1);
+  const out: (DraftLine & { variantOf: string | null })[] = [];
+  const seenShared = new Set<string>();
+  for (const v of perVariant) {
+    for (const l of v.lines) {
+      const k = sig(l);
+      if (counts.get(k) === perVariant.length) {
+        if (seenShared.has(k)) continue;
+        seenShared.add(k);
+        out.push({ ...l, variantOf: null });
+      } else out.push({ ...l, variantOf: v.productId });
+    }
+  }
+  return out;
 }

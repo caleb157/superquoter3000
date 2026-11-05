@@ -29,11 +29,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { buildDraftLines, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
+import { buildDraftLines, categorySuggestions, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; rmTotal: number; rmPending: number };
+type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
 
 const draftKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -134,14 +134,14 @@ export default function InquiryOdooExport() {
         // Photo and name always come fresh from costing; a saved draft never pins old ones
         // (products already in Odoo get their live name from Check Odoo instead).
         if (own) f = { ...f, ...own, name: f.name || own.name || '', variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
-        const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null };
+        const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null; odoo_template_id?: number | null };
         // Raw materials still to sort out: lines set to "New item" (not yet in Odoo) or "Existing" with nothing picked.
         const saved = readDraft(p.id) as { lines?: Record<string, Partial<DraftLine>>; added?: DraftLine[] } | null;
         const cogs = results.get(p.id)?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === p.id);
         const ls = [...buildDraftLines(cogs, new Map(), p.id).map(l => ({ ...l, ...(saved?.lines?.[l.lineId] ?? {}) })), ...(saved?.added ?? [])];
         const live = ls.filter(l => l.status !== 'skip');
         const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
-        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, rmTotal: live.length, rmPending };
+        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, rmTotal: live.length, rmPending };
       });
       const { data: hsn } = await hsnTable().select('code, description, keywords, examples, gst_rate').order('code');
       const codes = (hsn ?? []) as HsnCode[];
@@ -175,6 +175,23 @@ export default function InquiryOdooExport() {
   // Templates: rows sharing a group (and not yet in Odoo) become variants of one template; the first is the lead.
   const groups = useMemo(() => templateGroups(rows.filter(r => !r.odooId)), [rows]);
   const groupOf = useMemo(() => new Map(groups.flatMap(g => g.map(r => [r.productId, g] as const))), [groups]);
+  // What the page shows: pending templates plus products already in Odoo grouped by their Odoo
+  // template, so variants stay nested after creation. Templates A-Z; the lead first, then its variants A-Z.
+  const viewGroups = useMemo(() => {
+    const byName = (a: Row, b: Row) => (a.finished.name || '').localeCompare(b.finished.name || '');
+    const sent = new Map<string, Row[]>();
+    for (const r of rows.filter(x => x.odooId)) {
+      const k = r.odooTemplateId ? `t:${r.odooTemplateId}` : `p:${r.productId}`;
+      sent.set(k, [...(sent.get(k) ?? []), r]);
+    }
+    const ordered = (g: Row[], lead: Row) => [lead, ...g.filter(r => r !== lead).sort(byName)];
+    const done = [...sent.values()].map(g => {
+      const lead = g.find(r => (r.finished.group || '').trim().toLowerCase() === r.productId.toLowerCase()) ?? [...g].sort(byName)[0];
+      return ordered(g, lead);
+    });
+    return [...groups.map(g => ordered(g, g[0])), ...done].sort((a, b) => byName(a[0], b[0]));
+  }, [groups, rows]);
+  const viewGroupOf = useMemo(() => new Map(viewGroups.flatMap(g => g.map(r => [r.productId, g] as const))), [viewGroups]);
   const effective = (r: Row) => withVariantDefaults(r.finished, groupOf.get(r.productId)?.length ?? 1);
   const issues = useMemo(() => {
     const m = new Map<string, Issue[]>();
@@ -320,11 +337,11 @@ export default function InquiryOdooExport() {
                 Odoo can't be read right now ({lookupError}). SKUs aren't checked and nothing can be sent.
               </div>
             )}
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox checked={rows.length > 0 && picked.size === rows.length}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox aria-label="Select all products" checked={rows.length > 0 && picked.size === rows.length}
                 onCheckedChange={v => setPicked(v === true ? new Set(rows.map(r => r.productId)) : new Set())} />
-              {chosen.length} of {rows.length} selected
-            </label>
+              <span>{chosen.length} of {rows.length} selected</span>
+            </div>
             <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/30 p-2 text-xs">
               <span className="text-muted-foreground self-center">For the selected products:</span>
               <F label="SKU prefix"><div className="w-28"><OptionCombobox value={bulkPrefix} options={prefixOpts} allowCustom clearable label="Bulk SKU prefix" placeholder="e.g. LUX" className="h-8 text-xs font-mono" onChange={setBulkPrefix} /></div></F>
@@ -333,7 +350,7 @@ export default function InquiryOdooExport() {
               <Button size="sm" variant="outline" className="h-8" disabled={!chosen.length || (!bulkPrefix.trim() && !bulkHsn.trim() && !bulkTax)} onClick={applyBulk}>Apply</Button>
             </div>
 
-            {[...groups.flat(), ...rows.filter(r => r.odooId)].map(r => {
+            {viewGroups.flat().map(r => {
               const f = r.finished;
               const parts = splitSku(f.sku);
               const setPart = (k: 'prefix' | 'base' | 'suffix', v: string) =>
@@ -341,14 +358,18 @@ export default function InquiryOdooExport() {
               const s = sent[r.productId];
               const errs = issues.get(r.productId) ?? [];
               const inOdoo = !!r.odooId;
-              const g = groupOf.get(r.productId) ?? [r];
+              const g = viewGroupOf.get(r.productId) ?? [r];
               const multi = g.length > 1;
               const isLead = g[0].productId === r.productId;
+              const showBom = !multi || isLead;
+              const rmTotal = g.reduce((n, x) => n + x.rmTotal, 0);
+              const rmPending = g.reduce((n, x) => n + x.rmPending, 0);
+              const bomPushed = g.some(x => progress[x.productId]?.bom);
               const eff = effective(r);
               const matches = matchHsn(f.name, hsnList).filter(m => m.code !== f.hsn.trim());
               const aiState = ai[r.productId];
               return (
-                <Card key={r.productId} className={`${picked.has(r.productId) ? '' : 'opacity-60'} ${multi && !isLead ? 'ml-8 border-l-4 border-l-primary/50' : multi ? 'border-l-4 border-l-primary' : ''}`}>
+                <Card key={r.productId} className={`${multi && !isLead ? 'ml-8 border-l-4 border-l-primary/50' : multi ? 'border-l-4 border-l-primary' : ''}`}>
                   <CardContent className="p-3 flex gap-3">
                     <Checkbox className="mt-1" checked={picked.has(r.productId)}
                       onCheckedChange={v => setPicked(prev => { const n = new Set(prev); if (v === true) n.add(r.productId); else n.delete(r.productId); return n; })} />
@@ -366,26 +387,30 @@ export default function InquiryOdooExport() {
                           : errs.length ? <Badge variant="destructive">{errs.length} to fix</Badge> : <Badge variant="outline">Ready</Badge>}
                         {s?.state === 'sending' && <span className="inline-flex items-center gap-1 text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Creating…</span>}
                         {s?.state === 'done' && s.url && <a className="inline-flex items-center gap-0.5 text-xs underline" href={s.url} target="_blank" rel="noopener noreferrer">Open in Odoo <ExternalLink className="h-3 w-3" /></a>}
-                        {multi && !inOdoo && (
+                        {multi && (
                           <Badge variant="outline" className="gap-1"><Layers className="h-3 w-3" /> Variant {g.indexOf(r) + 1} of {g.length}{isLead ? ' · template from this one' : ` · template: ${g[0].finished.name}`}</Badge>
                         )}
                         <span className="ml-auto" />
-                        {r.rmTotal === 0
+                        {showBom && (rmTotal === 0
                           ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('idle')}`}>No raw materials</Badge>
-                          : r.rmPending > 0
-                            ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>{r.rmPending} of {r.rmTotal} RMs pending</Badge>
-                            : <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> All {r.rmTotal} RMs in Odoo</Badge>}
-                        {progress[r.productId]?.bom
+                          : rmPending > 0
+                            ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>{rmPending} of {rmTotal} RMs pending</Badge>
+                            : <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> All {rmTotal} RMs in Odoo</Badge>)}
+                        {!showBom ? null : bomPushed
                           ? <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> BOM pushed</Badge>
                           : <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>BOM pending</Badge>}
-                        <Button variant="ghost" size="sm" className="h-7" onClick={() => navigate(`/inquiry/${inquiryId}/odoo/${r.productId}`)}>
-                          <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM
-                        </Button>
+                        {showBom && (
+                          <Button variant="ghost" size="sm" className="h-7" onClick={() => navigate(`/inquiry/${inquiryId}/odoo/${r.productId}`)}>
+                            <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM{multi ? ` (${g.length} variants)` : ''}
+                          </Button>
+                        )}
                       </div>
                       <fieldset disabled={inOdoo} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6 text-xs">
                         <F label="Product name (template)" span={3}><Input className="h-8 text-xs" disabled={multi && !isLead} value={multi && !isLead ? g[0].finished.name : f.name} onChange={e => patch(r.productId, { name: e.target.value })} /></F>
                         <F label={multi && isLead ? `Template for ${g.length} variants` : 'Variant of (another product here)'} span={3}>
-                          {multi && isLead
+                          {inOdoo && multi && !isLead
+                            ? <Input className="h-8 text-xs" disabled value={g[0].finished.name} />
+                            : multi && isLead
                             ? <div className="h-8 flex items-center text-muted-foreground">Name, category, HSN and tax set here apply to every variant below.</div>
                             : <Select value={multi ? g[0].productId : 'none'} onValueChange={v => setRows(prev => setVariantOf(prev, r.productId, v === 'none' ? null : v))}>
                                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -396,7 +421,17 @@ export default function InquiryOdooExport() {
                                 </SelectContent>
                               </Select>}
                         </F>
-                        <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <OptionCombobox value={f.category} options={catList} loading={!meta} className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />}</F>
+                        <F label="Category" span={2}>{multi && !isLead ? <Input className="h-8 text-xs" disabled value={g[0].finished.category} /> : <>
+                          <OptionCombobox value={f.category} options={catList} loading={!meta} placeholder="Pick a category" className="h-8 text-xs" onChange={v => patch(r.productId, { category: v })} />
+                          {!inOdoo && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {categorySuggestions(f.sku, prefixList).filter(c => c.name !== f.category).slice(0, 4).map(c => (
+                                <button key={c.name} type="button" title={`${c.count} Odoo item${c.count === 1 ? '' : 's'} with this prefix`} onClick={() => patch(r.productId, { category: c.name })}
+                                  className="rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent">{c.name}</button>
+                              ))}
+                            </div>
+                          )}
+                        </>}</F>
                         <F label="HSN (8 digits)">{multi && !isLead ? <Input className="h-8 text-xs font-mono" disabled value={g[0].finished.hsn} /> : <OptionCombobox value={f.hsn} options={hsnOpts} allowCustom placeholder="8 digits" className="h-8 text-xs font-mono" onChange={v => { const c = v.replace(/\D/g, '').slice(0, 8); if (c.length === 8) pickHsn(r, c); else patch(r.productId, { hsn: c }); }} />}</F>
                         <F label={`Sales tax${(() => { const h = (multi && !isLead ? g[0].finished.hsn : f.hsn); const rt = h.length === 8 ? gstFor(r, h) : null; return rt != null ? ` · GST ${rt}% for this HSN` : ''; })()}`} span={2}>
                           {multi && !isLead
