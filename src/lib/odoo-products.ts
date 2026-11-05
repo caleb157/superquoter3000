@@ -14,7 +14,10 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
   if (error) {
     let msg = error?.message || 'Odoo request failed';
     let details: CallError['details'] = null;
-    try { details = await (error as { context?: Response }).context?.json(); msg = details?.error || msg; } catch { /* keep generic */ }
+    try { details = await (error as { context?: Response }).context?.json(); msg = details?.error || msg;
+      const fe = (details as { details?: Record<string, string[]> } | null)?.details;
+      if (fe && typeof fe === 'object') { const parts = Object.entries(fe).map(([k, v]) => `${k}: ${(v ?? []).join(', ')}`); if (parts.length) msg += ` (${parts.join('; ')})`; }
+    } catch { /* keep generic */ }
     if (/Failed to send|FunctionsFetchError|not found/i.test(msg)) throw new Error(`The ${fn} function has not been deployed yet.`);
     const err: CallError = new Error(msg);
     err.details = details;
