@@ -28,4 +28,5 @@
 - Subdirectories may have their own AGENTS.md; read it before changing files there.
 - Learnings/HR Notes: own tables + dialogs (src/components/notes), not tasks; HR admin-only. HR workers are an employees JSON array of Odoo IDs/names; legacy employee fields mirror the first worker for compatibility. Live Odoo searches store only IDs/numbers + labels.
 - Task dates are validated in the shared helper and at the database boundary; offset-free automation templates default to the event day in Asia/Kolkata so legacy automations remain compatible.
+- TaskBell polling runs only while the document is visible; visibility return refreshes immediately and restarts the timer to avoid inactive-tab backend requests.
 - Late Report (/tools/late-report, admin): odoo-late-report reads hr.attendance only; first non-midnight IST check-in per day, math in src/lib/late-report.ts; warnings -> hr_notes deduped by source_key; policy in single-row late_report_settings.
