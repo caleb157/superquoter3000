@@ -151,7 +151,7 @@ export function amazonSkuFlows(s: AmazonSku, from: Month, last: Month): Flow[] {
 }
 
 export type ScenarioSummary = {
-  months: { month: Month; cashIn: number; cashOut: number; net: number; cumulative: number; stock: number; onOrder: number; sold: number; ordered: number; stockout: boolean }[];
+  months: { month: Month; cashIn: number; cashOut: number; net: number; cumulative: number; earned: number; earnedCumulative: number; stock: number; onOrder: number; sold: number; ordered: number; stockout: boolean }[];
   invested: number; // total paid out for stock and freight
   peakNeed: number; // most cash tied up at once (lowest cumulative, as a positive number)
   peakMonth: Month | null;
@@ -179,14 +179,14 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
   if (!all.length) return empty;
   const start = all.reduce((a, b) => (a < b ? a : b));
   const months: ScenarioSummary['months'] = [];
-  let cum = 0, peakNeed = 0, invested = 0;
+  let cum = 0, peakNeed = 0, invested = 0, earnedCum = 0;
   let peakMonth: Month | null = null, paybackMonth: Month | null = null;
   for (let m = start; m <= last; m = add(m, 1)) {
-    let cashIn = 0, cashOut = 0, stock = 0, onOrder = 0, sold = 0, ordered = 0, stockout = false;
+    let cashIn = 0, cashOut = 0, earned = 0, stock = 0, onOrder = 0, sold = 0, ordered = 0, stockout = false;
     for (const { rows } of sims) {
       const r = rows.find(x => x.month === m);
       if (r) {
-        cashIn += r.cashIn; cashOut += r.cashOut;
+        cashIn += r.cashIn; cashOut += r.cashOut; earned += r.earned;
         stock += r.stockEnd; onOrder += r.onOrder; sold += r.sold; ordered += r.poUnits; stockout ||= r.stockout;
       }
     }
@@ -195,7 +195,8 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
     cum += net;
     if (-cum > peakNeed) { peakNeed = -cum; peakMonth = m; paybackMonth = null; }
     if (peakNeed > 0 && cum >= 0 && !paybackMonth) paybackMonth = m;
-    months.push({ month: m, cashIn, cashOut, net, cumulative: cum, stock, onOrder, sold, ordered, stockout });
+    earnedCum += earned;
+    months.push({ month: m, cashIn, cashOut, net, cumulative: cum, earned, earnedCumulative: earnedCum, stock, onOrder, sold, ordered, stockout });
   }
   const stockValue = sims.reduce((t, { s, rows }) => t + (rows[rows.length - 1]?.stockEnd ?? 0) * landedPerUnit(s), 0);
   const stockoutMonths = sims.reduce((t, { rows }) => t + rows.filter(r => r.stockout).length, 0);
@@ -205,5 +206,38 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
   return {
     months, invested, peakNeed, peakMonth, paybackMonth, profit: cum, stockValue, stockoutMonths,
     earnings, spanMonths, roi, annualRoi: roi == null ? null : annualize(roi, spanMonths),
+  };
+}
+
+/** The month the Long View runs to. */
+export const LONG_VIEW_MONTH: Month = '2030-05';
+
+export type LongView = {
+  until: Month;
+  summary: ScenarioSummary;
+  totalProfit: number; // net earnings from the first PO through `until`
+  monthProfit: number; // net earnings in `until` itself
+  runRate: number; // monthProfit × 12
+  cash: number; // running cash total at `until`
+  stockValue: number; // unsold stock at landed cost at `until`
+  byYear: { year: number; profit: number; months: number }[]; // net earnings per calendar year
+};
+
+/** Bottom-line (pre-tax, earned basis) picture of a scenario's counted SKUs through `until`. */
+export function longView(skus: AmazonSku[], until: Month = LONG_VIEW_MONTH): LongView {
+  const summary = scenarioSummary(skus, until);
+  const lastRow = summary.months[summary.months.length - 1];
+  const monthProfit = lastRow && lastRow.month === until ? lastRow.earned : 0;
+  const years = new Map<number, { profit: number; months: number }>();
+  for (const r of summary.months) {
+    const y = Number(r.month.slice(0, 4));
+    const e = years.get(y) ?? { profit: 0, months: 0 };
+    e.profit += r.earned; e.months += 1;
+    years.set(y, e);
+  }
+  return {
+    until, summary, totalProfit: summary.earnings, monthProfit, runRate: monthProfit * 12,
+    cash: summary.profit, stockValue: summary.stockValue,
+    byYear: [...years.entries()].sort((a, b) => a[0] - b[0]).map(([year, v]) => ({ year, ...v })),
   };
 }

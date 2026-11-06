@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annualize, countedSkus, scenarioSummary, type AmazonSku } from './dkt-amazon';
+import { annualize, countedSkus, longView, scenarioSummary, type AmazonSku } from './dkt-amazon';
 
 const sku = (over: Partial<AmazonSku> = {}): AmazonSku => ({
   id: 's1', scenario_id: 'sc', name: 'URNS', mode: 'inventory',
@@ -43,5 +43,29 @@ describe('countedSkus', () => {
     const b = sku({ id: 's2', excluded: true, price_usd: 999 });
     expect(countedSkus([a, b]).map(x => x.id)).toEqual(['s1']);
     expect(scenarioSummary(countedSkus([a, b]), '2028-09').earnings).toBeCloseTo(scenarioSummary([a], '2028-09').earnings, 9);
+  });
+});
+
+describe('longView', () => {
+  it('runs to May 2030 and splits net earnings by year', () => {
+    const lv = longView([sku()]);
+    expect(lv.until).toBe('2030-05');
+    expect(lv.summary.months[lv.summary.months.length - 1].month).toBe('2030-05');
+    expect(lv.monthProfit).toBeCloseTo(75 * 70 * 0.2, 6);
+    expect(lv.runRate).toBeCloseTo(lv.monthProfit * 12, 6);
+    expect(lv.totalProfit).toBeCloseTo(lv.byYear.reduce((t, y) => t + y.profit, 0), 6);
+    expect(lv.byYear.map(y => y.year)).toEqual([2026, 2027, 2028, 2029, 2030]);
+    expect(lv.byYear[4].months).toBe(5);
+    expect(lv.summary.months[lv.summary.months.length - 1].earnedCumulative).toBeCloseTo(lv.totalProfit, 6);
+  });
+  it('leaves out excluded SKUs when given counted SKUs', () => {
+    const both = [sku(), sku({ id: 's2', excluded: true })];
+    expect(longView(countedSkus(both)).totalProfit).toBeCloseTo(longView([sku()]).totalProfit, 6);
+  });
+  it('is empty with no SKUs', () => {
+    const lv = longView([]);
+    expect(lv.totalProfit).toBe(0);
+    expect(lv.monthProfit).toBe(0);
+    expect(lv.byYear).toEqual([]);
   });
 });
