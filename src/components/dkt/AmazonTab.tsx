@@ -1,12 +1,12 @@
-import { Fragment } from 'react';
-import { Copy, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Telescope, Trash2 } from 'lucide-react';
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { addMonths, monthLabel, type Month } from '@/lib/dkt-cashflow';
-import { countedSkus, demandFor, firstPoMonth, landedPerUnit, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
+import { countedSkus, demandFor, firstPoMonth, landedPerUnit, LONG_VIEW_MONTH, longView, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
 
@@ -119,6 +119,90 @@ function InventoryTip({ active, payload }: { active?: boolean; payload?: { paylo
   );
 }
 
+const longViewKey = (id: string) => `dkt-amazon-longview-${id}`;
+function readOpen(id: string): boolean {
+  try { return localStorage.getItem(longViewKey(id)) === '1'; } catch { return false; }
+}
+
+/** Long View: bottom-line net profit through May 2030 for the scenario's counted SKUs, with a long chart on a toggle. */
+function LongViewPanel({ scenarioId, skus }: { scenarioId: string; skus: AmazonSku[] }) {
+  const [open, setOpen] = useState(() => readOpen(scenarioId));
+  const toggle = () => {
+    const v = !open;
+    setOpen(v);
+    try { localStorage.setItem(longViewKey(scenarioId), v ? '1' : '0'); } catch { /* per-viewer convenience only */ }
+  };
+  const lv = longView(skus);
+  const until = new Date(`${lv.until}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  if (!lv.summary.months.length) return null;
+  const hasInventory = skus.some(x => x.mode === 'inventory');
+  const chart = lv.summary.months.map(m => ({
+    month: monthLabel(m.month), earned: Math.round(m.earned), profit: Math.round(m.earnedCumulative), cash: Math.round(m.cumulative),
+  }));
+  return (
+    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Telescope className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium">Long View to {until}</span>
+        <span className="text-[11px] text-muted-foreground">Amazon is a long play: net profit (price × net margin on units sold, before tax) if this scenario runs as set up.</span>
+        <Button size="sm" variant="ghost" className="ml-auto h-7" onClick={toggle} aria-expanded={open}>
+          {open ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
+          {open ? 'Hide long chart' : 'Show long chart'}
+        </Button>
+      </div>
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+        <Stat label={`Total net profit by ${until}`} value={usd(lv.totalProfit)} tone={lv.totalProfit >= 0 ? 'success' : 'destructive'} sub={`Over ${lv.summary.spanMonths} months`} />
+        <Stat label={`Net profit in ${until}`} value={usd(lv.monthProfit)} tone={lv.monthProfit >= 0 ? 'success' : 'destructive'} sub={`${usd(lv.runRate)} a year at that pace`} />
+        <Stat label={`Running cash in ${until}`} value={usd(lv.cash)} tone={lv.cash >= 0 ? 'success' : 'destructive'} sub={hasInventory ? `Plus ${usd(lv.stockValue)} of stock at cost` : 'Payouts received'} />
+      </div>
+      {lv.byYear.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="text-muted-foreground">Net profit by year:</span>
+          {lv.byYear.map(y => (
+            <span key={y.year} className="rounded border bg-background px-1.5 py-0.5 tabular-nums" title={y.months < 12 ? `${y.months} months counted` : undefined}>
+              {y.year}{y.months < 12 ? ` (${y.months} mo)` : ''}: <b className={cn(y.profit < 0 && 'text-destructive')}>{usd(y.profit)}</b>
+            </span>
+          ))}
+        </div>
+      )}
+      {open && chart.length > 1 && (
+        <div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={24} />
+                <YAxis tickFormatter={usdK} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={52} />
+                <Tooltip content={<LongViewTip />} />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                <Line type="monotone" dataKey="profit" stroke="hsl(var(--success))" strokeWidth={2} dot={false} />
+                {hasInventory && <Line type="monotone" dataKey="cash" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 3" dot={false} />}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Solid line: total net profit so far.{hasInventory ? ' Dashed line: running cash (payouts minus stock and freight), which trails profit while money sits in stock.' : ''} Hover a month to see that month's profit.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type LvRow = { month: string; earned: number; profit: number; cash: number };
+function LongViewTip({ active, payload }: { active?: boolean; payload?: { payload: LvRow }[] }) {
+  const r = active && payload?.[0]?.payload;
+  if (!r) return null;
+  return (
+    <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs space-y-0.5 tabular-nums">
+      <div className="font-medium">{r.month}</div>
+      <div>Net profit that month: {usd(r.earned)}</div>
+      <div>Total net profit so far: {usd(r.profit)}</div>
+      <div>Running cash: {usd(r.cash)}</div>
+    </div>
+  );
+}
+
 function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenario, updateScenario, removeScenario, addSku, updateSku, removeSku }: Props & { scenario: AmazonScenario }) {
   const mine = skus.filter(x => x.scenario_id === s.id);
   const counted = countedSkus(mine);
@@ -161,6 +245,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
             {hasInventory && <Stat label="Cash ROI (annualized)" value={sum.annualRoi == null ? '—' : pctLabel(sum.annualRoi)} tone={sum.annualRoi == null ? undefined : sum.annualRoi >= 0 ? 'success' : 'destructive'} sub={sum.roi == null ? 'No cash tied up' : `${pctLabel(sum.roi)} on ${usd(sum.peakNeed)} over ${sum.spanMonths} mo`} />}
           </div>
         )}
+        {counted.length > 0 && <LongViewPanel scenarioId={s.id} skus={counted} />}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-muted-foreground text-left">
