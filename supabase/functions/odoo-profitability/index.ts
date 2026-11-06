@@ -174,9 +174,23 @@ Deno.serve(async (req) => {
       : [];
     const rawIds = [...new Set(moves.map(m => m2oId(m.product_id)).filter(Boolean))];
     const raws = rawIds.length
-      ? await searchRead('product.product', [['id', 'in', rawIds]], ['default_code', 'name', 'standard_price', 'type', 'detailed_type'])
+      ? await searchRead('product.product', [['id', 'in', rawIds]], ['default_code', 'name', 'standard_price', 'type', 'detailed_type', 'categ_id'])
       : [];
     const rawById = new Map(raws.map(p => [p.id, p]));
+
+    // Product categories of the components; anything under category 54
+    // (Subcontracting (Overflow)) is outside work, costed like labour not material.
+    const SUBCONTRACT_CATEG_ID = 54;
+    const categIds = [...new Set(raws.map(p => m2oId(p.categ_id)).filter(Boolean))];
+    const categById = new Map<number, { name: string; sub: boolean }>();
+    if (categIds.length) {
+      try {
+        for (const c of await searchRead('product.category', [['id', 'in', categIds]], ['complete_name', 'name', 'parent_path'])) {
+          const path = String(c.parent_path || '').split('/').filter(Boolean).map(Number);
+          categById.set(c.id, { name: c.complete_name || c.name, sub: c.id === SUBCONTRACT_CATEG_ID || path.includes(SUBCONTRACT_CATEG_ID) });
+        }
+      } catch (_e) { /* categories unreadable: everything stays a material */ }
+    }
 
     // Stock valuation value per move (the real booked cost at the time of the move).
     const valueByMove = new Map<number, number>();
@@ -243,6 +257,26 @@ Deno.serve(async (req) => {
       }
     } catch (_e) { /* ignore */ }
 
+    // --- Other SO currencies (e.g. AUD): INR per unit, so amounts convert to USD ---
+    const inrPer = new Map<string, number>();
+    const otherCcys = [...new Set(orders.map(o => m2oName(o.currency_id)).filter(c => c && c !== 'USD' && c !== 'INR'))];
+    if (otherCcys.length) {
+      try {
+        const rows = await searchRead('res.currency', [['name', 'in', otherCcys]], ['name', 'rate', 'inverse_rate']);
+        for (const c of rows) {
+          const inv = num(c.inverse_rate), r = num(c.rate);
+          const v = inv > 0 && inv !== 1 ? inv : r > 0 && r < 1 ? 1 / r : r > 1 ? r : 0;
+          if (v > 0) inrPer.set(String(c.name), v);
+        }
+      } catch (_e) { /* ignore */ }
+    }
+    // Factor that turns an SO amount into USD (1 for USD/INR, which are handled natively).
+    const toUsd = (ccy: string) => {
+      if (ccy === 'USD' || ccy === 'INR') return 1;
+      const r = inrPer.get(ccy);
+      return r && inrPerUsd ? r / inrPerUsd : 1;
+    };
+
     // --- assemble (only fully completed projects) ---
     const moByKey = new Map<string, any>();
     for (const m of mos) { moByKey.set(String(m.name), m); moByKey.set(String(m.id), m); }
@@ -275,6 +309,8 @@ Deno.serve(async (req) => {
           sku: prod?.default_code || null,
           name: prod?.name || m2oName(mv.product_id),
           type: prod?.detailed_type || prod?.type || null,
+          category: categById.get(m2oId(prod?.categ_id))?.name || m2oName(prod?.categ_id) || 'Uncategorised',
+          subcontract: categById.get(m2oId(prod?.categ_id))?.sub ?? false,
           planned_qty: num(mv.product_uom_qty),
           actual_qty: actual,
           uom: m2oName(mv.product_uom),
@@ -302,6 +338,9 @@ Deno.serve(async (req) => {
         net_inr: -num(a.amount),
       })) : [];
       const allDone = myMos.length > 0 && myMos.every(m => m.state === 'done');
+      const origCcy = m2oName(o.currency_id) || 'USD';
+      const k = toUsd(origCcy);
+      const converted = k !== 1 || (origCcy !== 'USD' && origCcy !== 'INR');
       return {
         id: o.id,
         name: o.name,
@@ -309,9 +348,11 @@ Deno.serve(async (req) => {
         customer: m2oName(o.partner_id),
         project_id: pid,
         project_name: m2oName(o.project_id) || projectById.get(pid)?.name || (pid ? `Project #${pid}` : null),
-        currency: m2oName(o.currency_id) || 'USD',
-        amount_untaxed: num(o.amount_untaxed),
-        amount_total: num(o.amount_total),
+        currency: converted ? 'USD' : origCcy,
+        original_currency: origCcy,
+        fx_to_usd: k,
+        amount_untaxed: num(o.amount_untaxed) * k,
+        amount_total: num(o.amount_total) * k,
         state: o.state,
         tags: (Array.isArray(o.tag_ids) ? o.tag_ids : []).map((id: number) => tagName.get(id)).filter(Boolean),
         status: o.state === 'done' || allDone ? 'Completed' : 'In Progress',
@@ -322,8 +363,8 @@ Deno.serve(async (req) => {
             sku: p?.default_code || null,
             name: p?.name || m2oName(l.product_id) || l.name,
             qty: num(l.product_uom_qty),
-            price_unit: num(l.price_unit),
-            subtotal: num(l.price_subtotal),
+            price_unit: num(l.price_unit) * k,
+            subtotal: num(l.price_subtotal) * k,
             volume: num(p?.volume),
             standard_price_inr: num(p?.standard_price),
             type: p?.detailed_type || p?.type || null,

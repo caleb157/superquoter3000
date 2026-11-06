@@ -4,6 +4,10 @@
 export type SoMaterial = {
   mo_id: number; mo_name: string | null; sku: string | null; name: string | null; type: string | null;
   planned_qty: number; actual_qty: number; uom: string | null; unit_price_inr: number; total_inr: number; valued?: boolean;
+  /** Odoo product category (full path). */
+  category?: string | null;
+  /** Under Odoo category 54 "Subcontracting (Overflow)": counts against net profit, not gross. */
+  subcontract?: boolean;
 };
 export type SoLine = {
   product_id: number; sku: string | null; name: string | null; qty: number; price_unit: number; subtotal: number;
@@ -18,6 +22,8 @@ export type SoMo = { id: number; name: string; state: string; qty: number; qty_p
 export type SoOrder = {
   id: number; name: string; date_order: string; customer: string | null;
   project_id: number | null; project_name: string | null; currency: string;
+  /** Odoo SO currency when it was not USD/INR (amounts already converted to USD at Odoo's rate). */
+  original_currency?: string; fx_to_usd?: number;
   amount_untaxed: number; amount_total: number; state: string; status: 'Completed' | 'In Progress';
   /** Odoo SO tags; "Trading" / "Manufacturing" set the order kind (src/lib/order-kind.ts). */
   tags?: string[];
@@ -34,14 +40,15 @@ export function toDisplay(amount: number, from: string, to: DisplayCurrency, inr
   return f === 'USD' ? amount * inrPerUsd : amount / inrPerUsd;
 }
 
-export function marginTone(pct: number): 'complete' | 'progress' | 'issue' {
-  if (pct > 35) return 'complete';
-  if (pct >= 20) return 'progress';
-  return 'issue';
+// Green only above `greenAbove`; 0..greenAbove is amber; below 0 is red.
+export function marginTone(pct: number, greenAbove = 30): 'complete' | 'progress' | 'issue' {
+  if (pct < 0) return 'issue';
+  if (pct > greenAbove) return 'complete';
+  return 'progress';
 }
 
 export type SoSummary = {
-  revenue: number; materials: number; direct: number; overhead: number; burdened: number; shipping: number;
+  revenue: number; materials: number; subcontract: number; direct: number; overhead: number; burdened: number; shipping: number;
   totalCost: number; margin: number; marginPct: number;
   materialCount: number; zeroCostCount: number; hours: number; shippingCount: number;
 };
@@ -52,20 +59,21 @@ export function summarize(o: SoOrder, cur: DisplayCurrency, fx: number, moFilter
   const mats = o.materials.filter(m => inMo(m.mo_id));
   const lab = o.labor.filter(l => inMo(l.mo_id));
   const c = (inr: number) => toDisplay(inr, 'INR', cur, fx);
-  const materials = c(mats.reduce((s, m) => s + m.total_inr, 0));
+  const materials = c(mats.filter(m => !m.subcontract).reduce((s, m) => s + m.total_inr, 0));
+  const subcontract = c(mats.filter(m => m.subcontract).reduce((s, m) => s + m.total_inr, 0));
   const direct = c(lab.reduce((s, l) => s + l.direct_inr, 0));
   const overhead = c(lab.reduce((s, l) => s + l.overhead_inr, 0));
   const burdenedRaw = lab.reduce((s, l) => s + l.burdened_inr, 0);
   const burdened = burdenedRaw > 0 ? c(burdenedRaw) : direct + overhead;
   const shipping = moFilter ? 0 : c(o.shipping.reduce((s, x) => s + x.net_inr, 0));
   const revenue = toDisplay(o.amount_untaxed, o.currency, cur, fx);
-  const totalCost = materials + direct + overhead + shipping;
+  const totalCost = materials + subcontract + direct + overhead + shipping;
   const margin = revenue - totalCost;
   return {
-    revenue, materials, direct, overhead, burdened, shipping, totalCost, margin,
+    revenue, materials, subcontract, direct, overhead, burdened, shipping, totalCost, margin,
     marginPct: revenue > 0 ? (margin / revenue) * 100 : 0,
-    materialCount: mats.length,
-    zeroCostCount: mats.filter(m => !(m.unit_price_inr > 0)).length,
+    materialCount: mats.filter(m => !m.subcontract).length,
+    zeroCostCount: mats.filter(m => !m.subcontract).filter(m => !(m.unit_price_inr > 0)).length,
     hours: lab.reduce((s, l) => s + l.hours, 0),
     shippingCount: moFilter ? 0 : o.shipping.length,
   };
@@ -91,22 +99,24 @@ export type LaborMoGroup = {
 
 export const moProduced = (m: SoMo) => (m.qty_produced && m.qty_produced > 0 ? m.qty_produced : m.qty);
 
-export type MoStats = { mo: SoMo; produced: number; materials: number; direct: number; overhead: number; hours: number; total: number };
+export type MoStats = { mo: SoMo; produced: number; materials: number; subcontract: number; direct: number; overhead: number; hours: number; total: number };
 
 /** Material, direct labour and overhead burden (INR) for one MO. Overhead = burdened − direct. */
 export function moStats(o: SoOrder, mo: SoMo): MoStats {
-  const materials = o.materials.filter(m => m.mo_id === mo.id).reduce((s, m) => s + m.total_inr, 0);
+  const mine = o.materials.filter(m => m.mo_id === mo.id);
+  const materials = mine.filter(m => !m.subcontract).reduce((s, m) => s + m.total_inr, 0);
+  const subcontract = mine.filter(m => m.subcontract).reduce((s, m) => s + m.total_inr, 0);
   const lab = o.labor.filter(l => l.mo_id === mo.id);
   const direct = lab.reduce((s, l) => s + l.direct_inr, 0);
   const burdened = lab.reduce((s, l) => s + l.burdened_inr, 0);
   const overhead = burdened > 0 ? Math.max(0, burdened - direct) : lab.reduce((s, l) => s + l.overhead_inr, 0);
   const hours = lab.reduce((s, l) => s + l.hours, 0);
-  return { mo, produced: moProduced(mo), materials, direct, overhead, hours, total: materials + direct + overhead };
+  return { mo, produced: moProduced(mo), materials, subcontract, direct, overhead, hours, total: materials + subcontract + direct + overhead };
 }
 
 export type LineAnalysis = {
   line: SoLine; fromMo: boolean;
-  unitMaterial: number; unitDirect: number; unitOverhead: number; unitMo: number; unitShipping: number; unitTotal: number;
+  unitMaterial: number; unitSubcontract: number; unitDirect: number; unitOverhead: number; unitMo: number; unitShipping: number; unitTotal: number;
   unitPrice: number; unitGross: number; unitNet: number; revenue: number; gross: number; net: number; cost: number;
 };
 
@@ -115,9 +125,10 @@ export type LineAnalysis = {
  * (total MO cost ÷ units produced) so over-production never inflates the SO cost.
  * Products without an MO use their standard cost (no labour / overhead).
  * Shipping is allocated by product volume × quantity sold.
+ * Lines with zero quantity sold are dropped. Subcontracting counts in net, not gross.
  */
 export function analyzeLines(o: SoOrder, cur: DisplayCurrency, fx: number): LineAnalysis[] {
-  const lines = o.lines ?? [];
+  const lines = (o.lines ?? []).filter(l => l.qty !== 0);
   const c = (inr: number) => toDisplay(inr, 'INR', cur, fx);
   const stats = o.mos.map(m => moStats(o, m));
   const shipInr = o.shipping.reduce((s, x) => s + x.net_inr, 0);
@@ -127,11 +138,12 @@ export function analyzeLines(o: SoOrder, cur: DisplayCurrency, fx: number): Line
     const mine = stats.filter(s => s.mo.product_id === line.product_id);
     const produced = mine.reduce((s, x) => s + x.produced, 0);
     const fromMo = mine.length > 0 && produced > 0;
-    const per = (k: 'materials' | 'direct' | 'overhead') => (fromMo ? mine.reduce((s, x) => s + x[k], 0) / produced : 0);
+    const per = (k: 'materials' | 'subcontract' | 'direct' | 'overhead') => (fromMo ? mine.reduce((s, x) => s + x[k], 0) / produced : 0);
     const unitMaterial = c(fromMo ? per('materials') : line.standard_price_inr);
+    const unitSubcontract = c(per('subcontract'));
     const unitDirect = c(per('direct'));
     const unitOverhead = c(per('overhead'));
-    const unitMo = unitMaterial + unitDirect + unitOverhead;
+    const unitMo = unitMaterial + unitSubcontract + unitDirect + unitOverhead;
     const shipUnitInr = totalVol > 0 ? (shipInr * line.volume) / totalVol : totalQty > 0 ? shipInr / totalQty : 0;
     const unitShipping = c(shipUnitInr);
     const unitTotal = unitMo + unitShipping;
@@ -140,7 +152,7 @@ export function analyzeLines(o: SoOrder, cur: DisplayCurrency, fx: number): Line
     const unitGross = unitPrice - unitMaterial;
     const unitNet = unitPrice - unitTotal;
     return {
-      line, fromMo, unitMaterial, unitDirect, unitOverhead, unitMo, unitShipping, unitTotal,
+      line, fromMo, unitMaterial, unitSubcontract, unitDirect, unitOverhead, unitMo, unitShipping, unitTotal,
       unitPrice, unitGross, unitNet, revenue, gross: unitGross * line.qty, net: unitNet * line.qty, cost: unitTotal * line.qty,
     };
   });

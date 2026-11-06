@@ -14,7 +14,10 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
   if (error) {
     let msg = error?.message || 'Odoo request failed';
     let details: CallError['details'] = null;
-    try { details = await (error as { context?: Response }).context?.json(); msg = details?.error || msg; } catch { /* keep generic */ }
+    try { details = await (error as { context?: Response }).context?.json(); msg = details?.error || msg;
+      const fe = (details as { details?: Record<string, string[]> } | null)?.details;
+      if (fe && typeof fe === 'object') { const parts = Object.entries(fe).map(([k, v]) => `${k}: ${(v ?? []).join(', ')}`); if (parts.length) msg += ` (${parts.join('; ')})`; }
+    } catch { /* keep generic */ }
     if (/Failed to send|FunctionsFetchError|not found/i.test(msg)) throw new Error(`The ${fn} function has not been deployed yet.`);
     const err: CallError = new Error(msg);
     err.details = details;
@@ -101,7 +104,7 @@ export async function removeLink(key: string): Promise<void> {
   await db.from('odoo_component_links').delete().eq('match_key', key);
 }
 
-export type SkuPrefix = { prefix: string; saleable: number; other: number; sample: string };
+export type SkuPrefix = { prefix: string; saleable: number; other: number; sample: string; categories?: { name: string; count: number }[] };
 
 /** SKU prefixes already used in Odoo, most used first. */
 export async function odooSkuPrefixes(): Promise<SkuPrefix[]> {
@@ -117,4 +120,11 @@ export async function loadStandardComponents(): Promise<StandardComponent[]> {
   const { data, error } = await db.from('odoo_standard_bom_components').select('*').order('sort_order').order('name');
   if (error) throw error;
   return (data || []).map((r: StandardComponent) => ({ ...r, default_qty: Number(r.default_qty) || 1 }));
+}
+
+export type OdooVendor = { id: number; name: string };
+/** Existing Odoo vendors by name, plus the link to Odoo's Purchase → Vendors "new" form. */
+export async function searchOdooVendors(search: string): Promise<{ vendors: OdooVendor[]; createUrl: string | null }> {
+  const r = await call<{ vendors: OdooVendor[]; createUrl?: string }>('odoo-product-lookup', { action: 'vendors', search: search.trim() || null, limit: 20 });
+  return { vendors: r.vendors ?? [], createUrl: r.createUrl ?? null };
 }

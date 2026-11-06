@@ -4,6 +4,12 @@
 
 @layer base {
   :root {
+    /* BOM rows tinted per variant: distinct hues (blue, amber, violet, rose, teal) */
+    --variant-1: 212 90% 55%;
+    --variant-2: 38 95% 52%;
+    --variant-3: 268 75% 62%;
+    --variant-4: 340 80% 58%;
+    --variant-5: 175 70% 42%;
     /* Graphite & Emerald — light. Airy neutral canvas, near-black ink,
        emerald primary reserved for actions and key data. */
     --background: 0 0% 100%;

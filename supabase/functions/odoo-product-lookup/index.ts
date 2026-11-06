@@ -19,6 +19,7 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('skus'), skus: z.array(z.string().max(100)).max(200) }),
   z.object({ action: z.literal('details'), ids: z.array(z.number().int().positive()).max(200) }),
   z.object({ action: z.literal('variants'), productId: z.number().int().positive() }),
+  z.object({ action: z.literal('vendors'), search: z.string().max(100).optional().nullable(), limit: z.number().int().min(1).max(50).optional() }),
 ]);
 
 const ODOO_URL = (Deno.env.get('ODOO_URL') ?? '').replace(/\/+$/, '');
@@ -126,6 +127,18 @@ Deno.serve(async (req) => {
       })) });
     }
 
+    if (body.action === 'vendors') {
+      // Existing Odoo vendors only (supplier_rank > 0); HQ never creates vendors.
+      const q = (body.search || '').trim();
+      const dom: unknown[] = [['supplier_rank', '>', 0]];
+      if (q) dom.push(['name', 'ilike', q]);
+      const rows = await sr('res.partner', dom, ['name'], { limit: body.limit ?? 20, order: 'name' });
+      return json({
+        vendors: rows.map(r => ({ id: r.id, name: str(r.name) })),
+        createUrl: `${ODOO_URL}/web#action=account.res_partner_action_supplier&model=res.partner&view_type=form`,
+      });
+    }
+
     if (body.action === 'variants') {
       // Every variant on the product's template with its attribute values, for BOM "Apply on Variants".
       const [p] = await sr('product.product', [['id', '=', body.productId]], ['product_tmpl_id'], { context: { active_test: false } });
@@ -143,17 +156,20 @@ Deno.serve(async (req) => {
 
     if (body.action === 'prefixes') {
       // SKU prefixes in use (the part before the first "-"), split into finished goods and the rest.
-      const rows = await sr('product.product', [['default_code', '!=', false]], ['default_code', 'sale_ok', 'name']);
-      const by = new Map<string, { prefix: string; saleable: number; other: number; sample: string }>();
+      const rows = await sr('product.product', [['default_code', '!=', false]], ['default_code', 'sale_ok', 'name', 'categ_id']);
+      const by = new Map<string, { prefix: string; saleable: number; other: number; sample: string; cats: Record<string, number> }>();
       for (const r of rows) {
         const code = str(r.default_code).trim().toUpperCase();
         const m = /^([A-Z0-9]{2,6})-/.exec(code);
         if (!m) continue;
-        const e = by.get(m[1]) ?? { prefix: m[1], saleable: 0, other: 0, sample: `${code} ${str(r.name)}`.slice(0, 80) };
+        const e = by.get(m[1]) ?? { prefix: m[1], saleable: 0, other: 0, sample: `${code} ${str(r.name)}`.slice(0, 80), cats: {} };
         if (r.sale_ok) e.saleable += 1; else e.other += 1;
+        const c = nm(r.categ_id);
+        if (c) e.cats[c] = (e.cats[c] ?? 0) + 1;
         by.set(m[1], e);
       }
-      return json({ prefixes: [...by.values()].sort((a, b) => (b.saleable + b.other) - (a.saleable + a.other)) });
+      return json({ prefixes: [...by.values()].map(({ cats, ...e }) => ({ ...e,
+        categories: Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) })).sort((a, b) => (b.saleable + b.other) - (a.saleable + a.other)) });
     }
 
     if (body.action === 'search') {
