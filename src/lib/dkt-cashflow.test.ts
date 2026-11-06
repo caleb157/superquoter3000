@@ -180,11 +180,15 @@ describe('installment credit line', () => {
   });
 });
 
-describe('credit line maturity', () => {
-  it('repays the whole balance in the maturity month and stops interest', () => {
-    const f = creditFlows([{ id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 10000, rate_pct: 5, maturity_month: '2026-11' }], [], ['2026-10', '2026-11', '2026-12']);
-    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2026-11', amount: -10000 });
-    expect(f.filter(x => x.kind === 'credit_interest').map(x => x.month)).toEqual(['2026-10']);
+describe('credit line due dates', () => {
+  it('ignores an old line-level due date: only a draw\'s own due date repays it', () => {
+    const line = { id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 0, rate_pct: 5, maturity_month: '2026-11' };
+    const months = ['2026-10', '2026-11', '2026-12'];
+    const planned = creditFlows([line], [{ id: 'p', line_id: 's', month: '2026-10', amount_usd: 10000 }], months);
+    expect(planned.filter(x => x.kind === 'credit_repay')).toEqual([]);
+    expect(planned.filter(x => x.kind === 'credit_interest').map(x => x.month)).toEqual(['2026-10', '2026-11', '2026-12']);
+    const real = creditFlows([line], [{ id: 'd', line_id: 's', month: '2026-09', amount_usd: 10000, actual: true, rate_pct: 5, maturity_month: '2026-12' }], months);
+    expect(real.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2026-12', amount: -10000 });
   });
 });
 
@@ -349,8 +353,9 @@ describe('balloon credit', () => {
     expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(350);
     expect(realDrawStatus([sooie], draws, months)[0].next).toMatchObject({ month: '2027-03', amount: 10350 });
   });
-  it('a planned draw on a balloon line is a balloon too', () => {
-    const f = creditFlows([sooie], [{ id: 'p', line_id: 's', month: '2026-12', amount_usd: 5000 }], months);
+  it('a planned draw on a balloon line is a balloon too, its interest paid with the repayment', () => {
+    const f = creditFlows([sooie], [{ id: 'p', line_id: 's', month: '2026-12', amount_usd: 5000 }, { id: 'r', line_id: 's', month: '2027-03', amount_usd: -5000 }], months);
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => x.month)).toEqual(['2027-03']);
     expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(75);
   });
 });

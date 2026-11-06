@@ -78,10 +78,9 @@ export function CreditTab(p: Props) {
                   <th className="font-medium px-1 text-right">Limit</th>
                   <th className="font-medium px-1 text-right" title="Real draws not yet repaid, worked out from Draws taken below">Drawn today</th>
                   <th className="font-medium px-1 text-right">Rate (yearly %)</th>
-                  <th className="font-medium px-1" title="Everything drawn is repaid in full this month">Due in full</th>
                   <th className="font-medium px-1 text-right" title="Each draw is repaid in this many equal monthly payments, starting the month after. Leave blank for a revolving line.">Repay over (months)</th>
                   <th className="font-medium px-1 text-right" title="Fee each month as a % of the draw, while it's being repaid (used instead of the yearly rate)">Monthly fee %</th>
-                  <th className="font-medium px-1" title="Revolving lines: interest paid every month, or built up and paid with the principal on the due date (balloon)">Interest paid</th>
+                  <th className="font-medium px-1" title="Revolving lines: interest paid every month, or built up and paid with the principal on each draw's due date (balloon)">Interest paid</th>
                   <th className="font-medium px-1 text-right">Available</th>
                   <th className="font-medium px-1 text-right">Drawn at end of forecast</th>
                   <th className="font-medium px-1">Notes</th>
@@ -105,7 +104,6 @@ export function CreditTab(p: Props) {
                         )}
                       </td>
                       <td className="py-1.5 px-1 w-20"><NumField label="Rate" value={l.rate_pct} onSave={v => p.updateLine(l.id, { rate_pct: v ?? 0 })} /></td>
-                      <td className="py-1.5 px-1"><MonthField label="Due in full" allowEmpty value={l.maturity_month ?? null} onSave={v => p.updateLine(l.id, { maturity_month: v })} /></td>
                       <td className="py-1.5 px-1 w-20"><NumField integer allowEmpty label="Repay over (months)" value={l.term_months ?? null} onSave={v => p.updateLine(l.id, { term_months: v })} /></td>
                       <td className="py-1.5 px-1 w-20"><NumField allowEmpty label="Monthly fee %" value={l.monthly_fee_pct ?? null} onSave={v => p.updateLine(l.id, { monthly_fee_pct: v })} /></td>
                       <td className="py-1.5 px-1"><BalloonField value={!!l.balloon} onSave={v => p.updateLine(l.id, { balloon: v })} /></td>
@@ -182,7 +180,7 @@ export function CreditTab(p: Props) {
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2">
           <div>
             <CardTitle className="text-sm">Planned draws and repayments</CardTitle>
-            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Interest is charged monthly on what's drawn, and a line with a "due in full" month is repaid in full that month.</p>
+            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Interest is charged monthly on what's drawn until you plan a repayment. Due dates belong to each draw under Draws taken.</p>
           </div>
           <Button size="sm" variant="outline" disabled={!lines.length} onClick={() => p.addDraw({ line_id: lines[0]?.id, month: thisMonth, amount_usd: 0 })}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Plan a draw
