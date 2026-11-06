@@ -174,9 +174,23 @@ Deno.serve(async (req) => {
       : [];
     const rawIds = [...new Set(moves.map(m => m2oId(m.product_id)).filter(Boolean))];
     const raws = rawIds.length
-      ? await searchRead('product.product', [['id', 'in', rawIds]], ['default_code', 'name', 'standard_price', 'type', 'detailed_type'])
+      ? await searchRead('product.product', [['id', 'in', rawIds]], ['default_code', 'name', 'standard_price', 'type', 'detailed_type', 'categ_id'])
       : [];
     const rawById = new Map(raws.map(p => [p.id, p]));
+
+    // Product categories of the components; anything under category 54
+    // (Subcontracting (Overflow)) is outside work, costed like labour not material.
+    const SUBCONTRACT_CATEG_ID = 54;
+    const categIds = [...new Set(raws.map(p => m2oId(p.categ_id)).filter(Boolean))];
+    const categById = new Map<number, { name: string; sub: boolean }>();
+    if (categIds.length) {
+      try {
+        for (const c of await searchRead('product.category', [['id', 'in', categIds]], ['complete_name', 'name', 'parent_path'])) {
+          const path = String(c.parent_path || '').split('/').filter(Boolean).map(Number);
+          categById.set(c.id, { name: c.complete_name || c.name, sub: c.id === SUBCONTRACT_CATEG_ID || path.includes(SUBCONTRACT_CATEG_ID) });
+        }
+      } catch (_e) { /* categories unreadable: everything stays a material */ }
+    }
 
     // Stock valuation value per move (the real booked cost at the time of the move).
     const valueByMove = new Map<number, number>();
@@ -295,6 +309,8 @@ Deno.serve(async (req) => {
           sku: prod?.default_code || null,
           name: prod?.name || m2oName(mv.product_id),
           type: prod?.detailed_type || prod?.type || null,
+          category: categById.get(m2oId(prod?.categ_id))?.name || m2oName(prod?.categ_id) || 'Uncategorised',
+          subcontract: categById.get(m2oId(prod?.categ_id))?.sub ?? false,
           planned_qty: num(mv.product_uom_qty),
           actual_qty: actual,
           uom: m2oName(mv.product_uom),
