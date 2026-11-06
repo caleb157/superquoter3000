@@ -40,10 +40,11 @@ export function toDisplay(amount: number, from: string, to: DisplayCurrency, inr
   return f === 'USD' ? amount * inrPerUsd : amount / inrPerUsd;
 }
 
-export function marginTone(pct: number): 'complete' | 'progress' | 'issue' {
-  if (pct > 35) return 'complete';
-  if (pct >= 20) return 'progress';
-  return 'issue';
+// Green only above `greenAbove`; 0..greenAbove is amber; below 0 is red.
+export function marginTone(pct: number, greenAbove = 30): 'complete' | 'progress' | 'issue' {
+  if (pct < 0) return 'issue';
+  if (pct > greenAbove) return 'complete';
+  return 'progress';
 }
 
 export type SoSummary = {

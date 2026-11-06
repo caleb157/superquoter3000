@@ -286,8 +286,8 @@ export default function SoProfitability() {
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.revenue)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.cost)}</TableCell>
                       <TableCell className="py-2 text-xs text-right tabular-nums">{fmt(p.net)}</TableCell>
-                      <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.gpm)))}>{p.gpm.toFixed(1)}%</Badge></TableCell>
-                      <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.npm)))}>{p.npm.toFixed(1)}%</Badge></TableCell>
+                      <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.gpm, 30)))}>{p.gpm.toFixed(1)}%</Badge></TableCell>
+                      <TableCell className="py-2 text-xs text-right"><Badge variant="outline" className={cn('text-[10px] tabular-nums', statusToneClass(marginTone(p.npm, 10)))}>{p.npm.toFixed(1)}%</Badge></TableCell>
                       <TableCell className="py-1 text-right">
                         <Button size="icon" variant="ghost" className="h-6 w-6" title={archived.has(o.name) ? 'Restore' : 'Archive'}
                           onClick={e => { e.stopPropagation(); toggleArchive(o.name); }}>

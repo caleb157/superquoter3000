@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeLines, moStats, type SoOrder } from '../so-profitability';
+import { analyzeLines, moStats, marginTone, type SoOrder } from '../so-profitability';
 
 const order: SoOrder = {
   id: 1, name: 'S1', date_order: '2026-01-01', customer: null, project_id: 1, project_name: null, currency: 'INR',
@@ -30,5 +30,20 @@ describe('SO profitability subcontracting', () => {
   });
   it('drops lines with zero quantity sold', () => {
     expect(analyzeLines(order, 'INR', 80)).toHaveLength(1);
+  });
+});
+
+describe('margin colour thresholds', () => {
+  it('GPM: green above 30, amber 0-30, red below 0', () => {
+    expect(marginTone(30.1, 30)).toBe('complete');
+    expect(marginTone(30, 30)).toBe('progress');
+    expect(marginTone(0, 30)).toBe('progress');
+    expect(marginTone(-0.1, 30)).toBe('issue');
+  });
+  it('NPM: green above 10, amber 0-10, red below 0', () => {
+    expect(marginTone(10.1, 10)).toBe('complete');
+    expect(marginTone(10, 10)).toBe('progress');
+    expect(marginTone(0, 10)).toBe('progress');
+    expect(marginTone(-0.1, 10)).toBe('issue');
   });
 });
