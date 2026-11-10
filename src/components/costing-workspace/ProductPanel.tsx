@@ -25,7 +25,7 @@ import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
   patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
-  isDomesticFreight, pasteCogsLines, stepTotals,
+  isDomesticFreight, isRemovedFreight, pasteCogsLines, removeDomesticFreight, restoreDomesticFreight, stepTotals,
 } from '@/lib/costing-workspace';
 import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { ALL_COLS, BANDS, type Col, type StepId } from './columns';
@@ -124,8 +124,15 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
             <div className="text-sm"><div className="text-xs text-muted-foreground">Per unit</div><div className="h-8 flex items-center tabular-nums font-medium">{inr(r.shippingPerUnit, 2)} · {r.finalUnitCbm.toFixed(4)} CBM</div></div>
           </div>
           {r.fobEstimate && <div className="mt-3"><FobEstimatePanel estimate={r.fobEstimate} shippingPerUnit={r.shippingPerUnit} /></div>}
-          {bundle.cogs.some(c => c.product_id === id && isDomesticFreight(c)) && (
-            <div className="mt-3"><CogsLines row={row} bundle={bundle} apply={apply} show={isDomesticFreight} fixed /></div>
+          {bundle.cogs.some(c => c.product_id === id && isDomesticFreight(c) && !isRemovedFreight(c)) && (
+            <div className="mt-3"><CogsLines row={row} bundle={bundle} apply={apply} show={c => isDomesticFreight(c) && !isRemovedFreight(c)} fixed
+              onDelete={() => apply(b => removeDomesticFreight(b, [id]))} /></div>
+          )}
+          {bundle.cogs.some(c => c.product_id === id && isRemovedFreight(c)) && (
+            <div className="mt-3 text-xs text-muted-foreground">
+              Domestic freight removed.{' '}
+              <button className="underline underline-offset-2 hover:text-foreground" onClick={() => apply(b => restoreDomesticFreight(b, [id]))}>Add it back</button>
+            </div>
           )}
         </Section>
 
@@ -635,8 +642,8 @@ function IncludeToggle({ value, onChange }: { value: string; onChange: (v: strin
 
 const AUTO_TIP = 'Calculated by the costing engine. Typing a value makes it a manual line; Recalculate auto costs hands it back.';
 
-/** COGS lines grouped by category. `show` picks which lines this table carries; `fixed` hides the add-line controls. */
-function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: WorkspaceRow; bundle: Bundle; apply: Apply; show?: (l: any) => boolean; fixed?: boolean }) {
+/** COGS lines grouped by category. `show` picks which lines this table carries; `fixed` hides the add-line controls; `onDelete` replaces the plain delete (and shows it on auto lines too). */
+function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete }: { row: WorkspaceRow; bundle: Bundle; apply: Apply; show?: (l: any) => boolean; fixed?: boolean; onDelete?: (l: any) => void }) {
   const categories = useCogsCategories();
   const [addType, setAddType] = useState('Raw Piece');
   const [showExcluded, setShowExcluded] = useState(false);
@@ -724,8 +731,8 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed }: { row: Work
                             </Tooltip>
                           );
                         })()}
-                        {!auto && (
-                          <button className="text-muted-foreground/50 hover:text-destructive" onClick={() => apply(b => deleteCogsLine(b, l.id))} aria-label="Delete line"><Trash2 className="h-3.5 w-3.5" /></button>
+                        {(!auto || onDelete) && (
+                          <button className="text-muted-foreground/50 hover:text-destructive" onClick={() => (onDelete ? onDelete(l) : apply(b => deleteCogsLine(b, l.id)))} aria-label="Delete line"><Trash2 className="h-3.5 w-3.5" /></button>
                         )}
                       </div>
                     </td>

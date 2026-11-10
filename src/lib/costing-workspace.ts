@@ -998,6 +998,23 @@ export function setSourceLocation(b: Bundle, ids: string[], locationId: string |
   ]);
 }
 
+/** A domestic freight line the user removed: kept as a switched-off manual row so the seed never adds it back. */
+export const isRemovedFreight = (c: any) => isDomesticFreight(c) && !c.is_auto_calculated && c.include === 'No';
+
+/** Remove the domestic freight line from these products and keep it removed. */
+export function removeDomesticFreight(b: Bundle, ids: string[]): Mutation | null {
+  const updates = b.cogs.filter(c => ids.includes(c.product_id) && isDomesticFreight(c) && !isRemovedFreight(c))
+    .map(c => ({ id: c.id, patch: { is_auto_calculated: false, include: 'No', components_per_product: 0, unit_cost_inr: 0 } }));
+  return updates.length ? cogsMutation(b, updates, []) : null;
+}
+
+/** Bring a removed domestic freight line back under the engine (qty = CBM, rate = source location). */
+export function restoreDomesticFreight(b: Bundle, ids: string[]): Mutation | null {
+  const updates = b.cogs.filter(c => ids.includes(c.product_id) && isRemovedFreight(c))
+    .map(c => ({ id: c.id, patch: { is_auto_calculated: true, include: 'Yes' } }));
+  return updates.length ? cogsMutation(b, updates, []) : null;
+}
+
 /** Shipping type for each product (one shipping row per product). */
 export function setShippingType(b: Bundle, ids: string[], shippingTypeId: string): Mutation {
   const existing = new Set(b.shipItems.filter(s => ids.includes(s.product_id)).map(s => s.product_id));
