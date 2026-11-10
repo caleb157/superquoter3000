@@ -31,9 +31,11 @@ import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
 import { buildDraftLines, categorySuggestions, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
+import { CreateSoDialog } from '@/components/odoo-export/CreateSoDialog';
+import { quoteCurrencyOf } from '@/lib/quote-currency';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number; salePriceUsd: number | null };
+type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number; salePriceUsd: number | null; quotePrice: number | null; qty: number };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
 
 const draftKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -74,6 +76,8 @@ export default function InquiryOdooExport() {
   const [hsnList, setHsnList] = useState<HsnCode[]>([]);
   const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string; gstRate?: number | null }[] }>>({});
   const [retention, setRetention] = useState(0);
+  const [quoteCur, setQuoteCur] = useState('USD');
+  const [soOpen, setSoOpen] = useState(false);
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkHsn, setBulkHsn] = useState('');
   const [bulkTax, setBulkTax] = useState('');
@@ -126,6 +130,7 @@ export default function InquiryOdooExport() {
     try {
       const b = await loadBundle(inquiryId);
       if (!b) throw new Error('Inquiry not found.');
+      setQuoteCur(quoteCurrencyOf(b.inq as { quoting_currency?: string | null }));
       setTitle(b.inq?.rfq_number || b.inq?.title || 'Inquiry');
       const results = computeResults(b);
       const products = wanted.length ? b.products.filter(p => wanted.includes(p.id)) : b.products;
@@ -143,8 +148,11 @@ export default function InquiryOdooExport() {
         const live = ls.filter(l => l.status !== 'skip');
         const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
         const sale = results.get(p.id)?.summary?.unit_price_usd;
+        const cur = quoteCurrencyOf(b.inq as { quoting_currency?: string | null });
+        const qp = cur === 'INR' ? results.get(p.id)?.summary?.unit_price_inr : sale;
         return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, rmTotal: live.length, rmPending,
-          salePriceUsd: sale != null && Number.isFinite(Number(sale)) ? Number(sale) : null };
+          salePriceUsd: sale != null && Number.isFinite(Number(sale)) ? Number(sale) : null,
+          quotePrice: qp != null && Number.isFinite(Number(qp)) ? Math.round(Number(qp) * 100) / 100 : null, qty: Number((p as { quantity?: number }).quantity) || 0 };
       });
       // Selling entity retention % from the Projections tab (blank = 0, as that tab treats it).
       const { data: proj } = await supabase.from('inquiry_projections').select('selling_retention_pct').eq('inquiry_id', inquiryId).maybeSingle();
@@ -333,7 +341,12 @@ export default function InquiryOdooExport() {
           <Button variant="outline" size="sm" onClick={downloadDkt} disabled={!chosen.length}>
             <Download className="h-3.5 w-3.5 mr-1.5" /> DKT products file
           </Button>
+          <Button size="sm" onClick={() => setSoOpen(true)} disabled={!chosen.length}>
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Create SO
+          </Button>
         </div>
+        <CreateSoDialog open={soOpen} onOpenChange={setSoOpen} retention={retention} currency={quoteCur}
+          rows={chosen.map(r => ({ productId: r.productId, name: r.finished.name, sku: r.odooSku || r.finished.sku, odooId: r.odooId, qty: r.qty, price: r.quotePrice }))} />
 
         {loading && <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>}
         {!loading && loadError && <div className="p-6 text-sm text-destructive">{loadError}</div>}

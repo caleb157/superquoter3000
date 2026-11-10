@@ -30,3 +30,4 @@
 - Task dates are validated in the shared helper and at the database boundary; offset-free automation templates default to the event day in Asia/Kolkata so legacy automations remain compatible.
 - TaskBell polling runs only while the document is visible; visibility return refreshes immediately and restarts the timer to avoid inactive-tab backend requests.
 - Late Report (/tools/late-report, admin): odoo-late-report reads hr.attendance only; first non-midnight IST check-in per day, math in src/lib/late-report.ts; warnings -> hr_notes deduped by source_key; policy in single-row late_report_settings.
+- Create SO (inquiry Odoo page): odoo-sale-order creates draft quotations only; discount = projection selling retention, never a dialog input (src/lib/odoo-sale-order.ts).

@@ -125,17 +125,17 @@ import { dktProductsSheet as dktSheet, checkFinishedOnly as finOnly, defaultFini
 describe('final products step', () => {
   it('DKT sheet: name (customer SKU), Parable vendor, dropship category, Goods', () => {
     expect(dktSheet([{ name: 'Crank Table', customerSku: 'CF3931CHETBK' }, { name: 'Stool', customerSku: '' }]).slice(1)).toEqual([
-      ['Crank Table (CF3931CHETBK)', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods', '', ''],
-      ['Stool', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods', '', ''],
+      ['Crank Table (CF3931CHETBK)', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods', '', '', ''],
+      ['Stool', 'Parable Ventures Pvt Ltd', 'Goods / Goods AVCO Dropship', 'Goods', '', '', ''],
     ]);
   });
   it('DKT sheet: vendor unit price = sale price x (1 - selling retention); vendor code = Odoo SKU', () => {
     const s = dktSheet([{ name: 'Table', sku: 'CCT-CF3931-CHBL', salePriceUsd: 10 }], 0.1);
-    expect(s[0].slice(4)).toEqual(['Vendors/Unit Price', 'Vendors/Vendor Product Code']);
-    expect(s[1].slice(4)).toEqual([9, 'CCT-CF3931-CHBL']);
+    expect(s[0].slice(4)).toEqual(['Sales Price', 'Vendors/Unit Price', 'Vendors/Vendor Product Code']);
+    expect(s[1].slice(4)).toEqual([10, 9, 'CCT-CF3931-CHBL']);
   });
   it('DKT sheet: no retention set means the full sale price', () => {
-    expect(dktSheet([{ name: 'Table', salePriceUsd: 10 }], null)[1][4]).toBe(10);
+    expect(dktSheet([{ name: 'Table', salePriceUsd: 10 }], null)[1][5]).toBe(10);
   });
   it('blocks a SKU already in Odoo and one without a suffix', () => {
     const f = { ...defFin({ name: 'Table' }), sku: 'CCT-CF3931-CHBL', category: 'All / Saleable' };

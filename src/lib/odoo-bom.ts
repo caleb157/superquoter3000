@@ -721,11 +721,12 @@ export function dktProductsSheet(
   retentionPct: number | null = 0,
 ): (string | number)[][] {
   return [
-    ['Name', 'Vendor', 'Product Category', 'Product Type', 'Vendors/Unit Price', 'Vendors/Vendor Product Code'],
+    ['Name', 'Vendor', 'Product Category', 'Product Type', 'Sales Price', 'Vendors/Unit Price', 'Vendors/Vendor Product Code'],
     ...rows.map(r => {
       const c = (r.customerSku || '').trim();
       const price = dktVendorUnitPrice(r.salePriceUsd, retentionPct);
-      return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods', price ?? '', (r.sku || '').trim()];
+      const full = dktVendorUnitPrice(r.salePriceUsd, 0);
+      return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods', full ?? '', price ?? '', (r.sku || '').trim()];
     }),
   ];
 }
