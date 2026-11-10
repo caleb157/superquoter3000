@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildBookedOrders, bookedVendorCashItems } from './master-analytics';
 
 const today = '2026-10-27';
-const opts = { today, pvEntityId: 'pv', defaults: { custDeposit: 0.3, ieDeposit: 0.8 }, live: {} };
+const opts = { today, pvEntityId: 'pv', defaults: { custDeposit: 0.3, ieDeposit: 0.8, vendorDeposit: 0.3 }, live: {} };
 // FOB 10,000 at 25% GPM → planned vendor cost $7,500 = ₹675,000 at ₹90.
 const inquiry = (p: any = {}) => ({
   id: 'a', rfq_number: 'RFQ-1', status: 'po', products: [],
