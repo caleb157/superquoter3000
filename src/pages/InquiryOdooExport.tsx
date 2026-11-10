@@ -33,7 +33,7 @@ import { buildDraftLines, categorySuggestions, checkFinishedOnly, checkVariantGr
 import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number };
+type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number; salePriceUsd: number | null };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
 
 const draftKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -73,6 +73,7 @@ export default function InquiryOdooExport() {
   const ready = useRef(false);
   const [hsnList, setHsnList] = useState<HsnCode[]>([]);
   const [ai, setAi] = useState<Record<string, { loading?: boolean; error?: string; items?: { code: string; description: string; reason: string; gstRate?: number | null }[] }>>({});
+  const [retention, setRetention] = useState(0);
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkHsn, setBulkHsn] = useState('');
   const [bulkTax, setBulkTax] = useState('');
@@ -141,8 +142,13 @@ export default function InquiryOdooExport() {
         const ls = [...buildDraftLines(cogs, new Map(), p.id).map(l => ({ ...l, ...(saved?.lines?.[l.lineId] ?? {}) })), ...(saved?.added ?? [])];
         const live = ls.filter(l => l.status !== 'skip');
         const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
-        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, rmTotal: live.length, rmPending };
+        const sale = results.get(p.id)?.summary?.unit_price_usd;
+        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, rmTotal: live.length, rmPending,
+          salePriceUsd: sale != null && Number.isFinite(Number(sale)) ? Number(sale) : null };
       });
+      // Selling entity retention % from the Projections tab (blank = 0, as that tab treats it).
+      const { data: proj } = await supabase.from('inquiry_projections').select('selling_retention_pct').eq('inquiry_id', inquiryId).maybeSingle();
+      setRetention(Number(proj?.selling_retention_pct) || 0);
       const { data: hsn } = await hsnTable().select('code, description, keywords, examples, gst_rate').order('code');
       const codes = (hsn ?? []) as HsnCode[];
       setHsnList(codes);
@@ -296,7 +302,8 @@ export default function InquiryOdooExport() {
   const downloadDkt = () => {
     if (!chosen.length) return;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dktProductsSheet(chosen.map(r => ({ name: r.finished.name, customerSku: r.finished.customerSku })))), 'Sheet1');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dktProductsSheet(chosen.map(r => ({ name: r.finished.name, customerSku: r.finished.customerSku,
+      sku: r.odooSku || r.finished.sku, salePriceUsd: r.salePriceUsd })), retention)), 'Sheet1');
     XLSX.writeFile(wb, `${String(title).replace(/[^A-Za-z0-9._-]+/g, '-')}_DKT_products.xlsx`);
   };
 

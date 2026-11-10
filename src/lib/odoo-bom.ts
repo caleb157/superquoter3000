@@ -704,13 +704,28 @@ export function checkFinishedOnly(f: FinishedDraft, existing: Set<string> | null
 export const DKT_VENDOR = 'Parable Ventures Pvt Ltd';
 export const DKT_CATEGORY = 'Goods / Goods AVCO Dropship';
 
-/** The DKT-side Odoo import (no API there): name (customer SKU), vendor, category, type. */
-export function dktProductsSheet(rows: { name: string; customerSku?: string | null }[]): string[][] {
+/** What DKT pays PV per unit: the inquiry's sale price less the selling entity's retention (fraction 0..1). */
+export function dktVendorUnitPrice(salePriceUsd: number | null | undefined, retentionPct: number | null | undefined): number | null {
+  const p = Number(salePriceUsd);
+  if (salePriceUsd == null || !Number.isFinite(p) || p <= 0) return null;
+  const k = Number(retentionPct) || 0;
+  return Math.round(p * (1 - k) * 100) / 100;
+}
+
+/**
+ * The DKT-side Odoo import (no API there): name (customer SKU), vendor, category, type, plus the
+ * vendor line: unit price (sale price less selling retention) and PV's Odoo SKU as vendor product code.
+ */
+export function dktProductsSheet(
+  rows: { name: string; customerSku?: string | null; sku?: string | null; salePriceUsd?: number | null }[],
+  retentionPct: number | null = 0,
+): (string | number)[][] {
   return [
-    ['Name', 'Vendor', 'Product Category', 'Product Type'],
+    ['Name', 'Vendor', 'Product Category', 'Product Type', 'Vendors/Unit Price', 'Vendors/Vendor Product Code'],
     ...rows.map(r => {
       const c = (r.customerSku || '').trim();
-      return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods'];
+      const price = dktVendorUnitPrice(r.salePriceUsd, retentionPct);
+      return [c ? `${r.name.trim()} (${c})` : r.name.trim(), DKT_VENDOR, DKT_CATEGORY, 'Goods', price ?? '', (r.sku || '').trim()];
     }),
   ];
 }
