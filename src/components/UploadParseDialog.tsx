@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Upload, X, FileText, FileSpreadsheet, Image, Loader2, Sparkles, AlertTriangle, ChevronDown, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { downloadIntakeTemplate, parseIntakeFile } from '@/lib/costing-intake';
 import { CostingIntakeDialog } from '@/components/CostingIntakeDialog';
 
@@ -156,6 +156,7 @@ export function UploadParseDialog({ open, onOpenChange, inquiryId, productTypes,
 
   const xlsxToText = async (file: File): Promise<string> => {
     const data = await file.arrayBuffer();
+    const XLSX = await loadXlsx();
     const wb = XLSX.read(data, { type: 'array' });
     let csv = '';
     for (const name of wb.SheetNames) {

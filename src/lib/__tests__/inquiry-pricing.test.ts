@@ -1,21 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const engineCalls: string[][] = [];
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    from: () => {
-      const q: any = {
-        select: () => q, eq: () => q, order: () => q,
-        range: () => Promise.resolve({ data: [{ id: 'p1' }, { id: 'p2' }], error: null }),
-      };
-      return q;
-    },
-  },
-}));
 vi.mock('@/lib/product-pricing', () => ({
-  computeProductPriceAndCost: async (ids: string[]) => {
-    engineCalls.push(ids);
-    return Object.fromEntries(ids.map((id) => [id, { unit_price_usd: engineCalls.length }]));
+  computeInquiriesPriceAndCost: async (inquiryIds: string[]) => {
+    engineCalls.push(inquiryIds);
+    return Object.fromEntries(['p1', 'p2'].map((id) => [id, { unit_price_usd: engineCalls.length }]));
   },
 }));
 
@@ -31,7 +20,7 @@ describe('shared inquiry pricing', () => {
       computeInquiryPriceAndCost('i1', since),
       computeInquiryPriceAndCost('i1', since),
     ]);
-    expect(engineCalls).toEqual([['p1', 'p2']]);
+    expect(engineCalls).toEqual([['i1']]);
     expect(a).toBe(b);
     expect(b).toBe(c);
   });

@@ -60,6 +60,44 @@ export async function computeProductPriceAndCost(productIds: string[]): Promise<
   return runCore(data, productIds, pools, false);
 }
 
+/**
+ * Live prices for whole inquiries, in two round trips: the products (found by inquiry) and
+ * the inquiry overrides load together with the rate tables, then the cost lines. Going
+ * through computeProductPriceAndCost with product ids takes two more round trips, because
+ * it first has to find the inquiries and their sibling products.
+ *
+ * Archived products are priced only when `includeArchived` is set; they never join the
+ * shipment pool. Also returns the product rows, so callers need not read them again.
+ */
+export async function loadInquiryPricing(
+  inquiryIds: string[], opts: { includeArchived?: boolean } = {},
+): Promise<{ map: ProductPriceCostMap; products: any[] }> {
+  const ids = [...new Set(inquiryIds)];
+  if (ids.length === 0) return { map: {}, products: [] };
+  // Start the shared rate tables now (loadCoreData awaits the same promises).
+  void loadCostingReference().catch(() => {});
+  void loadFobRates();
+  const [products, inquiries] = await Promise.all([
+    fetchAllByIds<any>(ids, (chunk) => {
+      const q = (supabase as any).from('products').select('*').in('customer_rfq_id', chunk);
+      return (opts.includeArchived ? q : q.is('archived_at', null)).order('id');
+    }),
+    byIds('customer_rfqs', 'id', ids, INQUIRY_OVERRIDE_COLUMNS),
+  ]);
+  if (products.length === 0) return { map: {}, products };
+  const productIds = products.map((p: any) => p.id);
+  const data = await loadCoreData(productIds, ids, { products, inquiries });
+  const first = runCore(data, productIds, null, true);
+  return { map: runCore(data, productIds, buildPoolsFromMap(first), false), products };
+}
+
+/** Live prices for every product of these inquiries (see loadInquiryPricing). */
+export async function computeInquiriesPriceAndCost(
+  inquiryIds: string[], opts: { includeArchived?: boolean } = {},
+): Promise<ProductPriceCostMap> {
+  return (await loadInquiryPricing(inquiryIds, opts)).map;
+}
+
 /** Build per-inquiry shipment pools from a pass-1 price map. */
 export function buildPoolsFromMap(map: ProductPriceCostMap): Record<string, ShipmentPool> {
   const pools: Record<string, ShipmentPool> = {};
@@ -106,20 +144,25 @@ function firstBy(rows: any[]): Map<string, any> {
   return m;
 }
 
-/** Everything the engine needs for these products, fetched once (rate tables cached). */
-async function loadCoreData(productIds: string[], inquiryIds?: string[]): Promise<CoreData> {
+/**
+ * Everything the engine needs for these products, fetched once (rate tables cached).
+ * `known` passes in product and inquiry rows the caller has already loaded.
+ */
+async function loadCoreData(
+  productIds: string[], inquiryIds?: string[], known?: { products: any[]; inquiries: any[] },
+): Promise<CoreData> {
   const [, ref, products, cogs, nu, oh, ship, cbm, knownInquiries] = await Promise.all([
     loadFobRates(),
     loadCostingReference(),
     // Every list is paged (fetchAllByIds): PostgREST returns at most 1,000 rows per
     // request, and a big inquiry easily has more cost lines than that.
-    byIds('products', 'id', productIds),
+    known ? Promise.resolve(known.products) : byIds('products', 'id', productIds),
     byIds('cogs_items', 'product_id', productIds),
     byIds('non_unit_cogs', 'product_id', productIds),
     byIds('overhead_items', 'product_id', productIds),
     byIds('shipping_items', 'product_id', productIds),
     byIds('cbm_estimates', 'product_id', productIds),
-    inquiryIds ? byIds('customer_rfqs', 'id', inquiryIds, INQUIRY_OVERRIDE_COLUMNS) : Promise.resolve(null),
+    known ? Promise.resolve(known.inquiries) : inquiryIds ? byIds('customer_rfqs', 'id', inquiryIds, INQUIRY_OVERRIDE_COLUMNS) : Promise.resolve(null),
   ]);
   let inquiries = knownInquiries as any[] | null;
   const neededInq = [...new Set((products as any[]).map(p => p.customer_rfq_id).filter(Boolean))] as string[];

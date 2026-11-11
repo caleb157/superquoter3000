@@ -3,12 +3,10 @@
 //
 // Rules: archived products are left out; every live product counts (components too, as on
 // the inquiry page and in Master Analytics); unit price and cost come from the live costing
-// engine (computeProductPriceAndCost), falling back to the stored price cache only when the
+// engine (loadInquiryPricing), falling back to the stored price cache only when the
 // engine produced nothing for a product.
-import { supabase } from '@/integrations/supabase/client';
-import { computeProductPriceAndCost, type ProductPriceCostMap } from '@/lib/product-pricing';
-import { fetchAllByIds } from '@/lib/supabase-paged';
-import { mhChanged, saveStoredMh, withStoredMh } from '@/lib/stored-man-hours';
+import { loadInquiryPricing, type ProductPriceCostMap } from '@/lib/product-pricing';
+import { mhChanged, saveStoredMh } from '@/lib/stored-man-hours';
 
 export type InquiryTotals = {
   revenueUsd: number;
@@ -75,11 +73,8 @@ export function sumInquiryTotals(products: TotalsProduct[], priceMap: ProductPri
 export async function loadInquiryTotals(inquiryIds: string[]): Promise<Record<string, InquiryTotals>> {
   const out: Record<string, InquiryTotals> = {};
   if (inquiryIds.length === 0) return out;
-  const products = await withStoredMh('id, customer_rfq_id, quantity, archived_at, calculated_unit_price_usd, calculated_unit_cost_usd',
-    (cols) => fetchAllByIds<TotalsProduct>(inquiryIds, (chunk) =>
-      (supabase as any).from('products').select(cols)
-        .in('customer_rfq_id', chunk).is('archived_at', null).order('id')));
-  const priceMap = await computeProductPriceAndCost(products.map(p => p.id));
+  // One engine load gives both the product rows and their live prices.
+  const { map: priceMap, products } = await loadInquiryPricing(inquiryIds) as { map: ProductPriceCostMap; products: TotalsProduct[] };
   const byInquiry: Record<string, TotalsProduct[]> = {};
   for (const p of products) if (p.customer_rfq_id) (byInquiry[p.customer_rfq_id] ||= []).push(p);
   for (const id of inquiryIds) out[id] = sumInquiryTotals(byInquiry[id] ?? [], priceMap);

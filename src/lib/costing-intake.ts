@@ -2,7 +2,7 @@
 // costing sheet. Used by "Import products" (create) and the Bulk Costing Editor
 // (update by SKU / name). Writes raw inputs only — every derived number is
 // recomputed by the costing engine, so nothing here duplicates costing math.
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { supabase } from '@/integrations/supabase/client';
 import { invalidateLiveCosts } from '@/lib/live-cost-cache';
 
@@ -132,11 +132,12 @@ function toBool(v: any): boolean | null {
 }
 const toPct = (v: any) => { const n = toNum(v); return n == null ? null : (n > 1 ? n / 100 : n); };
 
-export function downloadIntakeTemplate(rows?: Record<string, any>[], fileName = 'costing-intake-template.xlsx') {
+export async function downloadIntakeTemplate(rows?: Record<string, any>[], fileName = 'costing-intake-template.xlsx') {
   const header = INTAKE_COLS.map(c => c.header);
   const data = rows && rows.length
     ? rows.map(r => INTAKE_COLS.map(c => r[c.key] ?? ''))
     : [INTAKE_COLS.map(c => c.example ?? '')];
+  const XLSX = await loadXlsx();
   const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
   ws['!cols'] = INTAKE_COLS.map(c => ({ wch: Math.max(12, c.header.length + 2) }));
   ws['!freeze'] = { xSplit: 2, ySplit: 1 } as any;
@@ -155,6 +156,7 @@ export function downloadIntakeTemplate(rows?: Record<string, any>[], fileName = 
 
 /** Returns rows if the file is a Costing Intake sheet, otherwise null. */
 export async function parseIntakeFile(file: File): Promise<IntakeRow[] | null> {
+  const XLSX = await loadXlsx();
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
   for (const sheetName of wb.SheetNames) {
     if (/guide/i.test(sheetName)) continue;

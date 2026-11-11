@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Undo2, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 
 import { AppLayout } from '@/components/AppLayout';
@@ -217,8 +217,9 @@ export default function CostingWorkspace() {
 
   // ---------- export ----------
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
     if (!bundle) return;
+    const XLSX = await loadXlsx();
     const header = ['SKU', 'Name', 'Qty', 'Raw vendor', 'Raw piece ₹', 'Subcontract ₹', 'Outsourced ₹', 'Hardware ₹', 'Finishing ₹', 'Packaging ₹',
       'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', ...(cur === 'INR' ? ['Target ₹', 'Gap ₹'] : ['Price $', 'Target $', 'Gap $']), 'Unit CBM', 'Issues'];
     const data = rows.map(r => [

@@ -372,17 +372,25 @@ async function loadRefs() {
 }
 
 export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
-  const { data: inq, error } = await db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!inq) return null;
-  const [cust, prods] = await Promise.all([
-    inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
+  // The inquiry, its products and the rate tables do not depend on each other, so they
+  // load together; only the cost lines (by product id) and the customer wait for them.
+  const refsP = loadRefs();
+  refsP.catch(() => {}); // reported below, or moot when the inquiry is missing
+  const [inqRes, prods] = await Promise.all([
+    db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
     db.from('products').select('*').eq('customer_rfq_id', inquiryId).is('archived_at', null)
       .order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).order('name', { ascending: true }),
   ]);
+  const { data: inq, error } = inqRes as any;
+  if (error) throw new Error(error.message);
+  if (!inq) return null;
   if ((prods as any).error) throw new Error((prods as any).error.message);
   const products = (prods.data as any[]) || [];
-  const [rows, refs] = await Promise.all([loadRows(products.map(p => p.id)), loadRefs()]);
+  const [cust, rows, refs] = await Promise.all([
+    inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
+    loadRows(products.map(p => p.id)),
+    refsP,
+  ]);
   return { inq, customer: cust.data, products, ...rows, ...refs };
 }
 

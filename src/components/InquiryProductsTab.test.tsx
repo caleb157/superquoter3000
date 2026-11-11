@@ -23,6 +23,7 @@ vi.mock('@/lib/hardware-sync', () => ({
 const computeMock = vi.fn();
 vi.mock('@/lib/product-pricing', () => ({
   computeProductPriceAndCost: (...args: unknown[]) => computeMock(...args),
+  computeInquiriesPriceAndCost: (...args: unknown[]) => computeMock(...args),
 }));
 
 // --- Supabase client mock: returns one product with the saved product unit price ---
