@@ -6,7 +6,7 @@
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Undo2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
 import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { cn } from '@/lib/utils';
-import { loadBundle, type WorkspaceRow } from '@/lib/costing-workspace';
+import { loadBundle, targetFromQuoted, targetIsQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
 import { cloneProductToInquiry } from '@/lib/product-clone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCostingBundle } from '@/hooks/use-costing-bundle';
@@ -221,11 +221,11 @@ export default function CostingWorkspace() {
     if (!bundle) return;
     const XLSX = await loadXlsx();
     const header = ['SKU', 'Name', 'Qty', 'Raw vendor', 'Raw piece ₹', 'Subcontract ₹', 'Outsourced ₹', 'Hardware ₹', 'Finishing ₹', 'Packaging ₹',
-      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', ...(cur === 'INR' ? ['Target ₹', 'Gap ₹'] : ['Price $', 'Target $', 'Gap $']), 'Unit CBM', 'Issues'];
+      'Other COGS ₹', 'Labor & OH ₹', 'Shipping ₹', 'Unit cost ₹', 'NPM %', 'Contribution %', 'Indirect OH ₹', 'Price ₹', ...(cur === 'INR' ? ['Quoted ₹', 'Target ₹', 'Gap ₹'] : ['Price $', 'Quoted $', 'Target $', 'Gap $']), 'Unit CBM', 'Issues'];
     const data = rows.map(r => [
       r.p.sku || '', r.p.name || '', r.qty, r.rawVendor, r.buckets.raw_piece, r.buckets.subcontract, r.buckets.outsourced, r.buckets.hardware,
       r.buckets.finishing, r.buckets.packaging, r.buckets.other, r.buckets.labor, r.buckets.shipping, r.costInr,
-      +(r.margin * 100).toFixed(2), +(r.contribution * 100).toFixed(2), r.indirectInr, r.priceInr, ...(cur === 'INR' ? [] : [r.price]), r.target ?? '', r.gap ?? '',
+      +(r.margin * 100).toFixed(2), +(r.contribution * 100).toFixed(2), r.indirectInr, r.priceInr, ...(cur === 'INR' ? [] : [r.price]), r.quoted?.price ?? '', r.target ?? '', r.gap ?? '',
       +r.r.finalUnitCbm.toFixed(4), r.flags.map(f => f.msg).join('; '),
     ].map(v => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)));
     const ws = XLSX.utils.aoa_to_sheet([
@@ -255,6 +255,14 @@ export default function CostingWorkspace() {
   const title = bundle.inq.title || bundle.inq.rfq_number;
   const targetDelta = t.withTarget ? rows.filter(r => r.target != null).reduce((a, r) => a + (r.gap ?? 0) * r.qty, 0) : null;
   const selectedIds = [...selected].filter(id => rows.some(r => r.p.id === id));
+  // SKUs that have been quoted but whose target isn't that quoted price (yet).
+  const offQuoted = visibleRows.filter(r => r.quoted && !targetIsQuoted(r));
+  const quotedCount = rows.filter(r => r.quoted).length;
+  const quotedToTargets = () => {
+    const n = offQuoted.length;
+    apply(b => targetFromQuoted(b, rows, offQuoted.map(r => r.p.id)));
+    toast.success(`Target set to the last quoted price on ${n} SKU${n === 1 ? '' : 's'}`, { action: { label: 'Undo', onClick: () => { undo(); } } });
+  };
 
   return (
     <AppLayout>
@@ -351,6 +359,20 @@ export default function CostingWorkspace() {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs text-xs">Compare raw piece quotes from each vendor side by side and pick the one that goes into COGS (key Q)</TooltipContent>
                 </Tooltip>
+                {quotedCount > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1.5" disabled={!offQuoted.length} onClick={quotedToTargets}>
+                        <Target className="h-4 w-4" /> {offQuoted.length ? `Quoted price → target (${offQuoted.length})` : 'Targets match quoted'}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs">
+                      {offQuoted.length
+                        ? `Makes the price on the customer’s latest quote the target for the ${offQuoted.length} SKU${offQuoted.length === 1 ? '' : 's'} shown that have been quoted, so “vs target” shows how today’s price has moved since. Undo with Ctrl+Z.`
+                        : 'Every quoted SKU shown already has its quoted price as the target.'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </>
             )}
             <div className="ml-auto flex items-center gap-2">

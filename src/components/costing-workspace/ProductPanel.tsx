@@ -24,12 +24,13 @@ import { cn } from '@/lib/utils';
 import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
-  patchOverhead, patchProductsSame, setLaborHours, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
+  patchOverhead, patchProductsSame, setLaborHours, targetFromQuoted, targetIsQuoted, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
   isDomesticFreight, isRemovedFreight, pasteCogsLines, removeDomesticFreight, restoreDomesticFreight, stepTotals,
 } from '@/lib/costing-workspace';
 import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { ALL_COLS, BANDS, type Col, type StepId } from './columns';
 import { McPlanBreakdown } from './McPlan';
+import { QuotedLine, quotedWhen } from './Quoted';
 import { copyLines, useCopiedLines } from './line-clipboard';
 
 const colById = (id: string): Col => ALL_COLS.find(c => c.id === id)!;
@@ -89,6 +90,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 
         <FlowStrip row={row} />
 
+        <QuotedLine row={row} apply={apply} />
+
         {page && (
           <Section title="Product details" defaultOpen>
             <ProductDetails row={row} apply={apply} />
@@ -137,18 +140,75 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
         </Section>
 
         <Section step="margin" sub={`${pct(row.margin)} NPM · ${money(row.price, row.cur)}`} defaultOpen done={done('revenue_done')}>
-          <div className="-mx-4 grid grid-cols-2 gap-px border-y bg-border sm:grid-cols-4">
-            <Figure label="Unit cost" value={inr(row.costInr)} sub={isInr ? 'per unit' : usd(row.cost)} />
-            <Figure label="NPM" sub={`markup ${pct(row.markup)}`}>
-              <PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} big />
-            </Figure>
-            <Figure label="Price" value={<span className="text-primary">{money(row.price, row.cur)}</span>} sub={isInr ? `markup on ${inr(row.costInr)}` : inr(row.priceInr)} />
-            <Figure label="Target" sub={<GapChip row={row} />}>
-              <PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} big placeholder="none" />
-            </Figure>
+          {/* One statement, read top to bottom: the three steps add up to the unit cost, margin makes the price. */}
+          <table className="w-full text-sm tabular-nums">
+            <thead>
+              <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
+                <th className="text-left">Per unit</th><th className="text-right">₹</th>{!isInr && <th className="w-24 text-right">$</th>}<th className="w-20 text-right">of price</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr>td]:py-1">
+              {([['cogs', steps.cogs], ['labour', steps.labour], ['shipping', steps.shipping]] as const).map(([k, v]) => (
+                <tr key={k}>
+                  <td><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: band(k).color }} />{band(k).n}. {band(k).label}</td>
+                  <td className="text-right">{inr(v, 2)}</td>
+                  {!isInr && <td />}
+                  <td className="text-right text-muted-foreground">{pct(v / (row.priceInr || 1))}</td>
+                </tr>
+              ))}
+              {steps.capital > 0 && (
+                <tr><td className="pl-[18px]">Cost of capital</td><td className="text-right">{inr(steps.capital, 2)}</td>{!isInr && <td />}<td className="text-right text-muted-foreground">{pct(steps.capital / (row.priceInr || 1))}</td></tr>
+              )}
+              <tr className="border-t font-semibold">
+                <td className="pt-2">Unit cost</td><td className="pt-2 text-right">{inr(row.costInr, 2)}</td>
+                {!isInr && <td className="pt-2 text-right font-normal text-muted-foreground">{usd(row.cost)}</td>}
+                <td className="pt-2 text-right font-normal text-muted-foreground">{pct(row.costInr / (row.priceInr || 1))}</td>
+              </tr>
+              <tr>
+                <td>
+                  <div className="flex items-center gap-2">
+                    <span>Margin</span>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      NPM
+                      <span className="block w-20 text-foreground"><PanelInput col={colById('npm')} row={row} bundle={bundle} apply={apply} /></span>
+                    </label>
+                    <span className="text-xs text-muted-foreground">markup {pct(row.markup)}</span>
+                  </div>
+                </td>
+                <td className="text-right">{inr(row.priceInr - row.costInr, 2)}</td>
+                {!isInr && <td />}
+                <td className="text-right text-muted-foreground">{pct(row.margin)}</td>
+              </tr>
+              <tr className="border-t text-base font-semibold">
+                <td className="pt-2">Price</td>
+                <td className={cn('pt-2 text-right', isInr && 'text-primary')}>{inr(row.priceInr, 2)}</td>
+                {!isInr && <td className="pt-2 text-right text-primary">{usd(row.price)}</td>}
+                <td />
+              </tr>
+            </tbody>
+          </table>
+          <div className="mt-1 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · contribution {pct(row.contribution)}</div>
+
+          {/* The price to hit, and what it would take. */}
+          <div className="-mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-4 py-2.5 text-sm">
+            <label className="flex items-center gap-2">
+              <span className="font-semibold">Target</span>
+              <span className="block w-28"><PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} placeholder="none" /></span>
+            </label>
+            <GapChip row={row} />
+            {row.target != null && <span className="text-xs text-muted-foreground">{over ? 'today’s price is over target' : 'today’s price is on or under target'}</span>}
+            {row.quoted && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {targetIsQuoted(row) ? `Target is the price quoted ${quotedWhen(row.quoted)}` : (
+                  <button className="underline decoration-dotted underline-offset-4 hover:text-foreground" onClick={() => apply(b => targetFromQuoted(b, [row], [id]))}>
+                    Use last quoted {money(row.quoted.price, row.cur)}
+                  </button>
+                )}
+              </span>
+            )}
           </div>
           {over && (
-            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-destructive/[0.04] px-4 py-2.5 text-sm">
+            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t bg-destructive/[0.04] px-4 py-2.5 text-sm">
               <span className="text-muted-foreground">To hit {money(row.target, row.cur)}:</span>
               <span>NPM <b className="tabular-nums">{npmNeeded != null ? pct(npmNeeded) : 'n/a'}</b></span>
               {npmNeeded != null && npmNeeded > 0 && (
@@ -164,36 +224,12 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
             </div>
           )}
           {maxRawInr != null && row.buckets.raw_piece > 0 && (
-            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2 text-sm">
+            <div className="-mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-y px-4 py-2 text-sm">
               <span className="text-muted-foreground">Max raw piece at target:</span>
               <b className={cn('tabular-nums', maxRawInr >= row.buckets.raw_piece ? 'text-success' : 'text-destructive')}>{inr(maxRawInr, 2)}</b>
               <span className="text-muted-foreground tabular-nums">{isInr ? '' : `(${usd(maxRawInr / (r.exchangeRate || 1))}) · `}headroom {inr(maxRawInr - row.buckets.raw_piece, 2)}</span>
             </div>
           )}
-
-          <table className="mt-3 w-full text-sm tabular-nums">
-            <thead>
-              <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
-                <th className="text-left">Per unit</th><th className="text-right">₹</th><th className="text-right">of price</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr>td]:py-1">
-              {([['cogs', steps.cogs], ['labour', steps.labour], ['shipping', steps.shipping]] as const).map(([k, v]) => (
-                <tr key={k}>
-                  <td><span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: band(k).color }} />{band(k).n}. {band(k).label}</td>
-                  <td className="text-right">{inr(v, 2)}</td>
-                  <td className="w-20 text-right text-muted-foreground">{pct(v / (row.priceInr || 1))}</td>
-                </tr>
-              ))}
-              {steps.capital > 0 && (
-                <tr><td className="pl-[18px]">Cost of capital</td><td className="text-right">{inr(steps.capital, 2)}</td><td className="text-right text-muted-foreground">{pct(steps.capital / (row.priceInr || 1))}</td></tr>
-              )}
-              <tr className="border-t font-medium"><td className="pt-2">Unit cost</td><td className="pt-2 text-right">{inr(row.costInr, 2)}</td><td className="pt-2 text-right text-muted-foreground">{pct(row.costInr / (row.priceInr || 1))}</td></tr>
-              <tr className="text-primary"><td>Margin ({pct(row.margin)} NPM)</td><td className="text-right">{inr(row.priceInr - row.costInr, 2)}</td><td className="text-right">{pct(row.margin)}</td></tr>
-              <tr className="border-t font-semibold"><td className="pt-2">Price</td><td className="pt-2 text-right">{inr(row.priceInr, 2)}</td><td className="pt-2 text-right">{isInr ? '' : usd(row.price)}</td></tr>
-            </tbody>
-          </table>
-          <div className="mt-2 text-xs text-muted-foreground">{isInr ? 'Quoted in rupees' : `₹${num(r.exchangeRate, 2)} / $`} · contribution {pct(row.contribution)}</div>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
             <label className="flex items-center gap-2">
@@ -214,16 +250,6 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 }
 
 // ---------- pieces ----------
-
-function Figure({ label, value, sub, children }: { label: string; value?: React.ReactNode; sub?: React.ReactNode; children?: React.ReactNode }) {
-  return (
-    <div className="bg-card px-4 py-3 min-w-0">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      {children ?? <div className="text-lg font-semibold tabular-nums leading-tight mt-0.5 h-9 flex items-center">{value}</div>}
-      <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">{sub}</div>
-    </div>
-  );
-}
 
 /**
  * Packaging & CBM: what the packing comes to first (CBM, cartons, costs), then the inputs grouped
@@ -277,6 +303,7 @@ function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bu
         <PkgRow label="Weight">{one(field('weight'), 'kg')}</PkgRow>
       </PkgGroup>
 
+      <div className={cn('grid gap-3', hasIc && hasMc && 'xl:grid-cols-2 xl:items-start')}>
       {hasIc && (
         <PkgGroup title="Inner carton" note="Size is the inside; it follows the piece size unless typed.">
           <PkgRow label="Inside size" unit="in">{dims('ic')}</PkgRow>
@@ -304,6 +331,21 @@ function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bu
           </>}
           <PkgRow label="Largest allowed" unit="in" hint={colById('mc_w').hint}>{dims('mc')}</PkgRow>
           <PkgRow label="Board">{one(field('mc_type'), undefined, true)}</PkgRow>
+          {pkg === 'ic_mc' && <>
+            {r.mcPlan && (
+              <PkgRow label="Pieces per MC" hint={colById('per_mc').hint}>
+                <div className="flex flex-wrap items-center gap-2 pl-[18px]">
+                  <div className="w-28">{field('per_mc')}</div>
+                  {r.mcPlan.override != null && (
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => apply(b => patchCbm(b, [id], { products_per_mc_override: null }))}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Use calculated ({r.mcPlan.autoPieces})
+                    </Button>
+                  )}
+                </div>
+              </PkgRow>
+            )}
+          </>}
+          <More label="Buffers, weight limit and how it is filled" defaultOpen={!!cbmRow.mc_manual_layout}>
           <PkgRow label="Side buffer" hint="Space left inside the carton around the sides (W and D).">
             {one(<NumField value={cbmRow.mc_buffer_inch ?? 1} onCommit={n => apply(b => patchCbm(b, [id], { mc_buffer_inch: n }))} />, 'in')}
           </PkgRow>
@@ -329,27 +371,30 @@ function PackagingFields({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bu
               </div>
             </PkgRow>
             {r.mcPlan && (
-              <PkgRow label="Pieces per MC" hint={colById('per_mc').hint}>
-                <div className="flex flex-wrap items-center gap-2 pl-[18px]">
-                  <div className="w-28">{field('per_mc')}</div>
-                  {r.mcPlan.override != null && (
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => apply(b => patchCbm(b, [id], { products_per_mc_override: null }))}>
-                      <RotateCcw className="h-3.5 w-3.5" /> Use calculated ({r.mcPlan.autoPieces})
-                    </Button>
-                  )}
-                </div>
-              </PkgRow>
-            )}
-            {r.mcPlan && (
               <div className="rounded-md border border-dashed px-3 py-2">
                 <div className="mb-1 text-xs font-medium text-muted-foreground">How the master carton is filled</div>
                 <McPlanBreakdown plan={r.mcPlan} className="text-muted-foreground" />
               </div>
             )}
           </>}
+          </More>
           {r.bulkPack?.warning && <div className="text-xs text-warning">{r.bulkPack.warning}</div>}
         </PkgGroup>
       )}
+      </div>
+    </div>
+  );
+}
+
+/** Settings that are rarely touched, folded away under one line until asked for. */
+function More({ label, defaultOpen, children }: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div>
+      <button className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !open && '-rotate-90')} /> {label}
+      </button>
+      {open && <div className="mt-2.5 space-y-2.5">{children}</div>}
     </div>
   );
 }
@@ -416,27 +461,36 @@ function PhotoEstimateNote({ est, onChecked }: { est: PhotoEstimateRecord; onChe
 
 type Done = { checked: boolean; onChange: (v: boolean) => void };
 
-/** One costing step as the panel shows it: the four steps run 1. COGS → 4. Margin, like the grid. */
+/**
+ * Where the SKU stands, read left to right like the sheet: COGS + labour + shipping (+ capital)
+ * = unit cost, then today's price and how it sits against the target.
+ */
 function FlowStrip({ row }: { row: WorkspaceRow }) {
   const s = stepTotals(row);
-  const part = (k: StepId, v: number) => (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      <span className="inline-block h-2 w-2 rounded-sm" style={{ background: band(k).color }} />
-      <span className="text-muted-foreground">{band(k).label}</span>
-      <b className="font-medium tabular-nums">{inr(s[k as 'cogs' | 'labour' | 'shipping'])}</b>
-    </span>
+  const op = (ch: string) => <span className="pb-px text-base text-muted-foreground/60">{ch}</span>;
+  const term = (label: string, value: React.ReactNode, color?: string, strong?: boolean) => (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+        {color && <span className="inline-block h-2 w-2 rounded-sm" style={{ background: color }} />}{label}
+      </div>
+      <div className={cn('whitespace-nowrap tabular-nums leading-tight', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</div>
+    </div>
   );
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-4 py-2.5 text-sm">
-      {part('cogs', s.cogs)}<span className="text-muted-foreground">+</span>
-      {part('labour', s.labour)}<span className="text-muted-foreground">+</span>
-      {part('shipping', s.shipping)}
-      {s.capital > 0 && <><span className="text-muted-foreground">+</span><span className="whitespace-nowrap"><span className="text-muted-foreground">capital </span><b className="font-medium tabular-nums">{inr(s.capital)}</b></span></>}
-      <span className="text-muted-foreground">=</span>
-      <span className="whitespace-nowrap"><span className="text-muted-foreground">cost </span><b className="tabular-nums">{inr(s.cost)}</b></span>
-      <span className="text-muted-foreground">→</span>
-      <span className="whitespace-nowrap"><b className="tabular-nums text-primary">{money(row.price, row.cur)}</b><span className="text-muted-foreground"> at {pct(row.margin)} NPM</span></span>
-      <span className="ml-auto"><GapChip row={row} /></span>
+    <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-b bg-muted/30 px-4 py-3">
+      {term(band('cogs').label, inr(s.cogs), band('cogs').color)}{op('+')}
+      {term(band('labour').label, inr(s.labour), band('labour').color)}{op('+')}
+      {term(band('shipping').label, inr(s.shipping), band('shipping').color)}
+      {s.capital > 0 && <>{op('+')}{term('Capital', inr(s.capital))}</>}
+      {op('=')}
+      {term('Unit cost', inr(s.cost), undefined, true)}
+      <div className="ml-auto flex items-end gap-x-4">
+        {term(`Price at ${pct(row.margin)} NPM`, <span className="text-primary">{money(row.price, row.cur)}</span>, undefined, true)}
+        <div className="min-w-0">
+          <div className="whitespace-nowrap text-xs text-muted-foreground">{row.target != null ? `vs target ${money(row.target, row.cur)}` : 'No target'}</div>
+          <div className="flex h-7 items-center"><GapChip row={row} /></div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -479,7 +533,7 @@ function Section({ title: titleProp, step, sub, count, defaultOpen, done, review
               {review} to review
             </span>
           )}
-          {sub && <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">{sub}</span>}
+          {sub && <span className="ml-auto truncate text-sm font-medium tabular-nums">{sub}</span>}
         </button>
         {done && (
           <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -580,7 +634,7 @@ function ProductDetails({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
   );
 }
 
-function PanelInput({ col, row, bundle, apply, big, placeholder }: { col: Col; row: WorkspaceRow; bundle: Bundle; apply: Apply; big?: boolean; placeholder?: string }) {
+function PanelInput({ col, row, bundle, apply, placeholder }: { col: Col; row: WorkspaceRow; bundle: Bundle; apply: Apply; placeholder?: string }) {
   const e = col.edit!;
   return (
     <EditCell
@@ -589,7 +643,7 @@ function PanelInput({ col, row, bundle, apply, big, placeholder }: { col: Col; r
       disabled={e.disabled?.(row, bundle) ?? null}
       align="left"
       placeholder={placeholder}
-      className={cn('-ml-2 border-border/60', big && 'h-9 mt-0.5 text-lg font-semibold')}
+      className="border-border"
       onCommit={raw => apply(b => e.write(b, [row.p.id], raw))}
     />
   );
