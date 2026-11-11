@@ -21,6 +21,7 @@ import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { copyRepeatProducts, repeatSourceInquiry } from '@/lib/repeat-order';
 import { RepeatOrderPicker, type PickedProduct } from '@/components/RepeatOrderPicker';
 import { customerFullLabel } from '@/lib/customer-name';
+import { pickEntities } from '@/lib/inquiry-list-totals';
 
 type Customer = { id: string; name: string; company: string | null };
 type Entity = { id: string; name: string };
@@ -58,7 +59,6 @@ export function CreateInquiryDialog({
   const [title, setTitle] = useState('');
   const [sellingEntityId, setSellingEntityId] = useState<string>('');
   const [producingEntityId, setProducingEntityId] = useState<string>('');
-  const [producingTouched, setProducingTouched] = useState(false);
   const [certainty, setCertainty] = useState<string>('');
   const [startMonth, setStartMonth] = useState<string>(currentMonth());
   const [shipMethod, setShipMethod] = useState<ShipMethod>('sea');
@@ -96,7 +96,6 @@ export function CreateInquiryDialog({
     setDuration(String(defaultDurationMonths('sea')));
     setDurationTouched(false);
     setPayingShipping(false);
-    setProducingTouched(false);
     setAdvancedOpen(false);
     setProjFobUsd('');
     setProjGpmPct('');
@@ -106,13 +105,13 @@ export function CreateInquiryDialog({
     (async () => {
       const [{ data: cust }, { data: ent }] = await Promise.all([
         supabase.from('customers').select('id, name, company').order('name'),
-        supabase.from('company_entities').select('id, name').order('name'),
+        (supabase as any).from('company_entities').select('id, name, entity_type').order('name'),
       ]);
       setCustomers((cust ?? []) as Customer[]);
       setEntities((ent ?? []) as Entity[]);
       const firstEntity = ent?.[0]?.id ?? '';
       setSellingEntityId(firstEntity);
-      setProducingEntityId(firstEntity);
+      setProducingEntityId(pickEntities((ent ?? []) as any[]).pvId ?? firstEntity);
     })();
   }, [open, defaultCustomerId, defaultMode, defaultStatus]);
 
@@ -120,11 +119,6 @@ export function CreateInquiryDialog({
   useEffect(() => {
     setCertainty(mode === 'projected_po' && !isRepeat ? '75' : '');
   }, [mode, isRepeat]);
-
-  // Mirror producing entity to selling unless user expanded & changed it
-  useEffect(() => {
-    if (!producingTouched) setProducingEntityId(sellingEntityId);
-  }, [sellingEntityId, producingTouched]);
 
   // Auto-adjust duration when ship method changes, unless user typed
   useEffect(() => {
@@ -207,7 +201,7 @@ export function CreateInquiryDialog({
       .insert({
         inquiry_id: inq.id,
         selling_entity_id: sellingEntityId || null,
-        producing_entity_id: producingEntityId || sellingEntityId || null,
+        producing_entity_id: producingEntityId || pickEntities(entities as any[]).pvId || sellingEntityId || null,
         certainty_override: certNum,
         start_month: startDate,
         duration_months: durNum || null,
@@ -428,7 +422,7 @@ export function CreateInquiryDialog({
                   <Label className="text-xs">Producing entity</Label>
                   <Select
                     value={producingEntityId}
-                    onValueChange={(v) => { setProducingTouched(true); setProducingEntityId(v); }}
+                    onValueChange={setProducingEntityId}
                   >
                     <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
@@ -437,7 +431,7 @@ export function CreateInquiryDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground mt-1">Defaults to selling entity.</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Defaults to Parable Ventures.</p>
                 </div>
               </CollapsibleContent>
             </Collapsible>

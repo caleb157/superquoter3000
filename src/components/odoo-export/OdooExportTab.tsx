@@ -3,7 +3,7 @@
 // download the two import files. Quantities come from the costing engine (src/lib/odoo-bom.ts);
 // Odoo is read live. Nothing is remembered between products: every line is picked here.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2, Download, ExternalLink, Loader2, Plus, RefreshCw, Send, Trash2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -208,10 +208,11 @@ export function OdooExportTab({ productId }: { productId: string }) {
   const addStandard = (s: StandardComponent) =>
     setLines(prev => [...prev, addedLine({ id: s.odoo_product_id, sku: s.sku, name: s.name, display_name: displayName(s.sku, s.name), uom: s.uom }, s.default_qty)]);
 
-  const download = (kind: 'products' | 'bom') => {
+  const download = async (kind: 'products' | 'bom') => {
     if (!finished) return;
     const aoa = kind === 'products' ? productsSheet(finished, lines, existing) : bomSheet(finished, lines);
     if (kind === 'products' && aoa.length < 2) { toast.info('Nothing new to create: every product is already in Odoo.'); return; }
+    const XLSX = await loadXlsx();
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Sheet1');
     XLSX.writeFile(wb, `${fileStem(finished)}_${kind}.xlsx`);

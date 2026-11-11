@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType, toggleQuote,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, removeDomesticFreight, restoreDomesticFreight, isRemovedFreight, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 
@@ -164,6 +164,24 @@ describe('product setup side effects (shared by the workspace and the product co
     expect(line.unit_cost_inr).toBe(900);
     expect(line.components_per_product).toBeGreaterThan(0);
     expect(lines(setSourceLocation(out, ['c'], null).next, 'c').some(l => l.component_name === DOMESTIC_FREIGHT)).toBe(false);
+  });
+
+  it('deleting domestic freight takes its cost out and keeps the line from being re-added; add back restores it', () => {
+    let b = bundle();
+    b = { ...b, locations: [{ id: 'loc', name: 'Saharanpur', cost_per_cbm_inr: 900 }] };
+    const out = setSourceLocation(b, ['c'], 'loc').next;
+    const withFreight = buildRows(out, computeResults(out)).find(r => r.p.id === 'c')!;
+    const removed = removeDomesticFreight(out, ['c'])!.next;
+    const marker = lines(removed, 'c').filter(l => l.component_name === DOMESTIC_FREIGHT);
+    expect(marker).toHaveLength(1);
+    expect(isRemovedFreight(marker[0])).toBe(true);
+    const row = buildRows(removed, computeResults(removed)).find(r => r.p.id === 'c')!;
+    expect(row.buckets.shipping).toBeCloseTo(computeResults(removed).get('c')!.shippingPerUnit, 6);
+    expect(row.buckets.shipping).toBeLessThan(withFreight.buckets.shipping);
+    // Re-picking the source does not add a second freight line.
+    expect(lines(setSourceLocation(removed, ['c'], 'loc').next, 'c').filter(l => l.component_name === DOMESTIC_FREIGHT)).toHaveLength(1);
+    const back = restoreDomesticFreight(removed, ['c'])!.next;
+    expect(buildRows(back, computeResults(back)).find(r => r.p.id === 'c')!.buckets.shipping).toBeCloseTo(withFreight.buckets.shipping, 6);
   });
 
   it('domestic freight counts under Shipping, not Subcontract', () => {

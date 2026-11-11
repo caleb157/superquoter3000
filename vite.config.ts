@@ -30,6 +30,19 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" && componentTagger(), mcpPlugin(), versionFilePlugin()].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries that rarely change get their own files, so a new deploy only makes
+        // browsers download the app code again, not React and the database client too.
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@remix-run\/router)\//.test(id)) return "vendor-react";
+          if (/node_modules\/(@supabase|iceberg-js)\//.test(id)) return "vendor-supabase";
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

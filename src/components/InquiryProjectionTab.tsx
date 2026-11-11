@@ -38,6 +38,8 @@ import { ChevronDown, Lock } from 'lucide-react';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { REPEAT_ORDER_EVENT } from '@/components/InquiryClockStrip';
 import { pipelineKind } from '@/lib/master-analytics';
+import { pickEntities } from '@/lib/inquiry-list-totals';
+import { OdooOrderPicker } from '@/components/OdooOrderPicker';
 
 type Props = { inquiryId: string };
 
@@ -93,7 +95,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       setLoading(true);
       const [pr, ent, inq, prods] = await Promise.all([
         (supabase as any).from('inquiry_projections').select('*').eq('inquiry_id', inquiryId).maybeSingle(),
-        (supabase as any).from('company_entities').select('id, name').order('name'),
+        (supabase as any).from('company_entities').select('id, name, entity_type').order('name'),
         (supabase as any).from('customer_rfqs').select('status, exchange_rate_override, quoting_currency').eq('id', inquiryId).maybeSingle(),
         (supabase as any).from('products').select('id, quantity, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, calculated_unit_cost_usd').eq('customer_rfq_id', inquiryId).is('archived_at', null),
       ]);
@@ -150,7 +152,9 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
       if (pr.data) {
         setProj(pr.data);
         setExisted(true);
-        if (pr.data.producing_entity_id && pr.data.selling_entity_id !== pr.data.producing_entity_id) {
+        const pvIdNow = pickEntities(ent.data || []).pvId;
+        const producing = pr.data.producing_entity_id ?? pvIdNow;
+        if (producing && pr.data.selling_entity_id && pr.data.selling_entity_id !== producing) {
           setAdvancedOpen(true);
         }
       } else {
@@ -228,10 +232,13 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
   const vendorDep = proj?.vendor_deposit_pct != null ? Number(proj.vendor_deposit_pct) : defaults.vendorDeposit;
   const vendorBal = proj?.vendor_deposit_pct != null && proj?.vendor_balance_pct != null ? Number(proj.vendor_balance_pct) : 1 - vendorDep;
 
+  // Producing entity defaults to Parable Ventures when it was never picked.
+  const pvId = pickEntities(entities).pvId;
+  const producingId = proj?.producing_entity_id ?? pvId;
   const showIE = !!(
     proj?.selling_entity_id &&
-    proj?.producing_entity_id &&
-    proj.selling_entity_id !== proj.producing_entity_id
+    producingId &&
+    proj.selling_entity_id !== producingId
   );
 
   if (loading) return <div className="text-sm text-muted-foreground p-8 text-center">Loading…</div>;
@@ -324,7 +331,7 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 onValueChange={v => {
                   const val = v === '__none__' ? null : v;
                   const patch: any = { selling_entity_id: val };
-                  if (val && !proj?.producing_entity_id) patch.producing_entity_id = val;
+                  if (!proj?.producing_entity_id && pvId) patch.producing_entity_id = pvId;
                   persist(patch);
                 }}
               >
@@ -486,17 +493,17 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
                 <div>
                   <Label className="text-xs">Producing entity</Label>
                   <Select
-                    value={proj?.producing_entity_id ?? '__none__'}
+                    value={producingId ?? '__none__'}
                     onValueChange={v => persist({ producing_entity_id: v === '__none__' ? null : v })}
                   >
                     <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">—</SelectItem>
+                      {!pvId && <SelectItem value="__none__">—</SelectItem>}
                       {entities.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Defaults to selling entity. Set differently to enable inter-entity payments.
+                    Defaults to Parable Ventures. When it differs from the selling entity, inter-entity payments apply.
                   </p>
                 </div>
                 {showIE && (
@@ -686,6 +693,21 @@ export function InquiryProjectionTab({ inquiryId }: Props) {
             <Input type="date" value={proj?.actual_ready_date ?? ''}
               onChange={e => persist({ actual_ready_date: e.target.value || null })}
               className="h-9 mt-1" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Odoo sales order</Label>
+            <OdooOrderPicker kind="so" value={proj?.odoo_so_name ?? ''} label=""
+              onPick={name => persist({ odoo_so_name: name })} />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Once booked, the cash flow counts this order's planned vendor cost less the POs on the SO's project in Odoo.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 md:pt-6">
+            <Checkbox id="all-pos-placed" checked={!!proj?.all_pos_placed}
+              onCheckedChange={v => persist({ all_pos_placed: v === true })} />
+            <Label htmlFor="all-pos-placed" className="text-xs leading-snug font-normal">
+              All POs placed <span className="text-muted-foreground">(stop counting the leftover planned vendor cost)</span>
+            </Label>
           </div>
         </CardContent>
       </Card>

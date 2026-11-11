@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import JSZip from 'jszip';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
@@ -133,6 +133,7 @@ export default function DataExportSection() {
     if (selectedTables.length === 0) { toast.error('Select at least one table.'); return; }
     setExporting(true);
     try {
+      const XLSX = await loadXlsx();
       const wb = XLSX.utils.book_new();
       const meta: any[][] = [
         ['Generated', new Date().toISOString()],
@@ -173,6 +174,7 @@ export default function DataExportSection() {
     if (selectedTables.length === 0) { toast.error('Select at least one table.'); return; }
     setExporting(true);
     try {
+      const XLSX = await loadXlsx();
       const zip = new JSZip();
       const metaText = [
         `Generated: ${new Date().toISOString()}`,

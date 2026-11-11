@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { Upload, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -121,6 +121,7 @@ export function VendorPriceImportDialog({
     setParsed(null);
     try {
       const buf = await f.arrayBuffer();
+      const XLSX = await loadXlsx();
       const wb = XLSX.read(buf, { type: 'array' });
       const sheetName =
         wb.SheetNames.find(n => n.toLowerCase() !== '_info' && n.toLowerCase() !== '_meta') ||
@@ -393,7 +394,7 @@ export function VendorPriceImportDialog({
 
 // ---------- Template generator (exported for the page's "Download template" button) ----------
 
-export function buildPriceTemplateXlsx(args: {
+export async function buildPriceTemplateXlsx(args: {
   inquiryRfqNumber: string;
   inquiryTitle?: string | null;
   products: Array<{
@@ -406,6 +407,7 @@ export function buildPriceTemplateXlsx(args: {
   }>;
 }) {
   const { inquiryRfqNumber, inquiryTitle, products } = args;
+  const XLSX = await loadXlsx();
   const wb = XLSX.utils.book_new();
 
   const today = new Date().toISOString().slice(0, 10);

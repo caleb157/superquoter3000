@@ -1,6 +1,4 @@
 import { Suspense, useEffect } from "react";
-import LateReport from './pages/LateReport';
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +13,7 @@ import { lazyPage } from "@/lib/lazy-page";
 // Each page is its own chunk, downloaded the first time it is opened, so the first
 // visit no longer loads the whole app (spreadsheet, PDF and chart libraries included).
 const Learnings = lazyPage(() => import("./pages/Learnings"));
+const LateReport = lazyPage(() => import("./pages/LateReport"));
 const HrNotes = lazyPage(() => import("./pages/HrNotes"));
 const Dashboard = lazyPage(() => import("./pages/Dashboard"));
 const Settings = lazyPage(() => import("./pages/Settings"));
@@ -61,7 +60,30 @@ const FreightQuoteDetail = lazyPage(() => import("./pages/FreightQuoteDetail"));
 const FreightQuoteDashboard = lazyPage(() => import("./pages/FreightQuoteDashboard"));
 const FreightQuoteSettings = lazyPage(() => import("./pages/FreightQuoteSettings"));
 
-const queryClient = new QueryClient();
+// The page this tab is opening starts downloading now, alongside the sign-in check,
+// instead of after it. Only the page the address names is fetched.
+const START_PAGES: [RegExp, { preload: () => Promise<unknown> }][] = [
+  [/^\/(inquiries)?$/, Dashboard],
+  [/^\/inquiry\/[^/]+$/, InquiryDetail],
+  [/^\/inquiry\/[^/]+\/costing$/, CostingWorkspace],
+  [/^\/inquiry\/[^/]+\/pd$/, InquiryPdView],
+  [/^\/product\/[^/]+$/, ProductDetail],
+  [/^\/products$/, Products],
+  [/^\/customers$/, Customers],
+  [/^\/customers\/[^/]+$/, CustomerDetail],
+  [/^\/tasks$/, Tasks],
+  [/^\/pd-dashboard$/, PdDashboard],
+  [/^\/analytics$/, Analytics],
+  [/^\/quotes$/, Quotes],
+  [/^\/quote\/[^/]+$/, CustomerQuote],
+  [/^\/vendor-rfq\/view\/[^/]+$/, VendorRfqPublicView],
+  [/^\/tools\/dkt-cash-flow$/, DktCashFlow],
+  [/^\/profitability$/, SoProfitability],
+];
+try {
+  const path = window.location.pathname.replace(/(.)\/$/, '$1');
+  START_PAGES.find(([re]) => re.test(path))?.[1].preload().catch(() => {});
+} catch { /* no window */ }
 
 const PageLoading = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -90,7 +112,6 @@ const CostingRedirect = ({ view }: { view?: string }) => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
         <Toaster />
@@ -259,7 +280,6 @@ const App = () => (
         </AuthProvider>
       </TooltipProvider>
     </ThemeProvider>
-  </QueryClientProvider>
 );
 
 export default App;

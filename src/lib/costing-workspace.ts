@@ -372,17 +372,25 @@ async function loadRefs() {
 }
 
 export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
-  const { data: inq, error } = await db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!inq) return null;
-  const [cust, prods] = await Promise.all([
-    inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
+  // The inquiry, its products and the rate tables do not depend on each other, so they
+  // load together; only the cost lines (by product id) and the customer wait for them.
+  const refsP = loadRefs();
+  refsP.catch(() => {}); // reported below, or moot when the inquiry is missing
+  const [inqRes, prods] = await Promise.all([
+    db.from('customer_rfqs').select('*').eq('id', inquiryId).maybeSingle(),
     db.from('products').select('*').eq('customer_rfq_id', inquiryId).is('archived_at', null)
       .order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).order('name', { ascending: true }),
   ]);
+  const { data: inq, error } = inqRes as any;
+  if (error) throw new Error(error.message);
+  if (!inq) return null;
   if ((prods as any).error) throw new Error((prods as any).error.message);
   const products = (prods.data as any[]) || [];
-  const [rows, refs] = await Promise.all([loadRows(products.map(p => p.id)), loadRefs()]);
+  const [cust, rows, refs] = await Promise.all([
+    inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
+    loadRows(products.map(p => p.id)),
+    refsP,
+  ]);
   return { inq, customer: cust.data, products, ...rows, ...refs };
 }
 
@@ -996,6 +1004,23 @@ export function setSourceLocation(b: Bundle, ids: string[], locationId: string |
       return inserts.length ? cogsMutation(cur, [], inserts) : null;
     },
   ]);
+}
+
+/** A domestic freight line the user removed: kept as a switched-off manual row so the seed never adds it back. */
+export const isRemovedFreight = (c: any) => isDomesticFreight(c) && !c.is_auto_calculated && c.include === 'No';
+
+/** Remove the domestic freight line from these products and keep it removed. */
+export function removeDomesticFreight(b: Bundle, ids: string[]): Mutation | null {
+  const updates = b.cogs.filter(c => ids.includes(c.product_id) && isDomesticFreight(c) && !isRemovedFreight(c))
+    .map(c => ({ id: c.id, patch: { is_auto_calculated: false, include: 'No', components_per_product: 0, unit_cost_inr: 0 } }));
+  return updates.length ? cogsMutation(b, updates, []) : null;
+}
+
+/** Bring a removed domestic freight line back under the engine (qty = CBM, rate = source location). */
+export function restoreDomesticFreight(b: Bundle, ids: string[]): Mutation | null {
+  const updates = b.cogs.filter(c => ids.includes(c.product_id) && isRemovedFreight(c))
+    .map(c => ({ id: c.id, patch: { is_auto_calculated: true, include: 'Yes' } }));
+  return updates.length ? cogsMutation(b, updates, []) : null;
 }
 
 /** Shipping type for each product (one shipping row per product). */
