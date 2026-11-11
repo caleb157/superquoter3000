@@ -2104,6 +2104,7 @@ export type Database = {
         Row: {
           actual_po_date: string | null
           actual_ready_date: string | null
+          all_pos_placed: boolean
           certainty_override: number | null
           committed_days: number | null
           created_at: string
@@ -2122,6 +2123,7 @@ export type Database = {
           ie_deposit_pct: number | null
           inquiry_id: string
           notes: string | null
+          odoo_so_name: string | null
           order_kind: string | null
           paying_shipping: boolean
           producing_entity_id: string | null
@@ -2142,6 +2144,7 @@ export type Database = {
         Insert: {
           actual_po_date?: string | null
           actual_ready_date?: string | null
+          all_pos_placed?: boolean
           certainty_override?: number | null
           committed_days?: number | null
           created_at?: string
@@ -2160,6 +2163,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id: string
           notes?: string | null
+          odoo_so_name?: string | null
           order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
@@ -2180,6 +2184,7 @@ export type Database = {
         Update: {
           actual_po_date?: string | null
           actual_ready_date?: string | null
+          all_pos_placed?: boolean
           certainty_override?: number | null
           committed_days?: number | null
           created_at?: string
@@ -2198,6 +2203,7 @@ export type Database = {
           ie_deposit_pct?: number | null
           inquiry_id?: string
           notes?: string | null
+          odoo_so_name?: string | null
           order_kind?: string | null
           paying_shipping?: boolean
           producing_entity_id?: string | null
@@ -4199,34 +4205,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "vendor_rfqs"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      get_rfq_line_items_by_share_token: {
-        Args: { _token: string }
-        Returns: {
-          created_at: string | null
-          description: string | null
-          dimensions: string | null
-          estimated_cost: number | null
-          id: string
-          item_name: string
-          notes: string | null
-          picked_at: string | null
-          product_id: string | null
-          product_name: string | null
-          product_photo_url: string | null
-          quantity: number
-          sort_order: number | null
-          target_price: number | null
-          units: string | null
-          vendor_price: number | null
-          vendor_rfq_id: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "vendor_rfq_line_items"
           isOneToOne: false
           isSetofReturn: true
         }
