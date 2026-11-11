@@ -263,7 +263,7 @@ function Cell({ col, ci, cols, row, idx, rows, bundle, grid, apply }: {
 }) {
   const e = col.edit;
   const nav = { grid, row: idx, col: col.id };
-  if (!e) return <NavCell nav={nav} align={col.align}>{col.render?.(row, bundle)}</NavCell>;
+  if (!e) return <NavCell nav={nav} align={col.align}>{col.render?.(row, bundle, apply)}</NavCell>;
   const disabled = e.disabled?.(row, bundle) ?? null;
   const v = e.get(row);
   if (e.kind === 'bool') {
@@ -418,7 +418,7 @@ const ARROWS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: 
 /** The text a cell copies as: the raw number for an editable cell, a select's label, what's shown otherwise. */
 function cellText(col: Col, row: WorkspaceRow, b: Bundle, td: HTMLElement | undefined): string {
   const e = col.edit;
-  if (!e) return (td?.innerText ?? '').replace(/\s+/g, ' ').trim().replace(/^—$/, '');
+  if (!e) return col.text ? col.text(row) : (td?.innerText ?? '').replace(/\s+/g, ' ').trim().replace(/^—$/, '');
   const v = e.get(row);
   if (e.kind === 'bool') return v ? 'Yes' : '';
   if (e.kind === 'select') return e.options?.(b).find(o => o.value === String(v ?? ''))?.label ?? '';

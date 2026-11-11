@@ -6,13 +6,14 @@ import { cn } from '@/lib/utils';
 import {
   EDITABLE_BUCKETS, bucketLines, linePrice, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation, stepTotals,
-  type Bundle, type Mutation, type WorkspaceRow,
+  type Apply, type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { fxOrFallback } from '@/lib/live-rates';
 import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
 import { GapChip, inr, money, num, parseNum, pct } from './cells';
 import { McPlanBreakdown, mcPlanShort } from './McPlan';
+import { QuotedCell } from './Quoted';
 
 export type EditSpec = {
   kind: 'number' | 'text' | 'select' | 'bool';
@@ -40,8 +41,10 @@ export type Col = {
   edit?: EditSpec;
   /** Shown under an editable cell (e.g. the parts behind a bucket total). */
   detail?: (row: WorkspaceRow, b: Bundle) => React.ReactNode;
-  /** Read-only cell renderer. */
-  render?: (row: WorkspaceRow, b: Bundle) => React.ReactNode;
+  /** What a read-only cell copies as, when it shows more than the value. */
+  text?: (row: WorkspaceRow) => string;
+  /** Read-only cell renderer. `apply` is passed in the grid, for cells that carry an action. */
+  render?: (row: WorkspaceRow, b: Bundle, apply?: Apply) => React.ReactNode;
   footer?: (rows: WorkspaceRow[]) => React.ReactNode;
   /** Shown in the bulk bar "Set" menu even though it isn't a column of the current view. */
   bulkOnly?: boolean;
@@ -197,7 +200,7 @@ const contribCol: Col = {
 
 const targetCol: Col = {
   id: 'target', label: 'Target $', width: 88, align: 'right',
-  hint: "Customer's target price per unit (USD). Leave blank for none.",
+  hint: 'The price to hit, per unit (USD): the customer’s target, or the price already quoted. Leave blank for none.',
   edit: {
     kind: 'number',
     get: r => (r.target == null ? '' : Math.round(r.target * 100) / 100),
@@ -220,8 +223,15 @@ const targetCol: Col = {
   },
 };
 
-const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 88);
-const gapCol: Col = { id: 'gap', label: 'vs target', width: 128, align: 'left', render: r => <GapChip row={r} /> };
+const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 88, { hint: 'Today’s price: unit cost plus margin' });
+const quotedCol: Col = {
+  id: 'quoted', label: 'Quoted $', width: 132, align: 'right',
+  hint: 'The price on the customer’s latest quote for this SKU (a sent quote first, otherwise the newest draft). The button beside it makes that price the target.',
+  render: (r, _b, apply) => <QuotedCell row={r} apply={apply} />,
+  text: r => (r.quoted ? String(Math.round(r.quoted.price * 100) / 100) : ''),
+  footer: rows => { const q = rows.filter(r => r.quoted); return q.length ? money(sumBy(q, r => r.quoted!.price * r.qty), rows[0]?.cur ?? 'USD', 0) : ''; },
+};
+const gapCol: Col = { id: 'gap', label: 'vs target', width: 128, align: 'left', hint: 'Today’s price against the target: ▲ red is over, ▼ green is under', render: r => <GapChip row={r} /> };
 
 // ---------- labor ----------
 
@@ -480,9 +490,9 @@ export const BANDS: Band[] = [
   },
   {
     id: 'margin', n: 4, label: 'Margin', color: 'hsl(var(--primary))',
-    hint: 'Unit cost, margin and price against the customer’s target',
-    summary: [unitCostCol, npmCol, priceCol, gapCol],
-    items: [capitalCol, unitCostCol, npmCol, contribCol, priceCol, targetCol, gapCol, solveCol, lineFobCol],
+    hint: 'Unit cost, margin and today’s price, against the last quoted price and the target',
+    summary: [unitCostCol, npmCol, priceCol, quotedCol, targetCol, gapCol],
+    items: [capitalCol, unitCostCol, npmCol, contribCol, priceCol, quotedCol, targetCol, gapCol, solveCol, lineFobCol],
   },
 ];
 

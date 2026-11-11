@@ -18,6 +18,7 @@ import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { calcCogsItemCost } from '@/lib/calculations';
 import { fetchAllByIds } from '@/lib/supabase-paged';
 import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
+import { loadQuotedLines, quotedInCurrency, type QuotedLine } from '@/lib/quoted-price';
 
 const db = supabase as any;
 
@@ -40,6 +41,8 @@ export type Bundle = {
   locations: any[];
   rawMaterialCosts: any[];
   hardwarePrices: any[];
+  /** Last quoted line per product id (read-only; see quoted-price.ts). */
+  quoted?: Record<string, QuotedLine>;
 };
 
 // ---------- Cost buckets ----------
@@ -124,12 +127,17 @@ export type WorkspaceRow = {
   /** Contribution rate: net margin with indirect overhead added back, (price − cost + indirect) / price. */
   contribution: number;
   target: number | null;
+  /** The last price quoted to the customer for this SKU, in the quote currency; null when never quoted. */
+  quoted: RowQuoted | null;
   gap: number | null;
   gapPct: number | null;
   requiredMarkup: number | null;
   maxCostInr: number | null;
   flags: Flag[];
 };
+
+/** A product's last quote line, with the price in the inquiry's quote currency. */
+export type RowQuoted = Omit<QuotedLine, 'price' | 'currency' | 'rateInr'> & { price: number };
 
 const RAW_TYPES = ['Raw Piece'];
 
@@ -221,6 +229,11 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
     const rate = cur === 'INR' ? 1 : fx;
     const target = readTarget(p, cur, fx);
     const price = cur === 'INR' ? priceInr : r.summary.unit_price_usd;
+    const ql = b.quoted?.[p.id];
+    const quotedPrice = ql ? quotedInCurrency(ql, cur, fx) : null;
+    const quoted: RowQuoted | null = ql && quotedPrice != null
+      ? { price: quotedPrice, quantity: ql.quantity, quoteId: ql.quoteId, quoteNumber: ql.quoteNumber, at: ql.at, sent: ql.sent, quotedProductId: ql.quotedProductId, costInrThen: ql.costInrThen }
+      : null;
     // Cost of capital is charged on the whole base cost, so the indirect share carries its part too.
     const indirectInr = (r.indirectOhPerUnit || 0) * (1 + (r.capitalFactor || 0));
     const ms = target ? solveForMarkup({ targetPriceUsd: target, currentCostInr: costInr, exchangeRate: rate, currentMarkup: r.markupPercent }) : null;
@@ -252,7 +265,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       indirectInr,
       indirect: indirectInr / rate,
       contribution: priceInr > 0 ? (priceInr - costInr + indirectInr) / priceInr : 0,
-      target,
+      target, quoted,
       gap: target ? price - target : null,
       gapPct: target ? (price - target) / target : null,
       requiredMarkup: ms?.feasible ? ms.requiredMarkup : null,
@@ -386,12 +399,13 @@ export async function loadBundle(inquiryId: string): Promise<Bundle | null> {
   if (!inq) return null;
   if ((prods as any).error) throw new Error((prods as any).error.message);
   const products = (prods.data as any[]) || [];
-  const [cust, rows, refs] = await Promise.all([
+  const [cust, rows, refs, quoted] = await Promise.all([
     inq.customer_id ? db.from('customers').select('id, name, company').eq('id', inq.customer_id).maybeSingle() : Promise.resolve({ data: null }),
     loadRows(products.map(p => p.id)),
     refsP,
+    loadQuotedLines(inq, products).catch(() => ({})),
   ]);
-  return { inq, customer: cust.data, products, ...rows, ...refs };
+  return { inq, customer: cust.data, products, ...rows, ...refs, quoted };
 }
 
 /**
@@ -1054,6 +1068,19 @@ export function targetFromPrice(b: Bundle, rows: WorkspaceRow[], ids: string[]):
   const patches: Record<string, Record<string, any>> = {};
   for (const r of rows) if (ids.includes(r.p.id)) patches[r.p.id] = targetPatch(r.p, r.cur, Math.round(r.price * 100) / 100, r.r.exchangeRate || 0);
   return patchProducts(b, patches);
+}
+
+/** True when the target already is the last quoted price (to the cent). */
+export const targetIsQuoted = (r: WorkspaceRow) => r.quoted != null && r.target != null && Math.abs(r.target - r.quoted.price) < 0.005;
+
+/** Makes the last quoted price each product's target (products never quoted, or already on it, are skipped). */
+export function targetFromQuoted(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
+  const patches: Record<string, Record<string, any>> = {};
+  for (const r of rows) {
+    if (!ids.includes(r.p.id) || !r.quoted || targetIsQuoted(r)) continue;
+    patches[r.p.id] = targetPatch(r.p, r.cur, Math.round(r.quoted.price * 100) / 100, r.r.exchangeRate || 0);
+  }
+  return Object.keys(patches).length ? patchProducts(b, patches) : null;
 }
 
 /** Writes the engine's resolved values (auto rows, cached price/cost) for the given products. */

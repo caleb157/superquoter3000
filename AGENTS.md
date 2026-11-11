@@ -31,3 +31,4 @@
 - TaskBell polling runs only while the document is visible; visibility return refreshes immediately and restarts the timer to avoid inactive-tab backend requests.
 - Late Report (/tools/late-report, admin): odoo-late-report reads hr.attendance only; first non-midnight IST check-in per day, math in src/lib/late-report.ts; warnings -> hr_notes deduped by source_key; policy in single-row late_report_settings.
 - Create SO (inquiry Odoo page): odoo-sale-order creates draft quotations only; discount = projection selling retention, never a dialog input (src/lib/odoo-sale-order.ts).
+- Last quoted price (src/lib/quoted-price.ts): read live from quote_snapshots for the customer (sent beats draft, newest first; product id then SKU), carried on the costing bundle as `quoted`, never stored. "Set as target" writes the existing target price (targetFromQuoted); no new columns.
