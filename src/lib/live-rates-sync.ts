@@ -25,6 +25,7 @@ export async function refreshLiveRatesIfStale(): Promise<void> {
   autoRan = true;
   const { data } = await (supabase as any).from('global_settings')
     .select('live_exchange_rate_at, live_labor_at').limit(1).maybeSingle();
+  if (!data) return;
   if (!isLiveStale(data.live_exchange_rate_at) && !isLiveStale(data.live_labor_at)) return;
   await syncLiveRates().catch(() => {});
 }

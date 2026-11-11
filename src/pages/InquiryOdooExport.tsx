@@ -6,7 +6,7 @@
 // import sheet (DKT's Odoo has no API).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 import { ArrowLeft, CheckCircle2, Download, ExternalLink, Layers, Loader2, RefreshCw, Send, Sparkles, Wrench, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -307,8 +307,9 @@ export default function InquiryOdooExport() {
   };
   const hsnOpts = hsnList.map(h => ({ value: h.code, hint: h.description }));
 
-  const downloadDkt = () => {
+  const downloadDkt = async () => {
     if (!chosen.length) return;
+    const XLSX = await loadXlsx();
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dktProductsSheet(chosen.map(r => ({ name: r.finished.name, customerSku: r.finished.customerSku,
       sku: r.odooSku || r.finished.sku, salePriceUsd: r.salePriceUsd })), retention)), 'Sheet1');

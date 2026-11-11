@@ -4,18 +4,32 @@
 const PAGE = 1000;
 const ID_CHUNK = 100;
 
+/** Pages requested at once after the first full page. */
+const PAGE_WAVE = 4;
+
 /**
  * Fetch every row of a query, 1,000 at a time. `make` must build a fresh query on each
  * call and give it a stable order (e.g. `.order('id')`), or pages can overlap.
+ *
+ * The first page goes alone (most tables fit in it). When it comes back full, the
+ * following pages are requested a few at once instead of one after another, so a
+ * 4,000-row table takes two round trips instead of five.
  */
 export async function fetchAllRows<T = any>(make: () => any): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
+  const page = async (index: number): Promise<T[]> => {
+    const from = index * PAGE;
     const { data, error } = await make().range(from, from + PAGE - 1);
     if (error) throw error;
-    const rows = (data ?? []) as T[];
-    out.push(...rows);
-    if (rows.length < PAGE) return out;
+    return (data ?? []) as T[];
+  };
+  const out = await page(0);
+  if (out.length < PAGE) return out;
+  for (let next = 1; ; next += PAGE_WAVE) {
+    const wave = await Promise.all(Array.from({ length: PAGE_WAVE }, (_, i) => page(next + i)));
+    for (const rows of wave) {
+      out.push(...rows);
+      if (rows.length < PAGE) return out;
+    }
   }
 }
 

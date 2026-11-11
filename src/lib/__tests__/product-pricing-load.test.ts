@@ -46,7 +46,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/lib/fob-rates', () => ({ loadFobRates: () => Promise.resolve() }));
 
-import { computeProductPriceAndCost } from '@/lib/product-pricing';
+import { computeProductPriceAndCost, loadInquiryPricing } from '@/lib/product-pricing';
 import { invalidateCostingReference } from '@/lib/costing-reference';
 import { computeResults } from '@/lib/costing-workspace';
 
@@ -76,5 +76,26 @@ describe('computeProductPriceAndCost data loading', () => {
     expect(count('cogs_items')).toBe(2);
     expect(count('labor_employees')).toBe(1);
     expect(count('global_settings')).toBe(1);
+  });
+
+  it('prices a whole inquiry the same way, reading products and cost lines once', async () => {
+    const byProduct = await computeProductPriceAndCost(['a', 'b', 'c']);
+    reads.length = 0;
+    invalidateCostingReference();
+    const { map, products: rows } = await loadInquiryPricing(['inq1']);
+    expect(rows.map(p => p.id).sort()).toEqual(['a', 'b', 'c']);
+    for (const id of ['a', 'b', 'c']) {
+      expect(map[id].unit_price_usd).toBeCloseTo(byProduct[id].unit_price_usd, 9);
+      expect(map[id].unit_cost_usd).toBeCloseTo(byProduct[id].unit_cost_usd, 9);
+    }
+    const count = (t: string) => reads.filter(r => r === t).length;
+    expect(count('products')).toBe(1);
+    expect(count('cogs_items')).toBe(1);
+    expect(count('customer_rfqs')).toBe(1);
+  });
+
+  it('returns nothing for an inquiry without products', async () => {
+    expect(await loadInquiryPricing(['nope'])).toEqual({ map: {}, products: [] });
+    expect(await loadInquiryPricing([])).toEqual({ map: {}, products: [] });
   });
 });
