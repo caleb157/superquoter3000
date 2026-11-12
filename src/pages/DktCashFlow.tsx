@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
-import { addMonths, buildForecast, creditDrawnToday, loanOutstanding, odooCustReceived, type Month } from '@/lib/dkt-cashflow';
-import { countedSkus } from '@/lib/dkt-amazon';
+import { addMonths, allegroLaunchPlan, allegroPlanMonths, buildForecast, creditDrawnToday, isAllegroScenario, loanOutstanding, odooCustReceived, type Month } from '@/lib/dkt-cashflow';
+import { countedSkus, LONG_VIEW_MONTH } from '@/lib/dkt-amazon';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
@@ -33,20 +33,32 @@ export default function DktCashFlow() {
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
 
-  const forecast = useMemo(() => {
+  const horizon = data?.settings.horizon_months ?? 12;
+  const lookahead = Math.max(horizon, 24);
+
+  // Allegro launches: SKUs in scenarios paid for by Allegro get their dates and first order from Allegro's balance.
+  const allegro = useMemo(() => {
     if (!data) return null;
-    const inForecast = new Set(data.scenarios.filter(s => s.in_forecast).map(s => s.id));
+    const plan = allegroLaunchPlan(data.settings, data.scenarios, data.skus, thisMonth, allegroPlanMonths(thisMonth, lookahead, LONG_VIEW_MONTH));
+    const byId = new Map(plan.map(l => [l.sku.id, l.launched]));
+    const ids = new Set(data.scenarios.filter(isAllegroScenario).map(s => s.id));
+    // Simple lines in an Allegro scenario aren't launched, so they don't count.
+    const skus = data.skus.map(x => byId.get(x.id) ?? (x.scenario_id && ids.has(x.scenario_id) ? { ...x, start_month: null } : x));
+    return { plan, skus, ids };
+  }, [data, thisMonth, lookahead]);
+
+  const forecast = useMemo(() => {
+    if (!data || !allegro) return null;
+    const inForecast = new Set(data.scenarios.filter(s => (isAllegroScenario(s) ? data.settings.allegro_launch_on : s.in_forecast)).map(s => s.id));
     return buildForecast({
       settings: data.settings, thisMonth,
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
-      amazonSkus: countedSkus(data.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
+      amazonSkus: countedSkus(allegro.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
+      allegroQueue: allegro.plan.map(l => l.sku.name),
       odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
     });
-  }, [data, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
-
-  const horizon = data?.settings.horizon_months ?? 12;
-  const lookahead = Math.max(horizon, 24);
+  }, [data, allegro, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
 
   return (
     <AppLayout>
@@ -88,8 +100,8 @@ export default function DktCashFlow() {
                 custReceived={odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
                 creditAvailable={(() => { const t = creditDrawnToday(data.creditLines, data.creditDraws, thisMonth); return data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - (t[l.id] ?? 0)), 0); })()}
                 creditLines={data.creditLines} creditDraws={data.creditDraws}
-                scenarios={data.scenarios} skus={data.skus}
-                setScenarioInForecast={(id, on) => api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios')}
+                scenarios={data.scenarios} skus={allegro?.skus ?? data.skus}
+                setScenarioInForecast={(id, on) => (allegro?.ids.has(id) ? api.saveSettings({ allegro_launch_on: on }) : api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios'))}
                 manual={manual}
               />
             </TabsContent>
@@ -124,7 +136,8 @@ export default function DktCashFlow() {
                 removeDraw={id => api.remove('dkt_credit_draws', id, 'creditDraws')} />
             </TabsContent>
             <TabsContent value="amazon" className="mt-4">
-              <AmazonTab scenarios={data.scenarios} skus={data.skus} thisMonth={thisMonth} lookahead={lookahead}
+              <AmazonTab scenarios={data.scenarios} skus={data.skus} launches={allegro?.plan ?? []} viewSkus={allegro?.skus ?? data.skus}
+                settings={data.settings} saveSettings={api.saveSettings} thisMonth={thisMonth} lookahead={lookahead}
                 addScenario={() => api.insert('dkt_amazon_scenarios', { name: 'New scenario', in_forecast: false })}
                 duplicateScenario={sc => api.duplicateScenario(sc, data.skus)}
                 updateScenario={(id, p) => api.update('dkt_amazon_scenarios', id, p, 'scenarios')}
@@ -134,7 +147,11 @@ export default function DktCashFlow() {
                 removeSku={id => api.remove('dkt_amazon_skus', id, 'skus')} />
             </TabsContent>
             <TabsContent value="allegro" className="mt-4">
-              <AllegroTab settings={data.settings} saveSettings={api.saveSettings} thisMonth={thisMonth} lookahead={lookahead} skus={data.skus} />
+              <AllegroTab settings={data.settings} saveSettings={api.saveSettings} thisMonth={thisMonth} lookahead={lookahead} skus={data.skus}
+                scenarios={data.scenarios} launches={allegro?.plan ?? []}
+                addAllegroScenario={() => api.insert('dkt_amazon_scenarios', { name: 'Allegro launches', in_forecast: false, funding: 'allegro' })}
+                setFunding={(id, funding) => api.update('dkt_amazon_scenarios', id, { funding }, 'scenarios')}
+                openAmazon={() => pickTab('amazon')} />
             </TabsContent>
           </Tabs>
         )}

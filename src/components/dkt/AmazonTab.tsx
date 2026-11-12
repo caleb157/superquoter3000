@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { addMonths, monthLabel, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, isAllegroScenario, monthLabel, type AllegroLaunch, type DktSettings, type Month } from '@/lib/dkt-cashflow';
 import { countedSkus, demandFor, firstPoMonth, landedPerUnit, LONG_VIEW_MONTH, longView, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
@@ -14,7 +14,12 @@ const pctLabel = (r: number) => `${(r * 100).toFixed(Math.abs(r) < 0.1 ? 1 : 0)}
 
 type Props = {
   scenarios: AmazonScenario[];
-  skus: AmazonSku[];
+  skus: AmazonSku[]; // as typed
+  /** SKUs as the projections see them: Allegro launches carry their worked-out dates and first order. */
+  viewSkus: AmazonSku[];
+  launches: AllegroLaunch[];
+  settings: DktSettings;
+  saveSettings: (p: Partial<DktSettings>) => void;
   thisMonth: Month;
   lookahead: number;
   addScenario: () => void;
@@ -37,6 +42,7 @@ export function AmazonTab(p: Props) {
           A <b>new SKU</b> runs the full cycle: 100% of product cost at PO, freight when it ships (after the make months), first sales after the ship months,
           and a reorder placed automatically so it arrives before stock runs out (make + ship months of sales at units per month). Net margin is what's left after Amazon fees and landed cost,
           so Amazon pays out price × net margin + landed cost per unit sold.
+          A scenario <b>paid for by Allegro</b> launches its new SKUs in turn as Allegro saves up the launch amount: the first PO and first sales month and the first order are worked out from Allegro.
         </p>
         <Button size="sm" variant="outline" onClick={p.addScenario}><Plus className="h-3.5 w-3.5 mr-1" /> New scenario</Button>
       </div>
@@ -46,16 +52,23 @@ export function AmazonTab(p: Props) {
 }
 
 /** Launch terms for a new SKU: smaller first order, lower first-batch margin, sales ramping up. Blank = same as the rest. */
-function LaunchRow({ sku: x, updateSku, className }: { sku: AmazonSku; updateSku: Props['updateSku']; className?: string }) {
+function LaunchRow({ sku: x, updateSku, className, launch }: { sku: AmazonSku; updateSku: Props['updateSku']; className?: string; launch?: AllegroLaunch }) {
   const ramp = x.launch_units_per_month != null && (x.ramp_months ?? 0) > 0;
+  const start = launch ? launch.firstSales : x.start_month;
   return (
     <tr className={cn('align-top', className)}>
       <td colSpan={11} className="pb-2 pt-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
           <span className="font-medium text-foreground">Launch</span>
+          {launch ? (
+            <span title="Allegro's launch budget less launch costs, divided by product cost + freight per unit">
+              First order <b className="text-foreground tabular-nums">{launch.units.toLocaleString('en-US')}</b> units from Allegro ({usd(launch.inventoryBudget)} ÷ {usd(launch.landed)} landed), launch costs {usd(launch.launchCost)}
+            </span>
+          ) : (
           <label className="flex items-center gap-1">First order
             <NumField className="w-16" integer allowEmpty label="First order quantity" placeholder={String(x.order_qty)} value={x.first_order_qty ?? null} onSave={v => updateSku(x.id, { first_order_qty: v })} />
             units</label>
+          )}
           <label className="flex items-center gap-1">at
             <NumField className="w-14" percent allowEmpty label="First batch net margin" placeholder={`${Math.round(x.net_margin_pct * 100)}`} value={x.launch_margin_pct ?? null} onSave={v => updateSku(x.id, { launch_margin_pct: v })} />
             net margin</label>
@@ -64,8 +77,8 @@ function LaunchRow({ sku: x, updateSku, className }: { sku: AmazonSku; updateSku
             / mo, reaching {x.units_per_month} / mo after
             <NumField className="w-12" integer allowEmpty label="Ramp-up months" placeholder="0" value={x.ramp_months ?? null} onSave={v => updateSku(x.id, { ramp_months: v })} />
             months</label>
-          {ramp && x.start_month && (
-            <span>· {[0, 1, 2, 3, 4, 5].map(k => Math.round(demandFor(x, addMonths(x.start_month!, k)))).join(', ')}…</span>
+          {ramp && start && (
+            <span>· {[0, 1, 2, 3, 4, 5].map(k => Math.round(demandFor({ ...x, start_month: start }, addMonths(start, k)))).join(', ')}…</span>
           )}
         </div>
       </td>
@@ -126,6 +139,7 @@ function readOpen(id: string): boolean {
 
 /** Long View: bottom-line net profit through May 2030 for the scenario's counted SKUs, with a long chart on a toggle. */
 function LongViewPanel({ scenarioId, skus }: { scenarioId: string; skus: AmazonSku[] }) {
+  const hasLaunchCosts = skus.some(x => (x.launch_cost_usd ?? 0) > 0 && x.start_month);
   const [open, setOpen] = useState(() => readOpen(scenarioId));
   const toggle = () => {
     const v = !open;
@@ -144,7 +158,7 @@ function LongViewPanel({ scenarioId, skus }: { scenarioId: string; skus: AmazonS
       <div className="flex items-center gap-2 flex-wrap">
         <Telescope className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">Long View to {until}</span>
-        <span className="text-[11px] text-muted-foreground">Amazon is a long play: net profit (price × net margin on units sold, before tax) if this scenario runs as set up.</span>
+        <span className="text-[11px] text-muted-foreground">Amazon is a long play: net profit (price × net margin on units sold{hasLaunchCosts ? ', less launch costs' : ''}, before tax) if this scenario runs as set up.</span>
         <Button size="sm" variant="ghost" className="ml-auto h-7" onClick={toggle} aria-expanded={open}>
           {open ? <ChevronUp className="h-3.5 w-3.5 mr-1" /> : <ChevronDown className="h-3.5 w-3.5 mr-1" />}
           {open ? 'Hide long chart' : 'Show long chart'}
@@ -203,9 +217,14 @@ function LongViewTip({ active, payload }: { active?: boolean; payload?: { payloa
   );
 }
 
-function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenario, updateScenario, removeScenario, addSku, updateSku, removeSku }: Props & { scenario: AmazonScenario }) {
+function ScenarioCard({ scenario: s, skus, viewSkus, launches, settings, saveSettings, thisMonth, lookahead, duplicateScenario, updateScenario, removeScenario, addSku, updateSku, removeSku }: Props & { scenario: AmazonScenario }) {
   const mine = skus.filter(x => x.scenario_id === s.id);
-  const counted = countedSkus(mine);
+  const allegro = isAllegroScenario(s);
+  const launchOf = new Map(launches.map(l => [l.sku.id, l]));
+  // Projections use the SKUs as Allegro launches them (dates and first order worked out).
+  const counted = countedSkus(viewSkus.filter(x => x.scenario_id === s.id));
+  const on = allegro ? settings.allegro_launch_on : s.in_forecast;
+  const pct = Math.round((Number(settings.allegro_launch_cost_pct) || 0) * 100);
   const leftOut = mine.length - counted.length;
   const last = addMonths(thisMonth, lookahead - 1);
   const sum = scenarioSummary(counted, last);
@@ -213,13 +232,26 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
   const seriesName: Record<string, string> = { in: 'Money in', out: 'Money out', cumulative: 'Running total' };
   const hasInventory = counted.some(x => x.mode === 'inventory');
   return (
-    <Card className={cn(s.in_forecast && 'border-primary/40')}>
+    <Card className={cn(on && 'border-primary/40')}>
       <CardHeader className="pb-2 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <TextField className="font-medium max-w-xs" label="Scenario name" value={s.name} onSave={v => updateScenario(s.id, { name: v })} />
+          {allegro ? (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground" title="Same switch as on the Allegro tab">
+              <Switch checked={settings.allegro_launch_on} onCheckedChange={v => saveSettings({ allegro_launch_on: v })} />
+              Allegro launches on
+            </label>
+          ) : (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Switch checked={s.in_forecast} onCheckedChange={v => updateScenario(s.id, { in_forecast: v })} />
             In DKT forecast
+          </label>
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Paid for by
+            <SelectField className="w-36" label="Paid for by" value={allegro ? 'allegro' : 'dkt'}
+              options={[{ value: 'dkt', label: 'DKT cash' }, { value: 'allegro', label: 'Allegro fund' }]}
+              onSave={v => updateScenario(s.id, { funding: v })} />
           </label>
           <div className="ml-auto flex gap-1">
             <Button size="sm" variant="ghost" onClick={() => duplicateScenario(s)}><Copy className="h-3.5 w-3.5 mr-1" /> Duplicate</Button>
@@ -229,6 +261,14 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
         <TextField className="text-xs" label="Notes" placeholder="Notes" value={s.notes} onSave={v => updateScenario(s.id, { notes: v || null })} />
       </CardHeader>
       <CardContent className="space-y-3">
+        {allegro && (
+          <p className="text-[11px] rounded-md bg-primary/5 border border-primary/20 px-2 py-1.5">
+            Each new SKU here launches in turn as Allegro reaches its {usd(settings.allegro_launch_usd)} launch amount
+            {settings.allegro_launch_on ? '' : ' (launches are off right now)'}. {pct}% goes to launch costs and the rest buys the first order;
+            the first PO goes out that month and sales start after the make + ship months. Set the amount and split on the Allegro tab.
+            Reorders after that are paid from DKT's Amazon payouts.
+          </p>
+        )}
         {leftOut > 0 && (
           <p className="text-[11px] text-muted-foreground">
             {leftOut} SKU{leftOut === 1 ? ' is' : 's are'} left out of this projection (greyed out below). Click the eye to count {leftOut === 1 ? 'it' : 'them'} again.
@@ -242,6 +282,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
             {hasInventory && <Stat label="Stock left (at cost)" value={usd(sum.stockValue)} sub={`Worth ${usd(sum.profit + sum.stockValue)} with cash`} />}
             {hasInventory && <Stat label="Months out of stock" value={sum.stockoutMonths} tone={sum.stockoutMonths ? 'destructive' : undefined} sub={sum.stockoutMonths ? 'Order more per PO' : 'None'} />}
             <Stat label={`Net earnings by ${monthLabel(last)}`} value={usd(sum.earnings)} tone={sum.earnings >= 0 ? 'success' : 'destructive'} sub="Price × net margin on units sold" />
+            {sum.launchCosts > 0 && <Stat label="Launch costs" value={usd(sum.launchCosts)} sub="Paid from Allegro's budget" />}
             {hasInventory && <Stat label="Cash ROI (annualized)" value={sum.annualRoi == null ? '—' : pctLabel(sum.annualRoi)} tone={sum.annualRoi == null ? undefined : sum.annualRoi >= 0 ? 'success' : 'destructive'} sub={sum.roi == null ? 'No cash tied up' : `${pctLabel(sum.roi)} on ${usd(sum.peakNeed)} over ${sum.spanMonths} mo`} />}
           </div>
         )}
@@ -266,7 +307,8 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
             <tbody>
               {mine.map(x => {
                 const inv = x.mode === 'inventory';
-                const po = firstPoMonth(x);
+                const launch = allegro && inv ? launchOf.get(x.id) : undefined;
+                const po = launch ? (launch.launched.start_month ? launch.month : null) : firstPoMonth(x);
                 const off = !!x.excluded;
                 const dim = off ? 'opacity-40' : undefined;
                 return (
@@ -278,7 +320,13 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                       <div className="text-[10px] text-muted-foreground mt-0.5">
                         Payout {usd(payoutPerUnit(x))}/unit{inv && po ? ` · first PO ${monthLabel(po)}` : ''}
                       </div>
-                      {!off && !x.start_month && <div className="text-[10px] text-warning mt-0.5">Set a first sales month to count it</div>}
+                      {!off && !allegro && !x.start_month && <div className="text-[10px] text-warning mt-0.5">Set a first sales month to count it</div>}
+                      {!off && allegro && !inv && <div className="text-[10px] text-warning mt-0.5">Allegro only launches new SKUs, so this line isn't counted</div>}
+                      {!off && launch && !(launch.landed > 0) && <div className="text-[10px] text-warning mt-0.5">Add product cost and freight to size the first order</div>}
+                      {!off && launch && launch.landed > 0 && !launch.units && <div className="text-[10px] text-warning mt-0.5">The launch budget doesn't buy one unit</div>}
+                      {!off && launch && launch.landed > 0 && launch.units > 0 && !launch.month && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{settings.allegro_launch_on ? `Allegro doesn't reach this launch by ${monthLabel(LONG_VIEW_MONTH)}` : 'Allegro launches are off'}</div>
+                      )}
                       </div>
                       {off && <div className="text-[10px] font-medium text-muted-foreground mt-0.5">Left out of the projection</div>}
                     </td>
@@ -286,7 +334,14 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                     <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Price" value={x.price_usd} onSave={v => updateSku(x.id, { price_usd: v ?? 0 })} /></td>
                     <td className={cn('py-1.5 px-1 w-20', dim)}><NumField percent label="Net margin" value={x.net_margin_pct} onSave={v => updateSku(x.id, { net_margin_pct: v ?? 0 })} /></td>
                     <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Units per month" value={x.units_per_month} onSave={v => updateSku(x.id, { units_per_month: v ?? 0 })} /></td>
-                    <td className={cn('py-1.5 px-1', dim)}><MonthField label="First sales month" allowEmpty value={x.start_month} onSave={v => updateSku(x.id, { start_month: v })} /></td>
+                    <td className={cn('py-1.5 px-1', dim)}>
+                      {allegro && inv ? (
+                        <div className="pt-1.5 whitespace-nowrap" title="Worked out from when Allegro reaches the launch amount, plus make + ship months">
+                          {launch?.launched.start_month ? monthLabel(launch.launched.start_month) : '—'}
+                          <div className="text-[10px] text-muted-foreground">from Allegro</div>
+                        </div>
+                      ) : <MonthField label="First sales month" allowEmpty value={x.start_month} onSave={v => updateSku(x.id, { start_month: v })} />}
+                    </td>
                     {inv ? (
                       <>
                         <td className={cn('py-1.5 px-1 w-20', dim)}><NumField label="Product cost per unit" value={x.unit_cost_usd} onSave={v => updateSku(x.id, { unit_cost_usd: v ?? 0 })} /></td>
@@ -296,7 +351,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                         </td>
                         <td className={cn('py-1.5 px-1 w-20', dim)}>
                           <NumField integer label="Order quantity" value={x.order_qty} onSave={v => updateSku(x.id, { order_qty: v ?? 0 })} />
-                          <div className="text-[10px] text-muted-foreground text-right mt-0.5">{usd(x.order_qty * landedPerUnit(x))}</div>
+                          <div className="text-[10px] text-muted-foreground text-right mt-0.5">{launch ? (x.order_qty > 0 ? `reorders · ${usd(x.order_qty * landedPerUnit(x))}` : 'reorders = first order') : usd(x.order_qty * landedPerUnit(x))}</div>
                         </td>
                         <td className={cn('py-1.5 px-1', dim)}>
                           <div className="flex gap-1">
@@ -319,7 +374,7 @@ function ScenarioCard({ scenario: s, skus, thisMonth, lookahead, duplicateScenar
                       </div>
                     </td>
                   </tr>
-                  {inv && <LaunchRow sku={x} updateSku={updateSku} className={dim} />}
+                  {inv && <LaunchRow sku={x} updateSku={updateSku} className={dim} launch={launch} />}
                   </Fragment>
                 );
               })}

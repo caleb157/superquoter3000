@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { countedSkus, type AmazonSku } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import {
-  dayLabel, drawTerms, FLOW_LABEL, IN_KINDS, monthLabel, OUT_KINDS, realDrawStatus, termsLabel,
+  dayLabel, drawTerms, FLOW_LABEL, IN_KINDS, isAllegroScenario, monthLabel, OUT_KINDS, realDrawStatus, termsLabel,
   type CreditDraw, type CreditLine, type DktSettings, type FlowKind, type Forecast, type Month, type ProfitItem, type ProfitLine, type ProfitProjection,
 } from '@/lib/dkt-cashflow';
 import { NumField, SelectField, Stat, usd, usdK } from './fields';
@@ -139,7 +139,7 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
 
       <ProfitCard profit={forecast.profit} months={months.length} open={(title, items) => setCell({ title, flows: items })} />
 
-      <AmazonCounted forecast={forecast} scenarios={scenarios} skus={skus} setInForecast={setScenarioInForecast} />
+      <AmazonCounted forecast={forecast} scenarios={scenarios} skus={skus} setInForecast={setScenarioInForecast} allegroOn={settings.allegro_launch_on} />
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Month by month</CardTitle></CardHeader>
@@ -230,12 +230,14 @@ function CreditDrawsList({ lines, draws, months }: { lines: CreditLine[]; draws:
 }
 
 /** Which Amazon scenarios are in this forecast, with a switch for each, and why a SKU adds nothing. */
-function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
-  forecast: Forecast; scenarios: AmazonScenario[]; skus: AmazonSku[]; setInForecast: (id: string, on: boolean) => void;
+function AmazonCounted({ forecast, scenarios, skus, setInForecast, allegroOn }: {
+  forecast: Forecast; scenarios: AmazonScenario[]; skus: AmazonSku[]; setInForecast: (id: string, on: boolean) => void; allegroOn: boolean;
 }) {
   if (!scenarios.length) return null;
   const amazon = forecast.flows.filter(f => f.kind.startsWith('amazon_'));
-  const why = (s: AmazonSku) => {
+  const why = (s: AmazonSku, allegro: boolean) => {
+    if (allegro && s.mode !== 'inventory') return 'Allegro only launches new SKUs';
+    if (allegro && !s.start_month) return 'Allegro doesn\'t launch it in time (or it needs a product cost)';
     if (!s.start_month) return 'no first sales month';
     if (!(s.units_per_month > 0)) return 'no units per month';
     if (!(s.price_usd > 0)) return 'no price';
@@ -251,16 +253,18 @@ function AmazonCounted({ forecast, scenarios, skus, setInForecast }: {
           const mine = countedSkus(all);
           const left = all.length - mine.length;
           const net = amazon.filter(f => mine.some(k => k.id === f.ref)).reduce((t, f) => t + f.amount, 0);
-          const problems = mine.map(k => ({ k, w: why(k) })).filter(x => x.w);
+          const allegro = isAllegroScenario(sc);
+          const on = allegro ? allegroOn : sc.in_forecast;
+          const problems = mine.map(k => ({ k, w: why(k, allegro) })).filter(x => x.w);
           return (
             <div key={sc.id} className="flex items-start gap-3 border-t pt-2 first:border-t-0 first:pt-0">
-              <Switch checked={sc.in_forecast} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
+              <Switch checked={on} onCheckedChange={v => setInForecast(sc.id, v)} aria-label={`Count ${sc.name}`} />
               <div className="min-w-0 flex-1">
-                <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}{left ? `, ${left} left out` : ''}</span></div>
+                <div className="font-medium">{sc.name || 'Unnamed scenario'} <span className="text-muted-foreground font-normal">· {mine.length} SKU{mine.length === 1 ? '' : 's'}{left ? `, ${left} left out` : ''}{allegro ? ' · launched by Allegro' : ''}</span></div>
                 {!mine.length ? <div className="text-muted-foreground">{left ? 'Every SKU is left out. Switch them back on in the Amazon tab.' : 'No SKUs yet. Add them on the Amazon tab.'}</div>
                   : problems.map(({ k, w }) => <div key={k.id} className="text-warning">{k.name || 'Unnamed SKU'}: {w}, so it adds nothing yet.</div>)}
               </div>
-              {sc.in_forecast && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
+              {on && <div className={cn('tabular-nums font-medium', net < 0 && 'text-destructive')}>{usd(net)}</div>}
             </div>
           );
         })}

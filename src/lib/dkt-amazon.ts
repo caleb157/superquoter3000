@@ -31,6 +31,8 @@ export type AmazonSku = {
   launch_units_per_month?: number | null; // sales in the first month, ramping up to units_per_month
   ramp_months?: number | null; // months to reach units_per_month
   excluded?: boolean; // kept in the scenario but left out of every projection
+  // Allegro launches only (worked out, never stored): one-off launch costs paid with the first PO.
+  launch_cost_usd?: number | null;
 };
 
 /** The SKUs that count in a projection: everything not switched off with the eye toggle. */
@@ -72,6 +74,7 @@ export type SkuMonth = {
   onOrder: number; // units ordered but not arrived yet at month end
   stockout: boolean; // wanted to sell but ran out
   earned: number; // net margin on what sold (first batch at the launch margin)
+  launchCost: number; // one-off launch costs paid this month (Allegro launches, first PO month)
   cashIn: number;
   cashOut: number;
 };
@@ -85,7 +88,7 @@ export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
   if (s.mode === 'simple') {
     const v = Math.max(0, Number(s.units_per_month) || 0);
     for (let m = s.start_month; m <= last; m = add(m, 1)) {
-      out.push({ month: m, poUnits: 0, arrived: 0, sold: v, stockEnd: 0, onOrder: 0, stockout: false, earned: v * price * margin, cashIn: v * payoutPerUnit(s), cashOut: 0 });
+      out.push({ month: m, poUnits: 0, arrived: 0, sold: v, stockEnd: 0, onOrder: 0, stockout: false, earned: v * price * margin, launchCost: 0, cashIn: v * payoutPerUnit(s), cashOut: 0 });
     }
     return out;
   }
@@ -129,9 +132,11 @@ export function simulateSku(s: AmazonSku, last: Month): SkuMonth[] {
       poUnits = reorderQty;
     }
     cashOut += poUnits * cost;
+    const launchCost = firstOrder ? Math.max(0, Number(s.launch_cost_usd) || 0) : 0;
+    cashOut += launchCost;
     // Freight is paid when an order ships, make_months after its PO.
     cashOut += pos.filter(p => add(p.month, make) === m).reduce((t, p) => t + p.units, 0) * freight;
-    out.push({ month: m, poUnits, arrived, sold, stockEnd: stock, onOrder: inbound + poUnits, stockout, earned, cashIn: earned + sold * landed, cashOut });
+    out.push({ month: m, poUnits, arrived, sold, stockEnd: stock, onOrder: inbound + poUnits, stockout, earned, launchCost, cashIn: earned + sold * landed, cashOut });
   }
   return out;
 }
@@ -144,7 +149,8 @@ export function amazonSkuFlows(s: AmazonSku, from: Month, last: Month): Flow[] {
     if (r.cashIn) out.push({ month: r.month, kind: 'amazon_in', amount: r.cashIn, label: s.name, ref: s.id });
     const inv = r.poUnits * (Number(s.unit_cost_usd) || 0);
     if (inv) out.push({ month: r.month, kind: 'amazon_inventory', amount: -inv, label: s.name, ref: s.id });
-    const fr = r.cashOut - inv;
+    if (r.launchCost) out.push({ month: r.month, kind: 'amazon_launch', amount: -r.launchCost, label: `${s.name} launch costs`, ref: s.id });
+    const fr = r.cashOut - inv - r.launchCost;
     if (fr > 0.005) out.push({ month: r.month, kind: 'amazon_freight', amount: -fr, label: s.name, ref: s.id });
   }
   return out;
@@ -159,7 +165,8 @@ export type ScenarioSummary = {
   profit: number; // cumulative cash at the end
   stockValue: number; // unsold stock at landed cost at the end
   stockoutMonths: number;
-  earnings: number; // net earnings: price × net margin on every unit sold (first batch at the launch margin)
+  earnings: number; // net earnings: price × net margin on every unit sold (first batch at the launch margin), less launch costs
+  launchCosts: number; // one-off launch costs paid (Allegro launches)
   spanMonths: number; // months from the first PO (or first sale) to `last`, inclusive
   roi: number | null; // cash ROI: net earnings ÷ most cash tied up; null when no cash was tied up
   annualRoi: number | null; // roi compounded to a 12-month rate over spanMonths
@@ -175,7 +182,7 @@ export function annualize(total: number, months: number): number | null {
 export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary {
   const sims = skus.map(s => ({ s, rows: simulateSku(s, last) }));
   const all = sims.flatMap(x => x.rows.map(r => r.month));
-  const empty: ScenarioSummary = { months: [], invested: 0, peakNeed: 0, peakMonth: null, paybackMonth: null, profit: 0, stockValue: 0, stockoutMonths: 0, earnings: 0, spanMonths: 0, roi: null, annualRoi: null };
+  const empty: ScenarioSummary = { months: [], launchCosts: 0, invested: 0, peakNeed: 0, peakMonth: null, paybackMonth: null, profit: 0, stockValue: 0, stockoutMonths: 0, earnings: 0, spanMonths: 0, roi: null, annualRoi: null };
   if (!all.length) return empty;
   const start = all.reduce((a, b) => (a < b ? a : b));
   const months: ScenarioSummary['months'] = [];
@@ -186,7 +193,7 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
     for (const { rows } of sims) {
       const r = rows.find(x => x.month === m);
       if (r) {
-        cashIn += r.cashIn; cashOut += r.cashOut; earned += r.earned;
+        cashIn += r.cashIn; cashOut += r.cashOut; earned += r.earned - r.launchCost;
         stock += r.stockEnd; onOrder += r.onOrder; sold += r.sold; ordered += r.poUnits; stockout ||= r.stockout;
       }
     }
@@ -200,12 +207,13 @@ export function scenarioSummary(skus: AmazonSku[], last: Month): ScenarioSummary
   }
   const stockValue = sims.reduce((t, { s, rows }) => t + (rows[rows.length - 1]?.stockEnd ?? 0) * landedPerUnit(s), 0);
   const stockoutMonths = sims.reduce((t, { rows }) => t + rows.filter(r => r.stockout).length, 0);
-  const earnings = sims.reduce((t, { rows }) => t + rows.reduce((a, r) => a + r.earned, 0), 0);
+  const launchCosts = sims.reduce((t, { rows }) => t + rows.reduce((a, r) => a + r.launchCost, 0), 0);
+  const earnings = sims.reduce((t, { rows }) => t + rows.reduce((a, r) => a + r.earned, 0), 0) - launchCosts;
   const roi = peakNeed > 0.005 ? earnings / peakNeed : null;
   const spanMonths = months.length;
   return {
     months, invested, peakNeed, peakMonth, paybackMonth, profit: cum, stockValue, stockoutMonths,
-    earnings, spanMonths, roi, annualRoi: roi == null ? null : annualize(roi, spanMonths),
+    earnings, launchCosts, spanMonths, roi, annualRoi: roi == null ? null : annualize(roi, spanMonths),
   };
 }
 

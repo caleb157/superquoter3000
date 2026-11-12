@@ -29,6 +29,13 @@ const setLocalExcluded = (id: string, on: boolean) => {
 };
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => !!e && (e.code === '42703' || e.code === 'PGRST204') && String(e.message || '').includes(col);
 let skuExcludedColumn = true;
+// Allegro launch cost % (dkt_cash_settings.allegro_launch_cost_pct); kept in this browser until the column exists.
+let launchCostColumn = true;
+const LAUNCH_COST_KEY = 'dkt-allegro-launch-cost-pct';
+const localLaunchCost = (): number | null => {
+  try { const v = localStorage.getItem(LAUNCH_COST_KEY); return v == null || !Number.isFinite(Number(v)) ? null : Number(v); } catch { return null; }
+};
+const setLocalLaunchCost = (v: number) => { try { localStorage.setItem(LAUNCH_COST_KEY, String(v)); } catch { /* ignore */ } };
 // Before PO the order lives in HQ; once confirmed it is a PV → DKT sales order in Odoo (read live),
 // the same split Master Analytics uses, so an order is never counted twice.
 export const OPEN_STATUSES = ['active', 'projected_po'];
@@ -52,7 +59,7 @@ export type OdooShare = {
 };
 export type OdooRow = OdooOrder & { ship_month_set: boolean; margin_set: boolean; cust_set: boolean; invoices: OdooInvoice[] };
 
-export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean };
+export type AmazonScenario = { id: string; name: string; notes: string | null; in_forecast: boolean; funding?: 'dkt' | 'allegro' | null };
 export type OrderMeta = {
   po_month_set: boolean; ship_month_set: boolean; margin_set: boolean; advance_set: boolean; cust_set: boolean;
   /** The three terms as the inquiry's Projection tab has them; the cash flow may use its own (dkt_order_status). */
@@ -149,10 +156,12 @@ export function useDktCashflow(thisMonth: Month) {
       setLoading(false);
       return;
     }
+    launchCostColumn = !set.data || 'allegro_launch_cost_pct' in set.data;
     const settings: DktSettings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(set.data || {}).filter(([, v]) => v != null)) } as DktSettings;
-    for (const k of ['cash_usd', 'min_cash_usd', 'monthly_overhead_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd', 'allegro_launch_usd'] as const) {
+    for (const k of ['cash_usd', 'min_cash_usd', 'monthly_overhead_usd', 'horizon_months', 'default_margin_pct', 'allegro_balance_usd', 'allegro_monthly_usd', 'allegro_launch_usd', 'allegro_launch_cost_pct'] as const) {
       (settings as any)[k] = num((settings as any)[k], (DEFAULT_SETTINGS as any)[k]);
     }
+    if (!launchCostColumn) settings.allegro_launch_cost_pct = localLaunchCost() ?? DEFAULT_SETTINGS.allegro_launch_cost_pct;
     const entities = (ents.data as any[]) || [];
     const pv = entities.find(e => /parable/i.test(e.name || '') || e.entity_type === 'India');
     const dkt = entities.find(e => /\bdkt\b|desert/i.test(e.name || '')) ?? entities.find(e => e.id !== pv?.id && e.entity_type !== 'India');
@@ -263,7 +272,11 @@ export function useDktCashflow(thisMonth: Month) {
         ...d, settings: { ...d.settings, ...patch },
         odooTerms: rollIn ? d.odooTerms.map(t => ({ ...t, cust_paid_in_cash_usd: t.cust_paid_usd })) : d.odooTerms,
       }));
-      const { error } = await db.from('dkt_cash_settings').upsert({ id: 1, ...patch });
+      const row: Partial<DktSettings> = { ...patch };
+      // Until the launch cost column exists, keep that one figure in this browser.
+      if (!launchCostColumn && row.allegro_launch_cost_pct != null) { setLocalLaunchCost(row.allegro_launch_cost_pct); delete row.allegro_launch_cost_pct; }
+      if (!Object.keys(row).length) return;
+      const { error } = await db.from('dkt_cash_settings').upsert({ id: 1, ...row });
       if (fail(error) || !rollIn) return;
       const pending = (data?.odooTerms ?? []).filter(t => t.cust_paid_usd != null && Number(t.cust_paid_in_cash_usd ?? 0) !== Number(t.cust_paid_usd));
       if (!pending.length || !('cust_paid_in_cash_usd' in pending[0])) return;

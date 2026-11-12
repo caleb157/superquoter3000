@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addMonths, allegroLaunchMonth, allegroProjection, buildForecast, costFlows, creditBalances, creditDrawnToday, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooCustReceived, odooOwed, orderAmounts, orderFlows, realDrawStatus,
+  addMonths, allegroLaunchMonth, allegroLaunchMonths, allegroLaunchPlan, allegroProjection, buildForecast, costFlows, creditBalances, creditDrawnToday, creditFlows, DEFAULT_SETTINGS, loanFlows, odooFlows, odooCustReceived, odooOwed, orderAmounts, orderFlows, realDrawStatus,
   type DktOrder, type Loan,
 } from './dkt-cashflow';
 import { demandFor, scenarioSummary, simulateSku, type AmazonSku } from './dkt-amazon';
@@ -273,6 +273,46 @@ describe('allegro', () => {
     const feb = f.months.find(m => m.month === '2027-02')!;
     expect(feb.byKind).toEqual({ allegro_in: 5000 });
     expect(allegroLaunchMonth({ ...s, allegro_launch_on: false }, '2026-10', 6)).toBeNull();
+  });
+});
+
+describe('allegro launches Amazon SKUs', () => {
+  const s = { ...DEFAULT_SETTINGS, allegro_as_of: '2026-10-01', allegro_launch_cost_pct: 0.25 };
+  const scen = [{ id: 'al', funding: 'allegro' }, { id: 'dk', funding: 'dkt' }];
+  const az = (o: Partial<AmazonSku> = {}): AmazonSku => ({
+    id: 'a1', scenario_id: 'al', name: 'Tray', mode: 'inventory', price_usd: 40, net_margin_pct: 0.25, units_per_month: 100,
+    start_month: '2026-11', unit_cost_usd: 8, freight_per_unit_usd: 2, order_qty: 0, make_months: 2, ship_months: 2, ...o,
+  });
+
+  it('launches each queued SKU in turn as Allegro saves the amount again', () => {
+    expect(allegroLaunchMonths(s, '2026-10', 30, 2)).toEqual(['2027-02', '2027-12']);
+    const plan = allegroLaunchPlan(s, scen, [az(), az({ id: 'a2', name: 'Bowl', unit_cost_usd: 13, freight_per_unit_usd: 2 }), az({ id: 'x', scenario_id: 'dk' })], '2026-10', 30);
+    expect(plan.map(l => l.sku.id)).toEqual(['a1', 'a2']);
+    const [a, b] = plan;
+    expect(a).toMatchObject({ month: '2027-02', launchCost: 1250, inventoryBudget: 3750, landed: 10, units: 375, leftover: 0, firstSales: '2027-06' });
+    expect(a.launched).toMatchObject({ start_month: '2027-06', first_order_qty: 375, order_qty: 375, launch_cost_usd: 1250 });
+    expect(b).toMatchObject({ month: '2027-12', units: 250, leftover: 0 });
+  });
+
+  it('leaves out excluded and simple SKUs, and gives no dates when launches are off', () => {
+    const plan = allegroLaunchPlan(s, scen, [az({ excluded: true }), az({ id: 's1', mode: 'simple' }), az({ id: 'a3' })], '2026-10', 12);
+    expect(plan.map(l => l.sku.id)).toEqual(['a3']);
+    const off = allegroLaunchPlan({ ...s, allegro_launch_on: false }, scen, [az()], '2026-10', 12);
+    expect(off[0].month).toBeNull();
+    expect(off[0].launched.start_month).toBeNull();
+  });
+
+  it('puts the launch in the forecast: money in from Allegro, launch costs and the first PO the same month', () => {
+    const [l] = allegroLaunchPlan(s, scen, [az()], '2026-10', 12);
+    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [l.launched], allegroQueue: ['Tray'] });
+    const feb = f.months.find(m => m.month === '2027-02')!;
+    expect(feb.byKind).toEqual({ allegro_in: 5000, amazon_launch: -1250, amazon_inventory: -3000 });
+    expect(f.months.find(m => m.month === '2027-04')!.byKind.amazon_freight).toBe(-750);
+    expect(f.profit.operating.find(x => x.key === 'amazon_launch')!.amount).toBe(-1250);
+    // Launch costs come off the scenario's net earnings too (Long View uses the same summary).
+    const sum = scenarioSummary([l.launched], '2027-12');
+    expect(sum.launchCosts).toBe(1250);
+    expect(sum.earnings).toBeCloseTo(sum.months.reduce((t, m) => t + m.earned, 0));
   });
 });
 
