@@ -16,7 +16,8 @@ function launchFundingText(l: AllegroLaunch): string {
   const parts = [];
   if (l.fromAllegro > 0.005) parts.push(`Allegro pays ${usd(l.fromAllegro)}`);
   if (l.fromDkt > 0.005) parts.push(`DKT pays ${usd(l.fromDkt)}`);
-  if (l.leftover > 0.5) parts.push(`${usd(l.leftover)} left over to DKT`);
+  // Allegro moves the whole launch amount into DKT; what this launch doesn't spend stays in DKT's cash.
+  if (l.leftover > 0.5) parts.push(`${usd(l.leftover)} of that isn't needed for this launch and stays in DKT's cash`);
   return parts.join(', ') || 'Nothing to pay';
 }
 
@@ -44,7 +45,7 @@ export function LaunchOverride({ launch: l, updateSku }: { launch: AllegroLaunch
         First order
         <NumField className="w-16" integer allowEmpty label="First order quantity" placeholder={String(l.sizedUnits)} value={x.first_order_qty ?? null}
           onSave={v => updateSku(x.id, { first_order_qty: v })} />
-        units{x.first_order_qty == null ? ` (${usd(l.inventoryBudget)} ÷ ${usd(l.landed)})` : ''}, launch costs {usd(l.launchCost)}
+        units{x.first_order_qty == null ? ` (${usd(l.inventoryBudget)} ÷ ${usd(l.landed)})` : ` (${usd(l.units * l.landed)} at ${usd(l.landed)} landed; the budget buys ${l.sizedUnits})`}, launch costs {usd(l.launchCost)}
       </label>
       {l.month && <span className="font-medium text-foreground">{launchFundingText(l)}</span>}
     </span>
