@@ -3,10 +3,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 // 'dialup' and 'vaporwave' are the Dial-Up design system's two themes
 // (Desktop and Vaporwave). They sit on top of light / dark: vaporwave also
 // sets `dark`, so anything that only knows light vs dark still behaves.
-export type Theme = 'light' | 'dark' | 'system' | 'dialup' | 'vaporwave';
+// 'work' and 'work-dark' are the hq-ui Work theme (the DKT Worksheet look) in
+// its light and dark modes. Like vaporwave, 'work-dark' also sets `dark`.
+export type Theme = 'light' | 'dark' | 'system' | 'dialup' | 'vaporwave' | 'work' | 'work-dark';
 type Resolved = 'light' | 'dark';
 
-export const THEMES: Theme[] = ['light', 'dark', 'system', 'dialup', 'vaporwave'];
+export const THEMES: Theme[] = ['light', 'dark', 'system', 'dialup', 'vaporwave', 'work', 'work-dark'];
 export const isTheme = (v: unknown): v is Theme => THEMES.includes(v as Theme);
 
 interface ThemeContextValue {
@@ -35,10 +37,12 @@ const getSystem = (): Resolved =>
 let forceLightCount = 0;
 let lastResolved: Resolved = 'light';
 let lastDialup = false;
+let lastWork = false;
 
 const isDialup = (t: Theme) => t === 'dialup' || t === 'vaporwave';
+const isWork = (t: Theme) => t === 'work' || t === 'work-dark';
 const resolve = (t: Theme): Resolved =>
-  t === 'system' ? getSystem() : t === 'dark' || t === 'vaporwave' ? 'dark' : 'light';
+  t === 'system' ? getSystem() : t === 'dark' || t === 'vaporwave' || t === 'work-dark' ? 'dark' : 'light';
 
 // Dial-Up's display and pixel faces load only once someone turns the theme on.
 const DIALUP_FONTS = 'https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;700&family=VT323&display=swap';
@@ -51,9 +55,22 @@ const loadDialupFonts = () => {
   document.head.appendChild(link);
 };
 
-const apply = (resolved: Resolved, dialup = lastDialup) => {
+// Work's page-title serif and figure mono load only once the theme is on.
+// Inter is already bundled with the app.
+const WORK_FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap';
+const loadWorkFonts = () => {
+  if (document.getElementById('work-fonts')) return;
+  const link = document.createElement('link');
+  link.id = 'work-fonts';
+  link.rel = 'stylesheet';
+  link.href = WORK_FONTS;
+  document.head.appendChild(link);
+};
+
+const apply = (resolved: Resolved, dialup = lastDialup, work = lastWork) => {
   lastResolved = resolved;
   lastDialup = dialup;
+  lastWork = work;
   const forced = forceLightCount > 0;
   const effective: Resolved = forced ? 'light' : resolved;
   const du = dialup && !forced;
@@ -61,9 +78,24 @@ const apply = (resolved: Resolved, dialup = lastDialup) => {
   root.classList.toggle('dark', effective === 'dark');
   root.classList.toggle('dialup', du);
   if (du) loadDialupFonts();
+  // hq-ui reads data-theme and data-mode from the same element. The mode
+  // follows the same light / dark answer as the `dark` class.
+  const wk = work && !forced;
+  if (wk) {
+    root.dataset.theme = 'work';
+    root.dataset.mode = effective;
+    loadWorkFonts();
+  } else {
+    delete root.dataset.theme;
+    delete root.dataset.mode;
+  }
   // For mobile browser UI / status bar
   const meta = document.querySelector('meta[name="theme-color"]');
-  const color = du ? (effective === 'dark' ? '#140a2e' : '#3bc4c4') : effective === 'dark' ? '#10131a' : '#ffffff';
+  const color = du
+    ? (effective === 'dark' ? '#140a2e' : '#3bc4c4')
+    : wk
+      ? (effective === 'dark' ? '#1F150D' : '#F4EBDC')
+      : effective === 'dark' ? '#10131a' : '#ffffff';
   if (meta) meta.setAttribute('content', color);
 };
 
@@ -92,7 +124,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const r = resolve(theme);
     setResolved(r);
-    apply(r, isDialup(theme));
+    apply(r, isDialup(theme), isWork(theme));
   }, [theme]);
 
   useEffect(() => {

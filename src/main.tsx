@@ -11,9 +11,13 @@ import "./index.css";
   try {
     const stored = localStorage.getItem('dkt-theme');
     const sysDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    const isDark = stored === 'dark' || stored === 'vaporwave' || ((stored === 'system' || !stored) && sysDark);
+    const isDark = stored === 'dark' || stored === 'vaporwave' || stored === 'work-dark' || ((stored === 'system' || !stored) && sysDark);
     document.documentElement.classList.toggle('dark', isDark);
     document.documentElement.classList.toggle('dialup', stored === 'dialup' || stored === 'vaporwave');
+    if (stored === 'work' || stored === 'work-dark') {
+      document.documentElement.dataset.theme = 'work';
+      document.documentElement.dataset.mode = isDark ? 'dark' : 'light';
+    }
   } catch {
     /* noop */
   }

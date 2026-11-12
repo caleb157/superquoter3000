@@ -1,3 +1,12 @@
+/* hq-ui (github.com/caleb157/hq-ui): design tokens and hq-* component classes.
+   Every rule in these two files is scoped to [data-theme] or an hq-* class, so
+   nothing changes until the Work theme is picked. hq-ui/shadcn.css is left out
+   on purpose: it sets full colours, and this app's Tailwind 3 setup wants bare
+   HSL channels (hsl(var(--background))). The Work block at the end of this
+   file does that mapping instead. */
+@import "hq-ui/tokens.css";
+@import "hq-ui/components.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -526,3 +535,171 @@ td.cw-in-range {
 
 /* Tables: ink header row like a list-view header. */
 .dialup thead { border-bottom: 2px solid var(--du-line); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Work theme (hq-ui, the DKT "Worksheet" look): Bone ground, hairlines, one
+   walnut accent, mono figures, 2px corners, no shadows. Picked from the theme
+   menu as Work > Light or Work > Dark, which sets data-theme="work" and
+   data-mode on <html>. Customer-facing quote pages stay light and unthemed.
+
+   The colour values below are hq-ui's tokens written as HSL channels, because
+   Tailwind 3 builds colours as hsl(var(--x) / alpha). Each line names the
+   hq-ui role and hex it came from; src/test/work-theme.test.ts fails if they
+   drift from the installed hq-ui. Change colours in hq-ui, not here.
+   Not mapped: the --cw-* cost-bucket colours keep the app's own values, since
+   hq-ui has five chart colours and the costing bars need nine.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="work"] {
+  --background: 37.5 52.2% 91%;       /* bg #F4EBDC */
+  --foreground: 25.7 31.3% 13.1%;     /* text #2C2017 */
+  --card: 37.5 52.2% 91%;             /* bg #F4EBDC */
+  --card-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --popover: 37.5 52.2% 91%;          /* bg #F4EBDC */
+  --popover-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --primary: 21.6 56.8% 34.5%;        /* accent #8A4A26 */
+  --primary-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --secondary: 39.4 43.2% 85.5%;      /* surface #EADFCA */
+  --secondary-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --muted: 39.4 43.2% 85.5%;          /* surface #EADFCA */
+  --muted-foreground: 30 21.6% 34.5%; /* text-muted #6B5845 */
+  --accent: 30.8 54.9% 86.1%;         /* accent-wash #EFDCC8 */
+  --accent-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --destructive: 7.4 50.7% 40.6%;     /* danger #9C4033 */
+  --destructive-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --border: 38.7 36.6% 75.9%;         /* line #D8C8AB */
+  --input: 25.7 31.3% 13.1%;          /* line-strong #2C2017 */
+  --ring: 21.6 56.8% 34.5%;           /* focus #8A4A26 */
+  --success: 145.4 32.9% 31%;         /* success #35694B */
+  --success-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --warning: 38.4 77.6% 28%;          /* warning #7F5710 */
+  --warning-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --due-today: 33 47.2% 58.4%;        /* chart-4 #C79A63 */
+  --due-today-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --info: 30 7.4% 21.2%;              /* chart-1 #3A3632 */
+  --info-foreground: 37.5 52.2% 91%;  /* on-accent #F4EBDC */
+  --highlight: 30 21.6% 34.5%;        /* text-muted #6B5845 */
+  --highlight-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --sidebar-background: 37.5 52.2% 91%;/* bg #F4EBDC */
+  --sidebar-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --sidebar-primary: 21.6 56.8% 34.5%;/* accent #8A4A26 */
+  --sidebar-primary-foreground: 37.5 52.2% 91%;/* on-accent #F4EBDC */
+  --sidebar-accent: 30.8 54.9% 86.1%; /* accent-wash #EFDCC8 */
+  --sidebar-accent-foreground: 25.7 31.3% 13.1%;/* text #2C2017 */
+  --sidebar-border: 38.7 36.6% 75.9%; /* line #D8C8AB */
+  --sidebar-ring: 21.6 56.8% 34.5%;   /* focus #8A4A26 */
+  --variant-1: 30 7.4% 21.2%;         /* chart-1 #3A3632 */
+  --variant-2: 21.6 56.8% 34.5%;      /* chart-2 #8A4A26 */
+  --variant-3: 36.9 15.7% 67.5%;      /* chart-3 #B9AF9F */
+  --variant-4: 33 47.2% 58.4%;        /* chart-4 #C79A63 */
+  --variant-5: 30.8 20% 38.2%;        /* chart-5 #75624E */
+  --radius: 4px;
+}
+
+[data-theme="work"][data-mode="dark"] {
+  --background: 26.7 40.9% 8.6%;      /* bg #1F150D */
+  --foreground: 38.6 66.7% 91.8%;     /* text #F8EEDC */
+  --card: 26.7 40.9% 8.6%;            /* bg #1F150D */
+  --card-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --popover: 26.7 40.9% 8.6%;         /* bg #1F150D */
+  --popover-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --primary: 31.2 68.7% 64.9%;        /* accent #E3A868 */
+  --primary-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --secondary: 27.5 38.7% 12.2%;      /* surface #2B1E13 */
+  --secondary-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --muted: 27.5 38.7% 12.2%;          /* surface #2B1E13 */
+  --muted-foreground: 34.8 29.1% 66.3%;/* text-muted #C2AD90 */
+  --accent: 29.1 43.2% 15.9%;         /* accent-wash #3A2817 */
+  --accent-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --destructive: 7.4 55.2% 62.4%;     /* danger #D4776A */
+  --destructive-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --border: 28.3 36.7% 19.2%;         /* line #43301F */
+  --input: 34.8 29.1% 66.3%;          /* line-strong #C2AD90 */
+  --ring: 31.2 68.7% 64.9%;           /* focus #E3A868 */
+  --success: 147 28.4% 52.4%;         /* success #63A882 */
+  --success-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --warning: 39.3 64.7% 57.8%;        /* warning #D9A94E */
+  --warning-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --due-today: 32.6 42.4% 52.4%;      /* chart-4 #B98A52 */
+  --due-today-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --info: 37.5 34.3% 86.3%;           /* chart-1 #E8DFD0 */
+  --info-foreground: 26.7 40.9% 8.6%; /* on-accent #1F150D */
+  --highlight: 34.8 29.1% 66.3%;      /* text-muted #C2AD90 */
+  --highlight-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --sidebar-background: 26.7 40.9% 8.6%;/* bg #1F150D */
+  --sidebar-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --sidebar-primary: 31.2 68.7% 64.9%;/* accent #E3A868 */
+  --sidebar-primary-foreground: 26.7 40.9% 8.6%;/* on-accent #1F150D */
+  --sidebar-accent: 29.1 43.2% 15.9%; /* accent-wash #3A2817 */
+  --sidebar-accent-foreground: 38.6 66.7% 91.8%;/* text #F8EEDC */
+  --sidebar-border: 28.3 36.7% 19.2%; /* line #43301F */
+  --sidebar-ring: 31.2 68.7% 64.9%;   /* focus #E3A868 */
+  --variant-1: 37.5 34.3% 86.3%;      /* chart-1 #E8DFD0 */
+  --variant-2: 31.2 68.7% 64.9%;      /* chart-2 #E3A868 */
+  --variant-3: 33 16.7% 47.1%;        /* chart-3 #8C7A64 */
+  --variant-4: 32.6 42.4% 52.4%;      /* chart-4 #B98A52 */
+  --variant-5: 30 8.9% 39.6%;         /* chart-5 #6E655C */
+}
+
+/* Type: Inter stays for UI. Newsreader on the page title only, IBM Plex Mono
+   for every figure. Headings use the font's own spacing. */
+[data-theme="work"] h1,
+[data-theme="work"] h2,
+[data-theme="work"] h3,
+[data-theme="work"] h4 { letter-spacing: 0; }
+[data-theme="work"] .page-title {
+  font-family: var(--hq-font-display);
+  font-weight: var(--hq-title-weight);
+  font-size: var(--hq-text-24);
+  line-height: var(--hq-leading-tight);
+  letter-spacing: 0;
+}
+[data-theme="work"] .font-mono,
+[data-theme="work"] code,
+[data-theme="work"] kbd { font-family: var(--hq-font-data); }
+
+/* No shadows. Tailwind's ring utilities share box-shadow, so only the shadow
+   part is zeroed and focus rings keep working. */
+[data-theme="work"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+}
+
+/* The sheet: a ruled header, no blur. */
+[data-theme="work"] .app-header,
+[data-theme="work"] .app-bottom-nav {
+  background: var(--hq-bg);
+  backdrop-filter: none;
+}
+[data-theme="work"] .app-header { border-bottom: var(--hq-section-rule); }
+[data-theme="work"] .app-bottom-nav { border-top: var(--hq-section-rule); }
+
+/* Cards are hairline boxes with 2px corners. Anything that floats over the
+   page (dialogs, menus, popovers) has lost its shadow, so it gets the strong
+   ink line to stand clear of the sheet. */
+[data-theme="work"] .ui-card {
+  border-color: var(--hq-line);
+  border-radius: var(--hq-radius-card);
+}
+[data-theme="work"] .ui-window,
+[data-theme="work"] [role="alertdialog"] {
+  border: 1px solid var(--hq-line-strong);
+  border-radius: var(--hq-radius-panel);
+}
+[data-theme="work"] [role="menu"],
+[data-theme="work"] [role="listbox"],
+[data-theme="work"] [data-radix-popper-content-wrapper] > [role="dialog"] {
+  border-color: var(--hq-line-strong);
+  border-radius: var(--hq-radius-control);
+}
+
+/* Buttons: walnut primary with hq-ui's hover and press shades. */
+[data-theme="work"] .ui-btn { transition-duration: var(--hq-duration-fast); }
+[data-theme="work"] .ui-btn.btn-default:hover:not(:disabled) { background: var(--hq-accent-hover); }
+[data-theme="work"] .ui-btn.btn-default:active:not(:disabled) { background: var(--hq-accent-press); }
+
+/* No pills. */
+[data-theme="work"] .ui-badge { border-radius: var(--hq-radius-control); }
+
+/* Tables: column headers on the Sand surface over a hairline. */
+[data-theme="work"] thead th { background-color: var(--hq-table-head-bg); }
+[data-theme="work"] thead { border-bottom: var(--hq-table-rule); }

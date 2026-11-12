@@ -59,6 +59,10 @@ export function ThemeToggle({ className }: { className?: string }) {
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Dial-Up</DropdownMenuLabel>
         {item('dialup', 'Desktop', Sparkles)}
         {item('vaporwave', 'Vaporwave', Sparkles)}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Work</DropdownMenuLabel>
+        {item('work', 'Light', Sun)}
+        {item('work-dark', 'Dark', Moon)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
