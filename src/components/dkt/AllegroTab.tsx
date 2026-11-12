@@ -4,9 +4,9 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { addMonths, allegroProjection, allegroSchedule, isAllegroScenario, monthLabel, type AllegroLaunch, type DktSettings, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, allegroPlanMonths, allegroProjection, allegroSchedule, isAllegroScenario, monthLabel, type AllegroLaunch, type DktSettings, type Month } from '@/lib/dkt-cashflow';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
-import { landedPerUnit, LONG_VIEW_MONTH, type AmazonSku } from '@/lib/dkt-amazon';
+import { landedPerUnit, LONG_VIEW_MONTH, longView, type AmazonSku } from '@/lib/dkt-amazon';
 import { NumField, Stat, usd, usdK } from './fields';
 import { LaunchOverride } from './LaunchOverride';
 import { cn } from '@/lib/utils';
@@ -26,15 +26,18 @@ type Props = {
 };
 
 export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus, scenarios, launches, addAllegroScenario, setFunding, openAmazon, updateSku }: Props) {
+  // Allegro runs out to the Long View month (May 2030), the same horizon as the Amazon scenarios.
+  const span = allegroPlanMonths(thisMonth, lookahead, LONG_VIEW_MONTH);
   const proj = launches.length
-    ? allegroSchedule(settings, thisMonth, lookahead, launches.map(l => ({ pin: l.sku.launch_month, paidBy: l.paidBy }))).months
-    : allegroProjection(settings, thisMonth, lookahead, 1);
+    ? allegroSchedule(settings, thisMonth, span, launches.map(l => ({ pin: l.sku.launch_month, paidBy: l.paidBy }))).months
+    : allegroProjection(settings, thisMonth, span, 1);
   const at = (i: number) => proj[Math.min(i, proj.length - 1)]?.balance ?? 0;
-  const last = addMonths(thisMonth, lookahead - 1);
+  const last = addMonths(thisMonth, span - 1);
   const launch = proj.find(r => r.launch > 0);
   const inWindow = proj.reduce((t, r) => t + r.launches, 0);
   const budget = Number(settings.allegro_launch_usd) || 0;
   const pct = Math.min(1, Math.max(0, Number(settings.allegro_launch_cost_pct) || 0));
+  const stockCols = [...new Set([0, 6, 12, 24, span - 1].filter(i => i < span))];
   const chart = proj.map(r => ({ month: monthLabel(r.month), balance: Math.round(r.balance) }));
 
   const skuNames = new Map<string, AmazonSku>();
@@ -77,8 +80,10 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus,
           <div className="text-[11px] text-muted-foreground">From outside DKT</div>
         </div>
         <Stat label={`In 6 months (${monthLabel(proj[Math.min(6, proj.length - 1)].month)})`} value={usd(at(6))} />
-        <Stat label={`By ${monthLabel(last)}`} value={usd(at(lookahead - 1))} sub={launch ? `After ${inWindow > 1 ? `${inWindow} Amazon launches` : 'the Amazon launch'}` : 'If nothing is taken out'} />
+        <Stat label={`By ${monthLabel(last)}`} value={usd(at(span - 1))} sub={launch ? `After ${inWindow > 1 ? `${inWindow} Amazon launches` : 'the Amazon launch'}` : 'If nothing is taken out'} />
       </div>
+
+      <LaunchTotals launches={launches} endBalance={at(span - 1)} budget={budget} last={last} on={settings.allegro_launch_on} />
 
       <LaunchQueue settings={settings} scenarios={scenarios} launches={launches} addAllegroScenario={addAllegroScenario} setFunding={setFunding} openAmazon={openAmazon} updateSku={updateSku} />
 
@@ -107,7 +112,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus,
               <thead className="text-muted-foreground text-left">
                 <tr>
                   <th className="font-medium py-1 pr-2">SKU</th><th className="font-medium px-2 text-right">Landed / unit</th>
-                  {[0, 3, 6, 12].filter(i => i < lookahead).map(i => <th key={i} className="font-medium px-2 text-right">{i === 0 ? 'Now' : monthLabel(proj[i].month)}</th>)}
+                  {stockCols.map(i => <th key={i} className="font-medium px-2 text-right">{i === 0 ? 'Now' : monthLabel(proj[i].month)}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -115,7 +120,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus,
                   <tr key={x.id} className="border-t">
                     <td className="py-1.5 pr-2">{x.name || 'Unnamed SKU'}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{usd(landedPerUnit(x))}</td>
-                    {[0, 3, 6, 12].filter(i => i < lookahead).map(i => (
+                    {stockCols.map(i => (
                       <td key={i} className="py-1.5 px-2 text-right tabular-nums">{Math.max(0, Math.floor(at(i) / landedPerUnit(x))).toLocaleString('en-US')} units</td>
                     ))}
                   </tr>
@@ -173,6 +178,7 @@ function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFun
                   <th className="font-medium px-2 text-right">Allegro pays</th>
                   <th className="font-medium px-2 text-right">DKT pays</th>
                   <th className="font-medium px-2">First sales</th>
+                  <th className="font-medium px-2 text-right" title="Net profit (price × net margin on units sold, less launch costs, before tax) from its first PO to the Long View month">Profit to {monthLabel(LONG_VIEW_MONTH)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,9 +195,10 @@ function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFun
                       <td className="py-1.5 px-2 text-right tabular-nums">{l.past ? '—' : usd(l.fromAllegro)}</td>
                       <td className={cn('py-1.5 px-2 text-right tabular-nums', l.fromDkt > 0.5 && 'text-warning font-medium')}>{l.past ? 'already paid' : usd(l.fromDkt)}</td>
                       <td className="py-1.5 px-2">{l.launched.start_month ? monthLabel(l.launched.start_month) : '—'}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">{l.launched.start_month ? usd(longView([l.launched]).totalProfit) : '—'}</td>
                     </tr>
                     <tr>
-                      <td colSpan={7} className="pb-2 pt-0">
+                      <td colSpan={8} className="pb-2 pt-0">
                         <div className="rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
                           <LaunchOverride launch={l} updateSku={updateSku} />
                         </div>
@@ -213,5 +220,33 @@ function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFun
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Every launch to the Long View month: who pays, what it earns, and what Allegro holds once the queue runs out. */
+function LaunchTotals({ launches, endBalance, budget, last, on }: { launches: AllegroLaunch[]; endBalance: number; budget: number; last: Month; on: boolean }) {
+  const done = launches.filter(l => l.month && l.launched.start_month);
+  if (!on || !done.length) return null;
+  const fromAllegro = done.reduce((t, l) => t + l.fromAllegro, 0);
+  const fromDkt = done.reduce((t, l) => t + l.fromDkt, 0);
+  const lv = longView(done.map(l => l.launched));
+  const lastLaunch = done.reduce((a, l) => (l.month! > a ? l.month! : a), done[0].month!);
+  const idle = budget > 0 && endBalance >= budget - 0.005 && done.length === launches.length;
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Stat label={`Launches to ${monthLabel(last)}`} value={done.length} sub={`Last one ${monthLabel(lastLaunch)}`} />
+        <Stat label="Paid by Allegro / DKT" value={`${usd(fromAllegro)} / ${usd(fromDkt)}`} sub="Launches still to pay (from this month)" />
+        <Stat label={`Net profit to ${monthLabel(last)}`} value={usd(lv.totalProfit)} tone={lv.totalProfit >= 0 ? 'success' : 'destructive'} sub={`${usd(lv.runRate)} a year at the ${monthLabel(last)} pace`} />
+        <Stat label={`Cash from launches by ${monthLabel(last)}`} value={usd(lv.cash)} tone={lv.cash >= 0 ? 'success' : 'destructive'}
+          sub={`Payouts less stock, freight and launch costs; plus ${usd(lv.stockValue)} of stock; most tied up ${usd(lv.summary.peakNeed)}${lv.summary.peakMonth ? ` in ${monthLabel(lv.summary.peakMonth)}` : ''}`} />
+      </div>
+      {idle && (
+        <p className="text-[11px] text-warning">
+          No launch is queued after {monthLabel(lastLaunch)}, so Allegro builds up to {usd(endBalance)} by {monthLabel(last)}, enough for {Math.floor(endBalance / budget)} more.
+          Add new SKUs to the Allegro scenario to put it to work.
+        </p>
+      )}
+    </div>
   );
 }
