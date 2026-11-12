@@ -302,9 +302,39 @@ describe('allegro launches Amazon SKUs', () => {
     expect(off[0].launched.start_month).toBeNull();
   });
 
+  it('pins a launch before Allegro is ready: DKT pays it and Allegro keeps saving for the next one', () => {
+    const plan = allegroLaunchPlan(s, scen, [az({ launch_month: '2026-11', first_order_qty: 500 }), az({ id: 'a2' })], '2026-10', 30);
+    expect(plan[0]).toMatchObject({ month: '2026-11', pinned: true, fromAllegro: 0, units: 500, cost: 6250, fromDkt: 6250, firstSales: '2027-03' });
+    // Allegro is untouched, so the next launch is when it first reaches $5k.
+    expect(plan[1]).toMatchObject({ month: '2027-02', fromAllegro: 5000 });
+    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: plan.map(l => l.launched), allegroPlan: plan });
+    expect(f.months.find(m => m.month === '2026-11')!.byKind).toEqual({ amazon_launch: -1250, amazon_inventory: -4000 });
+  });
+
+  it('lets Allegro pay a pinned launch with what it has, DKT the rest, and moves the next launch later', () => {
+    const plan = allegroLaunchPlan(s, scen, [az({ launch_month: '2026-11', launch_paid_by: 'allegro' }), az({ id: 'a2' })], '2026-10', 30);
+    expect(plan[0]).toMatchObject({ fromAllegro: 3700, fromDkt: 1300 });
+    // Allegro starts again from $0 in Nov 26: $5k by Sep 27.
+    expect(plan[1].month).toBe('2027-09');
+  });
+
+  it('pays an auto-paid pinned launch from Allegro only when it has the full amount', () => {
+    const plan = allegroLaunchPlan(s, scen, [az({ launch_month: '2027-03' })], '2026-10', 30);
+    expect(plan[0]).toMatchObject({ month: '2027-03', fromAllegro: 5000, fromDkt: 0 });
+  });
+
+  it('treats a launch pinned before this month as already paid', () => {
+    const plan = allegroLaunchPlan(s, scen, [az({ launch_month: '2026-08' }), az({ id: 'a2' })], '2026-10', 30);
+    expect(plan[0]).toMatchObject({ month: '2026-08', past: true, fromAllegro: 0, fromDkt: 0, firstSales: '2026-12' });
+    expect(plan[1].month).toBe('2027-02');
+    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [plan[0].launched], allegroPlan: plan });
+    expect(f.months[0].byKind.amazon_freight).toBe(-750); // freight still to pay when it ships in Oct
+    expect(f.flows.some(x => x.kind === 'amazon_launch' || x.kind === 'amazon_inventory' && x.month === '2026-08')).toBe(false);
+  });
+
   it('puts the launch in the forecast: money in from Allegro, launch costs and the first PO the same month', () => {
     const [l] = allegroLaunchPlan(s, scen, [az()], '2026-10', 12);
-    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [l.launched], allegroQueue: ['Tray'] });
+    const f = buildForecast({ settings: s, thisMonth: '2026-10', orders: [], costs: [], loans: [], loanPayments: [], creditLines: [], creditDraws: [], amazonSkus: [l.launched], allegroPlan: [l] });
     const feb = f.months.find(m => m.month === '2027-02')!;
     expect(feb.byKind).toEqual({ allegro_in: 5000, amazon_launch: -1250, amazon_inventory: -3000 });
     expect(f.months.find(m => m.month === '2027-04')!.byKind.amazon_freight).toBe(-750);

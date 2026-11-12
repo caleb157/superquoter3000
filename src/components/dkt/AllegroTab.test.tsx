@@ -20,7 +20,7 @@ describe('Allegro launches', () => {
   it('offers to make an Allegro launch scenario when none exists', () => {
     const add = vi.fn();
     render(<AllegroTab settings={settings} saveSettings={noop} thisMonth="2026-10" lookahead={24} skus={[]} scenarios={[]} launches={[]}
-      addAllegroScenario={add} setFunding={noop} openAmazon={noop} />);
+      addAllegroScenario={add} setFunding={noop} openAmazon={noop} updateSku={noop} />);
     fireEvent.click(screen.getByText('Make an Allegro launch scenario'));
     expect(add).toHaveBeenCalled();
   });
@@ -28,10 +28,10 @@ describe('Allegro launches', () => {
   it('shows each launch with its month, split and first order on both tabs', () => {
     const launches = allegroLaunchPlan(settings, scenarios, [sku], '2026-10', 44);
     render(<AllegroTab settings={settings} saveSettings={noop} thisMonth="2026-10" lookahead={24} skus={[sku]} scenarios={scenarios} launches={launches}
-      addAllegroScenario={noop} setFunding={noop} openAmazon={noop} />);
+      addAllegroScenario={noop} setFunding={noop} openAmazon={noop} updateSku={noop} />);
     const row = screen.getByText('1. Tray').closest('tr')!;
     expect(row).toHaveTextContent('Feb 27');
-    expect(row).toHaveTextContent('$1,250');
+    expect(row).toHaveTextContent('$5,000');
     expect(row).toHaveTextContent('375 units');
     expect(row).toHaveTextContent('Jun 27');
   });
@@ -44,5 +44,22 @@ describe('Allegro launches', () => {
     expect(screen.getAllByText('from Allegro')[0].parentElement).toHaveTextContent('Jun 27');
     expect(screen.getByText('Launch costs').parentElement).toHaveTextContent('$1,250');
     expect(screen.getByText(/Long View to/)).toBeInTheDocument();
+  });
+
+  it('pins a launch from the Allegro tab and shows DKT paying for it', () => {
+    const updateSku = vi.fn();
+    const pinned = { ...sku, launch_month: '2026-11', first_order_qty: 500 };
+    const launches = allegroLaunchPlan(settings, scenarios, [pinned], '2026-10', 44);
+    render(<AllegroTab settings={settings} saveSettings={noop} thisMonth="2026-10" lookahead={24} skus={[pinned]} scenarios={scenarios} launches={launches}
+      addAllegroScenario={noop} setFunding={noop} openAmazon={noop} updateSku={updateSku} />);
+    const row = screen.getByText('1. Tray').closest('tr')!;
+    expect(row).toHaveTextContent('Nov 26 · pinned');
+    expect(row).toHaveTextContent('500 units');
+    expect(row).toHaveTextContent('$6,250');
+    expect(screen.getByText('DKT pays $6,250')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Launch paid by'), { target: { value: 'allegro' } });
+    expect(updateSku).toHaveBeenCalledWith('a1', { launch_paid_by: 'allegro' });
+    fireEvent.change(screen.getByLabelText('Launch PO month'), { target: { value: '' } });
+    expect(updateSku).toHaveBeenCalledWith('a1', { launch_month: null, launch_paid_by: null });
   });
 });

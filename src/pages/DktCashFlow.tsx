@@ -55,7 +55,7 @@ export default function DktCashFlow() {
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: countedSkus(allegro.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
-      allegroQueue: allegro.plan.map(l => l.sku.name),
+      allegroPlan: allegro.plan,
       odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
     });
   }, [data, allegro, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
@@ -151,7 +151,8 @@ export default function DktCashFlow() {
                 scenarios={data.scenarios} launches={allegro?.plan ?? []}
                 addAllegroScenario={() => api.insert('dkt_amazon_scenarios', { name: 'Allegro launches', in_forecast: false, funding: 'allegro' })}
                 setFunding={(id, funding) => api.update('dkt_amazon_scenarios', id, { funding }, 'scenarios')}
-                openAmazon={() => pickTab('amazon')} />
+                openAmazon={() => pickTab('amazon')}
+                updateSku={(id, p) => api.update('dkt_amazon_skus', id, p, 'skus')} />
             </TabsContent>
           </Tabs>
         )}

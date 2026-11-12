@@ -553,8 +553,8 @@ export type ForecastInput = {
   odooInvoices?: OdooInvoice[];
   /** Manual entries typed under the forecast chart (USD). */
   manual?: ManualEntry[];
-  /** SKU names Allegro launches in turn (see allegroLaunchPlan); empty = one launch of money only. */
-  allegroQueue?: string[];
+  /** Allegro's launch plan (allegroLaunchPlan); empty or missing = one launch of money only. */
+  allegroPlan?: AllegroLaunch[];
 };
 
 export type ForecastMonth = {
@@ -590,7 +590,7 @@ export function buildForecast(inp: ForecastInput): Forecast {
     ...inp.loans.flatMap(l => loanFlows(l, inp.loanPayments, inp.orders, inp.thisMonth, inp.odooOrders ?? [])),
     ...creditFlows(inp.creditLines, inp.creditDraws, months, inp.settings.cash_as_of),
     ...inp.amazonSkus.flatMap(s => amazonSkuFlows(s, inp.thisMonth, last)),
-    ...allegroLaunchFlows(inp.settings, inp.thisMonth, n, inp.allegroQueue),
+    ...allegroLaunchFlows(inp.settings, inp.thisMonth, n, inp.allegroPlan),
     ...(inp.manual ?? []).flatMap(e => manualFlows(e, months)),
   ].filter(f => f.month <= last);
 
@@ -709,28 +709,55 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
 
 // ---------- Allegro (emergency fund, outside DKT cash) ----------
 export type AllegroMonth = { month: Month; balance: number; added: number; launch: number; launches: number };
+
+/** Who pays a pinned launch: Allegro (what it has, DKT the rest), DKT (all of it), or auto (Allegro if it has it all, else DKT). */
+export type LaunchPaidBy = 'auto' | 'allegro' | 'dkt';
+/** One launch in Allegro's queue: auto (when Allegro reaches the amount) or pinned to a PO month. */
+export type LaunchItem = { pin?: Month | null; paidBy?: LaunchPaidBy | null };
+export type LaunchFunding = { month: Month | null; fromAllegro: number };
+
 /**
- * Allegro grows by its monthly top-up (money from outside DKT). It stays out of DKT's forecast
- * except for Amazon launches: each time the balance reaches the launch amount, that amount moves
- * into DKT and pays for the next launch in the queue (`count` launches in all, in turn).
+ * Allegro grows by its monthly top-up (money from outside DKT). It stays out of DKT's forecast except
+ * for Amazon launches. Each month, launches pinned to that month go first (paid as their paidBy says);
+ * then auto launches take the launch amount, in turn, while the balance covers it. Pinned launches
+ * before this month are already paid and don't touch the balance. With launches off nothing launches.
  */
-export function allegroProjection(settings: DktSettings, thisMonth: Month, n: number, count = 1): AllegroMonth[] {
+export function allegroSchedule(settings: DktSettings, thisMonth: Month, n: number, items: LaunchItem[]): { months: AllegroMonth[]; funding: LaunchFunding[] } {
   const months = monthRange(thisMonth, n);
   // The balance is as of allegro_as_of; months already passed since then have had their top-up.
   let bal = Number(settings.allegro_balance_usd) || 0;
   const add = Number(settings.allegro_monthly_usd) || 0;
   const asOf = toMonth(settings.allegro_as_of) ?? thisMonth;
-  const gap = Math.max(0, monthDiff(asOf, thisMonth));
-  bal += gap * add;
-  const target = settings.allegro_launch_on ? Number(settings.allegro_launch_usd) || 0 : 0;
-  let left = target > 0 ? Math.max(0, Math.round(count)) : 0;
-  return months.map((m, i) => {
+  bal += Math.max(0, monthDiff(asOf, thisMonth)) * add;
+  const on = !!settings.allegro_launch_on;
+  const target = Math.max(0, Number(settings.allegro_launch_usd) || 0);
+  const funding: LaunchFunding[] = items.map(it => ({ month: on && it.pin && it.pin < thisMonth ? it.pin : null, fromAllegro: 0 }));
+  const auto = on && target > 0 ? items.map((it, k) => (it.pin ? -1 : k)).filter(k => k >= 0) : [];
+  const rows = months.map((m, i) => {
     const added = i === 0 ? 0 : add;
     bal += added;
     let launch = 0, launches = 0;
-    while (left > 0 && bal >= target - 0.005) { launch += target; bal -= target; launches++; left--; }
+    const take = (k: number, amount: number) => {
+      const a = Math.max(0, Math.min(amount, bal));
+      funding[k] = { month: m, fromAllegro: a };
+      bal -= a; launch += a; if (a > 0) launches++;
+    };
+    if (on) items.forEach((it, k) => {
+      if (it.pin !== m) return;
+      const by = it.paidBy || 'auto';
+      if (by === 'dkt') take(k, 0);
+      else if (by === 'allegro') take(k, target);
+      else take(k, bal >= target - 0.005 ? target : 0);
+    });
+    while (auto.length && bal >= target - 0.005) take(auto.shift()!, target);
     return { month: m, balance: bal, added, launch, launches };
   });
+  return { months: rows, funding };
+}
+
+/** Allegro's balance month by month with `count` auto launches in turn (no pinned launches). */
+export function allegroProjection(settings: DktSettings, thisMonth: Month, n: number, count = 1): AllegroMonth[] {
+  return allegroSchedule(settings, thisMonth, n, Array.from({ length: Math.max(0, Math.round(count)) }, () => ({}))).months;
 }
 
 /** The months Allegro funds each launch, in turn (one entry per launch it reaches within n months). */
@@ -743,26 +770,40 @@ export function allegroLaunchMonth(settings: DktSettings, thisMonth: Month, n: n
   return allegroLaunchMonths(settings, thisMonth, n)[0] ?? null;
 }
 
-/** Money in from Allegro, one flow per launch. The launch's own costs come from its SKU (launch costs, PO, freight). */
-export function allegroLaunchFlows(settings: DktSettings, thisMonth: Month, n: number, queue: string[] = []): Flow[] {
+/**
+ * Money in from Allegro, one flow per launch it pays for. With a launch plan, its amounts; with none,
+ * one money-only launch as before. The launch's own costs come from its SKU (launch costs, PO, freight).
+ */
+export function allegroLaunchFlows(settings: DktSettings, thisMonth: Month, n: number, plan?: AllegroLaunch[]): Flow[] {
+  if (plan?.length) {
+    return plan.filter(l => l.month && l.month >= thisMonth && l.fromAllegro > 0.005).map(l => ({
+      month: l.month!, kind: 'allegro_in' as const, amount: l.fromAllegro, label: `Allegro fund for ${l.sku.name || 'Amazon'} launch`, ref: l.sku.id,
+    }));
+  }
   const target = Number(settings.allegro_launch_usd) || 0;
-  return allegroLaunchMonths(settings, thisMonth, n, queue.length || 1).map((month, i) => ({
-    month, kind: 'allegro_in' as const, amount: target,
-    label: queue[i] ? `Allegro fund for ${queue[i] || 'Amazon'} launch` : 'Allegro fund for Amazon launch',
+  return allegroLaunchMonths(settings, thisMonth, n, 1).map(month => ({
+    month, kind: 'allegro_in' as const, amount: target, label: 'Allegro fund for Amazon launch',
   }));
 }
 
-/** How one Allegro launch spends its budget. */
+/** How one Allegro launch spends its budget, and who pays for it. */
 export type AllegroLaunch = {
   sku: AmazonSku; // the SKU as typed on the Amazon tab
   launched: AmazonSku; // the same SKU with its first sales month, first order and launch costs worked out
-  month: Month | null; // first PO month = the month Allegro reaches the goal; null = not within the horizon
+  month: Month | null; // first PO month; null = not within the horizon (or launches off)
+  pinned: boolean; // month typed by hand rather than set by Allegro
+  paidBy: LaunchPaidBy;
+  past: boolean; // pinned before this month: already paid
   budget: number;
   launchCost: number;
   inventoryBudget: number;
   landed: number; // product cost + freight per unit
-  units: number; // first order
-  leftover: number; // inventory budget the first order doesn't use (stays in DKT cash)
+  sizedUnits: number; // first order the budget buys
+  units: number; // first order (typed, or sizedUnits)
+  cost: number; // launch costs + first order at landed cost
+  fromAllegro: number; // what Allegro pays
+  fromDkt: number; // what DKT's own cash pays
+  leftover: number; // Allegro money the launch doesn't use (stays in DKT cash)
   firstSales: Month | null;
 };
 
@@ -771,25 +812,30 @@ export const isAllegroScenario = (s: { funding?: string | null }) => s.funding =
 
 /**
  * Allegro launch plan: the counted new SKUs of every scenario paid for by Allegro form a queue, in order.
- * Each time Allegro reaches the launch amount, the next SKU in the queue launches: its first PO is that
- * month, launch costs take allegro_launch_cost_pct of the budget, and the rest buys the first order
- * (units = what's left ÷ landed cost per unit). Sales start after its make + ship months; reorders
- * run as for any new SKU. SKUs Allegro doesn't reach within n months (or with launches off) get no dates.
+ * An auto launch goes out the month Allegro reaches the launch amount; a pinned one (launch_month) the
+ * month typed, paid as launch_paid_by says, and DKT pays whatever Allegro doesn't. Launch costs take
+ * allegro_launch_cost_pct of the budget; the first order is the typed first_order_qty or what the rest
+ * buys (÷ landed cost per unit). Sales start after make + ship months; reorders run as for any new SKU.
  */
 export function allegroLaunchPlan(
   settings: DktSettings, scenarios: { id: string; funding?: string | null }[], skus: AmazonSku[], thisMonth: Month, n: number,
 ): AllegroLaunch[] {
   const ids = new Set(scenarios.filter(isAllegroScenario).map(s => s.id));
   const queue = countedSkus(skus).filter(s => s.scenario_id && ids.has(s.scenario_id) && s.mode === 'inventory');
-  const months = queue.length ? allegroLaunchMonths(settings, thisMonth, n, queue.length) : [];
+  const { funding } = allegroSchedule(settings, thisMonth, n, queue.map(s => ({ pin: s.launch_month ?? null, paidBy: s.launch_paid_by ?? 'auto' })));
   const budget = Math.max(0, Number(settings.allegro_launch_usd) || 0);
   const pct = Math.min(1, Math.max(0, Number(settings.allegro_launch_cost_pct) || 0));
   return queue.map((sku, i) => {
-    const month = months[i] ?? null;
+    const { month, fromAllegro } = funding[i];
+    const pinned = !!sku.launch_month;
     const launchCost = budget * pct;
     const inventoryBudget = budget - launchCost;
     const landed = landedPerUnit(sku);
-    const units = landed > 0 ? Math.floor(inventoryBudget / landed + 1e-9) : 0;
+    const sizedUnits = landed > 0 ? Math.floor(inventoryBudget / landed + 1e-9) : 0;
+    const typed = sku.first_order_qty == null ? null : Math.max(0, Math.round(Number(sku.first_order_qty) || 0));
+    const units = typed ?? sizedUnits;
+    const cost = launchCost + units * landed;
+    const past = !!month && month < thisMonth;
     const firstSales = month ? addMonths(month, leadMonths(sku)) : null;
     const launched: AmazonSku = {
       ...sku,
@@ -798,7 +844,10 @@ export function allegroLaunchPlan(
       order_qty: Number(sku.order_qty) > 0 ? sku.order_qty : units,
       launch_cost_usd: launchCost,
     };
-    return { sku, launched, month, budget, launchCost, inventoryBudget, landed, units, leftover: inventoryBudget - units * landed, firstSales };
+    return {
+      sku, launched, month, pinned, paidBy: sku.launch_paid_by ?? 'auto', past, budget, launchCost, inventoryBudget, landed, sizedUnits, units, cost,
+      fromAllegro, fromDkt: month && !past ? Math.max(0, cost - fromAllegro) : 0, leftover: Math.max(0, fromAllegro - cost), firstSales,
+    };
   });
 }
 
