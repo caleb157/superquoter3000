@@ -9,6 +9,7 @@ import { addMonths, isAllegroScenario, monthLabel, type AllegroLaunch, type DktS
 import { countedSkus, demandFor, firstPoMonth, landedPerUnit, LONG_VIEW_MONTH, longView, payoutPerUnit, scenarioSummary, type AmazonSku, type ScenarioSummary } from '@/lib/dkt-amazon';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { MonthField, NumField, SelectField, Stat, TextField, usd, usdK } from './fields';
+import { LaunchOverride } from './LaunchOverride';
 
 const pctLabel = (r: number) => `${(r * 100).toFixed(Math.abs(r) < 0.1 ? 1 : 0)}%`;
 
@@ -42,7 +43,7 @@ export function AmazonTab(p: Props) {
           A <b>new SKU</b> runs the full cycle: 100% of product cost at PO, freight when it ships (after the make months), first sales after the ship months,
           and a reorder placed automatically so it arrives before stock runs out (make + ship months of sales at units per month). Net margin is what's left after Amazon fees and landed cost,
           so Amazon pays out price × net margin + landed cost per unit sold.
-          A scenario <b>paid for by Allegro</b> launches its new SKUs in turn as Allegro saves up the launch amount: the first PO and first sales month and the first order are worked out from Allegro.
+          A scenario <b>paid for by Allegro</b> launches its new SKUs in turn as Allegro saves up the launch amount: the first PO and first sales month and the first order are worked out from Allegro. Pin a launch's PO month to launch it sooner or later; DKT's cash pays whatever Allegro doesn't.
         </p>
         <Button size="sm" variant="outline" onClick={p.addScenario}><Plus className="h-3.5 w-3.5 mr-1" /> New scenario</Button>
       </div>
@@ -60,11 +61,7 @@ function LaunchRow({ sku: x, updateSku, className, launch }: { sku: AmazonSku; u
       <td colSpan={11} className="pb-2 pt-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
           <span className="font-medium text-foreground">Launch</span>
-          {launch ? (
-            <span title="Allegro's launch budget less launch costs, divided by product cost + freight per unit">
-              First order <b className="text-foreground tabular-nums">{launch.units.toLocaleString('en-US')}</b> units from Allegro ({usd(launch.inventoryBudget)} ÷ {usd(launch.landed)} landed), launch costs {usd(launch.launchCost)}
-            </span>
-          ) : (
+          {launch ? <LaunchOverride launch={launch} updateSku={updateSku} /> : (
           <label className="flex items-center gap-1">First order
             <NumField className="w-16" integer allowEmpty label="First order quantity" placeholder={String(x.order_qty)} value={x.first_order_qty ?? null} onSave={v => updateSku(x.id, { first_order_qty: v })} />
             units</label>
@@ -266,7 +263,7 @@ function ScenarioCard({ scenario: s, skus, viewSkus, launches, settings, saveSet
             Each new SKU here launches in turn as Allegro reaches its {usd(settings.allegro_launch_usd)} launch amount
             {settings.allegro_launch_on ? '' : ' (launches are off right now)'}. {pct}% goes to launch costs and the rest buys the first order;
             the first PO goes out that month and sales start after the make + ship months. Set the amount and split on the Allegro tab.
-            Reorders after that are paid from DKT's Amazon payouts.
+            Reorders after that are paid from DKT's Amazon payouts. To launch one sooner or later, pin its PO month on its Launch line; DKT's cash pays whatever Allegro can't.
           </p>
         )}
         {leftOut > 0 && (
@@ -282,7 +279,7 @@ function ScenarioCard({ scenario: s, skus, viewSkus, launches, settings, saveSet
             {hasInventory && <Stat label="Stock left (at cost)" value={usd(sum.stockValue)} sub={`Worth ${usd(sum.profit + sum.stockValue)} with cash`} />}
             {hasInventory && <Stat label="Months out of stock" value={sum.stockoutMonths} tone={sum.stockoutMonths ? 'destructive' : undefined} sub={sum.stockoutMonths ? 'Order more per PO' : 'None'} />}
             <Stat label={`Net earnings by ${monthLabel(last)}`} value={usd(sum.earnings)} tone={sum.earnings >= 0 ? 'success' : 'destructive'} sub="Price × net margin on units sold" />
-            {sum.launchCosts > 0 && <Stat label="Launch costs" value={usd(sum.launchCosts)} sub="Paid from Allegro's budget" />}
+            {sum.launchCosts > 0 && <Stat label="Launch costs" value={usd(sum.launchCosts)} sub="Part of each launch budget" />}
             {hasInventory && <Stat label="Cash ROI (annualized)" value={sum.annualRoi == null ? '—' : pctLabel(sum.annualRoi)} tone={sum.annualRoi == null ? undefined : sum.annualRoi >= 0 ? 'success' : 'destructive'} sub={sum.roi == null ? 'No cash tied up' : `${pctLabel(sum.roi)} on ${usd(sum.peakNeed)} over ${sum.spanMonths} mo`} />}
           </div>
         )}
@@ -338,7 +335,7 @@ function ScenarioCard({ scenario: s, skus, viewSkus, launches, settings, saveSet
                       {allegro && inv ? (
                         <div className="pt-1.5 whitespace-nowrap" title="Worked out from when Allegro reaches the launch amount, plus make + ship months">
                           {launch?.launched.start_month ? monthLabel(launch.launched.start_month) : '—'}
-                          <div className="text-[10px] text-muted-foreground">from Allegro</div>
+                          <div className="text-[10px] text-muted-foreground">{launch?.pinned ? 'pinned PO' : 'from Allegro'}</div>
                         </div>
                       ) : <MonthField label="First sales month" allowEmpty value={x.start_month} onSave={v => updateSku(x.id, { start_month: v })} />}
                     </td>

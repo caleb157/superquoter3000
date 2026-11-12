@@ -1,12 +1,15 @@
+import { Fragment } from 'react';
 import { Plus } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { addMonths, allegroProjection, isAllegroScenario, monthLabel, type AllegroLaunch, type DktSettings, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, allegroProjection, allegroSchedule, isAllegroScenario, monthLabel, type AllegroLaunch, type DktSettings, type Month } from '@/lib/dkt-cashflow';
 import type { AmazonScenario } from '@/hooks/use-dkt-cashflow';
 import { landedPerUnit, LONG_VIEW_MONTH, type AmazonSku } from '@/lib/dkt-amazon';
 import { NumField, Stat, usd, usdK } from './fields';
+import { LaunchOverride } from './LaunchOverride';
+import { cn } from '@/lib/utils';
 
 type Props = {
   settings: DktSettings;
@@ -19,10 +22,13 @@ type Props = {
   addAllegroScenario: () => void;
   setFunding: (scenarioId: string, funding: 'dkt' | 'allegro') => void;
   openAmazon: () => void;
+  updateSku: (id: string, p: Partial<AmazonSku>) => void;
 };
 
-export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus, scenarios, launches, addAllegroScenario, setFunding, openAmazon }: Props) {
-  const proj = allegroProjection(settings, thisMonth, lookahead, launches.length || 1);
+export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus, scenarios, launches, addAllegroScenario, setFunding, openAmazon, updateSku }: Props) {
+  const proj = launches.length
+    ? allegroSchedule(settings, thisMonth, lookahead, launches.map(l => ({ pin: l.sku.launch_month, paidBy: l.paidBy }))).months
+    : allegroProjection(settings, thisMonth, lookahead, 1);
   const at = (i: number) => proj[Math.min(i, proj.length - 1)]?.balance ?? 0;
   const last = addMonths(thisMonth, lookahead - 1);
   const launch = proj.find(r => r.launch > 0);
@@ -74,7 +80,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus,
         <Stat label={`By ${monthLabel(last)}`} value={usd(at(lookahead - 1))} sub={launch ? `After ${inWindow > 1 ? `${inWindow} Amazon launches` : 'the Amazon launch'}` : 'If nothing is taken out'} />
       </div>
 
-      <LaunchQueue settings={settings} scenarios={scenarios} launches={launches} addAllegroScenario={addAllegroScenario} setFunding={setFunding} openAmazon={openAmazon} />
+      <LaunchQueue settings={settings} scenarios={scenarios} launches={launches} addAllegroScenario={addAllegroScenario} setFunding={setFunding} openAmazon={openAmazon} updateSku={updateSku} />
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm">Allegro balance</CardTitle></CardHeader>
@@ -125,7 +131,7 @@ export function AllegroTab({ settings, saveSettings, thisMonth, lookahead, skus,
 }
 
 /** The new SKUs Allegro launches, in turn, and how each launch's budget is spent. */
-function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFunding, openAmazon }: Pick<Props, 'settings' | 'scenarios' | 'launches' | 'addAllegroScenario' | 'setFunding' | 'openAmazon'>) {
+function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFunding, openAmazon, updateSku }: Pick<Props, 'settings' | 'scenarios' | 'launches' | 'addAllegroScenario' | 'setFunding' | 'openAmazon' | 'updateSku'>) {
   const funded = scenarios.filter(isAllegroScenario);
   const others = scenarios.filter(s => !isAllegroScenario(s));
   return (
@@ -161,27 +167,37 @@ function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFun
               <thead className="text-muted-foreground text-left">
                 <tr>
                   <th className="font-medium py-1 pr-2">Launch</th>
-                  <th className="font-medium px-2">Allegro has it</th>
-                  <th className="font-medium px-2 text-right">Launch costs</th>
-                  <th className="font-medium px-2 text-right">First order budget</th>
-                  <th className="font-medium px-2 text-right">Landed / unit</th>
+                  <th className="font-medium px-2">PO month</th>
                   <th className="font-medium px-2 text-right">First order</th>
-                  <th className="font-medium px-2 text-right" title="First order budget the units don't use; it stays in DKT's cash">Left over</th>
+                  <th className="font-medium px-2 text-right" title="Launch costs + first order at landed cost">Cost</th>
+                  <th className="font-medium px-2 text-right">Allegro pays</th>
+                  <th className="font-medium px-2 text-right">DKT pays</th>
                   <th className="font-medium px-2">First sales</th>
                 </tr>
               </thead>
               <tbody>
                 {launches.map((l, i) => (
-                  <tr key={l.sku.id} className="border-t">
-                    <td className="py-1.5 pr-2">{i + 1}. {l.sku.name || 'Unnamed SKU'}</td>
-                    <td className="py-1.5 px-2">{l.month ? monthLabel(l.month) : <span className="text-muted-foreground">{settings.allegro_launch_on ? `Not by ${monthLabel(LONG_VIEW_MONTH)}` : 'Off'}</span>}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{usd(l.launchCost)}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{usd(l.inventoryBudget)}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{l.landed > 0 ? usd(l.landed) : <span className="text-warning">no cost yet</span>}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums font-medium">{l.units.toLocaleString('en-US')} units</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{usd(l.leftover)}</td>
-                    <td className="py-1.5 px-2">{l.launched.start_month ? monthLabel(l.launched.start_month) : '—'}</td>
-                  </tr>
+                  <Fragment key={l.sku.id}>
+                    <tr className="border-t">
+                      <td className="py-1.5 pr-2 font-medium">{i + 1}. {l.sku.name || 'Unnamed SKU'}</td>
+                      <td className="py-1.5 px-2">
+                        {l.month ? monthLabel(l.month) : <span className="text-muted-foreground">{settings.allegro_launch_on ? `Not by ${monthLabel(LONG_VIEW_MONTH)}` : 'Off'}</span>}
+                        <span className="text-muted-foreground">{l.pinned ? ' · pinned' : l.month ? ' · Allegro has it' : ''}</span>
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">{l.landed > 0 ? `${l.units.toLocaleString('en-US')} units` : <span className="text-warning">no cost yet</span>}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">{usd(l.cost)}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">{l.past ? '—' : usd(l.fromAllegro)}</td>
+                      <td className={cn('py-1.5 px-2 text-right tabular-nums', l.fromDkt > 0.5 && 'text-warning font-medium')}>{l.past ? 'already paid' : usd(l.fromDkt)}</td>
+                      <td className="py-1.5 px-2">{l.launched.start_month ? monthLabel(l.launched.start_month) : '—'}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={7} className="pb-2 pt-0">
+                        <div className="rounded-md bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+                          <LaunchOverride launch={l} updateSku={updateSku} />
+                        </div>
+                      </td>
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -189,8 +205,10 @@ function LaunchQueue({ settings, scenarios, launches, addAllegroScenario, setFun
         )}
         {launches.length > 0 && (
           <p className="text-[11px] text-muted-foreground">
-            The first PO goes out the month Allegro has the money; first sales follow after the SKU's make + ship months. Launch costs are paid that month and count as a cost in the profit card.
-            First order = first order budget ÷ (product cost + freight per unit). Reorders after that come out of DKT's Amazon payouts, at the SKU's order quantity.
+            A launch's first PO goes out the month Allegro has the money, unless you pin a PO month. A pinned launch is paid by Allegro if it has the full amount then (or as you choose), and DKT's cash pays
+            whatever Allegro doesn't; Allegro's next launch then waits until it has saved up again. A PO month before this month counts as already paid.
+            First sales follow after the SKU's make + ship months. Launch costs are paid with the PO and count as a cost in the profit card.
+            First order = (launch amount − launch costs) ÷ (product cost + freight per unit), unless typed. Reorders after that come out of DKT's Amazon payouts, at the SKU's order quantity.
           </p>
         )}
       </CardContent>

@@ -33,6 +33,9 @@ export type AmazonSku = {
   excluded?: boolean; // kept in the scenario but left out of every projection
   // Allegro launches only (worked out, never stored): one-off launch costs paid with the first PO.
   launch_cost_usd?: number | null;
+  // Allegro launches: pin the launch (first PO) to a month, and who pays for it. Blank = Allegro sets it.
+  launch_month?: Month | null;
+  launch_paid_by?: 'allegro' | 'dkt' | null;
 };
 
 /** The SKUs that count in a projection: everything not switched off with the eye toggle. */

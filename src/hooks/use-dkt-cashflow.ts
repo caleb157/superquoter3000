@@ -29,6 +29,17 @@ const setLocalExcluded = (id: string, on: boolean) => {
 };
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => !!e && (e.code === '42703' || e.code === 'PGRST204') && String(e.message || '').includes(col);
 let skuExcludedColumn = true;
+// Pinned Allegro launches (dkt_amazon_skus.launch_month / launch_paid_by); kept in this browser until the columns exist.
+let skuLaunchColumns = true;
+const SKU_LAUNCH_KEY = 'dkt-amazon-sku-launch';
+const LAUNCH_KEYS = ['launch_month', 'launch_paid_by'] as const;
+type LocalLaunch = Record<string, { launch_month?: string | null; launch_paid_by?: string | null }>;
+const localLaunch = (): LocalLaunch => { try { return JSON.parse(localStorage.getItem(SKU_LAUNCH_KEY) || '{}'); } catch { return {}; } };
+const setLocalLaunch = (id: string, patch: Record<string, unknown>) => {
+  const all = localLaunch();
+  all[id] = { ...all[id], ...Object.fromEntries(LAUNCH_KEYS.filter(k => k in patch).map(k => [k, (patch[k] as string | null) ?? null])) };
+  try { localStorage.setItem(SKU_LAUNCH_KEY, JSON.stringify(all)); } catch { /* ignore */ }
+};
 // Allegro launch cost % (dkt_cash_settings.allegro_launch_cost_pct); kept in this browser until the column exists.
 let launchCostColumn = true;
 const LAUNCH_COST_KEY = 'dkt-allegro-launch-cost-pct';
@@ -148,6 +159,8 @@ export function useDktCashflow(thisMonth: Month) {
     ]);
     if (skus.data?.length) skuExcludedColumn = 'excluded' in skus.data[0];
     const leftOut = skuExcludedColumn ? null : localExcluded();
+    if (skus.data?.length) skuLaunchColumns = 'launch_month' in skus.data[0];
+    const pins = skuLaunchColumns ? null : localLaunch();
     const firstErr = [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus].find(r => r.error)?.error;
     if (firstErr) {
       setError(/relation|does not exist|schema cache/i.test(firstErr.message || '')
@@ -199,6 +212,8 @@ export function useDktCashflow(thisMonth: Month) {
         launch_units_per_month: r.launch_units_per_month == null ? null : num(r.launch_units_per_month),
         ramp_months: r.ramp_months == null ? null : num(r.ramp_months),
         excluded: leftOut ? leftOut.has(r.id) : !!r.excluded,
+        launch_month: toMonth(pins ? pins[r.id]?.launch_month : r.launch_month),
+        launch_paid_by: ((pins ? pins[r.id]?.launch_paid_by : r.launch_paid_by) || null) as AmazonSku['launch_paid_by'],
       })),
       dktEntityName: dkt?.name ?? null,
       odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
@@ -348,13 +363,22 @@ export function useDktCashflow(thisMonth: Month) {
       const { data: row, error } = await db.from('dkt_amazon_scenarios')
         .insert({ name: `${s.name} (copy)`, notes: s.notes, in_forecast: false }).select('id').single();
       if (fail(error) || !row) return;
-      const copies = skus.filter(x => x.scenario_id === s.id).map(({ id: _id, excluded, ...x }) => toDb({ ...x, scenario_id: row.id, ...(skuExcludedColumn ? { excluded: !!excluded } : {}) }));
+      const copies = skus.filter(x => x.scenario_id === s.id).map(({ id: _id, excluded, launch_month, launch_paid_by, ...x }) => toDb({
+        ...x, scenario_id: row.id, ...(skuExcludedColumn ? { excluded: !!excluded } : {}), ...(skuLaunchColumns ? { launch_month, launch_paid_by } : {}),
+      }));
       if (copies.length) fail((await db.from('dkt_amazon_skus').insert(copies)).error);
       await load();
     },
     async update(table: string, id: string, patch: Record<string, any>, listKey: keyof DktData) {
       patchLocal(d => ({ ...d, [listKey]: (d[listKey] as any[]).map(r => (r.id === id ? { ...r, ...patch } : r)) }));
       if (table === 'dkt_amazon_skus' && 'excluded' in patch && !skuExcludedColumn) { setLocalExcluded(id, !!patch.excluded); return; }
+      if (table === 'dkt_amazon_skus' && LAUNCH_KEYS.some(k => k in patch)) {
+        if (!skuLaunchColumns) { setLocalLaunch(id, patch); return; }
+        const { error: e } = await db.from(table).update(toDb(patch)).eq('id', id);
+        if (missingColumn(e, 'launch_')) { skuLaunchColumns = false; setLocalLaunch(id, patch); return; }
+        fail(e);
+        return;
+      }
       const { error } = await db.from(table).update(toDb(patch)).eq('id', id);
       if (table === 'dkt_amazon_skus' && 'excluded' in patch && missingColumn(error, 'excluded')) {
         skuExcludedColumn = false;
@@ -380,7 +404,7 @@ const toInvoice = (thisMonth: Month) => (i: OdooRaw['invoices'][number]): OdooIn
   name: i.name, origin: i.origin, due_month: toMonth(i.due || i.date) ?? thisMonth, residual_usd: i.residual_usd,
 });
 
-const MONTH_COLS = new Set(['start_month', 'end_month', 'due_month', 'month', 'ship_month', 'maturity_month', 'proceeds_month']);
+const MONTH_COLS = new Set(['launch_month', 'start_month', 'end_month', 'due_month', 'month', 'ship_month', 'maturity_month', 'proceeds_month']);
 function toDb(row: Record<string, any>) {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(row)) out[k] = MONTH_COLS.has(k) && typeof v === 'string' && v.length === 7 ? `${v}-01` : v;
