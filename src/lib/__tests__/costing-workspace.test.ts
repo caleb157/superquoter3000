@@ -3,11 +3,12 @@
 // cheapest quote) — all measured through the same engine the costing sheet uses.
 import { describe, expect, it } from 'vitest';
 import {
-  DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, setBucketTotal, setDifficulty, setPackagingType, toggleQuote,
+  DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, priceToQuoted, setBucketTotal, setDifficulty, setPackagingType, toggleQuote,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
   chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, removeDomesticFreight, restoreDomesticFreight, isRemovedFreight, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
+import { ALL_COLS, BANDS, fitLayout, layout } from '@/components/costing-workspace/columns';
 
 import { bundle } from './workspace-fixture';
 
@@ -77,10 +78,37 @@ describe('costing workspace', () => {
 
   it('price to target puts each targeted SKU on its target and leaves the rest alone', () => {
     const b0 = bundle();
-    const m = markupToTarget(b0, rowsOf(b0), ['a', 'b', 'c']);
-    expect(byId(m.next, 'a').price).toBeCloseTo(20, 2);
-    expect(byId(m.next, 'b').price).toBeCloseTo(60, 2);
+    const m = markupToTarget(b0, rowsOf(b0), ['a', 'b', 'c'])!;
+    // Exactly on target, not a few cents off: the margin is kept at full precision.
+    expect(byId(m.next, 'a').price).toBeCloseTo(20, 9);
+    expect(byId(m.next, 'b').price).toBeCloseTo(60, 9);
     expect(byId(m.next, 'c').p.markup_percent).toBe(0.25);
+  });
+
+  it('price = last quoted price lands on the quote exactly and makes it the target', () => {
+    const q = { price: 18.4, currency: 'USD', rateInr: 90, quantity: 50, quoteId: 'q', quoteNumber: 'Q-1', at: '2026-10-21', sent: true, quotedProductId: 'a', costInrThen: null };
+    const b0 = { ...bundle(), quoted: { a: q } } as Bundle;
+    const m = priceToQuoted(b0, rowsOf(b0), ['a', 'c'])!;
+    const a = byId(m.next, 'a');
+    expect(a.price).toBeCloseTo(18.4, 9);
+    expect(a.target).toBe(18.4);
+    expect(byId(m.next, 'c').p.markup_percent).toBe(0.25);
+  });
+
+  it('copying or re-typing a solved margin keeps the price (NPM is read and written at full precision)', () => {
+    const b0 = bundle();
+    const b1 = markupToTarget(b0, rowsOf(b0), ['a'])!.next;
+    const npm = ALL_COLS.find(c => c.id === 'npm')!.edit!;
+    // What fill down / copy-paste does: read the cell's value, write it to another row.
+    const b2 = npm.write(b1, ['c'], String(npm.get(byId(b1, 'a'))))!.next;
+    expect(byId(b2, 'c').margin).toBeCloseTo(byId(b1, 'a').margin, 6);
+    const again = npm.write(b1, ['a'], String(npm.get(byId(b1, 'a'))))!.next;
+    expect(Math.abs(byId(again, 'a').price - 20)).toBeLessThan(0.0005);
+  });
+
+  it('price to target does nothing when the inquiry sets one margin for every SKU', () => {
+    const b0 = { ...bundle(), inq: { ...bundle().inq, markup_percent_override: 0.3 } };
+    expect(markupToTarget(b0, rowsOf(b0), ['a'])).toBeNull();
   });
 
   it('quotes: one winner per SKU, cheapest wins on request', () => {
@@ -246,9 +274,9 @@ describe('product setup side effects (shared by the workspace and the product co
       const a = byId(b0, 'a');
       expect(a.target).toBe(1500);
       expect(a.gap).toBeCloseTo(a.priceInr - 1500, 6);
-      const m = markupToTarget(b0, rowsOf(b0), ['a']);
-      // Markup is stored to 4 decimals, which is a few paise either way on a ₹1,500 price.
-      expect(Math.abs(byId(m.next, 'a').price - 1500)).toBeLessThan(0.1);
+      const m = markupToTarget(b0, rowsOf(b0), ['a'])!;
+      // A ₹1,500 target means a ₹1,500.00 price, not ₹1,499.97.
+      expect(byId(m.next, 'a').price).toBeCloseTo(1500, 9);
       // "Target this line" works in rupees too.
       const raw = b0.cogs.find(c => c.product_id === 'a' && c.cogs_type === 'Raw Piece' && c.include === 'Yes')!;
       const after = byId(patchCogsLine(b0, raw.id, { unit_cost_inr: targetLineEach(a, raw)! }).next, 'a');
@@ -378,3 +406,34 @@ describe('quote currency targets', () => {
     expect(winners).toHaveLength(1);
   });
 });
+
+describe('fitting the sheet to the screen', () => {
+  const width = (cols: { width: number }[]) => cols.reduce((a, c) => a + c.width, 0);
+
+  it('uses the normal layout when it fits', () => {
+    const { cols, scale } = fitLayout({ margin: true }, 'USD', { full: 5000, tight: 5000 });
+    expect(scale).toBe(1);
+    expect(cols.map(c => c.id)).toEqual(layout({ margin: true }).map(c => c.id));
+  });
+
+  it('folds the closed steps to one subtotal each before squeezing anything', () => {
+    const open = { cogs: true, raw: true };
+    const tight = layout(open, 'USD', true);
+    const { cols, scale } = fitLayout(open, 'USD', { full: width(tight), tight: width(tight) });
+    expect(scale).toBe(1);
+    expect(cols.map(c => c.id)).toEqual(tight.map(c => c.id));
+    expect(cols.filter(c => c.band === 'labour').map(c => c.id)).toEqual(['labor_inr']);
+    // The price stays in view while a cost step is open.
+    expect(cols.filter(c => c.band === 'margin').map(c => c.id)).toEqual(['npm', 'price', 'gap']);
+  });
+
+  it('every single step, sub-groups open, fits a 1920 screen without scrolling sideways', () => {
+    // 1920 wide, less the page padding, the SKU column and the gutter.
+    const avail = { full: 1920 - 32 - 280 - 16, tight: 1920 - 32 - 228 - 16 };
+    for (const band of BANDS) {
+      const { cols, scale } = fitLayout({ [band.id]: true, raw: true, hardware: band.id !== 'cogs', cartons: true }, 'USD', avail);
+      expect(Math.floor(width(cols) * scale)).toBeLessThanOrEqual(scale < 1 ? avail.tight : avail.full);
+    }
+  });
+});
+

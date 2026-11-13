@@ -82,7 +82,7 @@ function dimCols(idPrefix: string, group: string, opts: {
   hint?: string;
 }): Col[] {
   return AXES.map(([axis, short]) => ({
-    id: `${idPrefix}_${short.toLowerCase()}`, group, label: `${short}"`, width: 66, align: 'right' as const, hint: opts.hint,
+    id: `${idPrefix}_${short.toLowerCase()}`, group, label: `${short}"`, width: 56, align: 'right' as const, hint: opts.hint,
     edit: {
       kind: 'number' as const,
       get: r => { const v = Number(opts.get(r, axis)); return Number.isFinite(v) && v ? +v.toFixed(2) : ''; },
@@ -134,7 +134,7 @@ function RawParts({ row, b }: { row: WorkspaceRow; b: Bundle }) {
   );
 }
 
-const bucketCol = (key: string, label: string, width = 96, parts = false): Col => ({
+const bucketCol = (key: string, label: string, width = 90, parts = false): Col => ({
   id: `bucket:${key}`, label: `${label} ₹`, width, align: 'right',
   hint: `Per-unit ${label.toLowerCase()} price as quoted, before waste (costing adds waste on top). Typing a total adjusts the main line so the bucket adds up to it.`,
   edit: {
@@ -162,23 +162,24 @@ const boxOpts = (b: Bundle) => Array.from(new Set(b.boxData.map((x: any) => x.bo
 // ---------- shared columns ----------
 
 const qtyCol: Col = {
-  id: 'qty', label: 'Qty', width: 72, align: 'right',
+  id: 'qty', label: 'Qty', width: 64, align: 'right',
   edit: { kind: 'number', get: r => r.p.quantity ?? 0, write: productField('quantity', { int: true }) },
   footer: rows => sumBy(rows, r => r.qty).toLocaleString(),
 };
 
 const npmCol: Col = {
-  id: 'npm', label: 'NPM %', width: 80, align: 'right',
+  id: 'npm', label: 'NPM %', width: 72, align: 'right',
   hint: 'Net profit margin on price. Stored as markup (25% markup = 20% NPM), exactly like the costing sheet.',
   edit: {
     kind: 'number',
-    get: r => Math.round(r.margin * 1000) / 10,
+    // Four decimals, so copying, filling down or re-typing a margin that was solved to hit a price keeps that price to the paisa.
+    get: r => +(r.margin * 100).toFixed(4),
     display: r => pct(r.margin),
     disabled: (_r, b) => (b.inq?.markup_percent_override != null ? 'This inquiry has a markup override in its Settings tab' : null),
     write: (b, ids, raw) => {
       const n = parseNum(raw);
       if (n == null || n < 0 || n >= 100) return null;
-      return patchProductsSame(b, ids, { markup_percent: Math.round(npmToMarkup(n / 100) * 10000) / 10000 });
+      return patchProductsSame(b, ids, { markup_percent: npmToMarkup(n / 100) });
     },
   },
   footer: rows => {
@@ -189,7 +190,7 @@ const npmCol: Col = {
 };
 
 const contribCol: Col = {
-  id: 'contrib', label: 'Contrib %', width: 84, align: 'right',
+  id: 'contrib', label: 'Contrib %', width: 80, align: 'right',
   hint: 'Contribution rate: net margin plus the indirect (factory) overhead this SKU absorbs. Equals NPM for bought-in items with no man-hours, so trading and manufacturing work compare fairly.',
   render: r => <span className="tabular-nums text-muted-foreground">{pct(r.contribution)}</span>,
   footer: rows => {
@@ -199,7 +200,7 @@ const contribCol: Col = {
 };
 
 const targetCol: Col = {
-  id: 'target', label: 'Target $', width: 88, align: 'right',
+  id: 'target', label: 'Target $', width: 100, align: 'right',
   hint: 'The price to hit, per unit (USD): the customer’s target, or the price already quoted. Leave blank for none.',
   edit: {
     kind: 'number',
@@ -223,15 +224,15 @@ const targetCol: Col = {
   },
 };
 
-const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 88, { hint: 'Today’s price: unit cost plus margin' });
+const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 100, { hint: 'Today’s price: unit cost plus margin' });
 const quotedCol: Col = {
-  id: 'quoted', label: 'Quoted $', width: 132, align: 'right',
+  id: 'quoted', label: 'Quoted $', width: 124, align: 'right',
   hint: 'The price on the customer’s latest quote for this SKU (a sent quote first, otherwise the newest draft). The button beside it makes that price the target.',
   render: (r, _b, apply) => <QuotedCell row={r} apply={apply} />,
   text: r => (r.quoted ? String(Math.round(r.quoted.price * 100) / 100) : ''),
   footer: rows => { const q = rows.filter(r => r.quoted); return q.length ? money(sumBy(q, r => r.quoted!.price * r.qty), rows[0]?.cur ?? 'USD', 0) : ''; },
 };
-const gapCol: Col = { id: 'gap', label: 'vs target', width: 128, align: 'left', hint: 'Today’s price against the target: ▲ red is over, ▼ green is under', render: r => <GapChip row={r} /> };
+const gapCol: Col = { id: 'gap', label: 'vs target', width: 124, align: 'left', hint: 'Today’s price against the target: ▲ red is over, ▼ green is under', render: r => <GapChip row={r} /> };
 
 // ---------- labor ----------
 
@@ -277,13 +278,13 @@ const dash = <span className="text-muted-foreground/50">—</span>;
 // COGS
 
 const sourceCol: Col = {
-  id: 'source', label: 'Source', width: 168, align: 'left',
+  id: 'source', label: 'Source', width: 136, align: 'left',
   hint: 'Where the piece is made or bought. Outside Jodhpur adds domestic freight under Shipping.',
   edit: { kind: 'select', get: r => r.p.source_location_id || '', options: b => [{ value: '', label: 'In-house (Jodhpur)' }, ...b.locations.map((l: any) => ({ value: l.id, label: l.name }))],
     write: (b, ids, v) => setSourceLocation(b, ids, v || null) },
 };
 const outsourcedCol: Col = {
-  id: 'outsourced', label: 'Outsourced', width: 92, align: 'center',
+  id: 'outsourced', label: 'Bought in', bulkLabel: 'Outsourced', width: 72, align: 'center',
   hint: 'Bought finished from a supplier: its purchase cost replaces the build-up and it carries no man-hours.',
   edit: { kind: 'bool', get: r => !!r.p.is_outsourced, write: (b, ids, v) => setOutsourced(b, ids, v === 'true') },
 };
@@ -297,14 +298,14 @@ const hwTotalCol = ro('hw', 'Hardware ₹', r => {
       <TooltipContent className="text-xs">{parts.map(x => <div key={x.key}>{x.label}: {inr(r.editBuckets[x.key])}</div>)}<div className="mt-1 text-muted-foreground">Open Hardware (▸ in the header) to edit by type</div></TooltipContent>
     </Tooltip>
   );
-}, 124, { hint: 'Hardware and accessories per unit. Open it to edit each type and see the parts.', footer: rows => inr(sumBy(rows, r => hwTotal(r) * r.qty)) });
-const cogsTotalCol = ro('cogs_total', 'COGS ₹', r => <span className="font-semibold">{inr(stepTotals(r).cogs)}</span>, 100,
+}, 100, { hint: 'Hardware and accessories per unit. Open it to edit each type and see the parts.', footer: rows => inr(sumBy(rows, r => hwTotal(r) * r.qty)) });
+const cogsTotalCol = ro('cogs_total', 'COGS ₹', r => <span className="font-semibold">{inr(stepTotals(r).cogs)}</span>, 92,
   { hint: 'Materials and components per unit, with waste: raw piece, subcontract, hardware, finishing and packaging materials, other.', footer: rows => inr(sumBy(rows, r => stepTotals(r).cogs * r.qty)) });
 
 // Labour
 
 const productTypeCol: Col = {
-  id: 'ptype', label: 'Product type', width: 170, align: 'left',
+  id: 'ptype', label: 'Product type', width: 150, align: 'left',
   hint: 'Sets how running inches and finishing hours are worked out (e.g. Wood Table uses the long side).',
   edit: { kind: 'select', get: r => r.p.product_type_id || '', options: b => [{ value: '', label: '—' }, ...b.productTypes.map((t: any) => ({ value: t.id, label: t.name }))],
     write: (b, ids, v) => setProductType(b, ids, v || null) },
@@ -337,19 +338,19 @@ const otherMhCol = ro('other_mh', 'Other MH', (r, b) => {
 }, 84);
 const mhTotalCol = ro('mh_total', 'Total MH', r => <span className="font-medium">{num(r.r.manHoursPerUnit, 2)}</span>, 84,
   { hint: 'Man-hours per unit, all labour types', footer: rows => num(sumBy(rows, r => r.r.manHoursPerUnit * r.qty), 1) + ' h' });
-const laborTotalCol = ro('labor_inr', 'Labour ₹', r => <span className="font-semibold">{inr(r.buckets.labor)}</span>, 100,
+const laborTotalCol = ro('labor_inr', 'Labour ₹', r => <span className="font-semibold">{inr(r.buckets.labor)}</span>, 92,
   { hint: 'Direct labour at each role\'s live LaborTrax rate plus indirect overhead per man-hour', footer: rows => inr(sumBy(rows, r => r.buckets.labor * r.qty)) });
 
 // Shipping
 
 const pkgTypeCol: Col = {
-  id: 'pkg_type', label: 'Packaging', bulkLabel: 'Packaging type', width: 132, align: 'left',
+  id: 'pkg_type', label: 'Packaging', bulkLabel: 'Packaging type', width: 116, align: 'left',
   hint: 'How it is packed. Packaging materials are costed under COGS; carton sizes here set the CBM.',
   edit: { kind: 'select', get: r => r.p.packaging_type || 'ic_mc', options: () => PACKAGING_OPTS,
     write: (b, ids, v) => setPackagingType(b, ids, v || 'ic_mc') },
 };
 const perMcCol: Col = {
-  id: 'per_mc', label: 'Pcs/MC', width: 72, align: 'right',
+  id: 'per_mc', label: 'Pcs/MC', width: 64, align: 'right',
   hint: 'Pieces per master carton, calculated from the fit. Type a number to override (marked ✎); clear it to go back to the calculation.',
   edit: {
     kind: 'number',
@@ -370,9 +371,9 @@ const cartonCols: Col[] = [
     get: (r, axis) => r.cbmRow?.[`ic_${axis}`] ?? r.r.icDims[`ic_${axis}`],
     write: (b, ids, axis, n) => patchCbm(b, ids, { [`ic_${axis}`]: n }),
   }),
-  { id: 'ic_type', label: 'IC ply', width: 84, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.ic_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { ic_type: v }) } },
-  { id: 'per_ic', label: 'Pcs/IC', width: 64, align: 'right', edit: { kind: 'number', get: r => r.cbmRow?.products_per_ic || 1, write: cbmField('products_per_ic', true) } },
-  { id: 'mc_type', label: 'MC ply', width: 84, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.mc_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { mc_type: v }) } },
+  { id: 'ic_type', label: 'IC ply', width: 76, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.ic_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { ic_type: v }) } },
+  { id: 'per_ic', label: 'Pcs/IC', width: 58, align: 'right', edit: { kind: 'number', get: r => r.cbmRow?.products_per_ic || 1, write: cbmField('products_per_ic', true) } },
+  { id: 'mc_type', label: 'MC ply', width: 76, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.mc_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { mc_type: v }) } },
   ...dimCols('mc', 'Master carton max', {
     hint: 'Largest master carton allowed; inner cartons are packed into it',
     get: (r, axis) => r.cbmRow?.[`mc_max_${axis}`] || 25,
@@ -387,28 +388,28 @@ const cartonCols: Col[] = [
         <TooltipContent className="max-w-sm"><McPlanBreakdown plan={plan} /></TooltipContent>
       </Tooltip>
     );
-  }, 104, { hint: 'Inner cartons across W × along D × high in the master carton. Hover for the full calculation.' }),
+  }, 124, { hint: 'Inner cartons across W × along D × high in the master carton. Hover for the full calculation.' }),
   perMcCol,
 ];
-const cbmCol = ro('cbm', 'Unit CBM', r => (r.r.finalUnitCbm ? r.r.finalUnitCbm.toFixed(4) : '—'), 96,
+const cbmCol = ro('cbm', 'Unit CBM', r => (r.r.finalUnitCbm ? r.r.finalUnitCbm.toFixed(4) : '—'), 80,
   { footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) + ' m³' });
 const shipTypeCol: Col = {
-  id: 'shipping', label: 'Ship via', bulkLabel: 'Shipping type', width: 150, align: 'left',
+  id: 'shipping', label: 'Ship via', bulkLabel: 'Shipping type', width: 132, align: 'left',
   edit: { kind: 'select', get: r => r.shippingId || '', options: b => b.shipTypes.map((t: any) => ({ value: t.id, label: t.name })),
     disabled: (_r, b) => (b.inq?.shipping_type_id_override ? 'This inquiry sets one shipping type for every SKU in its Settings tab' : null),
     write: (b, ids, v) => (v ? setShippingType(b, ids, v) : null) },
 };
-const shipTotalCol = ro('ship', 'Shipping ₹', r => <span className="font-semibold">{inr(r.buckets.shipping)}</span>, 100,
+const shipTotalCol = ro('ship', 'Shipping ₹', r => <span className="font-semibold">{inr(r.buckets.shipping)}</span>, 92,
   { hint: 'Freight per unit from the packed CBM, plus domestic freight for pieces sourced outside Jodhpur', footer: rows => inr(sumBy(rows, r => r.buckets.shipping * r.qty)) });
 
 // Margin
 
 const capitalCol = ro('capital', 'Capital ₹', r => (r.r.capitalPerUnitInr ? inr(r.r.capitalPerUnitInr) : dash), 88,
   { hint: 'Cost of capital: working-capital carry on COGS, labour and shipping (set per product in the panel)' });
-const unitCostCol = ro('cost', 'Unit cost ₹', r => <span className="font-semibold">{inr(r.costInr)}</span>, 104,
+const unitCostCol = ro('cost', 'Unit cost ₹', r => <span className="font-semibold">{inr(r.costInr)}</span>, 96,
   { hint: 'COGS + labour + shipping + cost of capital' });
 const solveCol: Col = {
-  id: 'solve', label: 'To hit target', width: 168, align: 'left',
+  id: 'solve', label: 'To hit target', width: 150, align: 'left',
   hint: 'Either margin you would need at today’s cost, or the cost you would need at today’s margin',
   render: r => {
     if (r.gap == null) return dash;
@@ -427,7 +428,8 @@ const lineFobCol = ro('line', 'Line FOB $', r => money(r.price * r.qty, r.cur, 0
 /** A collapsible run of columns inside a step (hardware by type, carton sizes). */
 export type Sub = { id: string; label: string; hint?: string; summary: Col[]; items: Col[] };
 /** One costing step. Collapsed it shows `summary`; open it shows `items`, then any summary column not among them. */
-export type Band = { id: StepId; n: number; label: string; hint: string; color: string; summary: Col[]; items: (Col | Sub)[] };
+/** `mini` is the folded step at its tightest (one subtotal), used when the full sheet would not fit the screen. */
+export type Band = { id: StepId; n: number; label: string; hint: string; color: string; summary: Col[]; mini: Col[]; items: (Col | Sub)[] };
 export type StepId = 'cogs' | 'labour' | 'shipping' | 'margin';
 
 const isSub = (x: Col | Sub): x is Sub => 'items' in x;
@@ -439,16 +441,16 @@ export const BANDS: Band[] = [
   {
     id: 'cogs', n: 1, label: 'COGS', color: 'hsl(var(--cw-raw))',
     hint: 'Materials and components: where the piece comes from, the raw piece, subcontract, hardware, finishing and packaging materials',
-    summary: [cogsTotalCol],
+    summary: [cogsTotalCol], mini: [cogsTotalCol],
     items: [
       sourceCol, outsourcedCol,
       { id: 'raw', label: 'Raw piece', hint: 'Open to see each raw piece cost that is ticked, with its name and price',
         summary: [bucketCol('raw_piece', 'Raw piece')],
-        items: [{ ...bucketCol('raw_piece', 'Raw piece', 200), detail: (r: WorkspaceRow, b: Bundle) => <RawParts row={r} b={b} /> }] },
+        items: [{ ...bucketCol('raw_piece', 'Raw piece', 176), detail: (r: WorkspaceRow, b: Bundle) => <RawParts row={r} b={b} /> }] },
       bucketCol('subcontract', 'Subcontract'),
-      ro('outs', 'Outsourced ₹', r => (r.buckets.outsourced ? inr(r.buckets.outsourced) : dash)),
+      ro('outs', 'Outsourced ₹', r => (r.buckets.outsourced ? inr(r.buckets.outsourced) : dash), 90),
       { id: 'hardware', label: 'Hardware', hint: 'Per-unit hardware and accessories by type, with the parts behind each total',
-        summary: [hwTotalCol], items: [...HW_KEYS.map(x => bucketCol(x.key, x.label, 150, true)), hwTotalCol] },
+        summary: [hwTotalCol], items: [...HW_KEYS.map(x => bucketCol(x.key, x.label, 140, true)), hwTotalCol] },
       bucketCol('finishing', 'Finishing'),
       bucketCol('packaging', 'Packaging'),
       ro('other', 'Other ₹', r => (r.buckets.other ? inr(r.buckets.other) : dash), 88, { hint: 'Other components and one-off (non-unit) costs spread over the quantity' }),
@@ -457,7 +459,7 @@ export const BANDS: Band[] = [
   {
     id: 'labour', n: 2, label: 'Labour', color: 'hsl(var(--cw-labor))',
     hint: 'Running inches and finish set the hours; hours × live LaborTrax rates + indirect overhead give labour per unit',
-    summary: [mhTotalCol, laborTotalCol],
+    summary: [mhTotalCol, laborTotalCol], mini: [laborTotalCol],
     items: [
       productTypeCol, difficultyCol, woodCol, riCol,
       ro('rpri', '₹ / run. in.', r => (r.r.autoLabor.finishingMethod === 'ri_budget'
@@ -474,14 +476,14 @@ export const BANDS: Band[] = [
   {
     id: 'shipping', n: 3, label: 'Shipping', color: 'hsl(var(--cw-ship))',
     hint: 'Piece and carton sizes give the packed CBM; the shipping type turns CBM into freight per unit',
-    summary: [cbmCol, shipTotalCol],
+    summary: [cbmCol, shipTotalCol], mini: [shipTotalCol],
     items: [
       pkgTypeCol,
       ...dimCols('piece', 'Piece', {
         get: (r, axis) => r.p[`${axis}_inch`],
         write: (b, ids, axis, n) => patchProductsSame(b, ids, { [`${axis}_inch`]: n }),
       }),
-      { id: 'weight', label: 'Wt kg', width: 64, align: 'right', edit: { kind: 'number', get: r => r.p.weight_kg ?? '', write: productField('weight_kg') } },
+      { id: 'weight', label: 'Wt kg', width: 56, align: 'right', edit: { kind: 'number', get: r => r.p.weight_kg ?? '', write: productField('weight_kg') } },
       { id: 'cartons', label: 'Cartons', hint: 'Inner and master carton sizes, ply and how they pack', summary: [perMcCol], items: cartonCols },
       cbmCol,
       ro('line_cbm', 'Line CBM', r => num(r.r.finalUnitCbm * r.qty, 2), 80, { footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) }),
@@ -491,7 +493,7 @@ export const BANDS: Band[] = [
   {
     id: 'margin', n: 4, label: 'Margin', color: 'hsl(var(--primary))',
     hint: 'Unit cost, margin and today’s price, against the last quoted price and the target',
-    summary: [unitCostCol, npmCol, priceCol, quotedCol, targetCol, gapCol],
+    summary: [unitCostCol, npmCol, priceCol, quotedCol, targetCol, gapCol], mini: [npmCol, priceCol, gapCol],
     items: [capitalCol, unitCostCol, npmCol, contribCol, priceCol, quotedCol, targetCol, gapCol, solveCol, lineFobCol],
   },
 ];
@@ -503,11 +505,11 @@ export const DEFAULT_OPEN: OpenState = { margin: true };
 /** A visible column with where it sits: its step, and the sub-group it belongs to (open or the collapsed summary). */
 export type LaidCol = Col & { band?: StepId; sub?: { id: string; label: string; hint?: string; open: boolean; first: boolean } };
 
-/** The columns the grid shows for the given open state, left to right. */
-export function layout(open: OpenState, cur: QuoteCur = 'USD'): LaidCol[] {
+/** The columns the grid shows for the given open state, left to right. `tight` folds the closed steps to one subtotal each. */
+export function layout(open: OpenState, cur: QuoteCur = 'USD', tight = false): LaidCol[] {
   const out: LaidCol[] = LEAD_COLS.map(c => ({ ...c }));
   for (const band of BANDS) {
-    if (!open[band.id]) { out.push(...band.summary.map(c => ({ ...c, band: band.id }))); continue; }
+    if (!open[band.id]) { out.push(...(tight ? band.mini : band.summary).map(c => ({ ...c, band: band.id }))); continue; }
     const ids = new Set<string>();
     for (const it of band.items) {
       if (!isSub(it)) { out.push({ ...it, band: band.id }); ids.add(it.id); continue; }
@@ -518,6 +520,27 @@ export function layout(open: OpenState, cur: QuoteCur = 'USD'): LaidCol[] {
     out.push(...band.summary.filter(c => !ids.has(c.id)).map(c => ({ ...c, band: band.id })));
   }
   return cur === 'USD' ? out : out.map(c => inCurrency(c, cur));
+}
+
+/** Columns are never squeezed below this share of their width (numbers stop fitting). */
+export const MIN_SCALE = 0.72;
+const widthOf = (cols: Col[]) => cols.reduce((a, c) => a + c.width, 0);
+
+/**
+ * The layout that fits the screen without scrolling sideways. `avail` is the px left for the
+ * columns in the normal layout (`full`) and with the narrower SKU column of the squeezed one
+ * (`tight`). The normal layout is used if it fits; otherwise the closed steps fold to one
+ * subtotal each, and what is still too wide is squeezed evenly (down to MIN_SCALE; past that
+ * the grid scrolls).
+ */
+export function fitLayout(open: OpenState, cur: QuoteCur, avail: { full: number; tight: number } | null): { cols: LaidCol[]; scale: number } {
+  const full = layout(open, cur);
+  if (!avail || widthOf(full) <= avail.full) return { cols: full, scale: 1 };
+  const tight = layout(open, cur, true);
+  const w = widthOf(tight);
+  if (w <= avail.full) return { cols: tight, scale: 1 };
+  // Just under 1 even when it would fit the tight width exactly, so the table takes the narrower SKU column.
+  return { cols: tight, scale: Math.min(0.999, Math.max(MIN_SCALE, avail.tight / w)) };
 }
 
 /** Money headers in the quote currency: "Price ₹", "Target ₹" for a rupee customer. Cells already format by row. */

@@ -6,7 +6,7 @@
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, FileText, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
 import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 
@@ -29,7 +29,10 @@ import { BulkBar } from '@/components/costing-workspace/BulkBar';
 import { ProductPanel } from '@/components/costing-workspace/ProductPanel';
 import { WorkspaceTable } from '@/components/costing-workspace/WorkspaceTable';
 import { QuotesToolbar } from '@/components/costing-workspace/QuotesToolbar';
-import { BANDS, DEFAULT_OPEN, layout, type OpenState } from '@/components/costing-workspace/columns';
+import { BANDS, DEFAULT_OPEN, fitLayout, type OpenState } from '@/components/costing-workspace/columns';
+import { NAME_WIDTH } from '@/components/costing-workspace/WorkspaceTable';
+import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Stat, focusCell, focusNavEl, pct } from '@/components/costing-workspace/cells';
 import { formatMoney, quoteCurrencyOf } from '@/lib/quote-currency';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -69,7 +72,13 @@ export default function CostingWorkspace() {
     return legacy ? { ...readOpen(), ...Object.fromEntries(legacy.map(k => [k, true])) } : readOpen();
   });
   useEffect(() => { try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch { /* private mode */ } }, [open]);
-  const toggleOpen = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }));
+  // One step open at a time, so the sheet stays on the screen: opening a step folds the others
+  // (their subtotals stay in view). "Open all steps" still lays the whole sheet out. Sub-groups
+  // (raw piece, hardware, cartons) keep their own state.
+  const toggleOpen = (k: string) => setOpen(o => {
+    if (!BANDS.some(b => b.id === k)) return { ...o, [k]: !o[k] };
+    return { ...o, ...Object.fromEntries(BANDS.map(b => [b.id, b.id === k ? !o[k] : false])) };
+  });
   const setAllOpen = (on: boolean) => setOpen(o => ({ ...o, ...Object.fromEntries(BANDS.map(b => [b.id, on])) }));
   const allOpen = BANDS.every(b => open[b.id]);
   const openId = params.get('sku');
@@ -85,7 +94,22 @@ export default function CostingWorkspace() {
   const doRedo = () => { if (redo()) toast('Redone'); else toast.info('Nothing to redo'); };
   // Rupee customers get the whole workspace in ₹ (the inquiry's Quoting currency).
   const cur = quoteCurrencyOf(bundle?.inq);
-  const cols = useMemo(() => layout(open, cur), [open, cur]);
+  // The grid's width on screen, so the columns can be laid out to fit it without scrolling sideways.
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const gridObserver = useRef<ResizeObserver | null>(null);
+  const gridRef = useCallback((el: HTMLDivElement | null) => {
+    gridObserver.current?.disconnect();
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    gridObserver.current = new ResizeObserver(() => setGridWidth(el.clientWidth));
+    gridObserver.current.observe(el);
+    setGridWidth(el.clientWidth);
+  }, []);
+  const fit = useMemo(
+    () => fitLayout(open, cur, gridWidth == null ? null : { full: gridWidth - NAME_WIDTH.sheet - 16, tight: gridWidth - NAME_WIDTH.tight - 16 }),
+    [open, cur, gridWidth],
+  );
+  const cols = fit.cols;
+  const [quotesOpen, setQuotesOpen] = useState(false);
   const m = (n: number, d = 0) => formatMoney(n, cur, d);
   const quote = useGenerateQuote(inquiryId);
   /** Draft quote from the ticked SKUs at the prices the grid shows (same engine numbers). */
@@ -206,7 +230,10 @@ export default function CostingWorkspace() {
       if (e.key === 'g') { e.preventDefault(); focusRow(openId); return; }
       const n = Number(e.key);
       const band = BANDS.find(b => b.n === n);
-      if (band) { if (quotesMode) setParam('view', null); setOpen(o => ({ ...o, [band.id]: quotesMode ? true : !o[band.id] })); return; }
+      if (band) {
+        if (quotesMode) { setParam('view', null); if (!open[band.id]) toggleOpen(band.id); } else toggleOpen(band.id);
+        return;
+      }
       if (e.key === 'q') { setParam('view', quotesMode ? null : 'quotes'); return; }
       if (openId && (e.key === 'j' || e.key === 'ArrowDown')) { e.preventDefault(); go(1); }
       if (openId && (e.key === 'k' || e.key === 'ArrowUp')) { e.preventDefault(); go(-1); }
@@ -351,7 +378,7 @@ export default function CostingWorkspace() {
                       {allOpen ? <><ChevronsRightLeft className="h-4 w-4" /> Fold all steps</> : <><ChevronsLeftRight className="h-4 w-4" /> Open all steps</>}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">Folded, each step shows only its subtotal: COGS + labour + shipping = unit cost, then price. Keys 1 to 4 open or fold one step.</TooltipContent>
+                  <TooltipContent className="max-w-xs text-xs">Folded, each step shows only its subtotal: COGS + labour + shipping = unit cost, then price. Keys 1 to 4 open one step and fold the others, so the sheet stays on the screen; this button lays every step out at once.</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -375,6 +402,14 @@ export default function CostingWorkspace() {
                 )}
               </>
             )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setQuotesOpen(true)}>
+                  <FileText className="h-4 w-4" /> Customer quotes{quotedCount > 0 ? ` (${quotedCount} SKU${quotedCount === 1 ? '' : 's'} quoted)` : ''}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">This inquiry’s quotes, without leaving costing: open or edit one, mark it sent, compare with the latest sent</TooltipContent>
+            </Tooltip>
             <div className="ml-auto flex items-center gap-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -412,7 +447,7 @@ export default function CostingWorkspace() {
 
           {/* Grid + panel */}
           <div className={cn('flex min-h-0 flex-1 gap-3', selectedIds.length > 0 && 'mb-[68px]')}>
-            <div className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'flex-1')}>
+            <div ref={gridRef} className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'min-w-0 flex-1')}>
               {visibleRows.length === 0 ? (
                 <div className="p-12 text-center text-sm text-muted-foreground">
                   {rows.length === 0 ? 'This inquiry has no products yet.' : 'No SKUs match.'}
@@ -424,7 +459,7 @@ export default function CostingWorkspace() {
                   nameSort={sort === 'name' ? 'asc' : sort === 'name_desc' ? 'desc' : null}
                   onSortName={() => setSort(s => (s === 'name' ? 'name_desc' : s === 'name_desc' ? 'sheet' : 'name'))}
                   openId={openId} onOpen={id => setParam('sku', id === openId ? null : id)}
-                  compact={!!openRow} quoteSlots={quoteSlots} onAddQuoteSlot={() => setExtraSlots(s => s + 1)}
+                  compact={!!openRow} quoteSlots={quoteSlots} onAddQuoteSlot={() => setExtraSlots(s => s + 1)} scale={fit.scale}
                 />
               )}
             </div>
@@ -451,6 +486,17 @@ export default function CostingWorkspace() {
           )}
         </div>
         {quote.dialog}
+        <Sheet open={quotesOpen} onOpenChange={o => { setQuotesOpen(o); if (!o) void load(); }}>
+          <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
+            <SheetHeader className="mb-4">
+              <SheetTitle>Customer quotes · {title}</SheetTitle>
+              <SheetDescription>
+                The quotes made for this inquiry. To make a new one, tick SKUs in the costing sheet and press Generate quote. Closing this refreshes the Quoted column.
+              </SheetDescription>
+            </SheetHeader>
+            {quotesOpen && <InquiryQuotesTab inquiryId={inquiryId!} refreshKey={0} />}
+          </SheetContent>
+        </Sheet>
         <CostingIntakeDialog open={intakeOpen} onOpenChange={setIntakeOpen} inquiryId={inquiryId!} mode="update" onApplied={() => void load()} />
       </TooltipProvider>
     </AppLayout>
@@ -477,7 +523,7 @@ const SHORTCUTS: [string, string][] = [
   ['Enter / Space (on a menu)', 'Open the dropdown; typing a letter picks an option'],
   ['/', 'Search'],
   ['g', 'Jump into the grid'],
-  ['1 – 4', 'Open or fold COGS, Labour, Shipping, Margin'],
+  ['1 – 4', 'Open COGS, Labour, Shipping or Margin (the others fold); again to fold it'],
   ['q', 'Vendor quotes side by side (again to go back)'],
 ];
 

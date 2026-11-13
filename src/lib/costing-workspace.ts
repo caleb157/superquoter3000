@@ -1053,14 +1053,44 @@ export function setShippingType(b: Bundle, ids: string[], shippingTypeId: string
 
 // ----- Pricing -----
 
+/**
+ * The markup that prices a product exactly on `price` (in the quote currency) at today's cost.
+ * Kept at full precision: rounding it moves the price off by a few paise.
+ */
+export function markupForPrice(r: WorkspaceRow, price: number): number | null {
+  const rate = r.cur === 'INR' ? 1 : (r.r.exchangeRate || 0);
+  if (!(price > 0) || !(r.costInr > 0) || !(rate > 0)) return null;
+  const m = (price * rate) / r.costInr - 1;
+  return m > -1 ? m : null;
+}
+
+/** True when one margin is set for the whole inquiry (its Settings), so a single SKU's margin can't move. */
+export const marginLocked = (b: Bundle) => b.inq?.markup_percent_override != null;
+
 /** Sets each product's markup so its price lands exactly on its target (products without a target are skipped). */
-export function markupToTarget(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation {
+export function markupToTarget(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
+  if (marginLocked(b)) return null;
   const patches: Record<string, Record<string, any>> = {};
   for (const r of rows) {
-    if (!ids.includes(r.p.id) || r.requiredMarkup == null) continue;
-    patches[r.p.id] = { markup_percent: Math.round(r.requiredMarkup * 10000) / 10000 };
+    if (!ids.includes(r.p.id) || r.target == null) continue;
+    const m = markupForPrice(r, r.target);
+    if (m != null) patches[r.p.id] = { markup_percent: m };
   }
-  return patchProducts(b, patches);
+  return Object.keys(patches).length ? patchProducts(b, patches) : null;
+}
+
+/** Prices each product exactly at its last quoted price, and makes that price the target (never-quoted products are skipped). */
+export function priceToQuoted(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
+  if (marginLocked(b)) return null;
+  const patches: Record<string, Record<string, any>> = {};
+  for (const r of rows) {
+    if (!ids.includes(r.p.id) || !r.quoted) continue;
+    const price = Math.round(r.quoted.price * 100) / 100;
+    const m = markupForPrice(r, price);
+    if (m == null) continue;
+    patches[r.p.id] = { ...targetPatch(r.p, r.cur, price, r.r.exchangeRate || 0), markup_percent: m };
+  }
+  return Object.keys(patches).length ? patchProducts(b, patches) : null;
 }
 
 /** Copies each product's current calculated price into its target price. */

@@ -37,7 +37,12 @@ type Props = {
   compact: boolean;
   quoteSlots: number;
   onAddQuoteSlot: () => void;
+  /** Squeeze the columns to this share of their width so the sheet fits the screen (from fitLayout). */
+  scale?: number;
 };
+
+/** Width of the SKU column: the full sheet, squeezed to fit, and beside the product panel. */
+export const NAME_WIDTH = { sheet: 280, tight: 228, compact: 220 };
 
 const COMPACT_COLS: Col[] = [
   { id: 'c_price', label: 'Price', width: 76, align: 'right', render: r => <span className="font-semibold">{money(r.price, r.cur)}</span> },
@@ -46,7 +51,8 @@ const COMPACT_COLS: Col[] = [
 
 export function WorkspaceTable(p: Props) {
   const { rows, bundle, selected, openId, compact } = p;
-  const cols: LaidCol[] = compact ? COMPACT_COLS : p.cols;
+  const scale = compact || p.quotes ? 1 : p.scale ?? 1;
+  const cols: LaidCol[] = compact ? COMPACT_COLS : scale < 1 ? p.cols.map(c => ({ ...c, width: Math.floor(c.width * scale) })) : p.cols;
   const isQuotes = p.quotes && !compact;
   const allSelected = rows.length > 0 && rows.every(r => selected.has(r.p.id));
   const someSelected = rows.some(r => selected.has(r.p.id));
@@ -73,13 +79,13 @@ export function WorkspaceTable(p: Props) {
   const bandStart = new Set(cols.filter((c, i) => c.band && cols[i - 1]?.band !== c.band).map(c => c.id));
   const headTop = (bands ? 32 : 0) + (groups ? 28 : 0);
 
-  const nameWidth = compact ? 220 : 280;
+  const nameWidth = compact ? NAME_WIDTH.compact : scale < 1 ? NAME_WIDTH.tight : NAME_WIDTH.sheet;
   const dataWidth = isQuotes ? 72 + p.quoteSlots * QUOTE_W + 44 + 104 + 120 : cols.reduce((a, c) => a + c.width, 0);
 
   const block = useBlockSelection({ enabled: grid === 'sheet', cols, rows, bundle, apply: p.apply });
 
   return (
-    <table ref={block.ref} {...block.handlers} className="w-full table-fixed border-separate border-spacing-0 text-sm" style={{
+    <table ref={block.ref} {...block.handlers} className={cn('w-full table-fixed border-separate border-spacing-0 text-sm', scale < 1 && 'cw-tight')} style={{
       minWidth: nameWidth + dataWidth + 16,
       // Keep keyboard-focused cells clear of the sticky header, footer and name column.
       ['--cw-scroll-top' as any]: `${headTop + 44}px`,
@@ -221,7 +227,8 @@ export function WorkspaceTable(p: Props) {
                 <QuoteCells row={row} idx={idx} rows={rows} bundle={bundle} slots={p.quoteSlots} apply={p.apply} />
               ) : cols.map((c, ci) => (
                 <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums',
-                  bandStart.has(c.id) && 'border-l border-l-border/70')}>
+                  // A read-only cell never spills past its column (that would bring the sideways scrollbar back).
+                  !c.edit && 'overflow-hidden', bandStart.has(c.id) && 'border-l border-l-border/70')}>
                   <Cell col={c} ci={ci} cols={cols} row={row} idx={idx} rows={rows} bundle={bundle} grid={grid} apply={p.apply} />
                 </td>
               ))}

@@ -1,7 +1,7 @@
 // Floating action bar for the ticked SKUs: set any field, scale a cost bucket, add price-list
 // items, copy costing from another SKU, paste copied lines, duplicate, or run one of the
 // pricing shortcuts (the Target menu: target = last quoted price, target = today's price,
-// price to target; and cheapest quote wins).
+// price = target, price = last quoted price; and cheapest quote wins).
 import { useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Crosshair, FileText, ListPlus, Loader2, Percent, Target, Trophy, Undo2, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, chooseCheapestQuotes, markupToTarget, pasteCogsLines, scaleBucket, targetFromPrice, targetFromQuoted, targetIsQuoted,
+  EDITABLE_BUCKETS, chooseCheapestQuotes, marginLocked, markupToTarget, pasteCogsLines, priceToQuoted, scaleBucket, targetFromPrice, targetFromQuoted, targetIsQuoted,
   type Apply, type Bundle, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
@@ -23,12 +23,14 @@ import { quoteCurrencyOf } from '@/lib/quote-currency';
 
 const selectCls = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
 
-export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, onDuplicate, duplicating }: {
+export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, onDuplicate, duplicating, extra }: {
   ids: string[]; rows: WorkspaceRow[]; bundle: Bundle; apply: Apply; onClear: () => void;
-  /** Copy the ticked SKUs, with all their costing, into this inquiry. */
-  onDuplicate: () => void; duplicating: boolean;
-  /** Make a draft customer quote from the ticked SKUs at the prices shown. */
-  onQuote: () => void; quoting: boolean;
+  /** Copy the ticked SKUs, with all their costing, into this inquiry. Left out, the button is not shown. */
+  onDuplicate?: () => void; duplicating?: boolean;
+  /** Make a draft customer quote from the ticked SKUs at the prices shown. Left out, the button is not shown. */
+  onQuote?: () => void; quoting?: boolean;
+  /** Shown at the end of the bar (the inquiry page adds Undo and a link to the workspace). */
+  extra?: React.ReactNode;
 }) {
   const cur = quoteCurrencyOf(bundle.inq);
   const groups = useMemo(() => bulkFieldGroups(cur), [cur]);
@@ -45,6 +47,9 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
   const sel = rows.filter(r => ids.includes(r.p.id));
   const withTarget = sel.filter(r => r.target != null).length;
   const withQuoted = sel.filter(r => r.quoted && !targetIsQuoted(r)).length;
+  const everQuoted = sel.filter(r => r.quoted).length;
+  const locked = marginLocked(bundle);
+  const lockedNote = 'This inquiry sets one margin for every SKU (Settings → Uniform NPM). Clear it to price SKUs one by one.';
   const withQuotes = sel.filter(r => r.quotes.filter(q => q.price > 0).length > 1).length;
   const opts = field.edit?.kind === 'select' ? field.edit.options?.(bundle) ?? [] : field.edit?.kind === 'bool'
     ? [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }] : null;
@@ -128,14 +133,16 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
           <TooltipContent className="max-w-xs">Add the cost lines copied from {copied.from} to each selected SKU</TooltipContent>
         </Tooltip>
       )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={duplicating} onClick={onDuplicate}>
-            {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CopyPlus className="h-3.5 w-3.5" />} Duplicate
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">Copy the selected SKUs, with all their costing, as new SKUs in this inquiry (named “(copy)”, SKU code left blank)</TooltipContent>
-      </Tooltip>
+      {onDuplicate && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={duplicating} onClick={onDuplicate}>
+              {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CopyPlus className="h-3.5 w-3.5" />} Duplicate
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">Copy the selected SKUs, with all their costing, as new SKUs in this inquiry (named “(copy)”, SKU code left blank)</TooltipContent>
+        </Tooltip>
+      )}
 
       <div className="h-6 w-px bg-border" />
 
@@ -147,9 +154,12 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
               run: () => apply(b => targetFromQuoted(b, rows, ids)) },
             { icon: Undo2, label: 'Target = today’s price', note: 'Copies today’s calculated price into the target',
               run: () => apply(b => targetFromPrice(b, rows, ids)) },
-            { icon: Crosshair, label: 'Price to target', disabled: !withTarget,
-              note: `Sets each SKU’s margin so its price lands exactly on its target (${withTarget} of ${ids.length} have one)`,
+            { icon: Crosshair, label: 'Price = target', disabled: !withTarget || locked,
+              note: locked ? lockedNote : `Sets each SKU’s margin so its price is exactly its target, to the paisa (${withTarget} of ${ids.length} have one)`,
               run: () => apply(b => markupToTarget(b, rows, ids)) },
+            { icon: FileText, label: 'Price = last quoted price', disabled: !everQuoted || locked,
+              note: locked ? lockedNote : everQuoted ? `Sets each SKU’s margin so its price is exactly what the customer was last quoted, and makes that the target (${everQuoted} of ${ids.length} have been quoted)` : 'None of the selected SKUs has been quoted yet',
+              run: () => apply(b => priceToQuoted(b, rows, ids)) },
           ]}
         />
         <Tooltip>
@@ -162,23 +172,27 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
         </Tooltip>
       </div>
 
-      <div className="h-6 w-px bg-border" />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="sm" className="h-8 gap-1.5" disabled={quoting} onClick={onQuote}>
-            {quoting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Generate quote
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">Makes a draft customer quote from the {ids.length} selected SKU{ids.length === 1 ? '' : 's'} at the prices shown, then opens it to edit</TooltipContent>
-      </Tooltip>
+      {onQuote && (
+        <>
+          <div className="h-6 w-px bg-border" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" className="h-8 gap-1.5" disabled={quoting} onClick={onQuote}>
+                {quoting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Generate quote
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">Makes a draft customer quote from the {ids.length} selected SKU{ids.length === 1 ? '' : 's'} at the prices shown, then opens it to edit</TooltipContent>
+          </Tooltip>
+        </>
+      )}
+      {extra}
     </div>
   );
 }
 
 type TargetAction = { icon: LucideIcon; label: string; note: string; disabled?: boolean; run: () => void };
 
-/** The three things you do with targets, in one menu: each says what it will do before you click. */
+/** Everything you do with targets and prices, in one menu: each says what it will do before you click. */
 function TargetMenu({ actions }: { actions: TargetAction[] }) {
   const [open, setOpen] = useState(false);
   return (

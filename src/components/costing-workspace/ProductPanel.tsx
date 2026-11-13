@@ -17,14 +17,14 @@ import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { VendorCombobox } from '@/components/VendorCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { shrinkImageForUpload } from '@/lib/image-resize';
-import { avgRateByDesignation, getBoxOdOffsets, npmToMarkup } from '@/lib/calculations';
+import { avgRateByDesignation, getBoxOdOffsets } from '@/lib/calculations';
 import { applyLiveRates, withLiveDirectRates } from '@/lib/live-rates';
 import { COGS_CATEGORY_FALLBACK, isHardwareCogsType, useCogsCategories } from '@/lib/cogs-categories';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated, type PhotoEstimateRecord } from '@/lib/photo-intake';
 import {
   BUCKETS, addCogsLine, addNonUnit, deleteCogsLine, deleteNonUnit, lineValue, patchCbm, patchCogsLine, patchNonUnit,
-  patchOverhead, patchProductsSame, setLaborHours, targetFromQuoted, targetIsQuoted, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
+  patchOverhead, patchProductsSame, setLaborHours, marginLocked, markupToTarget, targetFromQuoted, targetIsQuoted, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
   isDomesticFreight, isRemovedFreight, pasteCogsLines, removeDomesticFreight, restoreDomesticFreight, stepTotals,
 } from '@/lib/costing-workspace';
 import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
@@ -47,6 +47,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
   const id = p.id;
   const npmNeeded = row.requiredMarkup != null ? row.requiredMarkup / (1 + row.requiredMarkup) : null;
   const over = (row.gap ?? 0) > 0.005;
+  const offTarget = Math.abs(row.gap ?? 0) > 0.005;
   const isInr = row.cur === 'INR';
   const done = (field: string) => ({ checked: !!p[field], onChange: (v: boolean) => apply(b => patchProductsSame(b, [id], { [field]: v })) });
   const cogsReview = bundle.cogs.filter(c => c.product_id === id && c.include === 'Review').length;
@@ -90,7 +91,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
 
         <FlowStrip row={row} />
 
-        <QuotedLine row={row} apply={apply} />
+        <QuotedLine row={row} apply={apply} marginLocked={marginLocked(bundle)} />
 
         {page && (
           <Section title="Product details" defaultOpen>
@@ -196,7 +197,10 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
               <span className="block w-28"><PanelInput col={colById('target')} row={row} bundle={bundle} apply={apply} placeholder="none" /></span>
             </label>
             <GapChip row={row} />
-            {row.target != null && <span className="text-xs text-muted-foreground">{over ? 'today’s price is over target' : 'today’s price is on or under target'}</span>}
+            {row.target != null && <span className="text-xs text-muted-foreground">{over ? 'today’s price is over target' : offTarget ? 'today’s price is under target' : 'today’s price is exactly the target'}</span>}
+            {row.target != null && offTarget && !over && !marginLocked(bundle) && (
+              <Button size="sm" variant="outline" className="h-7" onClick={() => apply(b => markupToTarget(b, [row], [id]))}>Price at target</Button>
+            )}
             {row.quoted && (
               <span className="ml-auto text-xs text-muted-foreground">
                 {targetIsQuoted(row) ? `Target is the price quoted ${quotedWhen(row.quoted)}` : (
@@ -213,8 +217,8 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
               <span>NPM <b className="tabular-nums">{npmNeeded != null ? pct(npmNeeded) : 'n/a'}</b></span>
               {npmNeeded != null && npmNeeded > 0 && (
                 <Button size="sm" variant="outline" className="h-7"
-                  disabled={bundle.inq?.markup_percent_override != null}
-                  onClick={() => apply(b => patchProductsSame(b, [id], { markup_percent: Math.round(npmToMarkup(npmNeeded) * 10000) / 10000 }))}>
+                  disabled={marginLocked(bundle)}
+                  onClick={() => apply(b => markupToTarget(b, [row], [id]))}>
                   Apply
                 </Button>
               )}

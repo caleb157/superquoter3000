@@ -5,7 +5,7 @@ import { Check, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { targetFromQuoted, targetIsQuoted, type Apply, type RowQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
+import { priceToQuoted, targetFromQuoted, targetIsQuoted, type Apply, type RowQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
 import { inr, money, pct } from './cells';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -82,10 +82,11 @@ export function QuotedCell({ row, apply }: { row: WorkspaceRow; apply?: Apply })
 }
 
 /** Panel line: the last quote in words, today's price against it, and the target button. */
-export function QuotedLine({ row, apply }: { row: WorkspaceRow; apply: Apply }) {
+export function QuotedLine({ row, apply, marginLocked }: { row: WorkspaceRow; apply: Apply; marginLocked?: boolean }) {
   const q = row.quoted;
   if (!q) return null;
   const isTarget = targetIsQuoted(row);
+  const atQuoted = Math.abs(row.price - q.price) < 0.005;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-2.5 text-sm">
       <span className="text-muted-foreground">Last quoted</span>
@@ -95,7 +96,15 @@ export function QuotedLine({ row, apply }: { row: WorkspaceRow; apply: Apply }) 
       </Link>
       <span className="text-xs"><Drift row={row} q={q} /></span>
       {q.costInrThen != null && <span className="text-xs text-muted-foreground"><CostThenNow row={row} q={q} /></span>}
-      <span className="ml-auto">
+      <span className="ml-auto flex items-center gap-2">
+        {!atQuoted && !marginLocked && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" className="h-7" onClick={() => apply(b => priceToQuoted(b, [row], [row.p.id]))}>Price at quoted</Button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs text-xs">Sets the margin so today’s price is exactly {money(q.price, row.cur)}, and makes that the target</TooltipContent>
+          </Tooltip>
+        )}
         {isTarget ? (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-primary"><Check className="h-3.5 w-3.5" /> This is the target</span>
         ) : (

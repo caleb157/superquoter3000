@@ -7,6 +7,7 @@
 - Analytics opening cash = sum of Odoo asset_cash in the snapshot; capacity = LaborTrax /api/public/capacity-forecast read straight from it (incl. WO overrides).
 - Costing Intake (src/lib/costing-intake.ts) is the one bulk-costing spreadsheet (Import creates, Bulk Editor updates); raw inputs only - the engine derives the rest.
 - Costing Workspace (/inquiry/:id/costing) is the one costing place (old grids redirect): recompute per edit via src/lib/costing-workspace.ts + persistResolvedCosting. Cells carry data-grid/data-row/data-col - keyboard nav is a DOM lookup (costing-workspace/cells.tsx).
+- Costing sheet fits the screen (fitLayout in costing-workspace/columns.tsx): one step open at a time, closed steps fold to `mini`, then columns squeeze (cw-tight). Price = target / last quoted keeps markup at full precision (markupForPrice) - never round markup. The workspace BulkBar also sits on the inquiry Products tab (InquiryBulkBar, same bundle hook).
 - Contribution = (net profit + indirect OH absorbed) / FOB, indirect share carries cost of capital (src/lib/costing-workspace.ts); bought-in items -> contribution = NPM.
 - Iron Weight: math in src/lib/iron-weight-core.ts (untouched); draft in localStorage, builds in iron_builds (free-text SKU + label); photo estimate drafts parts only.
 - Task postpone (1d/1w/1mo) counts from later of today and due date (src/lib/task-postpone.ts); saves with Undo.

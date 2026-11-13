@@ -24,6 +24,7 @@ import { PhotoIntakeDialog } from '@/components/PhotoIntakeDialog';
 import { CopyProductsDialog } from '@/components/CopyProductsDialog';
 import { CopyProductsToInquiryDialog } from '@/components/CopyProductsToInquiryDialog';
 import { useGenerateQuote } from '@/hooks/use-generate-quote';
+import { InquiryBulkBar } from '@/components/costing-workspace/InquiryBulkBar';
 import { BulkQuantityDialog } from '@/components/BulkQuantityDialog';
 import { BulkLogRfqRfsDialog } from '@/components/BulkLogRfqRfsDialog';
 import { VendorRfqSheetDialog } from '@/components/vendor-rfq/VendorRfqSheetDialog';
@@ -678,6 +679,17 @@ export function InquiryProductsTab({ inquiryId, initialFilter, onFilterChange, o
         onUnarchive={showArchived ? () => setArchived(Array.from(selected), false) : undefined}
 
       />
+
+      {/* The costing workspace's selection bar, here: quick bulk costing changes without leaving the inquiry. */}
+      {selected.size > 0 && !showArchived && (
+        <InquiryBulkBar
+          inquiryId={inquiryId}
+          ids={Array.from(selected)}
+          onClear={() => setSelected(new Set())}
+          onChanged={() => { setRefresh(r => r + 1); onChange(); }}
+          reloadKey={`${refresh}:${refreshKey}`}
+        />
+      )}
 
       <OutsourceCompareDialog
         open={outsourceCompareOpen}

@@ -255,6 +255,16 @@
 [data-grid]:not([data-col="name"]) {
   scroll-margin: var(--cw-scroll-top, 0) 4px var(--cw-scroll-bottom, 0) var(--cw-scroll-left, 0);
 }
+/* Costing Workspace: the sheet squeezed to fit the screen (fitLayout). Tighter cell padding and
+   slightly smaller type, so the numbers still fit their narrower columns. */
+table.cw-tight { font-size: 13px; }
+table.cw-tight tbody td:not(:first-child),
+table.cw-tight thead th:not(:first-child),
+table.cw-tight tfoot td:not(:first-child) { padding-left: 3px; padding-right: 3px; }
+table.cw-tight tbody td:not(:first-child) input,
+table.cw-tight tbody td:not(:first-child) select,
+table.cw-tight tbody td:not(:first-child) [data-grid] { padding-left: 3px; padding-right: 3px; font-size: 13px; }
+table.cw-tight tfoot td:not(:first-child) { font-size: 12px; }
 /* Costing Workspace: cells inside a Shift-selected block (copy, fill down, clear). */
 td.cw-in-range {
   background-color: hsl(var(--primary) / 0.09) !important;
