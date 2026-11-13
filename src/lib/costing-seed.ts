@@ -6,7 +6,7 @@ import { MH_COLUMN, mhChanged, saveStoredMh } from '@/lib/stored-man-hours';
 import { computeProductCosting, type CostingEngineResult } from '@/lib/costing-engine';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { recordCostChange } from '@/lib/cost-history';
-import { findShippingType } from '@/lib/shipping-types';
+import { DEFAULT_SHIPPING_TYPE, findShippingType } from '@/lib/shipping-types';
 
 type PackagingType = 'no_packaging' | 'ic_only' | 'ic_mc' | 'bulk_pack';
 
@@ -438,7 +438,8 @@ export async function ensureCostingRowsOnOpen(productId: string): Promise<boolea
   }
   if (!(shipRes.data || []).length) {
     const { data: types } = await sb.from('shipping_types').select('id, name').order('name');
-    const type = findShippingType((types || []) as any[], gs?.default_shipping_type) || (types || [])[0];
+    const type = findShippingType((types || []) as any[], gs?.default_shipping_type)
+      || findShippingType((types || []) as any[], DEFAULT_SHIPPING_TYPE) || (types || [])[0];
     if (type) {
       await sb.from('shipping_items').insert({ product_id: productId, shipping_type_id: type.id });
       changed = true;

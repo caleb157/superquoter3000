@@ -4,6 +4,9 @@
 // the same way, whether or not that SQL has run yet.
 const norm = (s: string) => s.trim().toLowerCase().replace(/[–—-]+/g, '-').replace(/\s+/g, ' ');
 
+/** Used for new products when Settings names no existing shipping type (Caleb, 2026-11-13). */
+export const DEFAULT_SHIPPING_TYPE = 'FOB MUMBAI LCL';
+
 export const RETIRED_SHIPPING_TYPES: Record<string, string> = {
   'FOB Navasheva': 'FOB MUMBAI LCL',
   'FOB MUNDRA': 'FOB Mundra via Jodhpur ICD',
