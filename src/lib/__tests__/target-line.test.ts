@@ -105,9 +105,10 @@ describe('Target this line → engine recompute', () => {
 
     const after = run(mkCogs(res.targetUnitCostInr!), mkNu());
     // Sticky summary values (price + cost) both move, price lands on target.
-    expect(after.summary.unit_price_usd).toBeCloseTo(targetPriceUsd, 6);
+    // (Then the 5 cent rounding rule applies; in the app the product's own target is exempt from it.)
+    expect(after.summary.unit_price_usd).toBeCloseTo(Math.round(targetPriceUsd * 20) / 20, 6);
     expect(after.summary.product_cost_per_unit_usd).toBeLessThan(before.summary.product_cost_per_unit_usd);
-    expect(after.summary.unit_price_inr).toBeCloseTo(targetPriceUsd * before.exchangeRate, 4);
+    expect(after.summary.unit_price_inr).toBeCloseTo(Math.round(targetPriceUsd * 20) / 20 * before.exchangeRate, 4);
   });
 
   it('Non-Unit COGS row: filling the computed cost-each lands unit price on target', () => {
@@ -130,7 +131,7 @@ describe('Target this line → engine recompute', () => {
 
     expect(res.feasible).toBe(true);
     const after = run(mkCogs(), mkNu(res.targetUnitCostInr!));
-    expect(after.summary.unit_price_usd).toBeCloseTo(targetPriceUsd, 6);
+    expect(after.summary.unit_price_usd).toBeCloseTo(Math.round(targetPriceUsd * 20) / 20, 6);
   });
 
   it('reports infeasible when the target is below the rest of the cost base', () => {

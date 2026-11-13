@@ -39,6 +39,11 @@ export type CostingEngineInput = {
   shipmentPool?: ShipmentPool | null;
 };
 
+/** The price rounding rule (Caleb, 2026-11-13): whole rupees for a rupee customer, the nearest 5 cents in dollars. */
+export function roundPrice(price: number, cur: 'INR' | 'USD'): number {
+  return cur === 'INR' ? Math.round(price) : Math.round(price * 20) / 20;
+}
+
 /** A product's locked price in rupees (products.price_lock, in price_lock_currency), or null when it isn't locked. */
 export function lockedPriceInr(p: any, exchangeRate: number): number | null {
   const v = Number(p?.price_lock);
@@ -498,6 +503,25 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
     // Exactly the locked figure, not one floating-point step off it.
     summary.unit_price_inr = lockInr!;
     if (p.price_lock_currency !== 'INR') summary.unit_price_usd = Number(p.price_lock);
+  }
+
+  // Otherwise the price is rounded in the currency the customer is quoted in, and the margin
+  // takes up the difference. A price sitting on the product's target is left exactly there.
+  const cost = summary.product_cost_per_unit_inr;
+  if (!priceLocked && cost > 0 && exchangeRate > 0) {
+    const inr = inq?.quoting_currency === 'INR';
+    const raw = inr ? summary.unit_price_inr : summary.unit_price_usd;
+    const target = Number(inr ? p.target_price_inr : p.target_price_usd);
+    const rounded = roundPrice(raw, inr ? 'INR' : 'USD');
+    if (rounded > 0 && Math.abs(rounded - raw) > 1e-9 && !(target > 0 && Math.abs(raw - target) < 0.005)) {
+      const roundedInr = inr ? rounded : rounded * exchangeRate;
+      // markupPercent stays the margin that was asked for; only the price (and the margin read off it) moves.
+      summary = calc.calcProductCostSummary(
+        effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
+        shippingPerUnit, roundedInr / cost - 1, exchangeRate, qty, capitalFactor,
+      );
+      if (inr) summary.unit_price_inr = rounded; else summary.unit_price_usd = +rounded.toFixed(2);
+    }
   }
 
   return {
