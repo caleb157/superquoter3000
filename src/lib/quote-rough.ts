@@ -6,6 +6,7 @@ import { convertFromInr, getCachedCurrencyMap, loadCurrencyMap } from '@/lib/cur
 import { computeProductUnitPrices, type ProductUnitPriceMap } from '@/lib/product-pricing';
 import type { QuoteProductInput } from '@/lib/quote-creation';
 import { fxOrFallback } from '@/lib/live-rates';
+import { currentShippingTypeName } from '@/lib/shipping-types';
 
 export type PriceableProduct = {
   id: string;
@@ -50,30 +51,31 @@ export function referencePriceFor(p: PriceableProduct, prices: ProductUnitPriceM
 }
 
 /** Entity, currency and Incoterm for a new quote: the inquiry's settings, else sensible fallbacks.
- *  Incoterm = last one used on this inquiry, else on any of this customer's quotes. */
+ *  Incoterm = the term last used on this inquiry's quotes (custom wording included), else on any of
+ *  this customer's quotes, else the inquiry's Ship via type. A retired shipping type name is read as
+ *  its replacement. The term is quote-only text: it never changes costing or the inquiry. */
 export async function resolveQuoteDefaults(inquiryId: string): Promise<{
   entity: { id: string; name: string } | null; currency: string; incoterm: string | null;
 }> {
-  const [{ data: entities }, { data: inq }, { data: ships }] = await Promise.all([
+  const [{ data: entities }, { data: inq }] = await Promise.all([
     supabase.from('company_entities').select('id, name').order('name'),
-    (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency, customer_id').eq('id', inquiryId).maybeSingle(),
-    supabase.from('shipping_types').select('name'),
+    (supabase as any).from('customer_rfqs').select('quoting_entity_id, quoting_currency, customer_id, shipping_types:shipping_type_id_override(name)').eq('id', inquiryId).maybeSingle(),
   ]);
   const ents = (entities ?? []) as Array<{ id: string; name: string }>;
   const entity = ents.find(e => e.id === inq?.quoting_entity_id) ?? ents[0] ?? null;
-  const known = new Set(((ships ?? []) as any[]).map(s => s.name));
   const lastIncoterm = async (ids: string[]) => {
     if (ids.length === 0) return null;
     const { data } = await (supabase as any).from('quote_snapshots').select('incoterm')
       .in('customer_rfq_id', ids).not('incoterm', 'is', null)
       .order('created_at', { ascending: false }).limit(1).maybeSingle();
-    return data?.incoterm && known.has(data.incoterm) ? (data.incoterm as string) : null;
+    return currentShippingTypeName(data?.incoterm as string | null);
   };
   let incoterm = await lastIncoterm([inquiryId]);
   if (!incoterm && inq?.customer_id) {
     const { data: custInqs } = await (supabase as any).from('customer_rfqs').select('id').eq('customer_id', inq.customer_id);
     incoterm = await lastIncoterm(((custInqs ?? []) as any[]).map(r => r.id));
   }
+  if (!incoterm) incoterm = currentShippingTypeName(inq?.shipping_types?.name ?? null);
   return { entity, currency: (inq?.quoting_currency as string) || 'USD', incoterm };
 }
 
