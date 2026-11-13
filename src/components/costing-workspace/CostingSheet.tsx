@@ -7,8 +7,8 @@
 // SKU (the product panel, same four steps) without leaving the page. Replaces the separate Pricing Grid, Target Grid and Bulk Costing Editor.
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, FileText, Keyboard, Loader2, PanelRightOpen, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, FileText, Keyboard, Loader2, PanelRightOpen, Redo2, RefreshCw, Scale, Search, Send, Target, Undo2, X } from 'lucide-react';
 import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 
@@ -349,6 +349,16 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
               <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
               <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
               <ShortcutsButton />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button asChild size="sm" className="ml-1 gap-1.5">
+                    <Link to={`/inquiry/${inquiryId}/odoo${selectedIds.length ? `?products=${selectedIds.join(',')}` : ''}`}>
+                      <Send className="h-4 w-4" /> {selectedIds.length ? `Send ${selectedIds.length} to Odoo` : 'Send to Odoo'}
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">Opens the Odoo workspace for this inquiry: create the products, bills of materials and the sales order in Odoo{selectedIds.length ? ', starting with the ticked SKUs' : ' (tick SKUs first to send only those)'}.</TooltipContent>
+              </Tooltip>
     </>
   );
 
