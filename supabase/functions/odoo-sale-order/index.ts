@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       const s = (body.search ?? '').trim();
       const domain: unknown[] = [['customer_rank', '>', 0]];
       if (s) domain.push(['name', 'ilike', s]);
-      const rows = await sr('res.partner', domain, ['name', 'property_product_pricelist'], { limit: 30, order: 'name' });
+      const rows = await sr('res.partner', domain, ['name', 'property_product_pricelist'], { limit: 250, order: 'name' });
       return json({ customers: rows.map(r => ({ id: r.id, name: String(r.name), pricelistId: idOf(r.property_product_pricelist) })) });
     }
 
