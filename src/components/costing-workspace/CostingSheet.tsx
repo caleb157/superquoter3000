@@ -89,6 +89,8 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
     if (!BANDS.some(b => b.id === k)) return { ...o, [k]: !o[k] };
     return { ...o, ...Object.fromEntries(BANDS.map(b => [b.id, b.id === k ? !o[k] : false])) };
   });
+  // The COGS category whose cost lines are open under every SKU (click a category header in the COGS step).
+  const [lines, setLines] = useState<string | null>(null);
   const setAllOpen = (on: boolean) => setOpen(o => ({ ...o, ...Object.fromEntries(BANDS.map(b => [b.id, on])) }));
   const allOpen = BANDS.every(b => open[b.id]);
   const openId = params.get('sku');
@@ -475,6 +477,7 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
                   onSortName={() => setSort(s => (s === 'name' ? 'name_desc' : s === 'name_desc' ? 'sheet' : 'name'))}
                   openId={openId} onOpen={id => setParam('sku', id === openId ? null : id)}
                   compact={!!openRow} quoteSlots={quoteSlots} onAddQuoteSlot={() => setExtraSlots(s => s + 1)} scale={fit.scale}
+                  lines={lines} onLines={setLines}
                 />
               )}
             </div>

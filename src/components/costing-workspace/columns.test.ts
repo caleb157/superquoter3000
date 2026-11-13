@@ -27,13 +27,13 @@ describe('costing grid steps', () => {
     expect(open).not.toContain('bucket:hw_feet');
     expect(open).toContain('per_mc');
     expect(open).not.toContain('ic_w');
-    const hw = ids({ cogs: true, hardware: true, shipping: true, cartons: true });
-    expect(hw).toContain('bucket:hw_feet');
-    expect(hw).toContain('ic_w');
-    expect(new Set(hw).size).toBe(hw.length);
-    // Raw piece folds to its total and opens to the costs behind it.
-    expect(layout({ cogs: true }).find(c => c.id === 'bucket:raw_piece')!.detail).toBeUndefined();
-    expect(layout({ cogs: true, raw: true }).find(c => c.id === 'bucket:raw_piece')!.detail).toBeDefined();
+    const cartons = ids({ cogs: true, shipping: true, cartons: true });
+    expect(cartons).toContain('ic_w');
+    expect(new Set(cartons).size).toBe(cartons.length);
+    // Hardware by type has no column (the lines open under the SKUs instead) but can still be set in bulk.
+    expect(bulkFieldGroups().flatMap(g => g.cols.map(c => c.id))).toContain('bucket:hw_feet');
+    // Every COGS category opens its lines from the header.
+    expect(layout({ cogs: true }).filter(c => c.lines).map(c => c.lines)).toEqual(['raw_piece', 'subcontract', 'outsourced', 'hardware', 'finishing', 'packaging', 'other', 'all']);
   });
 
   it('every field has one home', () => {

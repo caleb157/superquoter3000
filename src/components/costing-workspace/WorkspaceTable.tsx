@@ -3,8 +3,8 @@
 // name column and a totals footer; the name cell opens the product panel. Like a
 // spreadsheet, Shift+arrows (or Shift+click) select a block of cells to copy, fill down
 // (Ctrl+D), clear (Delete) or paste into.
-import { useRef } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { Fragment, useRef } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
 import { chain, setQuote, toggleQuote, type Apply, type Bundle, type Mutation, type WorkspaceRow } from '@/lib/costing-workspace';
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, focusCell, inr, moveForKey, navigate, navKeyDown, parseClipboard, parseNum, money } from './cells';
-import { BANDS, writeGrid, type Col, type LaidCol, type OpenState } from './columns';
+import { BANDS, inLineCat, lineCat, writeGrid, type Col, type LaidCol, type LineCat, type OpenState } from './columns';
+import { CogsLines } from './ProductPanel';
 
 type Props = {
   /** Visible columns, from layout(). */
@@ -37,6 +38,9 @@ type Props = {
   compact: boolean;
   quoteSlots: number;
   onAddQuoteSlot: () => void;
+  /** The COGS category whose cost lines are open under every SKU (a LINE_CATS key), if any. */
+  lines?: string | null;
+  onLines?: (key: string | null) => void;
   /** Squeeze the columns to this share of their width so the sheet fits the screen (from fitLayout). */
   scale?: number;
 };
@@ -70,6 +74,8 @@ export function WorkspaceTable(p: Props) {
   const groupStart = new Set(cols.filter((c, i) => i > 0 && (c.group || cols[i - 1].group) && c.group !== cols[i - 1].group).map(c => c.id));
 
   const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
+  // The lines fold-out only shows while its category's column is on screen (the COGS step is open).
+  const cat = grid === 'sheet' && cols.some(c => c.lines === p.lines) ? lineCat(p.lines) : null;
   // One header cell per step over its columns (lead columns get a blank one).
   const bands = !isQuotes && !compact
     ? cols.reduce<{ id?: string; span: number }[]>((acc, c) => {
@@ -167,12 +173,15 @@ export function WorkspaceTable(p: Props) {
               edge(c.id), c.sub?.open && 'bg-muted')}>
               <span className="inline-flex max-w-full items-center gap-1">
                 {c.sub?.first && <SubToggle sub={c.sub} onToggle={() => p.onToggleOpen(c.sub!.id)} />}
-                {c.hint ? (
+                {c.lines && p.onLines ? (
+                  <LinesToggle label={c.label} hint={c.hint} name={lineCat(c.lines)?.label ?? c.label} open={cat?.key === c.lines}
+                    onToggle={() => p.onLines!(cat?.key === c.lines ? null : c.lines!)} />
+                ) : c.hint ? (
                   <Tooltip>
-                    <TooltipTrigger asChild><span className="cursor-help truncate underline decoration-dotted decoration-muted-foreground/40 underline-offset-4">{c.label}</span></TooltipTrigger>
+                    <TooltipTrigger asChild><span className={cn(HEAD_LABEL, 'cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4')}>{c.label}</span></TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
                   </Tooltip>
-                ) : <span className="truncate">{c.label}</span>}
+                ) : <span className={HEAD_LABEL}>{c.label}</span>}
               </span>
             </th>
           ))}
@@ -185,7 +194,8 @@ export function WorkspaceTable(p: Props) {
           const isSel = selected.has(row.p.id);
           const issues = row.flags.filter(f => f.kind !== 'target');
           return (
-            <tr key={row.p.id}
+            <Fragment key={row.p.id}>
+            <tr data-r={idx}
               // Tints sit on an opaque card colour so the sticky name cell hides what scrolls under it.
               className={cn('group [&>td]:border-b [&>td]:h-12 [&>td]:px-1.5 [&>td]:bg-card',
                 isOpen ? '[&>td]:bg-[linear-gradient(hsl(var(--primary)/0.07),hsl(var(--primary)/0.07))]'
@@ -242,6 +252,14 @@ export function WorkspaceTable(p: Props) {
               ))}
               <td />
             </tr>
+            {cat && (
+              <tr data-lines={cat.key}>
+                <td colSpan={cols.length + 2} className="border-b bg-muted/30 p-0">
+                  <LinesFoldout cat={cat} row={row} bundle={bundle} apply={p.apply} first={idx === 0} onClose={() => p.onLines?.(null)} />
+                </td>
+              </tr>
+            )}
+            </Fragment>
           );
         })}
       </tbody>
@@ -255,6 +273,45 @@ export function WorkspaceTable(p: Props) {
         </tfoot>
       )}
     </table>
+  );
+}
+
+/** A header never truncates: it wraps onto a second line when its column is narrow. */
+const HEAD_LABEL = 'line-clamp-2 min-w-0 whitespace-normal leading-[1.15]';
+
+/** A category header that opens its cost lines under every SKU (and folds them again). */
+function LinesToggle({ label, hint, name, open, onToggle }: { label: string; hint?: string; name: string; open: boolean; onToggle: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button onClick={onToggle} aria-expanded={open} aria-label={`${open ? 'Fold' : 'Edit'} ${name} lines`}
+          className={cn('-mx-0.5 inline-flex max-w-[calc(100%+4px)] items-center rounded px-0.5 py-0.5 text-right hover:bg-background hover:text-foreground', open && 'bg-background text-foreground shadow-sm ring-1 ring-border')}>
+          <span className={HEAD_LABEL}>{label}</span>
+          <ChevronDown className={cn('h-3 w-3 shrink-0 opacity-70 transition-transform', open && 'rotate-180')} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs">
+        {open ? `Fold the ${name.toLowerCase()} lines away` : `Edit the ${name.toLowerCase()} lines for every SKU here: item, vendor, quantity and price`}
+        {hint && <div className="mt-1 text-muted-foreground">{hint}</div>}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** One SKU's cost lines for the open category, edited in place under its row. Stays on screen if the sheet scrolls sideways. */
+function LinesFoldout({ cat, row, bundle, apply, first, onClose }: { cat: LineCat; row: WorkspaceRow; bundle: Bundle; apply: Apply; first: boolean; onClose: () => void }) {
+  return (
+    <div className="sticky left-0 w-full max-w-[1120px] py-1.5 pl-11 pr-4" data-lines-for={row.p.id}>
+      {first && (
+        <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">{cat.label} lines</span>
+          <span>for every SKU. Tick a line to count it; type over anything to change it.</span>
+          <button onClick={onClose} className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-background hover:text-foreground"><X className="h-3 w-3" /> Close</button>
+        </div>
+      )}
+      <CogsLines row={row} bundle={bundle} apply={apply} show={l => inLineCat(cat, l)} types={cat.types} head={first} dense
+        typeHeads={cat.key === 'hardware' || cat.key === 'all' ? true : 'auto'} />
+    </div>
   );
 }
 
@@ -292,7 +349,7 @@ function Cell({ col, ci, cols, row, idx, rows, bundle, grid, apply }: {
   if (e.kind === 'select') {
     return <SelectCell nav={nav} value={String(v ?? '')} options={e.options?.(bundle) ?? []} disabled={!!disabled} onChange={val => apply(b => e.write(b, [row.p.id], val))} />;
   }
-  const cell = (
+  return (
     <EditCell
       nav={nav}
       kind={e.kind === 'number' ? 'number' : 'text'}
@@ -305,8 +362,6 @@ function Cell({ col, ci, cols, row, idx, rows, bundle, grid, apply }: {
       onPasteGrid={cells => apply(b => writeGrid(b, cols, ci, rows, idx, cells))}
     />
   );
-  const detail = col.detail?.(row, bundle);
-  return detail ? <div>{cell}{detail}</div> : cell;
 }
 
 // ---------- vendor quotes ----------
@@ -462,7 +517,8 @@ function useBlockSelection({ enabled, cols, rows, bundle, apply }: {
   const head = useRef<Pos | null>(null);
   const stretching = useRef(false);
 
-  const td = (r: number, c: number) => ref.current?.tBodies[0]?.rows[r]?.cells[c + 1] as HTMLElement | undefined;
+  // By row number, not position: a SKU row can be followed by its cost-lines row.
+  const td = (r: number, c: number) => ref.current?.querySelector<HTMLTableRowElement>(`:scope > tbody > tr[data-r="${r}"]`)?.cells[c + 1] as HTMLElement | undefined;
   const current = (): Block | null => (anchor.current && head.current ? toBlock(anchor.current, head.current) : null);
   const isMulti = (bl: Block | null) => !!bl && (bl.r0 !== bl.r1 || bl.c0 !== bl.c1);
 
