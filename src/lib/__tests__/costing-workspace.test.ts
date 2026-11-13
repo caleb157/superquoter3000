@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMESTIC_FREIGHT, buildRows, chooseCheapestQuotes, computeResults, markupToTarget, priceToQuoted, setBucketTotal, setDifficulty, setPackagingType, toggleQuote,
   setProductType, setQuote, setShippingType, setSourceLocation, targetLineEach, totals, type Bundle,
-  chain, copyCosting, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, removeDomesticFreight, restoreDomesticFreight, isRemovedFreight, targetFromPrice, lineValue, addPriceListLines, priceListItems,
+  chain, copyCosting, patchInquiry, pasteCogsLines, patchCogsLine, patchProductsSame, restoreRows, stepTotals, removeDomesticFreight, restoreDomesticFreight, isRemovedFreight, targetFromPrice, lineValue, addPriceListLines, priceListItems,
 } from '@/lib/costing-workspace';
 import { readTarget, targetPatch } from '@/lib/quote-currency';
 import { ALL_COLS, BANDS, fitLayout, layout } from '@/components/costing-workspace/columns';
@@ -499,3 +499,32 @@ describe('fitting the sheet to the screen', () => {
   });
 });
 
+
+describe('inquiry assumptions from the costing sheet', () => {
+  it('a uniform margin reprices every SKU and undoes back to per-SKU margins', () => {
+    const before = bundle();
+    const m = patchInquiry(before, { markup_percent_override: 0.25 })!;
+    expect(m.touched.length).toBe(before.products.length);
+    for (const r of buildRows(m.next, computeResults(m.next))) if (r.costInr > 0) expect(r.margin).toBeCloseTo(0.2, 6);
+    const undone = restoreRows(m.next, before, m.next)!;
+    expect(undone.next.inq.markup_percent_override ?? null).toBeNull();
+    expect(undone.touched.length).toBe(before.products.length);
+    // Putting it back once more (redo) restores the override.
+    expect(restoreRows(undone.next, m.next, before)!.next.inq.markup_percent_override).toBe(0.25);
+  });
+
+  it('switching the quoting currency shows the sheet in rupees', () => {
+    const m = patchInquiry(bundle(), { quoting_currency: 'INR' })!;
+    const rows = buildRows(m.next, computeResults(m.next));
+    expect(rows.every(r => r.cur === 'INR')).toBe(true);
+    expect(rows[0].price).toBeCloseTo(rows[0].priceInr, 6);
+  });
+
+  it('the side cards give way when an open step needs the whole width', () => {
+    const open = { shipping: true, raw: true, cartons: true };
+    const budget = (w: number) => ({ full: w - 2 - 280 - 16, tight: w - 2 - 228 - 16 });
+    expect(fitLayout(open, 'INR', budget(1888 - 312)).fits).toBe(false);
+    expect(fitLayout(open, 'INR', budget(1888)).fits).toBe(true);
+    expect(fitLayout({ margin: true }, 'INR', budget(1888 - 312)).fits).toBe(true);
+  });
+});

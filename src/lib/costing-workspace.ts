@@ -461,6 +461,16 @@ export function patchProducts(b: Bundle, patches: Record<string, Record<string, 
   };
 }
 
+/** An inquiry-level assumption (currency, ship via, an override…): every SKU recalculates. */
+export function patchInquiry(b: Bundle, patch: Record<string, any>): Mutation | null {
+  if (!b.inq?.id) return null;
+  return {
+    next: { ...b, inq: { ...b.inq, ...patch } },
+    touched: b.products.map(p => p.id),
+    commit: async () => { check(await db.from('customer_rfqs').update(patch).eq('id', b.inq.id)); },
+  };
+}
+
 export const patchProductsSame = (b: Bundle, ids: string[], patch: Record<string, any>) =>
   patchProducts(b, Object.fromEntries(ids.map(id => [id, patch])));
 
@@ -849,6 +859,17 @@ export function restoreRows(cur: Bundle, from: Bundle, to: Bundle): Mutation | n
     if (reinsert.length) inserts.unshift(async () => { check(await db.from(table).insert(reinsert)); });
     const patchList = [...patches].filter(([id]) => curIds.has(id));
     if (patchList.length) updates.push(async () => { for (const [id, patch] of patchList) check(await db.from(table).update(patch).eq('id', id)); });
+  }
+  // Inquiry assumptions changed from the Assumptions strip.
+  if (from.inq !== to.inq && from.inq && to.inq && cur.inq?.id) {
+    const patch: Record<string, any> = {};
+    for (const k of new Set([...Object.keys(from.inq), ...Object.keys(to.inq)])) if (!sameValue(from.inq[k], to.inq[k])) patch[k] = from.inq[k] ?? null;
+    if (Object.keys(patch).length) {
+      next = { ...next, inq: { ...next.inq, ...patch } };
+      const inqId = cur.inq.id;
+      updates.push(async () => { check(await db.from('customer_rfqs').update(patch).eq('id', inqId)); });
+      cur.products.forEach(p => touched.add(p.id));
+    }
   }
   if (!touched.size) return null;
   return {

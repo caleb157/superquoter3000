@@ -550,14 +550,15 @@ const widthOf = (cols: Col[]) => cols.reduce((a, c) => a + c.width, 0);
  * subtotal each, and what is still too wide is squeezed evenly (down to MIN_SCALE; past that
  * the grid scrolls).
  */
-export function fitLayout(open: OpenState, cur: QuoteCur, avail: { full: number; tight: number } | null): { cols: LaidCol[]; scale: number } {
+export function fitLayout(open: OpenState, cur: QuoteCur, avail: { full: number; tight: number } | null): { cols: LaidCol[]; scale: number; fits: boolean } {
   const full = layout(open, cur);
-  if (!avail || widthOf(full) <= avail.full) return { cols: full, scale: 1 };
+  if (!avail || widthOf(full) <= avail.full) return { cols: full, scale: 1, fits: true };
   const tight = layout(open, cur, true);
   const w = widthOf(tight);
-  if (w <= avail.full) return { cols: tight, scale: 1 };
+  if (w <= avail.full) return { cols: tight, scale: 1, fits: true };
   // Just under 1 even when it would fit the tight width exactly, so the table takes the narrower SKU column.
-  return { cols: tight, scale: Math.min(0.999, Math.max(MIN_SCALE, avail.tight / w)) };
+  // `fits` is false when even the smallest scale leaves the sheet wider than the space (it then scrolls).
+  return { cols: tight, scale: Math.min(0.999, Math.max(MIN_SCALE, avail.tight / w)), fits: avail.tight / w >= MIN_SCALE };
 }
 
 /** Money headers in the quote currency: "Price ₹", "Target ₹" for a rupee customer. Cells already format by row. */

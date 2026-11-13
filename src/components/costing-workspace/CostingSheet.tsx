@@ -1,26 +1,25 @@
-// Costing Workspace — one place to cost an inquiry.
+// The costing sheet — one place to cost an inquiry. It is the inquiry page's Costing tab:
+// the inquiry header and tab bar come in as `lead`, the assumptions that drive every SKU sit
+// above the sheet, and the quotes and projection sit beside it.
 //
 // Start from the whole inquiry (the bulk grid, laid out like the costing sheet: COGS, then
 // labour, then shipping, then margin, each step folding to its subtotal) and drill into any
 // SKU (the product panel, same four steps) without leaving the page. Replaces the separate Pricing Grid, Target Grid and Bulk Costing Editor.
 // All numbers come from the shared costing engine via src/lib/costing-workspace.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, FileText, Keyboard, Loader2, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Check, ChevronsLeftRight, ChevronsRightLeft, Download, FileSpreadsheet, FileText, Keyboard, Loader2, PanelRightOpen, Redo2, RefreshCw, Scale, Search, Target, Undo2, X } from 'lucide-react';
 import { loadXlsx } from '@/lib/xlsx-lazy';
 import { toast } from 'sonner';
 
-import { AppLayout } from '@/components/AppLayout';
-import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { CostingIntakeDialog } from '@/components/CostingIntakeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useDocumentTitle } from '@/hooks/use-document-title';
 import { customerPrimary } from '@/lib/customer-name';
 import { cn } from '@/lib/utils';
-import { loadBundle, targetFromQuoted, targetIsQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
+import { loadBundle, priceToQuoted, targetFromQuoted, targetIsQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
 import { cloneProductToInquiry } from '@/lib/product-clone';
 import { supabase } from '@/integrations/supabase/client';
 import { useCostingBundle } from '@/hooks/use-costing-bundle';
@@ -32,12 +31,19 @@ import { QuotesToolbar } from '@/components/costing-workspace/QuotesToolbar';
 import { BANDS, DEFAULT_OPEN, fitLayout, type OpenState } from '@/components/costing-workspace/columns';
 import { NAME_WIDTH } from '@/components/costing-workspace/WorkspaceTable';
 import { InquiryQuotesTab } from '@/components/InquiryQuotesTab';
+import { InquiryProjectionTab } from '@/components/InquiryProjectionTab';
+import { AssumptionsStrip } from '@/components/costing-workspace/AssumptionsStrip';
+import { InquirySide, useInquirySide } from '@/components/costing-workspace/InquirySide';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Stat, focusCell, focusNavEl, pct } from '@/components/costing-workspace/cells';
 import { formatMoney, quoteCurrencyOf } from '@/lib/quote-currency';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const OPEN_KEY = 'costing-workspace-open';
+const SIDE_KEY = 'costing-side-open';
+/** Side cards (300) plus the gap; and the sheet's width while the product panel is open. */
+const SIDE_WIDTH = 312;
+const PANEL_GRID = 470;
 /** Old ?view= links (from before the four steps) open the step that now holds those columns. */
 const VIEW_TO_OPEN: Record<string, string[]> = {
   price: ['margin'], buildup: ['cogs'], hardware: ['cogs', 'hardware'], packaging: ['shipping', 'cartons'], labor: ['labour'], setup: ['cogs', 'labour'],
@@ -51,9 +57,13 @@ type Filter = 'all' | 'over' | 'flagged' | 'notarget';
 type Sort = 'sheet' | 'gap' | 'price' | 'name' | 'name_desc' | 'sku' | 'sku_desc';
 const natural = (a: unknown, b: unknown) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
 
-export default function CostingWorkspace() {
-  const { id: inquiryId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
+  inquiryId: string;
+  /** The inquiry header and tab bar; it is handed the sheet's own buttons (saved, undo, import…) to place in the header. */
+  lead: (actions: React.ReactNode) => React.ReactNode;
+  /** An assumption changed here: the inquiry page keeps its own copy of the inquiry in step. */
+  onInquiryPatched?: (inq: any) => void;
+}) {
   const [params, setParams] = useSearchParams();
 
   const [search, setSearch] = useState('');
@@ -88,37 +98,58 @@ export default function CostingWorkspace() {
     return next;
   }, { replace: true });
 
-  const loader = useCallback(() => loadBundle(inquiryId!), [inquiryId]);
+  const loader = useCallback(() => loadBundle(inquiryId), [inquiryId]);
   const { bundle, loading, loadError, saving, savedAt, load, reload, apply, rows, t, undo, redo, canUndo, canRedo } = useCostingBundle(inquiryId ? loader : null);
   const doUndo = () => { if (undo()) toast('Undone', { action: { label: 'Redo', onClick: () => { redo(); } } }); else toast.info('Nothing to undo'); };
   const doRedo = () => { if (redo()) toast('Redone'); else toast.info('Nothing to redo'); };
   // Rupee customers get the whole workspace in ₹ (the inquiry's Quoting currency).
   const cur = quoteCurrencyOf(bundle?.inq);
-  // The grid's width on screen, so the columns can be laid out to fit it without scrolling sideways.
-  const [gridWidth, setGridWidth] = useState<number | null>(null);
-  const gridObserver = useRef<ResizeObserver | null>(null);
-  const gridRef = useCallback((el: HTMLDivElement | null) => {
-    gridObserver.current?.disconnect();
+  // The width the sheet and its side cards share, so the columns can be laid out to fit
+  // without scrolling sideways. The side cards give way when a step needs the whole width.
+  const [rowWidth, setRowWidth] = useState<number | null>(null);
+  const rowObserver = useRef<ResizeObserver | null>(null);
+  const rowRef = useCallback((el: HTMLDivElement | null) => {
+    rowObserver.current?.disconnect();
     if (!el || typeof ResizeObserver === 'undefined') return;
-    gridObserver.current = new ResizeObserver(() => setGridWidth(el.clientWidth));
-    gridObserver.current.observe(el);
-    setGridWidth(el.clientWidth);
+    rowObserver.current = new ResizeObserver(() => setRowWidth(el.clientWidth));
+    rowObserver.current.observe(el);
+    setRowWidth(el.clientWidth);
   }, []);
-  const fit = useMemo(
-    () => fitLayout(open, cur, gridWidth == null ? null : { full: gridWidth - NAME_WIDTH.sheet - 16, tight: gridWidth - NAME_WIDTH.tight - 16 }),
-    [open, cur, gridWidth],
-  );
+  const [sideOpen, setSideOpen] = useState(() => { try { return localStorage.getItem(SIDE_KEY) !== '0'; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem(SIDE_KEY, sideOpen ? '1' : '0'); } catch { /* private mode */ } }, [sideOpen]);
+  const panelOpen = !!openId;
+  const { fit, showSide, sideSqueezed } = useMemo(() => {
+    const budget = (w: number) => ({ full: w - 2 - NAME_WIDTH.sheet - 16, tight: w - 2 - NAME_WIDTH.tight - 16 });
+    if (rowWidth == null) return { fit: fitLayout(open, cur, null), showSide: false, sideSqueezed: false };
+    if (panelOpen) return { fit: fitLayout(open, cur, budget(PANEL_GRID)), showSide: false, sideSqueezed: false };
+    const sideCan = sideOpen && !quotesMode && rowWidth >= 1000;
+    const withSide = sideCan ? fitLayout(open, cur, budget(rowWidth - SIDE_WIDTH)) : null;
+    if (withSide?.fits) return { fit: withSide, showSide: true, sideSqueezed: false };
+    return { fit: fitLayout(open, cur, budget(rowWidth)), showSide: false, sideSqueezed: sideCan };
+  }, [open, cur, rowWidth, sideOpen, quotesMode, panelOpen]);
   const cols = fit.cols;
   const [quotesOpen, setQuotesOpen] = useState(false);
+  const [projectionOpen, setProjectionOpen] = useState(false);
+  const side = useInquirySide(inquiryId);
+  // Tell the inquiry page when an assumption changed (not on the first load).
+  const seenInq = useRef<any>(null);
+  useEffect(() => {
+    if (!bundle?.inq) return;
+    if (seenInq.current && seenInq.current !== bundle.inq) onInquiryPatched?.(bundle.inq);
+    seenInq.current = bundle.inq;
+  }, [bundle?.inq]); // eslint-disable-line react-hooks/exhaustive-deps
   const m = (n: number, d = 0) => formatMoney(n, cur, d);
   const quote = useGenerateQuote(inquiryId);
   /** Draft quote from the ticked SKUs at the prices the grid shows (same engine numbers). */
-  const generateQuote = (ids: string[]) => quote.generate(rows.filter(r => ids.includes(r.p.id)).map(r => ({
-    id: r.p.id, name: r.p.name, quantity: r.qty,
-    reference_price_usd: r.r.summary.unit_price_usd,
-    reference_price_inr: r.r.summary.unit_price_inr,
-    target_price_usd: r.p.target_price_usd, markup_percent: r.p.markup_percent,
-  })));
+  const generateQuote = async (ids: string[]) => {
+    await quote.generate(rows.filter(r => ids.includes(r.p.id)).map(r => ({
+      id: r.p.id, name: r.p.name, quantity: r.qty,
+      reference_price_usd: r.r.summary.unit_price_usd,
+      reference_price_inr: r.r.summary.unit_price_inr,
+      target_price_usd: r.p.target_price_usd, markup_percent: r.p.markup_percent,
+    })));
+    void side.reload();
+  };
   /** New SKUs with the same costing (the shared product clone), named "(copy)" with the SKU code left for the user. */
   const [duplicating, setDuplicating] = useState(false);
   const duplicate = async (ids: string[]) => {
@@ -153,7 +184,6 @@ export default function CostingWorkspace() {
     if (VIEW_TO_OPEN[params.get('view') || '']) setParam('view', null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useDocumentTitle(bundle ? `Badass Costing Workspace · ${bundle.inq.title || bundle.inq.rfq_number}` : 'Badass Costing Workspace');
 
   // ---------- filtering & sorting ----------
 
@@ -266,18 +296,17 @@ export default function CostingWorkspace() {
 
   // ---------- render ----------
 
-  if (loading) {
-    return <AppLayout><div className="py-24 grid place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div></AppLayout>;
-  }
-  if (!bundle && loadError) return (
-    <AppLayout>
-      <div className="py-24 text-center text-muted-foreground space-y-3">
-        <p>Couldn’t load this inquiry’s costing. Nothing was changed.</p>
-        <Button variant="outline" size="sm" onClick={() => void reload()}>Retry</Button>
-      </div>
-    </AppLayout>
+  const shell = (body: React.ReactNode) => (
+    <div className="fixed inset-x-0 top-12 bottom-14 md:bottom-0 flex flex-col gap-2.5 bg-background px-4 pt-3 pb-3">{lead(null)}{body}</div>
   );
-  if (!bundle) return <AppLayout><div className="py-24 text-center text-muted-foreground">Inquiry not found.</div></AppLayout>;
+  if (loading) return shell(<div className="py-24 grid place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>);
+  if (!bundle && loadError) return shell(
+    <div className="py-24 text-center text-muted-foreground space-y-3">
+      <p>Couldn’t load this inquiry’s costing. Nothing was changed.</p>
+      <Button variant="outline" size="sm" onClick={() => void reload()}>Retry</Button>
+    </div>,
+  );
+  if (!bundle) return shell(<div className="py-24 text-center text-muted-foreground">Inquiry not found.</div>);
 
   const title = bundle.inq.title || bundle.inq.rfq_number;
   const targetDelta = t.withTarget ? rows.filter(r => r.target != null).reduce((a, r) => a + (r.gap ?? 0) * r.qty, 0) : null;
@@ -291,37 +320,12 @@ export default function CostingWorkspace() {
     toast.success(`Target set to the last quoted price on ${n} SKU${n === 1 ? '' : 's'}`, { action: { label: 'Undo', onClick: () => { undo(); } } });
   };
 
-  return (
-    <AppLayout>
-      <TooltipProvider delayDuration={200}>
-        <div className="fixed inset-x-0 top-12 bottom-14 md:bottom-0 flex flex-col gap-3 bg-background px-4 pt-3 pb-3">
-          {/* Title row */}
-          <div className="flex items-start gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 mt-0.5 shrink-0" onClick={() => navigate(`/inquiry/${inquiryId}`)} aria-label="Back to inquiry">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <PageBreadcrumbs canonical={[{ label: 'Inquiries', to: '/inquiries' }, { label: title, to: `/inquiry/${inquiryId}` }]} current="Badass Costing Workspace" />
-              <div className="flex items-baseline gap-2 min-w-0">
-                <h1 className="page-title truncate">{title}</h1>
-                <span className="text-sm text-muted-foreground truncate">{bundle.inq.rfq_number}{bundle.customer ? ` · ${customerPrimary(bundle.customer)}` : ''}</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link to={`/inquiry/${inquiryId}?tab=settings`}
-                      className={cn('shrink-0 self-center rounded-full border px-2 py-0.5 text-xs font-medium',
-                        cur === 'INR' ? 'border-primary/30 bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground')}>
-                      {cur === 'INR' ? '₹ INR' : '$ USD'}
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">
-                    {cur === 'INR'
-                      ? 'This customer pays in rupees: prices, targets and FOB are in ₹ with no exchange rate. Change it under the inquiry’s Settings → Quoting currency.'
-                      : 'Prices, targets and FOB are in US dollars. Set the inquiry’s Settings → Quoting currency to INR for a rupee customer.'}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+  const holdQuoted = (ids: string[]) => {
+    apply(b => priceToQuoted(b, rows, ids));
+    toast.success(`${ids.length} SKU${ids.length === 1 ? '' : 's'} back on the quoted price`, { action: { label: 'Undo', onClick: () => { undo(); } } });
+  };
+  const actions = (
+    <>
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-[72px]">
                 {saving > 0 ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</> : savedAt ? <><Check className="h-3.5 w-3.5 text-primary" /> Saved</> : null}
               </span>
@@ -343,8 +347,13 @@ export default function CostingWorkspace() {
               <Button size="sm" variant="outline" className="gap-1.5" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
               <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
               <ShortcutsButton />
-            </div>
-          </div>
+    </>
+  );
+
+  return (
+      <TooltipProvider delayDuration={200}>
+        <div className="fixed inset-x-0 top-12 bottom-14 md:bottom-0 flex flex-col gap-2.5 bg-background px-4 pt-3 pb-3">
+          {lead(actions)}
 
           {/* KPIs */}
           <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
@@ -362,6 +371,8 @@ export default function CostingWorkspace() {
             <Stat label="Needs a look" value={t.flagged} tone={t.flagged ? 'warn' : undefined} sub="blank or odd-one-out costs"
               onClick={() => setFilter(f => (f === 'flagged' ? 'all' : 'flagged'))} active={filter === 'flagged'} />
           </div>
+
+          <AssumptionsStrip bundle={bundle} apply={apply} />
 
           {/* Step controls + filters */}
           <div className="flex flex-wrap items-center gap-2">
@@ -404,13 +415,17 @@ export default function CostingWorkspace() {
             )}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setQuotesOpen(true)}>
+                <Button size="sm" variant="outline" className={cn('gap-1.5', showSide && 'hidden')} onClick={() => setQuotesOpen(true)}>
                   <FileText className="h-4 w-4" /> Customer quotes{quotedCount > 0 ? ` (${quotedCount} SKU${quotedCount === 1 ? '' : 's'} quoted)` : ''}
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-xs">This inquiry’s quotes, without leaving costing: open or edit one, mark it sent, compare with the latest sent</TooltipContent>
             </Tooltip>
             <div className="ml-auto flex items-center gap-2">
+              {!sideOpen && !openRow && !quotesMode && (
+                <Button size="sm" variant="outline" className="hidden gap-1.5 lg:inline-flex" onClick={() => setSideOpen(true)}><PanelRightOpen className="h-4 w-4" /> Quotes and projection</Button>
+              )}
+              {sideSqueezed && <span className="hidden text-xs text-muted-foreground lg:inline">Quotes and projection come back when this step folds</span>}
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SKU, name, vendor" className="h-9 w-56 pl-8"
@@ -446,8 +461,8 @@ export default function CostingWorkspace() {
           )}
 
           {/* Grid + panel */}
-          <div className={cn('flex min-h-0 flex-1 gap-3', selectedIds.length > 0 && 'mb-[68px]')}>
-            <div ref={gridRef} className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'min-w-0 flex-1')}>
+          <div ref={rowRef} className={cn('flex min-h-0 flex-1 gap-3', selectedIds.length > 0 && 'mb-[68px]')}>
+            <div className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'min-w-0 flex-1')}>
               {visibleRows.length === 0 ? (
                 <div className="p-12 text-center text-sm text-muted-foreground">
                   {rows.length === 0 ? 'This inquiry has no products yet.' : 'No SKUs match.'}
@@ -463,6 +478,13 @@ export default function CostingWorkspace() {
                 />
               )}
             </div>
+            {showSide && (
+              <InquirySide inquiryId={inquiryId} rows={rows} cur={cur} fob={t.fob} margin={t.margin} manHours={t.indirect} data={side.data}
+                selectedCount={selectedIds.length} quoting={quote.busy}
+                onGenerate={() => void generateQuote(selectedIds.length ? selectedIds : rows.map(r => r.p.id))}
+                onRequote={ids => void generateQuote(ids)} onHold={holdQuoted}
+                onAllQuotes={() => setQuotesOpen(true)} onEditProjection={() => setProjectionOpen(true)} onCollapse={() => setSideOpen(false)} />
+            )}
             {openRow && (
               <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border/70 shadow-sm">
                 <ProductPanel
@@ -486,7 +508,16 @@ export default function CostingWorkspace() {
           )}
         </div>
         {quote.dialog}
-        <Sheet open={quotesOpen} onOpenChange={o => { setQuotesOpen(o); if (!o) void load(); }}>
+        <Sheet open={projectionOpen} onOpenChange={o => { setProjectionOpen(o); if (!o) void side.reload(); }}>
+          <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-3xl">
+            <SheetHeader className="mb-4">
+              <SheetTitle>Projection · {title}</SheetTitle>
+              <SheetDescription>When this order lands, how sure it is and how the money moves. FOB and margin follow the costing sheet until the PO.</SheetDescription>
+            </SheetHeader>
+            {projectionOpen && <InquiryProjectionTab inquiryId={inquiryId} />}
+          </SheetContent>
+        </Sheet>
+        <Sheet open={quotesOpen} onOpenChange={o => { setQuotesOpen(o); if (!o) { void load(); void side.reload(); } }}>
           <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
             <SheetHeader className="mb-4">
               <SheetTitle>Customer quotes · {title}</SheetTitle>
@@ -494,12 +525,11 @@ export default function CostingWorkspace() {
                 The quotes made for this inquiry. To make a new one, tick SKUs in the costing sheet and press Generate quote. Closing this refreshes the Quoted column.
               </SheetDescription>
             </SheetHeader>
-            {quotesOpen && <InquiryQuotesTab inquiryId={inquiryId!} refreshKey={0} />}
+            {quotesOpen && <InquiryQuotesTab inquiryId={inquiryId} refreshKey={0} />}
           </SheetContent>
         </Sheet>
-        <CostingIntakeDialog open={intakeOpen} onOpenChange={setIntakeOpen} inquiryId={inquiryId!} mode="update" onApplied={() => void load()} />
+        <CostingIntakeDialog open={intakeOpen} onOpenChange={setIntakeOpen} inquiryId={inquiryId} mode="update" onApplied={() => void load()} />
       </TooltipProvider>
-    </AppLayout>
   );
 }
 

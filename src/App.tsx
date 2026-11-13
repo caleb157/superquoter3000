@@ -1,5 +1,5 @@
 import { Suspense, useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,7 +31,6 @@ const VendorRfqEditor = lazyPage(() => import("./pages/VendorRfqEditor"));
 const VendorRfqPublicView = lazyPage(() => import("./pages/VendorRfqPublicView"));
 const VendorRfqSheet = lazyPage(() => import("./pages/VendorRfqSheet"));
 const InquiryDetail = lazyPage(() => import("./pages/InquiryDetail"));
-const CostingWorkspace = lazyPage(() => import("./pages/CostingWorkspace"));
 const InquiryPdView = lazyPage(() => import("./pages/InquiryPdView"));
 const InquiryOdooExport = lazyPage(() => import("./pages/InquiryOdooExport"));
 const InquiryOdooBom = lazyPage(() => import("./pages/InquiryOdooBom"));
@@ -65,7 +64,7 @@ const FreightQuoteSettings = lazyPage(() => import("./pages/FreightQuoteSettings
 const START_PAGES: [RegExp, { preload: () => Promise<unknown> }][] = [
   [/^\/(inquiries)?$/, Dashboard],
   [/^\/inquiry\/[^/]+$/, InquiryDetail],
-  [/^\/inquiry\/[^/]+\/costing$/, CostingWorkspace],
+  [/^\/inquiry\/[^/]+\/costing$/, InquiryDetail],
   [/^\/inquiry\/[^/]+\/pd$/, InquiryPdView],
   [/^\/product\/[^/]+$/, ProductDetail],
   [/^\/products$/, Products],
@@ -98,7 +97,7 @@ const PreloadCommonPages = () => {
   const { isAdminOrTeam } = useAuth();
   useEffect(() => {
     if (!isAdminOrTeam) return;
-    const run = () => [Dashboard, InquiryDetail, CostingWorkspace, Products, Tasks].forEach(p => void p.preload().catch(() => {}));
+    const run = () => [Dashboard, InquiryDetail, Products, Tasks].forEach(p => void p.preload().catch(() => {}));
     const w = window as any;
     const handle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 5000 }) : window.setTimeout(run, 2000);
     return () => (w.cancelIdleCallback ? w.cancelIdleCallback(handle) : window.clearTimeout(handle));
@@ -106,9 +105,15 @@ const PreloadCommonPages = () => {
   return null;
 };
 
+// Costing is the inquiry page's first tab now; the old workspace address (and the grids
+// before it) land there, keeping the SKU, view and selection they named.
 const CostingRedirect = ({ view }: { view?: string }) => {
   const { id } = useParams();
-  return <Navigate replace to={`/inquiry/${id}/costing${view ? `?view=${view}` : ''}`} />;
+  const { search } = useLocation();
+  const q = new URLSearchParams(search);
+  q.set('tab', 'costing');
+  if (view) q.set('view', view);
+  return <Navigate replace to={`/inquiry/${id}?${q}`} />;
 };
 
 const App = () => (
@@ -151,9 +156,7 @@ const App = () => (
               <Route path="/inquiry/:id" element={
                 <ProtectedRoute requireAdminOrTeam><InquiryDetail /></ProtectedRoute>
               } />
-              <Route path="/inquiry/:id/costing" element={
-                <ProtectedRoute requireAdminOrTeam><CostingWorkspace /></ProtectedRoute>
-              } />
+              <Route path="/inquiry/:id/costing" element={<CostingRedirect />} />
               {/* The Pricing, Target and Bulk grids are views of the Costing workspace now. */}
               <Route path="/inquiry/:id/pricing" element={<CostingRedirect view="quotes" />} />
               <Route path="/inquiry/:id/targets" element={<CostingRedirect />} />

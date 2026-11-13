@@ -12,7 +12,9 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, X, History } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ExternalLink, FolderOpen, Pencil, Plus, Save, History } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CostingSheet } from '@/components/costing-workspace/CostingSheet';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArchivedProductsCard } from '@/components/ArchivedProductsCard';
@@ -29,7 +31,6 @@ import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton';
 import { EditHistoryDialog } from '@/components/EditHistoryDialog';
-import { CurrencyCombobox } from '@/components/CurrencyCombobox';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PageBreadcrumbs } from '@/components/PageBreadcrumbs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -40,8 +41,20 @@ import { InquiryClockStrip } from '@/components/InquiryClockStrip';
 import { RepeatOfLink } from '@/components/RepeatOrderPicker';
 import { InquirySampleClockStrip } from '@/components/InquirySampleClockStrip';
 import { customerFullLabel } from '@/lib/customer-name';
-const VALID_TABS = ['products', 'assemblies', 'tasks', 'quotes', 'samples', 'projection', 'settings', 'summary'] as const;
+const VALID_TABS = ['costing', 'products', 'assemblies', 'samples', 'tasks', 'quotes', 'projection', 'settings'] as const;
 type TabKey = typeof VALID_TABS[number];
+const TAB_OPTIONS: { value: TabKey; label: string }[] = [
+  { value: 'costing', label: 'Costing' },
+  { value: 'products', label: 'Development' },
+  { value: 'assemblies', label: 'Assemblies' },
+  { value: 'samples', label: 'Samples' },
+  { value: 'tasks', label: 'Tasks' },
+  { value: 'quotes', label: 'Quotes' },
+  { value: 'projection', label: 'Projection' },
+  { value: 'settings', label: 'Settings' },
+];
+/** The costing sheet needs room: it is the first tab on a computer, the product list on a phone. */
+const wideScreen = () => typeof window === 'undefined' || !window.matchMedia || window.matchMedia('(min-width: 768px)').matches;
 
 export default function InquiryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +71,8 @@ export default function InquiryDetail() {
   const [productFilter, setProductFilter] = useState<ProductFilterKey>('all');
   const [refreshKey, setRefreshKey] = useState(0);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  useKeyboardShortcuts({ onNewItem: () => setTaskDialogOpen(true) });
+  // Not on the Costing tab: there a letter typed on a cell starts editing it.
+  useKeyboardShortcuts({ onNewItem: () => { if (activeTab !== 'costing') setTaskDialogOpen(true); } });
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [editingDrive, setEditingDrive] = useState(false);
   const [driveDraft, setDriveDraft] = useState('');
@@ -66,16 +80,16 @@ export default function InquiryDetail() {
 
   // Settings draft
   const [settingsDraft, setSettingsDraft] = useState<any>(null);
-  const [shippingTypes, setShippingTypes] = useState<any[]>([]);
-  const [entities, setEntities] = useState<any[]>([]);
 
-  const tabParam = searchParams.get('tab') as TabKey | null;
+  // The old Summary tab's details all live under Settings now.
+  const tabParam = (searchParams.get('tab') === 'summary' ? 'settings' : searchParams.get('tab')) as TabKey | null;
   const stageParam = searchParams.get('stage');
-  const activeTab: TabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : 'products';
+  const activeTab: TabKey = tabParam && VALID_TABS.includes(tabParam) ? tabParam : stageParam || !wideScreen() ? 'products' : 'costing';
   const setActiveTab = (t: TabKey) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', t);
     if (t !== 'products') { next.delete('stage'); setProductFilter('all'); }
+    if (t !== 'costing') { next.delete('sku'); next.delete('view'); }
     setSearchParams(next, { replace: true });
   };
 
@@ -88,15 +102,9 @@ export default function InquiryDetail() {
 
   const fetchInquiry = async () => {
     if (!id) return;
-    const [inqRes, stRes, entRes] = await Promise.all([
-      (supabase as any).from('customer_rfqs').select('*').eq('id', id).maybeSingle(),
-      (supabase as any).from('shipping_types').select('id, name').order('name'),
-      (supabase as any).from('company_entities').select('id, name').order('name'),
-    ]);
+    const inqRes = await (supabase as any).from('customer_rfqs').select('*').eq('id', id).maybeSingle();
     setInquiry(inqRes.data);
     setSettingsDraft(inqRes.data);
-    setShippingTypes(stRes.data || []);
-    setEntities(entRes.data || []);
     if (inqRes.data?.customer_id) {
       const { data: c } = await (supabase as any).from('customers').select('*').eq('id', inqRes.data.customer_id).maybeSingle();
       setCustomer(c);
@@ -197,23 +205,6 @@ export default function InquiryDetail() {
       target_completion_date: settingsDraft.target_completion_date || null,
       requirements: settingsDraft.requirements?.trim() || null,
       notes: settingsDraft.notes?.trim() || null,
-      exchange_rate_override: settingsDraft.exchange_rate_override === '' || settingsDraft.exchange_rate_override == null
-        ? null : Number(settingsDraft.exchange_rate_override),
-      quoting_currency_rate_override: settingsDraft.quoting_currency_rate_override === '' || settingsDraft.quoting_currency_rate_override == null
-        ? null : Number(settingsDraft.quoting_currency_rate_override),
-      markup_percent_override: settingsDraft.markup_percent_override === '' || settingsDraft.markup_percent_override == null
-        ? null : Number(settingsDraft.markup_percent_override),
-      shipping_type_id_override: settingsDraft.shipping_type_id_override || null,
-      fob_pool_cbm_override: settingsDraft.fob_pool_cbm_override === '' || settingsDraft.fob_pool_cbm_override == null ? null : Number(settingsDraft.fob_pool_cbm_override),
-      fob_pool_cartons_override: settingsDraft.fob_pool_cartons_override === '' || settingsDraft.fob_pool_cartons_override == null ? null : Math.round(Number(settingsDraft.fob_pool_cartons_override)),
-      fob_fumigation: settingsDraft.fob_fumigation || 'none',
-      fob_wlc: settingsDraft.fob_wlc || 'none',
-      quoting_entity_id: settingsDraft.quoting_entity_id || null,
-      quoting_currency: settingsDraft.quoting_currency || null,
-      indirect_overhead_per_mh_override: settingsDraft.indirect_overhead_per_mh_override === '' || settingsDraft.indirect_overhead_per_mh_override == null ? null : Number(settingsDraft.indirect_overhead_per_mh_override),
-      packaging_cost_per_cbm_override: settingsDraft.packaging_cost_per_cbm_override === '' || settingsDraft.packaging_cost_per_cbm_override == null ? null : Number(settingsDraft.packaging_cost_per_cbm_override),
-      auto_transport_cost_per_cbm_override: settingsDraft.auto_transport_cost_per_cbm_override === '' || settingsDraft.auto_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.auto_transport_cost_per_cbm_override),
-      local_transport_cost_per_cbm_override: settingsDraft.local_transport_cost_per_cbm_override === '' || settingsDraft.local_transport_cost_per_cbm_override == null ? null : Number(settingsDraft.local_transport_cost_per_cbm_override),
       po_received_date: settingsDraft.po_received_date || null,
       po_total_value_usd: settingsDraft.po_total_value_usd === '' || settingsDraft.po_total_value_usd == null ? null : Number(settingsDraft.po_total_value_usd),
       payment_terms_deposit_pct: settingsDraft.payment_terms_deposit_pct === '' || settingsDraft.payment_terms_deposit_pct == null ? null : Number(settingsDraft.payment_terms_deposit_pct),
@@ -233,15 +224,153 @@ export default function InquiryDetail() {
 
   const statusKnown = STATUS_OPTIONS.includes(inquiry.status);
 
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/inquiries');
+  };
+  const titleEl = editingTitle ? (
+    <div className="flex items-center gap-2">
+      <Input
+        value={titleDraft}
+        onChange={e => setTitleDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+        autoFocus
+        className="h-8 text-lg font-bold"
+      />
+      <Button size="sm" onClick={saveTitle}>Save</Button>
+    </div>
+  ) : (
+    <h1
+      className="page-title cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 inline-flex min-w-0 items-center gap-2 group"
+      onClick={() => { setTitleDraft(inquiry.title ?? ''); setEditingTitle(true); }}
+    >
+      <span className="truncate">{inquiry.title || 'Untitled Inquiry'}</span>
+      <Pencil className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-50" />
+    </h1>
+  );
+  // The Google Drive folder: a chip in the header (it used to be a card above every tab).
+  const driveChip = (
+    <Popover open={editingDrive} onOpenChange={o => { setEditingDrive(o); if (o) setDriveDraft(inquiry.drive_url ?? ''); }}>
+      <span className="inline-flex shrink-0 items-center rounded-full border text-xs">
+        {inquiry.drive_url ? (
+          <a href={inquiry.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 py-1 pl-2.5 pr-1 font-medium text-primary hover:underline">
+            <FolderOpen className="h-3.5 w-3.5" /> Drive <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : null}
+        <PopoverTrigger asChild>
+          {inquiry.drive_url
+            ? <button className="py-1 pl-1 pr-2 text-muted-foreground hover:text-foreground" aria-label="Change the Drive folder link"><Pencil className="h-3 w-3" /></button>
+            : <button className="inline-flex items-center gap-1 px-2.5 py-1 text-muted-foreground hover:text-foreground"><FolderOpen className="h-3.5 w-3.5" /> Add Drive folder</button>}
+        </PopoverTrigger>
+      </span>
+      <PopoverContent align="start" className="w-[420px] space-y-2 p-3">
+        <Label className="text-xs">Google Drive folder link</Label>
+        <Input
+          value={driveDraft}
+          onChange={e => setDriveDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') saveDriveUrl(); }}
+          placeholder="https://drive.google.com/drive/folders/..."
+          autoFocus
+          className="h-8 text-sm"
+        />
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingDrive(false)}>Cancel</Button>
+          <Button size="sm" className="h-8" onClick={saveDriveUrl}>Save</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+  const statusMenu = (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className={cn('gap-1.5', statusKnown && STATUS_COLOR[inquiry.status])}>
+            {statusLabel(inquiry.status)} <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {STATUS_OPTIONS.map(s => (
+            <DropdownMenuItem key={s} onClick={() => updateField({ status: s })}>{statusLabel(s)}</DropdownMenuItem>
+          ))}
+          <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="border-t mt-1 pt-1.5">
+            <History className="h-3.5 w-3.5 mr-2" /> Edit history…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDeleteButton
+        itemLabel={`inquiry ${inquiry.rfq_number}`}
+        description={`This permanently removes inquiry ${inquiry.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
+        onConfirm={async () => {
+          const { error } = await (supabase as any).from('customer_rfqs').delete().eq('id', id);
+          if (error) throw error;
+          navigate('/');
+        }}
+      />
+    </>
+  );
+  const tabBar = <ResponsiveTabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} options={TAB_OPTIONS} />;
+  const dialogs = (
+    <>
+      <TaskDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        context={{ inquiryId: id }}
+        onSaved={() => setTaskRefresh(k => k + 1)}
+      />
+      <EditHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        config={{
+          table: 'inquiry_status_events',
+          parentColumn: 'inquiry_id',
+          parentId: inquiry.id,
+          options: STATUS_OPTIONS,
+          valueColumn: 'to_status',
+          fromColumn: 'from_status',
+          label: `${inquiry.rfq_number} — status`,
+        }}
+      />
+    </>
+  );
+
+  // Costing: the sheet takes the whole screen, with a one-line inquiry header and the tab bar above it.
+  if (activeTab === 'costing') {
+    return (
+      <AppLayout>
+        <CostingSheet
+          inquiryId={id!}
+          onInquiryPatched={inq => { setInquiry((i: any) => ({ ...i, ...inq })); setSettingsDraft((d: any) => (d ? { ...d, ...inq } : d)); setRefreshKey(k => k + 1); }}
+          lead={actions => (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 shrink-0" onClick={goBack} aria-label="Back"><ArrowLeft className="h-4 w-4" /></Button>
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  {titleEl}
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">{inquiry.rfq_number}</span>
+                  {customer && (
+                    <button className="hidden min-w-0 truncate text-sm text-muted-foreground hover:text-foreground hover:underline md:block" onClick={() => navigate('/customers')}>
+                      {customerFullLabel(customer)}
+                    </button>
+                  )}
+                  {driveChip}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">{actions}{statusMenu}</div>
+              </div>
+              {tabBar}
+            </Tabs>
+          )}
+        />
+        {dialogs}
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={() => {
-            const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-            if (idx > 0) navigate(-1);
-            else navigate('/inquiries');
-          }}>
+          <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={goBack}>
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Button>
           <PageBreadcrumbs
@@ -255,30 +384,12 @@ export default function InquiryDetail() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm text-muted-foreground">{inquiry.rfq_number}</span>
+              {driveChip}
             </div>
-            {editingTitle ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={titleDraft}
-                  onChange={e => setTitleDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
-                  autoFocus
-                  className="h-8 text-lg font-bold"
-                />
-                <Button size="sm" onClick={saveTitle}>Save</Button>
-              </div>
-            ) : (
-              <h1
-                className="page-title cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 inline-flex items-center gap-2 group"
-                onClick={() => { setTitleDraft(inquiry.title ?? ''); setEditingTitle(true); }}
-              >
-                {inquiry.title || 'Untitled Inquiry'}
-                <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-50" />
-              </h1>
-            )}
+            {titleEl}
             {customer && (
               <button
-                className="text-sm text-muted-foreground hover:text-foreground hover:underline mt-1"
+                className="block text-sm text-muted-foreground hover:text-foreground hover:underline mt-1"
                 onClick={() => navigate('/customers')}
               >
                 {customerFullLabel(customer)}
@@ -286,52 +397,12 @@ export default function InquiryDetail() {
             )}
             <RepeatOfLink inquiryId={inquiry.repeat_of_inquiry_id} />
           </div>
-
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('gap-1.5', statusKnown && STATUS_COLOR[inquiry.status])}>
-                  {statusLabel(inquiry.status)} <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {STATUS_OPTIONS.map(s => (
-                  <DropdownMenuItem key={s} onClick={() => updateField({ status: s })}>{statusLabel(s)}</DropdownMenuItem>
-                ))}
-                <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="border-t mt-1 pt-1.5">
-                  <History className="h-3.5 w-3.5 mr-2" /> Edit history…
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <ConfirmDeleteButton
-              itemLabel={`inquiry ${inquiry.rfq_number}`}
-              description={`This permanently removes inquiry ${inquiry.rfq_number} and all of its products, quotes, samples, and tasks. This cannot be undone.`}
-              onConfirm={async () => {
-                const { error } = await (supabase as any).from('customer_rfqs').delete().eq('id', id);
-                if (error) throw error;
-                navigate('/');
-              }}
-            />
-          </div>
+          <div className="flex items-center gap-2">{statusMenu}</div>
         </div>
 
-        {/* Tabs: the bar sits right under the inquiry name so it's always within reach;
-            the clock strips and summary cards below it stay visible on every tab. */}
+        {/* Tabs: the bar sits right under the inquiry name so it's always within reach. */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4">
-          <ResponsiveTabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as TabKey)}
-            options={[
-              { value: 'products', label: 'Products' },
-              { value: 'assemblies', label: 'Assemblies' },
-              { value: 'tasks', label: 'Tasks' },
-              { value: 'quotes', label: 'Quotes' },
-              { value: 'samples', label: 'Samples' },
-              { value: 'projection', label: 'Projection' },
-              { value: 'settings', label: 'Settings' },
-              { value: 'summary', label: 'Summary' },
-            ]}
-          />
+          {tabBar}
 
           <InquiryClockStrip
             inquiryId={id!}
@@ -344,87 +415,20 @@ export default function InquiryDetail() {
           />
           <InquirySampleClockStrip inquiryId={id!} refreshKey={refreshKey} />
 
-          {/* Google Drive folder link */}
-          <Card>
-            <CardContent className="py-2.5 px-3 flex items-center gap-2 text-sm">
-              <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-xs text-muted-foreground shrink-0">Drive folder:</span>
-              {editingDrive ? (
-                <>
-                  <Input
-                    value={driveDraft}
-                    onChange={e => setDriveDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveDriveUrl(); if (e.key === 'Escape') setEditingDrive(false); }}
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    autoFocus
-                    className="h-8 text-sm flex-1 min-w-0"
-                  />
-                  <Button size="sm" className="h-8" onClick={saveDriveUrl}>Save</Button>
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setEditingDrive(false)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </>
-              ) : inquiry.drive_url ? (
-                <>
-                  <a
-                    href={inquiry.drive_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 min-w-0 truncate text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    <span className="truncate">{inquiry.drive_url}</span>
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                  <Button
-                    size="sm" variant="ghost" className="h-8 px-2"
-                    onClick={() => { setDriveDraft(inquiry.drive_url ?? ''); setEditingDrive(true); }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </>
-              ) : (
-                <button
-                  className="flex-1 text-left text-muted-foreground hover:text-foreground italic"
-                  onClick={() => { setDriveDraft(''); setEditingDrive(true); }}
-                >
-                  Add a Google Drive folder link…
-                </button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Status cards */}
-          <InquiryStatusCards
-            inquiryId={id!}
-            refreshKey={refreshKey}
-            onCardClick={(filter) => {
-              setProductFilter(filter);
-              setActiveTab('products');
-            }}
-          />
-          <InquiryFobCard inquiryId={id!} refreshKey={refreshKey} />
-
-          <TabsContent value="summary" className="mt-3 space-y-3">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Inquiry metadata</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div><Label className="text-xs text-muted-foreground">Target completion</Label><div>{inquiry.target_completion_date ?? '—'}</div></div>
-                <div><Label className="text-xs text-muted-foreground">Assigned to</Label><div>{inquiry.assigned_to ?? '—'}</div></div>
-                <div><Label className="text-xs text-muted-foreground">Received</Label><div>{inquiry.received_date}</div></div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Incoterm</Label>
-                  <div>{shippingTypes.find(s => s.id === inquiry.shipping_type_id_override)?.name ?? <span className="text-muted-foreground italic">Not set</span>}</div>
-                </div>
-                <div><Label className="text-xs text-muted-foreground">Quoting currency</Label><div>{inquiry.quoting_currency ?? 'USD'}</div></div>
-                <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Requirements</Label><div className="whitespace-pre-wrap">{inquiry.requirements ?? '—'}</div></div>
-                <div className="md:col-span-2"><Label className="text-xs text-muted-foreground">Notes</Label><div className="whitespace-pre-wrap">{inquiry.notes ?? '—'}</div></div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Recent activity</CardTitle></CardHeader>
-              <CardContent><InquiryActivityFeed inquiryId={id!} limit={10} /></CardContent>
-            </Card>
-          </TabsContent>
+          {/* Stage counts and the FOB roll-up belong to the product list. */}
+          {activeTab === 'products' && (
+            <>
+              <InquiryStatusCards
+                inquiryId={id!}
+                refreshKey={refreshKey}
+                onCardClick={(filter) => {
+                  setProductFilter(filter);
+                  setActiveTab('products');
+                }}
+              />
+              <InquiryFobCard inquiryId={id!} refreshKey={refreshKey} />
+            </>
+          )}
 
           <TabsContent value="products" className="mt-3">
             <InquiryProductsTab
@@ -501,163 +505,12 @@ export default function InquiryDetail() {
                   <Label className="text-xs">Notes</Label>
                   <Textarea rows={2} value={settingsDraft?.notes ?? ''} onChange={e => setSettingsDraft({ ...settingsDraft, notes: e.target.value })} className="text-sm mt-1" />
                 </div>
-                <div>
-                  <Label className="text-xs">Quoting entity</Label>
-                  <Select
-                    value={settingsDraft?.quoting_entity_id ?? '__none__'}
-                    onValueChange={v => setSettingsDraft({ ...settingsDraft, quoting_entity_id: v === '__none__' ? null : v })}
-                  >
-                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Pick at quote time" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Pick at quote time —</SelectItem>
-                      {entities.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Quoting currency</Label>
-                  <div className="mt-1">
-                    <CurrencyCombobox
-                      value={settingsDraft?.quoting_currency ?? 'USD'}
-                      onChange={v => setSettingsDraft({ ...settingsDraft, quoting_currency: v })}
-                    />
-                  </div>
+                <div className="md:col-span-2 text-xs text-muted-foreground">
+                  Received {inquiry.received_date ?? '—'}. Quoting currency, exchange rate, shipping type, overheads and the other costing assumptions are on the{' '}
+                  <button className="text-primary hover:underline" onClick={() => setActiveTab('costing')}>Costing tab</button>, above the sheet.
                 </div>
                 <div className="md:col-span-2">
                   <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save</Button>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Costing overrides</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">Optional. Leave blank to use global defaults / per-product values.</p>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs">FOB shipment CBM</Label>
-                  <Input type="number" step="0.01" placeholder="Auto (sum of products)"
-                    value={settingsDraft?.fob_pool_cbm_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_pool_cbm_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">FOB carton count</Label>
-                  <Input type="number" step="1" placeholder="Auto (sum of products)"
-                    value={settingsDraft?.fob_pool_cartons_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_pool_cartons_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">FOB fumigation</Label>
-                  <select
-                    value={settingsDraft?.fob_fumigation ?? 'none'}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_fumigation: e.target.value })}
-                    className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
-                    <option value="none">None</option>
-                    <option value="normal">Normal</option>
-                    <option value="ispm">ISPM-15</option>
-                  </select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Per container, FCL only. Australia / New Zealand need ISPM.</p>
-                </div>
-                <div>
-                  <Label className="text-xs">Wildlife certificate</Label>
-                  <select
-                    value={settingsDraft?.fob_wlc ?? 'none'}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, fob_wlc: e.target.value })}
-                    className="h-9 mt-1 w-full rounded-md border border-input bg-background px-2 text-sm">
-                    <option value="none">None</option>
-                    <option value="leather">Leather</option>
-                    <option value="bone_mop">Bone / mother of pearl</option>
-                  </select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Once per shipment, FCL only.</p>
-                </div>
-                <div>
-                  <Label className="text-xs">Exchange rate (INR per USD)</Label>
-                  <Input
-                    type="number" step="0.01" placeholder="Global default"
-                    value={settingsDraft?.exchange_rate_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, exchange_rate_override: e.target.value })}
-                    className="h-9 mt-1"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">Used by costing display (₹↔$).</p>
-                </div>
-                {settingsDraft?.quoting_currency && settingsDraft.quoting_currency !== 'INR' && settingsDraft.quoting_currency !== 'USD' && (
-                  <div>
-                    <Label className="text-xs">Quote FX (INR per {settingsDraft.quoting_currency})</Label>
-                    <Input
-                      type="number" step="0.0001" placeholder="Currencies table default"
-                      value={settingsDraft?.quoting_currency_rate_override ?? ''}
-                      onChange={e => setSettingsDraft({ ...settingsDraft, quoting_currency_rate_override: e.target.value })}
-                      className="h-9 mt-1"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">Frozen into generated quotes for this currency.</p>
-                  </div>
-                )}
-                <div>
-                  <Label className="text-xs">Uniform NPM % (overrides per product)</Label>
-                  <Input
-                    type="number" step="0.1" placeholder="Per-product default" min={0} max={99.9}
-                    value={
-                      settingsDraft?.markup_percent_override == null || settingsDraft?.markup_percent_override === ''
-                        ? ''
-                        : (Number(settingsDraft.markup_percent_override) / (1 + Number(settingsDraft.markup_percent_override)) * 100).toFixed(1)
-                    }
-                    onChange={e => {
-                      const v = e.target.value;
-                      if (v === '') { setSettingsDraft({ ...settingsDraft, markup_percent_override: null }); return; }
-                      const npm = Number(v) / 100;
-                      if (!isFinite(npm) || npm < 0 || npm >= 1) return;
-                      const markup = npm >= 1 ? null : npm / (1 - npm);
-                      setSettingsDraft({ ...settingsDraft, markup_percent_override: markup });
-                    }}
-                    className="h-9 mt-1"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">Net Profit Margin. Stored internally as markup multiplier.</p>
-                </div>
-                <div>
-                  <Label className="text-xs">Shipping type override</Label>
-                  <Select
-                    value={settingsDraft?.shipping_type_id_override ?? '__none__'}
-                    onValueChange={v => setSettingsDraft({ ...settingsDraft, shipping_type_id_override: v === '__none__' ? null : v })}
-                  >
-                    <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Per-product default" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Use per-product —</SelectItem>
-                      {shippingTypes.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Indirect overhead / man-hour (₹)</Label>
-                  <Input type="number" step="0.01" placeholder="Global default"
-                    value={settingsDraft?.indirect_overhead_per_mh_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, indirect_overhead_per_mh_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Packaging cost / CBM (₹)</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.packaging_cost_per_cbm_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, packaging_cost_per_cbm_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Auto transport cost / CBM (₹)</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.auto_transport_cost_per_cbm_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, auto_transport_cost_per_cbm_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Local transport cost / CBM (₹)</Label>
-                  <Input type="number" step="1" placeholder="Global default"
-                    value={settingsDraft?.local_transport_cost_per_cbm_override ?? ''}
-                    onChange={e => setSettingsDraft({ ...settingsDraft, local_transport_cost_per_cbm_override: e.target.value })}
-                    className="h-9 mt-1" />
-                </div>
-                <div className="md:col-span-3">
-                  <Button onClick={saveSettings} size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save overrides</Button>
                 </div>
               </CardContent>
             </Card>
@@ -723,28 +576,7 @@ export default function InquiryDetail() {
         </Tabs>
       </div>
 
-      <TaskDialog
-        open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
-        context={{ inquiryId: id }}
-        onSaved={() => setTaskRefresh(k => k + 1)}
-      />
-
-      {inquiry && (
-        <EditHistoryDialog
-          open={historyOpen}
-          onOpenChange={setHistoryOpen}
-          config={{
-            table: 'inquiry_status_events',
-            parentColumn: 'inquiry_id',
-            parentId: inquiry.id,
-            options: STATUS_OPTIONS,
-            valueColumn: 'to_status',
-            fromColumn: 'from_status',
-            label: `${inquiry.rfq_number} — status`,
-          }}
-        />
-      )}
+      {dialogs}
     </AppLayout>
   );
 }
