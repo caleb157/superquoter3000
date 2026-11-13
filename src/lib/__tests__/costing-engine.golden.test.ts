@@ -325,8 +325,7 @@ describe('costing-engine: golden master vs legacy product-pricing', () => {
         globalSettings: gs, inquiryOverrides: fx.inq, locations, difficulties,
       });
 
-      // The engine rounds the price to the nearest 5 cents; everything under it matches the legacy figures.
-      expect(engine.summary.unit_price_usd).toBeCloseTo(Math.round(legacy.unit_price_usd * 20) / 20, 3);
+      expect(engine.summary.unit_price_usd).toBeCloseTo(legacy.unit_price_usd, 3);
       expect(engine.summary.product_cost_per_unit_usd).toBeCloseTo(legacy.unit_cost_usd, 3);
       expect(engine.cogsPerUnit).toBeCloseTo(legacy.cogsPerUnit, 3);
       expect(engine.nonUnitCogsPerUnit).toBeCloseTo(legacy.nonUnitCogsPerUnit, 3);

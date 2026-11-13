@@ -11,7 +11,6 @@ import { readTarget, targetPatch } from '@/lib/quote-currency';
 import { ALL_COLS, BANDS, fitLayout, layout } from '@/components/costing-workspace/columns';
 
 import { bundle } from './workspace-fixture';
-import { roundPrice } from '@/lib/costing-engine';
 
 const rowsOf = (b: Bundle) => buildRows(b, computeResults(b));
 const byId = (b: Bundle, id: string) => rowsOf(b).find(r => r.p.id === id)!;
@@ -102,9 +101,7 @@ describe('costing workspace', () => {
     const npm = ALL_COLS.find(c => c.id === 'npm')!.edit!;
     // What fill down / copy-paste does: read the cell's value, write it to another row.
     const b2 = npm.write(b1, ['c'], String(npm.get(byId(b1, 'a'))))!.next;
-    // The copied margin lands on 'c', then its price takes the rounding rule (nearest 5 cents).
-    const c2 = byId(b2, 'c');
-    expect(c2.price).toBeCloseTo(roundPrice(c2.cost / (1 - byId(b1, 'a').margin), 'USD'), 6);
+    expect(byId(b2, 'c').margin).toBeCloseTo(byId(b1, 'a').margin, 6);
     const again = npm.write(b1, ['a'], String(npm.get(byId(b1, 'a'))))!.next;
     expect(Math.abs(byId(again, 'a').price - 20)).toBeLessThan(0.0005);
   });
@@ -268,10 +265,8 @@ describe('product setup side effects (shared by the workspace and the product co
       expect(t.fob).toBeCloseTo(rows.reduce((a, r) => a + r.priceInr * r.qty, 0), 6);
       // Margins don't depend on the currency.
       const usd = totals(rowsOf(bundle()));
-      // Margins don't depend on the currency, beyond what rounding each price (whole rupees / 5 cents) moves.
-      expect(t.margin).toBeCloseTo(usd.margin, 2);
-      expect(t.contribution).toBeCloseTo(usd.contribution, 2);
-      for (const r of rows) expect(Number.isInteger(r.price)).toBe(true);
+      expect(t.margin).toBeCloseTo(usd.margin, 9);
+      expect(t.contribution).toBeCloseTo(usd.contribution, 9);
     });
 
     it('a rupee target is read as-is and price-to-target lands on it exactly', () => {
@@ -454,8 +449,7 @@ describe('price lock (products.price_lock)', () => {
     const npm = ALL_COLS.find(c => c.id === 'npm')!.edit!;
     const b3 = npm.write(b1, ['c'], '30')!.next;
     expect(byId(b3, 'c').locked).toBe(false);
-    const c3 = byId(b3, 'c');
-    expect(c3.price).toBeCloseTo(roundPrice(c3.cost / 0.7, 'USD'), 6);
+    expect(byId(b3, 'c').margin).toBeCloseTo(0.3, 9);
   });
 
   it('before the SQL is run nothing locks: price = target still sets the margin, a typed price is refused', () => {
@@ -511,7 +505,7 @@ describe('inquiry assumptions from the costing sheet', () => {
     const before = bundle();
     const m = patchInquiry(before, { markup_percent_override: 0.25 })!;
     expect(m.touched.length).toBe(before.products.length);
-    for (const r of buildRows(m.next, computeResults(m.next))) if (r.costInr > 0) expect(r.price).toBeCloseTo(roundPrice(r.cost / 0.8, 'USD'), 6);
+    for (const r of buildRows(m.next, computeResults(m.next))) if (r.costInr > 0) expect(r.margin).toBeCloseTo(0.2, 6);
     const undone = restoreRows(m.next, before, m.next)!;
     expect(undone.next.inq.markup_percent_override ?? null).toBeNull();
     expect(undone.touched.length).toBe(before.products.length);
@@ -532,23 +526,5 @@ describe('inquiry assumptions from the costing sheet', () => {
     expect(fitLayout(open, 'INR', budget(1888 - 312)).fits).toBe(false);
     expect(fitLayout(open, 'INR', budget(1888)).fits).toBe(true);
     expect(fitLayout({ margin: true }, 'INR', budget(1888 - 312)).fits).toBe(true);
-  });
-});
-
-describe('price rounding rule', () => {
-  it('dollar prices land on 5 cents and rupee prices on whole rupees; the asked-for margin is kept', () => {
-    for (const r of rowsOf(bundle())) if (r.price > 0 && !r.locked) expect(Math.abs(r.price * 20 - Math.round(r.price * 20))).toBeLessThan(1e-6);
-    const inr = { ...bundle(), inq: { ...bundle().inq, quoting_currency: 'INR' } };
-    for (const r of rowsOf(inr)) if (r.price > 0) expect(Number.isInteger(r.price)).toBe(true);
-    const b = bundle();
-    const res = computeResults(b);
-    for (const p of b.products) expect(res.get(p.id)!.markupPercent).toBe(p.markup_percent ?? 0.2);
-  });
-
-  it('a price sitting on the target is left exactly there, even off the 5 cent step', () => {
-    const b0 = bundle();
-    const b1 = { ...b0, products: b0.products.map(p => (p.id === 'a' ? { ...p, target_price_usd: 19.98 } : p)) };
-    const b2 = markupToTarget(b1, rowsOf(b1), ['a'])!.next;
-    expect(byId(b2, 'a').price).toBeCloseTo(19.98, 6);
   });
 });
