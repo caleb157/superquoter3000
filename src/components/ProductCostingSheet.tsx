@@ -20,6 +20,10 @@ export type ProductCostingSummary = {
   unitCostInr: number;
   unitCostUsd: number;
   exchangeRate: number;
+  /** Piece size, live from the sheet (the Shipping step's Piece W/D/H edit it). */
+  width_inch: number | null;
+  depth_inch: number | null;
+  height_inch: number | null;
 };
 
 export function ProductCostingSheet({ productId, onSummaryChange }: {
@@ -55,8 +59,11 @@ export function ProductCostingSheet({ productId, onSummaryChange }: {
       unitCostInr: row.costInr,
       unitCostUsd: row.r.summary.product_cost_per_unit_usd,
       exchangeRate: row.r.exchangeRate,
+      width_inch: row.p.width_inch ?? null,
+      depth_inch: row.p.depth_inch ?? null,
+      height_inch: row.p.height_inch ?? null,
     });
-  }, [row?.priceInr, row?.r.summary.unit_price_usd, row?.costInr, row?.r.summary.product_cost_per_unit_usd, row?.r.exchangeRate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [row?.priceInr, row?.r.summary.unit_price_usd, row?.costInr, row?.r.summary.product_cost_per_unit_usd, row?.r.exchangeRate, row?.p.width_inch, row?.p.depth_inch, row?.p.height_inch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recalculate = async () => {
     setRecalcing(true);
