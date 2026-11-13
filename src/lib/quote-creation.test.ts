@@ -245,7 +245,8 @@ describe('rough quote pricing', () => {
       { id: 'p3', name: 'chair 1', quantity: null, target_price_usd: 50 },
     ], 'USD');
     expect(lines.map(l => l.name)).toEqual(['chair 1', 'Chair 2', 'Chair 10']);
-    expect(lines.map(l => l.unit_price_override)).toEqual([50, 123.46, 0]);
+    // Quote prices round to the nearest 5 cents in dollars.
+    expect(lines.map(l => l.unit_price_override)).toEqual([50, 123.45, 0]);
     expect(lines.map(l => l.quantity)).toEqual([0, 5, 3]);
   });
 

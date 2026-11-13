@@ -20,6 +20,15 @@ export type PriceableProduct = {
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 
+/** The rounding rule for prices going onto a quote (Caleb, 2026-11-13): whole rupees, the nearest 5 cents
+ *  in dollars. Costing itself is never rounded; other currencies keep two decimals. */
+export function roundQuotePrice(price: number, currency: string): number {
+  if (!(price > 0)) return 0;
+  if (currency === 'INR') return Math.round(price);
+  if (currency === 'USD') return Number((Math.round(price * 20) / 20).toFixed(2));
+  return Number(price.toFixed(2));
+}
+
 /** Unit price in the quote currency: a supplied USD reference wins, else the engine's price. */
 export function referencePriceFor(p: PriceableProduct, prices: ProductUnitPriceMap, currency: string): number {
   const entry = prices[p.id];
@@ -76,7 +85,7 @@ export async function priceProductLines(products: PriceableProduct[], currency: 
     const ref = referencePriceFor(p, prices, currency);
     return {
       id: p.id, name: p.name, quantity: Number(p.quantity ?? 0),
-      unit_price_override: ref > 0 ? Number(ref.toFixed(2)) : 0,
+      unit_price_override: roundQuotePrice(ref, currency),
       display_name: p.name,
     } as QuoteProductInput;
   });
@@ -108,7 +117,7 @@ export async function priceAssemblyLines(assemblies: PriceableAssembly[], curren
       : convertFromInr(map, priceInr, currency, 'import');
     return {
       id: a.id, name: a.name, quantity: Number(a.quantity ?? 0),
-      unit_price_override: price > 0 ? Number(price.toFixed(2)) : 0,
+      unit_price_override: roundQuotePrice(price, currency),
       display_name: a.name, assembly_id: a.id,
     } as QuoteProductInput;
   });
