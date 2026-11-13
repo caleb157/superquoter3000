@@ -337,21 +337,30 @@ export function EditQuoteLinesDialog({ open, onOpenChange, snapshot, onSaved }: 
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 space-y-4">
         <div className="rounded-md border p-3 bg-card space-y-1.5">
-          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm <span className="text-muted-foreground">(optional)</span></Label>
-          <Select
-            value={incoterm}
-            onValueChange={(v) => { setIncoterm(v === '__clear__' ? '' : v); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
-            disabled={status === 'saving'}
-          >
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="No incoterm" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__clear__">No incoterm</SelectItem>
-              {shippingTypes.map(s => (
-                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[10px] text-muted-foreground">Optional. Shown at the top of the quote when set.</p>
+          <Label htmlFor="quote-incoterm" className="text-[10px] uppercase tracking-wide text-muted-foreground">Incoterm / shipping term <span className="text-muted-foreground">(optional)</span></Label>
+          <div className="flex items-center gap-1.5">
+            <Input
+              id="quote-incoterm"
+              list="quote-incoterm-options"
+              value={incoterm}
+              maxLength={200}
+              placeholder="Pick a shipping type or type your own wording"
+              onChange={(e) => { setIncoterm(e.target.value); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+              disabled={status === 'saving'}
+              className="h-8 text-xs"
+            />
+            {incoterm && (
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Clear" aria-label="Clear term"
+                onClick={() => { setIncoterm(''); if (status !== 'idle' && status !== 'saving') setStatus('idle'); }}
+                disabled={status === 'saving'}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <datalist id="quote-incoterm-options">
+              {shippingTypes.map(s => <option key={s.id} value={s.name} />)}
+            </datalist>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Shown at the top of this quote only, so write it the way the customer will understand it (e.g. "FOB Mumbai port, LCL"). It does not change the costing or the inquiry's shipping type.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
