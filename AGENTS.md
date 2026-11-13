@@ -14,7 +14,7 @@
 - Task postpone (1d/1w/1mo) counts from later of today and due date (src/lib/task-postpone.ts); saves with Undo.
 - Running inches = longest + shortest side; finishing rate/RI x % wood, packaging 0.015 MH/RI (autoLaborEstimate, is_auto_estimated only).
 - Inquiry clock: received (or created same-day) -> first saved quote or hand-set quoted_date; amber 3d, red 7d; repeats have no clock (src/lib/inquiry-clock.ts).
-- Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog.
+- Quotes generate in one click (src/lib/quote-rough.ts: live prices, name-sorted, last Incoterm); edit after - no review dialog. Prices round only as they go onto a quote (roundQuotePrice: whole rupees, nearest 5 cents USD); costing is never rounded.
 - Sent quotes never change: first save copies to a new draft (Q-...-v2 on quote_snapshots, src/lib/quote-versions.ts).
 - Samples: sample_requests (per batch) + samples lines; pending=requested, completed=received. Clock = request date -> all live lines received (src/lib/sample-requests.ts); samples trigger sets sample_stage.
 - Analytics timing KPIs read the inquiry-strip clocks (src/lib/timing-kpis.ts): period medians, 6-mo trend.

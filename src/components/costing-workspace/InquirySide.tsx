@@ -12,6 +12,7 @@ import { formatMoney, type QuoteCur } from '@/lib/quote-currency';
 import { effectiveCertainty, getProjectionDefaults } from '@/lib/projections';
 import { loadProjectionDefaults } from '@/lib/projection-defaults';
 import { pipelineKind } from '@/lib/master-analytics';
+import { roundQuotePrice } from '@/lib/quote-rough';
 import type { WorkspaceRow } from '@/lib/costing-workspace';
 import { pct } from './cells';
 
@@ -40,8 +41,10 @@ export function useInquirySide(inquiryId: string | undefined) {
   return { data, reload: load };
 }
 
-/** SKUs whose price today is not the price on the customer's last quote. */
-export const movedSinceQuote = (rows: WorkspaceRow[]) => rows.filter(r => r.quoted && r.price > 0 && Math.abs(r.price - r.quoted.price) >= 0.005);
+/** SKUs that would go onto a new quote at a different price from the customer's last one.
+ *  Quotes round the price (whole rupees / 5 cents), so today's price is compared after rounding too. */
+export const movedSinceQuote = (rows: WorkspaceRow[]) => rows.filter(r => r.quoted && r.price > 0
+  && Math.abs(r.price - r.quoted.price) >= 0.005 && Math.abs(roundQuotePrice(r.price, r.cur) - r.quoted.price) >= 0.005);
 
 const day = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '');
 const month = (d: string | null | undefined) => (d ? new Date(`${d.slice(0, 7)}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—');
