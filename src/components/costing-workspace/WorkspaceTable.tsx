@@ -59,13 +59,16 @@ export function WorkspaceTable(p: Props) {
   const hasFooter = !isQuotes && cols.some(c => c.footer);
   // Runs of adjacent columns sharing a group get one header cell above them.
   const groups = !isQuotes && cols.some(c => c.group)
-    ? cols.reduce<{ label?: string; span: number }[]>((acc, c) => {
+    ? cols.reduce<{ label?: string; unit?: string; span: number; divide: boolean }[]>((acc, c, i) => {
         const last = acc[acc.length - 1];
-        if (last && c.group && last.label === c.group) last.span++;
-        else acc.push({ label: c.group, span: 1 });
+        if (last && c.group && last.label === c.group) { last.span++; last.unit ??= c.groupUnit; }
+        else acc.push({ label: c.group, unit: c.groupUnit, span: 1, divide: i > 0 && !!(c.group || cols[i - 1].group) });
         return acc;
       }, [])
     : null;
+  // A light rule where one group of columns ends and the next begins, so a wide step reads in blocks.
+  const groupStart = new Set(cols.filter((c, i) => i > 0 && (c.group || cols[i - 1].group) && c.group !== cols[i - 1].group).map(c => c.id));
+
   const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
   // One header cell per step over its columns (lead columns get a blank one).
   const bands = !isQuotes && !compact
@@ -77,6 +80,7 @@ export function WorkspaceTable(p: Props) {
       }, [])
     : null;
   const bandStart = new Set(cols.filter((c, i) => c.band && cols[i - 1]?.band !== c.band).map(c => c.id));
+  const edge = (id: string) => (bandStart.has(id) ? 'border-l border-l-border/70' : groupStart.has(id) ? 'border-l border-l-border/50' : '');
   const headTop = (bands ? 32 : 0) + (groups ? 28 : 0);
 
   const nameWidth = compact ? NAME_WIDTH.compact : scale < 1 ? NAME_WIDTH.tight : NAME_WIDTH.sheet;
@@ -132,8 +136,12 @@ export function WorkspaceTable(p: Props) {
           <tr className={cn('[&>th]:sticky [&>th]:z-10', bands ? '[&>th]:top-8' : '[&>th]:top-0', '[&>th]:bg-muted/95 [&>th]:backdrop-blur [&>th]:h-7 [&>th]:px-2 [&>th]:pt-1.5 [&>th]:text-[11px] [&>th]:font-medium [&>th]:text-muted-foreground')}>
             <th className="left-0 z-20" />
             {groups.map((g, i) => (
-              <th key={i} colSpan={g.span} className="text-center">
-                {g.label && <div className="mx-1 border-b border-muted-foreground/25 pb-0.5">{g.label}</div>}
+              <th key={i} colSpan={g.span} className={cn('text-left', g.divide && 'border-l border-l-border/50')}>
+                {g.label && (
+                  <div className="truncate text-xs font-semibold text-foreground/80">
+                    {g.label}{g.unit && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{g.unit}</span>}
+                  </div>
+                )}
               </th>
             ))}
             <th />
@@ -156,7 +164,7 @@ export function WorkspaceTable(p: Props) {
             <QuoteHeaders slots={p.quoteSlots} onAdd={p.onAddQuoteSlot} />
           ) : cols.map(c => (
             <th key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left',
-              bandStart.has(c.id) && 'border-l border-l-border/70', c.sub?.open && 'bg-muted')}>
+              edge(c.id), c.sub?.open && 'bg-muted')}>
               <span className="inline-flex max-w-full items-center gap-1">
                 {c.sub?.first && <SubToggle sub={c.sub} onToggle={() => p.onToggleOpen(c.sub!.id)} />}
                 {c.hint ? (
@@ -228,7 +236,7 @@ export function WorkspaceTable(p: Props) {
               ) : cols.map((c, ci) => (
                 <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left', 'tabular-nums',
                   // A read-only cell never spills past its column (that would bring the sideways scrollbar back).
-                  !c.edit && 'overflow-hidden', bandStart.has(c.id) && 'border-l border-l-border/70')}>
+                  !c.edit && 'overflow-hidden', edge(c.id))}>
                   <Cell col={c} ci={ci} cols={cols} row={row} idx={idx} rows={rows} bundle={bundle} grid={grid} apply={p.apply} />
                 </td>
               ))}
@@ -241,7 +249,7 @@ export function WorkspaceTable(p: Props) {
         <tfoot>
           <tr className="[&>td]:sticky [&>td]:bottom-0 [&>td]:z-10 [&>td]:bg-muted/95 [&>td]:backdrop-blur [&>td]:border-t [&>td]:h-10 [&>td]:px-3 [&>td]:text-sm [&>td]:font-semibold [&>td]:tabular-nums">
             <td className="left-0 z-20 text-muted-foreground font-medium">Totals</td>
-            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left', bandStart.has(c.id) && 'border-l border-l-border/70')}>{c.footer?.(rows) ?? ''}</td>)}
+            {cols.map(c => <td key={c.id} className={cn(c.align === 'right' ? 'text-right' : 'text-left', edge(c.id))}>{c.footer?.(rows) ?? ''}</td>)}
             <td />
           </tr>
         </tfoot>
