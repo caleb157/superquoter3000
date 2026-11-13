@@ -49,6 +49,7 @@ describe('ProductPanel', () => {
   it('drawer mode keeps the SKU header and leaves out the page-only parts', () => {
     setup(false);
     expect(screen.getByLabelText('Next SKU')).toBeTruthy();
+    expect(screen.getByText(/A · 18 × 12 × 20" · 50 pcs/)).toBeTruthy();
     expect(screen.queryByText('Product details')).toBeNull();
     expect(screen.queryByText('chemicals picker')).toBeNull();
   });

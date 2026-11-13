@@ -27,6 +27,7 @@ import {
   patchOverhead, patchProductsSame, setLaborHours, canPriceAt, markupToTarget, setPrice, targetFromQuoted, targetIsQuoted, targetLineEach, type Apply, type Bundle, type WorkspaceRow,
   isDomesticFreight, isRemovedFreight, pasteCogsLines, removeDomesticFreight, restoreDomesticFreight, stepTotals,
 } from '@/lib/costing-workspace';
+import { productSize } from '@/lib/product-size';
 import { EditCell, GapChip, SelectCell, Thumb, inr, num, parseNum, money, pct, usd } from './cells';
 import { ALL_COLS, BANDS, type Col, type StepId } from './columns';
 import { McPlanBreakdown } from './McPlan';
@@ -65,7 +66,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
         <div className="min-w-0 flex-1">
           <div className="truncate text-base font-semibold leading-tight">{p.name}</div>
           <div className="truncate text-xs text-muted-foreground mt-0.5">
-            {p.sku || 'No SKU'} · {row.qty.toLocaleString()} pcs · {num(p.width_inch, 1)}×{num(p.depth_inch, 1)}×{num(p.height_inch, 1)}"
+            {p.sku || 'No SKU'} · {productSize(p) ?? 'No size yet'} · {row.qty.toLocaleString()} pcs
             {bundle.productTypes.find(t => t.id === p.product_type_id)?.name ? ` · ${bundle.productTypes.find(t => t.id === p.product_type_id).name}` : ''}
           </div>
         </div>

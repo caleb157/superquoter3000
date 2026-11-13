@@ -8,7 +8,8 @@ import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { ArrowLeft, Repeat, FileText, DollarSign, Package2, ListChecks, History, TrendingUp, RefreshCw, Send, AlertTriangle, Link2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ProductSummaryTab } from '@/components/ProductSummaryTab';
-import { ProductCostingSheet } from '@/components/ProductCostingSheet';
+import { ProductCostingSheet, type ProductCostingSummary } from '@/components/ProductCostingSheet';
+import { productSize } from '@/lib/product-size';
 import { ProductSampleLogTab } from '@/components/ProductSampleLogTab';
 import { ProductCostHistoryTab } from '@/components/ProductCostHistoryTab';
 import { RepeatCostTab } from '@/components/RepeatCostTab';
@@ -41,7 +42,13 @@ type ProductHeader = {
   calculated_unit_price_usd: number | null;
   calculated_unit_cost_usd: number | null;
   inspiration_url: string | null;
+  width_inch: number | null;
+  depth_inch: number | null;
+  height_inch: number | null;
 };
+
+type Axis = 'width_inch' | 'depth_inch' | 'height_inch';
+const AXES: [Axis, string][] = [['width_inch', 'W'], ['depth_inch', 'D'], ['height_inch', 'H']];
 
 const VALID_TABS = ['costing', 'repeat', 'cost-history', 'variants', 'sample-log', 'summary'] as const;
 type TabKey = typeof VALID_TABS[number];
@@ -59,6 +66,9 @@ const ProductDetail = () => {
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftSku, setDraftSku] = useState('');
+  const [draftSize, setDraftSize] = useState<Record<Axis, string>>({ width_inch: '', depth_inch: '', height_inch: '' });
+  // Bumped after a size edit in the header so the costing sheet reloads with it.
+  const [costingKey, setCostingKey] = useState(0);
   const [savingName, setSavingName] = useState(false);
   const [historyTrack, setHistoryTrack] = useState<StageTrack | null>(null);
   const [inspirationDraft, setInspirationDraft] = useState<string | null>(null);
@@ -107,30 +117,38 @@ const ProductDetail = () => {
   };
   
   // Costing summary state
-  const [costingSummary, setCostingSummary] = useState<{
-    unitPriceInr: number;
-    unitPriceUsd: number;
-    unitCostInr: number;
-    unitCostUsd: number;
-    exchangeRate: number;
-  } | null>(null);
+  const [costingSummary, setCostingSummary] = useState<ProductCostingSummary | null>(null);
+  // The sheet's copy is live (edited in Shipping); fall back to the page's own load.
+  const sizeSource = costingSummary ?? product;
 
   const startEdit = () => {
     if (!product) return;
     setDraftName(product.name);
     setDraftSku(product.sku ?? '');
+    const src = sizeSource ?? product;
+    setDraftSize(Object.fromEntries(AXES.map(([k]) => [k, src[k] ? String(src[k]) : ''])) as Record<Axis, string>);
     setEditing(true);
   };
   const saveName = async () => {
     if (!product) return;
     const name = draftName.trim();
     if (!name) { toast.error('Name is required'); return; }
-    setSavingName(true);
     const sku = draftSku.trim() || null;
-    const { error } = await (supabase as any).from('products').update({ name, sku }).eq('id', product.id);
+    const size = {} as Record<Axis, number | null>;
+    for (const [k, label] of AXES) {
+      const raw = draftSize[k].trim();
+      const n = raw === '' ? null : Number(raw.replace(',', '.'));
+      if (n != null && (!Number.isFinite(n) || n < 0)) { toast.error(`${label} must be a size in inches`); return; }
+      size[k] = n;
+    }
+    const src = sizeSource ?? product;
+    const sizeChanged = AXES.some(([k]) => (size[k] ?? null) !== (src[k] ?? null));
+    setSavingName(true);
+    const { error } = await (supabase as any).from('products').update({ name, sku, ...size }).eq('id', product.id);
     setSavingName(false);
     if (error) { toast.error(error.message); return; }
-    setProduct({ ...product, name, sku });
+    setProduct({ ...product, name, sku, ...size });
+    if (sizeChanged) { setCostingSummary(null); setCostingKey(k => k + 1); }
     setEditing(false);
     toast.success('Product updated');
   };
@@ -139,7 +157,7 @@ const ProductDetail = () => {
     if (!id) return;
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, sku, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent, calculated_unit_price_usd, calculated_unit_cost_usd, inspiration_url, customer_rfq:customer_rfqs(rfq_number, title)')
+      .select('id, name, sku, width_inch, depth_inch, height_inch, customer_rfq_id, design_stage, quote_stage, sample_stage, quantity, markup_percent, calculated_unit_price_usd, calculated_unit_cost_usd, inspiration_url, customer_rfq:customer_rfqs(rfq_number, title)')
       .eq('id', id)
       .maybeSingle();
     if (error) toast.error(error.message);
@@ -209,6 +227,9 @@ const ProductDetail = () => {
       unitCostInr: engineResult.summary.product_cost_per_unit_inr,
       unitCostUsd: engineResult.summary.product_cost_per_unit_usd,
       exchangeRate: engineResult.exchangeRate,
+      width_inch: productData.width_inch ?? null,
+      depth_inch: productData.depth_inch ?? null,
+      height_inch: productData.height_inch ?? null,
     });
   }, [id]);
 
@@ -284,6 +305,21 @@ const ProductDetail = () => {
                   placeholder="SKU (optional)"
                   className="h-8 text-xs sm:max-w-[180px]"
                 />
+                <div className="flex items-center gap-1" title="Product size, inches (width × depth × height)">
+                  {AXES.map(([k, label]) => (
+                    <Input
+                      key={k}
+                      value={draftSize[k]}
+                      onChange={(e) => setDraftSize(d => ({ ...d, [k]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void saveName(); }}
+                      placeholder={label}
+                      aria-label={`${label} (in)`}
+                      inputMode="decimal"
+                      className="h-8 w-14 text-xs tabular-nums"
+                    />
+                  ))}
+                  <span className="text-xs text-muted-foreground">in</span>
+                </div>
                 <div className="flex gap-1">
                   <Button size="icon" variant="default" className="h-8 w-8" onClick={saveName} disabled={savingName}>
                     <Check className="h-4 w-4" />
@@ -297,7 +333,9 @@ const ProductDetail = () => {
               <div className="flex items-center gap-1.5 group">
                 <div className="min-w-0">
                   <h1 className="page-title truncate">{product.name}</h1>
-                  {product.sku && <div className="text-xs text-muted-foreground truncate">SKU: {product.sku}</div>}
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[product.sku && `SKU: ${product.sku}`, `Size: ${productSize(sizeSource) ?? 'not set'}`].filter(Boolean).join(' · ')}
+                  </div>
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100" onClick={startEdit}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -405,7 +443,7 @@ const ProductDetail = () => {
             {activeTab === 'summary' && <ProductSummaryTab productId={product.id} onProductUpdated={fetchProduct} />}
           </TabsContent>
           <TabsContent value="costing">
-            {activeTab === 'costing' && <ProductCostingSheet productId={product.id} onSummaryChange={setCostingSummary} />}
+            {activeTab === 'costing' && <ProductCostingSheet key={costingKey} productId={product.id} onSummaryChange={setCostingSummary} />}
           </TabsContent>
           <TabsContent value="repeat">
             {activeTab === 'repeat' && repeatLink && <RepeatCostTab productId={product.id} link={repeatLink} onLinkChange={l => void updateRepeatLink(l)} />}

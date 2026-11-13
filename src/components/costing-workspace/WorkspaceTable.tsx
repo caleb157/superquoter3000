@@ -14,6 +14,7 @@ import { chain, setQuote, toggleQuote, type Apply, type Bundle, type Mutation, t
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, focusCell, inr, moveForKey, navigate, navKeyDown, parseClipboard, parseNum, money } from './cells';
 import { BANDS, inLineCat, lineCat, writeGrid, type Col, type LaidCol, type LineCat, type OpenState } from './columns';
 import { CogsLines } from './ProductPanel';
+import { productSize } from '@/lib/product-size';
 
 type Props = {
   /** Visible columns, from layout(). */
@@ -221,8 +222,9 @@ export function WorkspaceTable(p: Props) {
                     <Thumb p={row.p} />
                     <div className="min-w-0 flex-1">
                       <div className={cn('truncate font-medium leading-tight', isOpen && 'text-primary')}>{row.p.name || 'Untitled'}</div>
+                      {/* SKU and piece size; Qty has its own column, so only the narrow list beside the panel repeats it. */}
                       <div className="truncate text-xs text-muted-foreground leading-tight mt-0.5">
-                        {row.p.sku || 'No SKU'}{row.qty ? ` · ${row.qty.toLocaleString()} pcs` : ''}
+                        {row.p.sku || 'No SKU'}{productSize(row.p) ? ` · ${productSize(row.p)}` : ''}{compact && row.qty ? ` · ${row.qty.toLocaleString()} pcs` : ''}
                       </div>
                     </div>
                   </button>
