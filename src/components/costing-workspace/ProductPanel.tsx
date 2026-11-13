@@ -709,10 +709,23 @@ function IncludeToggle({ value, onChange }: { value: string; onChange: (v: strin
 
 const AUTO_TIP = 'Calculated by the costing engine. Typing a value makes it a manual line; Recalculate auto costs hands it back.';
 
-/** COGS lines grouped by category. `show` picks which lines this table carries; `fixed` hides the add-line controls; `onDelete` replaces the plain delete (and shows it on auto lines too). */
-function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete }: { row: WorkspaceRow; bundle: Bundle; apply: Apply; show?: (l: any) => boolean; fixed?: boolean; onDelete?: (l: any) => void }) {
-  const categories = useCogsCategories();
-  const [addType, setAddType] = useState('Raw Piece');
+/**
+ * COGS lines grouped by category. `show` picks which lines this table carries; `fixed` hides the add-line controls; `onDelete` replaces the plain delete (and shows it on auto lines too).
+ * `types` limits the categories a new line can be added in (the sheet's fold-out for one category); `head` false leaves the column headings out (they repeat under every SKU there).
+ */
+export function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete, types: only, head = true, typeHeads: wantHeads, dense }: {
+  row: WorkspaceRow; bundle: Bundle; apply: Apply; show?: (l: any) => boolean; fixed?: boolean; onDelete?: (l: any) => void; types?: string[] | null; head?: boolean;
+  /** Category sub-headings: always, or ('auto') only when the lines on show span more than one category. */
+  typeHeads?: boolean | 'auto';
+  /** Smaller add-line controls, for the sheet's fold-out where they repeat under every SKU. */
+  dense?: boolean;
+}) {
+  const allCategories = useCogsCategories();
+  const listed = only ? allCategories.filter(c => only.includes(c)) : allCategories;
+  const categories = listed.length ? listed : (only ?? []).slice(0, 1);
+  const [picked, setAddType] = useState('Raw Piece');
+  const addType = categories.includes(picked) ? picked : categories[0];
+
   const [showExcluded, setShowExcluded] = useState(false);
   const id = row.p.id;
   const resolved = new Map((row.r.resolvedCogsRows as any[]).map(c => [c.id, c]));
@@ -724,6 +737,7 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete }: {
   const visible = showExcluded || fixed ? lines : lines.filter(l => l.include !== 'No' || l.cogs_type === 'Raw Piece');
   const types = [...new Set(visible.map(l => l.cogs_type))];
   const rawSlots = lines.filter(l => l.cogs_type === 'Raw Piece');
+  const typeHeads = !fixed && (wantHeads === 'auto' ? types.length > 1 : wantHeads ?? true);
   const hardware = bundle.hardwarePrices || [];
 
   const save = (lineId: string, patch: Record<string, any>) => apply(b => patchCogsLine(b, lineId, patch));
@@ -740,18 +754,18 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete }: {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto">
+    <div className={head ? 'space-y-3' : 'space-y-1.5'}>
+      {(head || visible.length > 0) && <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] table-fixed text-sm">
           <colgroup><col style={{ width: 28 }} /><col /><col style={{ width: 120 }} /><col style={{ width: 64 }} /><col style={{ width: 40 }} /><col style={{ width: 84 }} /><col style={{ width: 56 }} /><col style={{ width: 76 }} /><col style={{ width: 48 }} /></colgroup>
-          <thead>
+          <thead className={head ? undefined : 'sr-only'}>
             <tr className="text-xs text-muted-foreground [&>th]:pb-1 [&>th]:font-medium">
               <th /><th className="text-left">Item</th><th className="text-left">Vendor</th><th className="text-right">Qty</th><th className="text-left pl-1">Unit</th><th className="text-right">₹ each</th><th className="text-right">Waste</th><th className="text-right">₹ / unit</th><th />
             </tr>
           </thead>
           {types.map(t => (
             <tbody key={t}>
-              {!fixed && <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ` — ticked costs add up: ${inr(rawSlots.filter(l => l.include !== 'No').reduce((a, l) => a + lineValue(l), 0), 2)}` : ''}</td></tr>}
+              {typeHeads && <tr><td colSpan={9} className="pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">{t}{t === 'Raw Piece' && rawSlots.length > 1 ? ` — ticked costs add up: ${inr(rawSlots.filter(l => l.include !== 'No').reduce((a, l) => a + lineValue(l), 0), 2)}` : ''}</td></tr>}
               {visible.filter(l => l.cogs_type === t).map(l => {
                 const auto = !!l.is_auto_calculated;
                 const off = l.include === 'No';
@@ -809,11 +823,11 @@ function CogsLines({ row, bundle, apply, show = () => true, fixed, onDelete }: {
             </tbody>
           ))}
         </table>
-      </div>
-      {!fixed && <div className="flex flex-wrap items-center gap-2">
-        <select className="h-8 rounded-md border bg-background px-2 text-sm" value={addType} onChange={e => setAddType(e.target.value)}>
+      </div>}
+      {!fixed && <div className={cn('flex flex-wrap items-center gap-2', dense && 'gap-1.5 [&_button]:h-7 [&_button]:px-2 [&_button]:text-xs [&_select]:h-7 [&_select]:text-xs')}>
+        {categories.length > 1 && <select className="h-8 rounded-md border bg-background px-2 text-sm" value={addType} onChange={e => setAddType(e.target.value)}>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        </select>}
         <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => apply(b => addCogsLine(b, id, addType, addType === 'Raw Piece' ? { include: rawSlots.some(l => l.include === 'Yes') ? 'No' : 'Yes', sort_order: rawSlots.length, component_name: `Raw Piece ${rawSlots.length + 1}` } : {}))}>
           <Plus className="h-3.5 w-3.5" /> Add line
         </Button>

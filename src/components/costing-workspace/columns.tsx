@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, bucketLines, canLockPrice, linePrice, lockPatch, patchCbm, patchProducts, patchProductsSame, setPrice, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  BUCKETS, EDITABLE_BUCKETS, canLockPrice, isDomesticFreight, lockPatch, patchCbm, patchProducts, patchProductsSame, setPrice, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation, stepTotals,
   type Apply, type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
@@ -41,8 +41,8 @@ export type Col = {
   width: number;
   align?: 'left' | 'right' | 'center';
   edit?: EditSpec;
-  /** Shown under an editable cell (e.g. the parts behind a bucket total). */
-  detail?: (row: WorkspaceRow, b: Bundle) => React.ReactNode;
+  /** The category of cost lines this column totals: its header opens those lines under every SKU. */
+  lines?: string;
   /** What a read-only cell copies as, when it shows more than the value. */
   text?: (row: WorkspaceRow) => string;
   /** Read-only cell renderer. `apply` is passed in the grid, for cells that carry an action. */
@@ -100,48 +100,25 @@ function dimCols(idPrefix: string, group: string, opts: {
 /** "Piece W" for menus, where the group header isn't visible. */
 export const fullLabel = (c: Col) => (c.group ? `${c.group} ${c.label}` : c.label);
 
-/** The parts behind a bucket total, one per line: "2 × Brass knob". */
-function BucketParts({ row, b, bucketKey }: { row: WorkspaceRow; b: Bundle; bucketKey: string }) {
-  const lines = bucketLines(b, row.p.id, bucketKey);
-  if (!lines.length) return null;
-  return (
-    <div className="space-y-px pb-1 pl-2 pr-2 text-left text-[11px] leading-tight text-muted-foreground">
-      {lines.map(l => {
-        const qty = +(Number(l.components_per_product) || 0).toFixed(3);
-        const unnamed = !l.component_name || l.component_name === l.cogs_type;
-        return (
-          <div key={l.id} className="flex gap-1" title={`${l.component_name || l.cogs_type}: ${qty} × ${inr(Number(l.unit_cost_inr) || 0, 2)}`}>
-            <span className="shrink-0 tabular-nums">{qty} ×</span>
-            <span className={cn('truncate', unnamed && 'italic opacity-70')}>{unnamed ? 'no name' : l.component_name}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+/** A category of COGS lines that can be opened under every SKU and edited line by line. */
+export type LineCat = { key: string; label: string; types: string[] | null };
+const typesOf = (key: string) => [...(BUCKETS.find(x => x.key === key)?.types ?? [])] as string[];
+export const LINE_CATS: LineCat[] = [
+  { key: 'raw_piece', label: 'Raw piece', types: typesOf('raw_piece') },
+  { key: 'subcontract', label: 'Subcontract', types: typesOf('subcontract') },
+  { key: 'outsourced', label: 'Outsourced', types: typesOf('outsourced') },
+  { key: 'hardware', label: 'Hardware', types: typesOf('hardware') },
+  { key: 'finishing', label: 'Finishing', types: typesOf('finishing') },
+  { key: 'packaging', label: 'Packaging', types: typesOf('packaging') },
+  { key: 'other', label: 'Other', types: typesOf('other') },
+  { key: 'all', label: 'All COGS', types: null },
+];
+export const lineCat = (key: string | null | undefined) => LINE_CATS.find(c => c.key === key) ?? null;
+/** Whether a COGS line belongs to a category (domestic freight is a shipping cost, edited under Shipping). */
+export const inLineCat = (cat: LineCat, line: any) => !isDomesticFreight(line) && (!cat.types || cat.types.includes(line.cogs_type));
 
-/** The raw piece costs behind the total, one per line: name, then ₹ per unit as quoted (before waste). */
-function RawParts({ row, b }: { row: WorkspaceRow; b: Bundle }) {
-  const lines = bucketLines(b, row.p.id, 'raw_piece');
-  if (!lines.length) return null;
-  return (
-    <div className="space-y-px pb-1 pl-2 pr-2 text-left text-[11px] leading-tight text-muted-foreground">
-      {lines.map(l => {
-        const unnamed = !l.component_name || l.component_name === l.cogs_type;
-        const name = unnamed ? (l.vendor_name || 'no name') : l.component_name;
-        return (
-          <div key={l.id} className="flex gap-1" title={[name, l.vendor_name && !unnamed ? l.vendor_name : null, inr(linePrice(l), 2)].filter(Boolean).join(' · ')}>
-            <span className={cn('min-w-0 flex-1 truncate', unnamed && !l.vendor_name && 'italic opacity-70')}>{name}</span>
-            <span className="shrink-0 tabular-nums">{inr(linePrice(l))}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const bucketCol = (key: string, label: string, width = 90, parts = false): Col => ({
-  id: `bucket:${key}`, label: `${label} ₹`, width, align: 'right',
+const bucketCol = (key: string, label: string, width = 90, lines?: string): Col => ({
+  id: `bucket:${key}`, label, bulkLabel: label, width, align: 'right', lines,
   hint: `Per-unit ${label.toLowerCase()} price as quoted, before waste (costing adds waste on top). Typing a total adjusts the main line so the bucket adds up to it.`,
   edit: {
     kind: 'number',
@@ -149,7 +126,6 @@ const bucketCol = (key: string, label: string, width = 90, parts = false): Col =
     display: r => (r.editBuckets[key] ? inr(r.editBuckets[key]) : ''),
     write: (b, ids, raw) => { const n = parseNum(raw); return n == null || n < 0 ? null : setBucketTotal(b, ids, key, n); },
   },
-  ...(parts ? { detail: (r: WorkspaceRow, b: Bundle) => <BucketParts row={r} b={b} bucketKey={key} /> } : {}),
 });
 
 const ro = (id: string, label: string, render: Col['render'], width = 96, extra: Partial<Col> = {}): Col =>
@@ -301,7 +277,7 @@ const dash = <span className="text-muted-foreground/50">—</span>;
 // COGS
 
 const sourceCol: Col = {
-  id: 'source', label: 'Source', width: 136, align: 'left',
+  id: 'source', label: 'Source', width: 128, align: 'left',
   hint: 'Where the piece is made or bought. Outside Jodhpur adds domestic freight under Shipping.',
   edit: { kind: 'select', get: r => r.p.source_location_id || '', options: b => [{ value: '', label: 'In-house (Jodhpur)' }, ...b.locations.map((l: any) => ({ value: l.id, label: l.name }))],
     write: (b, ids, v) => setSourceLocation(b, ids, v || null) },
@@ -311,19 +287,19 @@ const outsourcedCol: Col = {
   hint: 'Bought finished from a supplier: its purchase cost replaces the build-up and it carries no man-hours.',
   edit: { kind: 'bool', get: r => !!r.p.is_outsourced, write: (b, ids, v) => setOutsourced(b, ids, v === 'true') },
 };
-const hwTotalCol = ro('hw', 'Hardware ₹', r => {
+const hwTotalCol = ro('hw', 'Hardware', r => {
   const parts = HW_KEYS.filter(x => r.editBuckets[x.key] > 0);
   const total = hwTotal(r);
   if (!total) return dash;
   return (
     <Tooltip>
       <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default">{inr(total)}</span></TooltipTrigger>
-      <TooltipContent className="text-xs">{parts.map(x => <div key={x.key}>{x.label}: {inr(r.editBuckets[x.key])}</div>)}<div className="mt-1 text-muted-foreground">Open Hardware (▸ in the header) to edit by type</div></TooltipContent>
+      <TooltipContent className="text-xs">{parts.map(x => <div key={x.key}>{x.label}: {inr(r.editBuckets[x.key])}</div>)}<div className="mt-1 text-muted-foreground">Click Hardware in the header to edit the parts</div></TooltipContent>
     </Tooltip>
   );
-}, 100, { hint: 'Hardware and accessories per unit. Open it to edit each type and see the parts.', footer: rows => inr(sumBy(rows, r => hwTotal(r) * r.qty)) });
+}, 104, { lines: 'hardware', hint: 'Hardware and accessories per unit. Click the header to edit every part, for all SKUs.', footer: rows => inr(sumBy(rows, r => hwTotal(r) * r.qty)) });
 const cogsTotalCol = ro('cogs_total', 'COGS ₹', r => <span className="font-semibold">{inr(stepTotals(r).cogs)}</span>, 92,
-  { hint: 'Materials and components per unit, with waste: raw piece, subcontract, hardware, finishing and packaging materials, other.', footer: rows => inr(sumBy(rows, r => stepTotals(r).cogs * r.qty)) });
+  { lines: 'all', hint: 'Materials and components per unit, with waste: raw piece, subcontract, hardware, finishing and packaging materials, other.', footer: rows => inr(sumBy(rows, r => stepTotals(r).cogs * r.qty)) });
 
 // Labour
 
@@ -453,7 +429,10 @@ const lineFobCol = ro('line', 'Line FOB $', r => money(r.price * r.qty, r.cur, 0
 export type Sub = { id: string; label: string; hint?: string; summary: Col[]; items: Col[] };
 /** One costing step. Collapsed it shows `summary`; open it shows `items`, then any summary column not among them. */
 /** `mini` is the folded step at its tightest (one subtotal), used when the full sheet would not fit the screen. */
-export type Band = { id: StepId; n: number; label: string; hint: string; color: string; summary: Col[]; mini: Col[]; items: (Col | Sub)[] };
+/** `bulk` are fields the bulk bar can set that have no column of their own (hardware by type). */
+export type Band = { id: StepId; n: number; label: string; hint: string; color: string; summary: Col[]; mini: Col[]; items: (Col | Sub)[]; bulk?: Col[];
+  /** The folded step at its very tightest, for small screens where even `mini` leaves the open step scrolling sideways. */
+  micro?: Col[] };
 export type StepId = 'cogs' | 'labour' | 'shipping' | 'margin';
 
 const isSub = (x: Col | Sub): x is Sub => 'items' in x;
@@ -466,19 +445,18 @@ export const BANDS: Band[] = [
     id: 'cogs', n: 1, label: 'COGS', color: 'hsl(var(--cw-raw))',
     hint: 'Materials and components: where the piece comes from, the raw piece, subcontract, hardware, finishing and packaging materials',
     summary: [cogsTotalCol], mini: [cogsTotalCol],
+    // Each category is one total; its header opens the lines behind it under every SKU.
     items: [
       sourceCol, outsourcedCol,
-      { id: 'raw', label: 'Raw piece', hint: 'Open to see each raw piece cost that is ticked, with its name and price',
-        summary: [bucketCol('raw_piece', 'Raw piece')],
-        items: [{ ...bucketCol('raw_piece', 'Raw piece', 176), detail: (r: WorkspaceRow, b: Bundle) => <RawParts row={r} b={b} /> }] },
-      bucketCol('subcontract', 'Subcontract'),
-      ro('outs', 'Outsourced ₹', r => (r.buckets.outsourced ? inr(r.buckets.outsourced) : dash), 90),
-      { id: 'hardware', label: 'Hardware', hint: 'Per-unit hardware and accessories by type, with the parts behind each total',
-        summary: [hwTotalCol], items: [...HW_KEYS.map(x => bucketCol(x.key, x.label, 140, true)), hwTotalCol] },
-      bucketCol('finishing', 'Finishing'),
-      bucketCol('packaging', 'Packaging'),
-      ro('other', 'Other ₹', r => (r.buckets.other ? inr(r.buckets.other) : dash), 88, { hint: 'Other components and one-off (non-unit) costs spread over the quantity' }),
+      bucketCol('raw_piece', 'Raw piece', 96, 'raw_piece'),
+      bucketCol('subcontract', 'Subcontract', 112, 'subcontract'),
+      ro('outs', 'Outsourced', r => (r.buckets.outsourced ? inr(r.buckets.outsourced) : dash), 110, { lines: 'outsourced' }),
+      hwTotalCol,
+      bucketCol('finishing', 'Finishing', 100, 'finishing'),
+      bucketCol('packaging', 'Packaging', 104, 'packaging'),
+      ro('other', 'Other', r => (r.buckets.other ? inr(r.buckets.other) : dash), 88, { lines: 'other', hint: 'Other components and one-off (non-unit) costs spread over the quantity' }),
     ],
+    bulk: HW_KEYS.map(x => bucketCol(x.key, x.label)),
   },
   {
     id: 'labour', n: 2, label: 'Labour', color: 'hsl(var(--cw-labor))',
@@ -519,7 +497,7 @@ export const BANDS: Band[] = [
   {
     id: 'margin', n: 4, label: 'Margin', color: 'hsl(var(--primary))',
     hint: 'Unit cost, margin and today’s price, against the last quoted price and the target',
-    summary: [unitCostCol, npmCol, priceCol, quotedCol, targetCol, gapCol], mini: [npmCol, priceCol, gapCol],
+    summary: [unitCostCol, npmCol, priceCol, quotedCol, targetCol, gapCol], mini: [npmCol, priceCol, gapCol], micro: [priceCol],
     items: [capitalCol, unitCostCol, npmCol, contribCol, priceCol, quotedCol, targetCol, gapCol, solveCol, lineFobCol],
   },
 ];
@@ -532,10 +510,10 @@ export const DEFAULT_OPEN: OpenState = { margin: true };
 export type LaidCol = Col & { band?: StepId; sub?: { id: string; label: string; hint?: string; open: boolean; first: boolean } };
 
 /** The columns the grid shows for the given open state, left to right. `tight` folds the closed steps to one subtotal each. */
-export function layout(open: OpenState, cur: QuoteCur = 'USD', tight = false): LaidCol[] {
+export function layout(open: OpenState, cur: QuoteCur = 'USD', tight: boolean | 'micro' = false): LaidCol[] {
   const out: LaidCol[] = LEAD_COLS.map(c => ({ ...c }));
   for (const band of BANDS) {
-    if (!open[band.id]) { out.push(...(tight ? band.mini : band.summary).map(c => ({ ...c, band: band.id }))); continue; }
+    if (!open[band.id]) { out.push(...(tight === 'micro' ? band.micro ?? band.mini : tight ? band.mini : band.summary).map(c => ({ ...c, band: band.id }))); continue; }
     const ids = new Set<string>();
     for (const it of band.items) {
       if (!isSub(it)) { out.push({ ...it, band: band.id }); ids.add(it.id); continue; }
@@ -562,9 +540,11 @@ const widthOf = (cols: Col[]) => cols.reduce((a, c) => a + c.width, 0);
 export function fitLayout(open: OpenState, cur: QuoteCur, avail: { full: number; tight: number } | null): { cols: LaidCol[]; scale: number; fits: boolean } {
   const full = layout(open, cur);
   if (!avail || widthOf(full) <= avail.full) return { cols: full, scale: 1, fits: true };
-  const tight = layout(open, cur, true);
-  const w = widthOf(tight);
+  let tight = layout(open, cur, true);
+  let w = widthOf(tight);
   if (w <= avail.full) return { cols: tight, scale: 1, fits: true };
+  // Still too wide at the smallest scale: the folded steps give up everything but one number each.
+  if (avail.tight / w < MIN_SCALE) { tight = layout(open, cur, 'micro'); w = widthOf(tight); }
   // Just under 1 even when it would fit the tight width exactly, so the table takes the narrower SKU column.
   // `fits` is false when even the smallest scale leaves the sheet wider than the space (it then scrolls).
   return { cols: tight, scale: Math.min(0.999, Math.max(MIN_SCALE, avail.tight / w)), fits: avail.tight / w >= MIN_SCALE };
@@ -582,6 +562,7 @@ const allColsOf = (band: Band): Col[] => {
   const add = (c: Col) => { if (!out.some(x => x.id === c.id)) out.push(c); };
   for (const it of band.items) (isSub(it) ? it.items : [it]).forEach(add);
   band.summary.forEach(add);
+  band.bulk?.forEach(add);
   return out;
 };
 
