@@ -976,6 +976,8 @@ export type Database = {
           freight_per_unit_usd: number
           id: string
           launch_margin_pct: number | null
+          launch_month: string | null
+          launch_paid_by: string | null
           launch_units_per_month: number | null
           make_months: number
           mode: string
@@ -999,6 +1001,8 @@ export type Database = {
           freight_per_unit_usd?: number
           id?: string
           launch_margin_pct?: number | null
+          launch_month?: string | null
+          launch_paid_by?: string | null
           launch_units_per_month?: number | null
           make_months?: number
           mode?: string
@@ -1022,6 +1026,8 @@ export type Database = {
           freight_per_unit_usd?: number
           id?: string
           launch_margin_pct?: number | null
+          launch_month?: string | null
+          launch_paid_by?: string | null
           launch_units_per_month?: number | null
           make_months?: number
           mode?: string
@@ -1091,6 +1097,7 @@ export type Database = {
         Row: {
           allegro_as_of: string | null
           allegro_balance_usd: number
+          allegro_launch_cost_pct: number
           allegro_launch_on: boolean
           allegro_launch_usd: number
           allegro_monthly_usd: number
@@ -1106,6 +1113,7 @@ export type Database = {
         Insert: {
           allegro_as_of?: string | null
           allegro_balance_usd?: number
+          allegro_launch_cost_pct?: number
           allegro_launch_on?: boolean
           allegro_launch_usd?: number
           allegro_monthly_usd?: number
@@ -1121,6 +1129,7 @@ export type Database = {
         Update: {
           allegro_as_of?: string | null
           allegro_balance_usd?: number
+          allegro_launch_cost_pct?: number
           allegro_launch_on?: boolean
           allegro_launch_usd?: number
           allegro_monthly_usd?: number
