@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OptionCombobox } from '@/components/odoo-export/OptionCombobox';
-import { createSo, pricelistFor, soCustomers, soLines, soMeta, type OdooPricelist, type SoRowInput } from '@/lib/odoo-sale-order';
+import { convertSoPrice, createSo, defaultSoRate, pricelistFor, type SoRate, soCustomers, soLines, soMeta, type OdooPricelist, type SoRowInput } from '@/lib/odoo-sale-order';
 
 type Props = { open: boolean; onOpenChange: (o: boolean) => void; rows: SoRowInput[]; retention: number; currency: string };
 const NONE = '__none';
@@ -15,7 +15,9 @@ const NONE = '__none';
 export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }: Props) {
   const [pricelists, setPricelists] = useState<OdooPricelist[]>([]);
   const [terms, setTerms] = useState<{ id: number; name: string }[]>([]);
-  const [customers, setCustomers] = useState<{ id: number; name: string }[]>([]);
+  const [customers, setCustomers] = useState<{ id: number; name: string; pricelistId: number | null }[]>([]);
+  const [perUnit, setPerUnit] = useState<Record<string, number>>({});
+  const [rateText, setRateText] = useState('');
   const [customer, setCustomer] = useState('');
   const [pricelist, setPricelist] = useState<string>(NONE);
   const [term, setTerm] = useState<string>(NONE);
@@ -30,7 +32,7 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
     setDone(null); setLoading(true);
     Promise.all([soMeta(), soCustomers('')])
       .then(([m, c]) => {
-        setPricelists(m.pricelists); setTerms(m.paymentTerms); setCustomers(c.customers);
+        setPricelists(m.pricelists); setTerms(m.paymentTerms); setPerUnit(m.companyPerUnit || {}); setCustomers(c.customers);
         const pl = pricelistFor(m.pricelists, currency);
         setPricelist(pl ? String(pl) : NONE);
       })
@@ -38,15 +40,26 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
       .finally(() => setLoading(false));
   }, [open, currency]);
 
-  const lines = useMemo(() => soLines(rows, retention), [rows, retention]);
+  const cust = customers.find(c => c.name === customer);
+  const customerId = cust?.id ?? null;
+  // Effective pricelist: picked one, else the customer's default in Odoo.
+  const plId = pricelist === NONE ? cust?.pricelistId ?? null : Number(pricelist);
+  const plCurrency = (pricelists.find(p => p.id === plId)?.currency || currency).toUpperCase();
+  const liveRate = useMemo(() => defaultSoRate(currency, plCurrency, perUnit), [currency, plCurrency, perUnit]);
+  useEffect(() => { setRateText(liveRate ? String(liveRate.rate) : ''); }, [liveRate]);
+  const needsRate = plCurrency !== currency.toUpperCase();
+  const rate: SoRate | null = needsRate && liveRate && Number(rateText) > 0 ? { ...liveRate, rate: Number(rateText) } : null;
+  const rateMissing = needsRate && !rate;
+
+  const lines = useMemo(() => soLines(rows.map(r => ({ ...r, price: r.price == null ? null : convertSoPrice(r.price, currency, rate) })), retention), [rows, retention, currency, rate]);
+  const inquiryPrice = new Map(rows.map(r => [r.productId, r.price]));
   const included = lines.filter(l => !skip.has(l.productId));
   const blocked = included.filter(l => !l.ready);
   const total = included.reduce((a, l) => a + l.lineTotal, 0);
-  const customerId = customers.find(c => c.name === customer)?.id ?? null;
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const submit = async () => {
-    if (!customerId || !included.length || blocked.length) return;
+    if (!customerId || !included.length || blocked.length || rateMissing) return;
     setSaving(true);
     try {
       const r = await createSo({
@@ -98,12 +111,24 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
                 <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
               </label>
             </div>
-            <p className="text-xs text-muted-foreground">Discount {lines[0]?.discountPct ?? 0}% = Selling entity retention % from the Projections tab. Change it there.</p>
+            {needsRate && (
+              <div className="flex flex-wrap items-center gap-2 rounded border bg-muted/40 p-2 text-xs">
+                <span>Converting {currency} → {plCurrency}:</span>
+                {liveRate ? (<>
+                  <span>1 {liveRate.big} =</span>
+                  <Input className="h-7 w-28" type="number" step="0.0001" min="0" value={rateText} onChange={e => setRateText(e.target.value)} />
+                  <span>{liveRate.small}</span>
+                  {Number(rateText) !== liveRate.rate && <Button size="sm" variant="ghost" className="h-7" onClick={() => setRateText(String(liveRate.rate))}>Reset to Odoo rate ({liveRate.rate})</Button>}
+                  {Number(rateText) === liveRate.rate && <span className="text-muted-foreground">(Odoo live rate)</span>}
+                </>) : <span className="text-destructive">Odoo has no active rate for {currency}/{plCurrency}.</span>}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Prices come from the inquiry — change them there. Discount {lines[0]?.discountPct ?? 0}% = Selling entity retention % from the Projections tab. Change it there.</p>
             <div className="max-h-[320px] overflow-auto border rounded">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-muted"><tr className="text-left">
                   <th className="p-1.5 w-6" /><th className="p-1.5">Product</th><th className="p-1.5">Odoo SKU</th>
-                  <th className="p-1.5 text-right">Qty</th><th className="p-1.5 text-right">Price</th><th className="p-1.5 text-right">Disc.</th><th className="p-1.5 text-right">Total</th>
+                  <th className="p-1.5 text-right">Qty</th><th className="p-1.5 text-right">Price ({plCurrency})</th><th className="p-1.5 text-right">Disc.</th><th className="p-1.5 text-right">Total</th>
                 </tr></thead>
                 <tbody>
                   {lines.map(l => {
@@ -111,7 +136,8 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
                     return (
                       <tr key={l.productId} className="border-t">
                         <td className="p-1.5"><Checkbox checked={on} onCheckedChange={v => setSkip(s => { const n = new Set(s); if (v) n.delete(l.productId); else n.add(l.productId); return n; })} /></td>
-                        <td className="p-1.5">{l.name}{l.problem && <div className="text-destructive">{l.problem}</div>}</td>
+                        <td className="p-1.5">{l.name}{l.problem && <div className="text-destructive">{l.problem}</div>}
+                          {rate && inquiryPrice.get(l.productId) != null && <div className="text-muted-foreground">Inquiry {currency} {fmt(inquiryPrice.get(l.productId) as number)} @ 1 {rate.big} = {rate.rate} {rate.small}</div>}</td>
                         <td className="p-1.5 font-mono">{l.sku || '—'}</td>
                         <td className="p-1.5 text-right">{l.qty}</td>
                         <td className="p-1.5 text-right">{l.price == null ? '—' : fmt(l.price)}</td>
@@ -125,7 +151,7 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
             </div>
             <div className="flex justify-between text-sm">
               <span>{included.length} order lines</span>
-              <span className="font-semibold">Total {currency} {fmt(total)}</span>
+              <span className="font-semibold">Total {plCurrency} {fmt(total)}</span>
             </div>
             {blocked.length > 0 && <p className="text-xs text-destructive">{blocked.length} selected line(s) need fixing or unticking before the SO can be created.</p>}
           </div>
@@ -133,7 +159,7 @@ export function CreateSoDialog({ open, onOpenChange, rows, retention, currency }
         {!done && (
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={saving || loading || !customerId || !included.length || blocked.length > 0}>
+            <Button onClick={submit} disabled={saving || loading || !customerId || !included.length || blocked.length > 0 || rateMissing}>
               {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />} Create quotation in Odoo
             </Button>
           </DialogFooter>

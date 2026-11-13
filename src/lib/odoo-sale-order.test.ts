@@ -15,3 +15,19 @@ describe('Create SO lines', () => {
     expect(pricelistFor([{ id: 1, name: 'INR', currency: 'INR' }, { id: 4, name: 'USD Export', currency: 'USD' }], 'USD')).toBe(4);
   });
 });
+
+import { convertSoPrice, defaultSoRate } from './odoo-sale-order';
+describe('SO currency conversion', () => {
+  const per = { INR: 1, USD: 93.65 };
+  it('INR inquiry on USD pricelist divides by the Odoo rate', () => {
+    const r = defaultSoRate('INR', 'USD', per)!;
+    expect(r).toEqual({ big: 'USD', small: 'INR', rate: 93.65 });
+    expect(convertSoPrice(950, 'INR', r)).toBe(10.14);
+  });
+  it('USD inquiry on INR pricelist multiplies', () => {
+    expect(convertSoPrice(10, 'USD', defaultSoRate('USD', 'INR', per))).toBe(936.5);
+  });
+  it('same currency needs no rate', () => {
+    expect(defaultSoRate('USD', 'USD', per)).toBeNull();
+  });
+});
