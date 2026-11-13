@@ -406,14 +406,16 @@ export function Thumb({ p, size = 32 }: { p: any; size?: number }) {
 
 // ---------- Stat ----------
 
-export function Stat({ label, value, sub, tone, onClick, active, hint }: {
+export function Stat({ label, value, sub, tone, onClick, active, hint, flat }: {
+  /** No card of its own: for a row of figures that share one card. */
+  flat?: boolean;
   label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'good' | 'bad' | 'warn'; onClick?: () => void; active?: boolean; hint?: string;
 }) {
   const Comp = onClick ? 'button' : 'div';
   if (hint) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild><div className="min-w-0 cursor-help"><Stat {...{ label, value, sub, tone, onClick, active }} /></div></TooltipTrigger>
+        <TooltipTrigger asChild><div className="min-w-0 cursor-help"><Stat {...{ label, value, sub, tone, onClick, active, flat }} /></div></TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">{hint}</TooltipContent>
       </Tooltip>
     );
@@ -422,9 +424,10 @@ export function Stat({ label, value, sub, tone, onClick, active, hint }: {
     <Comp
       onClick={onClick}
       className={cn(
-        'min-w-0 rounded-lg border border-border/70 bg-card px-3.5 py-2 text-left shadow-sm',
-        onClick && 'hover:border-primary/50 transition-colors',
-        active && 'border-primary ring-2 ring-primary/15',
+        'min-w-0 text-left',
+        flat ? 'block w-full px-3.5 py-1.5' : 'rounded-lg border border-border/70 bg-card px-3.5 py-2 shadow-sm',
+        onClick && (flat ? 'hover:bg-muted/50 transition-colors' : 'hover:border-primary/50 transition-colors'),
+        active && (flat ? 'bg-primary/5 shadow-[inset_0_-2px_0_hsl(var(--primary))]' : 'border-primary ring-2 ring-primary/15'),
       )}
     >
       <div className="text-xs text-muted-foreground truncate">{label}</div>

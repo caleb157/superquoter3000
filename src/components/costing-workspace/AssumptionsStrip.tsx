@@ -13,10 +13,11 @@ import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { patchInquiry, type Apply, type Bundle } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
 
-const box = 'h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/20';
+// Quiet until touched: no outline at rest, so the strip reads as one line of settings rather than a form.
+const box = 'h-7 rounded-md border border-transparent bg-muted/60 px-2 text-sm outline-none hover:border-border focus:border-primary/50 focus:bg-background focus:ring-2 focus:ring-primary/15';
 
 /** A number that overrides a default: blank goes back to the default (the placeholder). */
-function NumField({ label, value, placeholder, onCommit, width = 'w-24', hint }: {
+function NumField({ label, value, placeholder, onCommit, width = 'w-[72px]', hint }: {
   label: string; value: number | null | undefined; placeholder: string; onCommit: (n: number | null) => void; width?: string; hint?: string;
 }) {
   const shown = value == null ? '' : String(value);
@@ -33,20 +34,20 @@ function NumField({ label, value, placeholder, onCommit, width = 'w-24', hint }:
   return (
     <label className="flex items-center gap-1.5" title={hint}>
       <span className="whitespace-nowrap text-xs text-muted-foreground">{label}</span>
-      <input className={cn(box, width, 'text-right tabular-nums', value != null && 'border-primary/50 font-medium')} inputMode="decimal"
+      <input className={cn(box, width, 'text-right tabular-nums', value != null && 'bg-primary/10 font-medium text-foreground')} inputMode="decimal"
         value={draft} placeholder={placeholder} onChange={e => setDraft(e.target.value)} onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(shown); e.currentTarget.blur(); } }} />
     </label>
   );
 }
 
-function Pick({ label, value, options, onChange, width = 'w-40', hint }: {
+function Pick({ label, value, options, onChange, width = 'w-32', hint }: {
   label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; width?: string; hint?: string;
 }) {
   return (
     <label className="flex items-center gap-1.5" title={hint}>
       <span className="whitespace-nowrap text-xs text-muted-foreground">{label}</span>
-      <select className={cn(box, width, value && 'border-primary/50 font-medium')} value={value} onChange={e => onChange(e.target.value)}>
+      <select className={cn(box, width, value && 'bg-primary/10 font-medium')} value={value} onChange={e => onChange(e.target.value)}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </label>
@@ -72,33 +73,33 @@ export function AssumptionsStrip({ bundle, apply }: { bundle: Bundle; apply: App
     + (inq.fob_fumigation && inq.fob_fumigation !== 'none' ? 1 : 0) + (inq.fob_wlc && inq.fob_wlc !== 'none' ? 1 : 0);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/70 bg-card px-3 py-2 shadow-sm">
-      <span className="flex items-center gap-1.5 text-sm font-semibold"><SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Assumptions</span>
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
+      <span className="flex items-center gap-1.5 text-sm font-semibold"><SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" /> Assumptions</span>
       <label className="flex items-center gap-1.5" title="The currency this customer is quoted in. INR shows the whole sheet in rupees with no exchange rate.">
         <span className="whitespace-nowrap text-xs text-muted-foreground">Quote in</span>
-        <CurrencyCombobox value={cur} onChange={v => { if (v && v !== cur) set({ quoting_currency: v }); }} className="h-8 w-28" />
+        <CurrencyCombobox value={cur} onChange={v => { if (v && v !== cur) set({ quoting_currency: v }); }} className="h-7 w-24 border-transparent bg-muted/60 px-2 shadow-none" />
       </label>
       {cur !== 'INR' && (
-        <NumField label="₹ / $" value={inq.exchange_rate_override} placeholder={`${dflt(base.exchange_rate, 2)} live`}
+        <NumField label="₹ / $" value={inq.exchange_rate_override} placeholder={dflt(base.exchange_rate, 2)}
           onCommit={n => set({ exchange_rate_override: n })} hint="Rupees per US dollar. Blank uses the live Odoo rate." />
       )}
       <Pick label="Ship via" value={inq.shipping_type_id_override || ''} onChange={v => set({ shipping_type_id_override: v || null })}
         options={[{ value: '', label: 'Per SKU' }, ...bundle.shipTypes.map((s: any) => ({ value: s.id, label: s.name }))]}
         hint="One shipping type for every SKU. Per SKU uses each product's own." />
-      <NumField label="Overhead / man-hour ₹" value={inq.indirect_overhead_per_mh_override} placeholder={`${dflt(base.indirect_overhead_per_mh)} live`}
+      <NumField label="Overhead ₹ / MH" value={inq.indirect_overhead_per_mh_override} placeholder={dflt(base.indirect_overhead_per_mh)}
         onCommit={n => set({ indirect_overhead_per_mh_override: n })} hint="Indirect overhead per man-hour. Blank uses the live LaborTrax figure." />
-      <NumField label="Packaging ₹ / CBM" value={inq.packaging_cost_per_cbm_override} placeholder={dflt(base.packaging_cost_per_cbm)}
-        onCommit={n => set({ packaging_cost_per_cbm_override: n })} />
-      <NumField label="Auto transport ₹ / CBM" value={inq.auto_transport_cost_per_cbm_override} placeholder={dflt(base.auto_transport_cost_per_cbm)}
+      <NumField label="Per CBM ₹: packaging" value={inq.packaging_cost_per_cbm_override} placeholder={dflt(base.packaging_cost_per_cbm)}
+        onCommit={n => set({ packaging_cost_per_cbm_override: n })} hint="Packaging cost per CBM. Blank uses the global default." />
+      <NumField label="auto" hint="Auto transport cost per CBM. Blank uses the global default." value={inq.auto_transport_cost_per_cbm_override} placeholder={dflt(base.auto_transport_cost_per_cbm)}
         onCommit={n => set({ auto_transport_cost_per_cbm_override: n })} />
-      <NumField label="Local transport ₹ / CBM" value={inq.local_transport_cost_per_cbm_override} placeholder={dflt(base.local_transport_cost_per_cbm)}
+      <NumField label="local" hint="Local transport cost per CBM. Blank uses the global default." value={inq.local_transport_cost_per_cbm_override} placeholder={dflt(base.local_transport_cost_per_cbm)}
         onCommit={n => set({ local_transport_cost_per_cbm_override: n })} />
-      <Pick label="Quoting entity" value={inq.quoting_entity_id || ''} onChange={v => set({ quoting_entity_id: v || null })} width="w-44"
-        options={[{ value: '', label: 'Pick at quote time' }, ...entities.map(e => ({ value: e.id, label: e.name }))]} />
+      <Pick label="Entity" hint="The company that quotes this customer." value={inq.quoting_entity_id || ''} onChange={v => set({ quoting_entity_id: v || null })} width="w-36"
+        options={[{ value: '', label: 'At quote time' }, ...entities.map(e => ({ value: e.id, label: e.name }))]} />
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button size="sm" variant="ghost" className="ml-auto h-8 gap-1 text-muted-foreground">
+          <Button size="sm" variant="ghost" className="ml-auto h-7 gap-1 px-2 text-muted-foreground">
             More{moreSet > 0 && <span className="rounded-full bg-primary/15 px-1.5 text-xs font-semibold text-primary">{moreSet}</span>} <ChevronDown className="h-3.5 w-3.5" />
           </Button>
         </PopoverTrigger>

@@ -332,20 +332,20 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
               <div className="flex">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="outline" className="h-9 w-9 rounded-r-none" disabled={!canUndo} onClick={doUndo} aria-label="Undo"><Undo2 className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" disabled={!canUndo} onClick={doUndo} aria-label="Undo"><Undo2 className="h-4 w-4" /></Button>
                   </TooltipTrigger>
                   <TooltipContent>Undo the last change (Ctrl+Z)</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="icon" variant="outline" className="-ml-px h-9 w-9 rounded-l-none" disabled={!canRedo} onClick={doRedo} aria-label="Redo"><Redo2 className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" disabled={!canRedo} onClick={doRedo} aria-label="Redo"><Redo2 className="h-4 w-4" /></Button>
                   </TooltipTrigger>
                   <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
                 </Tooltip>
               </div>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-4 w-4" /> Import sheet</Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
-              <Button size="icon" variant="outline" className="h-9 w-9" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
+              <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-4 w-4" /> Import sheet</Button>
+              <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={exportXlsx}><Download className="h-4 w-4" /> Export</Button>
+              <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" onClick={() => void reload()} aria-label="Reload"><RefreshCw className="h-4 w-4" /></Button>
               <ShortcutsButton />
     </>
   );
@@ -356,36 +356,36 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
           {lead(actions)}
 
           {/* KPIs */}
-          <div className="grid grid-cols-3 lg:grid-cols-7 gap-2">
-            <Stat label="SKUs" value={t.skus} sub={`${t.units.toLocaleString()} units`} />
-            <Stat label="Order FOB" value={m(t.fob)} sub={`cost ${m(t.cost)}`} />
-            <Stat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${m(t.fob - t.cost)} profit`}
+          <div className="grid shrink-0 grid-cols-3 divide-x divide-border/60 overflow-hidden rounded-lg border border-border/70 bg-card lg:grid-cols-7">
+            <Stat flat label="SKUs" value={t.skus} sub={`${t.units.toLocaleString()} units`} />
+            <Stat flat label="Order FOB" value={m(t.fob)} sub={`cost ${m(t.cost)}`} />
+            <Stat flat label="Blended NPM" value={pct(t.margin)} tone={t.margin < 0.1 ? 'bad' : 'good'} sub={`${m(t.fob - t.cost)} profit`}
               hint="Order profit ÷ order FOB, weighted by each line's value. Cost is the full costing-sheet cost, including direct labor, indirect overhead, shipping and cost of capital." />
-            <Stat label="Contribution" value={pct(t.contribution)} sub={`${m(t.fob - t.cost + t.indirect)} · ${m(t.indirect)} overhead`}
+            <Stat flat label="Contribution" value={pct(t.contribution)} sub={`${m(t.fob - t.cost + t.indirect)} · ${m(t.indirect)} overhead`}
               hint="Net profit plus the indirect (factory) overhead this order absorbs, ÷ order FOB. Bought-in items carry no man-hours, so for trading work this equals NPM; manufacturing work shows how much it also pays toward fixed overhead." />
-            <Stat label="Packed CBM" value={t.cbm.toFixed(2)} sub={`≈ ${(t.cbm / 68).toFixed(2)} × 40HC`} />
-            <Stat label="Over target" value={t.withTarget ? `${t.overTarget} / ${t.withTarget}` : '—'}
+            <Stat flat label="Packed CBM" value={t.cbm.toFixed(2)} sub={`≈ ${(t.cbm / 68).toFixed(2)} × 40HC`} />
+            <Stat flat label="Over target" value={t.withTarget ? `${t.overTarget} / ${t.withTarget}` : '—'}
               tone={t.overTarget ? 'bad' : t.withTarget ? 'good' : undefined}
               sub={targetDelta == null ? 'no targets set' : `${targetDelta > 0 ? '+' : ''}${m(targetDelta)} order vs targets`}
               onClick={() => setFilter(f => (f === 'over' ? 'all' : 'over'))} active={filter === 'over'} />
-            <Stat label="Needs a look" value={t.flagged} tone={t.flagged ? 'warn' : undefined} sub="blank or odd-one-out costs"
+            <Stat flat label="Needs a look" value={t.flagged} tone={t.flagged ? 'warn' : undefined} sub="blank or odd-one-out costs"
               onClick={() => setFilter(f => (f === 'flagged' ? 'all' : 'flagged'))} active={filter === 'flagged'} />
           </div>
 
           <AssumptionsStrip bundle={bundle} apply={apply} />
 
           {/* Step controls + filters */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="-my-1 flex flex-wrap items-center gap-1">
             {quotesMode ? (
               <>
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setParam('view', null)}><ArrowLeft className="h-4 w-4" /> Back to costing</Button>
+                <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground" onClick={() => setParam('view', null)}><ArrowLeft className="h-4 w-4" /> Back to costing</Button>
                 <span className="text-sm text-muted-foreground">COGS · raw piece quotes side by side. Tick the costs to use per SKU; ticked costs add up.</span>
               </>
             ) : (
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAllOpen(!allOpen)}>
+                    <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground" onClick={() => setAllOpen(!allOpen)}>
                       {allOpen ? <><ChevronsRightLeft className="h-4 w-4" /> Fold all steps</> : <><ChevronsLeftRight className="h-4 w-4" /> Open all steps</>}
                     </Button>
                   </TooltipTrigger>
@@ -393,14 +393,14 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setParam('view', 'quotes')}><Scale className="h-4 w-4" /> Vendor quotes</Button>
+                    <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground" onClick={() => setParam('view', 'quotes')}><Scale className="h-4 w-4" /> Vendor quotes</Button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs text-xs">Compare raw piece quotes from each vendor side by side and pick the one that goes into COGS (key Q)</TooltipContent>
                 </Tooltip>
                 {quotedCount > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1.5" disabled={!offQuoted.length} onClick={quotedToTargets}>
+                      <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground" disabled={!offQuoted.length} onClick={quotedToTargets}>
                         <Target className="h-4 w-4" /> {offQuoted.length ? `Quoted price → target (${offQuoted.length})` : 'Targets match quoted'}
                       </Button>
                     </TooltipTrigger>
@@ -415,7 +415,7 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
             )}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="outline" className={cn('gap-1.5', showSide && 'hidden')} onClick={() => setQuotesOpen(true)}>
+                <Button size="sm" variant="ghost" className={cn('h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground', showSide && 'hidden')} onClick={() => setQuotesOpen(true)}>
                   <FileText className="h-4 w-4" /> Customer quotes{quotedCount > 0 ? ` (${quotedCount} SKU${quotedCount === 1 ? '' : 's'} quoted)` : ''}
                 </Button>
               </TooltipTrigger>
@@ -423,17 +423,17 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
             </Tooltip>
             <div className="ml-auto flex items-center gap-2">
               {!sideOpen && !openRow && !quotesMode && (
-                <Button size="sm" variant="outline" className="hidden gap-1.5 lg:inline-flex" onClick={() => setSideOpen(true)}><PanelRightOpen className="h-4 w-4" /> Quotes and projection</Button>
+                <Button size="sm" variant="ghost" className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground lg:inline-flex" onClick={() => setSideOpen(true)}><PanelRightOpen className="h-4 w-4" /> Quotes and projection</Button>
               )}
               {sideSqueezed && <span className="hidden text-xs text-muted-foreground lg:inline">Quotes and projection come back when this step folds</span>}
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SKU, name, vendor" className="h-9 w-56 pl-8"
+                <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                <Input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SKU, name, vendor" className="h-8 w-52 pl-8"
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); focusRow(); } else if (e.key === 'Escape') { setSearch(''); e.currentTarget.blur(); } }} />
                 {search && <button className="absolute right-2 top-2.5 text-muted-foreground" onClick={() => setSearch('')}><X className="h-4 w-4" /></button>}
               </div>
               <Select value={filter} onValueChange={v => setFilter(v as Filter)}>
-                <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[120px] border-transparent bg-transparent shadow-none hover:bg-muted"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All SKUs</SelectItem>
                   <SelectItem value="over">Over target</SelectItem>
@@ -442,7 +442,7 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
                 </SelectContent>
               </Select>
               <Select value={sort} onValueChange={v => setSort(v as Sort)}>
-                <SelectTrigger className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[170px] border-transparent bg-transparent shadow-none hover:bg-muted"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sheet">Sheet order</SelectItem>
                   <SelectItem value="gap">Furthest over target</SelectItem>
@@ -462,7 +462,7 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
 
           {/* Grid + panel */}
           <div ref={rowRef} className={cn('flex min-h-0 flex-1 gap-3', selectedIds.length > 0 && 'mb-[68px]')}>
-            <div className={cn('min-h-0 overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'w-[470px] shrink-0' : 'min-w-0 flex-1')}>
+            <div className={cn('max-h-full min-h-0 self-start overflow-auto rounded-lg border border-border/70 bg-card shadow-sm', openRow ? 'h-full w-[470px] shrink-0' : 'min-w-0 flex-1')}>
               {visibleRows.length === 0 ? (
                 <div className="p-12 text-center text-sm text-muted-foreground">
                   {rows.length === 0 ? 'This inquiry has no products yet.' : 'No SKUs match.'}
@@ -561,7 +561,7 @@ function ShortcutsButton() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="icon" variant="outline" className="h-9 w-9" aria-label="Keyboard shortcuts"><Keyboard className="h-4 w-4" /></Button>
+        <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" aria-label="Keyboard shortcuts"><Keyboard className="h-4 w-4" /></Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[400px] p-3">
         <div className="mb-2 text-sm font-semibold">Keyboard</div>

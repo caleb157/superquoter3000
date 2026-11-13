@@ -51,9 +51,9 @@ const month = (d: string | null | undefined) => (d ? new Date(`${d.slice(0, 7)}-
 
 function Card({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border/70 bg-card p-3 shadow-sm">
+    <section className="px-3.5 py-3">
       <header className="mb-2 flex items-center gap-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
         <div className="ml-auto flex items-center gap-1">{action}</div>
       </header>
       {children}
@@ -61,7 +61,7 @@ function Card({ title, action, children }: { title: string; action?: React.React
   );
 }
 const Line = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="flex items-baseline justify-between gap-3 py-0.5 text-sm">
+  <div className="flex items-baseline justify-between gap-3 py-[3px] text-[13px]">
     <span className="text-muted-foreground">{label}</span>
     <span className="text-right font-medium tabular-nums">{children}</span>
   </div>
@@ -88,9 +88,9 @@ export function InquirySide({ inquiryId, rows, cur, fob, margin, manHours, data,
   const dflt = getProjectionDefaults();
 
   return (
-    <aside className="flex min-h-0 w-[300px] shrink-0 flex-col gap-3 overflow-y-auto">
+    <aside className="flex max-h-full min-h-0 w-[300px] shrink-0 flex-col divide-y divide-border/60 self-start overflow-y-auto rounded-lg border border-border/70 bg-card shadow-sm">
       <Card title="Quotes" action={<>
-        <Button size="sm" className="h-7 gap-1 px-2.5" disabled={quoting || rows.length === 0} onClick={onGenerate}>
+        <Button size="sm" variant="outline" className="h-7 gap-1 px-2.5" disabled={quoting || rows.length === 0} onClick={onGenerate}>
           {quoting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
           {selectedCount > 0 ? `Quote ${selectedCount} ticked` : 'Generate quote'}
         </Button>
