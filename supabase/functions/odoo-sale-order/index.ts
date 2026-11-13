@@ -80,13 +80,22 @@ Deno.serve(async (req) => {
     const body = parsed.data;
 
     if (body.action === 'meta') {
-      const [pls, terms] = await Promise.all([
+      const [pls, terms, curs] = await Promise.all([
         sr('product.pricelist', [], ['name', 'currency_id'], { order: 'name' }),
         sr('account.payment.term', [], ['name'], { order: 'name' }),
+        sr('res.currency', [['active', '=', true]], ['name', 'rate', 'inverse_rate']),
       ]);
+      // Company currency per 1 unit (Odoo rate = units per 1 company currency).
+      const companyPerUnit: Record<string, number> = {};
+      for (const c of curs) {
+        const r = Number(c.rate) || 0, inv = Number(c.inverse_rate) || 0;
+        const v = r > 0 ? 1 / r : inv;
+        if (v > 0) companyPerUnit[String(c.name).toUpperCase()] = v;
+      }
       return json({
         pricelists: pls.map(p => ({ id: p.id, name: String(p.name), currency: nm(p.currency_id) })),
         paymentTerms: terms.map(t => ({ id: t.id, name: String(t.name) })),
+        companyPerUnit,
       });
     }
 
