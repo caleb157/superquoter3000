@@ -39,12 +39,23 @@ export type CostingEngineInput = {
   shipmentPool?: ShipmentPool | null;
 };
 
+/** A product's locked price in rupees (products.price_lock, in price_lock_currency), or null when it isn't locked. */
+export function lockedPriceInr(p: any, exchangeRate: number): number | null {
+  const v = Number(p?.price_lock);
+  if (!(v > 0)) return null;
+  if (p.price_lock_currency === 'INR') return v;
+  return exchangeRate > 0 ? v * exchangeRate : null;
+}
+
 export type ShipmentPool = { lines: { product_id: string; cbm: number; cartons: number }[] };
 
 export type CostingEngineResult = {
   summary: ReturnType<typeof calc.calcProductCostSummary>;
   exchangeRate: number;
+  /** The markup in effect: the product's (or the inquiry's), or what a locked price leaves over the cost. */
   markupPercent: number;
+  /** The price is held at the product's locked price; the margin floats with the cost. */
+  priceLocked: boolean;
   /** Cost of capital (working capital carry) */
   capitalEnabled: boolean;
   capitalMonthlyRate: number; // percent per month, e.g. 1.5
@@ -166,7 +177,7 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const settings = mergeSettingsWithInquiry(gs, inq);
   const employees = withLiveDirectRates(rawEmployees as any[], settings);
   const exchangeRate = fxOrFallback(settings?.exchange_rate);
-  const markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
+  let markupPercent = inq?.markup_percent_override ?? p.markup_percent ?? 0.2;
   const qty = p.quantity || 100;
   const w = p.width_inch || 0;
   const d = p.depth_inch || 0;
@@ -470,15 +481,30 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   const capitalMonths = Number(p.cost_of_capital_months) || 0;
   const capitalFactor = capitalEnabled ? (capitalMonthlyRate / 100) * capitalMonths : 0;
 
-  const summary = calc.calcProductCostSummary(
+  let summary = calc.calcProductCostSummary(
     effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
     shippingPerUnit, markupPercent, exchangeRate, qty, capitalFactor,
   );
+  // A locked price holds while the cost moves: the margin is whatever is left. The lock is in
+  // the currency it was set in, so a rupee price never drifts with the exchange rate.
+  const lockInr = lockedPriceInr(p, exchangeRate);
+  const priceLocked = lockInr != null && summary.product_cost_per_unit_inr > 0;
+  if (priceLocked) {
+    markupPercent = lockInr! / summary.product_cost_per_unit_inr - 1;
+    summary = calc.calcProductCostSummary(
+      effCogsPerUnit, effNonUnitCogsPerUnit, effDirectOhPerUnit, effIndirectOhPerUnit,
+      shippingPerUnit, markupPercent, exchangeRate, qty, capitalFactor,
+    );
+    // Exactly the locked figure, not one floating-point step off it.
+    summary.unit_price_inr = lockInr!;
+    if (p.price_lock_currency !== 'INR') summary.unit_price_usd = Number(p.price_lock);
+  }
 
   return {
     summary,
     exchangeRate,
     markupPercent,
+    priceLocked,
     capitalEnabled,
     capitalMonthlyRate,
     capitalMonths,

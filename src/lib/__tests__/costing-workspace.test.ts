@@ -106,7 +106,7 @@ describe('costing workspace', () => {
     expect(Math.abs(byId(again, 'a').price - 20)).toBeLessThan(0.0005);
   });
 
-  it('price to target does nothing when the inquiry sets one margin for every SKU', () => {
+  it('price to target does nothing when the inquiry sets one margin for every SKU and prices cannot be locked', () => {
     const b0 = { ...bundle(), inq: { ...bundle().inq, markup_percent_override: 0.3 } };
     expect(markupToTarget(b0, rowsOf(b0), ['a'])).toBeNull();
   });
@@ -404,6 +404,68 @@ describe('quote currency targets', () => {
     expect(added).toBe(lines.length);
     const winners = m.next.cogs.filter(c => c.product_id === 'c' && c.cogs_type === 'Raw Piece' && c.include === 'Yes');
     expect(winners).toHaveLength(1);
+  });
+});
+
+describe('price lock (products.price_lock)', () => {
+  // The lock columns exist once the SQL has been run.
+  const lockable = (extra: Record<string, any> = {}) => {
+    const b0 = bundle();
+    return { ...b0, products: b0.products.map(p => ({ price_lock: null, price_lock_currency: null, ...p, ...(p.id === 'a' ? extra : {}) })) } as Bundle;
+  };
+
+  it('price = target locks the price, and the margin floats when the cost moves', () => {
+    const b0 = lockable();
+    const b1 = markupToTarget(b0, rowsOf(b0), ['a'])!.next;
+    const a1 = byId(b1, 'a');
+    expect(a1.locked).toBe(true);
+    expect(a1.price).toBe(20);
+    // The raw piece gets dearer: the price holds, the margin gives.
+    const raw = b1.cogs.find(c => c.product_id === 'a' && c.cogs_type === 'Raw Piece' && c.include === 'Yes')!;
+    const a2 = byId(patchCogsLine(b1, raw.id, { unit_cost_inr: raw.unit_cost_inr + 200 }).next, 'a');
+    expect(a2.price).toBe(20);
+    expect(a2.costInr).toBeGreaterThan(a1.costInr);
+    expect(a2.margin).toBeLessThan(a1.margin);
+    expect(a2.margin).toBeCloseTo((a2.priceInr - a2.costInr) / a2.priceInr, 9);
+  });
+
+  it('a rupee lock ignores the exchange rate; the inquiry margin override does not move it', () => {
+    const b0 = { ...lockable({ price_lock: 1500, price_lock_currency: 'INR' }), inq: { ...bundle().inq, quoting_currency: 'INR', markup_percent_override: 0.5 } } as Bundle;
+    expect(byId(b0, 'a').price).toBe(1500);
+    expect(byId({ ...b0, gs: { ...b0.gs, exchange_rate: 70 } }, 'a').price).toBe(1500);
+    // The other SKUs still follow the inquiry margin.
+    expect(byId(b0, 'c').markup).toBe(0.5);
+  });
+
+  it('typing a price locks it; unlocking keeps the price at today’s margin; typing a margin unlocks', () => {
+    const b0 = lockable();
+    const price = ALL_COLS.find(c => c.id === 'price')!.edit!;
+    const b1 = price.write(b0, ['a', 'c'], '25')!.next;
+    expect(byId(b1, 'a').price).toBe(25);
+    expect(byId(b1, 'c').locked).toBe(true);
+    const b2 = price.write(b1, ['a'], '')!.next;
+    expect(byId(b2, 'a').locked).toBe(false);
+    expect(byId(b2, 'a').price).toBeCloseTo(25, 9);
+    const npm = ALL_COLS.find(c => c.id === 'npm')!.edit!;
+    const b3 = npm.write(b1, ['c'], '30')!.next;
+    expect(byId(b3, 'c').locked).toBe(false);
+    expect(byId(b3, 'c').margin).toBeCloseTo(0.3, 9);
+  });
+
+  it('before the SQL is run nothing locks: price = target still sets the margin, a typed price is refused', () => {
+    const b0 = bundle();
+    const b1 = markupToTarget(b0, rowsOf(b0), ['a'])!.next;
+    expect(byId(b1, 'a').locked).toBe(false);
+    expect(b1.products.find(p => p.id === 'a')).not.toHaveProperty('price_lock');
+    expect(ALL_COLS.find(c => c.id === 'price')!.edit!.write(b0, ['a'], '25')).toBeNull();
+  });
+
+  it('flags a SKU whose margin is under the 5% minimum', () => {
+    const b0 = lockable({ price_lock: 12.2, price_lock_currency: 'USD' });
+    const a = byId(b0, 'a');
+    expect(a.margin).toBeLessThan(0.05);
+    expect(a.flags.some(f => f.kind === 'margin')).toBe(true);
+    expect(byId(b0, 'c').flags.some(f => f.kind === 'margin')).toBe(false);
   });
 });
 

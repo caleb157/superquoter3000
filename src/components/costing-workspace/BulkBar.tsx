@@ -3,7 +3,7 @@
 // pricing shortcuts (the Target menu: target = last quoted price, target = today's price,
 // price = target, price = last quoted price; and cheapest quote wins).
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Crosshair, FileText, ListPlus, Loader2, Percent, Target, Trophy, Undo2, X, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Crosshair, FileText, ListPlus, Loader2, LockOpen, Percent, Target, Trophy, Undo2, X, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, chooseCheapestQuotes, marginLocked, markupToTarget, pasteCogsLines, priceToQuoted, scaleBucket, targetFromPrice, targetFromQuoted, targetIsQuoted,
+  EDITABLE_BUCKETS, canLockPrice, canPriceAt, chooseCheapestQuotes, markupToTarget, pasteCogsLines, priceToQuoted, setPrice, scaleBucket, targetFromPrice, targetFromQuoted, targetIsQuoted,
   type Apply, type Bundle, type WorkspaceRow,
 } from '@/lib/costing-workspace';
 import { parseNum } from './cells';
@@ -48,8 +48,10 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
   const withTarget = sel.filter(r => r.target != null).length;
   const withQuoted = sel.filter(r => r.quoted && !targetIsQuoted(r)).length;
   const everQuoted = sel.filter(r => r.quoted).length;
-  const locked = marginLocked(bundle);
-  const lockedNote = 'This inquiry sets one margin for every SKU (Settings → Uniform NPM). Clear it to price SKUs one by one.';
+  const locked = !sel.some(r => canPriceAt(bundle, r.p));
+  const lockedNote = 'This inquiry sets one margin for every SKU (Assumptions → More → Uniform NPM). Clear it to price SKUs one by one.';
+  const holds = sel.some(r => canLockPrice(r.p));
+  const lockedCount = sel.filter(r => r.locked).length;
   const withQuotes = sel.filter(r => r.quotes.filter(q => q.price > 0).length > 1).length;
   const opts = field.edit?.kind === 'select' ? field.edit.options?.(bundle) ?? [] : field.edit?.kind === 'bool'
     ? [{ value: 'true', label: 'Yes' }, { value: 'false', label: 'No' }] : null;
@@ -155,11 +157,14 @@ export function BulkBar({ ids, rows, bundle, apply, onClear, onQuote, quoting, o
             { icon: Undo2, label: 'Target = today’s price', note: 'Copies today’s calculated price into the target',
               run: () => apply(b => targetFromPrice(b, rows, ids)) },
             { icon: Crosshair, label: 'Price = target', disabled: !withTarget || locked,
-              note: locked ? lockedNote : `Sets each SKU’s margin so its price is exactly its target, to the paisa (${withTarget} of ${ids.length} have one)`,
+              note: locked ? lockedNote : `Prices each SKU exactly on its target${holds ? ' and holds it there: the margin floats as costs move' : ''} (${withTarget} of ${ids.length} have one)`,
               run: () => apply(b => markupToTarget(b, rows, ids)) },
             { icon: FileText, label: 'Price = last quoted price', disabled: !everQuoted || locked,
-              note: locked ? lockedNote : everQuoted ? `Sets each SKU’s margin so its price is exactly what the customer was last quoted, and makes that the target (${everQuoted} of ${ids.length} have been quoted)` : 'None of the selected SKUs has been quoted yet',
+              note: locked ? lockedNote : everQuoted ? `Prices each SKU exactly at what the customer was last quoted${holds ? ', holds it there' : ''} and makes that the target (${everQuoted} of ${ids.length} have been quoted)` : 'None of the selected SKUs has been quoted yet',
               run: () => apply(b => priceToQuoted(b, rows, ids)) },
+            ...(holds ? [{ icon: LockOpen, label: 'Unlock price', disabled: !lockedCount,
+              note: lockedCount ? `Lets the price follow the cost again at today’s margin (${lockedCount} of ${ids.length} are locked)` : 'None of the selected SKUs has a locked price',
+              run: () => apply(b => setPrice(b, ids, null)) }] : []),
           ]}
         />
         <Tooltip>

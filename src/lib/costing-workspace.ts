@@ -95,7 +95,7 @@ export const linePrice = (c: any) => (c.include === 'No' ? 0 : (Number(c.compone
 
 export type Quote = { slot: number; line: any | null; vendor: string; price: number; winner: boolean };
 
-export type Flag = { field: string; kind: 'blank' | 'odd' | 'target'; msg: string };
+export type Flag = { field: string; kind: 'blank' | 'odd' | 'target' | 'margin'; msg: string };
 
 export type WorkspaceRow = {
   p: any;
@@ -119,6 +119,8 @@ export type WorkspaceRow = {
   price: number;
   cost: number;
   markup: number;
+  /** The price is held (products.price_lock); the margin floats as the cost moves. */
+  locked: boolean;
   /** Net margin on price (price − cost) / price. */
   margin: number;
   /** Per-unit indirect (factory) overhead in the cost, with its share of cost of capital. */
@@ -261,6 +263,7 @@ export function buildRows(b: Bundle, results: Map<string, CostingEngineResult>):
       costInr, priceInr, cur, price,
       cost: cur === 'INR' ? costInr : r.summary.product_cost_per_unit_usd,
       markup: r.markupPercent,
+      locked: !!r.priceLocked,
       margin: priceInr > 0 ? (priceInr - costInr) / priceInr : 0,
       indirectInr,
       indirect: indirectInr / rate,
@@ -307,6 +310,9 @@ function attachFlags(rows: WorkspaceRow[]) {
     }
   }
   for (const r of rows) {
+    if (r.priceInr > 0 && r.margin < MIN_NPM - 1e-9) {
+      r.flags.push({ field: 'npm', kind: 'margin', msg: `NPM ${(r.margin * 100).toFixed(1)}% is under the ${MIN_NPM * 100}% minimum${r.locked ? ' (price is locked, so the margin moved with the cost)' : ''}` });
+    }
     if (r.gap != null && r.gapPct != null && r.gap > 0.005) {
       r.flags.push({ field: 'target', kind: 'target', msg: `${r.cur === 'INR' ? '₹' : '$'}${r.gap.toFixed(2)} (${(r.gapPct * 100).toFixed(1)}%) over target` });
     }
@@ -1067,28 +1073,62 @@ export function markupForPrice(r: WorkspaceRow, price: number): number | null {
 /** True when one margin is set for the whole inquiry (its Settings), so a single SKU's margin can't move. */
 export const marginLocked = (b: Bundle) => b.inq?.markup_percent_override != null;
 
-/** Sets each product's markup so its price lands exactly on its target (products without a target are skipped). */
-export function markupToTarget(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
-  if (marginLocked(b)) return null;
+/** The lowest net margin a SKU should be sold at; anything under it is flagged. */
+export const MIN_NPM = 0.05;
+
+/** The price-lock columns exist on this product (the price lock SQL has been run). */
+export const canLockPrice = (p: any) => !!p && 'price_lock' in p;
+
+/** A SKU can be priced at a figure: by locking it, or (before the lock SQL) by setting its own margin. */
+export const canPriceAt = (b: Bundle, p: any) => canLockPrice(p) || !marginLocked(b);
+
+/**
+ * Product patch that locks the price at `price` in the quote currency (null unlocks). The engine
+ * then holds that price and lets the margin float as costs move. Empty before the SQL is run.
+ */
+export function lockPatch(p: any, cur: QuoteCur, price: number | null): Record<string, any> {
+  if (!canLockPrice(p)) return {};
+  return price == null ? { price_lock: null, price_lock_currency: null } : { price_lock: price, price_lock_currency: cur };
+}
+
+/** Prices each product at `priceOf(row)`: locked there when the lock exists, and with the margin that gives it today. */
+function priceAt(b: Bundle, rows: WorkspaceRow[], ids: string[], priceOf: (r: WorkspaceRow) => number | null, extra: (r: WorkspaceRow, price: number) => Record<string, any> = () => ({})): Mutation | null {
   const patches: Record<string, Record<string, any>> = {};
   for (const r of rows) {
-    if (!ids.includes(r.p.id) || r.target == null) continue;
-    const m = markupForPrice(r, r.target);
-    if (m != null) patches[r.p.id] = { markup_percent: m };
+    if (!ids.includes(r.p.id) || !canPriceAt(b, r.p)) continue;
+    const price = priceOf(r);
+    const m = price == null ? null : markupForPrice(r, price);
+    if (price == null || m == null) continue;
+    patches[r.p.id] = { ...extra(r, price), markup_percent: m, ...lockPatch(r.p, r.cur, price) };
   }
   return Object.keys(patches).length ? patchProducts(b, patches) : null;
 }
 
-/** Prices each product exactly at its last quoted price, and makes that price the target (never-quoted products are skipped). */
+/** Sets each product's price exactly on its target and holds it there (products without a target are skipped). */
+export function markupToTarget(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
+  return priceAt(b, rows, ids, r => r.target);
+}
+
+/** Prices each product exactly at its last quoted price, holds it there, and makes that price the target (never-quoted products are skipped). */
 export function priceToQuoted(b: Bundle, rows: WorkspaceRow[], ids: string[]): Mutation | null {
-  if (marginLocked(b)) return null;
+  return priceAt(b, rows, ids, r => (r.quoted ? Math.round(r.quoted.price * 100) / 100 : null),
+    (r, price) => targetPatch(r.p, r.cur, price, r.r.exchangeRate || 0));
+}
+
+/**
+ * A typed price: locks each product there (the margin floats from then on). null unlocks,
+ * keeping today's margin so the price does not jump. Needs the price lock columns.
+ */
+export function setPrice(b: Bundle, ids: string[], price: number | null): Mutation | null {
+  const cur = quoteCurrencyOf(b.inq);
+  const results = price == null ? computeResults(b) : null;
   const patches: Record<string, Record<string, any>> = {};
-  for (const r of rows) {
-    if (!ids.includes(r.p.id) || !r.quoted) continue;
-    const price = Math.round(r.quoted.price * 100) / 100;
-    const m = markupForPrice(r, price);
-    if (m == null) continue;
-    patches[r.p.id] = { ...targetPatch(r.p, r.cur, price, r.r.exchangeRate || 0), markup_percent: m };
+  for (const p of b.products) {
+    if (!ids.includes(p.id) || !canLockPrice(p)) continue;
+    if (price != null) { patches[p.id] = lockPatch(p, cur, price); continue; }
+    if (!(Number(p.price_lock) > 0)) continue;
+    const r = results!.get(p.id);
+    patches[p.id] = { ...lockPatch(p, cur, null), ...(r && !marginLocked(b) ? { markup_percent: r.markupPercent } : {}) };
   }
   return Object.keys(patches).length ? patchProducts(b, patches) : null;
 }

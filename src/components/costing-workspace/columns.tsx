@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { npmToMarkup } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import {
-  EDITABLE_BUCKETS, bucketLines, linePrice, patchCbm, patchProducts, patchProductsSame, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
+  EDITABLE_BUCKETS, bucketLines, canLockPrice, linePrice, lockPatch, patchCbm, patchProducts, patchProductsSame, setPrice, setBucketTotal, setDifficulty, setLaborHours, setOutsourced,
   setPackagingType, setProductType, setShippingType, setSourceLocation, stepTotals,
   type Apply, type Bundle, type Mutation, type WorkspaceRow,
 } from '@/lib/costing-workspace';
@@ -175,11 +175,13 @@ const npmCol: Col = {
     // Four decimals, so copying, filling down or re-typing a margin that was solved to hit a price keeps that price to the paisa.
     get: r => +(r.margin * 100).toFixed(4),
     display: r => pct(r.margin),
-    disabled: (_r, b) => (b.inq?.markup_percent_override != null ? 'This inquiry has a markup override in its Settings tab' : null),
+    disabled: (_r, b) => (b.inq?.markup_percent_override != null ? 'This inquiry sets one margin for every SKU (Assumptions → More). Type a price instead to lock this SKU’s price.' : null),
     write: (b, ids, raw) => {
       const n = parseNum(raw);
       if (n == null || n < 0 || n >= 100) return null;
-      return patchProductsSame(b, ids, { markup_percent: npmToMarkup(n / 100) });
+      // Typing a margin takes the SKU off a locked price.
+      return patchProducts(b, Object.fromEntries(b.products.filter(p => ids.includes(p.id))
+        .map(p => [p.id, { markup_percent: npmToMarkup(n / 100), ...lockPatch(p, quoteCurrencyOf(b.inq), null) }])));
     },
   },
   footer: rows => {
@@ -224,7 +226,22 @@ const targetCol: Col = {
   },
 };
 
-const priceCol = ro('price', 'Price $', r => <span className="font-semibold">{money(r.price, r.cur)}</span>, 100, { hint: 'Today’s price: unit cost plus margin' });
+const priceCol: Col = {
+  id: 'price', label: 'Price $', width: 108, align: 'right',
+  hint: 'Today’s price: unit cost plus margin. Type a price to lock it there (🔒): the margin then floats as costs move. Clear it, or type a margin, to unlock.',
+  edit: {
+    kind: 'number',
+    get: r => Math.round(r.price * 100) / 100,
+    display: r => `${money(r.price, r.cur)}${r.locked ? ' 🔒' : ''}`,
+    auto: r => !r.locked,
+    disabled: r => (canLockPrice(r.p) ? null : 'Prices can be typed once the price lock SQL has been run. Until then use Target → Price = target.'),
+    write: (b, ids, raw) => {
+      if (raw.trim() === '') return setPrice(b, ids, null);
+      const n = parseNum(raw);
+      return n == null || n <= 0 ? null : setPrice(b, ids, n);
+    },
+  },
+};
 const quotedCol: Col = {
   id: 'quoted', label: 'Quoted $', width: 124, align: 'right',
   hint: 'The price on the customer’s latest quote for this SKU (a sent quote first, otherwise the newest draft). The button beside it makes that price the target.',
