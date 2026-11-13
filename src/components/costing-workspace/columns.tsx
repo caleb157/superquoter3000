@@ -34,6 +34,8 @@ export type Col = {
   label: string;
   /** Header shown above a run of adjacent columns sharing it (e.g. Piece → W D H). */
   group?: string;
+  /** The unit the run shares, shown once beside the group header (e.g. "in"). */
+  groupUnit?: string;
   /** Header tooltip. */
   hint?: string;
   width: number;
@@ -80,9 +82,13 @@ function dimCols(idPrefix: string, group: string, opts: {
   get: (r: WorkspaceRow, axis: Axis) => number | null | undefined;
   write: (b: Bundle, ids: string[], axis: Axis, n: number) => Mutation | null;
   hint?: string;
+  /** Column label for an axis; the unit sits in the group header, not on every column. */
+  label?: (short: string) => string;
+  unit?: string;
+  width?: number;
 }): Col[] {
   return AXES.map(([axis, short]) => ({
-    id: `${idPrefix}_${short.toLowerCase()}`, group, label: `${short}"`, width: 56, align: 'right' as const, hint: opts.hint,
+    id: `${idPrefix}_${short.toLowerCase()}`, group, groupUnit: opts.unit ?? 'in', label: opts.label ? opts.label(short) : short, width: opts.width ?? 56, align: 'right' as const, hint: opts.hint,
     edit: {
       kind: 'number' as const,
       get: r => { const v = Number(opts.get(r, axis)); return Number.isFinite(v) && v ? +v.toFixed(2) : ''; },
@@ -361,13 +367,13 @@ const laborTotalCol = ro('labor_inr', 'Labour ₹', r => <span className="font-s
 // Shipping
 
 const pkgTypeCol: Col = {
-  id: 'pkg_type', label: 'Packaging', bulkLabel: 'Packaging type', width: 116, align: 'left',
+  id: 'pkg_type', group: 'Shipment', label: 'Packaging', bulkLabel: 'Packaging type', width: 124, align: 'left',
   hint: 'How it is packed. Packaging materials are costed under COGS; carton sizes here set the CBM.',
   edit: { kind: 'select', get: r => r.p.packaging_type || 'ic_mc', options: () => PACKAGING_OPTS,
     write: (b, ids, v) => setPackagingType(b, ids, v || 'ic_mc') },
 };
 const perMcCol: Col = {
-  id: 'per_mc', label: 'Pcs/MC', width: 64, align: 'right',
+  id: 'per_mc', group: 'Master carton', label: 'Pcs', bulkLabel: 'Pcs/MC', width: 64, align: 'right',
   hint: 'Pieces per master carton, calculated from the fit. Type a number to override (marked ✎); clear it to go back to the calculation.',
   edit: {
     kind: 'number',
@@ -388,15 +394,16 @@ const cartonCols: Col[] = [
     get: (r, axis) => r.cbmRow?.[`ic_${axis}`] ?? r.r.icDims[`ic_${axis}`],
     write: (b, ids, axis, n) => patchCbm(b, ids, { [`ic_${axis}`]: n }),
   }),
-  { id: 'ic_type', label: 'IC ply', width: 76, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.ic_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { ic_type: v }) } },
-  { id: 'per_ic', label: 'Pcs/IC', width: 58, align: 'right', edit: { kind: 'number', get: r => r.cbmRow?.products_per_ic || 1, write: cbmField('products_per_ic', true) } },
-  { id: 'mc_type', label: 'MC ply', width: 76, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.mc_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { mc_type: v }) } },
-  ...dimCols('mc', 'Master carton max', {
+  { id: 'ic_type', group: 'Inner carton', label: 'Ply', bulkLabel: 'IC ply', width: 88, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.ic_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { ic_type: v }) } },
+  { id: 'per_ic', group: 'Inner carton', label: 'Pcs', bulkLabel: 'Pcs/IC', width: 58, align: 'right', hint: 'Pieces per inner carton', edit: { kind: 'number', get: r => r.cbmRow?.products_per_ic || 1, write: cbmField('products_per_ic', true) } },
+  { id: 'mc_type', group: 'Master carton', label: 'Ply', bulkLabel: 'MC ply', width: 88, align: 'left', edit: { kind: 'select', get: r => r.cbmRow?.mc_type || '7 ply', options: boxOpts, write: (b, ids, v) => patchCbm(b, ids, { mc_type: v }) } },
+  ...dimCols('mc', 'Master carton', {
     hint: 'Largest master carton allowed; inner cartons are packed into it',
+    label: short => `Max ${short}`, width: 62,
     get: (r, axis) => r.cbmRow?.[`mc_max_${axis}`] || 25,
     write: (b, ids, axis, n) => patchCbm(b, ids, { [`mc_max_${axis}`]: n }),
   }),
-  ro('mc_fit', 'MC fit', r => {
+  ro('mc_fit', 'Fit', r => {
     const plan = r.r.mcPlan;
     if (!plan) return dash;
     return (
@@ -405,13 +412,13 @@ const cartonCols: Col[] = [
         <TooltipContent className="max-w-sm"><McPlanBreakdown plan={plan} /></TooltipContent>
       </Tooltip>
     );
-  }, 124, { hint: 'Inner cartons across W × along D × high in the master carton. Hover for the full calculation.' }),
+  }, 124, { group: 'Master carton', bulkLabel: 'MC fit', hint: 'Inner cartons across W × along D × high in the master carton. Hover for the full calculation.' }),
   perMcCol,
 ];
 const cbmCol = ro('cbm', 'Unit CBM', r => (r.r.finalUnitCbm ? r.r.finalUnitCbm.toFixed(4) : '—'), 80,
   { footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) + ' m³' });
 const shipTypeCol: Col = {
-  id: 'shipping', label: 'Ship via', bulkLabel: 'Shipping type', width: 132, align: 'left',
+  id: 'shipping', group: 'Shipment', label: 'Ship via', bulkLabel: 'Shipping type', width: 168, align: 'left',
   edit: { kind: 'select', get: r => r.shippingId || '', options: b => b.shipTypes.map((t: any) => ({ value: t.id, label: t.name })),
     disabled: (_r, b) => (b.inq?.shipping_type_id_override ? 'This inquiry sets one shipping type for every SKU in its Settings tab' : null),
     write: (b, ids, v) => (v ? setShippingType(b, ids, v) : null) },
@@ -494,17 +501,19 @@ export const BANDS: Band[] = [
     id: 'shipping', n: 3, label: 'Shipping', color: 'hsl(var(--cw-ship))',
     hint: 'Piece and carton sizes give the packed CBM; the shipping type turns CBM into freight per unit',
     summary: [cbmCol, shipTotalCol], mini: [shipTotalCol],
+    // Read left to right: how it ships, the piece, the inner carton, the master carton, what that packs to.
     items: [
       pkgTypeCol,
+      shipTypeCol,
       ...dimCols('piece', 'Piece', {
+        unit: 'in · kg',
         get: (r, axis) => r.p[`${axis}_inch`],
         write: (b, ids, axis, n) => patchProductsSame(b, ids, { [`${axis}_inch`]: n }),
       }),
-      { id: 'weight', label: 'Wt kg', width: 56, align: 'right', edit: { kind: 'number', get: r => r.p.weight_kg ?? '', write: productField('weight_kg') } },
+      { id: 'weight', group: 'Piece', label: 'Wt', bulkLabel: 'Weight kg', hint: 'Weight of one piece, kg', width: 56, align: 'right', edit: { kind: 'number', get: r => r.p.weight_kg ?? '', write: productField('weight_kg') } },
       { id: 'cartons', label: 'Cartons', hint: 'Inner and master carton sizes, ply and how they pack', summary: [perMcCol], items: cartonCols },
-      cbmCol,
-      ro('line_cbm', 'Line CBM', r => num(r.r.finalUnitCbm * r.qty, 2), 80, { footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) }),
-      shipTypeCol,
+      { ...cbmCol, group: 'Packed', groupUnit: 'CBM', label: 'Per unit', bulkLabel: 'Unit CBM', footer: undefined },
+      { ...ro('line_cbm', 'Line', r => num(r.r.finalUnitCbm * r.qty, 2), 80, { bulkLabel: 'Line CBM', footer: rows => num(sumBy(rows, r => r.r.finalUnitCbm * r.qty), 2) }), group: 'Packed' },
     ],
   },
   {
