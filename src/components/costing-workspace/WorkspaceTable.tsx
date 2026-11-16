@@ -7,7 +7,7 @@ import { Fragment, useRef } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { isPhotoEstimated } from '@/lib/photo-intake';
 import { chain, setQuote, toggleQuote, type Apply, type Bundle, type Mutation, type WorkspaceRow } from '@/lib/costing-workspace';
@@ -179,7 +179,7 @@ export function WorkspaceTable(p: Props) {
                     onToggle={() => p.onLines!(cat?.key === c.lines ? null : c.lines!)} />
                 ) : c.hint ? (
                   <Tooltip>
-                    <TooltipTrigger asChild><span className={cn(HEAD_LABEL, 'cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4')}>{c.label}</span></TooltipTrigger>
+                    <TooltipTrigger asChild><span className={HEAD_LABEL}>{c.label}</span></TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
                   </Tooltip>
                 ) : <span className={HEAD_LABEL}>{c.label}</span>}
@@ -231,13 +231,13 @@ export function WorkspaceTable(p: Props) {
                   {isPhotoEstimated(row.p) && (
                     <Tooltip>
                       <TooltipTrigger asChild><Sparkles className="h-4 w-4 shrink-0 text-highlight" aria-label="Estimated from a photo" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-xs">Estimated from a photo. Open it to check the numbers and mark it checked.</TooltipContent>
+                      <IconTooltipContent className="max-w-xs text-xs">Estimated from a photo. Open it to check the numbers and mark it checked.</IconTooltipContent>
                     </Tooltip>
                   )}
                   {issues.length > 0 && (
                     <Tooltip>
-                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-warning" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-xs space-y-0.5">{issues.map((f, i) => <div key={i}>• {f.msg}</div>)}</TooltipContent>
+                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-label={issues.map(f => f.msg).join('; ')} /></TooltipTrigger>
+                      <IconTooltipContent className="max-w-xs text-xs space-y-0.5">{issues.map((f, i) => <div key={i}>• {f.msg}</div>)}</IconTooltipContent>
                     </Tooltip>
                   )}
                   <ChevronRight className={cn('h-4 w-4 shrink-0 text-muted-foreground/40 transition-opacity', isOpen ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100')} />
@@ -327,7 +327,7 @@ function SubToggle({ sub, onToggle }: { sub: NonNullable<LaidCol['sub']>; onTogg
           {sub.open ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs text-xs">{sub.open ? `Fold ${sub.label.toLowerCase()} back to its total` : `Open ${sub.label.toLowerCase()}: ${sub.hint ?? ''}`}</TooltipContent>
+      <IconTooltipContent side="bottom" className="max-w-xs text-xs">{sub.open ? `Fold ${sub.label.toLowerCase()} back to its total` : `Open ${sub.label.toLowerCase()}: ${sub.hint ?? ''}`}</IconTooltipContent>
     </Tooltip>
   );
 }
@@ -394,9 +394,9 @@ function QuoteHeaders({ slots, onAdd }: { slots: number; onAdd: () => void }) {
       <th className="text-center">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={onAdd} className="h-6 w-6 grid place-items-center rounded-md hover:bg-background border border-transparent hover:border-border"><Plus className="h-3.5 w-3.5" /></button>
+            <button onClick={onAdd} aria-label="Add a quote column" className="h-6 w-6 grid place-items-center rounded-md hover:bg-background border border-transparent hover:border-border"><Plus className="h-3.5 w-3.5" /></button>
           </TooltipTrigger>
-          <TooltipContent>Add a quote column</TooltipContent>
+          <IconTooltipContent>Add a quote column</IconTooltipContent>
         </Tooltip>
       </th>
       <th className="text-right" title="Sum of the ticked quotes">Chosen ₹</th>

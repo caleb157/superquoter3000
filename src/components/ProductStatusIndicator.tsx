@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertCircle, Circle, CheckCircle2 } from 'lucide-react';
 
 interface ProductStatusIndicatorProps {
@@ -55,9 +55,9 @@ export function ProductStatusIndicator({ cbm_done, cogs_done, overhead_done, shi
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex cursor-help">{icon}</span>
+          <span className="inline-flex">{icon}</span>
         </TooltipTrigger>
-        <TooltipContent side="left">{tooltip}</TooltipContent>
+        <IconTooltipContent side="left">{tooltip}</IconTooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

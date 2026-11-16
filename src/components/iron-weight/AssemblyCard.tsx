@@ -2,7 +2,7 @@
 import { Copy, Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { partWeight } from '@/lib/iron-weight-core';
 import { kg, newId, qtyIssue, rupees, type EditLeg, type EditPart } from '@/lib/iron-weight';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,7 @@ export function AssemblyCard({ leg, price, onChange, onRemove, onDuplicate }: {
         <div className="flex">
           <Tooltip><TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={onDuplicate} aria-label="Duplicate assembly"><Copy className="h-4 w-4" /></Button>
-          </TooltipTrigger><TooltipContent>Duplicate assembly</TooltipContent></Tooltip>
+          </TooltipTrigger><IconTooltipContent>Duplicate assembly</IconTooltipContent></Tooltip>
           <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={onRemove} aria-label={`Remove ${leg.name || 'assembly'}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
