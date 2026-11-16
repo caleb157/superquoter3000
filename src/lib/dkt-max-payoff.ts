@@ -37,6 +37,7 @@ export type MaxPayoff = {
   buffer: number;
   base: Forecast;
   forecast: Forecast; // the forecast with the extra payments in it
+  input: ForecastInput; // ...and its inputs (extra credit repayments are draws flagged prepay)
   months: PayoffMonth[];
   debts: PayoffDebt[];
   payments: { month: Month; key: string; name: string; amount: number }[];
@@ -227,7 +228,7 @@ export function maxPayoff(inp: ForecastInput, bufferIn: number): MaxPayoff {
   }
   const interestBase = interestOf(base), interestMax = interestOf(cur);
   return {
-    buffer, base, forecast: cur, months: rows, debts, payments: [...merged.values()],
+    buffer, base, forecast: cur, input: curInp, months: rows, debts, payments: [...merged.values()],
     extraTotal: payments.reduce((s, p) => s + p.amount, 0),
     interestBase, interestMax, interestSaved: interestBase - interestMax,
     profitBase: base.profit.netProfit, profitMax: cur.profit.netProfit,

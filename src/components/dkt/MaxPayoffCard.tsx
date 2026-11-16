@@ -50,8 +50,8 @@ export function MaxPayoffCard({ prefs, setPrefs, payoff }: { prefs: PayoffPrefs;
             </div>
           )}
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-            <Stat label="Extra paid to debt" value={usd(p.extraTotal)} sub={`${monthLabel(months[0])} to ${monthLabel(months[months.length - 1])}`} />
-            <Stat label="Interest and fees saved" value={usd(p.interestSaved)} sub={`${usd(p.interestBase)} on the plan → ${usd(p.interestMax)}`} tone={p.interestSaved > 0.5 ? 'success' : undefined} />
+            <Stat label="Paid early, on top of the plan" value={usd(p.extraTotal)} sub={`${monthLabel(months[0])} to ${monthLabel(months[months.length - 1])}`} />
+            <Stat label="Interest and fees saved" value={usd(p.interestSaved)} sub={`${usd(p.interestMax)} vs ${usd(p.interestBase)} on the plan`} tone={p.interestSaved > 0.5 ? 'success' : undefined} />
             <Stat label="Net profit" value={usd(p.profitMax)} sub={`${usd(p.profitBase)} on the plan`} />
             <Stat label={`Debt left at end of ${monthLabel(months[months.length - 1])}`} value={usd(debtEndMax)}
               sub={p.debtFreeMax ? `Debt-free in ${monthLabel(p.debtFreeMax)}` : `${usd(debtEndBase)} on the plan`} />

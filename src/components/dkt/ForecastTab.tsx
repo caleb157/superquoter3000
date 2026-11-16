@@ -149,7 +149,7 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
               ? 'Solid line: cash at month end with max payoff. Grey dashed line: cash on today\'s plan. Bars: money in minus money out. Orange dashed line: the payoff buffer. Dotted lines: credit draws.'
               : 'Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum. Dotted lines: credit draws.'}
           </p>
-          <CreditDrawsList lines={creditLines} draws={creditDraws} months={months.map(m => m.month)} />
+          <CreditDrawsList lines={creditLines} draws={showPlan ? payoff!.input.creditDraws : creditDraws} months={months.map(m => m.month)} />
           <ManualCashEntriesCard className="mt-3" {...manual} currencies={['USD']} fmt={v => usd(v)} />
         </CardContent>
       </Card>
