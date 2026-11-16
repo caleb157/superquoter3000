@@ -179,7 +179,7 @@ export function WorkspaceTable(p: Props) {
                     onToggle={() => p.onLines!(cat?.key === c.lines ? null : c.lines!)} />
                 ) : c.hint ? (
                   <Tooltip>
-                    <TooltipTrigger asChild><span className={cn(HEAD_LABEL, 'cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-4')}>{c.label}</span></TooltipTrigger>
+                    <TooltipTrigger asChild><span className={HEAD_LABEL}>{c.label}</span></TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs text-xs">{c.hint}</TooltipContent>
                   </Tooltip>
                 ) : <span className={HEAD_LABEL}>{c.label}</span>}
@@ -236,7 +236,7 @@ export function WorkspaceTable(p: Props) {
                   )}
                   {issues.length > 0 && (
                     <Tooltip>
-                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-warning" /></TooltipTrigger>
+                      <TooltipTrigger asChild><AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-label={issues.map(f => f.msg).join('; ')} /></TooltipTrigger>
                       <TooltipContent className="max-w-xs text-xs space-y-0.5">{issues.map((f, i) => <div key={i}>• {f.msg}</div>)}</TooltipContent>
                     </Tooltip>
                   )}
@@ -394,7 +394,7 @@ function QuoteHeaders({ slots, onAdd }: { slots: number; onAdd: () => void }) {
       <th className="text-center">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={onAdd} className="h-6 w-6 grid place-items-center rounded-md hover:bg-background border border-transparent hover:border-border"><Plus className="h-3.5 w-3.5" /></button>
+            <button onClick={onAdd} aria-label="Add a quote column" className="h-6 w-6 grid place-items-center rounded-md hover:bg-background border border-transparent hover:border-border"><Plus className="h-3.5 w-3.5" /></button>
           </TooltipTrigger>
           <TooltipContent>Add a quote column</TooltipContent>
         </Tooltip>

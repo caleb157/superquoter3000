@@ -55,7 +55,7 @@ export function ProductStatusIndicator({ cbm_done, cogs_done, overhead_done, shi
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex cursor-help">{icon}</span>
+          <span className="inline-flex">{icon}</span>
         </TooltipTrigger>
         <TooltipContent side="left">{tooltip}</TooltipContent>
       </Tooltip>

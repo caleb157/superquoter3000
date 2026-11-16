@@ -77,7 +77,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button asChild size="icon" variant="ghost" className="h-8 w-8"><Link to={`/product/${id}?tab=costing`}><ExternalLink className="h-4 w-4" /></Link></Button>
+            <Button asChild size="icon" variant="ghost" className="h-8 w-8"><Link to={`/product/${id}?tab=costing`} aria-label="Open the full costing sheet"><ExternalLink className="h-4 w-4" /></Link></Button>
           </TooltipTrigger>
           <TooltipContent>Open the full costing sheet</TooltipContent>
         </Tooltip>

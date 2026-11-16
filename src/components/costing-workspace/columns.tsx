@@ -293,7 +293,7 @@ const hwTotalCol = ro('hw', 'Hardware', r => {
   if (!total) return dash;
   return (
     <Tooltip>
-      <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default">{inr(total)}</span></TooltipTrigger>
+      <TooltipTrigger asChild><span className="cursor-default">{inr(total)}</span></TooltipTrigger>
       <TooltipContent className="text-xs">{parts.map(x => <div key={x.key}>{x.label}: {inr(r.editBuckets[x.key])}</div>)}<div className="mt-1 text-muted-foreground">Click Hardware in the header to edit the parts</div></TooltipContent>
     </Tooltip>
   );
@@ -330,7 +330,7 @@ const otherMhCol = ro('other_mh', 'Other MH', (r, b) => {
   if (!total) return dash;
   return (
     <Tooltip>
-      <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default">{num(total, 2)}</span></TooltipTrigger>
+      <TooltipTrigger asChild><span className="cursor-default">{num(total, 2)}</span></TooltipTrigger>
       <TooltipContent className="text-xs">{rows.map((o: any) => <div key={o.id}>{o.labor_type}: {num(Number(o.man_hours_per_unit), 3)} h</div>)}<div className="mt-1 text-muted-foreground">Edit in the product panel</div></TooltipContent>
     </Tooltip>
   );
@@ -384,7 +384,7 @@ const cartonCols: Col[] = [
     if (!plan) return dash;
     return (
       <Tooltip>
-        <TooltipTrigger asChild><span className="underline decoration-dotted underline-offset-4 cursor-default whitespace-nowrap">{mcPlanShort(plan)}</span></TooltipTrigger>
+        <TooltipTrigger asChild><span className="cursor-default whitespace-nowrap">{mcPlanShort(plan)}</span></TooltipTrigger>
         <TooltipContent className="max-w-sm"><McPlanBreakdown plan={plan} /></TooltipContent>
       </Tooltip>
     );

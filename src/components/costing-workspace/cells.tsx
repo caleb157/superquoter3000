@@ -415,7 +415,7 @@ export function Stat({ label, value, sub, tone, onClick, active, hint, flat }: {
   if (hint) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild><div className="min-w-0 cursor-help"><Stat {...{ label, value, sub, tone, onClick, active, flat }} /></div></TooltipTrigger>
+        <TooltipTrigger asChild><div className="min-w-0"><Stat {...{ label, value, sub, tone, onClick, active, flat }} /></div></TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">{hint}</TooltipContent>
       </Tooltip>
     );
