@@ -1,5 +1,7 @@
 // Calculated FOB (origin) charges. Pure module; rates are editable in Settings → FOB Rates
 // (loaded into this module via setFobRates). Defaults mirror the seeded rate cards.
+// Settings → Shipping can instead set one flat ₹/CBM for LCL (fobSimpleSettings), and an inquiry
+// can add a one-off FOB surcharge in USD, spread over the shipment's CBM like every FOB charge.
 
 export type LclRates = {
   thc_per_cbm: number; acd_usd: number; seal_usd: number; vgm_usd: number; bl_fee: number;
@@ -55,7 +57,13 @@ export function setFobRates(r: { lcl?: Partial<LclRates> | null; fcl?: Partial<F
 export type FobPerUnit = 'FOB_FCL' | 'FOB_LCL' | 'FOB_LCL_NO_TRUCK';
 export type Fumigation = 'none' | 'normal' | 'ispm';
 export type Wlc = 'none' | 'leather' | 'bone_mop';
-export type FobOpts = { fumigation?: Fumigation | null; wlc?: Wlc | null; rates?: FobRates };
+export type FobOpts = {
+  fumigation?: Fumigation | null; wlc?: Wlc | null; rates?: FobRates;
+  /** Simple flat FOB rate, ₹ per CBM (Settings → Shipping). When > 0 the LCL types price CBM × this instead of the LCL card. */
+  flatPerCbm?: number | null;
+  /** Optional per-shipment FOB surcharge in USD (set per inquiry). Added once to the shipment, spread by CBM. */
+  surchargeUsd?: number | null;
+};
 export type FobLine = { label: string; amount_inr: number };
 export type FobOption = { mode: FobPerUnit; label: string; containers: number; mix?: string; lines: FobLine[]; total_inr: number; per_cbm_inr: number };
 export type FobEstimate = {
@@ -77,13 +85,49 @@ export const fobCardFor = (u: any): 'FCL' | 'LCL' | null => (u === 'FOB_FCL' ? '
 
 const LABEL: Record<FobPerUnit, string> = { FOB_FCL: 'FCL Mundra via Jodhpur ICD', FOB_LCL: 'LCL incl. truck', FOB_LCL_NO_TRUCK: 'LCL excl. truck' };
 
-function finish(mode: FobPerUnit, containers: number, lines: FobLine[], cbm: number, mix?: string): FobOption {
+function finish(mode: FobPerUnit, containers: number, lines: FobLine[], cbm: number, fx: number, opts: FobOpts, mix?: string, label = LABEL[mode]): FobOption {
+  const sur = Number(opts.surchargeUsd) || 0;
+  if (sur > 0) lines = [...lines, { label: `FOB surcharge (US$${sur.toLocaleString('en-US')})`, amount_inr: sur * fx }];
   const total = lines.reduce((s, l) => s + l.amount_inr, 0);
-  return { mode, label: LABEL[mode], containers, mix, lines, total_inr: total, per_cbm_inr: cbm > 0 ? total / cbm : 0 };
+  return { mode, label, containers, mix, lines, total_inr: total, per_cbm_inr: cbm > 0 ? total / cbm : 0 };
+}
+
+/** Defaults for the simple FOB settings (Caleb, 2026-11-16: 90/10 rate from the shipment size mix). */
+export const FOB_SIMPLE_DEFAULTS = { flatPerCbm: 3200, surchargeUsd: 150, thresholdCbm: 10 };
+
+/**
+ * The simple FOB settings from a global_settings row. A missing column (SQL not run yet) or a blank
+ * flat rate means the detailed LCL card; surcharge amount and threshold fall back to the defaults.
+ */
+export function fobSimpleSettings(gs: any): { flatPerCbm: number | null; surchargeUsd: number; thresholdCbm: number } {
+  const flat = Number(gs?.fob_flat_rate_per_cbm);
+  const sur = Number(gs?.fob_surcharge_usd);
+  const thr = Number(gs?.fob_surcharge_threshold_cbm);
+  return {
+    flatPerCbm: flat > 0 ? flat : null,
+    surchargeUsd: sur > 0 ? sur : FOB_SIMPLE_DEFAULTS.surchargeUsd,
+    thresholdCbm: thr > 0 ? thr : FOB_SIMPLE_DEFAULTS.thresholdCbm,
+  };
+}
+
+/**
+ * Whether to suggest the FOB surcharge: the shipment is under the threshold and the inquiry hasn't
+ * decided yet (fob_surcharge_usd null). 0 means "no surcharge" was picked, so it stops asking.
+ */
+export function suggestFobSurcharge(poolCbm: number, inquirySurchargeUsd: number | null | undefined, thresholdCbm: number): boolean {
+  return inquirySurchargeUsd == null && poolCbm > 0 && poolCbm < thresholdCbm;
 }
 
 export function computeLcl(cbm: number, cartons: number, fx: number, trucking = true, opts: FobOpts = {}): FobOption {
   const r = (opts.rates || current).lcl;
+  const flat = Number(opts.flatPerCbm) || 0;
+  if (flat > 0) {
+    // Simple rate: one ₹/CBM figure covering every LCL origin charge incl. trucking; the
+    // no-trucking type takes the card's trucking ₹/CBM off it.
+    const rate = trucking ? flat : Math.max(0, flat - r.trucking_per_cbm);
+    const label = `LCL flat ₹${rate.toLocaleString('en-IN')}/CBM${trucking ? '' : ' excl. truck'}`;
+    return finish(trucking ? 'FOB_LCL' : 'FOB_LCL_NO_TRUCK', 0, [{ label: `Flat FOB rate (₹${rate.toLocaleString('en-IN')} × CBM)`, amount_inr: rate * cbm }], cbm, fx, opts, undefined, label);
+  }
   const lines: FobLine[] = [
     { label: 'ACD + seal + VGM (USD)', amount_inr: (r.acd_usd + r.seal_usd + r.vgm_usd) * fx },
     { label: 'BL fee', amount_inr: r.bl_fee },
@@ -93,7 +137,7 @@ export function computeLcl(cbm: number, cartons: number, fx: number, trucking = 
     { label: 'Sorting', amount_inr: Math.max(r.sorting_per_carton * cartons, r.sorting_min) },
   ];
   if (trucking) lines.push({ label: 'Trucking', amount_inr: r.trucking_per_cbm * cbm });
-  return finish(trucking ? 'FOB_LCL' : 'FOB_LCL_NO_TRUCK', 0, lines, cbm);
+  return finish(trucking ? 'FOB_LCL' : 'FOB_LCL_NO_TRUCK', 0, lines, cbm, fx, opts);
 }
 
 export function fclContainerCost(size: 20 | 40, fx: number, opts: FobOpts = {}): number {
@@ -123,7 +167,7 @@ export function computeFcl(cbm: number, fx: number, opts: FobOpts = {}): FobOpti
   if (opts.wlc === 'leather') lines.push({ label: 'Wildlife certificate (leather)', amount_inr: r.wlc_leather });
   if (opts.wlc === 'bone_mop') lines.push({ label: 'Wildlife certificate (bone / MOP)', amount_inr: r.wlc_bone_mop });
   const mix = [n40 ? `${n40} × 40ft` : '', n20 ? `${n20} × 20ft` : ''].filter(Boolean).join(' + ');
-  return finish('FOB_FCL', n20 + n40, lines, cbm, mix);
+  return finish('FOB_FCL', n20 + n40, lines, cbm, fx, opts, mix);
 }
 
 /** All three results side by side; `selected` is the one matching perUnit (cheapest if null). */

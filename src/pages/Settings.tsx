@@ -23,7 +23,7 @@ import { ProductTypeDefaultChemicalsEditor } from '@/components/ProductTypeDefau
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { ALL_SECTIONS, resolveSettingsHash, searchSettings, type SectionId } from '@/lib/settings-nav';
 import { EditableTable } from '@/components/EditableTable';
-import { fobCardFor } from '@/lib/fob';
+import { fobCardFor, FOB_SIMPLE_DEFAULTS } from '@/lib/fob';
 
 
 // Shipping defaults (global_settings fields), shown above the shipping types.
@@ -75,6 +75,8 @@ function ShippingDefaults() {
         </div>
       ))}
 
+      <SimpleFobSettings settings={settings} update={update} />
+
       <div className="flex items-center gap-3">
         <label className="text-xs font-medium w-52 shrink-0">Default Shipping Type</label>
         <Select value={settings.default_shipping_type || ''} onValueChange={v => update('default_shipping_type', v)}>
@@ -86,6 +88,44 @@ function ShippingDefaults() {
           </SelectContent>
         </Select>
       </div>
+    </div>
+  );
+}
+
+// Simple FOB: one flat ₹/CBM for the LCL shipping types instead of the detailed LCL card, plus the
+// optional per-shipment surcharge the costing sheet suggests for small shipments.
+function SimpleFobSettings({ settings, update }: { settings: any; update: (field: string, value: any) => Promise<void> }) {
+  const ready = 'fob_flat_rate_per_cbm' in settings;
+  const rows = [
+    { key: 'fob_flat_rate_per_cbm', label: 'Simple FOB rate ₹/CBM', placeholder: 'blank = LCL card', hint: `All LCL origin charges incl. trucking, CBM × this rate. FOB MUMBAI LCL types use it in place of the LCL rate card; "No Trucking" takes the card's trucking ₹/CBM off. FCL keeps its own card. Blank goes back to the detailed LCL card.` },
+    { key: 'fob_surcharge_usd', label: 'FOB surcharge (US$)', placeholder: String(FOB_SIMPLE_DEFAULTS.surchargeUsd), hint: 'Optional, per shipment, switched on per inquiry in the costing sheet. Spread over the shipment by CBM.' },
+    { key: 'fob_surcharge_threshold_cbm', label: 'Suggest surcharge under (CBM)', placeholder: String(FOB_SIMPLE_DEFAULTS.thresholdCbm), hint: 'Inquiries whose FOB shipment is smaller than this get a one-click "Add the surcharge?" prompt.' },
+  ];
+  return (
+    <div className="space-y-2 rounded-md border px-3 py-2">
+      <div className="text-xs font-semibold">Simple FOB rate</div>
+      {!ready && <p className="text-[11px] text-amber-700 dark:text-amber-300">Run sql/fob-simple-rate.sql first; until then FOB uses the detailed rate cards.</p>}
+      {rows.map(f => (
+        <div key={f.key}>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-medium w-52 shrink-0">{f.label}</label>
+            <Input
+              className="h-8 text-sm"
+              type="number"
+              disabled={!ready}
+              placeholder={f.placeholder}
+              defaultValue={settings[f.key] ?? ''}
+              onBlur={(e) => {
+                const t = e.target.value.trim();
+                const val = t === '' ? null : Number(t);
+                if (val != null && !(val >= 0)) return;
+                if (val !== (settings[f.key] ?? null)) void update(f.key, val);
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground ml-[13.5rem] mt-0.5">{f.hint}</p>
+        </div>
+      ))}
     </div>
   );
 }

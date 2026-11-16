@@ -82,7 +82,7 @@ export async function loadInquiryPricing(
       const q = (supabase as any).from('products').select('*').in('customer_rfq_id', chunk);
       return (opts.includeArchived ? q : q.is('archived_at', null)).order('id');
     }),
-    byIds('customer_rfqs', 'id', ids, INQUIRY_OVERRIDE_COLUMNS),
+    inquiryRows(ids),
   ]);
   if (products.length === 0) return { map: {}, products };
   const productIds = products.map((p: any) => p.id);
@@ -116,6 +116,10 @@ const byIds = (table: string, column: string, ids: string[], columns = '*') =>
   fetchAllByIds<any>(ids, (chunk) => (supabase as any).from(table).select(columns).in(column, chunk).order('id'));
 
 const INQUIRY_OVERRIDE_COLUMNS = 'id, exchange_rate_override, markup_percent_override, shipping_type_id_override, indirect_overhead_per_mh_override, packaging_cost_per_cbm_override, auto_transport_cost_per_cbm_override, local_transport_cost_per_cbm_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc';
+// Columns added later by SQL Caleb runs himself: read with them, and without them until the SQL has run.
+const INQUIRY_OVERRIDE_COLUMNS_NEW = `${INQUIRY_OVERRIDE_COLUMNS}, fob_surcharge_usd`;
+const inquiryRows = (ids: string[]) =>
+  byIds('customer_rfqs', 'id', ids, INQUIRY_OVERRIDE_COLUMNS_NEW).catch(() => byIds('customer_rfqs', 'id', ids, INQUIRY_OVERRIDE_COLUMNS));
 
 type CoreData = {
   productById: Map<string, any>;
@@ -162,13 +166,13 @@ async function loadCoreData(
     byIds('overhead_items', 'product_id', productIds),
     byIds('shipping_items', 'product_id', productIds),
     byIds('cbm_estimates', 'product_id', productIds),
-    known ? Promise.resolve(known.inquiries) : inquiryIds ? byIds('customer_rfqs', 'id', inquiryIds, INQUIRY_OVERRIDE_COLUMNS) : Promise.resolve(null),
+    known ? Promise.resolve(known.inquiries) : inquiryIds ? inquiryRows(inquiryIds) : Promise.resolve(null),
   ]);
   let inquiries = knownInquiries as any[] | null;
   const neededInq = [...new Set((products as any[]).map(p => p.customer_rfq_id).filter(Boolean))] as string[];
   const have = new Set((inquiries ?? []).map((i: any) => i.id));
   const missing = neededInq.filter(id => !have.has(id));
-  if (missing.length) inquiries = [...(inquiries ?? []), ...(await byIds('customer_rfqs', 'id', missing, INQUIRY_OVERRIDE_COLUMNS))];
+  if (missing.length) inquiries = [...(inquiries ?? []), ...(await inquiryRows(missing))];
   return {
     productById: new Map((products as any[]).map(p => [p.id, p])),
     cogsBy: groupBy(cogs),

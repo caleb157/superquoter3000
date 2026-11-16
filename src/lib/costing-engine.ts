@@ -13,7 +13,7 @@
 import * as calc from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
 import { withLiveDirectRates, fxOrFallback } from '@/lib/live-rates';
-import { computeFob, isFobPerUnit, type FobEstimate, type Fumigation, type Wlc } from '@/lib/fob';
+import { computeFob, fobSimpleSettings, isFobPerUnit, type FobEstimate, type Fumigation, type Wlc } from '@/lib/fob';
 
 /** COGS line that carries the purchased cost of an outsourced (bought finished) product. */
 export const OUTSOURCED_COGS_NAME = 'Outsourced Product';
@@ -416,7 +416,11 @@ export function computeProductCosting(input: CostingEngineInput): CostingEngineR
   if (shipType && isFobPerUnit(shipType.per_unit)) {
     const ownCbm = finalUnitCbm * qty;
     const ownCartons = qty > 0 ? Math.ceil(qty / (productsPerMc > 0 ? productsPerMc : 1)) : 0;
-    const fobOpts = { fumigation: (inq?.fob_fumigation || 'none') as Fumigation, wlc: (inq?.fob_wlc || 'none') as Wlc };
+    const fobOpts = {
+      fumigation: (inq?.fob_fumigation || 'none') as Fumigation, wlc: (inq?.fob_wlc || 'none') as Wlc,
+      flatPerCbm: fobSimpleSettings(gs).flatPerCbm,
+      surchargeUsd: Number(inq?.fob_surcharge_usd) > 0 ? Number(inq.fob_surcharge_usd) : null,
+    };
     if (shipmentPool && shipmentPool.lines.length > 0) {
       const lines = shipmentPool.lines.filter(l => l.product_id !== p.id).concat([{ product_id: p.id, cbm: ownCbm, cartons: ownCartons }]);
       let poolCbm = lines.reduce((s, l) => s + (l.cbm || 0), 0);
