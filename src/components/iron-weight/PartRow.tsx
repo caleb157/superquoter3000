@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SHAPES, type ShapeKey, type Unit } from '@/lib/iron-weight-core';
 import {
   DIM_UNITS, LENGTH_UNITS, PRESETS, SHAPE_ORDER, dimsForShape, kg, partIssue, presetLabel, rupees, unitLabel,
@@ -74,7 +74,7 @@ export function PartRow({ p, kgPerPiece, price, onChange, onRemove, onDuplicate 
         <div className="flex shrink-0">
           <Tooltip><TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={onDuplicate} aria-label="Duplicate part"><Copy className="h-3.5 w-3.5" /></Button>
-          </TooltipTrigger><TooltipContent>Duplicate part</TooltipContent></Tooltip>
+          </TooltipTrigger><IconTooltipContent>Duplicate part</IconTooltipContent></Tooltip>
           {onRemove && (
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={onRemove} aria-label={`Remove ${p.name || 'part'}`}>
               <Trash2 className="h-3.5 w-3.5" />

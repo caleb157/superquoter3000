@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { FobEstimatePanel } from '@/components/FobEstimatePanel';
 import { ProductChemicalsPicker } from '@/components/ProductChemicalsPicker';
 import { VendorCombobox } from '@/components/VendorCombobox';
@@ -79,7 +79,7 @@ export function ProductPanel({ row, bundle, apply, onClose, onPrev, onNext, posi
           <TooltipTrigger asChild>
             <Button asChild size="icon" variant="ghost" className="h-8 w-8"><Link to={`/product/${id}?tab=costing`} aria-label="Open the full costing sheet"><ExternalLink className="h-4 w-4" /></Link></Button>
           </TooltipTrigger>
-          <TooltipContent>Open the full costing sheet</TooltipContent>
+          <IconTooltipContent>Open the full costing sheet</IconTooltipContent>
         </Tooltip>
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose} aria-label="Close"><X className="h-4 w-4" /></Button>
       </div>}
@@ -809,7 +809,7 @@ export function CogsLines({ row, bundle, apply, show = () => true, fixed, onDele
                                   <Target className="h-3.5 w-3.5" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{each != null ? `Set ₹ each to ${inr(each, 2)} so the price lands on the ${money(row.target, row.cur)} target` : 'This line alone can’t reach the target'}</TooltipContent>
+                              <IconTooltipContent>{each != null ? `Set ₹ each to ${inr(each, 2)} so the price lands on the ${money(row.target, row.cur)} target` : 'This line alone can’t reach the target'}</IconTooltipContent>
                             </Tooltip>
                           );
                         })()}
@@ -926,7 +926,7 @@ function LaborLines({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle;
                           <button className="ml-1 align-middle text-muted-foreground/60 hover:text-foreground" aria-label="Estimate automatically"
                             onClick={() => apply(b => setLaborHours(b, [id], o.labor_type, 'auto'))}><RotateCcw className="h-3 w-3" /></button>
                         </TooltipTrigger>
-                        <TooltipContent>Go back to the automatic estimate</TooltipContent>
+                        <IconTooltipContent>Go back to the automatic estimate</IconTooltipContent>
                       </Tooltip>
                     )}
                   </td>

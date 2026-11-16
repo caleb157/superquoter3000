@@ -3,7 +3,7 @@
 import { Link } from 'react-router-dom';
 import { Check, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { priceToQuoted, targetFromQuoted, targetIsQuoted, type Apply, type RowQuoted, type WorkspaceRow } from '@/lib/costing-workspace';
 import { inr, money, pct } from './cells';
@@ -60,7 +60,7 @@ export function QuotedCell({ row, apply }: { row: WorkspaceRow; apply?: Apply })
               {isTarget ? <Check className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
             </button>
           </TooltipTrigger>
-          <TooltipContent>{isTarget ? 'The target is this quoted price' : `Make ${money(q.price, row.cur)} the target`}</TooltipContent>
+          <IconTooltipContent>{isTarget ? 'The target is this quoted price' : `Make ${money(q.price, row.cur)} the target`}</IconTooltipContent>
         </Tooltip>
       )}
       <Tooltip>

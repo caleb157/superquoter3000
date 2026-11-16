@@ -37,7 +37,7 @@ import { InquirySide, useInquirySide } from '@/components/costing-workspace/Inqu
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Stat, focusCell, focusNavEl, pct } from '@/components/costing-workspace/cells';
 import { formatMoney, quoteCurrencyOf } from '@/lib/quote-currency';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const OPEN_KEY = 'costing-workspace-open';
 const SIDE_KEY = 'costing-side-open';
@@ -336,13 +336,13 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
                   <TooltipTrigger asChild>
                     <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" disabled={!canUndo} onClick={doUndo} aria-label="Undo"><Undo2 className="h-4 w-4" /></Button>
                   </TooltipTrigger>
-                  <TooltipContent>Undo the last change (Ctrl+Z)</TooltipContent>
+                  <IconTooltipContent>Undo the last change (Ctrl+Z)</IconTooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground" disabled={!canRedo} onClick={doRedo} aria-label="Redo"><Redo2 className="h-4 w-4" /></Button>
                   </TooltipTrigger>
-                  <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
+                  <IconTooltipContent>Redo (Ctrl+Y)</IconTooltipContent>
                 </Tooltip>
               </div>
               <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => setIntakeOpen(true)}><FileSpreadsheet className="h-4 w-4" /> Import sheet</Button>

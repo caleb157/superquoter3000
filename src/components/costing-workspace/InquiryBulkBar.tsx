@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { Check, ExternalLink, Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, IconTooltipContent, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCostingBundle } from '@/hooks/use-costing-bundle';
 import { loadBundle } from '@/lib/costing-workspace';
 import { BulkBar } from './BulkBar';
@@ -67,7 +67,7 @@ export function InquiryBulkBar({ inquiryId, ids, onClear, onChanged, reloadKey }
                   <Undo2 className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Undo the last bulk change made from this bar</TooltipContent>
+              <IconTooltipContent>Undo the last bulk change made from this bar</IconTooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
