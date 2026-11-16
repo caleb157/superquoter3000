@@ -34,7 +34,7 @@ export function MaxPayoffCard({ prefs, setPrefs, payoff }: { prefs: PayoffPrefs;
         <p className="text-xs text-muted-foreground">
           Each month, every dollar above {usd(prefs.buffer)} goes to paying debt early, on top of the normal plan. It only pays what
           the lowest cash ahead of it allows, so no later month (with its known bills) drops under {usd(prefs.buffer)}.
-          Dearest debt first, then the smallest. Scheduled payments, fees and due dates stay as they are; planned credit draws stay
+          Installment lines (Amex) keep their normal monthly payments; the rest goes to the dearest debt first, then the smallest, so the long-term loans take it. Scheduled payments, fees and due dates stay as they are; planned credit draws stay
           planned. A what-if only: nothing is saved. {prefs.on ? 'The chart, profit and table below show it.' : 'Switch it on to see the forecast with it.'}
         </p>
       </CardHeader>
@@ -87,7 +87,7 @@ export function MaxPayoffCard({ prefs, setPrefs, payoff }: { prefs: PayoffPrefs;
               </tbody>
             </table>
             <p className="text-[11px] text-muted-foreground mt-1">
-              Rate is a yearly rate on what's owed now. An installment line's monthly fee is charged on the original draw, so its real rate is higher than its fee.
+              Rate is a yearly rate on what's owed now. Installment lines are never paid early.
             </p>
           </div>
           {byMonth.length > 0 ? (

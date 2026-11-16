@@ -427,11 +427,11 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     }
     return amt - rest;
   };
-  /** An extra (Max payoff) repayment: any tranche, installments included, dearest first. Paying an
-   *  installment draw early shortens it, so its monthly fee stops sooner. */
+  /** An extra (Max payoff) repayment: revolving draws only, dearest first. Installment draws (Amex)
+   *  always keep their normal monthly payments (Caleb, 2026-11-16). */
   const repayAny = (amt: number) => {
     let rest = amt;
-    for (const x of tranches.filter(y => y.left > 0.005).sort((a, b) => trancheApr(b) - trancheApr(a))) {
+    for (const x of revolving().sort((a, b) => trancheApr(b) - trancheApr(a))) {
       const p = Math.min(rest, x.left);
       if (x.accrued > 0.005) { const i = x.accrued * p / x.left; x.accrued -= i; interestPaid += i; }
       x.left -= p; rest -= p; if (rest <= 0.005) break;
@@ -520,13 +520,14 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
 }
 
 export type CreditDebt = { balance: number; apr: number; accrued: number };
-/** What's owed on each line at the end of months[idx], its blended yearly rate and any balloon interest built up. */
+/** What can be paid early on each line at the end of months[idx] (revolving draws only: installment
+ *  draws keep their normal payments), its blended yearly rate and any balloon interest built up. */
 export function creditDebtAt(lines: CreditLine[], draws: CreditDraw[], months: Month[], idx: number, cashAsOf?: string | null): Record<string, CreditDebt> {
   const res: Record<string, CreditDebt> = {};
   if (!months.length) return res;
   const win = months.slice(0, Math.max(1, idx + 1));
   for (const line of lines) {
-    const open = simulateLine(line, draws, win, cashAsOf).tranches.filter(x => x.left > 0.005);
+    const open = simulateLine(line, draws, win, cashAsOf).tranches.filter(x => x.left > 0.005 && !isInstallment(x.t));
     const balance = open.reduce((s, x) => s + x.left, 0);
     res[line.id] = {
       balance,

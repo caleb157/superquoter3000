@@ -5,8 +5,9 @@
 //  - The extra paid in a month is the lowest cash at any month end from then to the end of the forecast,
 //    minus the buffer. Paying early only lowers later months by what's paid (less any interest saved),
 //    so no later month, including its known bills, drops under the buffer because of it.
-//  - Dearest debt first (yearly rate on what's still owed; an installment line's monthly fee is charged
-//    on the original draw, so its real rate is higher), then the smallest balance.
+//  - Installment draws (Amex) are never paid early: they keep their normal monthly payments (Caleb,
+//    2026-11-16). Everything else: dearest debt first, then the smallest balance, so the long-term
+//    loans (ORG) take the extra money.
 //  - Every scheduled payment, fee and due date still applies; extra money only comes off what's left.
 //    A payment schedule shrinks from its last payment backwards, and its interest falls with what's owed.
 //    A lump loan already due this month or earlier is paid by the plan anyway, so it isn't prepaid.

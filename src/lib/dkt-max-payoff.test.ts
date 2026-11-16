@@ -39,14 +39,28 @@ describe('max payoff', () => {
     expect(r.payments[1].amount).toBeCloseTo(4000 - 3000);
   });
 
-  it('pays an installment draw early, so its fee stops sooner, and reports the interest saved', () => {
+  it('keeps installment draws on their normal payments and sends the extra to the loans', () => {
     const line: CreditLine = { id: 'amex', name: 'Amex', limit_usd: 15000, drawn_usd: 0, rate_pct: 0, term_months: 6, monthly_fee_pct: 1 };
     const draws: CreditDraw[] = [{ id: 'd', line_id: 'amex', month: '2026-10', amount_usd: 6000, actual: true, draw_date: '2026-10-05', term_months: 6, monthly_fee_pct: 1 }];
-    const r = maxPayoff(input({ settings: { ...DEFAULT_SETTINGS, cash_usd: 20000, min_cash_usd: 0, horizon_months: 6, allegro_launch_on: false }, creditLines: [line], creditDraws: draws }), 2000);
+    const r = maxPayoff(input({
+      settings: { ...DEFAULT_SETTINGS, cash_usd: 20000, min_cash_usd: 0, horizon_months: 6, allegro_launch_on: false },
+      creditLines: [line], creditDraws: draws, loans: [loan({ id: 'org', name: 'ORG', balance_usd: 30000, rate_pct: 7.5, due_month: '2029-01' })],
+    }), 2000);
     const amex = r.debts.find(d => d.key === 'c:amex')!;
     expect(amex.basePaidOff).toBe('2027-04');
-    expect(amex.maxPaidOff).toBe('2026-11');
-    expect(r.interestSaved).toBeCloseTo(60 * 5); // Dec–Apr fees no longer charged
+    expect(amex.maxPaidOff).toBe('2027-04');
+    expect(amex.extra).toBe(0);
+    // 20,000 − six Amex payments of 1,060 − 2,000 buffer.
+    expect(r.debts.find(d => d.key === 'l:org')?.extra).toBeCloseTo(20000 - 6 * 1060 - 2000);
+  });
+
+  it('pays a revolving draw early, dearest first, and counts the interest saved as profit', () => {
+    const line: CreditLine = { id: 'od', name: 'OnDeck', limit_usd: 12000, drawn_usd: 0, rate_pct: 24 };
+    const draws: CreditDraw[] = [{ id: 'd', line_id: 'od', month: '2026-10', amount_usd: 5000, actual: true, draw_date: '2026-10-05', rate_pct: 24, maturity_month: '2027-04' }];
+    const r = maxPayoff(input({ creditLines: [line], creditDraws: draws }), 2000);
+    const od = r.debts.find(d => d.key === 'c:od')!;
+    expect(od.maxPaidOff).toBe('2026-11');
+    expect(r.interestSaved).toBeCloseTo(5000 * 0.02 * 5); // Nov–Mar interest; it is due in full in Apr
     expect(r.profitMax - r.profitBase).toBeCloseTo(r.interestSaved);
   });
 
