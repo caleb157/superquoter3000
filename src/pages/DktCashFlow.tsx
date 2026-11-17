@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useDktCashflow } from '@/hooks/use-dkt-cashflow';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
-import { addMonths, allegroLaunchPlan, allegroPlanMonths, buildForecast, creditDrawnToday, isAllegroScenario, loanOutstanding, odooCustReceived, type Month } from '@/lib/dkt-cashflow';
+import { addMonths, allegroLaunchPlan, allegroPlanMonths, buildForecast, creditDrawnToday, isAllegroScenario, loanOutstanding, odooCustReceived, type ForecastInput, type Month } from '@/lib/dkt-cashflow';
 import { countedSkus, LONG_VIEW_MONTH } from '@/lib/dkt-amazon';
 import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
@@ -22,8 +22,18 @@ import { LoansTab } from '@/components/dkt/LoansTab';
 import { CreditTab } from '@/components/dkt/CreditTab';
 import { AmazonTab } from '@/components/dkt/AmazonTab';
 import { AllegroTab } from '@/components/dkt/AllegroTab';
+import type { PayoffPrefs } from '@/components/dkt/MaxPayoffCard';
+import { DEFAULT_PAYOFF_BUFFER, maxPayoff } from '@/lib/dkt-max-payoff';
 
 const TAB_KEY = 'dkt-cash-flow-tab';
+const PAYOFF_KEY = 'dkt-cash-flow-max-payoff';
+const readPayoff = (): PayoffPrefs => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PAYOFF_KEY) || 'null');
+    if (v && typeof v === 'object') return { on: !!v.on, buffer: Number.isFinite(Number(v.buffer)) ? Number(v.buffer) : DEFAULT_PAYOFF_BUFFER };
+  } catch { /* ignore */ }
+  return { on: false, buffer: DEFAULT_PAYOFF_BUFFER };
+};
 
 export default function DktCashFlow() {
   useDocumentTitle('DKT Cash Flow');
@@ -32,6 +42,8 @@ export default function DktCashFlow() {
   const manual = useManualCashEntries('dkt');
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
+  const [payoffPrefs, setPayoffPrefsState] = useState<PayoffPrefs>(readPayoff);
+  const setPayoffPrefs = (p: PayoffPrefs) => { setPayoffPrefsState(p); try { localStorage.setItem(PAYOFF_KEY, JSON.stringify(p)); } catch { /* ignore */ } };
 
   const horizon = data?.settings.horizon_months ?? 12;
   const lookahead = Math.max(horizon, 24);
@@ -47,18 +59,24 @@ export default function DktCashFlow() {
     return { plan, skus, ids };
   }, [data, thisMonth, lookahead]);
 
-  const forecast = useMemo(() => {
+  const forecastInput = useMemo((): ForecastInput | null => {
     if (!data || !allegro) return null;
     const inForecast = new Set(data.scenarios.filter(s => (isAllegroScenario(s) ? data.settings.allegro_launch_on : s.in_forecast)).map(s => s.id));
-    return buildForecast({
+    return {
       settings: data.settings, thisMonth,
       orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: countedSkus(allegro.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
       allegroPlan: allegro.plan,
       odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
-    });
+    };
   }, [data, allegro, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
+  const forecast = useMemo(() => (forecastInput ? buildForecast(forecastInput) : null), [forecastInput]);
+  // Max payoff: a what-if over the same inputs, worked out only while it's switched on.
+  const payoff = useMemo(
+    () => (forecastInput && payoffPrefs.on ? maxPayoff(forecastInput, payoffPrefs.buffer) : null),
+    [forecastInput, payoffPrefs.on, payoffPrefs.buffer],
+  );
 
   return (
     <AppLayout>
@@ -95,7 +113,7 @@ export default function DktCashFlow() {
 
             <TabsContent value="forecast" className="mt-4">
               <ForecastTab
-                forecast={forecast} settings={data.settings} saveSettings={api.saveSettings}
+                forecast={payoff?.forecast ?? forecast} settings={data.settings} saveSettings={api.saveSettings}
                 totalOwed={data.loans.filter(l => l.active).reduce((s, l) => s + loanOutstanding(l, data.loanPayments), 0)}
                 custReceived={odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
                 creditAvailable={(() => { const t = creditDrawnToday(data.creditLines, data.creditDraws, thisMonth); return data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - (t[l.id] ?? 0)), 0); })()}
@@ -103,6 +121,7 @@ export default function DktCashFlow() {
                 scenarios={data.scenarios} skus={allegro?.skus ?? data.skus}
                 setScenarioInForecast={(id, on) => (allegro?.ids.has(id) ? api.saveSettings({ allegro_launch_on: on }) : api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios'))}
                 manual={manual}
+                payoffPrefs={payoffPrefs} setPayoffPrefs={setPayoffPrefs} payoff={payoff}
               />
             </TabsContent>
             <TabsContent value="orders" className="mt-4">
