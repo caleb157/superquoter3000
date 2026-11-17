@@ -14,6 +14,8 @@ import {
 import { NumField, SelectField, Stat, usd, usdK } from './fields';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import type { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
+import type { MaxPayoff } from '@/lib/dkt-max-payoff';
+import { MaxPayoffCard, type PayoffPrefs } from './MaxPayoffCard';
 
 type Props = {
   forecast: Forecast;
@@ -29,15 +31,23 @@ type Props = {
   skus: AmazonSku[];
   setScenarioInForecast: (id: string, on: boolean) => void;
   manual: ReturnType<typeof useManualCashEntries>;
+  /** Max payoff: when it's on, `forecast` is the forecast with the extra payments in it. */
+  payoffPrefs: PayoffPrefs;
+  setPayoffPrefs: (p: PayoffPrefs) => void;
+  payoff: MaxPayoff | null;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual, payoffPrefs, setPayoffPrefs, payoff }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
   const inKinds = IN_KINDS.filter(k => used.has(k));
   const outKinds = OUT_KINDS.filter(k => used.has(k));
-  const chart = months.map(m => ({ month: monthLabel(m.month), net: Math.round(m.net), closing: Math.round(m.closing) }));
+  const showPlan = payoffPrefs.on && !!payoff;
+  const chart = months.map((m, i) => ({
+    month: monthLabel(m.month), net: Math.round(m.net), closing: Math.round(m.closing),
+    ...(showPlan ? { plan: Math.round(payoff!.base.months[i]?.closing ?? 0) } : {}),
+  }));
   // Credit draws in the window (real and planned), marked on the chart.
   const drawMarks = useMemo(() => {
     const first = months[0]?.month;
@@ -98,9 +108,11 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
         </div>
       )}
 
+      <MaxPayoffCard prefs={payoffPrefs} setPrefs={setPayoffPrefs} payoff={payoff} />
+
       <Card>
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm">Cash at the end of each month</CardTitle>
+          <CardTitle className="text-sm">Cash at the end of each month{showPlan && <span className="text-muted-foreground font-normal"> · with max loan payoff</span>}</CardTitle>
           <SelectField
             label="Months to forecast" value={String(settings.horizon_months)}
             options={[9, 12, 18, 24].map(n => ({ value: String(n), label: `${n} months` }))}
@@ -115,10 +127,10 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={usdK} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={56} />
                 <Tooltip
-                  formatter={(v: number, k: string) => [usd(v), k === 'closing' ? 'Cash at month end' : 'Net for the month']}
+                  formatter={(v: number, k: string) => [usd(v), k === 'closing' ? (showPlan ? 'Cash at month end (max payoff)' : 'Cash at month end') : k === 'plan' ? 'Cash at month end (plan)' : 'Net for the month']}
                   contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }}
                 />
-                <ReferenceLine y={settings.min_cash_usd} stroke="hsl(var(--warning))" strokeDasharray="4 4" />
+                <ReferenceLine y={showPlan ? payoff!.buffer : settings.min_cash_usd} stroke="hsl(var(--warning))" strokeDasharray="4 4" />
                 <ReferenceLine y={0} stroke="hsl(var(--border))" />
                 <Bar dataKey="net" radius={[3, 3, 0, 0]} maxBarSize={28}>
                   {chart.map((r, i) => <Cell key={i} fill={r.net >= 0 ? 'hsl(var(--success) / 0.55)' : 'hsl(var(--destructive) / 0.55)'} />)}
@@ -127,12 +139,17 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
                   <ReferenceLine key={d.x} x={d.x} stroke="hsl(var(--primary) / 0.5)" strokeDasharray="2 3"
                     label={{ value: d.label, position: 'insideTopLeft', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                 ))}
+                {showPlan && <Line type="monotone" dataKey="plan" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />}
                 <Line type="monotone" dataKey="closing" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2.5 }} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum. Dotted lines: credit draws.</p>
-          <CreditDrawsList lines={creditLines} draws={creditDraws} months={months.map(m => m.month)} />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {showPlan
+              ? 'Solid line: cash at month end with max payoff. Grey dashed line: cash on today\'s plan. Bars: money in minus money out. Orange dashed line: the payoff buffer. Dotted lines: credit draws.'
+              : 'Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum. Dotted lines: credit draws.'}
+          </p>
+          <CreditDrawsList lines={creditLines} draws={showPlan ? payoff!.input.creditDraws : creditDraws} months={months.map(m => m.month)} />
           <ManualCashEntriesCard className="mt-3" {...manual} currencies={['USD']} fmt={v => usd(v)} />
         </CardContent>
       </Card>

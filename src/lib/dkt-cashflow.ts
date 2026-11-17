@@ -84,7 +84,7 @@ export type CostItem = {
   end_month: Month | null;
 };
 
-export type LoanPayment = { id: string; loan_id: string; due_date: string; principal_usd: number; interest_usd: number; paid: boolean };
+export type LoanPayment = { id: string; loan_id: string; due_date: string; principal_usd: number; interest_usd: number; paid: boolean; note?: string };
 export type Loan = {
   id: string;
   name: string;
@@ -114,6 +114,9 @@ export type CreditDraw = {
   term_months?: number | null; monthly_fee_pct?: number | null; rate_pct?: number | null; maturity_month?: Month | null;
   balloon?: boolean | null;
   notes?: string | null;
+  /** In-memory only (Max payoff): an extra repayment that may also pay installment draws early,
+   *  highest effective rate first. Never saved. */
+  prepay?: boolean;
 };
 
 export type FlowKind =
@@ -316,8 +319,9 @@ export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[
     for (const p of payments) {
       if (p.loan_id !== loan.id || p.paid) continue;
       const m = at(p.due_date.slice(0, 7));
-      if (p.principal_usd) out.push({ month: m, kind: 'loan_principal', amount: -p.principal_usd, label: loan.name, ref: loan.id });
-      if (p.interest_usd) out.push({ month: m, kind: 'loan_interest', amount: -p.interest_usd, label: loan.name, ref: loan.id });
+      const label = p.note ? `${loan.name} · ${p.note}` : loan.name;
+      if (p.principal_usd) out.push({ month: m, kind: 'loan_principal', amount: -p.principal_usd, label, ref: loan.id });
+      if (p.interest_usd) out.push({ month: m, kind: 'loan_interest', amount: -p.interest_usd, label, ref: loan.id });
     }
     return out;
   }
@@ -356,6 +360,10 @@ export function loanOutstanding(loan: Loan, payments: LoanPayment[]): number {
 // a "due in full" month also ends an installment draw early. Real draws
 // (actual) are what's owed today; planned ones are what-ifs.
 const isInstallment = (l: { term_months?: number | null }) => (Number(l.term_months) || 0) > 0;
+/** What a tranche costs a year as a % of what's still owed: an installment's monthly fee is charged on
+ *  the original draw, so its real rate climbs as it's paid down. */
+const trancheApr = (x: { t: DrawTerms; amount: number; left: number }) =>
+  isInstallment(x.t) ? (Number(x.t.monthly_fee_pct) || 0) * 12 * x.amount / Math.max(x.left, 0.01) : x.t.rate_pct;
 
 export type DrawTerms = { term_months: number | null; monthly_fee_pct: number | null; rate_pct: number; maturity_month: Month | null; balloon: boolean };
 /** A draw's terms. A real draw keeps its own (seeded from the line when it was recorded; blank means
@@ -419,6 +427,17 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     }
     return amt - rest;
   };
+  /** An extra (Max payoff) repayment: revolving draws only, dearest first. Installment draws (Amex)
+   *  always keep their normal monthly payments (Caleb, 2026-11-16). */
+  const repayAny = (amt: number) => {
+    let rest = amt;
+    for (const x of revolving().sort((a, b) => trancheApr(b) - trancheApr(a))) {
+      const p = Math.min(rest, x.left);
+      if (x.accrued > 0.005) { const i = x.accrued * p / x.left; x.accrued -= i; interestPaid += i; }
+      x.left -= p; rest -= p; if (rest <= 0.005) break;
+    }
+    return amt - rest;
+  };
   const inCash = (d: CreditDraw) => !cashAsOf || (d.draw_date || `${d.month}-01`) <= cashAsOf;
 
   if (line.drawn_usd > 0) tranches.push({ start: m0, amount: line.drawn_usd, left: line.drawn_usd, open: line.drawn_usd, t: { ...lineTerms, term_months: null }, label: line.name, planned: false, accrued: 0 });
@@ -451,9 +470,10 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
       const t = drawTerms(line, d);
       if (d.amount_usd < 0) {
         interestPaid = 0;
-        const paid = repay(-d.amount_usd);
-        if (paid > 0.005) flows.push({ month: m, kind: 'credit_repay', amount: -paid, label: line.name, ref: line.id });
-        if (interestPaid > 0.005) flows.push({ month: m, kind: 'credit_interest', amount: -interestPaid, label: `${line.name} interest (balloon)`, ref: line.id });
+        const paid = d.prepay ? repayAny(-d.amount_usd) : repay(-d.amount_usd);
+        const tag = d.prepay ? ' · extra (max payoff)' : '';
+        if (paid > 0.005) flows.push({ month: m, kind: 'credit_repay', amount: -paid, label: `${line.name}${tag}`, ref: line.id });
+        if (interestPaid > 0.005) flows.push({ month: m, kind: 'credit_interest', amount: -interestPaid, label: `${line.name} interest (balloon)${tag}`, ref: line.id });
         continue;
       }
       const label = d.actual ? drawName(line, d) : line.name;
@@ -497,6 +517,25 @@ function simulateLine(line: CreditLine, draws: CreditDraw[], months: Month[], ca
     return tranches.reduce((s, x) => s + Math.max(0, x.left), 0);
   });
   return { flows, opening, balances, tranches };
+}
+
+export type CreditDebt = { balance: number; apr: number; accrued: number };
+/** What can be paid early on each line at the end of months[idx] (revolving draws only: installment
+ *  draws keep their normal payments), its blended yearly rate and any balloon interest built up. */
+export function creditDebtAt(lines: CreditLine[], draws: CreditDraw[], months: Month[], idx: number, cashAsOf?: string | null): Record<string, CreditDebt> {
+  const res: Record<string, CreditDebt> = {};
+  if (!months.length) return res;
+  const win = months.slice(0, Math.max(1, idx + 1));
+  for (const line of lines) {
+    const open = simulateLine(line, draws, win, cashAsOf).tranches.filter(x => x.left > 0.005 && !isInstallment(x.t));
+    const balance = open.reduce((s, x) => s + x.left, 0);
+    res[line.id] = {
+      balance,
+      apr: balance > 0.005 ? open.reduce((s, x) => s + trancheApr(x) * x.left, 0) / balance : Number(line.rate_pct) || 0,
+      accrued: open.reduce((s, x) => s + x.accrued, 0),
+    };
+  }
+  return res;
 }
 
 export function creditFlows(lines: CreditLine[], draws: CreditDraw[], months: Month[], cashAsOf?: string | null): Flow[] {
@@ -555,6 +594,8 @@ export type ForecastInput = {
   manual?: ManualEntry[];
   /** Allegro's launch plan (allegroLaunchPlan); empty or missing = one launch of money only. */
   allegroPlan?: AllegroLaunch[];
+  /** Extra flows added as they are (Max payoff's early lump-loan payments). */
+  extraFlows?: Flow[];
 };
 
 export type ForecastMonth = {
@@ -592,6 +633,7 @@ export function buildForecast(inp: ForecastInput): Forecast {
     ...inp.amazonSkus.flatMap(s => amazonSkuFlows(s, inp.thisMonth, last)),
     ...allegroLaunchFlows(inp.settings, inp.thisMonth, n, inp.allegroPlan),
     ...(inp.manual ?? []).flatMap(e => manualFlows(e, months)),
+    ...(inp.extraFlows ?? []),
   ].filter(f => f.month <= last);
 
   let cash = Number(inp.settings.cash_usd) || 0;
