@@ -14,7 +14,7 @@ describe('costing grid steps', () => {
   });
 
   it('folded, each step shows only its subtotal', () => {
-    expect(ids({})).toEqual(['qty', 'cogs_total', 'mh_total', 'labor_inr', 'cbm', 'ship', 'cost', 'npm', 'price', 'quoted', 'target', 'gap']);
+    expect(ids({})).toEqual(['qty', 'moq', 'cogs_total', 'mh_total', 'labor_inr', 'cbm', 'ship', 'cost', 'npm', 'price', 'quoted', 'target', 'gap']);
   });
 
   it('open, a step shows its detail and its subtotal once', () => {

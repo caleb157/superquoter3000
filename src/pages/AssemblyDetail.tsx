@@ -16,6 +16,7 @@ import * as calc from '@/lib/calculations';
 import { PageBreadcrumbs, type Crumb } from '@/components/PageBreadcrumbs';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { applyLiveRates, fxOrFallback } from '@/lib/live-rates';
+import { syncQuoteMoqs, touchesMoq } from '@/lib/quote-moq-sync';
 
 const AssemblyDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,9 @@ const AssemblyDetail = () => {
     saveTimeout.current = setTimeout(async () => {
       if (!id) return;
       const { error } = await (supabase as any).from('product_assemblies').update(updates).eq('id', id);
-      if (error) toast.error('Save failed: ' + error.message);
+      if (error) { toast.error('Save failed: ' + error.message); return; }
+      // Quotes carry a copy of the MOQ: keep them in step.
+      if (touchesMoq(updates)) syncQuoteMoqs([id], 'assembly').catch(e => toast.error('Quotes not updated: ' + (e as Error).message));
     }, 500);
   }, [id]);
 
