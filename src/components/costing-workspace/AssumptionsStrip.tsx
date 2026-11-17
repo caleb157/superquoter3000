@@ -2,7 +2,7 @@
 // one and the whole sheet recalculates. They used to sit in the inquiry's Settings tab.
 // Blank means "use the live rate / global default", shown as the placeholder.
 import { useEffect, useState } from 'react';
-import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, Ship, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CurrencyCombobox } from '@/components/CurrencyCombobox';
@@ -10,7 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { markupToNpm, npmToMarkup } from '@/lib/calculations';
 import { mergeSettingsWithInquiry } from '@/lib/inquiry-overrides';
-import { patchInquiry, type Apply, type Bundle } from '@/lib/costing-workspace';
+import { patchInquiry, type Apply, type Bundle, type WorkspaceRow } from '@/lib/costing-workspace';
+import { fobSimpleSettings, suggestFobSurcharge } from '@/lib/fob';
 import { parseNum } from './cells';
 
 // Quiet until touched: no outline at rest, so the strip reads as one line of settings rather than a form.
@@ -54,7 +55,7 @@ function Pick({ label, value, options, onChange, width = 'w-32', hint }: {
   );
 }
 
-export function AssumptionsStrip({ bundle, apply }: { bundle: Bundle; apply: Apply }) {
+export function AssumptionsStrip({ bundle, apply, rows = [] }: { bundle: Bundle; apply: Apply; rows?: WorkspaceRow[] }) {
   const inq = bundle.inq || {};
   // What applies when a field is left blank: the live rates and the global defaults.
   const base: any = mergeSettingsWithInquiry(bundle.gs, null) || {};
@@ -69,8 +70,16 @@ export function AssumptionsStrip({ bundle, apply }: { bundle: Bundle; apply: App
   const cur = inq.quoting_currency || 'USD';
   const dflt = (v: any, d = 0) => (Number(v) > 0 ? `${(+Number(v).toFixed(d)).toLocaleString('en-IN')}` : 'default');
   const npm = inq.markup_percent_override == null ? null : +(markupToNpm(Number(inq.markup_percent_override)) * 100).toFixed(2);
+  // FOB surcharge: one-off USD per shipment, spread over the CBM. Null = not decided (suggest it when
+  // the shipment is small), 0 = no surcharge, > 0 = on. Hidden until the SQL adds the column.
+  const fob = rows.find(r => r.r.fobEstimate)?.r.fobEstimate;
+  const surchargeReady = 'fob_surcharge_usd' in inq;
+  const simple = fobSimpleSettings(bundle.gs);
+  const sur = inq.fob_surcharge_usd == null ? null : Number(inq.fob_surcharge_usd);
+  const poolCbm = fob ? Number(fob.pool_cbm ?? fob.cbm) || 0 : 0;
+  const suggest = surchargeReady && !!fob && suggestFobSurcharge(poolCbm, sur, simple.thresholdCbm);
   const moreSet = [inq.markup_percent_override, inq.fob_pool_cbm_override, inq.fob_pool_cartons_override, inq.quoting_currency_rate_override].filter(v => v != null).length
-    + (inq.fob_fumigation && inq.fob_fumigation !== 'none' ? 1 : 0) + (inq.fob_wlc && inq.fob_wlc !== 'none' ? 1 : 0);
+    + (Number(inq.fob_surcharge_usd) > 0 ? 1 : 0) + (inq.fob_fumigation && inq.fob_fumigation !== 'none' ? 1 : 0) + (inq.fob_wlc && inq.fob_wlc !== 'none' ? 1 : 0);
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
@@ -97,6 +106,24 @@ export function AssumptionsStrip({ bundle, apply }: { bundle: Bundle; apply: App
       <Pick label="Entity" hint="The company that quotes this customer." value={inq.quoting_entity_id || ''} onChange={v => set({ quoting_entity_id: v || null })} width="w-36"
         options={[{ value: '', label: 'At quote time' }, ...entities.map(e => ({ value: e.id, label: e.name }))]} />
 
+      {surchargeReady && fob && sur != null && sur > 0 && (
+        <span className="flex items-center gap-1">
+          <NumField label="FOB surcharge US$" value={sur} placeholder="0" width="w-16"
+            onCommit={n => set({ fob_surcharge_usd: n ?? 0 })} hint="Added once to the FOB shipment and spread over every SKU by CBM." />
+          <button type="button" aria-label="Remove FOB surcharge" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => set({ fob_surcharge_usd: 0 })}><X className="h-3.5 w-3.5" /></button>
+        </span>
+      )}
+      {suggest && (
+        <span className="flex items-center gap-2 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-800 dark:text-amber-300">
+          <Ship className="h-3.5 w-3.5" />
+          <span>Shipment is {poolCbm.toFixed(2)} CBM, under {simple.thresholdCbm}. Add the US${simple.surchargeUsd.toLocaleString('en-US')} FOB surcharge?</span>
+          <button type="button" className="rounded bg-amber-600 px-2 py-0.5 font-medium text-white hover:bg-amber-700"
+            onClick={() => set({ fob_surcharge_usd: simple.surchargeUsd })}>Add</button>
+          <button type="button" className="rounded px-1.5 py-0.5 hover:bg-amber-500/15" onClick={() => set({ fob_surcharge_usd: 0 })}>No thanks</button>
+        </span>
+      )}
+
       <Popover>
         <PopoverTrigger asChild>
           <Button size="sm" variant="ghost" className="ml-auto h-7 gap-1 px-2 text-muted-foreground">
@@ -115,6 +142,11 @@ export function AssumptionsStrip({ bundle, apply }: { bundle: Bundle; apply: App
             <Pick label="Wildlife certificate" value={inq.fob_wlc || 'none'} onChange={v => set({ fob_wlc: v })} width="w-28"
               options={[{ value: 'none', label: 'None' }, { value: 'leather', label: 'Leather' }, { value: 'bone_mop', label: 'Bone / MOP' }]}
               hint="Once per shipment, FCL only." />
+            {surchargeReady && (
+              <NumField label="FOB surcharge (US$ per shipment)" value={sur != null && sur > 0 ? sur : null} placeholder="none" width="w-28"
+                onCommit={n => set({ fob_surcharge_usd: n ?? 0 })}
+                hint={`Added once to the FOB shipment and spread over every SKU by CBM. Suggested at US$${simple.surchargeUsd} when the shipment is under ${simple.thresholdCbm} CBM.`} />
+            )}
             <NumField label="FOB shipment CBM" value={inq.fob_pool_cbm_override} placeholder="sum of SKUs" width="w-28" onCommit={n => set({ fob_pool_cbm_override: n })} />
             <NumField label="FOB carton count" value={inq.fob_pool_cartons_override} placeholder="sum of SKUs" width="w-28"
               onCommit={n => set({ fob_pool_cartons_override: n == null ? null : Math.round(n) })} />

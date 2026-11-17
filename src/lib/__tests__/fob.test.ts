@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeFcl, computeLcl, computeFob, fobCardFor } from '@/lib/fob';
+import { computeFcl, computeLcl, computeFob, fobCardFor, fobSimpleSettings, suggestFobSurcharge } from '@/lib/fob';
 
 const fx = 94;
 
@@ -41,5 +41,38 @@ describe('fobCardFor', () => {
     expect(fobCardFor('FOB_LCL_NO_TRUCK')).toBe('LCL');
     expect(fobCardFor('CBM')).toBeNull();
     expect(fobCardFor('KG')).toBeNull();
+  });
+});
+
+describe('Simple FOB rate + surcharge', () => {
+  it('flat rate replaces the LCL card: CBM × rate, no fixed charges', () => {
+    const o = computeLcl(7.5, 40, fx, true, { flatPerCbm: 3200 });
+    expect(o.total_inr).toBeCloseTo(24000, 6);
+    expect(o.per_cbm_inr).toBeCloseTo(3200, 6);
+    expect(o.lines).toHaveLength(1);
+  });
+  it('no-trucking type takes the card trucking ₹/CBM off the flat rate', () => {
+    expect(computeLcl(10, 40, fx, false, { flatPerCbm: 3200 }).total_inr).toBeCloseTo(22000, 6);
+  });
+  it('FCL ignores the flat rate', () => {
+    expect(computeFcl(20, fx, { flatPerCbm: 3200 }).total_inr).toBeCloseTo(84023.5, 2);
+  });
+  it('surcharge is added once per shipment in USD × fx, unrounded', () => {
+    const o = computeLcl(7.5, 40, fx, true, { flatPerCbm: 3200, surchargeUsd: 150 });
+    expect(o.total_inr).toBeCloseTo(24000 + 150 * fx, 6);
+    expect(o.lines.at(-1)!.label).toContain('FOB surcharge');
+    expect(computeFcl(20, fx, { surchargeUsd: 150 }).total_inr).toBeCloseTo(84023.5 + 150 * fx, 2);
+  });
+  it('settings: missing column or blank = LCL card; defaults for surcharge and threshold', () => {
+    expect(fobSimpleSettings({})).toEqual({ flatPerCbm: null, surchargeUsd: 150, thresholdCbm: 10 });
+    expect(fobSimpleSettings({ fob_flat_rate_per_cbm: 3200, fob_surcharge_usd: 200, fob_surcharge_threshold_cbm: 8 }))
+      .toEqual({ flatPerCbm: 3200, surchargeUsd: 200, thresholdCbm: 8 });
+  });
+  it('suggests the surcharge only under the threshold and only while undecided', () => {
+    expect(suggestFobSurcharge(7.4, null, 10)).toBe(true);
+    expect(suggestFobSurcharge(10, null, 10)).toBe(false);
+    expect(suggestFobSurcharge(7.4, 0, 10)).toBe(false);
+    expect(suggestFobSurcharge(7.4, 150, 10)).toBe(false);
+    expect(suggestFobSurcharge(0, null, 10)).toBe(false);
   });
 });

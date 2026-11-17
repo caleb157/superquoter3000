@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Ship } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { computeFob, isFobPerUnit, type FobPerUnit, type Fumigation, type Wlc } from '@/lib/fob';
+import { computeFob, fobSimpleSettings, isFobPerUnit, type FobPerUnit, type Fumigation, type Wlc } from '@/lib/fob';
 import { loadFobRates } from '@/lib/fob-rates';
 import { applyLiveRates } from '@/lib/live-rates';
 import { computeInquiryPriceAndCost } from '@/lib/inquiry-pricing';
@@ -18,15 +18,15 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
 }) {
   const [open, setOpen] = useState(false);
   const [fx, setFx] = useState(0);
-  const [ov, setOv] = useState<{ cbm: number | null; cartons: number | null; mode: FobPerUnit | null; fumigation: Fumigation; wlc: Wlc }>({ cbm: null, cartons: null, mode: null, fumigation: 'none', wlc: 'none' });
+  const [ov, setOv] = useState<{ cbm: number | null; cartons: number | null; mode: FobPerUnit | null; fumigation: Fumigation; wlc: Wlc; flat: number | null; surcharge: number | null }>({ cbm: null, cartons: null, mode: null, fumigation: 'none', wlc: 'none', flat: null, surcharge: null });
   const [pool, setPool] = useState<{ cbm: number; cartons: number; count: number } | null>(null);
   const external = cbm != null && cartons != null;
 
   useEffect(() => {
     (async () => {
       const [gs, rfq] = await Promise.all([
-        supabase.from('global_settings').select('exchange_rate, live_exchange_rate').limit(1).maybeSingle(),
-        (supabase as any).from('customer_rfqs').select('exchange_rate_override, fob_pool_cbm_override, fob_pool_cartons_override, fob_fumigation, fob_wlc, shipping_types:shipping_type_id_override(per_unit)').eq('id', inquiryId).maybeSingle(),
+        supabase.from('global_settings').select('*').limit(1).maybeSingle(),
+        (supabase as any).from('customer_rfqs').select('*, shipping_types:shipping_type_id_override(per_unit)').eq('id', inquiryId).maybeSingle(),
         loadFobRates(),
       ]);
       const r: any = rfq.data || {};
@@ -37,6 +37,8 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
         mode: isFobPerUnit(r.shipping_types?.per_unit) ? r.shipping_types.per_unit : null,
         fumigation: r.fob_fumigation || 'none',
         wlc: r.fob_wlc || 'none',
+        flat: fobSimpleSettings(gs.data).flatPerCbm,
+        surcharge: Number(r.fob_surcharge_usd) > 0 ? Number(r.fob_surcharge_usd) : null,
       });
     })();
   }, [inquiryId, refreshKey]);
@@ -65,8 +67,8 @@ export function InquiryFobCard({ inquiryId, cbm, cartons, productCount, refreshK
   const useCartons = ov.cartons ?? baseCartons;
   if (!fx || useCbm <= 0) return null;
 
-  const est = { ...computeFob(ov.mode, useCbm, useCartons, fx, { fumigation: ov.fumigation, wlc: ov.wlc }), basis: 'product' as const };
-  const hasOv = ov.cbm != null || ov.cartons != null || ov.fumigation !== 'none' || ov.wlc !== 'none';
+  const est = { ...computeFob(ov.mode, useCbm, useCartons, fx, { fumigation: ov.fumigation, wlc: ov.wlc, flatPerCbm: ov.flat, surchargeUsd: ov.surcharge }), basis: 'product' as const };
+  const hasOv = ov.cbm != null || ov.cartons != null || ov.fumigation !== 'none' || ov.wlc !== 'none' || ov.surcharge != null;
 
   return (
     <Card>

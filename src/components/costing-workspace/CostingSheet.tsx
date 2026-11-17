@@ -384,7 +384,7 @@ export function CostingSheet({ inquiryId, lead, onInquiryPatched }: {
               onClick={() => setFilter(f => (f === 'flagged' ? 'all' : 'flagged'))} active={filter === 'flagged'} />
           </div>
 
-          <AssumptionsStrip bundle={bundle} apply={apply} />
+          <AssumptionsStrip bundle={bundle} apply={apply} rows={rows} />
 
           {/* Step controls + filters */}
           <div className="-my-1 flex flex-wrap items-center gap-1">
