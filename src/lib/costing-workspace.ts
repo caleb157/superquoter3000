@@ -17,6 +17,7 @@ import { solveForMarkup, solveForMaxCost } from '@/lib/target-price-solver';
 import { HARDWARE_COGS_TYPES_WITH_LEGACY } from '@/lib/cogs-categories';
 import { calcCogsItemCost } from '@/lib/calculations';
 import { fetchAllByIds } from '@/lib/supabase-paged';
+import { syncQuoteMoqs, touchesMoq } from '@/lib/quote-moq-sync';
 import { quoteCurrencyOf, readTarget, targetPatch, type QuoteCur } from '@/lib/quote-currency';
 import { loadQuotedLines, quotedInCurrency, type QuotedLine } from '@/lib/quoted-price';
 
@@ -457,6 +458,9 @@ export function patchProducts(b: Bundle, patches: Record<string, Record<string, 
         groups.set(k, [...(groups.get(k) || []), id]);
       }
       await Promise.all([...groups].map(async ([k, gids]) => check(await db.from('products').update(JSON.parse(k)).in('id', gids))));
+      // Quotes carry a copy of each line's MOQ: keep them in step with the inquiry.
+      const moqIds = ids.filter(id => touchesMoq(patches[id]));
+      if (moqIds.length) await syncQuoteMoqs(moqIds);
     },
   };
 }
@@ -858,7 +862,13 @@ export function restoreRows(cur: Bundle, from: Bundle, to: Bundle): Mutation | n
     if (removeIds.length) deletes.push(async () => { check(await db.from(table).delete().in('id', removeIds)); });
     if (reinsert.length) inserts.unshift(async () => { check(await db.from(table).insert(reinsert)); });
     const patchList = [...patches].filter(([id]) => curIds.has(id));
-    if (patchList.length) updates.push(async () => { for (const [id, patch] of patchList) check(await db.from(table).update(patch).eq('id', id)); });
+    if (patchList.length) updates.push(async () => {
+      for (const [id, patch] of patchList) check(await db.from(table).update(patch).eq('id', id));
+      if (key === 'products') {
+        const moqIds = patchList.filter(([, patch]) => touchesMoq(patch)).map(([id]) => id);
+        if (moqIds.length) await syncQuoteMoqs(moqIds);
+      }
+    });
   }
   // Inquiry assumptions changed from the Assumptions strip.
   if (from.inq !== to.inq && from.inq && to.inq && cur.inq?.id) {

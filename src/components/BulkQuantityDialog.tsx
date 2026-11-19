@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { syncQuoteMoqs } from '@/lib/quote-moq-sync';
 
 type Props = {
   open: boolean;
@@ -40,10 +41,20 @@ export function BulkQuantityDialog({ open, onOpenChange, selectedProductIds, onA
       .from('products')
       .update(patch)
       .in('id', selectedProductIds);
+    if (error) { setSaving(false); toast.error(error.message); return; }
+    // Quotes carry a copy of each line's MOQ: bring the inquiry's quotes in step.
+    let quotesNote = '';
+    if ('moq' in patch) {
+      try {
+        const n = await syncQuoteMoqs(selectedProductIds);
+        if (n) quotesNote = ` and ${n} quote${n === 1 ? '' : 's'}`;
+      } catch (e) {
+        toast.error('MOQ saved, but the quotes were not updated: ' + (e as Error).message);
+      }
+    }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
     const fields = Object.keys(patch).map(k => (k === 'moq' ? 'MOQ' : 'quantity')).join(' & ');
-    toast.success(`Updated ${fields} on ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'}`);
+    toast.success(`Updated ${fields} on ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'}${quotesNote}`);
     setQty('');
     setMoq('');
     onOpenChange(false);

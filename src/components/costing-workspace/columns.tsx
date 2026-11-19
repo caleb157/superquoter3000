@@ -149,6 +149,27 @@ const qtyCol: Col = {
   footer: rows => sumBy(rows, r => r.qty).toLocaleString(),
 };
 
+const MOQ_HINT = 'Minimum order quantity shown on the quote. Changing it updates this inquiry’s quotes too (quotes the customer accepted keep theirs).';
+const moqCol: Col = {
+  id: 'moq', label: 'MOQ', width: 60, align: 'right', hint: MOQ_HINT,
+  edit: { kind: 'number', get: r => r.p.moq ?? 50, write: productField('moq', { int: true }) },
+};
+
+/** Absolute floor below the MOQ; blank = the MOQ. Set in bulk here or per SKU in the panel. */
+const hardMoqCol: Col = {
+  id: 'hard_moq', label: 'Hard MOQ', width: 72, align: 'right', bulkOnly: true,
+  hint: 'Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the order is allowed at the quoted price. Blank = same as MOQ.',
+  edit: {
+    kind: 'number',
+    get: r => r.p.hard_moq ?? null,
+    write: (b, ids, raw) => {
+      if (raw.trim() === '') return patchProductsSame(b, ids, { hard_moq: null });
+      const n = parseNum(raw);
+      return n == null || n < 0 ? null : patchProductsSame(b, ids, { hard_moq: Math.round(n) });
+    },
+  },
+};
+
 const npmCol: Col = {
   id: 'npm', label: 'NPM %', width: 72, align: 'right',
   hint: 'Net profit margin on price. Stored as markup (25% markup = 20% NPM), exactly like the costing sheet.',
@@ -438,7 +459,9 @@ export type StepId = 'cogs' | 'labour' | 'shipping' | 'margin';
 const isSub = (x: Col | Sub): x is Sub => 'items' in x;
 
 /** Always visible, left of the steps. */
-export const LEAD_COLS: Col[] = [qtyCol];
+export const LEAD_COLS: Col[] = [qtyCol, moqCol];
+/** Order fields with no column of their own, set from the bulk bar. */
+const ORDER_BULK: Col[] = [hardMoqCol];
 
 export const BANDS: Band[] = [
   {
@@ -567,7 +590,7 @@ const allColsOf = (band: Band): Col[] => {
 };
 
 /** Every column in any step, for lookups by id (the product panel's fields). */
-export const ALL_COLS: Col[] = [...LEAD_COLS, ...BANDS.flatMap(allColsOf)];
+export const ALL_COLS: Col[] = [...LEAD_COLS, ...ORDER_BULK, ...BANDS.flatMap(allColsOf)];
 
 /** Every editable field, for the bulk bar's "Set" menu (deduplicated by id). */
 export function bulkFields(cur: QuoteCur = 'USD'): Col[] {
@@ -578,7 +601,7 @@ export function bulkFields(cur: QuoteCur = 'USD'): Col[] {
 export function bulkFieldGroups(cur: QuoteCur = 'USD'): { label: string; cols: Col[] }[] {
   const editable = (cols: Col[]) => cols.filter(c => c.edit).map(c => inCurrency(c, cur));
   return [
-    { label: 'Order', cols: editable(LEAD_COLS) },
+    { label: 'Order', cols: editable([...LEAD_COLS, ...ORDER_BULK]) },
     ...BANDS.map(b => ({ label: `${b.n}. ${b.label}`, cols: editable(allColsOf(b)) })),
   ].filter(g => g.cols.length);
 }

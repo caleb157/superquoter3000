@@ -589,7 +589,7 @@ function QuantityBar({ row, bundle, apply }: { row: WorkspaceRow; bundle: Bundle
   return (
     <div className="grid grid-cols-3 gap-x-4 border-b px-4 py-2.5">
       <Field col={colById('qty')} row={row} bundle={bundle} apply={apply} />
-      <NumField label="MOQ" value={p.moq ?? 50} int onCommit={n => set({ moq: n })} />
+      <Field col={colById('moq')} row={row} bundle={bundle} apply={apply} />
       <label className="block min-w-0" title="Absolute floor: the customer cannot order less. Between hard MOQ and MOQ the order is allowed at the quoted price.">
         <span className="text-xs text-muted-foreground">Hard MOQ</span>
         <div className="mt-0.5">
