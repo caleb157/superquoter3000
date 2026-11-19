@@ -293,13 +293,14 @@ function AmazonCounted({ forecast, scenarios, skus, setInForecast, allegroOn }: 
 /** Net profit over the forecast months: what's earned, not when cash moves. */
 function ProfitCard({ profit: p, months, open }: { profit: ProfitProjection; months: number; open: (title: string, items: ProfitItem[]) => void }) {
   const pct = (v: number) => (p.totalRevenue > 0.5 ? `${((v / p.totalRevenue) * 100).toFixed(1)}%` : '');
-  const lines = (ls: ProfitLine[]) => ls.filter(l => l.items.length).map(l => (
+  // Revenue lines show their share of revenue, so it's clear what the year rests on (e.g. retained orders).
+  const lines = (ls: ProfitLine[], share = false) => ls.filter(l => l.items.length).map(l => (
     <tr key={l.key} className="border-t border-border/50">
       <td className="py-1.5 pr-3 pl-3">{l.label}</td>
       <td className={cn('py-1.5 text-right', l.amount < 0 && 'text-destructive')}>
         <button type="button" className="hover:underline" onClick={() => open(`${l.label} · ${monthLabel(p.from)} to ${monthLabel(p.to)}`, l.items)}>{usd(l.amount)}</button>
       </td>
-      <td />
+      <td className="py-1.5 pl-3 text-right text-muted-foreground/70 text-xs w-16">{share ? pct(l.amount) : ''}</td>
     </tr>
   ));
   const total = (label: string, v: number, big?: boolean) => (
@@ -324,7 +325,7 @@ function ProfitCard({ profit: p, months, open }: { profit: ProfitProjection; mon
         <div className="overflow-x-auto">
           <table className="w-full text-xs tabular-nums">
             <tbody>
-              {lines(p.revenue)}
+              {lines(p.revenue, true)}
               {total('Revenue', p.totalRevenue)}
               {lines(p.costOfSales)}
               {total('Gross profit', p.grossProfit)}
@@ -335,7 +336,7 @@ function ProfitCard({ profit: p, months, open }: { profit: ProfitProjection; mon
             </tbody>
           </table>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Counted when earned, not when cash moves: HQ orders (confirmed and pipeline) in their ship month, Amazon on units sold.
+            Counted when earned, not when cash moves: HQ orders (confirmed and pipeline) and ticked retained orders in their ship month, Amazon on units sold.
             Loans, credit draws and repayments, Allegro, manual entries and stock still on the shelf aren't profit or cost. Click a number to see what's in it.
           </p>
         </div>

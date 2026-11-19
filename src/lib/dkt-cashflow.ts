@@ -705,13 +705,16 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
   const flows = allFlows.filter(f => inWindow(f.month));
   const at = (m: Month) => (m < inp.thisMonth ? inp.thisMonth : m);
   const hqRev: ProfitItem[] = [], hqCost: ProfitItem[] = [];
+  // Retained orders (the what-if list) get their own revenue and PV lines, so it's clear how much
+  // of the year rests on orders that aren't inquiries or Odoo orders yet.
+  const retRev: ProfitItem[] = [], retCost: ProfitItem[] = [];
   for (const o of inp.orders) {
     const m = at(o.ship_month);
     if (o.excluded || !(o.fob_usd > 0) || !inWindow(m)) continue;
     const a = orderAmounts(o);
     const label = `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''} (${o.retained ? 'retained' : 'pipeline'})`;
-    hqRev.push({ month: m, label, amount: o.fob_usd });
-    hqCost.push({ month: m, label, amount: -a.pvTotal });
+    (o.retained ? retRev : hqRev).push({ month: m, label, amount: o.fob_usd });
+    (o.retained ? retCost : hqCost).push({ month: m, label, amount: -a.pvTotal });
   }
   for (const o of inp.odooOrders ?? []) {
     const m = at(o.ship_month);
@@ -731,11 +734,13 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
   }
   const revenue = [
     line('hq', 'HQ orders (customer price)', hqRev),
+    line('retained', 'Retained revenue (simulation)', retRev),
     line('amazon', 'Amazon sales', azRev),
     line('income', 'Other income', fromFlows(flows, ['income'])),
   ];
   const costOfSales = [
     line('pv', 'Paid to PV for those orders', hqCost),
+    line('pv_retained', 'Paid to PV for retained orders', retCost),
     line('amazon_cost', 'Amazon fees, stock and freight on units sold', azCost),
   ];
   const operating = [
