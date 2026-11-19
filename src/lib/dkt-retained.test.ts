@@ -27,12 +27,14 @@ describe('retained orders', () => {
     expect(at('cust_balance')).toEqual([['2027-07', 33404]]);
   });
 
-  it('counts a ticked row in the forecast and profit, labelled as retained', () => {
+  it('counts a ticked row in the forecast and as retained revenue in the profit card', () => {
     const row = { ...seedRows()[0], counted: true };
     const fc = buildForecast({ ...base, orders: [retainedToOrder(row)] });
-    const hq = fc.profit.revenue.find(l => l.key === 'hq')!;
-    expect(hq.amount).toBe(33404);
-    expect(hq.items[0].label).toContain('(retained)');
+    const ret = fc.profit.revenue.find(l => l.key === 'retained')!;
+    expect(ret.amount).toBe(33404);
+    expect(ret.items[0].label).toContain('(retained)');
+    expect(fc.profit.revenue.find(l => l.key === 'hq')!.amount).toBe(0);
+    expect(Math.round(fc.profit.costOfSales.find(l => l.key === 'pv_retained')!.amount)).toBe(-30064);
     expect(Math.round(fc.profit.grossProfit)).toBe(3340);
   });
 
