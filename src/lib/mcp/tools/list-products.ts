@@ -1,44 +1,39 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { check, cleanSearch, ok, withUserDb, type Db } from "../shared";
 
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+export const PRODUCT_COLUMNS =
+  "id, sku, name, customer_rfq_id, product_type_id, quantity, target_price_usd, photo_url, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, created_at";
+
+type Input = { search?: string; customer_rfq_id?: string; include_archived?: boolean; limit?: number };
+
+export async function listProducts(db: Db, input: Input) {
+  let q = db
+    .from("products")
+    .select(`${PRODUCT_COLUMNS}, product_type:product_types(name)`)
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 50);
+  if (!input.include_archived) q = q.is("archived_at", null);
+  const s = input.search ? cleanSearch(input.search) : "";
+  if (s) q = q.or(`name.ilike.%${s}%,sku.ilike.%${s}%`);
+  if (input.customer_rfq_id) q = q.eq("customer_rfq_id", input.customer_rfq_id);
+  return check(await q, "Could not list products") ?? [];
 }
 
 export default defineTool({
   name: "list_products",
   title: "List products",
-  description: "List products visible to the signed-in user, optionally filtered by a name search or inquiry (customer_rfq) id.",
+  description:
+    "List products visible to the signed-in user, optionally filtered by text in the name or SKU, or by inquiry (customer_rfq) id. Archived products are left out unless include_archived is true.",
   inputSchema: {
-    search: z.string().optional().describe("Optional substring to match on product name."),
-    customer_rfq_id: z.string().uuid().optional().describe("Optional inquiry/RFQ UUID to filter by."),
+    search: z.string().optional().describe("Optional text to match in the product name or SKU."),
+    customer_rfq_id: z.string().uuid().optional().describe("Optional inquiry UUID to filter by."),
+    include_archived: z.boolean().optional().describe("Include archived products (default false)."),
     limit: z.number().int().min(1).max(200).optional().describe("Max rows (default 50)."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ search, customer_rfq_id, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser(ctx);
-    let q = sb
-      .from("products")
-      .select("id, name, product_type, customer_rfq_id, quantity, design_stage, quote_stage, sample_stage, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit ?? 50);
-    if (search && search.trim()) {
-      const s = search.trim().replace(/[%,]/g, "");
-      q = q.ilike("name", `%${s}%`);
-    }
-    if (customer_rfq_id) q = q.eq("customer_rfq_id", customer_rfq_id);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { products: data ?? [] },
-    };
-  },
+  handler: withUserDb(async (db, input: Input) => {
+    const products = await listProducts(db, input);
+    return ok(JSON.stringify(products), { products });
+  }),
 });

@@ -5,6 +5,7 @@
 export const TASK_TRIGGERS = [
   { value: 'inquiry_created', label: 'Inquiry created', hint: 'A new inquiry is created in HQ', source: 'hq' },
   { value: 'customer_status_lead', label: 'Customer set to Lead', hint: 'A customer is added as, or changed to, Lead status in HQ', source: 'hq' },
+  { value: 'sample_requested', label: 'Sample requested', hint: 'A sample request is created on an inquiry in HQ', source: 'hq' },
   { value: 'so_created', label: 'Sales order created', hint: 'Quotation created in Odoo', source: 'odoo' },
   { value: 'so_confirmed', label: 'Sales order confirmed', hint: 'Quotation confirmed into a sales order', source: 'odoo' },
   { value: 'so_closed', label: 'Sales order closed', hint: 'All deliveries done / order locked', source: 'odoo' },
@@ -29,4 +30,5 @@ export const TEMPLATE_VARIABLES = ['so_number', 'mo_number', 'customer', 'custom
 export const HQ_TEMPLATE_VARIABLES: Record<string, string[]> = {
   inquiry_created: ['rfq_number', 'inquiry_title', 'customer'],
   customer_status_lead: ['customer', 'company'],
+  sample_requested: ['rfq_number', 'inquiry_title', 'customer', 'request_number'],
 };

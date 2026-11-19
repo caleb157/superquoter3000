@@ -3,10 +3,10 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.1";
 
 // src/lib/mcp/tools/whoami.ts
-import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.1";
 var whoami_default = defineTool({
   name: "whoami",
   title: "Who am I",
@@ -30,165 +30,177 @@ var whoami_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-customers.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z } from "npm:zod@^3.25.76";
+
+// src/lib/mcp/shared.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.108.2";
+function readEnv(name) {
+  const g = globalThis;
+  try {
+    const v = g.Deno?.env?.get(name);
+    if (v) return v;
+  } catch {
+  }
+  return g.process?.env?.[name] || void 0;
+}
 function supabaseForUser(ctx) {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  const url = readEnv("SUPABASE_URL");
+  const key = readEnv("SUPABASE_PUBLISHABLE_KEY") ?? readEnv("SUPABASE_ANON_KEY");
+  if (!url || !key) {
+    throw new Error(
+      `PD HQ connector is missing ${!url ? "SUPABASE_URL" : "SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY"} in the edge function environment.`
+    );
+  }
+  return createClient(url, key, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
+}
+var ok = (text, structuredContent) => ({ content: [{ type: "text", text }], ...structuredContent ? { structuredContent } : {} });
+var fail = (text) => ({ content: [{ type: "text", text }], isError: true });
+var ToolError = class extends Error {
+};
+function withUserDb(run) {
+  return async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return fail("Not authenticated");
+    try {
+      return await run(supabaseForUser(ctx), input, ctx);
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : String(e));
+    }
+  };
+}
+function check(res, what) {
+  if (res.error) throw new ToolError(`${what}: ${res.error.message}`);
+  return res.data;
+}
+var cleanSearch = (s) => s.trim().replace(/[%,()*\\]/g, " ").replace(/\s+/g, " ").trim();
+var YMD = /^\d{4}-\d{2}-\d{2}$/;
+function isValidYmd(v) {
+  if (!YMD.test(v)) return false;
+  const d = /* @__PURE__ */ new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+function todayInIndia(now = /* @__PURE__ */ new Date()) {
+  return new Date(now.getTime() + 5.5 * 3600 * 1e3).toISOString().slice(0, 10);
+}
+
+// src/lib/mcp/tools/list-customers.ts
+var CUSTOMER_COLUMNS = "id, name, company, email, phone, linkedin_url, lead_status, source, notes, created_at";
+async function listCustomers(db, input) {
+  let q = db.from("customers").select(CUSTOMER_COLUMNS).order("created_at", { ascending: false }).limit(input.limit ?? 50);
+  const s = input.search ? cleanSearch(input.search) : "";
+  if (s) q = q.or(`name.ilike.%${s}%,company.ilike.%${s}%,email.ilike.%${s}%`);
+  return check(await q, "Could not list customers") ?? [];
 }
 var list_customers_default = defineTool2({
   name: "list_customers",
   title: "List customers",
-  description: "List customers visible to the signed-in user, optionally filtered by a search string on name/company/email.",
+  description: "List customers visible to the signed-in user, optionally filtered by a search string on name, company or email.",
   inputSchema: {
-    search: z.string().optional().describe("Optional substring to match against name, company, or email."),
+    search: z.string().optional().describe("Optional text to match against name, company or email."),
     limit: z.number().int().min(1).max(200).optional().describe("Max rows to return (default 50).")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ search, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser(ctx);
-    let q = sb.from("customers").select("id, name, company, email, phone, lead_status, source, created_at").order("created_at", { ascending: false }).limit(limit ?? 50);
-    if (search && search.trim()) {
-      const s = search.trim().replace(/[%,]/g, "");
-      q = q.or(`name.ilike.%${s}%,company.ilike.%${s}%,email.ilike.%${s}%`);
-    }
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { customers: data ?? [] }
-    };
-  }
+  handler: withUserDb(async (db, input) => {
+    const customers = await listCustomers(db, input);
+    return ok(JSON.stringify(customers), { customers });
+  })
 });
 
 // src/lib/mcp/tools/list-inquiries.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z2 } from "npm:zod@^3.25.76";
-function supabaseForUser2(ctx) {
-  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+var INQUIRY_COLUMNS = "id, rfq_number, title, status, priority, customer_id, received_date, quoted_date, target_completion_date, quoting_currency, requirements, notes, drive_url, created_at, updated_at";
+var INQUIRY_STATUSES = ["active", "paused", "projected_po", "po", "complete", "cancelled"];
+async function listInquiries(db, input) {
+  let q = db.from("customer_rfqs").select(`${INQUIRY_COLUMNS}, customer:customers(name, company)`).order("updated_at", { ascending: false }).limit(input.limit ?? 50);
+  if (input.status) q = q.eq("status", input.status);
+  if (input.customer_id) q = q.eq("customer_id", input.customer_id);
+  const s = input.search ? cleanSearch(input.search) : "";
+  if (s) q = q.or(`title.ilike.%${s}%,rfq_number.ilike.%${s}%`);
+  return check(await q, "Could not list inquiries") ?? [];
 }
 var list_inquiries_default = defineTool3({
   name: "list_inquiries",
   title: "List inquiries",
-  description: "List inquiries (pipeline items) visible to the signed-in user, optionally filtered by status or customer.",
+  description: "List inquiries visible to the signed-in user, newest activity first. Filter by status, customer, or text in the title or inquiry number.",
   inputSchema: {
-    status: z2.string().optional().describe("Optional status filter (e.g. active, paused, po, complete, cancelled)."),
+    status: z2.enum(INQUIRY_STATUSES).optional().describe("Optional status filter."),
     customer_id: z2.string().uuid().optional().describe("Optional customer UUID to filter by."),
+    search: z2.string().optional().describe("Optional text to match in the title or inquiry number (e.g. RFQ-2026-014)."),
     limit: z2.number().int().min(1).max(200).optional().describe("Max rows to return (default 50).")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ status, customer_id, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser2(ctx);
-    let q = sb.from("pipeline_items").select("id, name, description, status, customer_id, created_at, updated_at").order("updated_at", { ascending: false }).limit(limit ?? 50);
-    if (status) q = q.eq("status", status);
-    if (customer_id) q = q.eq("customer_id", customer_id);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { inquiries: data ?? [] }
-    };
-  }
+  handler: withUserDb(async (db, input) => {
+    const inquiries = await listInquiries(db, input);
+    return ok(JSON.stringify(inquiries), { inquiries });
+  })
 });
 
 // src/lib/mcp/tools/list-products.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z3 } from "npm:zod@^3.25.76";
-function supabaseForUser3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+var PRODUCT_COLUMNS = "id, sku, name, customer_rfq_id, product_type_id, quantity, target_price_usd, photo_url, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, created_at";
+async function listProducts(db, input) {
+  let q = db.from("products").select(`${PRODUCT_COLUMNS}, product_type:product_types(name)`).order("created_at", { ascending: false }).limit(input.limit ?? 50);
+  if (!input.include_archived) q = q.is("archived_at", null);
+  const s = input.search ? cleanSearch(input.search) : "";
+  if (s) q = q.or(`name.ilike.%${s}%,sku.ilike.%${s}%`);
+  if (input.customer_rfq_id) q = q.eq("customer_rfq_id", input.customer_rfq_id);
+  return check(await q, "Could not list products") ?? [];
 }
 var list_products_default = defineTool4({
   name: "list_products",
   title: "List products",
-  description: "List products visible to the signed-in user, optionally filtered by a name search or inquiry (customer_rfq) id.",
+  description: "List products visible to the signed-in user, optionally filtered by text in the name or SKU, or by inquiry (customer_rfq) id. Archived products are left out unless include_archived is true.",
   inputSchema: {
-    search: z3.string().optional().describe("Optional substring to match on product name."),
-    customer_rfq_id: z3.string().uuid().optional().describe("Optional inquiry/RFQ UUID to filter by."),
+    search: z3.string().optional().describe("Optional text to match in the product name or SKU."),
+    customer_rfq_id: z3.string().uuid().optional().describe("Optional inquiry UUID to filter by."),
+    include_archived: z3.boolean().optional().describe("Include archived products (default false)."),
     limit: z3.number().int().min(1).max(200).optional().describe("Max rows (default 50).")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ search, customer_rfq_id, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser3(ctx);
-    let q = sb.from("products").select("id, name, product_type, customer_rfq_id, quantity, design_stage, quote_stage, sample_stage, created_at").order("created_at", { ascending: false }).limit(limit ?? 50);
-    if (search && search.trim()) {
-      const s = search.trim().replace(/[%,]/g, "");
-      q = q.ilike("name", `%${s}%`);
-    }
-    if (customer_rfq_id) q = q.eq("customer_rfq_id", customer_rfq_id);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { products: data ?? [] }
-    };
-  }
+  handler: withUserDb(async (db, input) => {
+    const products = await listProducts(db, input);
+    return ok(JSON.stringify(products), { products });
+  })
 });
 
 // src/lib/mcp/tools/list-tasks.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z4 } from "npm:zod@^3.25.76";
-function supabaseForUser4(ctx) {
-  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+var TASK_COLUMNS = "id, title, description, status, priority, due_date, assignee, association_type, association_id, association_label, inquiry_id, customer_id, source_event, created_at";
+async function listTasks(db, input) {
+  let q = db.from("tasks").select(TASK_COLUMNS).order("due_date", { ascending: true, nullsFirst: false }).limit(input.limit ?? 50);
+  if (input.only_open) q = q.eq("status", "open");
+  if (input.inquiry_id) q = q.eq("inquiry_id", input.inquiry_id);
+  if (input.customer_id) q = q.eq("customer_id", input.customer_id);
+  if (input.assignee) q = q.eq("assignee", input.assignee.trim().toUpperCase());
+  return check(await q, "Could not list tasks") ?? [];
 }
 var list_tasks_default = defineTool5({
   name: "list_tasks",
   title: "List tasks",
-  description: "List tasks visible to the signed-in user. Filter by completion state or due-date window.",
+  description: "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer or assignee code (e.g. CQ).",
   inputSchema: {
-    only_open: z4.boolean().optional().describe("If true, exclude completed tasks."),
+    only_open: z4.boolean().optional().describe("If true, only tasks with status open."),
+    inquiry_id: z4.string().uuid().optional().describe("Only tasks on this inquiry."),
+    customer_id: z4.string().uuid().optional().describe("Only tasks on this customer."),
+    assignee: z4.string().optional().describe("Only tasks for this assignee code (see list_lookups)."),
     limit: z4.number().int().min(1).max(200).optional().describe("Max rows (default 50).")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ only_open, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser4(ctx);
-    let q = sb.from("tasks").select("id, title, description, status, priority, due_date, assigned_to, created_at").order("due_date", { ascending: true, nullsFirst: false }).limit(limit ?? 50);
-    if (only_open) q = q.neq("status", "completed");
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { tasks: data ?? [] }
-    };
-  }
+  handler: withUserDb(async (db, input) => {
+    const tasks = await listTasks(db, input);
+    return ok(JSON.stringify(tasks), { tasks });
+  })
 });
 
 // src/lib/mcp/tools/add-cogs-item.ts
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z5 } from "npm:zod@^3.25.76";
-function supabaseForUser5(ctx) {
-  return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var COGS_TYPES = [
   "Raw Piece",
   "Subcontracting",
@@ -201,27 +213,24 @@ var COGS_TYPES = [
   "Other Hardware",
   "Accessories"
 ];
+var inputSchema = {
+  product_id: z5.string().uuid().describe("UUID of the target product."),
+  cogs_type: z5.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
+  component_name: z5.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
+  unit_cost_inr: z5.number().nonnegative().describe("Unit cost in INR."),
+  vendor_name: z5.string().optional().describe("Optional vendor name."),
+  units: z5.string().optional().describe("Unit of measure (default 'pc')."),
+  components_per_product: z5.number().nonnegative().optional().describe("Quantity per product (default 1)."),
+  waste_factor: z5.number().min(0).max(1).optional().describe("Waste factor as a decimal (e.g. 0.05 for 5%)."),
+  include: z5.enum(["Yes", "No"]).optional().describe("Whether to include this line in totals (default Yes).")
+};
 var add_cogs_item_default = defineTool6({
   name: "add_cogs_item",
   title: "Add COGS item to a product",
   description: "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
-  inputSchema: {
-    product_id: z5.string().uuid().describe("UUID of the target product."),
-    cogs_type: z5.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
-    component_name: z5.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
-    unit_cost_inr: z5.number().nonnegative().describe("Unit cost in INR."),
-    vendor_name: z5.string().optional().describe("Optional vendor name."),
-    units: z5.string().optional().describe("Unit of measure (default 'pc')."),
-    components_per_product: z5.number().nonnegative().optional().describe("Quantity per product (default 1)."),
-    waste_factor: z5.number().min(0).max(1).optional().describe("Waste factor as a decimal (e.g. 0.05 for 5%)."),
-    include: z5.enum(["Yes", "No"]).optional().describe("Whether to include this line in totals (default Yes).")
-  },
+  inputSchema,
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async (input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser5(ctx);
+  handler: withUserDb(async (sb, input) => {
     const { data: product, error: prodErr } = await sb.from("products").select("id, name").eq("id", input.product_id).maybeSingle();
     if (prodErr) return { content: [{ type: "text", text: prodErr.message }], isError: true };
     if (!product) {
@@ -256,54 +265,37 @@ var add_cogs_item_default = defineTool6({
       ],
       structuredContent: { cogs_item: data, product: { id: product.id, name: product.name } }
     };
-  }
+  })
 });
 
 // src/lib/mcp/tools/list-cogs-items.ts
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z6 } from "npm:zod@^3.25.76";
-function supabaseForUser6(ctx) {
-  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
+var inputSchema2 = {
+  product_id: z6.string().uuid().describe("UUID of the product."),
+  search: z6.string().optional().describe("Optional case-insensitive substring match on component_name.")
+};
 var list_cogs_items_default = defineTool7({
   name: "list_cogs_items",
   title: "List COGS items for a product",
   description: "List the COGS lines on a specific product's costing sheet. Use to look up the id of a line before calling `update_cogs_item`, or to review current unit_cost_inr values.",
-  inputSchema: {
-    product_id: z6.string().uuid().describe("UUID of the product."),
-    search: z6.string().optional().describe("Optional case-insensitive substring match on component_name.")
-  },
+  inputSchema: inputSchema2,
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async (input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser6(ctx);
+  handler: withUserDb(async (sb, input) => {
     let q = sb.from("cogs_items").select("id, cogs_type, component_name, vendor_name, unit_cost_inr, units, components_per_product, waste_factor, include, is_auto_calculated, sort_order").eq("product_id", input.product_id).order("sort_order", { ascending: true });
-    if (input.search) q = q.ilike("component_name", `%${input.search}%`);
+    if (input.search) q = q.ilike("component_name", `%${input.search.replace(/[%_\\]/g, "")}%`);
     const { data, error } = await q.limit(500);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [{ type: "text", text: `Found ${data?.length ?? 0} COGS line(s).` }],
       structuredContent: { cogs_items: data ?? [] }
     };
-  }
+  })
 });
 
 // src/lib/mcp/tools/update-cogs-item.ts
-import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.108.2";
-import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z7 } from "npm:zod@^3.25.76";
-function supabaseForUser7(ctx) {
-  return createClient7(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var COGS_TYPES2 = [
   "Raw Piece",
   "Subcontracting",
@@ -316,30 +308,27 @@ var COGS_TYPES2 = [
   "Other Hardware",
   "Accessories"
 ];
+var inputSchema3 = {
+  cogs_item_id: z7.string().uuid().optional().describe("Direct UUID of the cogs_items row to update."),
+  product_id: z7.string().uuid().optional().describe("Product UUID (required if cogs_item_id not given)."),
+  component_name: z7.string().optional().describe("Component name to match (case-insensitive) when cogs_item_id not given."),
+  cogs_type: z7.enum([COGS_TYPES2[0], ...COGS_TYPES2.slice(1)]).optional().describe("Optional category to disambiguate the match."),
+  unit_cost_inr: z7.number().nonnegative().optional().describe("New unit cost in INR."),
+  vendor_name: z7.string().optional().describe("New vendor name."),
+  units: z7.string().optional().describe("New unit of measure."),
+  components_per_product: z7.number().nonnegative().optional().describe("New quantity per product."),
+  waste_factor: z7.number().min(0).max(1).optional().describe("New waste factor (0-1)."),
+  include: z7.enum(["Yes", "No"]).optional().describe("Include in totals."),
+  new_component_name: z7.string().optional().describe("Rename the component."),
+  force: z7.boolean().optional().describe("Allow updating rows flagged is_auto_calculated.")
+};
 var update_cogs_item_default = defineTool8({
   name: "update_cogs_item",
   title: "Update COGS item on a product",
   description: "Update fields (typically unit_cost_inr) on an existing COGS line for a specific product. Identify the row EITHER by `cogs_item_id` OR by (`product_id` + `component_name`, optionally scoped by `cogs_type`). First resolve the product with `list_products`, then optionally call `list_cogs_items` to see current lines. Only provided fields are changed. Refuses to update auto-calculated rows unless `force=true`.",
-  inputSchema: {
-    cogs_item_id: z7.string().uuid().optional().describe("Direct UUID of the cogs_items row to update."),
-    product_id: z7.string().uuid().optional().describe("Product UUID (required if cogs_item_id not given)."),
-    component_name: z7.string().optional().describe("Component name to match (case-insensitive) when cogs_item_id not given."),
-    cogs_type: z7.enum([COGS_TYPES2[0], ...COGS_TYPES2.slice(1)]).optional().describe("Optional category to disambiguate the match."),
-    unit_cost_inr: z7.number().nonnegative().optional().describe("New unit cost in INR."),
-    vendor_name: z7.string().optional().describe("New vendor name."),
-    units: z7.string().optional().describe("New unit of measure."),
-    components_per_product: z7.number().nonnegative().optional().describe("New quantity per product."),
-    waste_factor: z7.number().min(0).max(1).optional().describe("New waste factor (0-1)."),
-    include: z7.enum(["Yes", "No"]).optional().describe("Include in totals."),
-    new_component_name: z7.string().optional().describe("Rename the component."),
-    force: z7.boolean().optional().describe("Allow updating rows flagged is_auto_calculated.")
-  },
+  inputSchema: inputSchema3,
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async (input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser7(ctx);
+  handler: withUserDb(async (sb, input) => {
     let rowId = input.cogs_item_id ?? null;
     let existing = null;
     if (rowId) {
@@ -402,23 +391,957 @@ var update_cogs_item_default = defineTool8({
       content: [{ type: "text", text: `Updated COGS line "${existing.component_name}" (${changed}).` }],
       structuredContent: { cogs_item: data }
     };
+  })
+});
+
+// src/lib/mcp/tools/list-lookups.ts
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z8 } from "npm:zod@^3.25.76";
+
+// src/lib/costing-intake-core.ts
+var COST_COLS = [
+  { key: "raw_piece_inr", cogsType: "Raw Piece", header: "Raw piece \u20B9" },
+  { key: "subcontract_inr", cogsType: "Subcontracting", header: "Subcontract \u20B9" },
+  { key: "inserts_instructions_inr", cogsType: "Inserts + Instructions", header: "Inserts + instructions \u20B9" },
+  { key: "handles_knobs_inr", cogsType: "Handles + Knobs", header: "Handles + knobs \u20B9" },
+  { key: "feet_buffers_inr", cogsType: "Feet/Buffers", header: "Feet / buffers \u20B9" },
+  { key: "handles_latches_inr", cogsType: "Handles/Latches", header: "Handles / latches \u20B9" },
+  { key: "other_hardware_inr", cogsType: "Other Hardware", header: "Other hardware \u20B9" },
+  { key: "accessories_inr", cogsType: "Accessories", header: "Accessories \u20B9" },
+  { key: "finishing_materials_inr", cogsType: "Finishing Materials", header: "Finishing materials \u20B9" },
+  { key: "packaging_materials_inr", cogsType: "Packaging", header: "Packaging materials \u20B9" },
+  { key: "components_inr", cogsType: "Components", header: "Components \u20B9" },
+  { key: "other_cogs_inr", cogsType: "Other", header: "Other COGS \u20B9" }
+];
+var LABOR_COLS = [
+  { key: "mh_manufacturing", laborType: "Manufacturing" },
+  { key: "mh_finishing", laborType: "Finishing" },
+  { key: "mh_assembly", laborType: "Assembly" },
+  { key: "mh_packaging", laborType: "Packaging" },
+  { key: "mh_qc", laborType: "QC" },
+  { key: "mh_market", laborType: "Market" }
+];
+var SLOT_DEFS = [
+  { prefix: "handle", label: "Handle", cogsType: "Handles + Knobs", count: 3, units: "pc" },
+  { prefix: "latch", label: "Latch", cogsType: "Handles/Latches", count: 2, units: "pc" },
+  { prefix: "feet", label: "Feet", cogsType: "Feet/Buffers", count: 2, units: "pc" },
+  { prefix: "hardware", label: "Hardware", cogsType: "Other Hardware", count: 3, units: "pc" },
+  { prefix: "accessory", label: "Accessory", cogsType: "Accessories", count: 5, units: "pc" },
+  { prefix: "component", label: "Component", cogsType: "Components", count: 3, units: "pc" },
+  { prefix: "insert", label: "Insert", cogsType: "Inserts + Instructions", count: 2, units: "pc" },
+  { prefix: "packing", label: "Packing item", cogsType: "Packaging", count: 2, units: "pc" },
+  { prefix: "other", label: "Other item", cogsType: "Other", count: 2, units: "pc" }
+];
+var SLOTS = SLOT_DEFS.flatMap((d) => Array.from({ length: d.count }, (_, i) => ({
+  cogsType: d.cogsType,
+  units: d.units,
+  label: `${d.label} ${i + 1}`,
+  nameKey: `${d.prefix}${i + 1}_name`,
+  qtyKey: `${d.prefix}${i + 1}_qty`,
+  costKey: `${d.prefix}${i + 1}_inr`,
+  vendorKey: `${d.prefix}${i + 1}_vendor`
+})));
+var CHEM_COLS = [
+  { key: "color_l", name: "Color", category: "Color" },
+  { key: "sealer_l", name: "Sealer", category: "Sealer" },
+  { key: "lacquer_l", name: "Lacquer", category: "Lacquer" }
+];
+var INTAKE_COLS = [
+  { key: "sku", header: "SKU", type: "text", group: "Product", help: "Match key for updates", example: "CCT-AT3335" },
+  { key: "name", header: "Product name", type: "text", group: "Product", help: "Required for new products", example: "Accent Table 33x35" },
+  { key: "product_type", header: "Product type", type: "text", group: "Product", help: "Exact product type name", example: "Wood Side/End Table" },
+  { key: "quantity", header: "Quantity", type: "num", group: "Product", help: "Order quantity", example: 200 },
+  { key: "moq", header: "MOQ", type: "num", group: "Product", help: "Minimum order qty", example: 50 },
+  { key: "target_price_usd", header: "Target price", type: "num", group: "Product", help: "In quoting currency", example: 145 },
+  { key: "source_location", header: "Source location", type: "text", group: "Product", help: "Local transport location name", example: "Jodhpur" },
+  { key: "finishing_difficulty", header: "Finishing difficulty", type: "text", group: "Product", help: "Very Easy / Easy / Medium / Hard / Very Hard / Wax", example: "Medium" },
+  { key: "percent_wood", header: "% wood", type: "pct", group: "Product", help: "0\u2013100", example: 100 },
+  { key: "is_component", header: "Is component", type: "bool", group: "Product", help: "Yes / No", example: "No" },
+  { key: "notes", header: "Notes", type: "text", group: "Product", help: "Free text", example: "" },
+  { key: "width_inch", header: "Piece W (in)", type: "num", group: "Piece size", help: "Inches", example: 33 },
+  { key: "depth_inch", header: "Piece D (in)", type: "num", group: "Piece size", help: "Inches", example: 35 },
+  { key: "height_inch", header: "Piece H (in)", type: "num", group: "Piece size", help: "Inches", example: 24 },
+  { key: "weight_kg", header: "Weight (kg)", type: "num", group: "Piece size", help: "Net kg", example: 12 },
+  { key: "packaging_type", header: "Packaging type", type: "text", group: "Packaging", help: "ic_only / ic_mc / bulk_pack / no_packaging", example: "ic_mc" },
+  { key: "ic_type", header: "Inner box ply", type: "text", group: "Packaging", help: "e.g. 5 ply, 7 ply", example: "7 ply" },
+  { key: "products_per_ic", header: "Units per inner box", type: "num", group: "Packaging", help: "Default 1", example: 1 },
+  { key: "ic_width", header: "Box W (in)", type: "num", group: "Packaging", help: "Inner box ID; blank = auto from piece", example: 34 },
+  { key: "ic_depth", header: "Box D (in)", type: "num", group: "Packaging", help: "Inner box ID", example: 36 },
+  { key: "ic_height", header: "Box H (in)", type: "num", group: "Packaging", help: "Inner box ID", example: 25 },
+  { key: "include_mc", header: "Master carton", type: "bool", group: "Packaging", help: "Yes / No", example: "No" },
+  { key: "bulk_pieces_per_box", header: "Bulk pieces per box", type: "num", group: "Packaging", help: "Bulk pack only", example: "" },
+  ...COST_COLS.map((c) => ({ key: c.key, header: c.header, type: "num", group: "COGS (\u20B9 per unit)", help: `${c.cogsType}; blank = leave as is`, example: c.key === "raw_piece_inr" ? 2400 : c.key === "other_hardware_inr" ? 120 : "" })),
+  ...CHEM_COLS.map((c) => ({ key: c.key, header: `${c.name} (L)`, type: "num", group: "Finishing liters", help: `Liters of ${c.name.toLowerCase()} per unit at library \u20B9/L; blank = auto`, example: "" })),
+  ...CHEM_COLS.map((c) => ({ key: `${c.key}_chem`, header: `${c.name} chemical`, type: "text", group: "Finishing liters", help: `Exact chemical name from the price list; blank = keep linked ${c.name.toLowerCase()}`, example: "" })),
+  ...SLOTS.flatMap((sl) => [
+    { key: sl.nameKey, header: `${sl.label} name`, type: "text", group: `Line items \u2014 ${sl.cogsType}`, help: 'Name shown on the costing sheet, e.g. 5" Gold Handle', example: sl.nameKey === "handle1_name" ? '5" Gold Handle' : "" },
+    { key: sl.qtyKey, header: `${sl.label} qty`, type: "num", group: `Line items \u2014 ${sl.cogsType}`, help: "Qty per product (default 1)", example: sl.nameKey === "handle1_name" ? 2 : "" },
+    { key: sl.costKey, header: `${sl.label} \u20B9`, type: "num", group: `Line items \u2014 ${sl.cogsType}`, help: "\u20B9 per piece", example: sl.nameKey === "handle1_name" ? 150 : "" },
+    { key: sl.vendorKey, header: `${sl.label} vendor`, type: "text", group: `Line items \u2014 ${sl.cogsType}`, help: "Optional", example: "" }
+  ]),
+  { key: "raw_vendor", header: "Raw vendor", type: "text", group: "COGS (\u20B9 per unit)", help: "Vendor on the raw piece row", example: "" },
+  { key: "is_outsourced", header: "Outsourced", type: "bool", group: "COGS (\u20B9 per unit)", help: "Bought finished? Yes / No", example: "No" },
+  { key: "outsourced_unit_cost_inr", header: "Outsourced cost \u20B9", type: "num", group: "COGS (\u20B9 per unit)", help: "Purchase price per unit", example: "" },
+  ...LABOR_COLS.map((l) => ({ key: l.key, header: `${l.laborType} hrs`, type: "num", group: "Labor (man-hours per unit)", help: "Blank = keep / auto", example: l.key === "mh_manufacturing" ? 3.5 : "" })),
+  { key: "shipping_type", header: "Shipping type", type: "text", group: "Pricing", help: "Exact shipping type name", example: "" },
+  { key: "markup_pct", header: "NPM / markup %", type: "pct", group: "Pricing", help: "e.g. 22", example: 22 },
+  { key: "cost_of_capital", header: "Cost of capital", type: "bool", group: "Pricing", help: "Yes / No", example: "" },
+  { key: "coc_monthly_rate", header: "CoC rate %/mo", type: "num", group: "Pricing", help: "e.g. 1.5", example: "" },
+  { key: "coc_months", header: "CoC months", type: "num", group: "Pricing", help: "e.g. 3", example: "" }
+];
+var norm = (s) => String(s ?? "").toLowerCase().replace(/₹/g, "inr").replace(/[^a-z0-9]+/g, "");
+var HEADER_LOOKUP = /* @__PURE__ */ new Map();
+for (const c of INTAKE_COLS) {
+  HEADER_LOOKUP.set(norm(c.header), c.key);
+  HEADER_LOOKUP.set(norm(c.key), c.key);
+}
+for (const c of CHEM_COLS) {
+  HEADER_LOOKUP.set(norm(`${c.name} liters`), c.key);
+  HEADER_LOOKUP.set(norm(`${c.name} litres`), c.key);
+}
+HEADER_LOOKUP.set("productname", "name");
+HEADER_LOOKUP.set("npm", "markup_pct");
+HEADER_LOOKUP.set("markup", "markup_pct");
+function toNum(v) {
+  if (v === null || v === void 0 || v === "") return null;
+  const n = Number(String(v).replace(/[,\s$₹%]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+function toBool(v) {
+  if (v === null || v === void 0 || v === "") return null;
+  const s = String(v).trim().toLowerCase();
+  if (["yes", "y", "true", "1", "x"].includes(s)) return true;
+  if (["no", "n", "false", "0"].includes(s)) return false;
+  return null;
+}
+var toPct = (v) => {
+  const n = toNum(v);
+  return n == null ? null : n > 1 ? n / 100 : n;
+};
+function intakeCell(key, v) {
+  const col = INTAKE_COLS.find((c) => c.key === key);
+  if (!col) return null;
+  return col.type === "num" ? toNum(v) : col.type === "pct" ? toPct(v) : col.type === "bool" ? toBool(v) : v == null || v === "" ? null : String(v).trim();
+}
+function intakeRowFromRecord(rec, rowNo) {
+  const row = { _row: rowNo };
+  const unknown = [];
+  for (const [k, v] of Object.entries(rec || {})) {
+    if (k === "_row") continue;
+    const key = HEADER_LOOKUP.get(norm(k));
+    if (!key) {
+      unknown.push(k);
+      continue;
+    }
+    const val = intakeCell(key, v);
+    if (val !== null) row[key] = val;
   }
+  return { row, unknown };
+}
+async function loadIntakeLookups(db, mcHeightBuffer) {
+  const [pt, st, loc, ch] = await Promise.all([
+    db.from("product_types").select("id, name"),
+    db.from("shipping_types").select("id, name"),
+    db.from("local_transport_locations").select("id, name"),
+    db.from("chemical_prices").select("*")
+  ]);
+  let buffer = mcHeightBuffer;
+  if (buffer === void 0) {
+    const { data } = await db.from("global_settings").select("mc_height_buffer_inch").limit(1).single();
+    buffer = data?.mc_height_buffer_inch ?? 2.5;
+  }
+  return { productTypes: pt.data || [], shippingTypes: st.data || [], locations: loc.data || [], chems: ch.data || [], mcHeightBuffer: buffer };
+}
+var byName = (list, name) => name ? list.find((x) => (x.name || "").toLowerCase().trim() === name.toLowerCase().trim()) : void 0;
+function checkIntakeRowNames(row, L) {
+  const label = row.sku || row.name || `row ${row._row}`;
+  const out = [];
+  if (row.product_type && !byName(L.productTypes, row.product_type)) out.push(`${label}: product type "${row.product_type}" not found`);
+  if (row.source_location && !byName(L.locations, row.source_location)) out.push(`${label}: location "${row.source_location}" not found`);
+  if (row.shipping_type && !byName(L.shippingTypes, row.shipping_type)) out.push(`${label}: shipping type "${row.shipping_type}" not found`);
+  const clean = (v) => String(v ?? "").trim().toLowerCase();
+  for (const c of CHEM_COLS) {
+    const chemName = row[`${c.key}_chem`];
+    if (chemName !== void 0 && !L.chems.some((ch) => clean(ch.name) === clean(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
+  }
+  return out;
+}
+async function scaffoldProduct(db, inquiryId, row, sort, L) {
+  const { data: prod, error } = await db.from("products").insert({
+    customer_rfq_id: inquiryId,
+    name: row.name || row.sku,
+    sku: row.sku || null,
+    quantity: row.quantity ?? 100,
+    finishing_difficulty: "Medium",
+    percent_wood: 1,
+    sort_order: sort
+  }).select().single();
+  if (error) throw new Error(error.message);
+  const id = prod.id;
+  await Promise.all([
+    db.from("cogs_items").insert([
+      { product_id: id, cogs_type: "Finishing Materials", component_name: "Color", is_auto_calculated: true, sort_order: 4 },
+      { product_id: id, cogs_type: "Finishing Materials", component_name: "Sealer", is_auto_calculated: true, sort_order: 5 },
+      { product_id: id, cogs_type: "Finishing Materials", component_name: "Lacquer", is_auto_calculated: true, sort_order: 6 },
+      { product_id: id, cogs_type: "Packaging", component_name: "IC Box", is_auto_calculated: true, waste_factor: 0.05, sort_order: 7 },
+      { product_id: id, cogs_type: "Packaging", component_name: "MC Box", is_auto_calculated: true, sort_order: 8 }
+    ]),
+    db.from("overhead_items").insert([
+      { product_id: id, labor_type: "Manufacturing", sort_order: 0 },
+      { product_id: id, labor_type: "QC", man_hours_per_unit: 0.05, sort_order: 1 },
+      { product_id: id, labor_type: "Finishing", is_auto_estimated: true, sort_order: 3 },
+      { product_id: id, labor_type: "Assembly", sort_order: 4 },
+      { product_id: id, labor_type: "Packaging", is_auto_estimated: true, sort_order: 5 },
+      { product_id: id, labor_type: "Market", sort_order: 6 }
+    ]),
+    db.from("cbm_estimates").insert({ product_id: id, mc_height_buffer_inch: L.mcHeightBuffer }),
+    db.from("non_unit_cogs").insert({ product_id: id, name: "Auto Transport", total_quantity: 1, cost_each_inr: 0, include: "Yes", sort_order: 0 })
+  ]);
+  return id;
+}
+async function applyRow(db, productId, row, L, warn) {
+  const label = row.sku || row.name || `row ${row._row}`;
+  const p = {};
+  for (const k of [
+    "name",
+    "sku",
+    "quantity",
+    "moq",
+    "target_price_usd",
+    "finishing_difficulty",
+    "percent_wood",
+    "is_component",
+    "notes",
+    "width_inch",
+    "depth_inch",
+    "height_inch",
+    "weight_kg",
+    "packaging_type",
+    "bulk_pieces_per_box",
+    "is_outsourced",
+    "outsourced_unit_cost_inr"
+  ]) {
+    if (row[k] !== void 0) p[k] = row[k];
+  }
+  if (row.markup_pct !== void 0) p.markup_percent = row.markup_pct;
+  if (row.cost_of_capital !== void 0) p.cost_of_capital_enabled = row.cost_of_capital;
+  if (row.coc_monthly_rate !== void 0) p.cost_of_capital_monthly_rate = row.coc_monthly_rate;
+  if (row.coc_months !== void 0) p.cost_of_capital_months = row.coc_months;
+  if (row.product_type) {
+    const t = byName(L.productTypes, row.product_type);
+    if (t) p.product_type_id = t.id;
+    else warn(`${label}: product type "${row.product_type}" not found`);
+  }
+  if (row.source_location) {
+    const l = byName(L.locations, row.source_location);
+    if (l) p.source_location_id = l.id;
+    else warn(`${label}: location "${row.source_location}" not found`);
+  }
+  if (Object.keys(p).length) {
+    const { error } = await db.from("products").update(p).eq("id", productId);
+    if (error) warn(`${label}: ${error.message}`);
+  }
+  const c = {};
+  for (const k of ["ic_type", "products_per_ic", "ic_width", "ic_depth", "ic_height", "include_mc"]) if (row[k] !== void 0) c[k] = row[k];
+  if (Object.keys(c).length) {
+    const { data: ex } = await db.from("cbm_estimates").select("id").eq("product_id", productId).maybeSingle();
+    if (ex) await db.from("cbm_estimates").update(c).eq("id", ex.id);
+    else await db.from("cbm_estimates").insert({ product_id: productId, mc_height_buffer_inch: L.mcHeightBuffer, ...c });
+  }
+  const types = /* @__PURE__ */ new Set();
+  for (const cc of COST_COLS) if (row[cc.key] !== void 0) types.add(cc.cogsType);
+  const filledSlots = SLOTS.filter((sl) => row[sl.nameKey] !== void 0 || row[sl.costKey] !== void 0);
+  for (const sl of filledSlots) types.add(sl.cogsType);
+  for (const t of types) {
+    await db.from("cogs_items").delete().eq("product_id", productId).eq("cogs_type", t).eq("is_auto_calculated", false);
+  }
+  const inserts = [];
+  for (const cc of COST_COLS) {
+    const v = row[cc.key];
+    if (v === void 0) continue;
+    if (cc.cogsType === "Finishing Materials" || cc.cogsType === "Packaging") {
+      await db.from("cogs_items").update({ include: v > 0 ? "No" : "Yes" }).eq("product_id", productId).eq("cogs_type", cc.cogsType).eq("is_auto_calculated", true);
+    }
+    if (v > 0) inserts.push({
+      product_id: productId,
+      cogs_type: cc.cogsType,
+      component_name: cc.cogsType === "Raw Piece" ? "Raw Piece" : `${cc.cogsType} (intake)`,
+      components_per_product: 1,
+      unit_cost_inr: v,
+      units: "pc",
+      waste_factor: 0,
+      include: "Yes",
+      is_auto_calculated: false,
+      vendor_name: cc.cogsType === "Raw Piece" ? row.raw_vendor ?? null : null,
+      sort_order: COST_COLS.indexOf(cc)
+    });
+  }
+  filledSlots.forEach((sl, i) => {
+    const cost = row[sl.costKey] ?? 0;
+    const name = row[sl.nameKey] || sl.label;
+    if (!row[sl.nameKey] && !cost) return;
+    inserts.push({
+      product_id: productId,
+      cogs_type: sl.cogsType,
+      component_name: name,
+      components_per_product: row[sl.qtyKey] ?? 1,
+      unit_cost_inr: cost,
+      units: sl.units,
+      waste_factor: 0,
+      include: "Yes",
+      is_auto_calculated: false,
+      vendor_name: row[sl.vendorKey] ?? null,
+      sort_order: 20 + i
+    });
+  });
+  if (inserts.length) {
+    const { error } = await db.from("cogs_items").insert(inserts);
+    if (error) warn(`${label}: ${error.message}`);
+  }
+  const chemTouched = CHEM_COLS.filter((c2) => row[c2.key] !== void 0 || row[`${c2.key}_chem`] !== void 0);
+  if (chemTouched.length) {
+    const { data: fin } = await db.from("cogs_items").select("*").eq("product_id", productId).eq("cogs_type", "Finishing Materials");
+    const clean = (v) => String(v ?? "").trim().toLowerCase();
+    for (const c2 of chemTouched) {
+      const liters = row[c2.key];
+      const chemName = row[`${c2.key}_chem`];
+      const ex = (fin || []).find((x) => {
+        const linked = x.chemical_price_id ? L.chems.find((ch) => ch.id === x.chemical_price_id) : null;
+        return (linked?.category || "").toLowerCase() === c2.category.toLowerCase() || (x.component_name || "").toLowerCase().includes(c2.name.toLowerCase());
+      });
+      let chem;
+      if (chemName !== void 0) {
+        chem = L.chems.find((ch) => clean(ch.name) === clean(chemName));
+        if (!chem) {
+          warn(`${label}: ${c2.name} chemical "${chemName}" not found \u2014 row left unchanged`);
+          continue;
+        }
+      } else {
+        chem = ex?.chemical_price_id && L.chems.find((ch) => ch.id === ex.chemical_price_id) || L.chems.find((ch) => (ch.category || "").toLowerCase() === c2.category.toLowerCase());
+        if (!chem) warn(`${label}: no ${c2.name} chemical in library`);
+      }
+      const price = Number(chem?.price_per_unit_inr ?? chem?.price_per_litre_inr ?? ex?.unit_cost_inr ?? 0);
+      const pricing = { unit_cost_inr: price, units: chem?.unit_type || "L", chemical_price_id: chem?.id ?? ex?.chemical_price_id ?? null };
+      if (liters === void 0) {
+        if (ex) await db.from("cogs_items").update(pricing).eq("id", ex.id);
+        else warn(`${label}: no ${c2.name} row to re-link \u2014 enter ${c2.name} (L) to create one`);
+        continue;
+      }
+      const patch = { ...pricing, components_per_product: liters, include: liters > 0 ? "Yes" : "No", is_auto_calculated: false };
+      if (ex) await db.from("cogs_items").update(patch).eq("id", ex.id);
+      else if (liters > 0) await db.from("cogs_items").insert({ product_id: productId, cogs_type: "Finishing Materials", component_name: c2.name, waste_factor: 0, sort_order: 4, ...patch });
+    }
+  }
+  if (row.raw_vendor !== void 0 && row.raw_piece_inr === void 0) {
+    await db.from("cogs_items").update({ vendor_name: row.raw_vendor }).eq("product_id", productId).eq("cogs_type", "Raw Piece");
+  }
+  for (const lc of LABOR_COLS) {
+    const v = row[lc.key];
+    if (v === void 0) continue;
+    const { data: ex } = await db.from("overhead_items").select("id").eq("product_id", productId).eq("labor_type", lc.laborType).limit(1);
+    if (ex?.length) await db.from("overhead_items").update({ man_hours_per_unit: v, is_auto_estimated: false, include: "Yes" }).eq("id", ex[0].id);
+    else await db.from("overhead_items").insert({ product_id: productId, labor_type: lc.laborType, man_hours_per_unit: v, include: "Yes", sort_order: LABOR_COLS.indexOf(lc) });
+  }
+  if (row.shipping_type) {
+    const st = byName(L.shippingTypes, row.shipping_type);
+    if (!st) warn(`${label}: shipping type "${row.shipping_type}" not found`);
+    else {
+      const { data: ex } = await db.from("shipping_items").select("id").eq("product_id", productId).limit(1);
+      if (ex?.length) await db.from("shipping_items").update({ shipping_type_id: st.id }).eq("id", ex[0].id);
+      else await db.from("shipping_items").insert({ product_id: productId, shipping_type_id: st.id });
+    }
+  }
+}
+async function applyIntakeRows(db, inquiryId, rows, L, opts) {
+  const { data: existing } = await db.from("products").select("id, sku, name, sort_order").eq("customer_rfq_id", inquiryId).is("archived_at", null);
+  const prods = existing || [];
+  let sort = prods.reduce((m, p) => Math.max(m, p.sort_order ?? 0), 0) + 1;
+  const res = { created: 0, updated: 0, warnings: [], ids: [] };
+  const warn = (m) => res.warnings.push(m);
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const match = matchProduct(prods, row);
+    try {
+      if (match) {
+        if (!opts.updateExisting) continue;
+        await applyRow(db, match.id, row, L, warn);
+        res.updated++;
+        res.ids.push(match.id);
+      } else if (opts.createMissing) {
+        if (!row.name && !row.sku) continue;
+        const id = await scaffoldProduct(db, inquiryId, row, sort++, L);
+        await applyRow(db, id, row, L, warn);
+        res.created++;
+        res.ids.push(id);
+      }
+    } catch (e) {
+      warn(`${row.sku || row.name}: ${e.message}`);
+    }
+    opts.onProgress?.(i + 1, rows.length);
+  }
+  return res;
+}
+function matchProduct(prods, row) {
+  const sku = (row.sku || "").toLowerCase().trim();
+  const name = (row.name || "").toLowerCase().trim();
+  return sku && prods.find((p) => (p.sku || "").toLowerCase().trim() === sku) || name && prods.find((p) => (p.name || "").toLowerCase().trim() === name) || null;
+}
+
+// src/lib/mcp/tools/list-lookups.ts
+async function listLookups(db, input) {
+  const [types, locations, shipping, finishing, chems, currencies, people, entities] = await Promise.all([
+    db.from("product_types").select("id, name").order("name"),
+    db.from("local_transport_locations").select("id, name, active").order("sort_order"),
+    db.from("shipping_types").select("id, name").order("name"),
+    db.from("finishing_difficulty").select("name").order("sort_order"),
+    db.from("chemical_prices").select("name, category").order("name"),
+    db.from("currencies").select("code, name").order("sort_priority"),
+    db.from("profiles").select("assignee_code, display_name").not("assignee_code", "is", null),
+    db.from("company_entities").select("id, name, entity_type").order("name")
+  ]);
+  const result = {
+    product_types: check(types, "Could not read product types") ?? [],
+    source_locations: (check(locations, "Could not read source locations") ?? []).filter((l) => l.active !== false),
+    shipping_types: check(shipping, "Could not read shipping types") ?? [],
+    finishing_difficulties: (check(finishing, "Could not read finishing difficulty") ?? []).map((f) => f.name),
+    chemicals: check(chems, "Could not read chemicals") ?? [],
+    currencies: check(currencies, "Could not read currencies") ?? [],
+    assignees: check(people, "Could not read assignee codes") ?? [],
+    company_entities: check(entities, "Could not read company entities") ?? [],
+    packaging_types: ["ic_only", "ic_mc", "bulk_pack", "no_packaging"],
+    task_priorities: ["low", "normal", "high", "urgent"]
+  };
+  if (input.include_intake_columns) {
+    result.intake_columns = INTAKE_COLS.map((c) => ({ header: c.header, key: c.key, type: c.type, section: c.group, help: c.help }));
+  }
+  return result;
+}
+var list_lookups_default = defineTool9({
+  name: "list_lookups",
+  title: "List lookup values",
+  description: "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes and company entities. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
+  inputSchema: {
+    include_intake_columns: z8.boolean().optional().describe("Also return the Costing Intake column list (about 150 columns).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const lookups = await listLookups(db, input);
+    return ok(JSON.stringify(lookups), lookups);
+  })
+});
+
+// src/lib/mcp/tools/find-or-create-customer.ts
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z9 } from "npm:zod@^3.25.76";
+var LEAD_STATUSES = ["lead", "active", "won", "inactive", "churned"];
+var exact = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
+async function findOrCreateCustomer(db, input) {
+  const name = input.name?.trim() || "";
+  const company = input.company?.trim() || "";
+  const email = input.email?.trim() || "";
+  if (!name && !company && !email) throw new ToolError("Give at least a name, company or email.");
+  const tries = [];
+  if (email) tries.push(["email", email]);
+  if (company) tries.push(["company", company]);
+  if (name) tries.push(["name", name]);
+  for (const [field, value] of tries) {
+    const rows = check(
+      await db.from("customers").select(CUSTOMER_COLUMNS).ilike(field, exact(value)).order("created_at", { ascending: true }).limit(5),
+      "Could not search customers"
+    ) ?? [];
+    if (rows.length) {
+      return { customer: rows[0], created: false, matched_on: field, other_matches: rows.slice(1), dry_run: !!input.dry_run };
+    }
+  }
+  if (!name && !company) throw new ToolError(`No customer has the email ${email}. Give a name or company to create one.`);
+  const row = {
+    name: name || company,
+    company: company || null,
+    email: email || null,
+    phone: input.phone?.trim() || null,
+    linkedin_url: input.linkedin_url?.trim() || null,
+    source: input.source?.trim() || null,
+    notes: input.notes?.trim() || null,
+    lead_status: input.lead_status ?? "active"
+  };
+  if (input.dry_run) return { customer: row, created: false, would_create: true, matched_on: null, dry_run: true };
+  const customer = check(await db.from("customers").insert(row).select(CUSTOMER_COLUMNS).single(), "Could not create the customer");
+  return { customer, created: true, matched_on: null, dry_run: false };
+}
+var find_or_create_customer_default = defineTool10({
+  name: "find_or_create_customer",
+  title: "Find or create a customer",
+  description: 'Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers default to lead_status active, like the app; lead_status lead also starts the "Customer set to Lead" task rule. Use dry_run to see what would happen without writing.',
+  inputSchema: {
+    name: z9.string().max(200).optional().describe("Contact or customer name."),
+    company: z9.string().max(200).optional().describe("Company name."),
+    email: z9.string().max(320).optional().describe("Email address; checked first for a match."),
+    phone: z9.string().max(60).optional(),
+    linkedin_url: z9.string().max(500).optional(),
+    source: z9.string().max(100).optional().describe("Where the lead came from, e.g. Email, LinkedIn, Referral."),
+    notes: z9.string().max(5e3).optional(),
+    lead_status: z9.enum(LEAD_STATUSES).optional().describe("Only used when creating. Default active."),
+    dry_run: z9.boolean().optional().describe("Report the match or the record that would be created, without writing.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await findOrCreateCustomer(db, input);
+    const who = r.customer.company || r.customer.name;
+    const text = r.matched_on ? `Found existing customer ${who} (matched on ${r.matched_on}).` : r.dry_run ? `Dry run: no match, would create customer ${who}.` : `Created customer ${who}.`;
+    return ok(text, r);
+  })
+});
+
+// src/lib/mcp/tools/create-inquiry.ts
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z10 } from "npm:zod@^3.25.76";
+
+// src/lib/inquiry-list-totals.ts
+function pickEntities(entities) {
+  const pv = entities.find((e) => /parable/i.test(e.name || "") || e.entity_type === "India");
+  const dkt = entities.find((e) => /\bdkt\b|desert/i.test(e.name || "")) ?? entities.find((e) => e.id !== pv?.id && e.entity_type !== "India");
+  return { pvId: pv?.id ?? null, dktId: dkt?.id ?? null };
+}
+
+// src/lib/projections.ts
+function defaultDurationMonths(method) {
+  if (method === "air") return 2;
+  if (method === "ground") return 4;
+  return 3;
+}
+function addMonths(monthStr, n) {
+  const d = new Date(monthStr);
+  const r = new Date(d.getUTCFullYear(), d.getUTCMonth() + n, 1);
+  return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, "0")}-01`;
+}
+function deriveScheduleMonths(startMonth, durationMonths) {
+  if (!startMonth || !durationMonths || durationMonths < 0) return null;
+  const shipping = addMonths(startMonth, durationMonths);
+  return {
+    shipping_month: shipping,
+    delivery_month: shipping,
+    cust_deposit_month: startMonth,
+    cust_final_month: shipping,
+    ie_deposit_month: startMonth,
+    ie_balance_month: shipping,
+    vendor_deposit_month: startMonth,
+    vendor_balance_month: shipping
+  };
+}
+
+// src/lib/mcp/tools/create-inquiry.ts
+var PRIORITIES = ["low", "normal", "high", "urgent"];
+var SHIP_METHODS = ["sea", "air", "ground"];
+var exact2 = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
+async function createInquiry(db, input, today = todayInIndia()) {
+  const title = input.title.trim();
+  if (!title) throw new ToolError("Give the inquiry a title.");
+  for (const k of ["received_date", "target_completion_date"]) {
+    const v = input[k];
+    if (v && !isValidYmd(v)) throw new ToolError(`${k} must be a real date as YYYY-MM-DD.`);
+  }
+  const startMonth = input.start_month ?? today.slice(0, 7);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(startMonth)) throw new ToolError("start_month must be YYYY-MM.");
+  const customer = check(
+    await db.from("customers").select("id, name, company").eq("id", input.customer_id).maybeSingle(),
+    "Could not read the customer"
+  );
+  if (!customer) throw new ToolError(`Customer ${input.customer_id} not found or not visible to you.`);
+  const open = check(
+    await db.from("customer_rfqs").select("id, rfq_number, title, status, created_at").eq("customer_id", input.customer_id).ilike("title", exact2(title)).not("status", "in", "(complete,cancelled)").limit(5),
+    "Could not check for duplicate inquiries"
+  ) ?? [];
+  if (open.length && !input.allow_duplicate) {
+    return { inquiry: open[0], created: false, duplicate_of: open[0], dry_run: !!input.dry_run };
+  }
+  const row = {
+    customer_id: input.customer_id,
+    title,
+    priority: input.priority ?? "normal",
+    status: "active",
+    received_date: input.received_date ?? today,
+    requirements: input.requirements?.trim() || null,
+    notes: input.notes?.trim() || null,
+    quoting_currency: input.quoting_currency?.trim().toUpperCase() || null,
+    target_completion_date: input.target_completion_date ?? null,
+    drive_url: input.drive_url?.trim() || null
+  };
+  const entities = check(
+    await db.from("company_entities").select("id, name, entity_type").order("name"),
+    "Could not read company entities"
+  ) ?? [];
+  const selling = entities[0]?.id ?? null;
+  const producing = pickEntities(entities).pvId ?? selling;
+  const method = input.shipping_method ?? "sea";
+  const duration = defaultDurationMonths(method);
+  const startDate = `${startMonth}-01`;
+  const projection = {
+    selling_entity_id: selling,
+    producing_entity_id: producing,
+    certainty_override: null,
+    start_month: startDate,
+    duration_months: duration,
+    shipping_method: method,
+    paying_shipping: false,
+    repeat_order: false,
+    projected_fob_revenue_usd: null,
+    project_gpm: null,
+    ...deriveScheduleMonths(startDate, duration) ?? {}
+  };
+  const entityName = (id) => entities.find((e) => e.id === id)?.name ?? null;
+  const plan = { selling_entity: entityName(selling), producing_entity: entityName(producing) };
+  if (input.dry_run) return { inquiry: row, projection, ...plan, created: false, would_create: true, dry_run: true };
+  const inquiry = check(
+    await db.from("customer_rfqs").insert(row).select("id, rfq_number, title, status, customer_id, received_date").single(),
+    "Could not create the inquiry"
+  );
+  const projRes = await db.from("inquiry_projections").insert({ inquiry_id: inquiry.id, ...projection });
+  const warnings = [];
+  if (projRes.error) warnings.push(`Inquiry created, but its projection was not: ${projRes.error.message}. Fill it in on the Projection tab.`);
+  return { inquiry, ...plan, created: true, dry_run: false, warnings };
+}
+var create_inquiry_default = defineTool11({
+  name: "create_inquiry",
+  title: "Create an inquiry",
+  description: `Create an active inquiry for an existing customer (find it first with find_or_create_customer), with the same Projection defaults as the app's New Inquiry dialog: first company entity sells, the PV entity produces, sea freight, start this month. PD HQ then adds the tasks from the "Inquiry created" rules. If the customer already has an open inquiry with the same title, that one is returned instead unless allow_duplicate is true. Use dry_run to preview.`,
+  inputSchema: {
+    customer_id: z10.string().uuid().describe("Customer UUID."),
+    title: z10.string().min(1).max(300).describe("Short title, e.g. 'Mango wood serving trays'."),
+    received_date: z10.string().optional().describe("YYYY-MM-DD the inquiry came in. Default today (India)."),
+    requirements: z10.string().max(2e4).optional().describe("What the customer asked for: products, sizes, finishes, quantities, target prices."),
+    notes: z10.string().max(2e4).optional().describe("Internal notes, e.g. where the inquiry came from and what was agreed."),
+    priority: z10.enum(PRIORITIES).optional().describe("Default normal."),
+    quoting_currency: z10.string().max(3).optional().describe("Currency code to quote in, e.g. USD. See list_lookups."),
+    target_completion_date: z10.string().optional().describe("YYYY-MM-DD the customer needs the quote or samples by."),
+    drive_url: z10.string().max(2e3).optional().describe("Link to the shared folder with the customer's files and photos."),
+    start_month: z10.string().optional().describe("Projection start month, YYYY-MM. Default this month."),
+    shipping_method: z10.enum(SHIP_METHODS).optional().describe("Projection shipping method. Default sea."),
+    allow_duplicate: z10.boolean().optional().describe("Create even if an open inquiry with this title exists for the customer."),
+    dry_run: z10.boolean().optional().describe("Show what would be created, without writing.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await createInquiry(db, input);
+    const inq = r.inquiry;
+    const text = r.duplicate_of ? `Not created: ${inq.rfq_number} "${inq.title}" is already open for this customer. Pass allow_duplicate to create another.` : r.dry_run ? `Dry run: would create inquiry "${inq.title}" (sold by ${r.selling_entity ?? "no entity"}, made by ${r.producing_entity ?? "no entity"}).` : `Created ${inq.rfq_number} "${inq.title}". PD HQ adds the "Inquiry created" tasks automatically.${r.warnings?.length ? ` ${r.warnings.join(" ")}` : ""}`;
+    return ok(text, r);
+  })
+});
+
+// src/lib/mcp/tools/import-costing-intake.ts
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z11 } from "npm:zod@^3.25.76";
+var MAX_INTAKE_ROWS = 100;
+async function importCostingIntake(db, input) {
+  if (!input.rows.length) throw new ToolError("No rows given.");
+  if (input.rows.length > MAX_INTAKE_ROWS) throw new ToolError(`At most ${MAX_INTAKE_ROWS} rows per call; split the sheet.`);
+  const createMissing = input.create_missing ?? true;
+  const updateExisting = input.update_existing ?? false;
+  const inquiry = check(
+    await db.from("customer_rfqs").select("id, rfq_number, title, status").eq("id", input.inquiry_id).maybeSingle(),
+    "Could not read the inquiry"
+  );
+  if (!inquiry) throw new ToolError(`Inquiry ${input.inquiry_id} not found or not visible to you.`);
+  const warnings = [];
+  const unknown = /* @__PURE__ */ new Set();
+  const rows = [];
+  input.rows.forEach((rec, i) => {
+    const { row, unknown: u } = intakeRowFromRecord(rec, i + 2);
+    u.forEach((k) => unknown.add(k));
+    if (!row.sku && !row.name) warnings.push(`row ${i + 2}: no SKU or product name, skipped`);
+    else rows.push(row);
+  });
+  if (unknown.size) warnings.push(`Columns not on the Costing Intake sheet were ignored: ${[...unknown].join(", ")}`);
+  const L = await loadIntakeLookups(db);
+  const existing = check(
+    await db.from("products").select("id, sku, name, sort_order").eq("customer_rfq_id", input.inquiry_id).is("archived_at", null),
+    "Could not read the inquiry's products"
+  ) ?? [];
+  const plan = rows.map((r) => {
+    const m = matchProduct(existing, r);
+    const action = m ? updateExisting ? "update" : "skip (exists; set update_existing to change it)" : createMissing ? "create" : "skip (new; create_missing is off)";
+    return { row: r._row, sku: r.sku ?? null, name: r.name ?? null, action, product_id: m?.id ?? null };
+  });
+  for (const r of rows) warnings.push(...checkIntakeRowNames(r, L));
+  if (input.dry_run) {
+    return { inquiry, dry_run: true, plan, created: 0, updated: 0, warnings };
+  }
+  const res = await applyIntakeRows(db, input.inquiry_id, rows, L, { createMissing, updateExisting });
+  return {
+    inquiry,
+    dry_run: false,
+    plan,
+    created: res.created,
+    updated: res.updated,
+    product_ids: res.ids,
+    // applyRow repeats the name warnings it hits; keep each message once.
+    warnings: [.../* @__PURE__ */ new Set([...warnings, ...res.warnings])]
+  };
+}
+var import_costing_intake_default = defineTool12({
+  name: "import_costing_intake",
+  title: "Import Costing Intake rows",
+  description: `Add or update products on an inquiry from Costing Intake rows, using the same importer as the app's Import products button. Each row is an object keyed by the sheet's headers (e.g. "SKU", "Product name", "Piece W (in)", "Raw piece \u20B9") or column keys; call list_lookups with include_intake_columns for the full list. Blank or missing cells leave values unchanged. Rows match existing products on the inquiry by SKU, then name. New products are created by default; existing ones are only changed when update_existing is true, and then any category \u20B9 total or named line item replaces that category's manual COGS rows. Never invent costs: leave \u20B9 cells out unless the customer or vendor gave them. Run with dry_run first to see the plan and any unknown names. Cached prices and CBM are recalculated by the app when the inquiry is next opened.`,
+  inputSchema: {
+    inquiry_id: z11.string().uuid().describe("Inquiry UUID (from create_inquiry or list_inquiries)."),
+    rows: z11.array(z11.record(z11.union([z11.string(), z11.number(), z11.boolean(), z11.null()]))).min(1).max(MAX_INTAKE_ROWS).describe("One object per SKU, keyed by Costing Intake header or key."),
+    create_missing: z11.boolean().optional().describe("Create products for rows that match nothing (default true)."),
+    update_existing: z11.boolean().optional().describe("Update products that already exist on the inquiry (default false)."),
+    dry_run: z11.boolean().optional().describe("Return the plan and warnings without writing.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await importCostingIntake(db, input);
+    const head = r.dry_run ? `Dry run for ${r.inquiry.rfq_number}: ${r.plan.filter((p) => p.action === "create").length} to create, ${r.plan.filter((p) => p.action === "update").length} to update.` : `${r.inquiry.rfq_number}: created ${r.created}, updated ${r.updated}. Open the inquiry in PD HQ to refresh cached prices and CBM.`;
+    const text = r.warnings.length ? `${head}
+Warnings:
+- ${r.warnings.join("\n- ")}` : head;
+    return ok(text, r);
+  })
+});
+
+// src/lib/mcp/tools/attach-product-photo.ts
+import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z12 } from "npm:zod@^3.25.76";
+var PHOTO_BUCKET = "product-photos";
+var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+var EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+function decodeBase64(b64) {
+  const clean = b64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new ToolError("image_base64 is not valid base64.");
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function attachProductPhoto(db, input, now = Date.now()) {
+  const ext = EXT[input.media_type];
+  if (!ext) throw new ToolError("media_type must be image/jpeg, image/png or image/webp.");
+  const bytes = decodeBase64(input.image_base64);
+  if (!bytes.length) throw new ToolError("The image is empty.");
+  if (bytes.length > MAX_PHOTO_BYTES) throw new ToolError(`The image is ${(bytes.length / 1048576).toFixed(1)} MB; the limit is 5 MB.`);
+  const product = check(
+    await db.from("products").select("id, name, sku, photo_url").eq("id", input.product_id).maybeSingle(),
+    "Could not read the product"
+  );
+  if (!product) throw new ToolError(`Product ${input.product_id} not found or not visible to you.`);
+  if (product.photo_url && !input.replace) {
+    return { product, attached: false, reason: "Product already has a photo; pass replace to overwrite it.", dry_run: !!input.dry_run };
+  }
+  const path = `${product.id}.${ext}`;
+  if (input.dry_run) return { product, attached: false, would_upload: `${PHOTO_BUCKET}/${path}`, bytes: bytes.length, dry_run: true };
+  const up = await db.storage.from(PHOTO_BUCKET).upload(path, bytes, { contentType: input.media_type, upsert: true });
+  if (up.error) throw new ToolError(`Upload failed: ${up.error.message}`);
+  const { data: pub } = db.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  const photo_url = `${pub.publicUrl}?t=${now}`;
+  check(await db.from("products").update({ photo_url }).eq("id", product.id), "Uploaded, but could not link the photo to the product");
+  return { product: { ...product, photo_url }, attached: true, path: `${PHOTO_BUCKET}/${path}`, dry_run: false };
+}
+var attach_product_photo_default = defineTool13({
+  name: "attach_product_photo",
+  title: "Attach a product photo",
+  description: "Set a product's main photo from a customer's image (JPEG, PNG or WebP, up to 5 MB, base64). Stored like a photo uploaded in the app. Refuses to overwrite an existing photo unless replace is true.",
+  inputSchema: {
+    product_id: z12.string().uuid().describe("Product UUID (from import_costing_intake or list_products)."),
+    image_base64: z12.string().min(1).describe("Image bytes as base64; a data: URL prefix is accepted."),
+    media_type: z12.enum(["image/jpeg", "image/png", "image/webp"]),
+    replace: z12.boolean().optional().describe("Overwrite the current photo."),
+    dry_run: z12.boolean().optional().describe("Check the image and product without uploading.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await attachProductPhoto(db, input);
+    const label = r.product.sku || r.product.name;
+    const text = r.attached ? `Photo attached to ${label}.` : r.dry_run && "would_upload" in r ? `Dry run: would upload to ${r.would_upload}.` : `Not attached to ${label}: ${"reason" in r ? r.reason : ""}`;
+    return ok(text, r);
+  })
+});
+
+// src/lib/mcp/tools/create-sample-request.ts
+import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z13 } from "npm:zod@^3.25.76";
+async function createSampleRequest(db, input, today = todayInIndia()) {
+  const ids = [...new Set(input.product_ids)];
+  if (!ids.length) throw new ToolError("Pick at least one product.");
+  for (const k of ["customer_requested_date", "required_by_date"]) {
+    const v = input[k];
+    if (v && !isValidYmd(v)) throw new ToolError(`${k} must be a real date as YYYY-MM-DD.`);
+  }
+  const inquiry = check(
+    await db.from("customer_rfqs").select("id, rfq_number, title").eq("id", input.inquiry_id).maybeSingle(),
+    "Could not read the inquiry"
+  );
+  if (!inquiry) throw new ToolError(`Inquiry ${input.inquiry_id} not found or not visible to you.`);
+  const products = check(
+    await db.from("products").select("id, sku, name, customer_rfq_id, archived_at").in("id", ids),
+    "Could not read the products"
+  ) ?? [];
+  const bad = ids.filter((id) => !products.some((p) => p.id === id && p.customer_rfq_id === input.inquiry_id && !p.archived_at));
+  if (bad.length) throw new ToolError(`These products are not live products on ${inquiry.rfq_number}: ${bad.join(", ")}`);
+  const pending = check(
+    await db.from("samples").select("id, product_id, request_id, requested_date").eq("customer_rfq_id", input.inquiry_id).eq("status", "pending").in("product_id", ids),
+    "Could not check open sample requests"
+  ) ?? [];
+  if (pending.length && !input.allow_duplicate) {
+    return { inquiry, created: false, already_requested: pending, dry_run: !!input.dry_run };
+  }
+  const request = {
+    customer_rfq_id: input.inquiry_id,
+    requested_date: today,
+    customer_requested_date: input.customer_requested_date ?? null,
+    required_by_date: input.required_by_date ?? null,
+    notes: input.notes?.trim() || null
+  };
+  if (input.dry_run) return { inquiry, created: false, would_create: { ...request, products: products.map((p) => p.sku || p.name) }, dry_run: true };
+  const req = check(
+    await db.from("sample_requests").insert(request).select("id, request_number").single(),
+    "Could not create the sample request"
+  );
+  const lines = ids.map((pid) => ({
+    request_id: req.id,
+    product_id: pid,
+    customer_rfq_id: input.inquiry_id,
+    status: "pending",
+    requested_date: today,
+    required_by_date: input.required_by_date ?? null
+  }));
+  const lineRes = await db.from("samples").insert(lines);
+  if (lineRes.error) {
+    await db.from("sample_requests").delete().eq("id", req.id);
+    throw new ToolError(`Could not add the sample lines, so the request was not kept: ${lineRes.error.message}`);
+  }
+  return { inquiry, created: true, request: { ...req, ...request }, lines: ids.length, dry_run: false };
+}
+var create_sample_request_default = defineTool14({
+  name: "create_sample_request",
+  title: "Request samples",
+  description: `Create a sample request on an inquiry with one line per product, the same as the inquiry's Request samples button. The products' sample stage moves to requested, and PD HQ adds any "Sample requested" tasks. If any of the products already has a pending sample on this inquiry, nothing is created unless allow_duplicate is true. Use dry_run to preview.`,
+  inputSchema: {
+    inquiry_id: z13.string().uuid(),
+    product_ids: z13.array(z13.string().uuid()).min(1).max(100).describe("Products on this inquiry to sample."),
+    customer_requested_date: z13.string().optional().describe("YYYY-MM-DD the customer asked for samples."),
+    required_by_date: z13.string().optional().describe("YYYY-MM-DD the samples are needed by."),
+    notes: z13.string().max(5e3).optional().describe("Finish, size or other instructions for the samples."),
+    allow_duplicate: z13.boolean().optional().describe("Create even if a product already has a pending sample."),
+    dry_run: z13.boolean().optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await createSampleRequest(db, input);
+    const text = "already_requested" in r && r.already_requested ? `Not created: ${r.already_requested.length} of these products already have a pending sample on ${r.inquiry.rfq_number}. Pass allow_duplicate to request again.` : r.dry_run ? `Dry run: would request ${input.product_ids.length} sample(s) on ${r.inquiry.rfq_number}.` : `Created sample request ${"request" in r ? r.request?.request_number : ""} on ${r.inquiry.rfq_number} with ${"lines" in r ? r.lines : 0} line(s).`;
+    return ok(text, r);
+  })
+});
+
+// src/lib/mcp/tools/create-task.ts
+import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z14 } from "npm:zod@^3.25.76";
+var PRIORITIES2 = ["low", "normal", "high", "urgent"];
+var recurrence = z14.object({
+  freq: z14.enum(["daily", "weekly", "monthly", "yearly"]),
+  interval: z14.number().int().min(1).max(365),
+  weekdays: z14.array(z14.number().int().min(0).max(6)).optional().describe("Weekly only. 0 = Sunday."),
+  monthDay: z14.number().int().min(1).max(31).optional().describe("Monthly only."),
+  mode: z14.enum(["due", "completion"]).describe("due = repeat from the due date; completion = repeat from when it is done.")
+});
+async function createTask(db, input) {
+  const title = input.title.trim();
+  if (!title) throw new ToolError("Give the task a title.");
+  if (!isValidYmd(input.due_date)) throw new ToolError("due_date must be a real date as YYYY-MM-DD.");
+  if (input.inquiry_id && input.customer_id) throw new ToolError("Link the task to an inquiry or a customer, not both.");
+  let assignee = null;
+  if (input.assignee?.trim()) {
+    assignee = input.assignee.trim().toUpperCase();
+    const codes = (check(
+      await db.from("profiles").select("assignee_code").not("assignee_code", "is", null),
+      "Could not read assignee codes"
+    ) ?? []).map((p) => p.assignee_code.toUpperCase());
+    if (codes.length && !codes.includes(assignee)) throw new ToolError(`Unknown assignee "${assignee}". Use one of: ${codes.join(", ")}.`);
+  }
+  const row = {
+    title: title.slice(0, 500),
+    description: input.description?.trim() || null,
+    status: "open",
+    priority: input.priority ?? "normal",
+    due_date: input.due_date,
+    assignee,
+    recurrence_rule: input.recurrence_rule ?? null,
+    association_type: null,
+    association_id: null,
+    association_label: null,
+    product_id: null
+  };
+  if (input.inquiry_id) {
+    const inq = check(await db.from("customer_rfqs").select("id, rfq_number, title").eq("id", input.inquiry_id).maybeSingle(), "Could not read the inquiry");
+    if (!inq) throw new ToolError(`Inquiry ${input.inquiry_id} not found or not visible to you.`);
+    Object.assign(row, { inquiry_id: inq.id, association_type: "inquiry", association_id: inq.id, association_label: `${inq.rfq_number} ${inq.title ?? ""}`.trim() });
+  } else if (input.customer_id) {
+    const c = check(await db.from("customers").select("id, name").eq("id", input.customer_id).maybeSingle(), "Could not read the customer");
+    if (!c) throw new ToolError(`Customer ${input.customer_id} not found or not visible to you.`);
+    Object.assign(row, { customer_id: c.id, association_type: "customer", association_id: c.id, association_label: c.name });
+  }
+  if (input.dry_run) return { task: row, created: false, dry_run: true };
+  const task = check(
+    await db.from("tasks").insert(row).select("id, title, due_date, assignee, priority, association_label").single(),
+    "Could not create the task"
+  );
+  return { task, created: true, dry_run: false };
+}
+var create_task_default = defineTool15({
+  name: "create_task",
+  title: "Create a task",
+  description: "Create one task in PD HQ, optionally linked to an inquiry or a customer and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
+  inputSchema: {
+    title: z14.string().min(1).max(500),
+    due_date: z14.string().describe("YYYY-MM-DD. Required."),
+    description: z14.string().max(5e3).optional(),
+    priority: z14.enum(PRIORITIES2).optional().describe("Default normal."),
+    assignee: z14.string().max(10).optional().describe("Assignee code, e.g. CQ."),
+    inquiry_id: z14.string().uuid().optional(),
+    customer_id: z14.string().uuid().optional(),
+    recurrence_rule: recurrence.optional(),
+    dry_run: z14.boolean().optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await createTask(db, input);
+    const t = r.task;
+    const where = t.association_label ? ` on ${t.association_label}` : "";
+    return ok(r.dry_run ? `Dry run: would create "${t.title}" due ${t.due_date}${where}.` : `Created task "${t.title}" due ${t.due_date}${where}.`, r);
+  })
 });
 
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
+var TOOLS = [
+  whoami_default,
+  list_lookups_default,
+  list_customers_default,
+  list_inquiries_default,
+  list_products_default,
+  list_tasks_default,
+  list_cogs_items_default,
+  find_or_create_customer_default,
+  create_inquiry_default,
+  import_costing_intake_default,
+  attach_product_photo_default,
+  create_sample_request_default,
+  create_task_default,
+  add_cogs_item_default,
+  update_cogs_item_default
+];
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.1.0",
-  instructions: "Tools for the Product HQ costing & CRM app. Use `whoami` to verify the connection. Read tools: `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`. Write tools: `add_cogs_item` and `update_cogs_item` (first resolve the product UUID via `list_products`; for updates you can also call `list_cogs_items` to find the specific line). All tools run under the signed-in user's Row-Level Security policies.",
+  version: "0.2.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`. To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [whoami_default, list_customers_default, list_inquiries_default, list_products_default, list_tasks_default, list_cogs_items_default, add_cogs_item_default, update_cogs_item_default]
+  tools: TOOLS
 });
 
 // lovable-mcp-supabase-entry.ts
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.0/stacks/supabase";
+import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.1/stacks/supabase";
 Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
