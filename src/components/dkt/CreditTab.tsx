@@ -180,7 +180,7 @@ export function CreditTab(p: Props) {
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2">
           <div>
             <CardTitle className="text-sm">Planned draws and repayments</CardTitle>
-            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Interest is charged monthly on what's drawn until you plan a repayment. Due dates belong to each draw under Draws taken.</p>
+            <p className="text-xs text-muted-foreground">Try draws here to see how they change the forecast. A negative amount is a repayment. Set a payback month on a draw and the forecast repays it in full that month (balloon lines add their built-up interest), shown on the chart as a repayment. Without one, interest is charged monthly until you plan a repayment.</p>
           </div>
           <Button size="sm" variant="outline" disabled={!lines.length} onClick={() => p.addDraw({ line_id: lines[0]?.id, month: thisMonth, amount_usd: 0 })}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Plan a draw
@@ -190,7 +190,7 @@ export function CreditTab(p: Props) {
           {!planned.length ? <p className="text-xs text-muted-foreground">No draws planned.</p> : (
             <table className="text-xs">
               <thead className="text-muted-foreground text-left">
-                <tr><th className="font-medium py-1 pr-2">Line</th><th className="font-medium px-1">Month</th><th className="font-medium px-1 text-right">Amount</th><th /></tr>
+                <tr><th className="font-medium py-1 pr-2">Line</th><th className="font-medium px-1">Month</th><th className="font-medium px-1 text-right">Amount</th><th className="font-medium px-1" title="The month this draw is paid back in full, with any interest due. Leave blank to keep it drawn.">Payback month</th><th /></tr>
               </thead>
               <tbody>
                 {planned.map(d => (
@@ -200,6 +200,10 @@ export function CreditTab(p: Props) {
                     </td>
                     <td className="py-1.5 px-1"><MonthField label="Month" value={d.month} onSave={v => v && p.updateDraw(d.id, { month: v })} /></td>
                     <td className="py-1.5 px-1 w-32"><NumField label="Amount" value={d.amount_usd} onSave={v => p.updateDraw(d.id, { amount_usd: v ?? 0 })} /></td>
+                    <td className="py-1.5 px-1">
+                      {d.amount_usd < 0 ? <span className="text-muted-foreground">—</span> : <MonthField label="Payback month" allowEmpty value={d.maturity_month ?? null} onSave={v => p.updateDraw(d.id, { maturity_month: v })} />}
+                      {d.maturity_month && d.maturity_month <= d.month && <div className="text-amber-600">on or before the draw month</div>}
+                    </td>
                     <td className="py-1.5 pl-1">
                       <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Delete draw" onClick={() => p.removeDraw(d.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       {d.month < thisMonth && <span className="ml-1">past: record it under Draws taken instead</span>}

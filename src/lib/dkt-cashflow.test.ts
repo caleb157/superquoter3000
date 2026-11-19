@@ -429,3 +429,20 @@ describe('balloon credit', () => {
     expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(75);
   });
 });
+
+describe('planned draw with a payback month', () => {
+  const months = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02'];
+  it('repays the principal in that month with the interest charged until then', () => {
+    const line = { id: 'a', name: 'OnDeck', limit_usd: 12000, drawn_usd: 0, rate_pct: 12 };
+    const f = creditFlows([line], [{ id: 'p', line_id: 'a', month: '2026-11', amount_usd: 6000, maturity_month: '2027-01' }], months);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2027-01', amount: -6000 });
+    expect(f.filter(x => x.kind === 'credit_interest').map(x => x.month)).toEqual(['2026-11', '2026-12']);
+    expect(creditBalances([line], [{ id: 'p', line_id: 'a', month: '2026-11', amount_usd: 6000, maturity_month: '2027-01' }], months).a).toEqual([0, 6000, 6000, 0, 0]);
+  });
+  it('a balloon line pays its built-up interest with the payback', () => {
+    const line = { id: 's', name: 'Sooie', limit_usd: 20000, drawn_usd: 0, rate_pct: 6, balloon: true };
+    const f = creditFlows([line], [{ id: 'p', line_id: 's', month: '2026-11', amount_usd: 10000, maturity_month: '2027-01' }], months);
+    expect(f.find(x => x.kind === 'credit_repay')).toMatchObject({ month: '2027-01', amount: -10000 });
+    expect(Math.round(-f.find(x => x.kind === 'credit_interest')!.amount)).toBe(100);
+  });
+});
