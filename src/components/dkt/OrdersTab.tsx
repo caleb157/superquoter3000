@@ -22,9 +22,11 @@ type Props = {
   saveStatus: (id: string, p: Partial<DktOrder['done']> & { excluded?: boolean }) => void;
   saveSettings: (p: Partial<DktSettings>) => void;
   odooCard: ReactNode;
+  /** Retained orders simulation, shown under the pipeline. */
+  retainedCard?: ReactNode;
 };
 
-export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveTermsToInquiry, saveStatus, saveSettings, odooCard }: Props) {
+export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveTermsToInquiry, saveStatus, saveSettings, odooCard, retainedCard }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
   const real = odooRows.filter(o => !o.excluded);
@@ -169,6 +171,8 @@ export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityNa
           )}
         </CardContent>
       </Card>
+
+      {retainedCard}
     </div>
   );
 }

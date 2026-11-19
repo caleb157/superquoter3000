@@ -13,8 +13,29 @@ import {
   type OdooInvoice, type OdooOrder,
 } from '@/lib/dkt-cashflow';
 import type { AmazonSku } from '@/lib/dkt-amazon';
+import { seedRows, type RetainedOrder } from '@/lib/dkt-retained';
 
 const db = supabase as any;
+
+// Retained orders (dkt_retained_orders). Until that table exists (dkt-retained-orders SQL) the list
+// lives in this browser, starting from the built-in list, so the section still works.
+const RETAINED_KEY = 'dkt-retained-orders';
+const localRetained = (): RetainedOrder[] => {
+  try { const v = JSON.parse(localStorage.getItem(RETAINED_KEY) || 'null'); if (Array.isArray(v)) return v; } catch { /* ignore */ }
+  return seedRows();
+};
+const setLocalRetained = (rows: RetainedOrder[]) => { try { localStorage.setItem(RETAINED_KEY, JSON.stringify(rows)); } catch { /* ignore */ } };
+type RetainedDbRow = {
+  id: string; name: string | null; customer: string | null; fob_usd: number | string | null; margin_pct: number | string | null;
+  cust_deposit_pct: number | string | null; advance_pct: number | string | null; po_month: string | null; ship_month: string | null;
+  cust_lag_months: number | null; counted: boolean | null; sort: number | null;
+};
+const RETAINED_COLS = ['name', 'customer', 'fob_usd', 'margin_pct', 'cust_deposit_pct', 'advance_pct', 'po_month', 'ship_month', 'cust_lag_months', 'counted', 'sort'] as const;
+const retainedRow = (patch: Partial<RetainedOrder>) => {
+  const row: Record<string, unknown> = {};
+  for (const k of RETAINED_COLS) if (k in patch) row[k] = (k === 'po_month' || k === 'ship_month') && patch[k] ? `${patch[k]}-01` : patch[k];
+  return row;
+};
 
 // "Leave out of the projection" flag on Amazon SKUs. Saved in dkt_amazon_skus.excluded; until that
 // column exists (sql/amazon-sku-excluded.sql) it is kept in this browser so the toggle still works.
@@ -93,6 +114,10 @@ export type DktData = {
   dktEntityName: string | null;
   odooTerms: OdooTerms[];
   defaults: { custDeposit: number; ieDeposit: number; vendorDeposit: number };
+  /** Retained orders simulation (Orders tab); each counts only while ticked. */
+  retained: RetainedOrder[];
+  /** True while the list is kept in this browser (the table isn't in the database yet). */
+  retainedLocal: boolean;
 };
 
 const num = (v: any, d = 0) => (v == null || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
@@ -142,7 +167,7 @@ export function useDktCashflow(thisMonth: Month) {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    const [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus, defaults, terms] = await Promise.all([
+    const [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus, defaults, terms, ret] = await Promise.all([
       db.from('dkt_cash_settings').select('*').eq('id', 1).maybeSingle(),
       db.from('company_entities').select('id, name, entity_type'),
       db.from('customer_rfqs').select('id, rfq_number, title, status, customers(name), inquiry_projections(*)').in('status', OPEN_STATUSES),
@@ -156,7 +181,16 @@ export function useDktCashflow(thisMonth: Month) {
       db.from('dkt_amazon_skus').select('*').order('created_at'),
       loadProjectionDefaults(),
       db.from('dkt_odoo_order_terms').select('*'),
+      db.from('dkt_retained_orders').select('*').order('sort').order('created_at'),
     ]);
+    // Any error reading the retained table (most likely: not created yet) falls back to this browser.
+    const retainedLocal = !!ret.error;
+    const retained: RetainedOrder[] = retainedLocal ? localRetained() : ((ret.data || []) as RetainedDbRow[]).map(r => ({
+      id: r.id, name: r.name ?? '', customer: r.customer ?? null, fob_usd: num(r.fob_usd),
+      margin_pct: num(r.margin_pct, 0.1), cust_deposit_pct: num(r.cust_deposit_pct), advance_pct: num(r.advance_pct, 0.5),
+      po_month: toMonth(r.po_month) ?? thisMonth, ship_month: toMonth(r.ship_month) ?? addMonths(thisMonth, 3),
+      cust_lag_months: num(r.cust_lag_months), counted: !!r.counted, sort: num(r.sort),
+    }));
     if (skus.data?.length) skuExcludedColumn = 'excluded' in skus.data[0];
     const leftOut = skuExcludedColumn ? null : localExcluded();
     if (skus.data?.length) skuLaunchColumns = 'launch_month' in skus.data[0];
@@ -218,6 +252,7 @@ export function useDktCashflow(thisMonth: Month) {
       dktEntityName: dkt?.name ?? null,
       odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
       defaults,
+      retained, retainedLocal,
     });
     setLoading(false);
   }, [thisMonth]);
@@ -353,6 +388,39 @@ export function useDktCashflow(thisMonth: Month) {
       if (patch.excluded != null) row.excluded = patch.excluded;
       const { error } = await db.from('dkt_order_status').upsert(row, { onConflict: 'inquiry_id' });
       fail(error);
+    },
+    // Retained orders: edit, tick, add and delete rows (in this browser until the table exists).
+    async saveRetained(id: string, patch: Partial<RetainedOrder>) {
+      patchLocal(d => ({ ...d, retained: d.retained.map(r => (r.id === id ? { ...r, ...patch } : r)) }));
+      if (data?.retainedLocal) { setLocalRetained(data.retained.map(r => (r.id === id ? { ...r, ...patch } : r))); return; }
+      fail((await db.from('dkt_retained_orders').update({ ...retainedRow(patch), updated_at: new Date().toISOString() }).eq('id', id)).error);
+    },
+    async countAllRetained(counted: boolean) {
+      patchLocal(d => ({ ...d, retained: d.retained.map(r => ({ ...r, counted })) }));
+      if (data?.retainedLocal) { setLocalRetained(data.retained.map(r => ({ ...r, counted }))); return; }
+      const ids = (data?.retained ?? []).map(r => r.id);
+      if (ids.length) fail((await db.from('dkt_retained_orders').update({ counted }).in('id', ids)).error);
+    },
+    async addRetained() {
+      const sort = Math.max(-1, ...(data?.retained ?? []).map(r => r.sort)) + 1;
+      const row: Omit<RetainedOrder, 'id'> = {
+        name: 'New retained order', customer: null, fob_usd: 0, margin_pct: 0.1, cust_deposit_pct: 0.3, advance_pct: 0.5,
+        po_month: thisMonth, ship_month: addMonths(thisMonth, 3), cust_lag_months: 0, counted: false, sort,
+      };
+      if (data?.retainedLocal) {
+        const added = { ...row, id: `local-${Date.now()}` };
+        patchLocal(d => ({ ...d, retained: [...d.retained, added] }));
+        setLocalRetained([...data.retained, added]);
+        return;
+      }
+      const { data: saved, error } = await db.from('dkt_retained_orders').insert(retainedRow(row)).select('id').single();
+      if (fail(error) || !saved) return;
+      patchLocal(d => ({ ...d, retained: [...d.retained, { ...row, id: saved.id }] }));
+    },
+    async removeRetained(id: string) {
+      patchLocal(d => ({ ...d, retained: d.retained.filter(r => r.id !== id) }));
+      if (data?.retainedLocal) { setLocalRetained(data.retained.filter(r => r.id !== id)); return; }
+      fail((await db.from('dkt_retained_orders').delete().eq('id', id)).error);
     },
     // Generic row helpers for the DKT-only tables. Months are stored as the 1st of the month.
     async insert(table: string, row: Record<string, any>) {
