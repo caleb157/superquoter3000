@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sdk_version": "0.20.0",
+  "sdk_version": "0.20.1",
   "path": "/functions/v1/mcp",
   "auth": {
     "type": "oauth",
@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -33,9 +33,31 @@
         "outputSchema": null
       },
       {
+        "name": "list_lookups",
+        "title": "List lookup values",
+        "description": "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes and company entities. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include_intake_columns": {
+              "type": "boolean",
+              "description": "Also return the Costing Intake column list (about 150 columns)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "list_customers",
         "title": "List customers",
-        "description": "List customers visible to the signed-in user, optionally filtered by a search string on name/company/email.",
+        "description": "List customers visible to the signed-in user, optionally filtered by a search string on name, company or email.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -46,7 +68,7 @@
           "properties": {
             "search": {
               "type": "string",
-              "description": "Optional substring to match against name, company, or email."
+              "description": "Optional text to match against name, company or email."
             },
             "limit": {
               "type": "integer",
@@ -63,7 +85,7 @@
       {
         "name": "list_inquiries",
         "title": "List inquiries",
-        "description": "List inquiries (pipeline items) visible to the signed-in user, optionally filtered by status or customer.",
+        "description": "List inquiries visible to the signed-in user, newest activity first. Filter by status, customer, or text in the title or inquiry number.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -74,12 +96,24 @@
           "properties": {
             "status": {
               "type": "string",
-              "description": "Optional status filter (e.g. active, paused, po, complete, cancelled)."
+              "enum": [
+                "active",
+                "paused",
+                "projected_po",
+                "po",
+                "complete",
+                "cancelled"
+              ],
+              "description": "Optional status filter."
             },
             "customer_id": {
               "type": "string",
               "format": "uuid",
               "description": "Optional customer UUID to filter by."
+            },
+            "search": {
+              "type": "string",
+              "description": "Optional text to match in the title or inquiry number (e.g. RFQ-2026-014)."
             },
             "limit": {
               "type": "integer",
@@ -96,7 +130,7 @@
       {
         "name": "list_products",
         "title": "List products",
-        "description": "List products visible to the signed-in user, optionally filtered by a name search or inquiry (customer_rfq) id.",
+        "description": "List products visible to the signed-in user, optionally filtered by text in the name or SKU, or by inquiry (customer_rfq) id. Archived products are left out unless include_archived is true.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -107,12 +141,16 @@
           "properties": {
             "search": {
               "type": "string",
-              "description": "Optional substring to match on product name."
+              "description": "Optional text to match in the product name or SKU."
             },
             "customer_rfq_id": {
               "type": "string",
               "format": "uuid",
-              "description": "Optional inquiry/RFQ UUID to filter by."
+              "description": "Optional inquiry UUID to filter by."
+            },
+            "include_archived": {
+              "type": "boolean",
+              "description": "Include archived products (default false)."
             },
             "limit": {
               "type": "integer",
@@ -129,7 +167,7 @@
       {
         "name": "list_tasks",
         "title": "List tasks",
-        "description": "List tasks visible to the signed-in user. Filter by completion state or due-date window.",
+        "description": "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer or assignee code (e.g. CQ).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -140,7 +178,21 @@
           "properties": {
             "only_open": {
               "type": "boolean",
-              "description": "If true, exclude completed tasks."
+              "description": "If true, only tasks with status open."
+            },
+            "inquiry_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Only tasks on this inquiry."
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Only tasks on this customer."
+            },
+            "assignee": {
+              "type": "string",
+              "description": "Only tasks for this assignee code (see list_lookups)."
             },
             "limit": {
               "type": "integer",
@@ -178,6 +230,439 @@
           },
           "required": [
             "product_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "find_or_create_customer",
+        "title": "Find or create a customer",
+        "description": "Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers default to lead_status active, like the app; lead_status lead also starts the \"Customer set to Lead\" task rule. Use dry_run to see what would happen without writing.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Contact or customer name."
+            },
+            "company": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Company name."
+            },
+            "email": {
+              "type": "string",
+              "maxLength": 320,
+              "description": "Email address; checked first for a match."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "linkedin_url": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Where the lead came from, e.g. Email, LinkedIn, Referral."
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "lead_status": {
+              "type": "string",
+              "enum": [
+                "lead",
+                "active",
+                "won",
+                "inactive",
+                "churned"
+              ],
+              "description": "Only used when creating. Default active."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Report the match or the record that would be created, without writing."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_inquiry",
+        "title": "Create an inquiry",
+        "description": "Create an active inquiry for an existing customer (find it first with find_or_create_customer), with the same Projection defaults as the app's New Inquiry dialog: first company entity sells, the PV entity produces, sea freight, start this month. PD HQ then adds the tasks from the \"Inquiry created\" rules. If the customer already has an open inquiry with the same title, that one is returned instead unless allow_duplicate is true. Use dry_run to preview.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Customer UUID."
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "description": "Short title, e.g. 'Mango wood serving trays'."
+            },
+            "received_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD the inquiry came in. Default today (India)."
+            },
+            "requirements": {
+              "type": "string",
+              "maxLength": 20000,
+              "description": "What the customer asked for: products, sizes, finishes, quantities, target prices."
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 20000,
+              "description": "Internal notes, e.g. where the inquiry came from and what was agreed."
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "low",
+                "normal",
+                "high",
+                "urgent"
+              ],
+              "description": "Default normal."
+            },
+            "quoting_currency": {
+              "type": "string",
+              "maxLength": 3,
+              "description": "Currency code to quote in, e.g. USD. See list_lookups."
+            },
+            "target_completion_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD the customer needs the quote or samples by."
+            },
+            "drive_url": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Link to the shared folder with the customer's files and photos."
+            },
+            "start_month": {
+              "type": "string",
+              "description": "Projection start month, YYYY-MM. Default this month."
+            },
+            "shipping_method": {
+              "type": "string",
+              "enum": [
+                "sea",
+                "air",
+                "ground"
+              ],
+              "description": "Projection shipping method. Default sea."
+            },
+            "allow_duplicate": {
+              "type": "boolean",
+              "description": "Create even if an open inquiry with this title exists for the customer."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Show what would be created, without writing."
+            }
+          },
+          "required": [
+            "customer_id",
+            "title"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "import_costing_intake",
+        "title": "Import Costing Intake rows",
+        "description": "Add or update products on an inquiry from Costing Intake rows, using the same importer as the app's Import products button. Each row is an object keyed by the sheet's headers (e.g. \"SKU\", \"Product name\", \"Piece W (in)\", \"Raw piece ₹\") or column keys; call list_lookups with include_intake_columns for the full list. Blank or missing cells leave values unchanged. Rows match existing products on the inquiry by SKU, then name. New products are created by default; existing ones are only changed when update_existing is true, and then any category ₹ total or named line item replaces that category's manual COGS rows. Never invent costs: leave ₹ cells out unless the customer or vendor gave them. Run with dry_run first to see the plan and any unknown names. Cached prices and CBM are recalculated by the app when the inquiry is next opened.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "inquiry_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Inquiry UUID (from create_inquiry or list_inquiries)."
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                }
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "description": "One object per SKU, keyed by Costing Intake header or key."
+            },
+            "create_missing": {
+              "type": "boolean",
+              "description": "Create products for rows that match nothing (default true)."
+            },
+            "update_existing": {
+              "type": "boolean",
+              "description": "Update products that already exist on the inquiry (default false)."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Return the plan and warnings without writing."
+            }
+          },
+          "required": [
+            "inquiry_id",
+            "rows"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "attach_product_photo",
+        "title": "Attach a product photo",
+        "description": "Set a product's main photo from a customer's image (JPEG, PNG or WebP, up to 5 MB, base64). Stored like a photo uploaded in the app. Refuses to overwrite an existing photo unless replace is true.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "product_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Product UUID (from import_costing_intake or list_products)."
+            },
+            "image_base64": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Image bytes as base64; a data: URL prefix is accepted."
+            },
+            "media_type": {
+              "type": "string",
+              "enum": [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+              ]
+            },
+            "replace": {
+              "type": "boolean",
+              "description": "Overwrite the current photo."
+            },
+            "dry_run": {
+              "type": "boolean",
+              "description": "Check the image and product without uploading."
+            }
+          },
+          "required": [
+            "product_id",
+            "image_base64",
+            "media_type"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_sample_request",
+        "title": "Request samples",
+        "description": "Create a sample request on an inquiry with one line per product, the same as the inquiry's Request samples button. The products' sample stage moves to requested, and PD HQ adds any \"Sample requested\" tasks. If any of the products already has a pending sample on this inquiry, nothing is created unless allow_duplicate is true. Use dry_run to preview.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "inquiry_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "product_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "description": "Products on this inquiry to sample."
+            },
+            "customer_requested_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD the customer asked for samples."
+            },
+            "required_by_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD the samples are needed by."
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 5000,
+              "description": "Finish, size or other instructions for the samples."
+            },
+            "allow_duplicate": {
+              "type": "boolean",
+              "description": "Create even if a product already has a pending sample."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "inquiry_id",
+            "product_ids"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_task",
+        "title": "Create a task",
+        "description": "Create one task in PD HQ, optionally linked to an inquiry or a customer and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "due_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD. Required."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "low",
+                "normal",
+                "high",
+                "urgent"
+              ],
+              "description": "Default normal."
+            },
+            "assignee": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "Assignee code, e.g. CQ."
+            },
+            "inquiry_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "recurrence_rule": {
+              "type": "object",
+              "properties": {
+                "freq": {
+                  "type": "string",
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly",
+                    "yearly"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 365
+                },
+                "weekdays": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  "description": "Weekly only. 0 = Sunday."
+                },
+                "monthDay": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 31,
+                  "description": "Monthly only."
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "due",
+                    "completion"
+                  ],
+                  "description": "due = repeat from the due date; completion = repeat from when it is done."
+                }
+              },
+              "required": [
+                "freq",
+                "interval",
+                "mode"
+              ],
+              "additionalProperties": false
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "title",
+            "due_date"
           ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"

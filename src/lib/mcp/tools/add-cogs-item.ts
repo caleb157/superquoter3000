@@ -1,13 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { withUserDb } from "../shared";
 
 const COGS_TYPES = [
   "Raw Piece",
@@ -22,28 +15,27 @@ const COGS_TYPES = [
   "Accessories",
 ] as const;
 
+const inputSchema = {
+  product_id: z.string().uuid().describe("UUID of the target product."),
+  cogs_type: z.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
+  component_name: z.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
+  unit_cost_inr: z.number().nonnegative().describe("Unit cost in INR."),
+  vendor_name: z.string().optional().describe("Optional vendor name."),
+  units: z.string().optional().describe("Unit of measure (default 'pc')."),
+  components_per_product: z.number().nonnegative().optional().describe("Quantity per product (default 1)."),
+  waste_factor: z.number().min(0).max(1).optional().describe("Waste factor as a decimal (e.g. 0.05 for 5%)."),
+  include: z.enum(["Yes", "No"]).optional().describe("Whether to include this line in totals (default Yes)."),
+};
+type Input = z.infer<z.ZodObject<typeof inputSchema>>;
+
 export default defineTool({
   name: "add_cogs_item",
   title: "Add COGS item to a product",
   description:
     "Add a COGS line to a specific product. Resolve the product first with `list_products` (or pass its UUID). Example: to add '520/- raw mango tray' to the HFM Serving Tray, call with product_id, cogs_type='Raw Piece', component_name='Raw Mango Tray', unit_cost_inr=520. cogs_type must be one of: Raw Piece, Subcontracting, Finishing Materials, Packaging, Hardware, Accessories.",
-  inputSchema: {
-    product_id: z.string().uuid().describe("UUID of the target product."),
-    cogs_type: z.enum([COGS_TYPES[0], ...COGS_TYPES.slice(1)]).describe("Category of the COGS line."),
-    component_name: z.string().min(1).describe("Display name of the component, e.g. 'Raw Mango Tray'."),
-    unit_cost_inr: z.number().nonnegative().describe("Unit cost in INR."),
-    vendor_name: z.string().optional().describe("Optional vendor name."),
-    units: z.string().optional().describe("Unit of measure (default 'pc')."),
-    components_per_product: z.number().nonnegative().optional().describe("Quantity per product (default 1)."),
-    waste_factor: z.number().min(0).max(1).optional().describe("Waste factor as a decimal (e.g. 0.05 for 5%)."),
-    include: z.enum(["Yes", "No"]).optional().describe("Whether to include this line in totals (default Yes)."),
-  },
+  inputSchema,
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async (input, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const sb = supabaseForUser(ctx);
+  handler: withUserDb(async (sb, input: Input) => {
 
     // Confirm product exists / is visible to this user.
     const { data: product, error: prodErr } = await sb
@@ -95,5 +87,5 @@ export default defineTool({
       ],
       structuredContent: { cogs_item: data, product: { id: product.id, name: product.name } },
     };
-  },
+  }),
 });
