@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
 import { OdooOrdersCard } from '@/components/dkt/OdooOrdersCard';
+import { RetainedOrdersCard } from '@/components/dkt/RetainedOrdersCard';
+import { retainedToOrder } from '@/lib/dkt-retained';
 import { CostsTab } from '@/components/dkt/CostsTab';
 import { LoansTab } from '@/components/dkt/LoansTab';
 import { CreditTab } from '@/components/dkt/CreditTab';
@@ -64,7 +66,8 @@ export default function DktCashFlow() {
     const inForecast = new Set(data.scenarios.filter(s => (isAllegroScenario(s) ? data.settings.allegro_launch_on : s.in_forecast)).map(s => s.id));
     return {
       settings: data.settings, thisMonth,
-      orders: data.orders, costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
+      // Retained orders join the pipeline; unticked ones are excluded and change nothing.
+      orders: [...data.orders, ...data.retained.map(retainedToOrder)], costs: data.costs, loans: data.loans, loanPayments: data.loanPayments,
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: countedSkus(allegro.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
       allegroPlan: allegro.plan,
@@ -103,7 +106,7 @@ export default function DktCashFlow() {
           <Tabs value={tab} onValueChange={pickTab}>
             <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="forecast">Forecast</TabsTrigger>
-              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length + odoo.rows.filter(o => !o.excluded).length})</TabsTrigger>
+              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length + odoo.rows.filter(o => !o.excluded).length}{data.retained.some(r => r.counted) ? ` + ${data.retained.filter(r => r.counted).length} retained` : ''})</TabsTrigger>
               <TabsTrigger value="costs">Overhead &amp; expenses</TabsTrigger>
               <TabsTrigger value="loans">Loans</TabsTrigger>
               <TabsTrigger value="credit">Credit lines</TabsTrigger>
@@ -128,7 +131,9 @@ export default function DktCashFlow() {
               <OrdersTab orders={data.orders} odooRows={odoo.rows} share={odoo.share} meta={data.orderMeta} settings={data.settings} dktEntityName={data.dktEntityName}
                 saveOrder={api.saveOrder} saveTermsToInquiry={api.saveTermsToInquiry} saveStatus={api.saveOrderStatus} saveSettings={api.saveSettings}
                 odooCard={<OdooOrdersCard rows={odoo.rows} invoices={odoo.invoices} partner={odoo.partner} loading={odoo.loading} error={odoo.error}
-                  thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />} />
+                  thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />}
+                retainedCard={<RetainedOrdersCard rows={data.retained} local={data.retainedLocal}
+                  save={api.saveRetained} countAll={api.countAllRetained} add={api.addRetained} remove={api.removeRetained} />} />
             </TabsContent>
             <TabsContent value="costs" className="mt-4">
               <CostsTab costs={data.costs} thisMonth={thisMonth} settings={data.settings} saveSettings={api.saveSettings}

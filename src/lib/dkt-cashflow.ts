@@ -52,6 +52,10 @@ export type DktOrder = {
   ship_month: Month; // customer balance + PV balance
   done: { cust_deposit: boolean; advance: boolean; cust_balance: boolean; pv_balance: boolean };
   excluded: boolean;
+  /** Months after the ship month that the customer pays its balance (blank = the ship month). */
+  cust_lag_months?: number;
+  /** A row from the Retained orders simulation (dkt-retained.ts), not an HQ inquiry. */
+  retained?: boolean;
 };
 
 /** A confirmed PV → DKT sales order from Odoo, with DKT's own terms for its customer side. */
@@ -190,7 +194,8 @@ export function orderFlows(o: DktOrder, thisMonth: Month): Flow[] {
   const out: Flow[] = [];
   if (!o.done.cust_deposit && a.custDeposit) out.push({ month: at(o.po_month), kind: 'cust_deposit', amount: a.custDeposit, label, ref });
   if (!o.done.advance && a.pvAdvance) out.push({ month: at(o.po_month), kind: 'pv_advance', amount: -a.pvAdvance, label, ref });
-  if (!o.done.cust_balance && a.custBalance) out.push({ month: at(o.ship_month), kind: 'cust_balance', amount: a.custBalance, label, ref });
+  const lag = Math.max(0, Math.round(Number(o.cust_lag_months) || 0));
+  if (!o.done.cust_balance && a.custBalance) out.push({ month: at(addMonths(o.ship_month, lag)), kind: 'cust_balance', amount: a.custBalance, label, ref });
   if (!o.done.pv_balance && a.pvBalance) out.push({ month: at(o.ship_month), kind: 'pv_balance', amount: -a.pvBalance, label, ref });
   return out;
 }
@@ -704,7 +709,7 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
     const m = at(o.ship_month);
     if (o.excluded || !(o.fob_usd > 0) || !inWindow(m)) continue;
     const a = orderAmounts(o);
-    const label = `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''} (pipeline)`;
+    const label = `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''} (${o.retained ? 'retained' : 'pipeline'})`;
     hqRev.push({ month: m, label, amount: o.fob_usd });
     hqCost.push({ month: m, label, amount: -a.pvTotal });
   }
