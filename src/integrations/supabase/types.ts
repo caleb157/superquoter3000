@@ -1207,6 +1207,7 @@ export type Database = {
         Row: {
           balloon: boolean
           created_at: string
+          draw_priority: number | null
           drawn_usd: number
           id: string
           limit_usd: number
@@ -1221,6 +1222,7 @@ export type Database = {
         Insert: {
           balloon?: boolean
           created_at?: string
+          draw_priority?: number | null
           drawn_usd?: number
           id?: string
           limit_usd?: number
@@ -1235,6 +1237,7 @@ export type Database = {
         Update: {
           balloon?: boolean
           created_at?: string
+          draw_priority?: number | null
           drawn_usd?: number
           id?: string
           limit_usd?: number
