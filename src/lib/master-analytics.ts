@@ -1,8 +1,9 @@
 // Pure calculations for the Master Analytics page. Odoo/LaborTrax actuals come
 // from the cached snapshot; pipeline comes from HQ inquiries. No React here.
-import { effectiveCertainty } from '@/lib/projections';
-import { effectiveFobUsd, effectiveGpm } from '@/lib/inquiry-financials';
-import { spreadEntry, type ManualEntry } from '@/lib/manual-cash-entries';
+// Relative imports only: the PD HQ connector (src/lib/mcp) bundles this file too.
+import { effectiveCertainty } from './projections';
+import { effectiveFobUsd, effectiveGpm } from './inquiry-financials';
+import { spreadEntry, type ManualEntry } from './manual-cash-entries';
 
 export type Ccy = 'USD' | 'INR';
 export type Money = { amount_inr: number; amount_usd: number };
