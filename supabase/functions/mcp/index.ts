@@ -177,17 +177,19 @@ async function listTasks(db, input) {
   if (input.only_open) q = q.eq("status", "open");
   if (input.inquiry_id) q = q.eq("inquiry_id", input.inquiry_id);
   if (input.customer_id) q = q.eq("customer_id", input.customer_id);
+  if (input.project_id) q = q.eq("association_type", "project").eq("association_id", input.project_id);
   if (input.assignee) q = q.eq("assignee", input.assignee.trim().toUpperCase());
   return check(await q, "Could not list tasks") ?? [];
 }
 var list_tasks_default = defineTool5({
   name: "list_tasks",
   title: "List tasks",
-  description: "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer or assignee code (e.g. CQ).",
+  description: "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer, project or assignee code (e.g. CQ).",
   inputSchema: {
     only_open: z4.boolean().optional().describe("If true, only tasks with status open."),
     inquiry_id: z4.string().uuid().optional().describe("Only tasks on this inquiry."),
     customer_id: z4.string().uuid().optional().describe("Only tasks on this customer."),
+    project_id: z4.string().uuid().optional().describe("Only tasks on this project (see list_lookups)."),
     assignee: z4.string().optional().describe("Only tasks for this assignee code (see list_lookups)."),
     limit: z4.number().int().min(1).max(200).optional().describe("Max rows (default 50).")
   },
@@ -789,7 +791,7 @@ function matchProduct(prods, row) {
 
 // src/lib/mcp/tools/list-lookups.ts
 async function listLookups(db, input) {
-  const [types, locations, shipping, finishing, chems, currencies, people, entities] = await Promise.all([
+  const [types, locations, shipping, finishing, chems, currencies, people, entities, projects] = await Promise.all([
     db.from("product_types").select("id, name").order("name"),
     db.from("local_transport_locations").select("id, name, active").order("sort_order"),
     db.from("shipping_types").select("id, name").order("name"),
@@ -797,7 +799,8 @@ async function listLookups(db, input) {
     db.from("chemical_prices").select("name, category").order("name"),
     db.from("currencies").select("code, name").order("sort_priority"),
     db.from("profiles").select("assignee_code, display_name").not("assignee_code", "is", null),
-    db.from("company_entities").select("id, name, entity_type").order("name")
+    db.from("company_entities").select("id, name, entity_type").order("name"),
+    db.from("projects").select("id, name, status").in("status", ["in_progress", "paused"]).order("name")
   ]);
   const result = {
     product_types: check(types, "Could not read product types") ?? [],
@@ -808,6 +811,7 @@ async function listLookups(db, input) {
     currencies: check(currencies, "Could not read currencies") ?? [],
     assignees: check(people, "Could not read assignee codes") ?? [],
     company_entities: check(entities, "Could not read company entities") ?? [],
+    projects: check(projects, "Could not read projects") ?? [],
     packaging_types: ["ic_only", "ic_mc", "bulk_pack", "no_packaging"],
     task_priorities: ["low", "normal", "high", "urgent"]
   };
@@ -819,7 +823,7 @@ async function listLookups(db, input) {
 var list_lookups_default = defineTool9({
   name: "list_lookups",
   title: "List lookup values",
-  description: "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes and company entities. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
+  description: "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes, company entities and open projects. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
   inputSchema: {
     include_intake_columns: z8.boolean().optional().describe("Also return the Costing Intake column list (about 150 columns).")
   },
@@ -1244,11 +1248,28 @@ var recurrence = z14.object({
   monthDay: z14.number().int().min(1).max(31).optional().describe("Monthly only."),
   mode: z14.enum(["due", "completion"]).describe("due = repeat from the due date; completion = repeat from when it is done.")
 });
+async function findProject(db, input) {
+  let rows;
+  if (input.project_id) {
+    rows = check(await db.from("projects").select("id, name, status").eq("id", input.project_id), "Could not read the project") ?? [];
+    if (!rows.length) throw new ToolError(`Project ${input.project_id} not found or not visible to you.`);
+  } else {
+    const name = cleanSearch(input.project ?? "");
+    if (!name) throw new ToolError("Give the project's name or id.");
+    rows = check(await db.from("projects").select("id, name, status").ilike("name", name), "Could not read projects") ?? [];
+    if (!rows.length) throw new ToolError(`No project named "${input.project}". See list_lookups for project names.`);
+    if (rows.length > 1) throw new ToolError(`${rows.length} projects are named "${input.project}". Pass project_id instead.`);
+  }
+  const p = rows[0];
+  if (p.status === "done" || p.status === "cancelled") throw new ToolError(`Project "${p.name}" is ${p.status}; tasks go on open projects.`);
+  return p;
+}
 async function createTask(db, input) {
   const title = input.title.trim();
   if (!title) throw new ToolError("Give the task a title.");
   if (!isValidYmd(input.due_date)) throw new ToolError("due_date must be a real date as YYYY-MM-DD.");
-  if (input.inquiry_id && input.customer_id) throw new ToolError("Link the task to an inquiry or a customer, not both.");
+  const links = [input.inquiry_id, input.customer_id, input.project_id || input.project].filter(Boolean).length;
+  if (links > 1) throw new ToolError("Link the task to one thing: an inquiry, a customer or a project, not both.");
   let assignee = null;
   if (input.assignee?.trim()) {
     assignee = input.assignee.trim().toUpperCase();
@@ -1279,6 +1300,9 @@ async function createTask(db, input) {
     const c = check(await db.from("customers").select("id, name").eq("id", input.customer_id).maybeSingle(), "Could not read the customer");
     if (!c) throw new ToolError(`Customer ${input.customer_id} not found or not visible to you.`);
     Object.assign(row, { customer_id: c.id, association_type: "customer", association_id: c.id, association_label: c.name });
+  } else if (input.project_id || input.project) {
+    const p = await findProject(db, input);
+    Object.assign(row, { association_type: "project", association_id: p.id, association_label: p.name });
   }
   if (input.dry_run) return { task: row, created: false, dry_run: true };
   const task = check(
@@ -1290,7 +1314,7 @@ async function createTask(db, input) {
 var create_task_default = defineTool15({
   name: "create_task",
   title: "Create a task",
-  description: "Create one task in PD HQ, optionally linked to an inquiry or a customer and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
+  description: "Create one task in PD HQ, optionally linked to an inquiry, a customer or a project (by id or exact name, e.g. Sales Office) and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
   inputSchema: {
     title: z14.string().min(1).max(500),
     due_date: z14.string().describe("YYYY-MM-DD. Required."),
@@ -1299,6 +1323,8 @@ var create_task_default = defineTool15({
     assignee: z14.string().max(10).optional().describe("Assignee code, e.g. CQ."),
     inquiry_id: z14.string().uuid().optional(),
     customer_id: z14.string().uuid().optional(),
+    project_id: z14.string().uuid().optional().describe("Link to this project (see list_lookups)."),
+    project: z14.string().max(200).optional().describe("Or the project's exact name, e.g. Sales Office."),
     recurrence_rule: recurrence.optional(),
     dry_run: z14.boolean().optional()
   },

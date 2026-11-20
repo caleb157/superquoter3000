@@ -55,6 +55,10 @@ function seed() {
     global_settings: [{ mc_height_buffer_inch: 2.5 }],
     samples: [],
     sample_requests: [],
+    projects: [
+      { id: "proj-sales", name: "Sales Office", status: "in_progress" },
+      { id: "proj-old", name: "Old launch", status: "done" },
+    ],
     tasks: [],
     inquiry_projections: [],
   });
@@ -152,6 +156,7 @@ describe("read tools match the real schema", () => {
     const r: any = await listLookups(seed(), { include_intake_columns: true });
     expect(r.product_types[0].name).toBe("Wood Side/End Table");
     expect(r.assignees.map((a: any) => a.assignee_code)).toEqual(["CQ", "PH"]);
+    expect(r.projects.map((p: any) => p.name)).toEqual(["Sales Office"]);
     expect(r.intake_columns.find((c: any) => c.key === "sku").header).toBe("SKU");
   });
 });
@@ -354,5 +359,22 @@ describe("create_task", () => {
     const db = seed();
     await createTask(db, { title: "X", due_date: "2026-11-25", customer_id: CUST, dry_run: true });
     expect(db.writes).toEqual([]);
+  });
+
+  it("links to a project by name or id, like the app's project picker", async () => {
+    const db = seed();
+    const r: any = await createTask(db, { title: "Follow up", due_date: "2026-11-25", project: "sales office" });
+    expect(r.task).toMatchObject({ association_label: "Sales Office" });
+    const row = db.writesTo("tasks", "insert")[0].rows![0];
+    expect(row).toMatchObject({ association_type: "project", association_id: "proj-sales" });
+    expect(row.inquiry_id ?? null).toBeNull();
+    expect((await createTask(seed(), { title: "Y", due_date: "2026-11-25", project_id: "proj-sales", dry_run: true }) as any).task.association_id).toBe("proj-sales");
+    expect((await listTasks(db, { project_id: "proj-sales" })).map((t: any) => t.title)).toEqual(["Follow up"]);
+  });
+
+  it("refuses unknown, closed or doubled-up project links", async () => {
+    await expect(createTask(seed(), { title: "X", due_date: "2026-11-25", project: "Nope" })).rejects.toThrow(/No project named/);
+    await expect(createTask(seed(), { title: "X", due_date: "2026-11-25", project: "Old launch" })).rejects.toThrow(/done/);
+    await expect(createTask(seed(), { title: "X", due_date: "2026-11-25", project: "Sales Office", inquiry_id: INQ })).rejects.toThrow(/one thing/);
   });
 });
