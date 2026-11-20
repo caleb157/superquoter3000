@@ -24,23 +24,26 @@ type Props = {
   odooCard: ReactNode;
   /** Retained orders simulation, shown under the pipeline. */
   retainedCard?: ReactNode;
+  /** When confirmed orders come from DKT's own Odoo: their count, customer price, margin and what's still owed to PV. */
+  confirmed?: { count: number; fob: number; margin: number; stillToPv: number; source: string };
 };
 
-export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveTermsToInquiry, saveStatus, saveSettings, odooCard, retainedCard }: Props) {
+export function OrdersTab({ orders, odooRows, share, meta, settings, dktEntityName, saveOrder, saveTermsToInquiry, saveStatus, saveSettings, odooCard, retainedCard, confirmed }: Props) {
   const live = orders.filter(o => !o.excluded);
   const sum = (f: (a: ReturnType<typeof orderAmounts>) => number) => live.reduce((s, o) => s + f(orderAmounts(o)), 0);
   const real = odooRows.filter(o => !o.excluded);
-  const realFob = real.reduce((s, o) => s + odooFob(o), 0);
-  const realMargin = real.reduce((s, o) => s + odooFob(o) - o.pv_total_usd, 0);
-  const stillToPv = real.reduce((s, o) => s + odooOwed(o, o.invoices), 0);
+  const realCount = confirmed ? confirmed.count : real.length;
+  const realFob = confirmed ? confirmed.fob : real.reduce((s, o) => s + odooFob(o), 0);
+  const realMargin = confirmed ? confirmed.margin : real.reduce((s, o) => s + odooFob(o) - o.pv_total_usd, 0);
+  const stillToPv = confirmed ? confirmed.stillToPv : real.reduce((s, o) => s + odooOwed(o, o.invoices), 0);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Stat label="Orders (confirmed + pipeline)" value={real.length + live.length}
-          sub={`${real.length} confirmed · ${live.length} pipeline · FOB ${usd(realFob + live.reduce((s, o) => s + o.fob_usd, 0))}`} />
+        <Stat label="Orders (confirmed + pipeline)" value={realCount + live.length}
+          sub={`${realCount} confirmed · ${live.length} pipeline · FOB ${usd(realFob + live.reduce((s, o) => s + o.fob_usd, 0))}`} />
         <Stat label="DKT margin on them" value={usd(realMargin + sum(a => a.margin))} />
-        <Stat label="Still to pay PV (confirmed orders)" value={usd(stillToPv)} sub="From Odoo" />
+        <Stat label="Still to pay PV (confirmed orders)" value={usd(stillToPv)} sub={confirmed ? `From ${confirmed.source}` : "From PV's Odoo"} />
         <Stat label="PV sales to DKT, last 12 months"
           value={share && share.total_usd > 0 ? `${Math.round((share.dkt_usd / share.total_usd) * 100)}%` : '–'}
           sub={share && share.total_usd > 0

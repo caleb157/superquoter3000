@@ -42,9 +42,11 @@ type Props = {
   setPullPrefs: (p: PullPrefs) => void;
   pull: PullPlan | null;
   openCredit: () => void;
+  /** DKT's bank balance from its own Odoo, offered as current cash. */
+  booksCash?: { balance: number; asOf: string | null } | null;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual, payoffPrefs, setPayoffPrefs, payoff, pullPrefs, setPullPrefs, pull, openCredit }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual, payoffPrefs, setPayoffPrefs, payoff, pullPrefs, setPullPrefs, pull, openCredit, booksCash }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
@@ -82,6 +84,12 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
           <div className="text-[11px] text-muted-foreground">Cash in the bank now</div>
           <NumField label="Current cash" value={settings.cash_usd} onSave={v => saveSettings({ cash_usd: v ?? 0, cash_as_of: new Date().toISOString().slice(0, 10) })} />
           <div className="text-[11px] text-muted-foreground">{settings.cash_as_of ? `Updated ${settings.cash_as_of}` : 'Type today’s balance'}</div>
+          {booksCash && (Math.abs(booksCash.balance - settings.cash_usd) > 0.5 || (booksCash.asOf && booksCash.asOf !== settings.cash_as_of)) && (
+            <div className="text-[11px] text-muted-foreground">
+              DKT's Odoo: {usd(booksCash.balance)}{booksCash.asOf ? ` on ${booksCash.asOf}` : ''}{' '}
+              <button type="button" className="underline text-foreground" onClick={() => saveSettings({ cash_usd: Math.round(booksCash.balance * 100) / 100, cash_as_of: booksCash.asOf ?? new Date().toISOString().slice(0, 10) })}>Use it</button>
+            </div>
+          )}
           {custReceived > 0.5 && (
             <div className="text-[11px] text-success" title="Typed under Customer paid on the Orders tab after current cash was saved. The forecast adds it this month; saving a new current cash figure takes it in.">
               + {usd(custReceived)} customer payments since, added this month

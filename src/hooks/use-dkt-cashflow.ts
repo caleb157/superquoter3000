@@ -14,6 +14,7 @@ import {
 } from '@/lib/dkt-cashflow';
 import type { AmazonSku } from '@/lib/dkt-amazon';
 import { seedRows, type RetainedOrder } from '@/lib/dkt-retained';
+import type { BooksRaw, BooksTerms } from '@/lib/dkt-books';
 
 const db = supabase as any;
 
@@ -80,6 +81,11 @@ const setLocalBlocks = (id: string, patch: Record<string, unknown>) => {
   all[id] = { ...all[id], ...Object.fromEntries(PULL_BLOCK_KEYS.filter(k => k in patch).map(k => [k, patch[k] == null ? null : Number(patch[k])])) };
   try { localStorage.setItem(PULL_BLOCK_KEY, JSON.stringify(all)); } catch { /* ignore */ }
 };
+// Per-order choices for DKT's own Odoo orders (dkt_books_order_terms); kept in this browser until the table exists.
+let booksTermsTable = true;
+const BOOKS_TERMS_KEY = 'dkt-books-order-terms';
+const localBooksTerms = (): BooksTerms[] => { try { const v = JSON.parse(localStorage.getItem(BOOKS_TERMS_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+const setLocalBooksTerms = (rows: BooksTerms[]) => { try { localStorage.setItem(BOOKS_TERMS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } };
 // Allegro launch cost % (dkt_cash_settings.allegro_launch_cost_pct); kept in this browser until the column exists.
 let launchCostColumn = true;
 const LAUNCH_COST_KEY = 'dkt-allegro-launch-cost-pct';
@@ -137,6 +143,8 @@ export type DktData = {
   retained: RetainedOrder[];
   /** True while the list is kept in this browser (the table isn't in the database yet). */
   retainedLocal: boolean;
+  /** Per-order choices for orders read from DKT's own Odoo. */
+  booksTerms: BooksTerms[];
 };
 
 const num = (v: any, d = 0) => (v == null || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
@@ -202,6 +210,10 @@ export function useDktCashflow(thisMonth: Month) {
       db.from('dkt_odoo_order_terms').select('*'),
       db.from('dkt_retained_orders').select('*').order('sort').order('created_at'),
     ]);
+    const bt = await db.from('dkt_books_order_terms').select('*');
+    booksTermsTable = !bt.error;
+    const booksTerms: BooksTerms[] = bt.error ? localBooksTerms()
+      : ((bt.data || []) as { so_name: string; excluded: boolean | null; ship_month: string | null }[]).map(r => ({ so_name: r.so_name, excluded: !!r.excluded, ship_month: toMonth(r.ship_month) }));
     // Any error reading the retained table (most likely: not created yet) falls back to this browser.
     const retainedLocal = !!ret.error;
     const retained: RetainedOrder[] = retainedLocal ? localRetained() : ((ret.data || []) as RetainedDbRow[]).map(r => ({
@@ -278,7 +290,7 @@ export function useDktCashflow(thisMonth: Month) {
       dktEntityName: dkt?.name ?? null,
       odooTerms: (terms.error ? [] : terms.data || []).map((r: any) => ({ ...r, ship_month: m(r, 'ship_month') })),
       defaults,
-      retained, retainedLocal,
+      retained, retainedLocal, booksTerms,
     });
     setLoading(false);
   }, [thisMonth]);
@@ -324,6 +336,25 @@ export function useDktCashflow(thisMonth: Month) {
   }, [odoo, data, thisMonth]);
   const odooInvoices: OdooInvoice[] = useMemo(() => (odoo?.invoices ?? []).map(toInvoice(thisMonth)), [odoo, thisMonth]);
 
+  // DKT's own books, live from DKT's Odoo (nothing is stored).
+  const [books, setBooks] = useState<BooksRaw | null>(null);
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [booksError, setBooksError] = useState<{ message: string; notConnected: boolean } | null>(null);
+  const loadBooks = useCallback(async () => {
+    setBooksLoading(true); setBooksError(null);
+    const { data: res, error: err } = await supabase.functions.invoke('odoo-dkt-books', { body: {} });
+    setBooksLoading(false);
+    if (err || res?.error) {
+      // A 400 "not connected" (no secrets yet) comes back as an error with the body in err.context.
+      let body = res;
+      try { if (!body && err && 'context' in err) body = await (err as { context: Response }).context.json(); } catch { /* ignore */ }
+      setBooksError({ message: typeof body?.error === 'string' ? body.error : err?.message || "Could not load DKT's Odoo", notConnected: !!body?.not_connected || /not connected|not found|404/i.test(err?.message || '') });
+      return;
+    }
+    setBooks(res as BooksRaw);
+  }, []);
+  useEffect(() => { loadBooks(); }, [loadBooks]);
+
   const fail = (e: any) => { if (e) { toast.error(e.message || 'Could not save'); return true; } return false; };
 
   /** Local update first so typing stays instant, then the save. */
@@ -331,6 +362,20 @@ export function useDktCashflow(thisMonth: Month) {
 
   const api = {
     reloadOdoo: loadOdoo,
+    reloadBooks: loadBooks,
+    async saveBooksTerms(soName: string, patch: Partial<Omit<BooksTerms, 'so_name'>>) {
+      const was = data?.booksTerms ?? [];
+      const has = was.some(t => t.so_name === soName);
+      const next = has ? was.map(t => (t.so_name === soName ? { ...t, ...patch } : t)) : [...was, { so_name: soName, excluded: false, ship_month: null, ...patch }];
+      patchLocal(d => ({ ...d, booksTerms: next }));
+      if (!booksTermsTable) { setLocalBooksTerms(next); return; }
+      const row: Record<string, unknown> = { so_name: soName, updated_at: new Date().toISOString() };
+      if ('excluded' in patch) row.excluded = !!patch.excluded;
+      if ('ship_month' in patch) row.ship_month = patch.ship_month ? `${patch.ship_month}-01` : null;
+      const { error } = await db.from('dkt_books_order_terms').upsert(row, { onConflict: 'so_name' });
+      if (error && /relation|does not exist|schema cache/i.test(error.message || '')) { booksTermsTable = false; setLocalBooksTerms(next); return; }
+      fail(error);
+    },
     async saveOdooTerms(soName: string, patch: Partial<Omit<OdooTerms, 'so_name'>>) {
       patchLocal(d => {
         const has = d.odooTerms.some(t => t.so_name === soName);
@@ -506,6 +551,7 @@ export function useDktCashflow(thisMonth: Month) {
   return {
     data, loading, error, api,
     odoo: { rows: odooRows, invoices: odooInvoices, partner: odoo?.partner ?? null, share: odoo?.share ?? null, fetchedAt: odoo?.fetched_at ?? null, loading: odooLoading, error: odooError },
+    books: { raw: books, loading: booksLoading, error: booksError },
   };
 }
 

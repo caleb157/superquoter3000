@@ -76,6 +76,15 @@ export type OdooOrder = {
   excluded: boolean;
 };
 export type OdooInvoice = { name: string; origin: string; due_month: Month; residual_usd: number };
+/** A confirmed order read from DKT's own books (dkt-books.ts) with its flows already worked out. */
+export type BookedOrder = {
+  key: string; // 'dkt:S00062' (also what a loan stores in pay_with_so to be repaid with it)
+  label: string;
+  flows: Flow[];
+  profit: { month: Month; revenue: number; cost: number } | null; // earned in its ship month; null = earned before
+  loanMonth: Month | null; // when the customer's last money comes in (for loans paid back with it)
+  excluded?: boolean;
+};
 
 export type CostFrequency = 'monthly' | 'quarterly' | 'yearly' | 'once';
 export type CostItem = {
@@ -316,7 +325,7 @@ export function overheadFlows(perMonth: number, months: Month[]): Flow[] {
 }
 
 // ---------- Loans ----------
-export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[], thisMonth: Month, odooOrders: OdooOrder[] = []): Flow[] {
+export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[], thisMonth: Month, odooOrders: Pick<OdooOrder, 'name' | 'ship_month'>[] = [], booked: BookedOrder[] = []): Flow[] {
   if (!loan.active) return [];
   const at = (m: Month) => (m < thisMonth ? thisMonth : m);
   // A loan still to come: its money arrives in the proceeds month. Once that month has passed it's in current cash.
@@ -333,13 +342,17 @@ export function loanFlows(loan: Loan, payments: LoanPayment[], orders: DktOrder[
     }
     return out;
   }
-  const month = lumpLoanMonth(loan, orders, odooOrders);
+  const month = lumpLoanMonth(loan, orders, odooOrders, booked);
   if (!month || !(loan.balance_usd > 0)) return proceeds;
   return [...proceeds, { month: at(month), kind: 'loan_principal', amount: -loan.balance_usd, label: loan.name, ref: loan.id }];
 }
 
 /** When a lump loan is planned to be repaid: with its linked order's customer balance, else its due month. */
-export function lumpLoanMonth(loan: Loan, orders: DktOrder[], odooOrders: OdooOrder[] = []): Month | null {
+export function lumpLoanMonth(loan: Loan, orders: DktOrder[], odooOrders: Pick<OdooOrder, 'name' | 'ship_month'>[] = [], booked: BookedOrder[] = []): Month | null {
+  if (loan.pay_with_so?.startsWith('dkt:')) {
+    const b = booked.find(x => x.key === loan.pay_with_so);
+    if (b?.loanMonth) return b.loanMonth;
+  }
   if (loan.pay_with_so) {
     const o = odooOrders.find(x => x.name === loan.pay_with_so);
     if (o) return o.ship_month;
@@ -604,6 +617,8 @@ export type ForecastInput = {
   allegroPlan?: AllegroLaunch[];
   /** Extra flows added as they are (Max payoff's early lump-loan payments). */
   extraFlows?: Flow[];
+  /** Confirmed orders from DKT's own books, used instead of odooOrders when DKT's Odoo is the source. */
+  booked?: BookedOrder[];
 };
 
 export type ForecastMonth = {
@@ -634,9 +649,10 @@ export function buildForecast(inp: ForecastInput): Forecast {
   const flows: Flow[] = [
     ...inp.orders.flatMap(o => orderFlows(o, inp.thisMonth)),
     ...odooFlows(inp.odooOrders ?? [], inp.odooInvoices ?? [], inp.thisMonth),
+    ...(inp.booked ?? []).filter(b => !b.excluded).flatMap(b => b.flows),
     ...overheadFlows(Number(inp.settings.monthly_overhead_usd) || 0, months),
     ...inp.costs.filter(c => c.kind !== 'overhead').flatMap(c => costFlows(c, months)),
-    ...inp.loans.flatMap(l => loanFlows(l, inp.loanPayments, inp.orders, inp.thisMonth, inp.odooOrders ?? [])),
+    ...inp.loans.flatMap(l => loanFlows(l, inp.loanPayments, inp.orders, inp.thisMonth, inp.odooOrders ?? [], inp.booked ?? [])),
     ...creditFlows(inp.creditLines, inp.creditDraws, months, inp.settings.cash_as_of),
     ...inp.amazonSkus.flatMap(s => amazonSkuFlows(s, inp.thisMonth, last)),
     ...allegroLaunchFlows(inp.settings, inp.thisMonth, n, inp.allegroPlan),
@@ -725,6 +741,11 @@ export function profitProjection(inp: ForecastInput, months: Month[], allFlows: 
     const label = `${o.name}${o.ref ? ` · ${o.ref}` : ''}`;
     hqRev.push({ month: m, label, amount: odooFob(o) });
     hqCost.push({ month: m, label, amount: -o.pv_total_usd });
+  }
+  for (const b of inp.booked ?? []) {
+    if (b.excluded || !b.profit || !inWindow(at(b.profit.month))) continue;
+    hqRev.push({ month: at(b.profit.month), label: b.label, amount: b.profit.revenue });
+    hqCost.push({ month: at(b.profit.month), label: b.label, amount: -b.profit.cost });
   }
   const azRev: ProfitItem[] = [], azCost: ProfitItem[] = [];
   for (const s of inp.amazonSkus) {
