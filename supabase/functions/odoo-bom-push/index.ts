@@ -30,6 +30,8 @@ const Item = z.object({
   taxIds: z.array(z.number().int().positive()).max(10).optional().nullable(), // Odoo sales taxes
   imageUrl: z.string().url().max(2000).optional().nullable(),   // raw-material photo
   vendorId: z.number().int().positive().optional().nullable(),  // existing Odoo vendor (res.partner), price 0
+  dropship: z.boolean().optional().nullable(),                  // finished product bought and sold, no BOM
+  purchaseTaxIds: z.array(z.number().int().positive()).max(10).optional().nullable(), // Odoo purchase taxes
 });
 const Line = z.object({
   productId: z.number().int().positive().optional().nullable(), // existing Odoo product.product id
@@ -273,15 +275,22 @@ Deno.serve(async (req) => {
       }
       const vals: Record<string, unknown> = {
         name: it.name, categ_id: r.categ_id, uom_id: r.uom_id, uom_po_id: r.uom_po_id,
-        sale_ok: true, purchase_ok: false, list_price: it.salePrice ?? undefined,
+        sale_ok: true, purchase_ok: !!it.dropship, list_price: it.salePrice ?? undefined,
         l10n_in_hsn_code: it.hsn || undefined,
         taxes_id: it.taxIds?.length ? [[6, 0, it.taxIds]] : undefined,
+        supplier_taxes_id: it.dropship && it.purchaseTaxIds?.length ? [[6, 0, it.purchaseTaxIds]] : undefined,
         attribute_line_ids: [[0, 0, { attribute_id: VARIANT_ATTRIBUTE_ID, value_ids: [[6, 0, valIds]] }]],
       };
       if (tmplFields.has('is_storable')) { vals.type = 'consu'; vals.is_storable = it.tracked; }
       else if (tmplFields.has('detailed_type')) vals.detailed_type = it.tracked ? 'product' : 'consu';
       else vals.type = it.tracked ? 'product' : 'consu';
       const tmplId = await kw('product.template', 'create', [await only('product.template', vals)]);
+      // Dropship: the picked vendor goes on the template (price 0), like a raw material's.
+      if (it.dropship && it.vendorId) {
+        await kw('product.supplierinfo', 'create', [await only('product.supplierinfo', {
+          partner_id: it.vendorId, product_tmpl_id: tmplId, price: 0, min_qty: 0,
+        })]);
+      }
       const variants = await sr('product.product', [['product_tmpl_id', '=', tmplId]], ['id', 'product_template_attribute_value_ids'], { context: { active_test: false } });
       if (!variants.length) throw new Error('Odoo created the product but no variant. Check the "variant" attribute in Odoo.');
       const ptavIds = variants.flatMap((x: any) => x.product_template_attribute_value_ids || []);

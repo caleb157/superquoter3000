@@ -29,7 +29,7 @@ async function call<T>(fn: string, body: unknown): Promise<T> {
 }
 
 export type OdooTax = { id: number; name: string; amount: number };
-export type OdooMeta = { categories: string[]; uoms: { name: string; category: string }[]; routes: string[]; companies: string[]; taxes?: OdooTax[] };
+export type OdooMeta = { categories: string[]; uoms: { name: string; category: string }[]; routes: string[]; companies: string[]; taxes?: OdooTax[]; purchaseTaxes?: OdooTax[] };
 
 export type OdooDetails = { id: number; sku: string; name: string; category: string; templateId: number; image: string | null; weightKg: number | null; volumeM3: number | null; hsn: string; taxIds: number[] };
 /** Live data of products already in Odoo, by product.product id. */
@@ -42,6 +42,11 @@ export type OdooVariant = { id: number; sku: string; label: string; ptavIds: num
 /** All variants on the template of an Odoo product (for BOM "Apply on Variants"). */
 export async function odooVariants(productId: number): Promise<OdooVariant[]> {
   return (await call<{ variants: OdooVariant[] }>('odoo-product-lookup', { action: 'variants', productId })).variants ?? [];
+}
+
+/** Raw-material HSN codes (6 digits) used in Odoo, with the product names filed under each. */
+export async function odooRmHsn(): Promise<{ code: string; examples: string[] }[]> {
+  return (await call<{ codes: { code: string; examples: string[] }[] }>('odoo-product-lookup', { action: 'rm-hsn' })).codes ?? [];
 }
 
 export const odooMeta = () => call<OdooMeta>('odoo-product-lookup', { action: 'meta' });

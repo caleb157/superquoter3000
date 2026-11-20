@@ -79,10 +79,25 @@ export type FinishedDraft = {
   group?: string;
   /** Odoo sales tax ids (account.tax, type sale) for the template. */
   taxIds?: number[];
+  /** Dropship: bought and sold, no BOM; purchasable in Odoo, in the dropship category, with a vendor and purchase taxes. */
+  dropship?: boolean;
+  vendor?: { id: number; name: string } | null;
+  purchaseTaxIds?: number[];
 };
 
 export const DEFAULT_COMPANY = 'Parable Ventures Private Limited';
 export const FINISHED_CATEGORY = 'All / Saleable / Final Product';
+/** Odoo category 28; its Dropship route is set on the category itself. */
+export const DROPSHIP_CATEGORY = 'All / Saleable / Final Product Dropship';
+
+/** Ticking dropship moves the product to the dropship category (back to Final Product when unticked); inventory stays tracked. */
+export function setDropship(f: FinishedDraft, on: boolean): FinishedDraft {
+  if (on) return { ...f, dropship: true, category: DROPSHIP_CATEGORY, tracked: true };
+  return { ...f, dropship: false, category: f.category === DROPSHIP_CATEGORY ? FINISHED_CATEGORY : f.category };
+}
+
+/** Raw-material HSN: 6 digits; a longer code keeps its first 6. */
+export const rmHsn = (v: string) => (v || '').replace(/\D/g, '').slice(0, 6);
 const RAW_TRACKED = 'All / Expenses / Raw Materials AVCO Automatic';
 const RAW_UNTRACKED = 'All / Expenses / Non-Inventory Raw Material AVCO';
 
@@ -468,7 +483,7 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
     .filter(l => { const k = l.newItem.sku.trim().toUpperCase(); if (seen.has(k)) return false; seen.add(k); return true; })
     .map(l => ({
       sku: l.newItem.sku.trim(), name: l.newItem.name.trim(), category: l.newItem.category, tracked: l.newItem.tracked,
-      uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, hsn: l.newItem.hsn || null,
+      uom: l.newItem.uom, purchaseUom: l.newItem.purchaseUom || null, hsn: rmHsn(l.newItem.hsn).length === 6 ? rmHsn(l.newItem.hsn) : null,
       imageUrl: /^https?:\/\//.test(l.newItem.imageUrl ?? '') ? l.newItem.imageUrl : null,
       vendorId: Number(l.newItem.vendor?.id) > 0 ? Number(l.newItem.vendor?.id) : null,
     }));
@@ -485,6 +500,8 @@ export function pushPayload(hqProductId: string | null, f: FinishedDraft, lines:
       sku: f.sku.trim(), name: f.name.trim(), category: f.category, tracked: f.tracked, uom: f.uom, purchaseUom: null,
       salePrice: f.salePrice, hsn: f.hsn || null, weightKg: f.weightKg, volumeM3: f.volumeM3,
       variant: f.variant?.trim() || null, customerSku: f.customerSku?.trim() || null, taxIds: f.taxIds ?? [],
+      dropship: !!f.dropship, vendorId: f.dropship && Number(f.vendor?.id) > 0 ? Number(f.vendor?.id) : null,
+      purchaseTaxIds: f.dropship ? f.purchaseTaxIds ?? [] : [],
     },
     components,
     lines: mode !== 'full' ? [] : lines.filter(l => l.status !== 'skip').map(l => {

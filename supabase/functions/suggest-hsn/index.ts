@@ -12,6 +12,7 @@ const json = (b: unknown, status = 200) =>
 const Body = z.object({
   name: z.string().trim().min(1).max(500),
   details: z.string().trim().max(1500).optional().nullable(),
+  digits: z.union([z.literal(6), z.literal(8)]).optional().nullable(), // 6 for raw materials
 });
 const Schema = z.object({
   suggestions: z.array(z.object({ code: z.string(), description: z.string(), reason: z.string(), gstRate: z.number().nullable() })),
@@ -37,6 +38,7 @@ Deno.serve(async (req) => {
     const { data: known } = await sb.from('hsn_codes').select('code, description').order('code');
     const knownList = (known ?? []).map(k => `${k.code} ${k.description}`).join('\n');
 
+    const digits = parsed.data.digits === 6 ? 6 : 8;
     const provider = createOpenAI({
       baseURL: 'https://ai.gateway.lovable.dev/v1',
       apiKey,
@@ -45,7 +47,7 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const result = streamText({
       model: provider.responses('openai/gpt-6-astra'),
-      system: 'You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full 8-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits. gstRate = the current GST rate in percent under GST 2.0 (effective 22 Sept 2025): the 12% slab is essentially gone - wooden tableware/kitchenware, wooden boxes/decor/handicrafts, marble/stone articles, iron/steel/brass kitchen and household articles, games and festive items are 5%; furniture and seats (chapter 94) are 18%; 40% only for luxury/sin goods. Never answer 12% unless certain it still applies. null if unsure.',
+      system: `You classify export products from India under the Indian Customs Tariff / GST HSN (ITC-HS) schedule. Always answer with full ${digits}-digit codes. Give up to 3 candidates, best first. description = the official tariff line in plain English; reason = one short sentence why it fits. gstRate = the current GST rate in percent under GST 2.0 (effective 22 Sept 2025): the 12% slab is essentially gone - wooden tableware/kitchenware, wooden boxes/decor/handicrafts, marble/stone articles, iron/steel/brass kitchen and household articles, games and festive items are 5%; furniture and seats (chapter 94) are 18%; 40% only for luxury/sin goods. Never answer 12% unless certain it still applies. null if unsure.`,
       messages: [{
         role: 'user',
         content: `Product: ${parsed.data.name}\n${parsed.data.details ? `Details: ${parsed.data.details}\n` : ''}\nCodes this company already uses (prefer one if it truly fits):\n${knownList}`,
@@ -66,8 +68,9 @@ Deno.serve(async (req) => {
       throw e;
     }
     const suggestions = (out?.suggestions ?? [])
-      .map(s => ({ ...s, code: String(s.code).replace(/\D/g, '') }))
-      .filter(s => /^\d{8}$/.test(s.code))
+      .map(s => ({ ...s, code: String(s.code).replace(/\D/g, '').slice(0, digits) }))
+      .filter(s => s.code.length === digits)
+      .filter((s, i, a) => a.findIndex(x => x.code === s.code) === i)
       .slice(0, 3);
     return json({ suggestions });
   } catch (e) {

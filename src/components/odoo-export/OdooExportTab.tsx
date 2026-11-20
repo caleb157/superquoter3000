@@ -31,6 +31,8 @@ import {
 import { OdooProductPicker } from './OdooProductPicker';
 import { OptionCombobox } from './OptionCombobox';
 import { ItemPhoto, VendorPicker, type FinishedPhoto } from './NewItemExtras';
+import { RmHsnField } from './RmHsnField';
+import { rmHsn } from '@/lib/odoo-bom';
 
 type Saved = { finished: FinishedDraft; lines: Record<string, Pick<DraftLine, 'status' | 'match' | 'newItem' | 'qtyOverride' | 'variantPtavIds'>>; added?: DraftLine[] };
 const storeKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -380,6 +382,7 @@ export function OdooExportTab({ productId }: { productId: string }) {
                           <Input className="h-8 text-xs" placeholder="Name" value={l.newItem.name} onChange={e => patchNew(l.lineId, { name: e.target.value })} />
                           <Input className={`h-8 text-xs font-mono ${skuTaken ? 'border-destructive' : ''}`} placeholder="SKU" value={l.newItem.sku} onChange={e => patchNew(l.lineId, { sku: e.target.value })} />
                           <VendorPicker value={l.newItem.vendor ?? null} hqVendor={l.vendor} onPick={v => patchNew(l.lineId, { vendor: v })} />
+                          <RmHsnField value={rmHsn(l.newItem.hsn)} name={l.newItem.name || l.hqName} category={l.newItem.category} onChange={v => patchNew(l.lineId, { hsn: v })} />
                           <ItemPhoto value={l.newItem.imageUrl} finishedPhotos={finishedPhotos} onChange={u => patchNew(l.lineId, { imageUrl: u })} />
                         </>
                       )}

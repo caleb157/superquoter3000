@@ -14,6 +14,7 @@ const json = (body: unknown, status = 200) =>
 const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('meta') }),
   z.object({ action: z.literal('prefixes') }),
+  z.object({ action: z.literal('rm-hsn') }),
   z.object({ action: z.literal('search'), search: z.string().max(100).optional().nullable(), limit: z.number().int().min(1).max(50).optional() }),
   z.object({ action: z.literal('suggest'), names: z.array(z.string().max(200)).max(60) }),
   z.object({ action: z.literal('skus'), skus: z.array(z.string().max(100)).max(200) }),
@@ -96,12 +97,13 @@ Deno.serve(async (req) => {
     const body = parsed.data;
 
     if (body.action === 'meta') {
-      const [cats, uoms, routes, companies, taxes] = await Promise.all([
+      const [cats, uoms, routes, companies, taxes, ptaxes] = await Promise.all([
         sr('product.category', [], ['complete_name', 'name'], { order: 'complete_name' }),
         sr('uom.uom', [], ['name', 'category_id'], { order: 'name' }),
         sr('stock.route', [['product_selectable', '=', true]], ['name'], { order: 'name' }).catch(() => []),
         sr('res.company', [], ['name'], { order: 'name' }),
         sr('account.tax', [['type_tax_use', '=', 'sale']], ['name', 'amount', 'amount_type'], { order: 'amount, name' }).catch(() => []),
+        sr('account.tax', [['type_tax_use', '=', 'purchase']], ['name', 'amount', 'amount_type'], { order: 'amount, name' }).catch(() => []),
       ]);
       return json({
         categories: cats.map(c => str(c.complete_name) || str(c.name)),
@@ -109,6 +111,7 @@ Deno.serve(async (req) => {
         routes: routes.map(r => str(r.name)),
         companies: companies.map(c => str(c.name)),
         taxes: taxes.map(t => ({ id: t.id, name: str(t.name), amount: Number(t.amount) || 0 })),
+        purchaseTaxes: ptaxes.map(t => ({ id: t.id, name: str(t.name), amount: Number(t.amount) || 0 })),
       });
     }
 
@@ -152,6 +155,22 @@ Deno.serve(async (req) => {
         id: v.id, sku: str(v.default_code), ptavIds: v.product_template_attribute_value_ids || [],
         label: (v.product_template_attribute_value_ids || []).map(i => label.get(i)).filter(Boolean).join(', ') || str(v.default_code),
       })) });
+    }
+
+    if (body.action === 'rm-hsn') {
+      // Raw-material HSN list from Odoo itself: non-saleable products with an HSN, grouped by the
+      // first 6 digits (HQ stores RM HSNs as 6 digits), their names as matching examples.
+      const rows = await sr('product.product', [['sale_ok', '=', false], ['l10n_in_hsn_code', '!=', false]], ['name', 'l10n_in_hsn_code'], { limit: 5000 });
+      const by = new Map<string, string[]>();
+      for (const r of rows) {
+        const c = str(r.l10n_in_hsn_code).replace(/\D/g, '');
+        if (c.length < 6) continue;
+        const k = c.slice(0, 6);
+        const list = by.get(k) ?? [];
+        if (list.length < 40) list.push(str(r.name));
+        by.set(k, list);
+      }
+      return json({ codes: [...by.entries()].map(([code, examples]) => ({ code, examples })) });
     }
 
     if (body.action === 'prefixes') {

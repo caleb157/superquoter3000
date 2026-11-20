@@ -29,13 +29,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { statusToneClass } from '@/lib/status-tone';
 import { computeResults, loadBundle } from '@/lib/costing-workspace';
-import { buildDraftLines, categorySuggestions, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
+import { buildDraftLines, mergeVariantLines, setDropship, categorySuggestions, checkFinishedOnly, checkVariantGroup, defaultFinished, dktProductsSheet, hsnIssue, joinSku, pushPayload, setVariantOf, splitSku, templateGroups, withVariantDefaults, type DraftLine, type FinishedDraft, type Issue } from '@/lib/odoo-bom';
 import { odooDetails, odooMeta, odooProductsBySku, odooSkuPrefixes, pushToOdoo, type OdooMeta, type SkuPrefix } from '@/lib/odoo-products';
+import { VendorPicker } from '@/components/odoo-export/NewItemExtras';
 import { CreateSoDialog } from '@/components/odoo-export/CreateSoDialog';
 import { quoteCurrencyOf } from '@/lib/quote-currency';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; rmTotal: number; rmPending: number; salePriceUsd: number | null; quotePrice: number | null; qty: number };
+type Row = { productId: string; finished: FinishedDraft; odooId: number | null; odooSku: string | null; odooTemplateId: number | null; baseLines: DraftLine[]; salePriceUsd: number | null; quotePrice: number | null; qty: number };
 type SendState = { state: 'sending' | 'done' | 'error'; url?: string | null; error?: string; problems?: string[] };
 
 const draftKey = (id: string) => `odoo-bom-draft:v2:${id}`;
@@ -142,15 +143,12 @@ export default function InquiryOdooExport() {
         if (own) f = { ...f, ...own, name: f.name || own.name || '', variant: own.variant ?? '', customerSku: own.customerSku ?? f.customerSku, imageUrl: f.imageUrl ?? own.imageUrl ?? null };
         const link = p as { odoo_product_id?: number | null; odoo_sku?: string | null; odoo_template_id?: number | null };
         // Raw materials still to sort out: lines set to "New item" (not yet in Odoo) or "Existing" with nothing picked.
-        const saved = readDraft(p.id) as { lines?: Record<string, Partial<DraftLine>>; added?: DraftLine[] } | null;
         const cogs = results.get(p.id)?.resolvedCogsRows ?? b.cogs.filter(c => c.product_id === p.id);
-        const ls = [...buildDraftLines(cogs, new Map(), p.id).map(l => ({ ...l, ...(saved?.lines?.[l.lineId] ?? {}) })), ...(saved?.added ?? [])];
-        const live = ls.filter(l => l.status !== 'skip');
-        const rmPending = live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length;
+        const baseLines = buildDraftLines(cogs, new Map(), p.id);
         const sale = results.get(p.id)?.summary?.unit_price_usd;
         const cur = quoteCurrencyOf(b.inq as { quoting_currency?: string | null });
         const qp = cur === 'INR' ? results.get(p.id)?.summary?.unit_price_inr : sale;
-        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, rmTotal: live.length, rmPending,
+        return { productId: p.id, finished: f, odooId: link.odoo_product_id ?? null, odooSku: link.odoo_sku ?? null, odooTemplateId: link.odoo_template_id ?? null, baseLines,
           salePriceUsd: sale != null && Number.isFinite(Number(sale)) ? Number(sale) : null,
           quotePrice: qp != null && Number.isFinite(Number(qp)) ? Math.round(Number(qp) * 100) / 100 : null, qty: Number((p as { quantity?: number }).quantity) || 0 };
       });
@@ -383,8 +381,8 @@ export default function InquiryOdooExport() {
               const multi = g.length > 1;
               const isLead = g[0].productId === r.productId;
               const showBom = !multi || isLead;
-              const rmTotal = g.reduce((n, x) => n + x.rmTotal, 0);
-              const rmPending = g.reduce((n, x) => n + x.rmPending, 0);
+              const { rmTotal, rmPending } = rmCounts(g);
+              const dropship = !!g[0].finished.dropship;
               const bomPushed = g.some(x => progress[x.productId]?.bom);
               const eff = effective(r);
               const matches = matchHsn(f.name, hsnList).filter(m => m.code !== f.hsn.trim());
@@ -412,16 +410,17 @@ export default function InquiryOdooExport() {
                           <Badge variant="outline" className="gap-1"><Layers className="h-3 w-3" /> Variant {g.indexOf(r) + 1} of {g.length}{isLead ? ' · template from this one' : ` · template: ${g[0].finished.name}`}</Badge>
                         )}
                         <span className="ml-auto" />
-                        {showBom && (rmTotal === 0
+                        {showBom && dropship && <Badge variant="outline" className={`text-[10px] ${statusToneClass('idle')}`}>Dropship · no BOM</Badge>}
+                        {showBom && !dropship && (rmTotal === 0
                           ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('idle')}`}>No raw materials</Badge>
                           : rmPending > 0
                             ? <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>{rmPending} of {rmTotal} RMs pending</Badge>
                             : <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> All {rmTotal} RMs in Odoo</Badge>)}
-                        {!showBom ? null : bomPushed
+                        {!showBom || dropship ? null : bomPushed
                           ? <Badge variant="outline" className={`text-[10px] gap-1 ${statusToneClass('complete')}`}><CheckCircle2 className="h-3 w-3" /> BOM pushed</Badge>
                           : <Badge variant="outline" className={`text-[10px] ${statusToneClass('progress')}`}>BOM pending</Badge>}
                         {showBom && (
-                          <Button variant="ghost" size="sm" className="h-7" onClick={() => navigate(`/inquiry/${inquiryId}/odoo/${r.productId}`)}>
+                          <Button variant="ghost" size="sm" className="h-7" disabled={dropship} title={dropship ? 'Dropship products have no BOM' : undefined} onClick={() => navigate(`/inquiry/${inquiryId}/odoo/${r.productId}`)}>
                             <Wrench className="h-3.5 w-3.5 mr-1.5" /> Materials &amp; BOM{multi ? ` (${g.length} variants)` : ''}
                           </Button>
                         )}
@@ -475,6 +474,21 @@ export default function InquiryOdooExport() {
                         <F label="Variant"><Input className="h-8 text-xs" placeholder={multi ? 'Required' : 'Standard'} value={f.variant} onChange={e => patch(r.productId, { variant: e.target.value })} /></F>
                         <F label="Customer SKU (tag)"><Input className="h-8 text-xs" value={f.customerSku} onChange={e => patch(r.productId, { customerSku: e.target.value })} /></F>
                         <F label="Tracked"><div className="h-8 flex items-center"><Checkbox checked={f.tracked} onCheckedChange={v => patch(r.productId, { tracked: v === true })} /></div></F>
+                        <F label={multi && isLead ? 'Dropship (all variants)' : 'Dropship'}><div className="h-8 flex items-center">
+                          <Checkbox disabled={multi && !isLead} checked={dropship} title="Bought and sold, not made: no BOM" onCheckedChange={v => setRows(prev => prev.map(x => (x.productId === r.productId ? { ...x, finished: setDropship(x.finished, v === true) } : x)))} />
+                        </div></F>
+                        {dropship && (!multi || isLead) && <>
+                          <F label="Vendor" span={2}><VendorPicker value={f.vendor ?? null} hqVendor="" onPick={v => patch(r.productId, { vendor: v })} /></F>
+                          <F label="Purchase tax" span={2}>
+                            <Select value={String((f.purchaseTaxIds ?? [])[0] ?? 'none')} onValueChange={v => patch(r.productId, { purchaseTaxIds: v === 'none' ? [] : [Number(v)] })}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={meta ? 'Pick' : 'Loading…'} /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No tax (Odoo default)</SelectItem>
+                                {(meta?.purchaseTaxes ?? []).map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </F>
+                        </>}
                         <F label="Volume (m³)"><Input className="h-8 text-xs" inputMode="decimal" value={f.volumeM3 ?? ''} onChange={e => patch(r.productId, { volumeM3: num(e.target.value) })} /></F>
                         <F label="Weight (kg)"><Input className="h-8 text-xs" inputMode="decimal" value={f.weightKg ?? ''} onChange={e => patch(r.productId, { weightKg: num(e.target.value) })} /></F>
                       </fieldset>
@@ -549,6 +563,15 @@ export default function InquiryOdooExport() {
       </div>
     </AppLayout>
   );
+}
+
+/** Raw materials still to sort out for a template: the lead's BOM draft covers every variant's lines; "Not in BOM" lines don't count. */
+function rmCounts(g: Row[]): { rmTotal: number; rmPending: number } {
+  const lead = g[0];
+  const base = g.length > 1 ? mergeVariantLines(g.map(x => ({ productId: x.productId, lines: x.baseLines }))).map(({ variantOf: _v, ...l }) => l) : lead.baseLines;
+  const saved = readDraft(lead.productId) as { lines?: Record<string, Partial<DraftLine>>; added?: DraftLine[] } | null;
+  const live = [...base.map(l => ({ ...l, ...(saved?.lines?.[l.lineId] ?? {}) })), ...(saved?.added ?? [])].filter(l => l.status !== 'skip');
+  return { rmTotal: live.length, rmPending: live.filter(l => l.status === 'new' || (l.status === 'match' && !l.match)).length };
 }
 
 function F({ label, span = 1, children }: { label: string; span?: number; children: React.ReactNode }) {
