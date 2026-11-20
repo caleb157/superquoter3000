@@ -1,6 +1,6 @@
 // Pull as needed on the DKT Cash Flow forecast: one switch that draws from the credit lines in their pull
-// order (Credit lines tab) whenever a month would end under "Keep at least", and pays them back when the
-// cash ahead allows. Math: src/lib/dkt-pull-as-needed.ts. A what-if: nothing is saved; the switch is
+// order (Credit lines tab) whenever a month would end under "Keep at least", and pays revolving lines down
+// with cash it won't need in the next two months. Math: src/lib/dkt-pull-as-needed.ts. A what-if: nothing is saved; the switch is
 // kept in this browser.
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ export function PullAsNeededCard({ prefs, setPrefs, plan, minCash, queueSize, op
         </div>
         <p className="text-xs text-muted-foreground">
           Whenever a month would end under {usd(minCash)} (Keep at least), it draws what's missing, in $500 steps ($500, $1,000, $1,500…), from your credit lines in their pull order: the first line until it's full, then the next.
-          It pays revolving lines back, last in the order first, in $500 steps (or the whole balance) as soon as the cash ahead allows, and never pays back money it would have to pull again within the forecast.
+          It pays revolving lines down, last in the order first, in $500 steps (or the whole balance) with any cash not needed this month or the next two, and pulls again later if it has to: owing less interest beats holding idle cash.
           Installment lines (Amex) repay on their own schedule. Planned draws typed on the Credit lines tab are set aside while this is on; real draws stay.
           A what-if only: nothing is saved. {prefs.on ? 'The chart, profit and table below show it.' : 'Switch it on to see the forecast with it.'}
         </p>

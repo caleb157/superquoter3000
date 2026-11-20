@@ -1,7 +1,7 @@
 // Pull as needed (DKT Cash Flow → Forecast): a what-if worked out on the fly, never saved. Instead of
 // typing planned draws by hand, Caleb gives each credit line a pull order on the Credit lines tab
 // (1 first, 2 next, blank = never pulled) and this draws from them, in that order, whenever a month
-// would end below "Keep at least", then pays them back as soon as the cash ahead allows.
+// would end below "Keep at least", then pays revolving lines down whenever cash would otherwise sit idle.
 //
 // Rules, month by month through the forecast:
 //  - Planned draws typed on the Credit lines tab are set aside while this is on (real draws stay).
@@ -9,9 +9,10 @@
 //    has room (limit less what's owed on it that month), then the next, until the month ends at the minimum. A line's own
 //    terms apply to each pull: installment lines (Amex) repay on their schedule from the next month,
 //    revolving lines charge interest monthly or build it up as a balloon until paid back.
-//  - Paying back: only revolving lines, last in pull order first, and only what the lowest cash at any
-//    later month end allows, so it never pays back money it would have to pull again within the
-//    forecast. Installment pulls keep their normal payments.
+//  - Paying back: only revolving lines, last in pull order first, with cash that isn't needed in this
+//    month or the next two (PAYBACK_WINDOW). Cash needed later than that goes to the line now and is
+//    pulled again when the time comes, which is cheaper than holding cash while owing interest (Caleb,
+//    2026-11-20). Installment pulls keep their normal payments.
 //  - If every line with a pull order is full, the month stays short and is listed.
 import {
   buildForecast, creditBalances, drawTerms,
@@ -22,6 +23,8 @@ export type PullOrder = Record<string, number | null | undefined>;
 /** Lenders take draws in round amounts: every pull is a multiple of this ($500, $1,000, $1,500…), and so is
  *  every pay-back unless it clears what was pulled on the line (Caleb, 2026-11-20). */
 export const PULL_STEP = 500;
+/** Months after this one that a pay-back leaves cash for, so it doesn't pay back and pull again straight away. */
+export const PAYBACK_WINDOW = 2;
 const roundUp = (n: number) => Math.ceil(n / PULL_STEP - 1e-9) * PULL_STEP;
 const roundDown = (n: number) => Math.floor(n / PULL_STEP + 1e-9) * PULL_STEP;
 
@@ -108,8 +111,8 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
         rerun();
         continue;
       }
-      // Pay back revolving pulls, last in the queue first, with what the cash ahead can spare.
-      const spare = Math.min(...cur.months.slice(i).map(r => r.closing)) - min;
+      // Pay back revolving pulls, last in the queue first, with cash not needed this month or the next two.
+      const spare = Math.min(...cur.months.slice(i, i + 1 + PAYBACK_WINDOW).map(r => r.closing)) - min;
       if (spare < 1) break;
       let left = spare;
       let paid = false;
