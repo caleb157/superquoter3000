@@ -1,0 +1,1 @@
+- Dropship final products (setDropship in src/lib/odoo-bom.ts): dropship category, tracked, purchase_ok, vendor + purchase taxes, no BOM; set on the lead, applies to all variants. RM HSN is 6 digits (rmHsn), suggested from Odoo raw materials (rm-hsn action) or AI on click.
