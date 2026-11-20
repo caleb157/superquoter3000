@@ -54,6 +54,7 @@ class Query implements PromiseLike<any> {
   private payload: Row[] = [];
   private patch: Row = {};
   private limitN: number | null = null;
+  private rangeFrom: number | null = null;
   private mode: "many" | "single" | "maybe" = "many";
   private returning = false;
   private orderBy: { col: string; asc: boolean } | null = null;
@@ -82,6 +83,7 @@ class Query implements PromiseLike<any> {
   }
   order(col: string, o?: { ascending?: boolean }) { this.orderBy = { col, asc: o?.ascending !== false }; return this; }
   limit(n: number) { this.limitN = n; return this; }
+  range(from: number, to: number) { this.rangeFrom = from; this.limitN = to - from + 1; return this; }
   single() { this.mode = "single"; return this; }
   maybeSingle() { this.mode = "maybe"; return this; }
 
@@ -130,7 +132,7 @@ class Query implements PromiseLike<any> {
       const { col, asc } = this.orderBy;
       rows = [...rows].sort((a, b) => (a[col] ?? "") < (b[col] ?? "") ? (asc ? -1 : 1) : (a[col] ?? "") > (b[col] ?? "") ? (asc ? 1 : -1) : 0);
     }
-    if (this.limitN != null) rows = rows.slice(0, this.limitN);
+    if (this.limitN != null) rows = rows.slice(this.rangeFrom ?? 0, (this.rangeFrom ?? 0) + this.limitN);
     return this.shape(rows.map(r => ({ ...r })));
   }
 }

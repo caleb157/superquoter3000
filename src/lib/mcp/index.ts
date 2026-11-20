@@ -14,6 +14,7 @@ import importCostingIntakeTool from "./tools/import-costing-intake";
 import attachProductPhotoTool from "./tools/attach-product-photo";
 import createSampleRequestTool from "./tools/create-sample-request";
 import createTaskTool from "./tools/create-task";
+import getSalesAnalyticsTool from "./tools/get-sales-analytics";
 
 // Build the OAuth issuer from the Supabase project ref so it stays on the
 // direct supabase.co host (not the .lovable.cloud proxy). Vite inlines this
@@ -28,6 +29,7 @@ export const TOOLS = [
   listProductsTool,
   listTasksTool,
   listCogsItemsTool,
+  getSalesAnalyticsTool,
   findOrCreateCustomerTool,
   createInquiryTool,
   importCostingIntakeTool,
@@ -41,10 +43,10 @@ export const TOOLS = [
 export default defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.2.0",
+  version: "0.3.0",
   instructions:
     "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. " +
-    "Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`. " +
+    "Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). " +
     "To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), " +
     "then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, " +
     "`create_sample_request` when samples are agreed, and `create_task` for anything else. " +

@@ -908,6 +908,18 @@ function pickEntities(entities) {
 }
 
 // src/lib/projections.ts
+var projectionDefaults = { certainty: 0.3, repeatCertainty: 0.8, custDeposit: 0.3, ieDeposit: 0.8, vendorDeposit: 0.5 };
+var getProjectionDefaults = () => projectionDefaults;
+function setProjectionDefaults(d) {
+  projectionDefaults = { ...projectionDefaults, ...d };
+}
+function effectiveCertainty(projection, _products, inquiryStatus) {
+  if (projection?.certainty_override != null) return Number(projection.certainty_override);
+  if (inquiryStatus === "po" || inquiryStatus === "complete") return 1;
+  if (inquiryStatus === "cancelled" || inquiryStatus === "paused") return 0;
+  if (projection?.repeat_order) return projectionDefaults.repeatCertainty;
+  return projectionDefaults.certainty;
+}
 function defaultDurationMonths(method) {
   if (method === "air") return 2;
   if (method === "ground") return 4;
@@ -1337,6 +1349,384 @@ var create_task_default = defineTool15({
   })
 });
 
+// src/lib/mcp/tools/get-sales-analytics.ts
+import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z15 } from "npm:zod@^3.25.76";
+
+// src/lib/inquiry-financials.ts
+function isHardLocked(status) {
+  return status === "po" || status === "complete";
+}
+function effectiveFobUsd(projection, status, liveFobUsd) {
+  if (isHardLocked(status) && projection?.projected_fob_revenue_usd != null) {
+    return Number(projection.projected_fob_revenue_usd);
+  }
+  if (status === "projected_po") {
+    if (liveFobUsd > 0) return liveFobUsd;
+    if (projection?.projected_fob_revenue_usd != null) {
+      return Number(projection.projected_fob_revenue_usd);
+    }
+  }
+  return liveFobUsd;
+}
+function effectiveGpm(projection, status, liveGpm, liveFobUsd) {
+  if (isHardLocked(status) && projection?.project_gpm != null) {
+    return Number(projection.project_gpm);
+  }
+  if (status === "projected_po") {
+    if ((liveFobUsd ?? 0) > 0) return liveGpm;
+    if (projection?.project_gpm != null) return Number(projection.project_gpm);
+  }
+  return liveGpm;
+}
+
+// src/lib/master-analytics.ts
+var pickAmt = (m, c) => (c === "USD" ? m.amount_usd : m.amount_inr) || 0;
+var mfgShareOf = (x) => x.mfg_share ?? (x.kind === "manufacturing" ? 1 : 0);
+var MIN_ORDER_USD = 100;
+var inR = (d, from, to) => {
+  if (!d) return false;
+  const t = new Date(d.length === 10 ? d + "T12:00:00" : d).getTime();
+  return t >= from.getTime() && t <= to.getTime();
+};
+function confirmedOrdersKpi(sos, from, to, inrPerUsd) {
+  const inWin = sos.filter((s) => inR(s.date_order, from, to));
+  const qualifying = inWin.filter((s) => s.amount_usd >= MIN_ORDER_USD || inrPerUsd > 0 && s.amount_inr / inrPerUsd >= MIN_ORDER_USD);
+  return { all: inWin, qualifying };
+}
+var BOOKED = /* @__PURE__ */ new Set(["po", "complete", "cancelled", "paused"]);
+var pct = (v) => v > 1 ? v / 100 : v;
+var addMonths2 = (ym, n) => {
+  const d = /* @__PURE__ */ new Date(ym.slice(0, 7) + "-01T00:00:00Z");
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 10);
+};
+function pipelineKind(picked, manHours) {
+  if (picked === "trading" || picked === "manufacturing") return { kind: picked, kind_auto: false };
+  return { kind: manHours > 0 ? "manufacturing" : "trading", kind_auto: true };
+}
+function buildPipeline(inquiries, opts) {
+  return inquiries.filter((i) => !BOOKED.has(i.status)).map((i) => projectInquiry(i, opts)).filter((x) => x.certainty > 0 && (x.fob_usd > 0 || x.man_hours > 0));
+}
+function projectInquiry(i, opts) {
+  const thisMonth = opts.today.slice(0, 7) + "-01";
+  const p = (Array.isArray(i.inquiry_projections) ? i.inquiry_projections[0] : i.inquiry_projections) || {};
+  const certainty = effectiveCertainty(p, i.products || [], i.status);
+  const live = opts.live[i.id] || { fob_usd: 0, gpm: 0, man_hours: 0 };
+  const fob = effectiveFobUsd(p, i.status, live.fob_usd);
+  const fobFromProjection = fob !== live.fob_usd;
+  const projMh = Number(p.estimated_man_hours) || 0;
+  const mh = projMh || live.man_hours;
+  const gpm = pct(effectiveGpm(p, i.status, live.gpm, live.fob_usd));
+  const duration = Math.max(1, Number(p.duration_months) || 3);
+  const start = (p.start_month || thisMonth).slice(0, 10);
+  const ship = (p.shipping_month || p.delivery_month || p.cust_final_month || addMonths2(start, duration - 1)).slice(0, 10);
+  const viaOther = !!(p.selling_entity_id && opts.pvEntityId && p.selling_entity_id !== opts.pvEntityId);
+  const retention = viaOther ? pct(Number(p.selling_retention_pct) || 0) : 0;
+  const pvRev = fob * (1 - retention);
+  let cust;
+  if (viaOther) {
+    const dep = p.ie_deposit_pct != null ? pct(Number(p.ie_deposit_pct)) : opts.defaults.ieDeposit;
+    const bal = p.ie_balance_pct != null && p.ie_deposit_pct != null ? pct(Number(p.ie_balance_pct)) : 1 - dep;
+    cust = [
+      { pct: dep, month: p.ie_deposit_month || p.cust_deposit_month || start },
+      { pct: bal, month: p.ie_balance_month || ship }
+    ];
+  } else {
+    const dep = p.cust_deposit_pct != null ? pct(Number(p.cust_deposit_pct)) : opts.defaults.custDeposit;
+    const fin = p.cust_final_pct != null ? pct(Number(p.cust_final_pct)) : 1 - dep - (Number(p.cust_other_pct) || 0);
+    cust = [
+      { pct: dep, month: p.cust_deposit_month || start },
+      { pct: fin, month: p.cust_final_month || ship },
+      { pct: pct(Number(p.cust_other_pct) || 0), month: p.cust_other_month }
+    ];
+  }
+  const vDep = p.vendor_deposit_pct != null ? pct(Number(p.vendor_deposit_pct)) : opts.defaults.vendorDeposit;
+  const vBal = p.vendor_deposit_pct != null && p.vendor_balance_pct != null ? pct(Number(p.vendor_balance_pct)) : 1 - vDep;
+  return {
+    id: i.id,
+    rfq_number: i.rfq_number,
+    title: i.title,
+    status: i.status,
+    customer: i.customers?.name ?? null,
+    certainty,
+    repeat: !!p.repeat_order,
+    fob_usd: fob,
+    pv_revenue_usd: pvRev,
+    via_other_entity: viaOther,
+    gpm,
+    man_hours: mh,
+    ...pipelineKind(p.order_kind, mh),
+    revenue_month: ship,
+    start_month: start,
+    duration_months: duration,
+    cust,
+    // Vendors are paid on the same schedule as the money coming in: their deposit in the
+    // deposit month, their balance in the balance month (stored vendor months can drift).
+    vend: [
+      { pct: vDep, month: cust[0].month },
+      { pct: vBal, month: cust[1].month }
+    ],
+    fob_source: fobFromProjection ? "projection" : "live",
+    mh_source: projMh ? "projection" : "live"
+  };
+}
+function fyBounds(today) {
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  const start = m >= 4 ? y : y - 1;
+  return { start: `${start}-04-01`, end: `${start + 1}-03-31`, label: `FY ${String(start).slice(2)}\u2013${String(start + 1).slice(2)}` };
+}
+
+// src/lib/live-rates.ts
+var pos = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+function applyLiveRates(gs) {
+  const base = gs || {};
+  if (base.__live_applied) return base;
+  return {
+    ...base,
+    __live_applied: true,
+    exchange_rate: pos(base.live_exchange_rate) ?? base.exchange_rate,
+    indirect_overhead_per_mh: pos(base.live_burdened_per_mh) ?? base.indirect_overhead_per_mh
+  };
+}
+
+// src/lib/mcp/tools/get-sales-analytics.ts
+var PAGE = 1e3;
+var OPEN_EXCLUDED = ["po", "complete", "cancelled", "paused"];
+var zero = () => ({ total: 0, manufacturing: 0, trading: 0 });
+var add = (s, amount, mfgShare) => {
+  s.total += amount;
+  if (mfgShare == null || s.manufacturing == null || s.trading == null) {
+    s.manufacturing = null;
+    s.trading = null;
+    return;
+  }
+  s.manufacturing += amount * mfgShare;
+  s.trading += amount * (1 - mfgShare);
+};
+var sum = (a, b) => ({
+  total: a.total + b.total,
+  manufacturing: a.manufacturing == null || b.manufacturing == null ? null : a.manufacturing + b.manufacturing,
+  trading: a.trading == null || b.trading == null ? null : a.trading + b.trading
+});
+var round = (s) => ({
+  total: Math.round(s.total),
+  manufacturing: s.manufacturing == null ? null : Math.round(s.manufacturing),
+  trading: s.trading == null ? null : Math.round(s.trading)
+});
+function fyMonths(fyStart) {
+  const y = Number(fyStart.slice(0, 4));
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(y, 3 + i, 1));
+    return d.toISOString().slice(0, 7);
+  });
+}
+var monthEnd = (ym) => {
+  const d = /* @__PURE__ */ new Date(`${ym}-01T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  d.setUTCDate(0);
+  return d.toISOString().slice(0, 10);
+};
+async function pageAll(build, what) {
+  const out = [];
+  for (let from = 0; ; from += PAGE) {
+    const rows = check(await build(from, from + PAGE - 1), what) ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+async function savedInquiryFinancials(db, ids) {
+  const out = {};
+  if (!ids.length) return out;
+  const products = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const chunk = ids.slice(i, i + 200);
+    const read = (cols) => pageAll(
+      (a, b) => db.from("products").select(cols).in("customer_rfq_id", chunk).is("archived_at", null).order("id").range(a, b),
+      "Could not read inquiry products"
+    );
+    const base = "id, customer_rfq_id, quantity, calculated_unit_price_usd, calculated_unit_cost_usd";
+    try {
+      products.push(...await read(`${base}, calculated_man_hours_per_unit`));
+    } catch (e) {
+      if (!String(e.message).includes("calculated_man_hours_per_unit")) throw e;
+      products.push(...await read(base));
+    }
+  }
+  const cost = {};
+  for (const p of products) {
+    const id = String(p.customer_rfq_id);
+    const q = Number(p.quantity) || 0;
+    const o = out[id] ||= { fob_usd: 0, gpm: 0, man_hours: 0 };
+    o.fob_usd += (Number(p.calculated_unit_price_usd) || 0) * q;
+    o.man_hours += (Number(p.calculated_man_hours_per_unit) || 0) * q;
+    cost[id] = (cost[id] || 0) + (Number(p.calculated_unit_cost_usd) || 0) * q;
+  }
+  for (const [id, o] of Object.entries(out)) o.gpm = o.fob_usd > 0 ? (o.fob_usd - (cost[id] || 0)) / o.fob_usd : 0;
+  return out;
+}
+async function getSalesAnalytics(db, input, now = /* @__PURE__ */ new Date()) {
+  const ccy = input.currency === "INR" ? "INR" : "USD";
+  const includePipeline = input.include_pipeline !== false;
+  const notes = [];
+  const snapRow = check(
+    await db.from("analytics_snapshots").select("payload, synced_at").order("synced_at", { ascending: false }).limit(1).maybeSingle(),
+    "Could not read the analytics snapshot"
+  );
+  const snapshot = snapRow?.payload ?? null;
+  if (!snapshot) notes.push("No Odoo sync yet: actual and booked sales are empty. Press Refresh Odoo & LaborTrax on the Analytics page.");
+  const gs = check(await db.from("global_settings").select("*").limit(1).maybeSingle(), "Could not read settings");
+  if (gs) setProjectionDefaults({
+    certainty: Number(gs.default_certainty_pct ?? 0.3),
+    repeatCertainty: Number(gs.default_repeat_certainty_pct ?? 0.8),
+    custDeposit: Number(gs.default_cust_deposit_pct ?? 0.3),
+    ieDeposit: Number(gs.default_ie_deposit_pct ?? 0.8),
+    vendorDeposit: Number(gs.default_vendor_deposit_pct ?? 0.5)
+  });
+  const hqRate = Number(applyLiveRates(gs ?? {}).exchange_rate) || snapshot?.inr_per_usd || 0;
+  if (ccy === "INR" && !hqRate) notes.push("No INR rate found: pipeline amounts in INR are 0.");
+  const usdToCcy = (usd) => ccy === "USD" ? usd : usd * hqRate;
+  const today = snapshot?.today ?? todayInIndia(now);
+  const fy = fyBounds(today);
+  const months = fyMonths(fy.start);
+  const thisMonth = today.slice(0, 7);
+  let pipe = [];
+  if (includePipeline || input.include_inquiries) {
+    const [inquiries, entities] = await Promise.all([
+      pageAll((a, b) => db.from("customer_rfqs").select("id, rfq_number, title, status, customers(name), inquiry_projections(*)").order("id").range(a, b), "Could not read inquiries"),
+      db.from("company_entities").select("id, name, entity_type")
+    ]);
+    const ents = check(entities, "Could not read company entities") ?? [];
+    const pv = ents.find((e) => /parable/i.test(e.name || "") || e.entity_type === "India");
+    const open = inquiries.filter((i) => !OPEN_EXCLUDED.includes(String(i.status)));
+    const live = await savedInquiryFinancials(db, open.map((i) => String(i.id)));
+    pipe = buildPipeline(open, { today, pvEntityId: pv?.id ?? null, defaults: getProjectionDefaults(), live });
+  }
+  const pipeIn = pipe.filter((x) => {
+    const m = (x.revenue_month || "").slice(0, 10);
+    return !!m && m.slice(0, 7) >= thisMonth && m <= fy.end;
+  });
+  const hasKinds = !!snapshot && [...snapshot.invoiced, ...snapshot.pending_so_revenue].some((x) => x.kind !== void 0);
+  if (snapshot && !hasKinds) notes.push("This Odoo sync predates the Trading / Manufacturing tags: the split is null until the next refresh.");
+  const rows = {};
+  for (const m of months) {
+    rows[m] = { month: m, actual: zero(), booked: zero(), pipeline: zero(), projected: zero(), total: zero(), confirmed_orders: { count: 0, amount: 0 } };
+    if (!hasKinds) for (const k of ["actual", "booked"]) {
+      rows[m][k].manufacturing = null;
+      rows[m][k].trading = null;
+    }
+  }
+  let untagged = 0;
+  if (snapshot) {
+    for (const i of snapshot.invoiced) {
+      if (!i.date || i.date < fy.start || i.date > today) continue;
+      const r = rows[i.date.slice(0, 7)];
+      if (!r) continue;
+      add(r.actual, pickAmt(i, ccy), hasKinds ? mfgShareOf(i) : null);
+      if (i.kind !== void 0 && !i.tagged) untagged++;
+    }
+    for (const s of snapshot.pending_so_revenue) {
+      if (s.date > fy.end) continue;
+      const m = s.date.slice(0, 7) < thisMonth ? thisMonth : s.date.slice(0, 7);
+      const r = rows[m];
+      if (!r) continue;
+      add(r.booked, pickAmt(s, ccy), hasKinds ? mfgShareOf(s) : null);
+      if (s.kind !== void 0 && !s.tagged) untagged++;
+    }
+    const orders = confirmedOrdersKpi(snapshot.sales_orders, /* @__PURE__ */ new Date(`${fy.start}T00:00:00`), /* @__PURE__ */ new Date(`${fy.end}T23:59:59`), snapshot.inr_per_usd).qualifying;
+    for (const o of orders) {
+      const r = rows[String(o.date_order).slice(0, 7)];
+      if (!r) continue;
+      r.confirmed_orders.count++;
+      r.confirmed_orders.amount += pickAmt(o, ccy);
+    }
+  }
+  for (const x of pipeIn) {
+    const r = rows[x.revenue_month.slice(0, 7)];
+    if (!r) continue;
+    add(r.pipeline, usdToCcy(x.pv_revenue_usd * x.certainty), x.kind === "manufacturing" ? 1 : 0);
+  }
+  for (const r of Object.values(rows)) {
+    r.projected = includePipeline ? sum(r.booked, r.pipeline) : { ...r.booked };
+    r.total = sum(r.actual, r.projected);
+  }
+  const bucket = (label, ms) => {
+    const b = { label, start: `${ms[0]}-01`, end: monthEnd(ms[ms.length - 1]), actual: zero(), booked: zero(), pipeline: zero(), projected: zero(), total: zero(), confirmed_orders: { count: 0, amount: 0 } };
+    for (const m of ms) {
+      const r = rows[m];
+      for (const k of ["actual", "booked", "pipeline", "projected", "total"]) b[k] = sum(b[k], r[k]);
+      b.confirmed_orders.count += r.confirmed_orders.count;
+      b.confirmed_orders.amount += r.confirmed_orders.amount;
+    }
+    return b;
+  };
+  const quarters = [0, 1, 2, 3].map((q) => bucket(`Q${q + 1} ${fy.label}`, months.slice(q * 3, q * 3 + 3)));
+  const currentQuarter = quarters[Math.floor(months.indexOf(thisMonth) / 3)] ?? null;
+  const year = bucket(fy.label, months);
+  const roundRow = (r) => ({
+    ...r,
+    actual: round(r.actual),
+    booked: round(r.booked),
+    pipeline: round(r.pipeline),
+    projected: round(r.projected),
+    total: round(r.total),
+    confirmed_orders: { count: r.confirmed_orders.count, amount: Math.round(r.confirmed_orders.amount) }
+  });
+  const targets = gs?.analytics_targets ?? null;
+  if (untagged) notes.push(`${untagged} invoice or SO entr${untagged === 1 ? "y has" : "ies have"} no Trading / Manufacturing tag in Odoo; the split guesses them from MOs, like the page.`);
+  notes.push("Pipeline uses the price, cost and man-hours saved on each product. The page reruns costing live, so an inquiry whose costs or rates moved since it was last opened can differ slightly.");
+  return {
+    currency: ccy,
+    as_of: today,
+    synced_at: snapRow?.synced_at ?? null,
+    financial_year: { label: fy.label, start: fy.start, end: fy.end },
+    include_pipeline: includePipeline,
+    inr_per_usd: { odoo: snapshot?.inr_per_usd ?? null, hq: hqRate || null },
+    months: months.map((m) => ({ month: m, ...roundRow(rows[m]) })),
+    current_month: thisMonth,
+    current_quarter: currentQuarter ? roundRow(currentQuarter) : null,
+    quarters: quarters.map(roundRow),
+    year: roundRow(year),
+    targets: targets ? {
+      revenue_usd_monthly: Number(targets.revenue_usd_monthly) || null,
+      confirmed_sos_monthly: Number(targets.confirmed_sos_monthly) || null
+    } : null,
+    ...input.include_inquiries ? {
+      pipeline_inquiries: pipeIn.map((x) => ({
+        id: x.id,
+        rfq_number: x.rfq_number,
+        customer: x.customer,
+        status: x.status,
+        kind: x.kind,
+        kind_auto: x.kind_auto,
+        certainty: x.certainty,
+        shipping_month: x.revenue_month,
+        fob_usd: Math.round(x.fob_usd),
+        weighted: Math.round(usdToCcy(x.pv_revenue_usd * x.certainty))
+      }))
+    } : {},
+    notes
+  };
+}
+var get_sales_analytics_default = defineTool16({
+  name: "get_sales_analytics",
+  title: "Get sales analytics",
+  description: "Read the Analytics page's revenue: real sales (invoiced in Odoo), booked SOs not yet invoiced, and open inquiries weighted by likelihood, by month of the current financial year (April to March), with each quarter, the current quarter and the year, each split into trading and manufacturing. Also confirmed SOs per month and the revenue targets set on the page. Actuals come from the last Odoo sync (synced_at). Read-only.",
+  inputSchema: {
+    currency: z15.enum(["USD", "INR"]).optional().describe("Default USD."),
+    include_pipeline: z15.boolean().optional().describe("Count weighted open inquiries in projected and total (default true, like the page's switch)."),
+    include_inquiries: z15.boolean().optional().describe("Also list the pipeline inquiries behind the numbers.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const out = await getSalesAnalytics(db, input);
+    return ok(JSON.stringify(out), out);
+  })
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var TOOLS = [
@@ -1347,6 +1737,7 @@ var TOOLS = [
   list_products_default,
   list_tasks_default,
   list_cogs_items_default,
+  get_sales_analytics_default,
   find_or_create_customer_default,
   create_inquiry_default,
   import_costing_intake_default,
@@ -1359,8 +1750,8 @@ var TOOLS = [
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.2.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`. To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor.",
+  version: "0.3.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

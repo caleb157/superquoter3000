@@ -1,4 +1,4 @@
-import type { ProductPriceCostMap } from '@/lib/product-pricing';
+import type { ProductPriceCostMap } from './product-pricing';
 
 export type InquiryFinancials = {
   fobRevenueUsd: number;
