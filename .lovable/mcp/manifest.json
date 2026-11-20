@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sdk_version": "0.20.1",
+  "sdk_version": "0.20.0",
   "path": "/functions/v1/mcp",
   "auth": {
     "type": "oauth",
@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -35,7 +35,7 @@
       {
         "name": "list_lookups",
         "title": "List lookup values",
-        "description": "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes and company entities. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
+        "description": "Return the names PD HQ matches on: product types, source locations, shipping types, finishing difficulty, chemicals, currencies, assignee codes, company entities and open projects. Call this before import_costing_intake or create_task so names match exactly. Set include_intake_columns to also get every Costing Intake column (header, key, type, how to fill).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -167,7 +167,7 @@
       {
         "name": "list_tasks",
         "title": "List tasks",
-        "description": "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer or assignee code (e.g. CQ).",
+        "description": "List tasks visible to the signed-in user, soonest due first. Filter to open tasks, or by inquiry, customer, project or assignee code (e.g. CQ).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -189,6 +189,11 @@
               "type": "string",
               "format": "uuid",
               "description": "Only tasks on this customer."
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Only tasks on this project (see list_lookups)."
             },
             "assignee": {
               "type": "string",
@@ -231,6 +236,40 @@
           "required": [
             "product_id"
           ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_sales_analytics",
+        "title": "Get sales analytics",
+        "description": "Read the Analytics page's revenue: real sales (invoiced in Odoo), booked SOs not yet invoiced, and open inquiries weighted by likelihood, by month of the current financial year (April to March), with each quarter, the current quarter and the year, each split into trading and manufacturing. Also confirmed SOs per month and the revenue targets set on the page. Actuals come from the last Odoo sync (synced_at). Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "currency": {
+              "type": "string",
+              "enum": [
+                "USD",
+                "INR"
+              ],
+              "description": "Default USD."
+            },
+            "include_pipeline": {
+              "type": "boolean",
+              "description": "Count weighted open inquiries in projected and total (default true, like the page's switch)."
+            },
+            "include_inquiries": {
+              "type": "boolean",
+              "description": "Also list the pipeline inquiries behind the numbers."
+            }
+          },
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
@@ -562,7 +601,7 @@
       {
         "name": "create_task",
         "title": "Create a task",
-        "description": "Create one task in PD HQ, optionally linked to an inquiry or a customer and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
+        "description": "Create one task in PD HQ, optionally linked to an inquiry, a customer or a project (by id or exact name, e.g. Sales Office) and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -607,6 +646,16 @@
             "customer_id": {
               "type": "string",
               "format": "uuid"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Link to this project (see list_lookups)."
+            },
+            "project": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Or the project's exact name, e.g. Sales Office."
             },
             "recurrence_rule": {
               "type": "object",
