@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { check, isValidYmd, ok, ToolError, withUserDb, type Db } from "../shared";
+import { check, cleanSearch, isValidYmd, ok, ToolError, withUserDb, type Db } from "../shared";
 
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
@@ -20,16 +20,37 @@ export type CreateTaskInput = {
   assignee?: string;
   inquiry_id?: string;
   customer_id?: string;
+  project_id?: string;
+  project?: string;
   recurrence_rule?: z.infer<typeof recurrence>;
   dry_run?: boolean;
 };
 
-/** Create one task, linked like the app's task dialog does (association label = "RFQ-… title" or customer name). */
+/** Find one project by id, or by exact name (case-insensitive). Done and cancelled projects are refused, like the app's picker. */
+async function findProject(db: Db, input: { project_id?: string; project?: string }) {
+  let rows: { id: string; name: string; status: string }[];
+  if (input.project_id) {
+    rows = check(await db.from("projects").select("id, name, status").eq("id", input.project_id), "Could not read the project") ?? [];
+    if (!rows.length) throw new ToolError(`Project ${input.project_id} not found or not visible to you.`);
+  } else {
+    const name = cleanSearch(input.project ?? "");
+    if (!name) throw new ToolError("Give the project's name or id.");
+    rows = check(await db.from("projects").select("id, name, status").ilike("name", name), "Could not read projects") ?? [];
+    if (!rows.length) throw new ToolError(`No project named "${input.project}". See list_lookups for project names.`);
+    if (rows.length > 1) throw new ToolError(`${rows.length} projects are named "${input.project}". Pass project_id instead.`);
+  }
+  const p = rows[0];
+  if (p.status === "done" || p.status === "cancelled") throw new ToolError(`Project "${p.name}" is ${p.status}; tasks go on open projects.`);
+  return p;
+}
+
+/** Create one task, linked like the app's task dialog does (association label = "RFQ-… title", customer name or project name). */
 export async function createTask(db: Db, input: CreateTaskInput) {
   const title = input.title.trim();
   if (!title) throw new ToolError("Give the task a title.");
   if (!isValidYmd(input.due_date)) throw new ToolError("due_date must be a real date as YYYY-MM-DD.");
-  if (input.inquiry_id && input.customer_id) throw new ToolError("Link the task to an inquiry or a customer, not both.");
+  const links = [input.inquiry_id, input.customer_id, input.project_id || input.project].filter(Boolean).length;
+  if (links > 1) throw new ToolError("Link the task to one thing: an inquiry, a customer or a project, not both.");
 
   let assignee: string | null = null;
   if (input.assignee?.trim()) {
@@ -62,6 +83,9 @@ export async function createTask(db: Db, input: CreateTaskInput) {
     const c = check(await db.from("customers").select("id, name").eq("id", input.customer_id).maybeSingle(), "Could not read the customer");
     if (!c) throw new ToolError(`Customer ${input.customer_id} not found or not visible to you.`);
     Object.assign(row, { customer_id: c.id, association_type: "customer", association_id: c.id, association_label: c.name });
+  } else if (input.project_id || input.project) {
+    const p = await findProject(db, input);
+    Object.assign(row, { association_type: "project", association_id: p.id, association_label: p.name });
   }
   if (input.dry_run) return { task: row, created: false, dry_run: true };
   const task = check(
@@ -75,7 +99,7 @@ export default defineTool({
   name: "create_task",
   title: "Create a task",
   description:
-    "Create one task in PD HQ, optionally linked to an inquiry or a customer and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
+    "Create one task in PD HQ, optionally linked to an inquiry, a customer or a project (by id or exact name, e.g. Sales Office) and optionally recurring. A due date is required. Assignee is a code from list_lookups (e.g. CQ). Nobody is notified. Use dry_run to preview.",
   inputSchema: {
     title: z.string().min(1).max(500),
     due_date: z.string().describe("YYYY-MM-DD. Required."),
@@ -84,6 +108,8 @@ export default defineTool({
     assignee: z.string().max(10).optional().describe("Assignee code, e.g. CQ."),
     inquiry_id: z.string().uuid().optional(),
     customer_id: z.string().uuid().optional(),
+    project_id: z.string().uuid().optional().describe("Link to this project (see list_lookups)."),
+    project: z.string().max(200).optional().describe("Or the project's exact name, e.g. Sales Office."),
     recurrence_rule: recurrence.optional(),
     dry_run: z.boolean().optional(),
   },
