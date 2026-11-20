@@ -682,6 +682,7 @@ export type Database = {
           fob_fumigation: string
           fob_pool_cartons_override: number | null
           fob_pool_cbm_override: number | null
+          fob_surcharge_usd: number | null
           fob_wlc: string
           id: string
           indirect_overhead_per_mh_override: number | null
@@ -720,6 +721,7 @@ export type Database = {
           fob_fumigation?: string
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
+          fob_surcharge_usd?: number | null
           fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
@@ -758,6 +760,7 @@ export type Database = {
           fob_fumigation?: string
           fob_pool_cartons_override?: number | null
           fob_pool_cbm_override?: number | null
+          fob_surcharge_usd?: number | null
           fob_wlc?: string
           id?: string
           indirect_overhead_per_mh_override?: number | null
@@ -1431,6 +1434,57 @@ export type Database = {
           },
         ]
       }
+      dkt_retained_orders: {
+        Row: {
+          advance_pct: number
+          counted: boolean
+          created_at: string
+          cust_deposit_pct: number
+          cust_lag_months: number
+          customer: string | null
+          fob_usd: number
+          id: string
+          margin_pct: number
+          name: string
+          po_month: string
+          ship_month: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          advance_pct?: number
+          counted?: boolean
+          created_at?: string
+          cust_deposit_pct?: number
+          cust_lag_months?: number
+          customer?: string | null
+          fob_usd?: number
+          id?: string
+          margin_pct?: number
+          name?: string
+          po_month?: string
+          ship_month?: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          advance_pct?: number
+          counted?: boolean
+          created_at?: string
+          cust_deposit_pct?: number
+          cust_lag_months?: number
+          customer?: string | null
+          fob_usd?: number
+          id?: string
+          margin_pct?: number
+          name?: string
+          po_month?: string
+          ship_month?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       export_documents: {
         Row: {
           created_at: string
@@ -1945,6 +1999,9 @@ export type Database = {
           default_vendor_deposit_pct: number
           exchange_rate: number
           fallback_direct_rates: Json | null
+          fob_flat_rate_per_cbm: number | null
+          fob_surcharge_threshold_cbm: number | null
+          fob_surcharge_usd: number | null
           id: string
           indirect_overhead_per_mh: number
           live_burdened_per_mh: number | null
@@ -1973,6 +2030,9 @@ export type Database = {
           default_vendor_deposit_pct?: number
           exchange_rate?: number
           fallback_direct_rates?: Json | null
+          fob_flat_rate_per_cbm?: number | null
+          fob_surcharge_threshold_cbm?: number | null
+          fob_surcharge_usd?: number | null
           id?: string
           indirect_overhead_per_mh?: number
           live_burdened_per_mh?: number | null
@@ -2001,6 +2061,9 @@ export type Database = {
           default_vendor_deposit_pct?: number
           exchange_rate?: number
           fallback_direct_rates?: Json | null
+          fob_flat_rate_per_cbm?: number | null
+          fob_surcharge_threshold_cbm?: number | null
+          fob_surcharge_usd?: number | null
           id?: string
           indirect_overhead_per_mh?: number
           live_burdened_per_mh?: number | null
@@ -3027,6 +3090,8 @@ export type Database = {
           percent_wood: number | null
           photo_estimate: Json | null
           photo_url: string | null
+          price_lock: number | null
+          price_lock_currency: string | null
           product_type_id: string | null
           quantity: number
           quote_notes: string | null
@@ -3087,6 +3152,8 @@ export type Database = {
           percent_wood?: number | null
           photo_estimate?: Json | null
           photo_url?: string | null
+          price_lock?: number | null
+          price_lock_currency?: string | null
           product_type_id?: string | null
           quantity?: number
           quote_notes?: string | null
@@ -3147,6 +3214,8 @@ export type Database = {
           percent_wood?: number | null
           photo_estimate?: Json | null
           photo_url?: string | null
+          price_lock?: number | null
+          price_lock_currency?: string | null
           product_type_id?: string | null
           quantity?: number
           quote_notes?: string | null
