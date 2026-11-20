@@ -5,8 +5,8 @@
 //
 // Rules, month by month through the forecast:
 //  - Planned draws typed on the Credit lines tab are set aside while this is on (real draws stay).
-//  - Short month: draw what's missing, rounded up to a $500 step, from the first line in pull order that
-//    has room (limit less what's owed on it that month), then the next, until the month ends at the minimum. A line's own
+//  - Short month: draw what's missing, rounded up to the line's step ($500 unless set), from the first
+//    line in pull order that has room; a line set to cover several months takes enough for all of them (limit less what's owed on it that month), then the next, until the month ends at the minimum. A line's own
 //    terms apply to each pull: installment lines (Amex) repay on their schedule from the next month,
 //    revolving lines charge interest monthly or build it up as a balloon until paid back.
 //  - Paying back: only revolving lines, last in pull order first, with cash that isn't needed in this
@@ -20,18 +20,23 @@ import {
 } from './dkt-cashflow';
 
 export type PullOrder = Record<string, number | null | undefined>;
-/** Lenders take draws in round amounts: every pull is a multiple of this ($500, $1,000, $1,500…), and so is
- *  every pay-back unless it clears what was pulled on the line (Caleb, 2026-11-20). */
+/** Lenders take draws in round amounts: every pull is a multiple of the line's step ($500 unless the line
+ *  says otherwise, e.g. Sooie $5,000), and so is every pay-back unless it clears what was pulled on the line
+ *  (Caleb, 2026-11-20). */
 export const PULL_STEP = 500;
+/** A line's step and how many months one pull covers (this month + the next ones), from Credit lines. */
+export const lineStep = (l: Pick<CreditLine, 'pull_step_usd'>) => Math.max(1, Number(l.pull_step_usd) || PULL_STEP);
+export const lineCover = (l: Pick<CreditLine, 'pull_cover_months'>) => Math.max(1, Math.round(Number(l.pull_cover_months) || 1));
 /** Months after this one that a pay-back leaves cash for, so it doesn't pay back and pull again straight away. */
 export const PAYBACK_WINDOW = 2;
-const roundUp = (n: number) => Math.ceil(n / PULL_STEP - 1e-9) * PULL_STEP;
-const roundDown = (n: number) => Math.floor(n / PULL_STEP + 1e-9) * PULL_STEP;
+const roundUp = (n: number, step: number) => Math.ceil(n / step - 1e-9) * step;
+const roundDown = (n: number, step: number) => Math.floor(n / step + 1e-9) * step;
 
 export type PullMove = { month: Month; lineId: string; name: string; amount: number }; // + pull, − pay back
 export type PullLineSummary = {
   id: string; name: string; order: number;
   installment: boolean;
+  step: number; cover: number;
   pulled: number; paidBack: number;
   peak: number; // most owed on the line in any month of the forecast (real draws + pulls)
   endOwed: number;
@@ -95,12 +100,17 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
         let drew = false;
         for (const line of queue) {
           const room = line.limit_usd - (owed[line.id]?.[i] ?? 0);
-          // Only whole steps fit: a line with less than $500 of room left is skipped.
-          const roomSteps = roundDown(room);
-          if (roomSteps < PULL_STEP) continue;
+          const step = lineStep(line);
+          // Only whole steps fit: a line with less than one step of room left is skipped.
+          const roomSteps = roundDown(room, step);
+          if (roomSteps < step) continue;
           // A revolving line charges this month's interest on the pull too, so ask for a touch more.
           const gross = isInstallment(line) || drawTerms(line).balloon ? need : need / Math.max(0.5, 1 - (Number(line.rate_pct) || 0) / 1200);
-          const amt = Math.min(roomSteps, roundUp(gross));
+          // A line that covers several months takes, in one pull, what keeps all of them at the minimum
+          // (fewer transactions; Sooie asked for that, 2026-11-20). Later lines in the same month only top up.
+          const cover = lineCover(line);
+          const ahead = cover > 1 ? min - Math.min(...cur.months.slice(i, i + cover).map(r => r.closing)) - (min - closing - need) : 0;
+          const amt = Math.min(roomSteps, roundUp(Math.max(gross, ahead), step));
           pulls.push({ id: `pull-${line.id}-${m}-${pass}`, line_id: line.id, month: m, amount_usd: amt, actual: false });
           moves.push({ month: m, lineId: line.id, name: line.name, amount: amt });
           if (!isInstallment(line)) outstanding[line.id] = (outstanding[line.id] ?? 0) + amt;
@@ -123,7 +133,7 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
         const rate = (Number(line.rate_pct) || 0) / 100;
         // Whole steps only, unless what's left fits and clears the line.
         const can = left / (1 + rate);
-        const pay = out <= can + 0.5 ? Math.round(out) : roundDown(Math.min(out, can));
+        const pay = out <= can + 0.5 ? Math.round(out) : roundDown(Math.min(out, can), lineStep(line));
         if (pay < 1) continue;
         pulls.push({ id: `payback-${line.id}-${m}-${pass}`, line_id: line.id, month: m, amount_usd: -pay, actual: false });
         moves.push({ month: m, lineId: line.id, name: line.name, amount: -pay });
@@ -147,7 +157,7 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
   }
   const bal = creditBalances(inp.creditLines, curInp.creditDraws, months);
   const lines: PullLineSummary[] = queue.map(l => ({
-    id: l.id, name: l.name, order: l.order, installment: isInstallment(l), limit: l.limit_usd,
+    id: l.id, name: l.name, order: l.order, installment: isInstallment(l), limit: l.limit_usd, step: lineStep(l), cover: lineCover(l),
     pulled: moves.filter(x => x.lineId === l.id && x.amount > 0).reduce((s, x) => s + x.amount, 0),
     paidBack: -moves.filter(x => x.lineId === l.id && x.amount < 0).reduce((s, x) => s + x.amount, 0),
     peak: Math.max(0, ...(bal[l.id] ?? [])),
