@@ -16,6 +16,8 @@ import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import type { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import type { MaxPayoff } from '@/lib/dkt-max-payoff';
 import { MaxPayoffCard, type PayoffPrefs } from './MaxPayoffCard';
+import type { PullPlan } from '@/lib/dkt-pull-as-needed';
+import { PullAsNeededCard, type PullPrefs } from './PullAsNeededCard';
 
 type Props = {
   forecast: Forecast;
@@ -35,31 +37,41 @@ type Props = {
   payoffPrefs: PayoffPrefs;
   setPayoffPrefs: (p: PayoffPrefs) => void;
   payoff: MaxPayoff | null;
+  /** Pull as needed: when it's on, `forecast` is the forecast with the pulls in it. */
+  pullPrefs: PullPrefs;
+  setPullPrefs: (p: PullPrefs) => void;
+  pull: PullPlan | null;
+  openCredit: () => void;
 };
 
-export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual, payoffPrefs, setPayoffPrefs, payoff }: Props) {
+export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custReceived, creditAvailable, creditLines, creditDraws, scenarios, skus, setScenarioInForecast, manual, payoffPrefs, setPayoffPrefs, payoff, pullPrefs, setPullPrefs, pull, openCredit }: Props) {
   const [cell, setCell] = useState<{ title: string; flows: ProfitItem[] } | null>(null);
   const { months, need, lowest } = forecast;
   const used = useMemo(() => new Set(forecast.flows.map(f => f.kind)), [forecast.flows]);
   const inKinds = IN_KINDS.filter(k => used.has(k));
   const outKinds = OUT_KINDS.filter(k => used.has(k));
-  const showPlan = payoffPrefs.on && !!payoff;
+  // A what-if on top of the plan: Pull as needed or Max payoff (only one is on at a time).
+  const whatIf = pullPrefs.on && pull ? { kind: 'pull' as const, base: pull.base, draws: pull.input.creditDraws }
+    : payoffPrefs.on && payoff ? { kind: 'payoff' as const, base: payoff.base, draws: payoff.input.creditDraws } : null;
+  const showPlan = !!whatIf;
+  const whatIfName = whatIf?.kind === 'pull' ? 'pulling credit as needed' : 'max payoff';
+  const shownDraws = whatIf?.draws ?? creditDraws;
   const chart = months.map((m, i) => ({
     month: monthLabel(m.month), net: Math.round(m.net), closing: Math.round(m.closing),
-    ...(showPlan ? { plan: Math.round(payoff!.base.months[i]?.closing ?? 0) } : {}),
+    ...(whatIf ? { plan: Math.round(whatIf.base.months[i]?.closing ?? 0) } : {}),
   }));
   // Credit draws in the window (real and planned), marked on the chart.
   const drawMarks = useMemo(() => {
     const first = months[0]?.month;
     const byMonth = new Map<string, string[]>();
-    for (const d of creditDraws) {
+    for (const d of shownDraws) {
       const line = creditLines.find(l => l.id === d.line_id);
       if (!line || d.amount_usd <= 0 || d.month < first) continue;
       const m = d.month;
       byMonth.set(m, [...(byMonth.get(m) ?? []), `${line.name} ${usdK(d.amount_usd)}${d.actual ? '' : ' (planned)'}`]);
     }
     return [...byMonth].filter(([m]) => months.some(x => x.month === m)).map(([m, names]) => ({ x: monthLabel(m), label: names.join(', ') }));
-  }, [creditDraws, creditLines, months]);
+  }, [shownDraws, creditLines, months]);
   const open = (title: string, month: Month | null, kinds: FlowKind[]) =>
     setCell({ title, flows: forecast.flows.filter(f => (!month || f.month === month) && kinds.includes(f.kind)) });
 
@@ -92,7 +104,9 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
             <div className="font-semibold">You need {usd(need.amount)} more by {monthLabel(need.firstMonth)}.</div>
             <div className="text-muted-foreground">
               Cash first drops below {usd(settings.min_cash_usd)} in {monthLabel(need.firstMonth)} and is lowest in {monthLabel(need.peakMonth)}
-              {lowest ? ` (${usd(lowest.closing)})` : ''}. {need.amount <= creditAvailable
+              {lowest ? ` (${usd(lowest.closing)})` : ''}. {pullPrefs.on
+                ? 'That is after pulling credit as needed, so the lines in your pull order run out first. Add a line to the order or raise a limit.'
+                : need.amount <= creditAvailable
                 ? `Your credit lines have ${usd(creditAvailable)} available, which covers it. Plan a draw on the Credit lines tab to see the forecast with it.`
                 : `That is more than the ${usd(creditAvailable)} left on your credit lines.`}
             </div>
@@ -108,11 +122,14 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
         </div>
       )}
 
+      <PullAsNeededCard prefs={pullPrefs} setPrefs={setPullPrefs} plan={pull} minCash={settings.min_cash_usd}
+        queueSize={creditLines.filter(l => (Number(l.draw_priority) || 0) > 0).length} openCredit={openCredit} />
+
       <MaxPayoffCard prefs={payoffPrefs} setPrefs={setPayoffPrefs} payoff={payoff} />
 
       <Card>
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm">Cash at the end of each month{showPlan && <span className="text-muted-foreground font-normal"> · with max loan payoff</span>}</CardTitle>
+          <CardTitle className="text-sm">Cash at the end of each month{showPlan && <span className="text-muted-foreground font-normal"> · {whatIf?.kind === 'pull' ? 'pulling credit as needed' : 'with max loan payoff'}</span>}</CardTitle>
           <SelectField
             label="Months to forecast" value={String(settings.horizon_months)}
             options={[9, 12, 18, 24].map(n => ({ value: String(n), label: `${n} months` }))}
@@ -127,10 +144,10 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={usdK} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={56} />
                 <Tooltip
-                  formatter={(v: number, k: string) => [usd(v), k === 'closing' ? (showPlan ? 'Cash at month end (max payoff)' : 'Cash at month end') : k === 'plan' ? 'Cash at month end (plan)' : 'Net for the month']}
+                  formatter={(v: number, k: string) => [usd(v), k === 'closing' ? (showPlan ? `Cash at month end (${whatIfName})` : 'Cash at month end') : k === 'plan' ? (whatIf?.kind === 'pull' ? 'Cash at month end (no pulls)' : 'Cash at month end (plan)') : 'Net for the month']}
                   contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 6, fontSize: 12 }}
                 />
-                <ReferenceLine y={showPlan ? payoff!.buffer : settings.min_cash_usd} stroke="hsl(var(--warning))" strokeDasharray="4 4" />
+                <ReferenceLine y={whatIf?.kind === 'payoff' ? payoff!.buffer : settings.min_cash_usd} stroke="hsl(var(--warning))" strokeDasharray="4 4" />
                 <ReferenceLine y={0} stroke="hsl(var(--border))" />
                 <Bar dataKey="net" radius={[3, 3, 0, 0]} maxBarSize={28}>
                   {chart.map((r, i) => <Cell key={i} fill={r.net >= 0 ? 'hsl(var(--success) / 0.55)' : 'hsl(var(--destructive) / 0.55)'} />)}
@@ -145,11 +162,13 @@ export function ForecastTab({ forecast, settings, saveSettings, totalOwed, custR
             </ResponsiveContainer>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
-            {showPlan
+            {whatIf?.kind === 'pull'
+              ? 'Solid line: cash at month end pulling credit as needed. Grey dashed line: cash with real draws only, no pulls. Bars: money in minus money out. Orange dashed line: your minimum. Dotted lines: credit draws and pulls.'
+              : showPlan
               ? 'Solid line: cash at month end with max payoff. Grey dashed line: cash on today\'s plan. Bars: money in minus money out. Orange dashed line: the payoff buffer. Dotted lines: credit draws.'
               : 'Line: cash at month end. Bars: money in minus money out. Dashed line: your minimum. Dotted lines: credit draws.'}
           </p>
-          <CreditDrawsList lines={creditLines} draws={showPlan ? payoff!.input.creditDraws : creditDraws} months={months.map(m => m.month)} />
+          <CreditDrawsList lines={creditLines} draws={shownDraws} months={months.map(m => m.month)} />
           <ManualCashEntriesCard className="mt-3" {...manual} currencies={['USD']} fmt={v => usd(v)} />
         </CardContent>
       </Card>

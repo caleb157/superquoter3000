@@ -66,7 +66,12 @@ export function CreditTab(p: Props) {
 
       <Card>
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm">Lines of credit</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-sm">Lines of credit</CardTitle>
+            <p className="text-xs text-muted-foreground max-w-2xl">
+              Pull order: which line "Pull as needed" on the Forecast tab draws from first (1), then next (2), and so on. Leave it blank to never pull a line automatically.
+            </p>
+          </div>
           <Button size="sm" variant="outline" onClick={p.addLine}><Plus className="h-3.5 w-3.5 mr-1" /> Add line</Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -75,6 +80,7 @@ export function CreditTab(p: Props) {
               <thead className="text-muted-foreground text-left">
                 <tr>
                   <th className="font-medium py-1 pr-2">Name</th>
+                  <th className="font-medium px-1 text-right" title="Pull as needed draws from 1 first, then 2… Blank: never pulled automatically.">Pull order</th>
                   <th className="font-medium px-1 text-right">Limit</th>
                   <th className="font-medium px-1 text-right" title="Real draws not yet repaid, worked out from Draws taken below">Drawn today</th>
                   <th className="font-medium px-1 text-right">Rate (yearly %)</th>
@@ -93,6 +99,7 @@ export function CreditTab(p: Props) {
                   return (
                     <tr key={l.id} className="border-t">
                       <td className="py-1.5 pr-2 min-w-[10rem]"><TextField label="Name" value={l.name} placeholder="e.g. Chase LOC" onSave={v => p.updateLine(l.id, { name: v })} /></td>
+                      <td className="py-1.5 px-1 w-16"><NumField integer allowEmpty label="Pull order" placeholder="Off" value={l.draw_priority ?? null} onSave={v => p.updateLine(l.id, { draw_priority: v != null && v > 0 ? v : null })} /></td>
                       <td className="py-1.5 px-1 w-28"><NumField label="Limit" value={l.limit_usd} onSave={v => p.updateLine(l.id, { limit_usd: v ?? 0 })} /></td>
                       <td className="py-1.5 px-1 w-28 text-right tabular-nums">
                         {usd(owed(l))}

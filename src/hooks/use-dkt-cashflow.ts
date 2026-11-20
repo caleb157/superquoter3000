@@ -61,6 +61,14 @@ const setLocalLaunch = (id: string, patch: Record<string, unknown>) => {
   all[id] = { ...all[id], ...Object.fromEntries(LAUNCH_KEYS.filter(k => k in patch).map(k => [k, (patch[k] as string | null) ?? null])) };
   try { localStorage.setItem(SKU_LAUNCH_KEY, JSON.stringify(all)); } catch { /* ignore */ }
 };
+// Credit line pull order (dkt_credit_lines.draw_priority); kept in this browser until the column exists.
+let pullOrderColumn = true;
+const PULL_ORDER_KEY = 'dkt-credit-pull-order';
+const localPullOrder = (): Record<string, number | null> => { try { return JSON.parse(localStorage.getItem(PULL_ORDER_KEY) || '{}'); } catch { return {}; } };
+const setLocalPullOrder = (id: string, v: number | null) => {
+  const all = localPullOrder(); all[id] = v;
+  try { localStorage.setItem(PULL_ORDER_KEY, JSON.stringify(all)); } catch { /* ignore */ }
+};
 // Allegro launch cost % (dkt_cash_settings.allegro_launch_cost_pct); kept in this browser until the column exists.
 let launchCostColumn = true;
 const LAUNCH_COST_KEY = 'dkt-allegro-launch-cost-pct';
@@ -195,6 +203,8 @@ export function useDktCashflow(thisMonth: Month) {
     const leftOut = skuExcludedColumn ? null : localExcluded();
     if (skus.data?.length) skuLaunchColumns = 'launch_month' in skus.data[0];
     const pins = skuLaunchColumns ? null : localLaunch();
+    if (lines.data?.length) pullOrderColumn = 'draw_priority' in lines.data[0];
+    const pullOrder = pullOrderColumn ? null : localPullOrder();
     const firstErr = [set, ents, inq, ost, costs, loans, pays, lines, draws, scen, skus].find(r => r.error)?.error;
     if (firstErr) {
       setError(/relation|does not exist|schema cache/i.test(firstErr.message || '')
@@ -230,7 +240,8 @@ export function useDktCashflow(thisMonth: Month) {
       costs: (costs.data || []).map((r: any) => ({ ...r, amount_usd: num(r.amount_usd), start_month: m(r, 'start_month'), end_month: m(r, 'end_month') })),
       loans: (loans.data || []).map((r: any) => ({ ...r, balance_usd: num(r.balance_usd), rate_pct: num(r.rate_pct), due_month: m(r, 'due_month'), proceeds_usd: r.proceeds_usd == null ? null : num(r.proceeds_usd), proceeds_month: m(r, 'proceeds_month') })),
       loanPayments: (pays.data || []).map((r: any) => ({ ...r, principal_usd: num(r.principal_usd), interest_usd: num(r.interest_usd) })),
-      creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct), maturity_month: m(r, 'maturity_month'), term_months: r.term_months == null ? null : num(r.term_months), monthly_fee_pct: r.monthly_fee_pct == null ? null : num(r.monthly_fee_pct) })),
+      creditLines: (lines.data || []).map((r: any) => ({ ...r, limit_usd: num(r.limit_usd), drawn_usd: num(r.drawn_usd), rate_pct: num(r.rate_pct), maturity_month: m(r, 'maturity_month'), term_months: r.term_months == null ? null : num(r.term_months), monthly_fee_pct: r.monthly_fee_pct == null ? null : num(r.monthly_fee_pct),
+        draw_priority: pullOrder ? pullOrder[r.id] ?? null : r.draw_priority == null ? null : num(r.draw_priority) })),
       creditDraws: (draws.data || []).map((r: any) => ({
         ...r, month: m(r, 'month'), amount_usd: num(r.amount_usd), actual: !!r.actual, maturity_month: m(r, 'maturity_month'),
         term_months: r.term_months == null ? null : num(r.term_months), monthly_fee_pct: r.monthly_fee_pct == null ? null : num(r.monthly_fee_pct),
@@ -439,6 +450,14 @@ export function useDktCashflow(thisMonth: Month) {
     },
     async update(table: string, id: string, patch: Record<string, any>, listKey: keyof DktData) {
       patchLocal(d => ({ ...d, [listKey]: (d[listKey] as any[]).map(r => (r.id === id ? { ...r, ...patch } : r)) }));
+      if (table === 'dkt_credit_lines' && 'draw_priority' in patch) {
+        const v = patch.draw_priority == null ? null : Number(patch.draw_priority);
+        if (!pullOrderColumn) { setLocalPullOrder(id, v); return; }
+        const { error: e } = await db.from(table).update({ draw_priority: v }).eq('id', id);
+        if (missingColumn(e, 'draw_priority')) { pullOrderColumn = false; setLocalPullOrder(id, v); return; }
+        fail(e);
+        return;
+      }
       if (table === 'dkt_amazon_skus' && 'excluded' in patch && !skuExcludedColumn) { setLocalExcluded(id, !!patch.excluded); return; }
       if (table === 'dkt_amazon_skus' && LAUNCH_KEYS.some(k => k in patch)) {
         if (!skuLaunchColumns) { setLocalLaunch(id, patch); return; }
