@@ -1057,6 +1057,27 @@ export type Database = {
           },
         ]
       }
+      dkt_books_order_terms: {
+        Row: {
+          excluded: boolean
+          ship_month: string | null
+          so_name: string
+          updated_at: string
+        }
+        Insert: {
+          excluded?: boolean
+          ship_month?: string | null
+          so_name: string
+          updated_at?: string
+        }
+        Update: {
+          excluded?: boolean
+          ship_month?: string | null
+          so_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dkt_cash_items: {
         Row: {
           amount_usd: number
@@ -1215,6 +1236,8 @@ export type Database = {
           monthly_fee_pct: number | null
           name: string
           notes: string | null
+          pull_cover_months: number | null
+          pull_step_usd: number | null
           rate_pct: number
           term_months: number | null
           updated_at: string
@@ -1230,6 +1253,8 @@ export type Database = {
           monthly_fee_pct?: number | null
           name?: string
           notes?: string | null
+          pull_cover_months?: number | null
+          pull_step_usd?: number | null
           rate_pct?: number
           term_months?: number | null
           updated_at?: string
@@ -1245,6 +1270,8 @@ export type Database = {
           monthly_fee_pct?: number | null
           name?: string
           notes?: string | null
+          pull_cover_months?: number | null
+          pull_step_usd?: number | null
           rate_pct?: number
           term_months?: number | null
           updated_at?: string
