@@ -34,8 +34,8 @@ export function PullAsNeededCard({ prefs, setPrefs, plan, minCash, queueSize, op
           <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto" onClick={openCredit}>Set pull order</Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Whenever a month would end under {usd(minCash)} (Keep at least), it draws what's missing from your credit lines in their pull order: the first line until it's full, then the next.
-          It pays revolving lines back, last in the order first, as soon as the cash ahead allows, and never pays back money it would have to pull again within the forecast.
+          Whenever a month would end under {usd(minCash)} (Keep at least), it draws what's missing, in $500 steps ($500, $1,000, $1,500…), from your credit lines in their pull order: the first line until it's full, then the next.
+          It pays revolving lines back, last in the order first, in $500 steps (or the whole balance) as soon as the cash ahead allows, and never pays back money it would have to pull again within the forecast.
           Installment lines (Amex) repay on their own schedule. Planned draws typed on the Credit lines tab are set aside while this is on; real draws stay.
           A what-if only: nothing is saved. {prefs.on ? 'The chart, profit and table below show it.' : 'Switch it on to see the forecast with it.'}
         </p>
