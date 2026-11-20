@@ -61,6 +61,14 @@ describe('pull as needed', () => {
     expect(p.moves.filter(m => m.amount > 0).length).toBe(1);
   });
 
+  it('pulls and pays back in $500 steps', () => {
+    const p = pullAsNeeded(input({ costs: [cost('bill', 'expense', 7234, '2026-12'), cost('in', 'income', 4100, '2027-02')] }), order);
+    const pulls = p.moves.filter(m => m.amount > 0);
+    expect(pulls.map(m => m.amount)).toEqual([3500]);
+    expect(p.moves.filter(m => m.amount < 0).every(m => -m.amount % 500 === 0 || Math.abs(m.amount) === 3500)).toBe(true);
+    expect(closings(p).every(c => c >= 999)).toBe(true);
+  });
+
   it('lists months still short once every line is full', () => {
     const p = pullAsNeeded(input({ costs: [cost('bill', 'expense', 60000, '2026-12')] }), order);
     expect(p.short[0].month).toBe('2026-12');

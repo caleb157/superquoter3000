@@ -5,8 +5,8 @@
 //
 // Rules, month by month through the forecast:
 //  - Planned draws typed on the Credit lines tab are set aside while this is on (real draws stay).
-//  - Short month: draw what's missing from the first line in pull order that has room (limit less
-//    what's owed on it that month), then the next, until the month ends at the minimum. A line's own
+//  - Short month: draw what's missing, rounded up to a $500 step, from the first line in pull order that
+//    has room (limit less what's owed on it that month), then the next, until the month ends at the minimum. A line's own
 //    terms apply to each pull: installment lines (Amex) repay on their schedule from the next month,
 //    revolving lines charge interest monthly or build it up as a balloon until paid back.
 //  - Paying back: only revolving lines, last in pull order first, and only what the lowest cash at any
@@ -19,7 +19,11 @@ import {
 } from './dkt-cashflow';
 
 export type PullOrder = Record<string, number | null | undefined>;
-const MIN_PAYBACK = 100;
+/** Lenders take draws in round amounts: every pull is a multiple of this ($500, $1,000, $1,500…), and so is
+ *  every pay-back unless it clears what was pulled on the line (Caleb, 2026-11-20). */
+export const PULL_STEP = 500;
+const roundUp = (n: number) => Math.ceil(n / PULL_STEP - 1e-9) * PULL_STEP;
+const roundDown = (n: number) => Math.floor(n / PULL_STEP + 1e-9) * PULL_STEP;
 
 export type PullMove = { month: Month; lineId: string; name: string; amount: number }; // + pull, − pay back
 export type PullLineSummary = {
@@ -88,10 +92,12 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
         let drew = false;
         for (const line of queue) {
           const room = line.limit_usd - (owed[line.id]?.[i] ?? 0);
-          if (room < 1) continue;
+          // Only whole steps fit: a line with less than $500 of room left is skipped.
+          const roomSteps = roundDown(room);
+          if (roomSteps < PULL_STEP) continue;
           // A revolving line charges this month's interest on the pull too, so ask for a touch more.
           const gross = isInstallment(line) || drawTerms(line).balloon ? need : need / Math.max(0.5, 1 - (Number(line.rate_pct) || 0) / 1200);
-          const amt = Math.min(room, Math.ceil(gross));
+          const amt = Math.min(roomSteps, roundUp(gross));
           pulls.push({ id: `pull-${line.id}-${m}-${pass}`, line_id: line.id, month: m, amount_usd: amt, actual: false });
           moves.push({ month: m, lineId: line.id, name: line.name, amount: amt });
           if (!isInstallment(line)) outstanding[line.id] = (outstanding[line.id] ?? 0) + amt;
@@ -112,9 +118,10 @@ export function pullAsNeeded(inp: ForecastInput, order: PullOrder): PullPlan {
         if (out < 1 || isInstallment(line)) continue;
         // A balloon line also pays the interest built up on what's paid back; leave room for it.
         const rate = (Number(line.rate_pct) || 0) / 100;
-        const pay = Math.floor(Math.min(out, left / (1 + rate)));
-        // Skip crumbs: a pay-back under $100 isn't worth a line of its own (unless it clears the line).
-        if (pay < 1 || (pay < MIN_PAYBACK && pay < out - 0.5)) continue;
+        // Whole steps only, unless what's left fits and clears the line.
+        const can = left / (1 + rate);
+        const pay = out <= can + 0.5 ? Math.round(out) : roundDown(Math.min(out, can));
+        if (pay < 1) continue;
         pulls.push({ id: `payback-${line.id}-${m}-${pass}`, line_id: line.id, month: m, amount_usd: -pay, actual: false });
         moves.push({ month: m, lineId: line.id, name: line.name, amount: -pay });
         outstanding[line.id] = out - pay;
