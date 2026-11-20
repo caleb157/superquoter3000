@@ -18,6 +18,8 @@ import { ForecastTab } from '@/components/dkt/ForecastTab';
 import { OrdersTab } from '@/components/dkt/OrdersTab';
 import { OdooOrdersCard } from '@/components/dkt/OdooOrdersCard';
 import { RetainedOrdersCard } from '@/components/dkt/RetainedOrdersCard';
+import { BooksOrdersCard, OrderSourceSwitch, type OrderSource } from '@/components/dkt/BooksOrdersCard';
+import { buildBooks } from '@/lib/dkt-books';
 import { retainedToOrder } from '@/lib/dkt-retained';
 import { CostsTab } from '@/components/dkt/CostsTab';
 import { LoansTab } from '@/components/dkt/LoansTab';
@@ -32,6 +34,8 @@ import type { PullPrefs } from '@/components/dkt/PullAsNeededCard';
 const TAB_KEY = 'dkt-cash-flow-tab';
 const PAYOFF_KEY = 'dkt-cash-flow-max-payoff';
 const PULL_KEY = 'dkt-cash-flow-pull-as-needed';
+const SOURCE_KEY = 'dkt-cash-flow-order-source';
+const readSource = (): OrderSource => { try { return localStorage.getItem(SOURCE_KEY) === 'pv' ? 'pv' : 'dkt'; } catch { return 'dkt'; } };
 const readPull = (): PullPrefs => { try { return { on: !!JSON.parse(localStorage.getItem(PULL_KEY) || 'null')?.on }; } catch { return { on: false }; } };
 const readPayoff = (): PayoffPrefs => {
   try {
@@ -44,7 +48,15 @@ const readPayoff = (): PayoffPrefs => {
 export default function DktCashFlow() {
   useDocumentTitle('DKT Cash Flow');
   const thisMonth: Month = useMemo(() => new Date().toISOString().slice(0, 7), []);
-  const { data, loading, error, api, odoo } = useDktCashflow(thisMonth);
+  const { data, loading, error, api, odoo, books: booksState } = useDktCashflow(thisMonth);
+  // Confirmed orders: DKT's own Odoo when it's connected (default), else PV's Odoo.
+  const [sourcePref, setSourcePref] = useState<OrderSource>(readSource);
+  const setSource = (s: OrderSource) => { setSourcePref(s); try { localStorage.setItem(SOURCE_KEY, s); } catch { /* ignore */ } };
+  const books = useMemo(
+    () => (booksState.raw && data ? buildBooks(booksState.raw, data.booksTerms, thisMonth, odoo.rows.map(r => ({ ref: r.ref, ship_month: r.ship_month }))) : null),
+    [booksState.raw, data, thisMonth, odoo.rows],
+  );
+  const useBooks = sourcePref === 'dkt' && !!books && !booksState.error;
   const manual = useManualCashEntries('dkt');
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
@@ -80,9 +92,12 @@ export default function DktCashFlow() {
       creditLines: data.creditLines, creditDraws: data.creditDraws,
       amazonSkus: countedSkus(allegro.skus).filter(s => s.scenario_id && inForecast.has(s.scenario_id)),
       allegroPlan: allegro.plan,
-      odooOrders: odoo.rows, odooInvoices: odoo.invoices, manual: manual.entries,
+      // From DKT's own Odoo when it's the source, else PV's view of DKT's orders.
+      odooOrders: useBooks ? [] : odoo.rows, odooInvoices: useBooks ? [] : odoo.invoices,
+      booked: useBooks ? books!.orders : undefined,
+      manual: manual.entries,
     };
-  }, [data, allegro, thisMonth, odoo.rows, odoo.invoices, manual.entries]);
+  }, [data, allegro, thisMonth, odoo.rows, odoo.invoices, manual.entries, useBooks, books]);
   const forecast = useMemo(() => (forecastInput ? buildForecast(forecastInput) : null), [forecastInput]);
   // Max payoff: a what-if over the same inputs, worked out only while it's switched on.
   const payoff = useMemo(
@@ -110,7 +125,7 @@ export default function DktCashFlow() {
 
         {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">{error}</div>}
         {loading && !data && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {odoo.error && data && (
+        {odoo.error && data && !useBooks && (
           <div className="rounded-md border border-warning/40 bg-warning/10 px-4 py-2 text-xs">
             Confirmed orders and invoices from Odoo didn't load ({odoo.error}), so the forecast leaves them out for now.
           </div>
@@ -120,7 +135,7 @@ export default function DktCashFlow() {
           <Tabs value={tab} onValueChange={pickTab}>
             <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="forecast">Forecast</TabsTrigger>
-              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length + odoo.rows.filter(o => !o.excluded).length}{data.retained.some(r => r.counted) ? ` + ${data.retained.filter(r => r.counted).length} retained` : ''})</TabsTrigger>
+              <TabsTrigger value="orders">Orders ({data.orders.filter(o => !o.excluded).length + (useBooks ? books!.orders.filter(o => !o.excluded && o.kind === 'order').length : odoo.rows.filter(o => !o.excluded).length)}{data.retained.some(r => r.counted) ? ` + ${data.retained.filter(r => r.counted).length} retained` : ''})</TabsTrigger>
               <TabsTrigger value="costs">Overhead &amp; expenses</TabsTrigger>
               <TabsTrigger value="loans">Loans</TabsTrigger>
               <TabsTrigger value="credit">Credit lines</TabsTrigger>
@@ -132,7 +147,8 @@ export default function DktCashFlow() {
               <ForecastTab
                 forecast={pull?.forecast ?? payoff?.forecast ?? forecast} settings={data.settings} saveSettings={api.saveSettings}
                 totalOwed={data.loans.filter(l => l.active).reduce((s, l) => s + loanOutstanding(l, data.loanPayments), 0)}
-                custReceived={odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
+                custReceived={useBooks ? 0 : odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
+                booksCash={books?.cash ?? null}
                 creditAvailable={(() => { const t = creditDrawnToday(data.creditLines, data.creditDraws, thisMonth); return data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - (t[l.id] ?? 0)), 0); })()}
                 creditLines={data.creditLines} creditDraws={data.creditDraws}
                 scenarios={data.scenarios} skus={allegro?.skus ?? data.skus}
@@ -145,8 +161,21 @@ export default function DktCashFlow() {
             <TabsContent value="orders" className="mt-4">
               <OrdersTab orders={data.orders} odooRows={odoo.rows} share={odoo.share} meta={data.orderMeta} settings={data.settings} dktEntityName={data.dktEntityName}
                 saveOrder={api.saveOrder} saveTermsToInquiry={api.saveTermsToInquiry} saveStatus={api.saveOrderStatus} saveSettings={api.saveSettings}
-                odooCard={<OdooOrdersCard rows={odoo.rows} invoices={odoo.invoices} partner={odoo.partner} loading={odoo.loading} error={odoo.error}
-                  thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />}
+                odooCard={<>
+                  <OrderSourceSwitch source={useBooks ? 'dkt' : 'pv'} setSource={setSource} booksError={booksState.error} booksLoading={booksState.loading} />
+                  {useBooks
+                    ? <BooksOrdersCard books={books!} terms={data.booksTerms} thisMonth={thisMonth} loading={booksState.loading} reload={api.reloadBooks} save={api.saveBooksTerms} />
+                    : <OdooOrdersCard rows={odoo.rows} invoices={odoo.invoices} partner={odoo.partner} loading={odoo.loading} error={odoo.error}
+                      thisMonth={thisMonth} reload={api.reloadOdoo} save={api.saveOdooTerms} />}
+                </>}
+                confirmed={useBooks ? (() => {
+                  const live = books!.orders.filter(o => !o.excluded);
+                  const ord = live.filter(o => o.kind === 'order');
+                  return {
+                    count: ord.length, fob: ord.reduce((s, o) => s + o.custTotal, 0), margin: ord.reduce((s, o) => s + o.custTotal - o.pvTotal, 0),
+                    stillToPv: live.reduce((s, o) => s + o.pvOpen.reduce((a, d) => a + d.amount, 0) + o.pvUnbilled, 0), source: "DKT's Odoo",
+                  };
+                })() : undefined}
                 retainedCard={<RetainedOrdersCard rows={data.retained} local={data.retainedLocal}
                   save={api.saveRetained} countAll={api.countAllRetained} add={api.addRetained} remove={api.removeRetained} />} />
             </TabsContent>
@@ -157,7 +186,7 @@ export default function DktCashFlow() {
                 remove={id => api.remove('dkt_cash_items', id, 'costs')} />
             </TabsContent>
             <TabsContent value="loans" className="mt-4">
-              <LoansTab loans={data.loans} payments={data.loanPayments} orders={data.orders} odooOrders={odoo.rows} thisMonth={thisMonth}
+              <LoansTab loans={data.loans} payments={data.loanPayments} orders={data.orders} odooOrders={useBooks ? [] : odoo.rows} booked={useBooks ? books!.orders : []} thisMonth={thisMonth}
                 addLoan={() => api.insert('dkt_loans', { name: 'New loan', kind: 'lump' })}
                 updateLoan={(id, p) => api.update('dkt_loans', id, p, 'loans')}
                 removeLoan={id => api.remove('dkt_loans', id, 'loans')}

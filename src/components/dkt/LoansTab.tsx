@@ -1,3 +1,4 @@
+import type { BooksOrder } from '@/lib/dkt-books';
 import { useState } from 'react';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ type Props = {
   payments: LoanPayment[];
   orders: DktOrder[];
   odooOrders: OdooOrder[];
+  /** Orders from DKT's own Odoo (key 'dkt:S00062'), when that's the source. */
+  booked?: BooksOrder[];
   thisMonth: Month;
   addLoan: () => void;
   updateLoan: (id: string, p: Partial<LoanRow>) => void;
@@ -27,16 +30,16 @@ type Props = {
 };
 
 export function LoansTab(p: Props) {
-  const { loans, payments, orders, odooOrders, thisMonth } = p;
+  const { loans, payments, orders, odooOrders, thisMonth, booked = [] } = p;
   const yearEnd = addMonths(thisMonth, 11);
   const dueThisYear = loans.filter(l => l.active).reduce((s, l) => {
     if (l.kind === 'schedule') {
       return s + payments.filter(x => x.loan_id === l.id && !x.paid && x.due_date.slice(0, 7) <= yearEnd).reduce((t, x) => t + x.principal_usd + x.interest_usd, 0);
     }
-    const m = lumpLoanMonth(l, orders, odooOrders);
+    const m = lumpLoanMonth(l, orders, odooOrders, booked);
     return s + (m && m <= yearEnd ? l.balance_usd : 0);
   }, 0);
-  const undated = loans.filter(l => l.active && l.kind === 'lump' && !lumpLoanMonth(l, orders, odooOrders));
+  const undated = loans.filter(l => l.active && l.kind === 'lump' && !lumpLoanMonth(l, orders, odooOrders, booked));
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
@@ -56,11 +59,11 @@ export function LoansTab(p: Props) {
   );
 }
 
-function LoanCard({ loan: l, payments, orders, odooOrders, updateLoan, removeLoan, addPayment, updatePayment, removePayment }: Props & { loan: LoanRow }) {
+function LoanCard({ loan: l, payments, orders, odooOrders, booked = [], updateLoan, removeLoan, addPayment, updatePayment, removePayment }: Props & { loan: LoanRow }) {
   const mine = payments.filter(x => x.loan_id === l.id);
   const [open, setOpen] = useState(false);
   const next = mine.find(x => !x.paid);
-  const when = l.kind === 'lump' ? lumpLoanMonth(l, orders, odooOrders) : null;
+  const when = l.kind === 'lump' ? lumpLoanMonth(l, orders, odooOrders, booked) : null;
   return (
     <Card className={cn(!l.active && 'opacity-60')}>
       <CardHeader className="pb-2 space-y-0">
@@ -94,8 +97,10 @@ function LoanCard({ loan: l, payments, orders, odooOrders, updateLoan, removeLoa
                   value={l.pay_with_so ? `so:${l.pay_with_so}` : l.pay_with_inquiry_id ? `inq:${l.pay_with_inquiry_id}` : ''}
                   options={[
                     { value: '', label: 'No order, use month' },
-                    ...odooOrders.map(o => ({ value: `so:${o.name}`, label: `${o.name}${o.ref ? ` · ${o.ref}` : ''} (Odoo)` })),
-                    ...(l.pay_with_so && !odooOrders.some(o => o.name === l.pay_with_so) ? [{ value: `so:${l.pay_with_so}`, label: `${l.pay_with_so} (not open in Odoo)` }] : []),
+                    ...booked.filter(b => b.custOpen.length || b.custUninvoiced > 0.5).map(b => ({ value: `so:${b.key}`, label: `${b.name} · ${b.partner} (DKT's Odoo)` })),
+                    ...odooOrders.map(o => ({ value: `so:${o.name}`, label: `${o.name}${o.ref ? ` · ${o.ref}` : ''} (PV's Odoo)` })),
+                    ...(l.pay_with_so && !odooOrders.some(o => o.name === l.pay_with_so) && !booked.some(b => b.key === l.pay_with_so)
+                      ? [{ value: `so:${l.pay_with_so}`, label: `${l.pay_with_so.replace(/^dkt:/, '')} (not open any more)` }] : []),
                     ...orders.map(o => ({ value: `inq:${o.inquiry_id}`, label: `${o.rfq_number}${o.customer ? ` · ${o.customer}` : ''}` })),
                   ]}
                   onSave={v => updateLoan(l.id, { pay_with_so: v.startsWith('so:') ? v.slice(3) : null, pay_with_inquiry_id: v.startsWith('inq:') ? v.slice(4) : null })} />

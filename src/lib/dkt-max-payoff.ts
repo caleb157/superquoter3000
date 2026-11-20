@@ -118,7 +118,7 @@ function openDebts(inp: ForecastInput, months: Month[], i: number): Open[] {
         .filter(p => { const pm = p.due_date.slice(0, 7); return (pm < inp.thisMonth ? inp.thisMonth : pm) > m; })
         .reduce((s, p) => s + p.principal_usd, 0);
     } else {
-      const due = lumpLoanMonth(l, inp.orders, inp.odooOrders ?? []);
+      const due = lumpLoanMonth(l, inp.orders, inp.odooOrders ?? [], inp.booked ?? []);
       if (due && (due < inp.thisMonth ? inp.thisMonth : due) <= m) continue; // the plan pays it anyway
       balance = l.balance_usd;
     }
@@ -145,7 +145,7 @@ function debtBalances(inp: ForecastInput, months: Month[]): Record<string, { nam
       const received = !(l.proceeds_usd && l.proceeds_month && l.proceeds_month > months[0]);
       res[`l:${l.id}`] = { name: l.name, kind: 'loan', values, today: received ? pays.reduce((s, p) => s + p.principal_usd, 0) : 0 };
     } else {
-      const due = lumpLoanMonth(l, inp.orders, inp.odooOrders ?? []);
+      const due = lumpLoanMonth(l, inp.orders, inp.odooOrders ?? [], inp.booked ?? []);
       const at = due ? (due < inp.thisMonth ? inp.thisMonth : due) : null;
       const extra = (inp.extraFlows ?? []).filter(f => f.ref === l.id && f.kind === 'loan_principal');
       values = months.map(m => (at && at <= m ? 0 : l.balance_usd + extra.filter(f => f.month > m).reduce((s, f) => s - f.amount, 0)));
