@@ -110,6 +110,8 @@ export type CreditLine = {
   monthly_fee_pct?: number | null; // ...plus this % of the draw every month (instead of yearly interest)
   balloon?: boolean | null; // revolving: interest builds up and is paid with the principal in the "due in full" month (Sooie)
   draw_priority?: number | null; // Pull as needed: 1 pulled first, then 2…; blank = never pulled automatically
+  pull_step_usd?: number | null; // Pull as needed: pulls and pay-backs in whole multiples of this (blank = $500)
+  pull_cover_months?: number | null; // Pull as needed: one pull covers this month and the next ones (blank = 1)
 };
 export type CreditDraw = {
   id: string; line_id: string; month: Month; amount_usd: number; // + draw, − repay

@@ -34,8 +34,8 @@ export function PullAsNeededCard({ prefs, setPrefs, plan, minCash, queueSize, op
           <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto" onClick={openCredit}>Set pull order</Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Whenever a month would end under {usd(minCash)} (Keep at least), it draws what's missing, in $500 steps ($500, $1,000, $1,500…), from your credit lines in their pull order: the first line until it's full, then the next.
-          It pays revolving lines down, last in the order first, in $500 steps (or the whole balance) with any cash not needed this month or the next two, and pulls again later if it has to: owing less interest beats holding idle cash.
+          Whenever a month would end under {usd(minCash)} (Keep at least), it draws what's missing from your credit lines in their pull order: the first line until it's full, then the next. Each line pulls in its own steps ($500 unless set, e.g. Sooie $5,000), and a line set to cover several months takes enough for all of them in one pull.
+          It pays revolving lines down, last in the order first, in its steps (or the whole balance) with any cash not needed this month or the next two, and pulls again later if it has to: owing less interest beats holding idle cash.
           Installment lines (Amex) repay on their own schedule. Planned draws typed on the Credit lines tab are set aside while this is on; real draws stay.
           A what-if only: nothing is saved. {prefs.on ? 'The chart, profit and table below show it.' : 'Switch it on to see the forecast with it.'}
         </p>
@@ -87,7 +87,7 @@ export function PullAsNeededCard({ prefs, setPrefs, plan, minCash, queueSize, op
                   {p.lines.map(l => (
                     <tr key={l.id} className="border-t border-border/50">
                       <td className="py-1.5 pr-3 text-muted-foreground">{l.order}</td>
-                      <td className="py-1.5 pr-3">{l.name}{l.installment && <span className="text-muted-foreground"> · installments</span>}</td>
+                      <td className="py-1.5 pr-3">{l.name}<span className="text-muted-foreground">{l.installment ? ' · installments' : ''} · {usd(l.step)} steps{l.cover > 1 ? `, covers ${l.cover} months` : ''}</span></td>
                       <td className="text-right py-1.5 px-2 text-muted-foreground">{usd(l.limit)}</td>
                       <td className="text-right py-1.5 px-2">{l.pulled > 0.5 ? usd(l.pulled) : <span className="text-muted-foreground/50">–</span>}</td>
                       <td className="text-right py-1.5 px-2">{l.paidBack > 0.5 ? usd(l.paidBack) : <span className="text-muted-foreground/50">–</span>}</td>

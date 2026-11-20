@@ -81,6 +81,22 @@ describe('pull as needed', () => {
     expect(closings(p).every(c => c >= 999)).toBe(true);
   });
 
+  it('a line set to $5,000 steps covering 3 months pulls once for the next three months', () => {
+    const block = { ...sooie, pull_step_usd: 5000, pull_cover_months: 3 };
+    const bills = ['2026-12', '2027-01', '2027-02'].map((m, k) => cost(`b${k}`, 'expense', 3000, m));
+    const p = pullAsNeeded(input({ creditLines: [block, amex, hq], settings: { ...DEFAULT_SETTINGS, cash_usd: 1000, min_cash_usd: 1000, horizon_months: 6, allegro_launch_on: false }, costs: bills }), order);
+    expect(p.moves.filter(m => m.amount > 0).map(m => [m.month, m.name, m.amount])).toEqual([['2026-12', 'Sooie', 10000]]);
+    expect(p.moves.filter(m => m.amount < 0).every(m => -m.amount % 5000 === 0)).toBe(true);
+    expect(closings(p).every(c => c >= 999)).toBe(true);
+  });
+
+  it('skips a stepped line with less than one step of room', () => {
+    const block = { ...sooie, limit_usd: 4000, pull_step_usd: 5000 };
+    const p = pullAsNeeded(input({ creditLines: [block, amex, hq], costs: [cost('bill', 'expense', 6000, '2026-12')] }), order);
+    expect(p.moves.filter(m => m.amount > 0 && m.month === '2026-12').map(m => m.name)).toEqual(['Amex']);
+    expect(p.moves.some(m => m.name === 'Sooie')).toBe(false);
+  });
+
   it('lists months still short once every line is full', () => {
     const p = pullAsNeeded(input({ costs: [cost('bill', 'expense', 60000, '2026-12')] }), order);
     expect(p.short[0].month).toBe('2026-12');
