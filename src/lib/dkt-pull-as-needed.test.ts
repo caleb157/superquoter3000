@@ -53,7 +53,19 @@ describe('pull as needed', () => {
     expect(closings(p).every(c => c >= 999)).toBe(true);
   });
 
-  it('never pays back money it would have to pull again later', () => {
+  it('pays a revolving line down with idle cash and pulls it again later', () => {
+    const p = pullAsNeeded(input({
+      settings: { ...DEFAULT_SETTINGS, cash_usd: 5000, min_cash_usd: 1000, horizon_months: 10, allegro_launch_on: false },
+      costs: [cost('bill', 'expense', 10000, '2026-12'), cost('in', 'income', 12000, '2027-01'), cost('bill2', 'expense', 9000, '2027-07')],
+    }), order);
+    const mv = p.moves.map(m => [m.month, m.name, m.amount]);
+    expect(mv[0]).toEqual(['2026-12', 'Sooie', 6000]);
+    expect(mv.some(([m, , a]) => m === '2027-01' && (a as number) < 0)).toBe(true); // paid down while cash sits idle
+    expect(mv.some(([m, n, a]) => m === '2027-07' && n === 'Sooie' && (a as number) > 0)).toBe(true); // pulled again
+    expect(closings(p).every(c => c >= 999)).toBe(true);
+  });
+
+  it('keeps cash it needs within the next two months', () => {
     const p = pullAsNeeded(input({ costs: [
       cost('bill', 'expense', 10000, '2026-12'), cost('in', 'income', 8000, '2027-01'), cost('bill2', 'expense', 8000, '2027-03'),
     ] }), order);
