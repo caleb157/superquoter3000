@@ -109,6 +109,7 @@ export type CreditLine = {
   term_months?: number | null; // installment line (e.g. Amex): each draw is repaid in this many equal monthly payments, from the next month
   monthly_fee_pct?: number | null; // ...plus this % of the draw every month (instead of yearly interest)
   balloon?: boolean | null; // revolving: interest builds up and is paid with the principal in the "due in full" month (Sooie)
+  draw_priority?: number | null; // Pull as needed: 1 pulled first, then 2…; blank = never pulled automatically
 };
 export type CreditDraw = {
   id: string; line_id: string; month: Month; amount_usd: number; // + draw, − repay

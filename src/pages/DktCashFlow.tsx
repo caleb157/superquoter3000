@@ -26,9 +26,13 @@ import { AmazonTab } from '@/components/dkt/AmazonTab';
 import { AllegroTab } from '@/components/dkt/AllegroTab';
 import type { PayoffPrefs } from '@/components/dkt/MaxPayoffCard';
 import { DEFAULT_PAYOFF_BUFFER, maxPayoff } from '@/lib/dkt-max-payoff';
+import { pullAsNeeded } from '@/lib/dkt-pull-as-needed';
+import type { PullPrefs } from '@/components/dkt/PullAsNeededCard';
 
 const TAB_KEY = 'dkt-cash-flow-tab';
 const PAYOFF_KEY = 'dkt-cash-flow-max-payoff';
+const PULL_KEY = 'dkt-cash-flow-pull-as-needed';
+const readPull = (): PullPrefs => { try { return { on: !!JSON.parse(localStorage.getItem(PULL_KEY) || 'null')?.on }; } catch { return { on: false }; } };
 const readPayoff = (): PayoffPrefs => {
   try {
     const v = JSON.parse(localStorage.getItem(PAYOFF_KEY) || 'null');
@@ -45,7 +49,12 @@ export default function DktCashFlow() {
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'forecast'; } catch { return 'forecast'; } });
   const pickTab = (t: string) => { setTab(t); try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ } };
   const [payoffPrefs, setPayoffPrefsState] = useState<PayoffPrefs>(readPayoff);
-  const setPayoffPrefs = (p: PayoffPrefs) => { setPayoffPrefsState(p); try { localStorage.setItem(PAYOFF_KEY, JSON.stringify(p)); } catch { /* ignore */ } };
+  const savePayoff = (p: PayoffPrefs) => { setPayoffPrefsState(p); try { localStorage.setItem(PAYOFF_KEY, JSON.stringify(p)); } catch { /* ignore */ } };
+  const [pullPrefs, setPullPrefsState] = useState<PullPrefs>(readPull);
+  const savePull = (p: PullPrefs) => { setPullPrefsState(p); try { localStorage.setItem(PULL_KEY, JSON.stringify(p)); } catch { /* ignore */ } };
+  // Pull as needed and Max payoff pull in opposite directions, so switching one on switches the other off.
+  const setPayoffPrefs = (p: PayoffPrefs) => { savePayoff(p); if (p.on && pullPrefs.on) savePull({ on: false }); };
+  const setPullPrefs = (p: PullPrefs) => { savePull(p); if (p.on && payoffPrefs.on) savePayoff({ ...payoffPrefs, on: false }); };
 
   const horizon = data?.settings.horizon_months ?? 12;
   const lookahead = Math.max(horizon, 24);
@@ -77,8 +86,13 @@ export default function DktCashFlow() {
   const forecast = useMemo(() => (forecastInput ? buildForecast(forecastInput) : null), [forecastInput]);
   // Max payoff: a what-if over the same inputs, worked out only while it's switched on.
   const payoff = useMemo(
-    () => (forecastInput && payoffPrefs.on ? maxPayoff(forecastInput, payoffPrefs.buffer) : null),
-    [forecastInput, payoffPrefs.on, payoffPrefs.buffer],
+    () => (forecastInput && payoffPrefs.on && !pullPrefs.on ? maxPayoff(forecastInput, payoffPrefs.buffer) : null),
+    [forecastInput, payoffPrefs.on, payoffPrefs.buffer, pullPrefs.on],
+  );
+  // Pull as needed: draws from the credit lines in their pull order to keep cash at the minimum.
+  const pull = useMemo(
+    () => (forecastInput && pullPrefs.on ? pullAsNeeded(forecastInput, Object.fromEntries(forecastInput.creditLines.map(l => [l.id, l.draw_priority ?? null]))) : null),
+    [forecastInput, pullPrefs.on],
   );
 
   return (
@@ -116,7 +130,7 @@ export default function DktCashFlow() {
 
             <TabsContent value="forecast" className="mt-4">
               <ForecastTab
-                forecast={payoff?.forecast ?? forecast} settings={data.settings} saveSettings={api.saveSettings}
+                forecast={pull?.forecast ?? payoff?.forecast ?? forecast} settings={data.settings} saveSettings={api.saveSettings}
                 totalOwed={data.loans.filter(l => l.active).reduce((s, l) => s + loanOutstanding(l, data.loanPayments), 0)}
                 custReceived={odoo.rows.filter(o => !o.excluded).reduce((s, o) => s + odooCustReceived(o), 0)}
                 creditAvailable={(() => { const t = creditDrawnToday(data.creditLines, data.creditDraws, thisMonth); return data.creditLines.reduce((s, l) => s + Math.max(0, l.limit_usd - (t[l.id] ?? 0)), 0); })()}
@@ -125,6 +139,7 @@ export default function DktCashFlow() {
                 setScenarioInForecast={(id, on) => (allegro?.ids.has(id) ? api.saveSettings({ allegro_launch_on: on }) : api.update('dkt_amazon_scenarios', id, { in_forecast: on }, 'scenarios'))}
                 manual={manual}
                 payoffPrefs={payoffPrefs} setPayoffPrefs={setPayoffPrefs} payoff={payoff}
+                pullPrefs={pullPrefs} setPullPrefs={setPullPrefs} pull={pull} openCredit={() => pickTab('credit')}
               />
             </TabsContent>
             <TabsContent value="orders" className="mt-4">
