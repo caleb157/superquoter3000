@@ -5,6 +5,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
+import { poRefTokens, soRefTokens, applyRefPayments, waterfallRemainder } from '../_shared/advance-match.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -58,9 +59,6 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const addDays = (s: string, n: number) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 /** Customer PO numbers in a memo or reference ("P00038", "PO1093"), normalised so P00038 = P38 = PO38.
  *  P0102/P0103 are RBI purpose codes on every bank memo, not PO numbers. */
-const poRefTokens = (s: string) => [...String(s).toUpperCase().matchAll(/\bP(?:O)?[-\s]?0*(\d{2,})\b/g)]
-  .filter(m => !/^P010[0-9]$/.test(m[0].replace(/\s|-/g, '')))
-  .map(m => 'P' + m[1]);
 const maxDate = (...xs: (string | null)[]) => xs.filter(Boolean).sort().pop() ?? null;
 
 Deno.serve(async (req) => {
@@ -123,24 +121,34 @@ Deno.serve(async (req) => {
         for (const r of rows) advanceCache.set(r.id, { cust: Math.max(0, -num(r.credit)), vend: Math.max(0, -num(r.debit)) });
       } catch (e) { warnings.push('Partner balances: ' + e.message); }
     }
-    // FIFO: advances soak up a partner's earliest-dated items first.
-    function waterfall(items: any[], key: 'cust' | 'vend') {
-      const byPartner = new Map<number, any[]>();
-      for (const it of items) { if (!byPartner.has(it.partner_id)) byPartner.set(it.partner_id, []); byPartner.get(it.partner_id)!.push(it); }
-      for (const [pid, list] of byPartner) {
-        // Payments already matched to an item by its PO reference come out of the pool first.
-        let leftInr = Math.max(0, (advanceCache.get(pid)?.[key] ?? 0) - list.reduce((s, it) => s + (it.advance_applied_inr || 0), 0));
-        list.sort((a, b) => a.date.localeCompare(b.date));
-        for (const it of list) {
-          if (leftInr <= 0) break;
-          const take = Math.min(leftInr, it.amount_inr);
-          const ratio = it.amount_inr > 0 ? take / it.amount_inr : 0;
-          it.advance_applied_inr = (it.advance_applied_inr || 0) + take;
-          it.amount_inr -= take;
-          it.amount_usd -= it.amount_usd * ratio;
-          leftInr -= take;
-        }
-      }
+    // Unreconciled payments and bank lines on receivable/payable: the partner's advances, with the
+    // memo / bank description text that names the SO or PO they were paid against.
+    async function loadRefPayments(kind: 'cust' | 'vend', pids: number[]) {
+      const companies = [...new Set(pids.map(company).filter(Boolean))];
+      if (!companies.length) return [];
+      const lines = await sr('account.move.line', [['partner_id', 'child_of', companies],
+        ['account_id.account_type', '=', kind === 'cust' ? 'asset_receivable' : 'liability_payable'],
+        ['reconciled', '=', false], ['parent_state', '=', 'posted'], '|', ['payment_id', '!=', false], ['statement_line_id', '!=', false]],
+        ['partner_id', 'amount_residual', 'name', 'ref', 'move_name', 'payment_id', 'date'], { limit: 5000, order: 'date asc' });
+      const payIds = [...new Set(lines.map(l => id(l.payment_id)).filter(Boolean))];
+      const memo = new Map<number, string>();
+      if (payIds.length) for (const p of await sr('account.payment', [['id', 'in', payIds]], ['memo', 'ref'])) memo.set(p.id, `${p.memo || ''} ${p.ref || ''}`);
+      await loadAdvances(lines.map(l => id(l.partner_id)));
+      return lines
+        .map(l => ({ partner_id: company(id(l.partner_id)), inr: kind === 'cust' ? -num(l.amount_residual) : num(l.amount_residual),
+          name: l.move_name || '', text: `${l.name || ''} ${l.ref || ''} ${memo.get(id(l.payment_id)) || ''}` }))
+        .filter(x => x.inr > 0.5);
+    }
+    // Payments naming an order go to that order; the rest of the partner's advance falls FIFO to its oldest open orders.
+    async function applyAdvances(items: any[], kind: 'cust' | 'vend') {
+      const tokensOf = kind === 'cust' ? (t: string) => [...soRefTokens(t), ...poRefTokens(t)] : poRefTokens;
+      let unapplied: Map<number | null, number> | null = null;
+      try { unapplied = applyRefPayments(items, await loadRefPayments(kind, items.map(i => i.partner_id)), tokensOf); }
+      catch (e) { warnings.push(`${kind === 'cust' ? 'Customer' : 'Vendor'} payment references: ` + e.message); }
+      waterfallRemainder(items, pid => {
+        const balance = Math.max(0, (advanceCache.get(pid as number)?.[kind] ?? 0) - items.filter(i => i.partner_id === pid).reduce((s, i) => s + (i.paid_by_ref_inr || 0), 0));
+        return unapplied ? Math.min(balance, unapplied.get(pid) ?? 0) : balance;
+      });
       // Fully advance-covered items stay (amount 0) so they remain visible in drill-downs.
       return items.map(i => (i.amount_inr <= 0.5 ? { ...i, amount_inr: 0, amount_usd: 0, advance_covered: true } : i));
     }
@@ -255,23 +263,6 @@ Deno.serve(async (req) => {
         agg.set(id(l.order_id), a);
       }
       await loadAdvances(openSos.map(o => id(o.partner_id)));
-      // Deposits arrive as unmatched customer payments whose memo starts with the customer's PO
-      // number, the same number as the SO's Customer Reference (e.g. "P00038 UTC …" ↔ "P00038 Urban Tribes").
-      const paidByRef = new Map<string, { inr: number; names: string[] }>();
-      try {
-        const companies = [...new Set(openSos.map(o => company(id(o.partner_id))).filter(Boolean))];
-        const pays = companies.length ? await sr('account.payment', [['partner_id', 'child_of', companies], ['payment_type', '=', 'inbound'],
-          ['state', 'in', ['in_process', 'paid']], ['is_reconciled', '=', false]],
-          ['name', 'memo', 'ref', 'amount', 'amount_company_currency_signed', 'currency_id', 'partner_id'], { limit: 2000 }) : [];
-        for (const pay of pays) {
-          const inr = Math.abs(num(pay.amount_company_currency_signed)) || money(num(pay.amount), nm(pay.currency_id), 0).inr;
-          for (const tok of poRefTokens(`${pay.memo || ''} ${pay.ref || ''}`)) {
-            const k = `${company(id(pay.partner_id))}|${tok}`;
-            const e = paidByRef.get(k) || { inr: 0, names: [] }; e.inr += inr; e.names.push(pay.name); paidByRef.set(k, e);
-            break; // a payment counts toward its first PO number only
-          }
-        }
-      } catch (e) { warnings.push('Customer deposits: ' + e.message); }
       const items: any[] = [];
       for (const [oid, a] of agg) {
         const o = soById.get(oid)!; const cur = nm(o.currency_id) || 'INR';
@@ -280,23 +271,12 @@ Deno.serve(async (req) => {
         if (date < today) date = today;
         const pid = company(id(o.partner_id));
         const item: any = { kind: 'so', ref: o.name, partner: nm(o.partner_id), partner_id: pid, date, so_date: d10(o.date_order), customer_ref: o.client_order_ref || null,
-          gross_inr: g.inr, gross_usd: g.usd, amount_inr: g.inr, amount_usd: g.usd, sign: 1 };
-        // Payments that name this SO's PO number are applied to it before the partner's other credit.
-        for (const tok of poRefTokens(o.client_order_ref || '')) {
-          const e = paidByRef.get(`${pid}|${tok}`);
-          if (!e || e.inr <= 0) continue;
-          const take = Math.min(e.inr, item.amount_inr);
-          if (take <= 0) break;
-          e.inr -= take;
-          item.amount_usd -= item.amount_inr > 0 ? item.amount_usd * (take / item.amount_inr) : 0;
-          item.amount_inr -= take;
-          item.advance_applied_inr = take; item.paid_by_ref_inr = take; item.paid_by_ref = e.names;
-          break;
-        }
+          gross_inr: g.inr, gross_usd: g.usd, amount_inr: g.inr, amount_usd: g.usd, sign: 1,
+          tokens: [...soRefTokens(o.name), ...poRefTokens(o.client_order_ref || '')] };
         items.push(item);
         pendingSoRevenue.push({ ref: o.name, partner: nm(o.partner_id), date, amount_inr: n.inr, amount_usd: n.usd, ...soKind(o) });
       }
-      cash.push(...waterfall(items, 'cust'));
+      cash.push(...(await applyAdvances(items, 'cust')).map(({ tokens, ...i }) => i));
     } catch (e) { warnings.push('Pending SOs: ' + e.message); }
 
     // ================= CASH: pending POs (incl. RFQs) =================
@@ -321,9 +301,9 @@ Deno.serve(async (req) => {
         const p = poById.get(pid)!; const cur = nm(p.currency_id) || 'INR';
         const m = money(amt, cur, num(p.currency_rate));
         let date = d10(p.date_planned) || tomorrow; if (date < tomorrow) date = tomorrow;
-        items.push({ kind: 'po', ref: p.name + (p.state !== 'purchase' ? ' (RFQ)' : ''), partner: nm(p.partner_id), partner_id: company(id(p.partner_id)), date, amount_inr: m.inr, amount_usd: m.usd, sign: -1 });
+        items.push({ kind: 'po', ref: p.name + (p.state !== 'purchase' ? ' (RFQ)' : ''), partner: nm(p.partner_id), partner_id: company(id(p.partner_id)), date, amount_inr: m.inr, amount_usd: m.usd, sign: -1, tokens: poRefTokens(p.name) });
       }
-      cash.push(...waterfall(items, 'vend'));
+      cash.push(...(await applyAdvances(items, 'vend')).map(({ tokens, ...i }) => i));
     } catch (e) { warnings.push('Pending POs: ' + e.message); }
 
     // ================= PO spend per SO (Project) =================
@@ -516,12 +496,28 @@ Deno.serve(async (req) => {
       if (cf.salesOrdersLoaded === false) warnings.push('LaborTrax capacity: Odoo sales-order dates unavailable, fallback dates used');
     } catch (e) { warnings.push('LaborTrax capacity forecast: ' + e.message); }
 
+    // ================= Analytic budgets (open ones, straight from Odoo's budget lines) =================
+    let budgets: any[] = [];
+    try {
+      const bs = await sr('budget.analytic', [['state', 'in', ['confirmed', 'revised']]], ['name', 'date_from', 'date_to', 'state', 'budget_line_ids']);
+      const lineIds = bs.flatMap(b => b.budget_line_ids || []);
+      const lines = lineIds.length ? await sr('budget.line', [['id', 'in', lineIds]],
+        ['budget_analytic_id', 'x_plan2_id', 'account_id', 'name', 'budget_amount', 'achieved_amount', 'theoritical_amount', 'is_above_budget']) : [];
+      budgets = bs.map(b => ({
+        id: b.id, name: b.name, date_from: d10(b.date_from), date_to: d10(b.date_to),
+        lines: lines.filter(l => id(l.budget_analytic_id) === b.id).map(l => ({
+          id: l.id, name: nm(l.x_plan2_id) || nm(l.account_id) || l.name || 'Line',
+          budget: num(l.budget_amount), achieved: num(l.achieved_amount), theoretical: num(l.theoritical_amount),
+        })),
+      }));
+    } catch (e) { warnings.push('Budgets: ' + e.message); }
+
     const payload = {
       inr_per_usd: inrPerUsd, today, overhead_months: overheadMonths, opening_cash_inr: openingCashInr,
       sales_orders: salesOrders, cash_items: cash, invoiced, pending_so_revenue: pendingSoRevenue,
       overhead_monthly: overheadMonthly, actual_hours_by_month: actualHoursByMonth, booked_hours_by_month: bookedHoursByMonth,
       capacity_hours_by_month: capacityHoursByMonth, lt_weekly_capacity: ltWeeklyCapacity, lt_capacity_weekly: ltCapacityWeekly,
-      labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings, po_by_so: poBySo,
+      budgets, labortrax_entry_count: lt.length, labortrax_fields: ltSampleKeys, warnings, po_by_so: poBySo,
     };
     const duration = Date.now() - started;
     await admin.from('analytics_snapshots').insert({ payload, synced_by: userId, status: warnings.length ? 'partial' : 'ok', duration_ms: duration });

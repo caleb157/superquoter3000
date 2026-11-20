@@ -9,6 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DateRangePicker } from '@/components/analytics/DateRangePicker';
 import { KpiZone } from '@/components/analytics/master/KpiZone';
 import { ProjectionsZone } from '@/components/analytics/master/ProjectionsZone';
+import { BudgetZone } from '@/components/analytics/master/BudgetZone';
 import { rangeFromPreset, type RangePreset } from '@/lib/analytics-helpers';
 import type { Ccy } from '@/lib/master-analytics';
 import { useAnalyticsSnapshot } from '@/hooks/use-analytics-snapshot';
@@ -106,6 +107,14 @@ const Analytics = () => {
             includePipeline={includePipeline} setIncludePipeline={v => setParam('pipeline', v ? null : '0')}
             overheadMonths={settings.overheadMonths} setOverheadMonths={n => saveSetting('overhead_avg_months', n, 'overheadMonths')}
           />
+        </section>
+
+        {/* Zone 3 */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide">Budgets <span className="font-normal normal-case text-muted-foreground">· Odoo analytic budgets</span></h2>
+          </div>
+          <BudgetZone snapshot={snapshot} />
         </section>
 
       </div>

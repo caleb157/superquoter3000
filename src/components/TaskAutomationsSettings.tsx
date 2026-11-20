@@ -105,11 +105,11 @@ export default function TaskAutomationsSettings() {
             </p>
 
             <div className="space-y-1.5">
-              <div className="grid grid-cols-[1fr_90px_100px_90px_32px] gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-0.5">
-                <span>Task title</span><span>Assignee</span><span>Priority</span><span>Due (+days)</span><span />
+              <div className="grid grid-cols-[1fr_90px_100px_90px_130px_32px] gap-2 text-[10px] uppercase tracking-wide text-muted-foreground px-0.5">
+                <span>Task title</span><span>Assignee</span><span>Priority</span><span>Due (± days)</span><span>From</span><span />
               </div>
               {r.tasks.map((t, i) => (
-                <div key={i} className="grid grid-cols-[1fr_90px_100px_90px_32px] gap-2">
+                <div key={i} className="grid grid-cols-[1fr_90px_100px_90px_130px_32px] gap-2">
                   <Input value={t.title} onChange={e => patchTask(r, i, { title: e.target.value })} className="h-8 text-sm" />
                   <Select value={t.assignee ?? '__none'} onValueChange={v => patchTask(r, i, { assignee: v === '__none' ? null : v })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -126,6 +126,13 @@ export default function TaskAutomationsSettings() {
                   </Select>
                   <Input type="number" value={t.due_offset_days ?? ''} placeholder="none"
                     onChange={e => patchTask(r, i, { due_offset_days: e.target.value === '' ? null : Number(e.target.value) })} className="h-8 text-sm" />
+                  <Select value={t.due_anchor ?? 'event'} onValueChange={v => patchTask(r, i, { due_anchor: v as any })} disabled={!r.trigger_event.startsWith('so_')}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="event">Event day</SelectItem>
+                      <SelectItem value="so_due">SO delivery date</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => patch(r.id, { tasks: r.tasks.filter((_, j) => j !== i) })}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -145,7 +152,7 @@ export default function TaskAutomationsSettings() {
       <Card>
         <CardContent className="pt-4 space-y-2 text-xs">
           <div className="font-semibold text-sm">Connecting Odoo</div>
-          <p className="text-muted-foreground">In Odoo, create an Automation Rule (e.g. Sales Order, trigger "State is set to" Sales Order) with action <b>Send Webhook Notification</b>, and paste the URL for that event. Fields: SO → Order Reference, Customer, Customer Reference; MO → Reference, Product, Source.</p>
+          <p className="text-muted-foreground">In Odoo, create an Automation Rule (e.g. Sales Order, trigger "State is set to" Sales Order) with action <b>Send Webhook Notification</b>, and paste the URL for that event. Fields: SO → Order Reference, Customer, Customer Reference, Signed On, Delivery Date, Expected Date (SO delivery date = Signed On, else Delivery Date, else Expected Date); MO → Reference, Product, Source.</p>
           {token ? ODOO_TRIGGERS.map(t => {
             const url = `${WEBHOOK_URL}?token=${token}&event=${t.value}`;
             return (

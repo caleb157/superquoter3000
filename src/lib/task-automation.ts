@@ -24,9 +24,11 @@ export type TaskTemplate = {
   assignee?: string | null;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   due_offset_days?: number | null;
+  /** What due_offset_days counts from: the event day (default) or the SO delivery date (Odoo SO events; falls back to the event day). */
+  due_anchor?: 'event' | 'so_due';
 };
 
-export const TEMPLATE_VARIABLES = ['so_number', 'mo_number', 'customer', 'customer_ref', 'sku'] as const;
+export const TEMPLATE_VARIABLES = ['so_number', 'mo_number', 'customer', 'customer_ref', 'sku', 'so_due_date'] as const;
 export const HQ_TEMPLATE_VARIABLES: Record<string, string[]> = {
   inquiry_created: ['rfq_number', 'inquiry_title', 'customer'],
   customer_status_lead: ['customer', 'company'],

@@ -13,7 +13,23 @@ const Body = z.object({
   customer: z.string().max(300).optional().nullable(),
   customer_ref: z.string().max(500).optional().nullable(),
   sku: z.string().max(200).optional().nullable(),
+  so_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  so_id: z.number().int().optional().nullable(),
 });
+
+/** SO delivery date: revised (Signed On) beats promised (Delivery Date) beats Odoo's Expected Date. */
+const soDueDate = (r: any): string | null => {
+  for (const v of [r?.signed_on, r?.commitment_date, r?.expected_date]) {
+    const t = str(v);
+    if (!t || !/^\d{4}-\d{2}-\d{2}/.test(t)) continue;
+    if (t.length <= 10) return t.slice(0, 10);
+    // Odoo datetimes are UTC; the date the team sees is India time.
+    const d = new Date(t.replace(' ', 'T') + 'Z');
+    return isNaN(d.getTime()) ? t.slice(0, 10) : new Date(d.getTime() + 330 * 60000).toISOString().slice(0, 10);
+  }
+  return null;
+};
+const fmtDate = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -31,7 +47,7 @@ const str = (v: unknown): string | null => (v == null || v === false || v === ''
 function normalize(raw: any, qEvent: string | null) {
   if (!raw || typeof raw !== 'object') return raw;
   const event = raw.event ?? qEvent;
-  if (raw.so_number || raw.mo_number) return { ...raw, event };
+  if (raw.so_number || raw.mo_number) return { ...raw, event, so_due_date: raw.so_due_date ?? soDueDate(raw) };
   const model = String(raw._model ?? '');
   const isMo = model === 'mrp.production' || String(event ?? '').startsWith('mo_');
   if (isMo) {
@@ -40,7 +56,8 @@ function normalize(raw: any, qEvent: string | null) {
     const sku = str(raw.default_code) ?? (prod?.match(/^\[([^\]]+)\]/)?.[1] ?? prod);
     return { event, mo_number: str(raw.name), sku, so_number: str(raw.origin) };
   }
-  return { event, so_number: str(raw.name), customer: m2o(raw.partner_id), customer_ref: str(raw.client_order_ref) };
+  return { event, so_number: str(raw.name), customer: m2o(raw.partner_id), customer_ref: str(raw.client_order_ref),
+    so_due_date: soDueDate(raw), so_id: typeof raw.id === 'number' ? raw.id : null };
 }
 
 // Reads one Odoo record by id via JSON-RPC; returns null on any failure (2s budget).
@@ -110,9 +127,12 @@ Deno.serve(async (req) => {
   }
 
   const isMo = p.event.startsWith('mo_');
+  // Webhook without the date fields: read them from the order.
+  if (!isMo && !p.so_due_date && p.so_id) p.so_due_date = soDueDate(await odooRead('sale.order', p.so_id, ['signed_on', 'commitment_date', 'expected_date']));
   const vars: Record<string, string> = {
     so_number: p.so_number ?? '', mo_number: p.mo_number ?? '',
     customer: p.customer ?? '', customer_ref: p.customer_ref ?? '', sku: p.sku ?? '',
+    so_due_date: p.so_due_date ? fmtDate(p.so_due_date) : '',
   };
   const render = (s: string) => s.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? '').replace(/\s{2,}/g, ' ').trim();
 
@@ -134,7 +154,9 @@ Deno.serve(async (req) => {
       if (!t?.title) continue;
       let due: string | null = null;
       if (typeof t.due_offset_days === 'number') {
-        const d = new Date(today); d.setUTCDate(d.getUTCDate() + t.due_offset_days);
+        // Anchor on the SO delivery date when the task asks for it and the order has one; else the event day.
+        const base = t.due_anchor === 'so_due' && p.so_due_date ? new Date(p.so_due_date + 'T00:00:00Z') : today;
+        const d = new Date(base); d.setUTCDate(d.getUTCDate() + t.due_offset_days);
         due = d.toISOString().slice(0, 10);
       }
       rows.push({

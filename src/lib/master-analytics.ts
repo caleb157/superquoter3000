@@ -47,6 +47,10 @@ export type Snapshot = {
   /** LaborTrax available capacity per month (holiday-adjusted). */
   capacity_hours_by_month?: Record<string, number>;
   lt_weekly_capacity?: number | null;
+  /** LaborTrax weekly buckets (Monday-start weeks) — only weeks with scheduled work are reported. */
+  lt_capacity_weekly?: { week: string; total?: number; capacity: number }[];
+  /** Open Odoo analytic budgets with their lines (INR). */
+  budgets?: SnapshotBudget[];
   labortrax_entry_count: number; labortrax_fields: string[]; warnings: string[];
   /** PO spend per SO name (older snapshots: undefined, so booked vendor costs are left out). */
   po_by_so?: Record<string, SoPoSpend>;
@@ -358,4 +362,49 @@ export function fmtMoney(v: number, ccy: Ccy, compact = true) {
   else if (ccy === 'INR') s = a >= 1e7 ? (a / 1e7).toFixed(2) + ' Cr' : a >= 1e5 ? (a / 1e5).toFixed(1) + ' L' : Math.round(a).toLocaleString('en-IN');
   else s = a >= 1e6 ? (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'k' : Math.round(a).toString();
   return (v < 0 ? '−' : '') + sym + s;
+}
+
+// ---------- Capacity (LaborTrax top-up) ----------
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+/** Available hours for a month: LaborTrax's figure plus the weekly baseline for working days
+ *  (Mon–Sat) from today on that no reported LaborTrax week covers — LaborTrax only emits weeks
+ *  with scheduled MOs, so a month where work tails off would otherwise dip. */
+export function monthCapacityHours(month: string, today: string, ltCap: Record<string, number> | undefined,
+  weekly: number | null | undefined, weeks: { week: string }[] | undefined): number {
+  const reported = ltCap?.[month];
+  const wk = weekly || 0;
+  if (!wk) return reported ?? 0;
+  if (!weeks?.length) return reported ?? wk * 52 / 12;
+  const covered = new Set<string>();
+  for (const w of weeks) {
+    const start = new Date(String(w.week).slice(0, 10) + 'T00:00:00Z');
+    if (isNaN(start.getTime())) continue;
+    for (let i = 0; i < 7; i++) { const d = new Date(start); d.setUTCDate(d.getUTCDate() + i); covered.add(isoDay(d)); }
+  }
+  const [y, m] = month.split('-').map(Number);
+  let missing = 0;
+  for (let d = new Date(Date.UTC(y, m - 1, 1)); d.getUTCMonth() === m - 1; d.setUTCDate(d.getUTCDate() + 1)) {
+    const k = isoDay(d);
+    if (k < today || d.getUTCDay() === 0 || covered.has(k)) continue;
+    missing++;
+  }
+  return (reported ?? 0) + missing * (wk / 6);
+}
+
+// ---------- Budgets ----------
+export type SnapshotBudget = {
+  id: number; name: string; date_from: string | null; date_to: string | null;
+  lines: { id: number; name: string; budget: number; achieved: number; theoretical: number }[];
+};
+export type BudgetPace = 'under' | 'near' | 'over_pace' | 'over_budget' | 'unbudgeted';
+/** Pacing vs Odoo's theoretical (straight-line) amount: under pace, within 10% over, over pace, or past the full budget. */
+export function budgetPace(l: { budget: number; achieved: number; theoretical: number }): BudgetPace {
+  if (l.budget <= 0) return l.achieved > 0 ? 'unbudgeted' : 'under';
+  if (l.achieved > l.budget) return 'over_budget';
+  if (l.achieved <= l.theoretical) return 'under';
+  return l.achieved <= l.theoretical * 1.1 ? 'near' : 'over_pace';
+}
+export function budgetTotals(b: SnapshotBudget) {
+  const t = b.lines.reduce((s, l) => ({ budget: s.budget + l.budget, achieved: s.achieved + l.achieved, theoretical: s.theoretical + l.theoretical }), { budget: 0, achieved: 0, theoretical: 0 });
+  return { ...t, variance: t.theoretical - t.achieved };
 }

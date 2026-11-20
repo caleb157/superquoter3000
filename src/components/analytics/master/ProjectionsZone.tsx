@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useManualCashEntries } from '@/hooks/use-manual-cash-entries';
 import { ManualCashEntriesCard } from '@/components/ManualCashEntriesCard';
 import {
-  buildPipeline, pipelineCashItems, buildBookedOrders, bookedVendorCashItems, splitPendingSos, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, fmtMoney, pickAmt, mfgShareOf,
+  buildPipeline, pipelineCashItems, buildBookedOrders, bookedVendorCashItems, splitPendingSos, manualCashItems, nextMonths, monthLabel, fyBounds, cashflowTable, CASH_ROWS, monthCapacityHours, fmtMoney, pickAmt, mfgShareOf,
   type Ccy, type Snapshot, type CashItem, type PipelineInquiry, type PipelineOpts,
 } from '@/lib/master-analytics';
 
@@ -99,11 +99,10 @@ export function ProjectionsZone(p: Props) {
       const idx = months.indexOf(m) - months.indexOf(start);
       if (start <= m && idx >= 0 && idx < x.duration_months) pipeline += (x.man_hours * x.certainty) / x.duration_months;
     }
-    // LaborTrax only reports capacity for weeks with booked work; fall back to its weekly baseline × ~4.33.
-    const ltWeekly = snapshot?.lt_weekly_capacity ?? 0;
-    const cap = hasLtCap ? (ltCap![m] ?? (ltWeekly ? ltWeekly * 52 / 12 : 0)) : capacity;
+    // LaborTrax only reports weeks with booked work; unreported working days are topped up at its weekly baseline.
+    const cap = hasLtCap ? monthCapacityHours(m, today, ltCap, snapshot?.lt_weekly_capacity, snapshot?.lt_capacity_weekly) : capacity;
     return { month: monthLabel(m), booked: Math.round(booked), pipeline: Math.round(pipeline), capacity: Math.round(cap) };
-  }), [months, snapshot, pipe, includePipeline, hasLtCap, ltCap, capacity]);
+  }), [months, snapshot, pipe, includePipeline, hasLtCap, ltCap, capacity, today]);
 
   // ---------- Booked SOs still waiting on POs ----------
   // Needs a snapshot that carries PO spend per SO; without it the planned cost would
