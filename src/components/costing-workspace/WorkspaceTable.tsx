@@ -3,7 +3,7 @@
 // name column and a totals footer; the name cell opens the product panel. Like a
 // spreadsheet, Shift+arrows (or Shift+click) select a block of cells to copy, fill down
 // (Ctrl+D), clear (Delete) or paste into.
-import { Fragment, useRef } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,6 +14,7 @@ import { chain, setQuote, toggleQuote, type Apply, type Bundle, type Mutation, t
 import { EditCell, GapChip, NavCell, SelectCell, Thumb, focusCell, inr, moveForKey, navigate, navKeyDown, parseClipboard, parseNum, money } from './cells';
 import { BANDS, inLineCat, lineCat, writeGrid, type Col, type LaidCol, type LineCat, type OpenState } from './columns';
 import { CogsLines } from './ProductPanel';
+import { SkuGlance } from './SkuGlance';
 import { productSize } from '@/lib/product-size';
 
 type Props = {
@@ -75,6 +76,9 @@ export function WorkspaceTable(p: Props) {
   const groupStart = new Set(cols.filter((c, i) => i > 0 && (c.group || cols[i - 1].group) && c.group !== cols[i - 1].group).map(c => c.id));
 
   const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
+  // SKUs folded out under their row to a simpler product view (sheet only; the side panel has the full one).
+  const [glance, setGlance] = useState<Set<string>>(new Set());
+  const toggleGlance = (id: string) => setGlance(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // The lines fold-out only shows while its category's column is on screen (the COGS step is open).
   const cat = grid === 'sheet' && cols.some(c => c.lines === p.lines) ? lineCat(p.lines) : null;
   // One header cell per step over its columns (lead columns get a blank one).
@@ -204,6 +208,18 @@ export function WorkspaceTable(p: Props) {
                   : '[&:hover>td]:bg-[linear-gradient(hsl(var(--muted)/0.4),hsl(var(--muted)/0.4))]')}>
               <td className="sticky left-0 z-[5] border-r">
                 <div className="flex items-center gap-2.5 pl-1 min-w-0">
+                  {grid === 'sheet' && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" onClick={() => toggleGlance(row.p.id)} aria-expanded={glance.has(row.p.id)}
+                          aria-label={`${glance.has(row.p.id) ? 'Fold' : 'Expand'} ${row.p.name || 'product'}`}
+                          className="-mr-1 grid h-6 w-5 shrink-0 place-items-center rounded text-muted-foreground/60 hover:text-foreground">
+                          <ChevronRight className={cn('h-4 w-4 transition-transform', glance.has(row.p.id) && 'rotate-90')} />
+                        </button>
+                      </TooltipTrigger>
+                      <IconTooltipContent side="right" className="text-xs">{glance.has(row.p.id) ? 'Fold the product view' : 'Expand a simpler product view'}</IconTooltipContent>
+                    </Tooltip>
+                  )}
                   <Checkbox tabIndex={-1} checked={isSel} onClick={e => { e.preventDefault(); p.onToggle(idx, e.shiftKey); }} aria-label={`Select ${row.p.name}`} />
                   <button
                     data-grid={grid} data-row={idx} data-col="name" data-pid={row.p.id}
@@ -254,6 +270,13 @@ export function WorkspaceTable(p: Props) {
               ))}
               <td />
             </tr>
+            {grid === 'sheet' && glance.has(row.p.id) && (
+              <tr data-glance={row.p.id}>
+                <td colSpan={cols.length + 2} className="border-b bg-muted/20 p-0">
+                  <SkuGlance row={row} bundle={bundle} apply={p.apply} onOpen={() => p.onOpen(row.p.id)} onFold={() => toggleGlance(row.p.id)} />
+                </td>
+              </tr>
+            )}
             {cat && (
               <tr data-lines={cat.key}>
                 <td colSpan={cols.length + 2} className="border-b bg-muted/30 p-0">
