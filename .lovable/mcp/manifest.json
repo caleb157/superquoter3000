@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -885,6 +885,810 @@
               "description": "Allow updating rows flagged is_auto_calculated."
             }
           },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_sales_pipeline",
+        "title": "List the sales pipeline",
+        "description": "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "in_outreach",
+                "responded",
+                "in_conversation",
+                "inquiry",
+                "customer",
+                "not_now",
+                "not_a_fit",
+                "dnc"
+              ]
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "include_touches": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50,
+              "description": "Latest messages per account (default 5)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max accounts (default 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "check_can_contact",
+        "title": "Check before sending",
+        "description": "Every sender (LinkedIn invites and messages, email, drip, WhatsApp, anything new) calls this right before sending. Returns allowed or the reason it is blocked: do not contact on the person or account, not a fit, not now until a date, never email, missing address. Blocked sends are logged. People PD HQ does not know come back allowed with known false.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "channel": {
+              "type": "string",
+              "enum": [
+                "linkedin",
+                "email",
+                "whatsapp",
+                "call",
+                "meeting",
+                "other"
+              ]
+            },
+            "people": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "contact_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 320
+                  },
+                  "linkedin_url": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "The account (customers row)."
+                  }
+                },
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 200
+            },
+            "sender": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "e.g. waalaxy:caleb, gmail:caleb, drip."
+            },
+            "log_blocks": {
+              "type": "boolean",
+              "description": "Default true."
+            }
+          },
+          "required": [
+            "channel",
+            "people"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "upsert_sales_account",
+        "title": "Find or add a sales account",
+        "description": "Find an account by domain, then exact company name, or add it as a prospect in Queued (prospects fire no Lead task rules). On a match, fills empty fields and updates persona, type, fit score and owner; the stage only moves through set_sales_stage. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "company": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "domain": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "website": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "country": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "persona": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "customer_type": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "e.g. furniture importer, decor e-commerce, Amazon seller."
+            },
+            "fit_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "owner": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "Assignee code, e.g. CQ."
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "e.g. Apollo TAM, Waalaxy list name, website form."
+            },
+            "linkedin_url": {
+              "type": "string",
+              "maxLength": 500,
+              "description": "Company page."
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "sales_stage": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "in_outreach",
+                "responded",
+                "in_conversation",
+                "inquiry",
+                "customer",
+                "not_now",
+                "not_a_fit",
+                "dnc"
+              ],
+              "description": "Only used when the account has no stage yet. Default queued."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "company"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "upsert_contact",
+        "title": "Find or add a contact",
+        "description": "Find a person by LinkedIn URL, then email, or add them (a new person needs one of the two). Sets engaged (said more than thanks), drip enrolment, email lookup results and Waalaxy/Apollo ids. Never sets or clears do not contact: use set_do_not_contact. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Their account."
+            },
+            "full_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "persona": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "email": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "email_source": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "e.g. apollo, waalaxy, website, pattern+verify."
+            },
+            "email_check_result": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "e.g. valid, catch-all, invalid."
+            },
+            "lookup_cost_usd": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "linkedin_url": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "whatsapp": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "engaged": {
+              "type": "boolean",
+              "description": "True once they say more than thanks for connecting. Only engaged people get nudges."
+            },
+            "never_email": {
+              "type": "boolean",
+              "description": "Bounced or unsubscribed."
+            },
+            "drip_enrolled": {
+              "type": "boolean",
+              "description": "Really interested: on the long-term update drip."
+            },
+            "drip_track": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "waalaxy_prospect_id": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "apollo_contact_id": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "linkedin_account": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which seat they are connected to, e.g. Caleb or Parker."
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "full_name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "log_touch",
+        "title": "Log a message",
+        "description": "Log one message in or out on LinkedIn, email, WhatsApp, a call or a meeting. Pass the channel's message id as external_id so repeated syncs never double-log. Outbound to do not contact is refused. An inbound message moves a Queued or In outreach account to Responded; a first outbound moves Queued to In outreach. A/B fields (variant, test_name, angle, persona, step, opener_type) go on outbound messages. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "contact_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "channel": {
+              "type": "string",
+              "enum": [
+                "linkedin",
+                "email",
+                "whatsapp",
+                "call",
+                "meeting",
+                "other"
+              ]
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "in",
+                "out"
+              ]
+            },
+            "occurred_at": {
+              "type": "string",
+              "description": "ISO date-time. Default now."
+            },
+            "subject": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "body": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "sender_account": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Our side, e.g. linkedin:caleb, linkedin:parker, gmail:caleb."
+            },
+            "external_id": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "auto_sent": {
+              "type": "boolean",
+              "description": "Sent by a job without Caleb's review (e.g. thanks for connecting)."
+            },
+            "is_drip": {
+              "type": "boolean"
+            },
+            "drip_issue": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "variant": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "test_name": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "angle": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "persona": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "step": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20
+            },
+            "opener_type": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "engaged": {
+              "type": "boolean",
+              "description": "Inbound that says more than thanks: marks the person engaged."
+            },
+            "logged_by": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "channel",
+            "direction"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "set_sales_stage",
+        "title": "Move an account's stage",
+        "description": "Move an account to queued, in_outreach, responded, in_conversation, inquiry, customer, not_now (needs not_now_until) or not_a_fit, with a one-line reason kept on the stage log. For removal requests use set_do_not_contact. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "stage": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "in_outreach",
+                "responded",
+                "in_conversation",
+                "inquiry",
+                "customer",
+                "not_now",
+                "not_a_fit",
+                "dnc"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "not_now_until": {
+              "type": "string",
+              "description": "YYYY-MM-DD, required for not_now."
+            },
+            "actor": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "e.g. crm-watchdog. Default the signed-in user."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer_id",
+            "stage",
+            "reason"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "set_do_not_contact",
+        "title": "Set do not contact",
+        "description": "Removal request: sets the master do-not-contact flag on the person (or the whole account), which stops their drip, sets never-email, skips open drafts and moves a whole account to Do not contact. Only Caleb can clear it, in PD HQ. The reply lists what to do outside PD HQ (Waalaxy, email lists). Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "contact_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "email": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "linkedin_url": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The account (customers row)."
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "e.g. 'Asked to be removed, LinkedIn 23 Nov'."
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "Where they asked: linkedin, email, whatsapp, call, other."
+            },
+            "whole_account": {
+              "type": "boolean",
+              "description": "Also flag the account, covering every contact there."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reason",
+            "source"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_brief",
+        "title": "Save an account brief",
+        "description": "Save the brief shown at the top of the account page, part by part, each with its source link. Parts: company, products_close_to_ours, market, india_buying, qualification, conversation_so_far, suggested_next_move, watch_outs. Parts not given are kept. Optionally set the next step and its date. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "parts": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "products_close_to_ours": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "market": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "india_buying": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "qualification": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "conversation_so_far": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "suggested_next_move": {
+                  "$ref": "#/properties/parts/properties/company"
+                },
+                "watch_outs": {
+                  "$ref": "#/properties/parts/properties/company"
+                }
+              },
+              "additionalProperties": false
+            },
+            "next_step": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "next_step_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer_id",
+            "parts"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_follow_up",
+        "title": "Save a follow-up and its draft",
+        "description": "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Update this follow-up instead of creating one."
+            },
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "contact_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "due_date": {
+              "type": "string",
+              "description": "YYYY-MM-DD."
+            },
+            "nudge_step": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "draft_text": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "draft_channel": {
+              "type": "string",
+              "enum": [
+                "linkedin",
+                "email",
+                "whatsapp",
+                "call",
+                "meeting",
+                "other"
+              ]
+            },
+            "draft_status": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "approved",
+                "sent",
+                "skipped"
+              ]
+            },
+            "assignee": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "Default the account owner, else CQ."
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "low",
+                "normal",
+                "high",
+                "urgent"
+              ]
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "log_job_run",
+        "title": "Log a job run",
+        "description": "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used, cost in USD and how many items wait for Caleb. Feeds the Jobs tab. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "partial",
+                "failed",
+                "skipped"
+              ]
+            },
+            "started_at": {
+              "type": "string"
+            },
+            "finished_at": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "counts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": "e.g. {\"invites\": 25, \"replies_logged\": 4}."
+            },
+            "credits": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": "e.g. {\"waalaxy_email_finder\": 3}."
+            },
+            "cost_usd": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "needs_review": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "run_by": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "job"
+          ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
