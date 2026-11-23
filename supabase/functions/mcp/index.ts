@@ -561,10 +561,10 @@ function checkIntakeRowNames(row, L) {
   if (row.product_type && !byName(L.productTypes, row.product_type)) out.push(`${label}: product type "${row.product_type}" not found`);
   if (row.source_location && !byName(L.locations, row.source_location)) out.push(`${label}: location "${row.source_location}" not found`);
   if (row.shipping_type && !byName(L.shippingTypes, row.shipping_type)) out.push(`${label}: shipping type "${row.shipping_type}" not found`);
-  const clean = (v) => String(v ?? "").trim().toLowerCase();
+  const clean2 = (v) => String(v ?? "").trim().toLowerCase();
   for (const c of CHEM_COLS) {
     const chemName = row[`${c.key}_chem`];
-    if (chemName !== void 0 && !L.chems.some((ch) => clean(ch.name) === clean(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
+    if (chemName !== void 0 && !L.chems.some((ch) => clean2(ch.name) === clean2(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
   }
   return out;
 }
@@ -703,7 +703,7 @@ async function applyRow(db, productId, row, L, warn) {
   const chemTouched = CHEM_COLS.filter((c2) => row[c2.key] !== void 0 || row[`${c2.key}_chem`] !== void 0);
   if (chemTouched.length) {
     const { data: fin } = await db.from("cogs_items").select("*").eq("product_id", productId).eq("cogs_type", "Finishing Materials");
-    const clean = (v) => String(v ?? "").trim().toLowerCase();
+    const clean2 = (v) => String(v ?? "").trim().toLowerCase();
     for (const c2 of chemTouched) {
       const liters = row[c2.key];
       const chemName = row[`${c2.key}_chem`];
@@ -713,7 +713,7 @@ async function applyRow(db, productId, row, L, warn) {
       });
       let chem;
       if (chemName !== void 0) {
-        chem = L.chems.find((ch) => clean(ch.name) === clean(chemName));
+        chem = L.chems.find((ch) => clean2(ch.name) === clean2(chemName));
         if (!chem) {
           warn(`${label}: ${c2.name} chemical "${chemName}" not found \u2014 row left unchanged`);
           continue;
@@ -890,8 +890,8 @@ var find_or_create_customer_default = defineTool10({
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   handler: withUserDb(async (db, input) => {
     const r = await findOrCreateCustomer(db, input);
-    const who = r.customer.company || r.customer.name;
-    const text = r.matched_on ? `Found existing customer ${who} (matched on ${r.matched_on}).` : r.dry_run ? `Dry run: no match, would create customer ${who}.` : `Created customer ${who}.`;
+    const who2 = r.customer.company || r.customer.name;
+    const text = r.matched_on ? `Found existing customer ${who2} (matched on ${r.matched_on}).` : r.dry_run ? `Dry run: no match, would create customer ${who2}.` : `Created customer ${who2}.`;
     return ok(text, r);
   })
 });
@@ -1123,9 +1123,9 @@ var PHOTO_BUCKET = "product-photos";
 var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 var EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 function decodeBase64(b64) {
-  const clean = b64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new ToolError("image_base64 is not valid base64.");
-  const bin = atob(clean);
+  const clean2 = b64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean2)) throw new ToolError("image_base64 is not valid base64.");
+  const bin = atob(clean2);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
@@ -1727,6 +1727,630 @@ var get_sales_analytics_default = defineTool16({
   })
 });
 
+// src/lib/mcp/tools/sales-tools.ts
+import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z16 } from "npm:zod@^3.25.76";
+
+// src/lib/sales/sales-core.ts
+var SALES_STAGES = ["queued", "in_outreach", "responded", "in_conversation", "inquiry", "customer"];
+var SALES_EXITS = ["not_now", "not_a_fit", "dnc"];
+var ALL_SALES_STAGES = [...SALES_STAGES, ...SALES_EXITS];
+var TOUCH_CHANNELS = ["linkedin", "email", "whatsapp", "call", "meeting", "other"];
+var BRIEF_PARTS = [
+  "company",
+  "products_close_to_ours",
+  "market",
+  "india_buying",
+  "qualification",
+  "conversation_so_far",
+  "suggested_next_move",
+  "watch_outs"
+];
+function normalizeLinkedin(url) {
+  if (!url) return null;
+  const m = url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^(www\.|[a-z]{2}\.)/, "").split(/[?#]/)[0].replace(/\/+$/, "");
+  if (!m.startsWith("linkedin.com/")) return null;
+  return `https://www.${m}`;
+}
+var normalizeEmail = (e) => {
+  const v = e?.trim().toLowerCase();
+  return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
+};
+var FREE_MAIL = /* @__PURE__ */ new Set(["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "aol.com", "live.com", "msn.com", "proton.me", "protonmail.com"]);
+function normalizeDomain(v) {
+  if (!v) return null;
+  let s = v.trim().toLowerCase();
+  if (s.includes("@")) s = s.split("@").pop() ?? "";
+  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s) || FREE_MAIL.has(s)) return null;
+  return s;
+}
+function canContact(contact, account, channel2, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  if (contact?.dnc) return { allowed: false, reason: "Person is on do not contact" };
+  if (account?.dnc || account?.sales_stage === "dnc") return { allowed: false, reason: "Account is on do not contact" };
+  if (account?.sales_stage === "not_a_fit") return { allowed: false, reason: "Account is marked not a fit" };
+  if (account?.sales_stage === "not_now" && account.not_now_until && account.not_now_until > today)
+    return { allowed: false, reason: `Not now until ${account.not_now_until}` };
+  if (channel2 === "email") {
+    if (contact?.never_email) return { allowed: false, reason: "Never email (bounced or unsubscribed)" };
+    if (contact && !contact.email) return { allowed: false, reason: "No email address" };
+  }
+  if (channel2 === "linkedin" && contact && !contact.linkedin_url) return { allowed: false, reason: "No LinkedIn profile" };
+  if (channel2 === "whatsapp" && contact && !contact.whatsapp && !contact.phone) return { allowed: false, reason: "No WhatsApp number" };
+  return { allowed: true, reason: null };
+}
+var wordCount = (text) => text?.trim() ? text.trim().split(/\s+/).length : 0;
+
+// src/lib/mcp/sales.ts
+var ACCOUNT_COLUMNS = "id, name, company, email, domain, country, persona, customer_type, fit_score, owner, lead_status, sales_stage, sales_stage_changed_at, not_now_until, next_step, next_step_date, brief_updated_at, dnc, last_contacted_at, source, linkedin_url";
+var CONTACT_COLUMNS = "id, customer_id, full_name, title, persona, email, linkedin_url, phone, whatsapp, engaged, never_email, dnc, dnc_reason, drip_enrolled, drip_track, waalaxy_prospect_id, apollo_contact_id, linkedin_account";
+var exact3 = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
+var clean = (v) => v?.trim() ? v.trim() : null;
+async function upsertAccount(db, input) {
+  const company = input.company?.trim();
+  if (!company) throw new ToolError("Give the company name.");
+  const domain = normalizeDomain(input.domain ?? input.website ?? null);
+  let found = null;
+  let matched_on = null;
+  if (domain) {
+    const rows = check(await db.from("customers").select(ACCOUNT_COLUMNS).ilike("domain", exact3(domain)).limit(2), "Could not search accounts") ?? [];
+    if (rows.length) {
+      found = rows[0];
+      matched_on = "domain";
+    }
+  }
+  if (!found) {
+    const rows = check(await db.from("customers").select(ACCOUNT_COLUMNS).ilike("company", exact3(company)).order("created_at", { ascending: true }).limit(2), "Could not search accounts") ?? [];
+    if (rows.length) {
+      found = rows[0];
+      matched_on = "company";
+    }
+  }
+  const fields = {};
+  if (domain) fields.domain = domain;
+  for (const k of ["country", "persona", "customer_type", "owner", "source", "linkedin_url"]) {
+    const v = clean(input[k]);
+    if (v) fields[k] = k === "owner" ? v.toUpperCase() : v;
+  }
+  if (input.fit_score != null) fields.fit_score = Math.round(input.fit_score);
+  if (found) {
+    const OVERWRITE = /* @__PURE__ */ new Set(["fit_score", "persona", "customer_type", "owner"]);
+    const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => v != null && found[k] !== v && (OVERWRITE.has(k) || found[k] == null || found[k] === "")));
+    if (!found.sales_stage && input.sales_stage) patch.sales_stage = input.sales_stage;
+    if (input.dry_run || !Object.keys(patch).length) return { account: { ...found, ...patch }, created: false, updated: Object.keys(patch), matched_on, dry_run: !!input.dry_run };
+    const account2 = check(await db.from("customers").update(patch).eq("id", found.id).select(ACCOUNT_COLUMNS).single(), "Could not update the account");
+    return { account: account2, created: false, updated: Object.keys(patch), matched_on, dry_run: false };
+  }
+  const row = { name: company, company, lead_status: "prospect", sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
+  if (input.dry_run) return { account: row, created: false, would_create: true, matched_on: null, dry_run: true };
+  const account = check(await db.from("customers").insert(row).select(ACCOUNT_COLUMNS).single(), "Could not create the account");
+  return { account, created: true, matched_on: null, dry_run: false };
+}
+async function findContact(db, keys) {
+  if (keys.id) return check(await db.from("contacts").select(CONTACT_COLUMNS).eq("id", keys.id).maybeSingle(), "Could not read the contact");
+  if (keys.linkedin) {
+    const rows = check(await db.from("contacts").select(CONTACT_COLUMNS).ilike("linkedin_url", exact3(keys.linkedin)).limit(1), "Could not search contacts") ?? [];
+    if (rows.length) return rows[0];
+  }
+  if (keys.email) {
+    const rows = check(await db.from("contacts").select(CONTACT_COLUMNS).ilike("email", exact3(keys.email)).limit(1), "Could not search contacts") ?? [];
+    if (rows.length) return rows[0];
+  }
+  return null;
+}
+async function upsertContact(db, input) {
+  const full_name = input.full_name?.trim();
+  if (!full_name) throw new ToolError("Give the person's name.");
+  const linkedin = normalizeLinkedin(input.linkedin_url);
+  if (input.linkedin_url && !linkedin) throw new ToolError(`"${input.linkedin_url}" is not a LinkedIn profile URL.`);
+  const email = normalizeEmail(input.email);
+  if (input.email && !email) throw new ToolError(`"${input.email}" is not an email address.`);
+  if (input.customer_id) {
+    const acct = check(await db.from("customers").select("id").eq("id", input.customer_id).maybeSingle(), "Could not read the account");
+    if (!acct) throw new ToolError(`Account ${input.customer_id} not found.`);
+  }
+  const fields = { full_name };
+  if (linkedin) fields.linkedin_url = linkedin;
+  if (email) {
+    fields.email = email;
+    fields.email_checked_at = input.email_check_result ? (/* @__PURE__ */ new Date()).toISOString() : void 0;
+  }
+  for (const k of ["title", "persona", "email_source", "email_check_result", "phone", "whatsapp", "drip_track", "waalaxy_prospect_id", "apollo_contact_id", "linkedin_account", "notes"]) {
+    const v = clean(input[k]);
+    if (v) fields[k] = v;
+  }
+  if (input.lookup_cost_usd != null) fields.lookup_cost_usd = input.lookup_cost_usd;
+  if (input.customer_id) fields.customer_id = input.customer_id;
+  if (input.engaged != null) fields.engaged = input.engaged;
+  if (input.never_email) fields.never_email = true;
+  if (input.drip_enrolled != null) fields.drip_enrolled = input.drip_enrolled;
+  for (const k of Object.keys(fields)) if (fields[k] === void 0) delete fields[k];
+  const found = await findContact(db, { linkedin, email });
+  if (found) {
+    if (found.dnc && input.drip_enrolled) throw new ToolError(`${found.full_name} is on do not contact and cannot join the drip.`);
+    const patch = Object.fromEntries(Object.entries(fields).filter(([k, v]) => v != null && found[k] !== v && !(k === "full_name" && found.full_name)));
+    if (input.dry_run || !Object.keys(patch).length) return { contact: { ...found, ...patch }, created: false, updated: Object.keys(patch), dry_run: !!input.dry_run };
+    const contact2 = check(await db.from("contacts").update(patch).eq("id", found.id).select(CONTACT_COLUMNS).single(), "Could not update the contact");
+    return { contact: contact2, created: false, updated: Object.keys(patch), dry_run: false };
+  }
+  if (!linkedin && !email) throw new ToolError("A new contact needs a LinkedIn URL or an email, so later syncs can match them.");
+  if (input.dry_run) return { contact: fields, created: false, would_create: true, dry_run: true };
+  const contact = check(await db.from("contacts").insert(fields).select(CONTACT_COLUMNS).single(), "Could not create the contact");
+  return { contact, created: true, dry_run: false };
+}
+async function resolveWho(db, who2) {
+  const contact = who2.contact_id || who2.email || who2.linkedin_url ? await findContact(db, { id: who2.contact_id, email: normalizeEmail(who2.email), linkedin: normalizeLinkedin(who2.linkedin_url) }) : null;
+  const customerId = who2.customer_id ?? contact?.customer_id ?? null;
+  const account = customerId ? check(await db.from("customers").select(ACCOUNT_COLUMNS).eq("id", customerId).maybeSingle(), "Could not read the account") : null;
+  return { contact, account };
+}
+async function checkCanContact(db, input) {
+  if (!input.people?.length) throw new ToolError("Give at least one person.");
+  const results = [];
+  for (const who2 of input.people.slice(0, 200)) {
+    const { contact, account } = await resolveWho(db, who2);
+    const known = !!(contact || account);
+    const verdict = canContact(contact, account, input.channel);
+    results.push({ ...who2, known, contact_id: contact?.id ?? null, customer_id: account?.id ?? null, ...verdict });
+    if (!verdict.allowed && input.log_blocks !== false && (contact || account)) {
+      check(await db.from("send_blocks").insert({
+        contact_id: contact?.id ?? null,
+        customer_id: account?.id ?? null,
+        channel: input.channel,
+        sender: clean(input.sender),
+        reason: verdict.reason
+      }), "Could not log the blocked send");
+    }
+  }
+  return { channel: input.channel, allowed: results.filter((r) => r.allowed).length, blocked: results.filter((r) => !r.allowed).length, results };
+}
+async function setDoNotContact(db, input) {
+  const reason = input.reason?.trim();
+  if (!reason) throw new ToolError("Give the reason, e.g. 'asked to be removed on LinkedIn 23 Nov'.");
+  const { contact, account } = await resolveWho(db, input);
+  if (!contact && !account) throw new ToolError("No contact or account matches. Create the contact first (upsert_contact), then set do not contact.");
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const plan = {
+    contact: contact ? { id: contact.id, name: contact.full_name, already: !!contact.dnc } : null,
+    account: account && (input.whole_account || !contact) ? { id: account.id, name: account.company ?? account.name, already: !!account.dnc } : null
+  };
+  const follow_ups = [
+    contact?.waalaxy_prospect_id || contact?.linkedin_url ? "Mark the person do not contact in Waalaxy (mark_prospects_do_not_contact) on every seat." : null,
+    contact?.email ? `Add ${contact.email} to the never-email list used by every email sender.` : null,
+    "Stop any drafted follow-ups for them (save_follow_up with draft_status skipped)."
+  ].filter(Boolean);
+  if (input.dry_run) return { ...plan, dry_run: true, follow_ups };
+  if (plan.contact && !plan.contact.already) {
+    check(await db.from("contacts").update({ dnc: true, dnc_at: now, dnc_source: input.source, dnc_reason: reason }).eq("id", contact.id), "Could not set do not contact on the person");
+  }
+  if (plan.account && !plan.account.already) {
+    check(await db.from("customers").update({ dnc: true, dnc_at: now, dnc_source: input.source, dnc_reason: reason }).eq("id", account.id), "Could not set do not contact on the account");
+  }
+  if (contact) check(await db.from("tasks").update({ draft_status: "skipped" }).eq("contact_id", contact.id).eq("draft_status", "draft"), "Could not skip open drafts");
+  if (plan.account) check(await db.from("tasks").update({ draft_status: "skipped" }).eq("customer_id", account.id).eq("draft_status", "draft"), "Could not skip open drafts");
+  return { ...plan, dry_run: false, follow_ups };
+}
+async function logTouch(db, input) {
+  if (!input.contact_id && !input.customer_id) throw new ToolError("Give contact_id or customer_id.");
+  const { contact, account } = await resolveWho(db, { contact_id: input.contact_id, customer_id: input.customer_id });
+  if (input.contact_id && !contact) throw new ToolError(`Contact ${input.contact_id} not found.`);
+  if (input.customer_id && !account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  if (input.occurred_at && Number.isNaN(Date.parse(input.occurred_at))) throw new ToolError("occurred_at must be an ISO date-time.");
+  const external_id = clean(input.external_id);
+  if (external_id) {
+    const dup = check(await db.from("sales_touches").select("id, occurred_at, direction").eq("channel", input.channel).eq("external_id", external_id).maybeSingle(), "Could not check for a duplicate");
+    if (dup) return { touch: dup, created: false, duplicate: true, dry_run: !!input.dry_run };
+  }
+  if (input.direction === "out") {
+    const v = canContact(contact, account, input.channel);
+    if (!v.allowed) throw new ToolError(`Not logged: ${v.reason}.`);
+  }
+  const row = {
+    contact_id: contact?.id ?? null,
+    customer_id: account?.id ?? contact?.customer_id ?? null,
+    channel: input.channel,
+    direction: input.direction,
+    occurred_at: input.occurred_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    body: clean(input.body),
+    subject: clean(input.subject),
+    sender_account: clean(input.sender_account),
+    external_id,
+    auto_sent: !!input.auto_sent,
+    is_drip: !!input.is_drip,
+    drip_issue: clean(input.drip_issue),
+    variant: clean(input.variant),
+    test_name: clean(input.test_name),
+    angle: clean(input.angle),
+    persona: clean(input.persona),
+    step: input.step ?? null,
+    opener_type: clean(input.opener_type),
+    word_count: input.direction === "out" ? wordCount(input.body) : null,
+    logged_by: clean(input.logged_by)
+  };
+  const stageMove = input.direction === "in" && account && (!account.sales_stage || account.sales_stage === "queued" || account.sales_stage === "in_outreach") ? "responded" : input.direction === "out" && account && account.sales_stage === "queued" ? "in_outreach" : null;
+  if (input.dry_run) return { touch: row, created: false, dry_run: true, stage_move: stageMove, marks_engaged: !!input.engaged && !!contact && !contact.engaged };
+  const touch = check(await db.from("sales_touches").insert(row).select("id, channel, direction, occurred_at, customer_id, contact_id").single(), "Could not log the touch");
+  if (input.engaged && contact && !contact.engaged) check(await db.from("contacts").update({ engaged: true }).eq("id", contact.id), "Could not mark the contact engaged");
+  if (stageMove && account) {
+    await setSalesStage(db, { customer_id: account.id, stage: stageMove, reason: input.direction === "in" ? `Reply on ${input.channel}` : `First ${input.channel} message sent` });
+  }
+  return { touch, created: true, dry_run: false, stage_move: stageMove };
+}
+async function setSalesStage(db, input) {
+  if (!ALL_SALES_STAGES.includes(input.stage)) throw new ToolError(`Unknown stage ${input.stage}.`);
+  if (input.stage === "dnc") throw new ToolError("Use set_do_not_contact for removal requests, so every sender is told.");
+  const reason = input.reason?.trim();
+  if (!reason) throw new ToolError("Give a one-line reason for the move.");
+  if (input.stage === "not_now" && !(input.not_now_until && isValidYmd(input.not_now_until))) throw new ToolError("Not now needs not_now_until as YYYY-MM-DD.");
+  const account = check(await db.from("customers").select(ACCOUNT_COLUMNS).eq("id", input.customer_id).maybeSingle(), "Could not read the account");
+  if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  if (account.dnc) throw new ToolError(`${account.company ?? account.name} is on do not contact; only Caleb can clear that in PD HQ.`);
+  const patch = { sales_stage: input.stage, not_now_until: input.stage === "not_now" ? input.not_now_until : null };
+  if (input.stage === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
+  if (input.stage === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
+  if (input.dry_run) return { from: account.sales_stage, to: input.stage, patch, changed: account.sales_stage !== input.stage, dry_run: true };
+  if (account.sales_stage === input.stage && !patch.lead_status) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
+  check(await db.from("customers").update(patch).eq("id", account.id), "Could not move the stage");
+  const ev = check(await db.from("sales_stage_events").select("id").eq("customer_id", account.id).eq("to_stage", input.stage).order("occurred_at", { ascending: false }).limit(1), "Could not read the stage log") ?? [];
+  if (ev.length) check(await db.from("sales_stage_events").update({ reason, ...input.actor ? { actor: input.actor } : {} }).eq("id", ev[0].id), "Could not save the reason");
+  return { from: account.sales_stage, to: input.stage, changed: true, dry_run: false };
+}
+async function saveBrief(db, input) {
+  const unknown = Object.keys(input.parts ?? {}).filter((k) => !BRIEF_PARTS.includes(k));
+  if (unknown.length) throw new ToolError(`Unknown brief parts: ${unknown.join(", ")}. Use: ${BRIEF_PARTS.join(", ")}.`);
+  if (input.next_step_date && !isValidYmd(input.next_step_date)) throw new ToolError("next_step_date must be YYYY-MM-DD.");
+  const account = check(await db.from("customers").select("id, company, name, brief").eq("id", input.customer_id).maybeSingle(), "Could not read the account");
+  if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  const brief = { ...account.brief ?? {}, ...input.parts };
+  const patch = { brief, brief_updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+  if (input.next_step) patch.next_step = input.next_step.trim();
+  if (input.next_step_date) patch.next_step_date = input.next_step_date;
+  if (input.dry_run) return { customer_id: account.id, brief, dry_run: true };
+  check(await db.from("customers").update(patch).eq("id", account.id), "Could not save the brief");
+  return { customer_id: account.id, parts: Object.keys(brief), dry_run: false };
+}
+async function saveFollowUp(db, input) {
+  if (input.due_date && !isValidYmd(input.due_date)) throw new ToolError("due_date must be YYYY-MM-DD.");
+  if (input.nudge_step != null && (input.nudge_step < 1 || input.nudge_step > 3)) throw new ToolError("nudge_step is 1, 2 or 3; after 3 the account goes to Not now.");
+  if (input.task_id) {
+    const t = check(await db.from("tasks").select("id, title, status, draft_status").eq("id", input.task_id).maybeSingle(), "Could not read the task");
+    if (!t) throw new ToolError(`Task ${input.task_id} not found.`);
+    const patch = {};
+    for (const k of ["due_date", "nudge_step", "draft_text", "draft_channel", "draft_status", "priority"]) if (input[k] != null) patch[k] = input[k];
+    if (input.title) patch.title = input.title.trim();
+    if (input.draft_status === "sent" || input.draft_status === "skipped") {
+      patch.status = "done";
+      patch.completed_at = (/* @__PURE__ */ new Date()).toISOString();
+    }
+    if (input.dry_run) return { task: { ...t, ...patch }, created: false, dry_run: true };
+    const task2 = check(await db.from("tasks").update(patch).eq("id", t.id).select("id, title, due_date, draft_status, nudge_step").single(), "Could not update the follow-up");
+    return { task: task2, created: false, dry_run: false };
+  }
+  if (!input.customer_id) throw new ToolError("A new follow-up needs customer_id.");
+  if (!input.due_date) throw new ToolError("A new follow-up needs due_date.");
+  const { contact, account } = await resolveWho(db, { customer_id: input.customer_id, contact_id: input.contact_id });
+  if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  if (input.draft_text && input.draft_channel) {
+    const v = canContact(contact, account, input.draft_channel, input.due_date);
+    if (!v.allowed) throw new ToolError(`No draft saved: ${v.reason}.`);
+  }
+  const who2 = contact?.full_name ? ` (${contact.full_name})` : "";
+  const name = account.company ?? account.name;
+  const row = {
+    title: (input.title?.trim() || (input.nudge_step ? `Nudge ${input.nudge_step}: ${name}${who2}` : `Reply to ${name}${who2}`)).slice(0, 500),
+    status: "open",
+    priority: input.priority ?? (input.nudge_step ? "normal" : "high"),
+    due_date: input.due_date,
+    assignee: (input.assignee ?? account.owner ?? "CQ").toUpperCase(),
+    customer_id: account.id,
+    association_type: "customer",
+    association_id: account.id,
+    association_label: name,
+    contact_id: contact?.id ?? null,
+    nudge_step: input.nudge_step ?? null,
+    draft_text: clean(input.draft_text),
+    draft_channel: input.draft_channel ?? null,
+    draft_status: input.draft_text ? input.draft_status ?? "draft" : input.draft_status ?? null,
+    source_event: "sales_follow_up"
+  };
+  if (input.dry_run) return { task: row, created: false, dry_run: true };
+  const task = check(await db.from("tasks").insert(row).select("id, title, due_date, draft_status, nudge_step").single(), "Could not create the follow-up");
+  return { task, created: true, dry_run: false };
+}
+async function logJobRun(db, input) {
+  const job = input.job?.trim();
+  if (!job) throw new ToolError("Give the job name, e.g. crm-watchdog.");
+  const row = {
+    job,
+    status: input.status ?? "ok",
+    started_at: input.started_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    finished_at: input.finished_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    summary: clean(input.summary),
+    counts: input.counts ?? {},
+    credits: input.credits ?? {},
+    cost_usd: input.cost_usd ?? null,
+    needs_review: input.needs_review ?? 0,
+    run_by: clean(input.run_by)
+  };
+  if (input.dry_run) return { run: row, created: false, dry_run: true };
+  const run = check(await db.from("job_runs").insert(row).select("id, job, status, started_at").single(), "Could not log the run");
+  return { run, created: true, dry_run: false };
+}
+async function listPipeline(db, input) {
+  let q = db.from("customers").select(ACCOUNT_COLUMNS).not("sales_stage", "is", null);
+  if (input.customer_id) q = db.from("customers").select(ACCOUNT_COLUMNS).eq("id", input.customer_id);
+  else if (input.stage) q = q.eq("sales_stage", input.stage);
+  const accounts = check(await q.order("sales_stage_changed_at", { ascending: false }).limit(Math.min(input.limit ?? 100, 500)), "Could not read the pipeline") ?? [];
+  if (!accounts.length) return { accounts: [], count: 0 };
+  const ids = accounts.map((a) => a.id);
+  const contacts = check(await db.from("contacts").select(CONTACT_COLUMNS).in("customer_id", ids), "Could not read contacts") ?? [];
+  const n = Math.min(input.include_touches ?? 5, 50);
+  const touches = n ? check(await db.from("sales_touches").select("id, customer_id, contact_id, channel, direction, occurred_at, body, auto_sent, is_drip").in("customer_id", ids).order("occurred_at", { ascending: false }).limit(n * ids.length), "Could not read touches") ?? [] : [];
+  const tasks = check(await db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_status").in("customer_id", ids).eq("status", "open"), "Could not read follow-ups") ?? [];
+  return {
+    count: accounts.length,
+    accounts: accounts.map((a) => ({
+      ...a,
+      contacts: contacts.filter((c) => c.customer_id === a.id),
+      touches: touches.filter((t) => t.customer_id === a.id).slice(0, n),
+      open_follow_ups: tasks.filter((t) => t.customer_id === a.id)
+    }))
+  };
+}
+
+// src/lib/mcp/tools/sales-tools.ts
+var write = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+var json = (r) => r;
+var stage = z16.enum(ALL_SALES_STAGES);
+var channel = z16.enum(TOUCH_CHANNELS);
+var who = {
+  contact_id: z16.string().uuid().optional(),
+  email: z16.string().max(320).optional(),
+  linkedin_url: z16.string().max(500).optional(),
+  customer_id: z16.string().uuid().optional().describe("The account (customers row).")
+};
+var upsertSalesAccountTool = defineTool17({
+  name: "upsert_sales_account",
+  title: "Find or add a sales account",
+  description: "Find an account by domain, then exact company name, or add it as a prospect in Queued (prospects fire no Lead task rules). On a match, fills empty fields and updates persona, type, fit score and owner; the stage only moves through set_sales_stage. Use dry_run first.",
+  inputSchema: {
+    company: z16.string().min(1).max(300),
+    domain: z16.string().max(300).optional(),
+    website: z16.string().max(500).optional(),
+    country: z16.string().max(100).optional(),
+    persona: z16.string().max(100).optional(),
+    customer_type: z16.string().max(100).optional().describe("e.g. furniture importer, decor e-commerce, Amazon seller."),
+    fit_score: z16.number().min(0).max(100).optional(),
+    owner: z16.string().max(10).optional().describe("Assignee code, e.g. CQ."),
+    source: z16.string().max(200).optional().describe("e.g. Apollo TAM, Waalaxy list name, website form."),
+    linkedin_url: z16.string().max(500).optional().describe("Company page."),
+    notes: z16.string().max(5e3).optional(),
+    sales_stage: stage.optional().describe("Only used when the account has no stage yet. Default queued."),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await upsertAccount(db, input);
+    const a = r.account;
+    const verb = r.dry_run ? "would_create" in r && r.would_create ? "Dry run: would add" : "Dry run: matched" : r.created ? "Added" : "Matched";
+    return ok(`${verb} ${a.company ?? a.name}${r.matched_on ? ` on ${r.matched_on}` : ""}.`, json(r));
+  })
+});
+var upsertContactTool = defineTool17({
+  name: "upsert_contact",
+  title: "Find or add a contact",
+  description: "Find a person by LinkedIn URL, then email, or add them (a new person needs one of the two). Sets engaged (said more than thanks), drip enrolment, email lookup results and Waalaxy/Apollo ids. Never sets or clears do not contact: use set_do_not_contact. Use dry_run first.",
+  inputSchema: {
+    customer_id: z16.string().uuid().optional().describe("Their account."),
+    full_name: z16.string().min(1).max(200),
+    title: z16.string().max(200).optional(),
+    persona: z16.string().max(100).optional(),
+    email: z16.string().max(320).optional(),
+    email_source: z16.string().max(100).optional().describe("e.g. apollo, waalaxy, website, pattern+verify."),
+    email_check_result: z16.string().max(100).optional().describe("e.g. valid, catch-all, invalid."),
+    lookup_cost_usd: z16.number().min(0).max(100).optional(),
+    linkedin_url: z16.string().max(500).optional(),
+    phone: z16.string().max(50).optional(),
+    whatsapp: z16.string().max(50).optional(),
+    engaged: z16.boolean().optional().describe("True once they say more than thanks for connecting. Only engaged people get nudges."),
+    never_email: z16.boolean().optional().describe("Bounced or unsubscribed."),
+    drip_enrolled: z16.boolean().optional().describe("Really interested: on the long-term update drip."),
+    drip_track: z16.string().max(100).optional(),
+    waalaxy_prospect_id: z16.string().max(100).optional(),
+    apollo_contact_id: z16.string().max(100).optional(),
+    linkedin_account: z16.string().max(100).optional().describe("Which seat they are connected to, e.g. Caleb or Parker."),
+    notes: z16.string().max(5e3).optional(),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await upsertContact(db, input);
+    const c = r.contact;
+    const verb = r.dry_run ? "would_create" in r && r.would_create ? "Dry run: would add" : "Dry run: matched" : r.created ? "Added" : "Matched";
+    return ok(`${verb} ${c.full_name}${r.updated?.length ? ` (updates ${r.updated.join(", ")})` : ""}.`, json(r));
+  })
+});
+var checkCanContactTool = defineTool17({
+  name: "check_can_contact",
+  title: "Check before sending",
+  description: "Every sender (LinkedIn invites and messages, email, drip, WhatsApp, anything new) calls this right before sending. Returns allowed or the reason it is blocked: do not contact on the person or account, not a fit, not now until a date, never email, missing address. Blocked sends are logged. People PD HQ does not know come back allowed with known false.",
+  inputSchema: {
+    channel,
+    people: z16.array(z16.object(who)).min(1).max(200),
+    sender: z16.string().max(100).optional().describe("e.g. waalaxy:caleb, gmail:caleb, drip."),
+    log_blocks: z16.boolean().optional().describe("Default true.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await checkCanContact(db, input);
+    return ok(`${r.allowed} allowed, ${r.blocked} blocked on ${r.channel}.`, json(r));
+  })
+});
+var setDoNotContactTool = defineTool17({
+  name: "set_do_not_contact",
+  title: "Set do not contact",
+  description: "Removal request: sets the master do-not-contact flag on the person (or the whole account), which stops their drip, sets never-email, skips open drafts and moves a whole account to Do not contact. Only Caleb can clear it, in PD HQ. The reply lists what to do outside PD HQ (Waalaxy, email lists). Use dry_run first.",
+  inputSchema: {
+    ...who,
+    reason: z16.string().min(1).max(500).describe("e.g. 'Asked to be removed, LinkedIn 23 Nov'."),
+    source: z16.string().min(1).max(100).describe("Where they asked: linkedin, email, whatsapp, call, other."),
+    whole_account: z16.boolean().optional().describe("Also flag the account, covering every contact there."),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await setDoNotContact(db, input);
+    const names = [r.contact?.name, r.account?.name].filter(Boolean).join(" and ");
+    return ok(`${r.dry_run ? "Dry run: would set" : "Set"} do not contact on ${names}. Next: ${r.follow_ups.join(" ")}`, json(r));
+  })
+});
+var logTouchTool = defineTool17({
+  name: "log_touch",
+  title: "Log a message",
+  description: "Log one message in or out on LinkedIn, email, WhatsApp, a call or a meeting. Pass the channel's message id as external_id so repeated syncs never double-log. Outbound to do not contact is refused. An inbound message moves a Queued or In outreach account to Responded; a first outbound moves Queued to In outreach. A/B fields (variant, test_name, angle, persona, step, opener_type) go on outbound messages. Use dry_run first.",
+  inputSchema: {
+    contact_id: z16.string().uuid().optional(),
+    customer_id: z16.string().uuid().optional(),
+    channel,
+    direction: z16.enum(["in", "out"]),
+    occurred_at: z16.string().optional().describe("ISO date-time. Default now."),
+    subject: z16.string().max(500).optional(),
+    body: z16.string().max(2e4).optional(),
+    sender_account: z16.string().max(100).optional().describe("Our side, e.g. linkedin:caleb, linkedin:parker, gmail:caleb."),
+    external_id: z16.string().max(300).optional(),
+    auto_sent: z16.boolean().optional().describe("Sent by a job without Caleb's review (e.g. thanks for connecting)."),
+    is_drip: z16.boolean().optional(),
+    drip_issue: z16.string().max(200).optional(),
+    variant: z16.string().max(100).optional(),
+    test_name: z16.string().max(100).optional(),
+    angle: z16.string().max(100).optional(),
+    persona: z16.string().max(100).optional(),
+    step: z16.number().int().min(0).max(20).optional(),
+    opener_type: z16.string().max(100).optional(),
+    engaged: z16.boolean().optional().describe("Inbound that says more than thanks: marks the person engaged."),
+    logged_by: z16.string().max(100).optional(),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await logTouch(db, input);
+    const head = r.dry_run ? "Dry run: would log" : "duplicate" in r && r.duplicate ? "Already logged" : "Logged";
+    return ok(`${head} ${input.direction === "in" ? "inbound" : "outbound"} ${input.channel} message${r.stage_move ? `; stage to ${r.stage_move}` : ""}.`, json(r));
+  })
+});
+var setSalesStageTool = defineTool17({
+  name: "set_sales_stage",
+  title: "Move an account's stage",
+  description: "Move an account to queued, in_outreach, responded, in_conversation, inquiry, customer, not_now (needs not_now_until) or not_a_fit, with a one-line reason kept on the stage log. For removal requests use set_do_not_contact. Use dry_run first.",
+  inputSchema: {
+    customer_id: z16.string().uuid(),
+    stage,
+    reason: z16.string().min(1).max(500),
+    not_now_until: z16.string().optional().describe("YYYY-MM-DD, required for not_now."),
+    actor: z16.string().max(100).optional().describe("e.g. crm-watchdog. Default the signed-in user."),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await setSalesStage(db, input);
+    return ok(r.changed ? `${r.dry_run ? "Dry run: would move" : "Moved"} from ${r.from ?? "none"} to ${r.to}.` : `Already ${r.to}.`, json(r));
+  })
+});
+var briefPart = z16.object({ text: z16.string().min(1).max(4e3), source: z16.string().max(1e3).nullable().optional() });
+var saveBriefTool = defineTool17({
+  name: "save_brief",
+  title: "Save an account brief",
+  description: `Save the brief shown at the top of the account page, part by part, each with its source link. Parts: ${BRIEF_PARTS.join(", ")}. Parts not given are kept. Optionally set the next step and its date. Use dry_run first.`,
+  inputSchema: {
+    customer_id: z16.string().uuid(),
+    parts: z16.object(Object.fromEntries(BRIEF_PARTS.map((p) => [p, briefPart.optional()]))),
+    next_step: z16.string().max(500).optional(),
+    next_step_date: z16.string().optional().describe("YYYY-MM-DD."),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await saveBrief(db, input);
+    return ok(r.dry_run ? "Dry run: brief ready to save." : "Brief saved.", json(r));
+  })
+});
+var saveFollowUpTool = defineTool17({
+  name: "save_follow_up",
+  title: "Save a follow-up and its draft",
+  description: "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+  inputSchema: {
+    task_id: z16.string().uuid().optional().describe("Update this follow-up instead of creating one."),
+    customer_id: z16.string().uuid().optional(),
+    contact_id: z16.string().uuid().optional(),
+    title: z16.string().max(500).optional(),
+    due_date: z16.string().optional().describe("YYYY-MM-DD."),
+    nudge_step: z16.number().int().min(1).max(3).optional(),
+    draft_text: z16.string().max(2e4).optional(),
+    draft_channel: channel.optional(),
+    draft_status: z16.enum(["draft", "approved", "sent", "skipped"]).optional(),
+    assignee: z16.string().max(10).optional().describe("Default the account owner, else CQ."),
+    priority: z16.enum(["low", "normal", "high", "urgent"]).optional(),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await saveFollowUp(db, input);
+    const t = r.task;
+    return ok(`${r.dry_run ? "Dry run: would save" : r.created ? "Created" : "Updated"} "${t.title}" due ${t.due_date}.`, json(r));
+  })
+});
+var logJobRunTool = defineTool17({
+  name: "log_job_run",
+  title: "Log a job run",
+  description: "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used, cost in USD and how many items wait for Caleb. Feeds the Jobs tab. Use dry_run first.",
+  inputSchema: {
+    job: z16.string().min(1).max(100),
+    status: z16.enum(["ok", "partial", "failed", "skipped"]).optional(),
+    started_at: z16.string().optional(),
+    finished_at: z16.string().optional(),
+    summary: z16.string().max(2e3).optional(),
+    counts: z16.record(z16.number()).optional().describe('e.g. {"invites": 25, "replies_logged": 4}.'),
+    credits: z16.record(z16.number()).optional().describe('e.g. {"waalaxy_email_finder": 3}.'),
+    cost_usd: z16.number().min(0).max(1e4).optional(),
+    needs_review: z16.number().int().min(0).max(1e4).optional(),
+    run_by: z16.string().max(100).optional(),
+    dry_run: z16.boolean().optional()
+  },
+  annotations: write,
+  handler: withUserDb(async (db, input) => {
+    const r = await logJobRun(db, input);
+    return ok(`${r.dry_run ? "Dry run: would log" : "Logged"} ${input.job} run.`, json(r));
+  })
+});
+var listSalesPipelineTool = defineTool17({
+  name: "list_sales_pipeline",
+  title: "List the sales pipeline",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+  inputSchema: {
+    stage: stage.optional(),
+    customer_id: z16.string().uuid().optional(),
+    include_touches: z16.number().int().min(0).max(50).optional().describe("Latest messages per account (default 5)."),
+    limit: z16.number().int().min(1).max(500).optional().describe("Max accounts (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await listPipeline(db, input);
+    return ok(JSON.stringify(r), json(r));
+  })
+});
+var SALES_TOOLS = [
+  listSalesPipelineTool,
+  checkCanContactTool,
+  upsertSalesAccountTool,
+  upsertContactTool,
+  logTouchTool,
+  setSalesStageTool,
+  setDoNotContactTool,
+  saveBriefTool,
+  saveFollowUpTool,
+  logJobRunTool
+];
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var TOOLS = [
@@ -1745,13 +2369,14 @@ var TOOLS = [
   create_sample_request_default,
   create_task_default,
   add_cogs_item_default,
-  update_cogs_item_default
+  update_cogs_item_default,
+  ...SALES_TOOLS
 ];
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.3.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor.",
+  version: "0.4.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

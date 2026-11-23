@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
+import { SalesAccountPanel } from '@/components/sales/SalesAccountPanel';
 
 type Customer = {
   id: string;
@@ -281,6 +282,7 @@ export default function CustomerDetail() {
             options={[
               { value: 'inquiries', label: `Inquiries (${inquiries.length})` },
               { value: 'tasks', label: 'Tasks' },
+              { value: 'sales', label: 'Sales' },
             ]}
           />
 
@@ -398,6 +400,10 @@ export default function CustomerDetail() {
                 </CardContent>
               </Card>
             </section>
+          </TabsContent>
+
+          <TabsContent value="sales" className="mt-3">
+            <SalesAccountPanel customerId={customer.id} />
           </TabsContent>
         </Tabs>
       </div>

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { TrendingUp, Images,
   Settings, LogOut, ShoppingCart, FileText,
-  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, FolderKanban, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning, Lightbulb,
+  Users, Inbox, Package2, CheckSquare, Truck, Search, Menu, FolderOpen, FolderKanban, ChevronDown, BarChart3, Wrench, ClipboardCheck, MessageSquareWarning, Lightbulb, Handshake,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlobalTaskQuickAdd } from '@/components/GlobalTaskQuickAdd';
@@ -58,6 +58,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/', label: 'Inquiries', icon: Inbox },
     { to: '/pd-dashboard', label: 'PD Dashboard', icon: ClipboardCheck },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/sales', label: 'Sales', icon: Handshake },
     { to: '/projects', label: 'Projects', icon: FolderKanban },
     { to: '/analytics', label: 'Kickass Analytics Dashboard', icon: BarChart3 },
     { to: '/profitability', label: 'Profitability', icon: TrendingUp },

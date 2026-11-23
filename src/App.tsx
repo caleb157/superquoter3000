@@ -39,6 +39,7 @@ const InquiryContainerPlanner = lazyPage(() => import("./pages/InquiryContainerP
 const SamplesList = lazyPage(() => import("./pages/SamplesList"));
 const SampleRequestView = lazyPage(() => import("./pages/SampleRequestView"));
 const Tasks = lazyPage(() => import("./pages/Tasks"));
+const Sales = lazyPage(() => import("./pages/Sales"));
 const Projects = lazyPage(() => import("./pages/Projects"));
 const ProjectDetail = lazyPage(() => import("./pages/ProjectDetail"));
 const Analytics = lazyPage(() => import("./pages/Analytics"));
@@ -71,6 +72,7 @@ const START_PAGES: [RegExp, { preload: () => Promise<unknown> }][] = [
   [/^\/customers$/, Customers],
   [/^\/customers\/[^/]+$/, CustomerDetail],
   [/^\/tasks$/, Tasks],
+  [/^\/sales$/, Sales],
   [/^\/pd-dashboard$/, PdDashboard],
   [/^\/analytics$/, Analytics],
   [/^\/quotes$/, Quotes],
@@ -228,6 +230,9 @@ const App = () => (
               <Route path="/quote/:token" element={<CustomerQuote />} />
               <Route path="/tasks" element={
                 <ProtectedRoute requireAdminOrTeam><Tasks /></ProtectedRoute>
+              } />
+              <Route path="/sales" element={
+                <ProtectedRoute requireAdminOrTeam><Sales /></ProtectedRoute>
               } />
               <Route path="/projects" element={
                 <ProtectedRoute requireAdminOrTeam><Projects /></ProtectedRoute>

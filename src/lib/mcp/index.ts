@@ -15,6 +15,7 @@ import attachProductPhotoTool from "./tools/attach-product-photo";
 import createSampleRequestTool from "./tools/create-sample-request";
 import createTaskTool from "./tools/create-task";
 import getSalesAnalyticsTool from "./tools/get-sales-analytics";
+import { SALES_TOOLS } from "./tools/sales-tools";
 
 // Build the OAuth issuer from the Supabase project ref so it stays on the
 // direct supabase.co host (not the .lovable.cloud proxy). Vite inlines this
@@ -38,12 +39,13 @@ export const TOOLS = [
   createTaskTool,
   addCogsItemTool,
   updateCogsItemTool,
+  ...SALES_TOOLS,
 ];
 
 export default defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.3.0",
+  version: "0.4.0",
   instructions:
     "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. " +
     "Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). " +
@@ -51,7 +53,9 @@ export default defineMcp({
     "then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, " +
     "`create_sample_request` when samples are agreed, and `create_task` for anything else. " +
     "Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. " +
-    "COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor.",
+    "COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. " +
+    "Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. " +
+    "Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export const LEAD_STATUS_COLORS: Record<string, string> = {
+  prospect: 'bg-muted/60 text-muted-foreground',
   lead: 'bg-muted text-muted-foreground',
   active: 'bg-warning/15 text-warning',
   won: 'bg-success/15 text-success',
@@ -11,6 +12,7 @@ export const LEAD_STATUS_COLORS: Record<string, string> = {
 
 // Stored values stay as they are; only the labels people see change.
 export const LEAD_STATUS_LABELS: Record<string, string> = {
+  prospect: 'Prospect',
   lead: 'Lead',
   active: 'Live inquiry',
   won: 'Customer',
@@ -18,7 +20,7 @@ export const LEAD_STATUS_LABELS: Record<string, string> = {
   churned: 'Churned',
 };
 
-export const LEAD_STATUS_ORDER = ['lead', 'active', 'won', 'inactive', 'churned'] as const;
+export const LEAD_STATUS_ORDER = ['prospect', 'lead', 'active', 'won', 'inactive', 'churned'] as const;
 export type LeadStatus = typeof LEAD_STATUS_ORDER[number];
 
 export function LeadStatusBadge({ status, className }: { status: string; className?: string }) {
