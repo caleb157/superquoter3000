@@ -4,7 +4,7 @@
 // spreadsheet, Shift+arrows (or Shift+click) select a block of cells to copy, fill down
 // (Ctrl+D), clear (Delete) or paste into.
 import { Fragment, useRef, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, IconTooltipContent, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -78,6 +78,8 @@ export function WorkspaceTable(p: Props) {
   const grid = isQuotes ? 'quotes' : compact ? 'compact' : 'sheet';
   // SKUs folded out under their row to a simpler product view (sheet only; the side panel has the full one).
   const [glance, setGlance] = useState<Set<string>>(new Set());
+  const allGlance = rows.length > 0 && rows.every(r => glance.has(r.p.id));
+  const toggleAllGlance = () => setGlance(allGlance ? new Set() : new Set(rows.map(r => r.p.id)));
   const toggleGlance = (id: string) => setGlance(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // The lines fold-out only shows while its category's column is on screen (the COGS step is open).
   const cat = grid === 'sheet' && cols.some(c => c.lines === p.lines) ? lineCat(p.lines) : null;
@@ -162,6 +164,17 @@ export function WorkspaceTable(p: Props) {
           headTop === 60 ? '[&>th]:top-[60px]' : headTop === 32 ? '[&>th]:top-8' : headTop === 28 ? '[&>th]:top-7' : '[&>th]:top-0')}>
           <th className="left-0 z-20 text-left">
             <div className="flex items-center gap-3 pl-1">
+              {grid === 'sheet' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={toggleAllGlance} aria-pressed={allGlance} aria-label={allGlance ? 'Fold every SKU' : 'Expand every SKU'}
+                      className={cn('-mr-1 grid h-6 w-5 shrink-0 place-items-center rounded hover:text-foreground', allGlance && 'text-primary')}>
+                      {allGlance ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <IconTooltipContent side="right" className="text-xs">{allGlance ? 'Fold every SKU' : 'Expand every SKU: a bird’s-eye view of the project'}</IconTooltipContent>
+                </Tooltip>
+              )}
               <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={p.onToggleAll} aria-label="Select all" />
               <button onClick={p.onSortName} title="Sort by name (click again to reverse, third click for sheet order)"
                 className={cn('flex items-center gap-1 rounded hover:text-foreground', p.nameSort && 'text-foreground')}>
