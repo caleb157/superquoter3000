@@ -17,6 +17,7 @@ import { Check, SkipForward, Ban, AlertTriangle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { AccountActions } from '@/components/sales/AccountActions';
 import { ProspectingTab } from '@/components/sales/ProspectingTab';
+import { ProspectsTab } from '@/components/sales/ProspectsTab';
 import { TractionTab } from '@/components/sales/TractionTab';
 import { ContentTab } from '@/components/sales/ContentTab';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,7 @@ const db = supabase as any;
 
 type PipelineAccount = AccountRow & { persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null; source: string | null };
 type JobRun = JobRunRow & { id: string; summary: string | null; finished_at: string | null; run_by: string | null };
+type Schedule = { id: string; job: string; name: string; cadence: string; runs_where: string | null; what_it_does: string | null; status: string; sort_order: number };
 type Block = { id: string; channel: string; sender: string | null; reason: string; blocked_at: string; customer_id: string | null };
 
 const KIND_LABEL: Record<NeedsYouEntry['kind'], string> = { forgotten: 'Forgotten', qualified: 'Qualified', nudge: 'Nudge', draft: 'Draft reply', task: 'Due', quiet: 'Warm, nothing planned', back: 'Back from Not now' };
@@ -50,6 +52,7 @@ export default function Sales() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [engagedIds, setEngagedIds] = useState<Set<string>>(new Set());
@@ -59,16 +62,17 @@ export default function Sales() {
   const load = async () => {
     const since90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const [a, t, k, r, b, e] = await Promise.all([
+    const [a, t, k, r, b, e, s] = await Promise.all([
       db.from('customers').select('id, name, company, sales_stage, dnc, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
       db.from('sales_touches').select('customer_id, direction, occurred_at, channel, body').gte('occurred_at', since90).order('occurred_at', { ascending: false }).limit(5000),
       db.from('tasks').select('id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority').eq('status', 'open').not('customer_id', 'is', null).limit(2000),
       db.from('job_runs').select('id, job, status, started_at, finished_at, summary, counts, credits, cost_usd, needs_review, run_by').gte('started_at', since30).order('started_at', { ascending: false }).limit(500),
       db.from('send_blocks').select('id, channel, sender, reason, blocked_at, customer_id').gte('blocked_at', since30).order('blocked_at', { ascending: false }).limit(200),
       db.from('contacts').select('customer_id').eq('engaged', true).limit(5000),
+      db.from('sales_schedules').select('id, job, name, cadence, runs_where, what_it_does, status, sort_order').neq('status', 'retired').order('sort_order'),
     ]);
     if (a.error) { setMissing(true); setLoading(false); return; }
-    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []);
+    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []);
     setEngagedIds(new Set((e.data ?? []).map((x: { customer_id: string | null }) => x.customer_id).filter(Boolean)));
     setLoading(false);
   };
@@ -110,6 +114,7 @@ export default function Sales() {
             <ResponsiveTabs value={tab} onValueChange={setTab} options={[
               { value: 'needs', label: `Needs you (${needs.length})` },
               { value: 'pipeline', label: 'Pipeline' },
+              { value: 'prospects', label: 'Prospects' },
               { value: 'prospecting', label: 'Prospecting' },
               { value: 'traction', label: 'Traction' },
               { value: 'content', label: 'Content' },
@@ -159,6 +164,7 @@ export default function Sales() {
               </div>
             </TabsContent>
 
+            <TabsContent value="prospects" className="mt-3"><ProspectsTab /></TabsContent>
             <TabsContent value="prospecting" className="mt-3"><ProspectingTab accounts={accounts} /></TabsContent>
             <TabsContent value="traction" className="mt-3"><TractionTab /></TabsContent>
             <TabsContent value="content" className="mt-3"><ContentTab /></TabsContent>
@@ -192,6 +198,31 @@ export default function Sales() {
                   </Table>
                 </CardContent>
               </Card>
+              {schedules.length > 0 && (
+                <>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">What runs on its own</h3>
+                  <Card>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader><TableRow><TableHead>Run</TableHead><TableHead>When (IST)</TableHead><TableHead>What it does</TableHead><TableHead>Last report</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {schedules.map(s => {
+                            const last = runs.find(r => r.job === s.job || r.job === s.id);
+                            return (
+                              <TableRow key={s.id}>
+                                <TableCell className="font-medium whitespace-nowrap">{s.name}{s.status !== 'live' && <Badge variant="secondary" className="ml-1.5 text-[10px]">{s.status}</Badge>}</TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">{s.cadence}{s.runs_where ? <div className="text-muted-foreground">{s.runs_where}</div> : null}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{s.what_it_does}</TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">{last ? <span className={cn(last.status === 'failed' && 'text-destructive')}>{last.status} · {formatDistanceToNow(new Date(last.started_at), { addSuffix: true })}</span> : <span className="text-muted-foreground">None in 30 days</span>}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">Recent runs</h3>
               <Card>
                 <CardContent className="p-2 space-y-1">
