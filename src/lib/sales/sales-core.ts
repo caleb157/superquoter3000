@@ -136,17 +136,25 @@ export function nextNudge(lastOutAt: string, nudgesSent: number):
 }
 
 export type NeedsYouItem = {
-  kind: "forgotten" | "qualified" | "nudge" | "draft" | "task";
+  kind: "forgotten" | "qualified" | "nudge" | "draft" | "task" | "quiet" | "back";
   due_date?: string | null;
   waitingDays?: number;
+  engaged?: boolean;
 };
 
-const NEEDS_RANK: Record<NeedsYouItem["kind"], number> = { forgotten: 0, qualified: 1, nudge: 2, draft: 3, task: 4 };
+const NEEDS_RANK: Record<NeedsYouItem["kind"], number> = { forgotten: 0, qualified: 1, nudge: 2, draft: 3, task: 4, quiet: 5, back: 6 };
 
-/** Needs you order: forgotten conversations, then qualified accounts, then nudges, then the rest; earliest due first. */
+/** A responded account with no message either way for this many days and nothing planned has gone quiet. */
+export const QUIET_DAYS = 10;
+
+/**
+ * Needs you order: forgotten conversations, then qualified accounts, then nudges, drafts and due tasks,
+ * then warm accounts with nothing planned (engaged people first), then accounts back from Not now.
+ */
 export function sortNeedsYou<T extends NeedsYouItem>(items: T[]): T[] {
   return [...items].sort((a, b) =>
     NEEDS_RANK[a.kind] - NEEDS_RANK[b.kind]
+    || Number(!!b.engaged) - Number(!!a.engaged)
     || (b.waitingDays ?? 0) - (a.waitingDays ?? 0)
     || String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999")));
 }

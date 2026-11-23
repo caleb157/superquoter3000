@@ -1,4 +1,5 @@
-// Sales section: Needs you, Pipeline and Jobs (Phase 1). Prospecting, Traction and Usage tabs come in later phases.
+// Sales section: Needs you (what to do next), Pipeline, Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
+// Content (pieces, calendar, post tests) and Jobs (runs, credits, cost).
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -12,7 +13,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Check, SkipForward, Ban, AlertTriangle } from 'lucide-react';
+import { Check, SkipForward, Ban, AlertTriangle, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { AccountActions } from '@/components/sales/AccountActions';
+import { ProspectingTab } from '@/components/sales/ProspectingTab';
+import { TractionTab } from '@/components/sales/TractionTab';
+import { ContentTab } from '@/components/sales/ContentTab';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
@@ -23,13 +29,14 @@ import { buildNeedsYou, groupByStage, summarizeJobs, type AccountRow, type JobRu
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
 
-type PipelineAccount = AccountRow & { persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null };
+type PipelineAccount = AccountRow & { persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null; source: string | null };
 type JobRun = JobRunRow & { id: string; summary: string | null; finished_at: string | null; run_by: string | null };
 type Block = { id: string; channel: string; sender: string | null; reason: string; blocked_at: string; customer_id: string | null };
 
-const KIND_LABEL: Record<NeedsYouEntry['kind'], string> = { forgotten: 'Forgotten', qualified: 'Qualified', nudge: 'Nudge', draft: 'Draft reply', task: 'Due' };
+const KIND_LABEL: Record<NeedsYouEntry['kind'], string> = { forgotten: 'Forgotten', qualified: 'Qualified', nudge: 'Nudge', draft: 'Draft reply', task: 'Due', quiet: 'Warm, nothing planned', back: 'Back from Not now' };
 const KIND_COLOR: Record<NeedsYouEntry['kind'], string> = {
   forgotten: 'bg-destructive/15 text-destructive', qualified: 'bg-success/15 text-success', nudge: 'bg-primary/10 text-primary', draft: 'bg-warning/15 text-warning', task: 'bg-muted text-muted-foreground',
+  quiet: 'bg-warning/10 text-warning', back: 'bg-primary/10 text-primary',
 };
 
 export default function Sales() {
@@ -45,25 +52,34 @@ export default function Sales() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [engagedIds, setEngagedIds] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState('');
+  const [needsFilter, setNeedsFilter] = useState<string>('all');
 
   const load = async () => {
     const since90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const [a, t, k, r, b] = await Promise.all([
-      db.from('customers').select('id, name, company, sales_stage, dnc, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
+    const [a, t, k, r, b, e] = await Promise.all([
+      db.from('customers').select('id, name, company, sales_stage, dnc, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
       db.from('sales_touches').select('customer_id, direction, occurred_at, channel, body').gte('occurred_at', since90).order('occurred_at', { ascending: false }).limit(5000),
       db.from('tasks').select('id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority').eq('status', 'open').not('customer_id', 'is', null).limit(2000),
       db.from('job_runs').select('id, job, status, started_at, finished_at, summary, counts, credits, cost_usd, needs_review, run_by').gte('started_at', since30).order('started_at', { ascending: false }).limit(500),
       db.from('send_blocks').select('id, channel, sender, reason, blocked_at, customer_id').gte('blocked_at', since30).order('blocked_at', { ascending: false }).limit(200),
+      db.from('contacts').select('customer_id').eq('engaged', true).limit(5000),
     ]);
     if (a.error) { setMissing(true); setLoading(false); return; }
     setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []);
+    setEngagedIds(new Set((e.data ?? []).map((x: { customer_id: string | null }) => x.customer_id).filter(Boolean)));
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
 
-  const needs = useMemo(() => buildNeedsYou(accounts, touches, tasks), [accounts, touches, tasks]);
-  const byStage = useMemo(() => groupByStage(accounts, [...SALES_STAGES, ...SALES_EXITS]), [accounts]);
+  const needs = useMemo(() => buildNeedsYou(accounts, touches, tasks, new Date(), 7, engagedIds), [accounts, touches, tasks, engagedIds]);
+  const urgent = needs.filter(n => n.kind !== 'quiet' && n.kind !== 'back').length;
+  const shownNeeds = needsFilter === 'all' ? needs : needs.filter(n => needsFilter === 'now' ? n.kind !== 'quiet' && n.kind !== 'back' : n.kind === needsFilter);
+  const match = (a: PipelineAccount) => !q.trim() || `${a.company ?? ''} ${a.name} ${a.persona ?? ''} ${a.customer_type ?? ''}`.toLowerCase().includes(q.trim().toLowerCase());
+  const byStage = useMemo(() => groupByStage(accounts.filter(match), [...SALES_STAGES, ...SALES_EXITS]), [accounts, q]);
+  const allByStage = useMemo(() => groupByStage(accounts, [...SALES_STAGES, ...SALES_EXITS]), [accounts]);
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const jobs = useMemo(() => summarizeJobs(runs, weekAgo), [runs, weekAgo]);
   const lastTouch = useMemo(() => {
@@ -77,10 +93,12 @@ export default function Sales() {
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight mr-auto">Sales</h1>
-          <Stat label="Needs you" value={needs.length} />
-          <Stat label="In outreach" value={byStage.in_outreach?.length ?? 0} />
-          <Stat label="Talking" value={(byStage.responded?.length ?? 0) + (byStage.in_conversation?.length ?? 0)} />
-          <Stat label="Inquiries" value={byStage.inquiry?.length ?? 0} />
+          <Stat label="Needs you now" value={urgent} />
+          <Stat label="Warm, nothing planned" value={needs.filter(n => n.kind === 'quiet').length} />
+          <Stat label="In outreach" value={allByStage.in_outreach?.length ?? 0} />
+          <Stat label="Talking" value={(allByStage.responded?.length ?? 0) + (allByStage.in_conversation?.length ?? 0)} />
+          <Stat label="Inquiries" value={allByStage.inquiry?.length ?? 0} />
+          <Stat label="Customers" value={allByStage.customer?.length ?? 0} />
         </div>
 
         {missing ? (
@@ -92,15 +110,24 @@ export default function Sales() {
             <ResponsiveTabs value={tab} onValueChange={setTab} options={[
               { value: 'needs', label: `Needs you (${needs.length})` },
               { value: 'pipeline', label: 'Pipeline' },
-              { value: 'jobs', label: 'Jobs' },
+              { value: 'prospecting', label: 'Prospecting' },
+              { value: 'traction', label: 'Traction' },
+              { value: 'content', label: 'Content' },
+              { value: 'jobs', label: 'Jobs and cost' },
             ]} />
 
             <TabsContent value="needs" className="mt-3 space-y-2">
-              {needs.length === 0 && <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Nothing waits for you. Forgotten conversations, qualified accounts, nudges and drafted replies show here.</CardContent></Card>}
-              {needs.map(e => <NeedsCard key={e.key} entry={e} onChanged={load} />)}
+              <div className="flex flex-wrap gap-1">
+                {[['all', `All ${needs.length}`], ['now', `Do now ${urgent}`], ['quiet', `Warm, nothing planned ${needs.filter(n => n.kind === 'quiet').length}`], ['back', `Back from Not now ${needs.filter(n => n.kind === 'back').length}`]].map(([v, l]) => (
+                  <Button key={v} size="sm" variant={needsFilter === v ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setNeedsFilter(v)}>{l}</Button>
+                ))}
+              </div>
+              {shownNeeds.length === 0 && <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Nothing waits for you here. Forgotten conversations, qualified accounts, nudges, drafted replies and warm accounts with nothing planned show here.</CardContent></Card>}
+              {shownNeeds.slice(0, 150).map(e => <NeedsCard key={e.key} entry={e} onChanged={load} />)}
             </TabsContent>
 
             <TabsContent value="pipeline" className="mt-3 space-y-3">
+              <div className="relative max-w-xs"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="h-9 pl-8" placeholder="Find an account" value={q} onChange={e => setQ(e.target.value)} /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
                 {SALES_STAGES.map(s => (
                   <div key={s} className="rounded-lg bg-muted/40 p-2 space-y-2 min-w-0">
@@ -131,6 +158,10 @@ export default function Sales() {
                 {SALES_EXITS.map(s => <span key={s} className="flex items-center gap-1"><SalesStageBadge stage={s} /> {byStage[s].length}</span>)}
               </div>
             </TabsContent>
+
+            <TabsContent value="prospecting" className="mt-3"><ProspectingTab accounts={accounts} /></TabsContent>
+            <TabsContent value="traction" className="mt-3"><TractionTab /></TabsContent>
+            <TabsContent value="content" className="mt-3"><ContentTab /></TabsContent>
 
             <TabsContent value="jobs" className="mt-3 space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -225,6 +256,7 @@ function NeedsCard({ entry, onChanged }: { entry: NeedsYouEntry; onChanged: () =
           <span className="text-sm text-muted-foreground">{entry.title}</span>
           {entry.due_date && <span className="text-xs text-muted-foreground ml-auto">due {format(new Date(entry.due_date), 'd MMM')}</span>}
         </div>
+        {entry.engaged && <span className="text-[11px] text-success">Engaged contact</span>}
         {entry.kind === 'forgotten' && entry.detail && <p className="text-sm rounded-md bg-muted/50 p-2 whitespace-pre-line line-clamp-4">“{entry.detail}”</p>}
         {hasDraft && (
           <div className="space-y-2">
@@ -235,6 +267,7 @@ function NeedsCard({ entry, onChanged }: { entry: NeedsYouEntry; onChanged: () =
             </div>
           </div>
         )}
+        <AccountActions account={a} onChanged={onChanged} compact />
       </CardContent>
     </Card>
   );

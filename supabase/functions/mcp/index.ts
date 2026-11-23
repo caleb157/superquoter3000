@@ -561,10 +561,10 @@ function checkIntakeRowNames(row, L) {
   if (row.product_type && !byName(L.productTypes, row.product_type)) out.push(`${label}: product type "${row.product_type}" not found`);
   if (row.source_location && !byName(L.locations, row.source_location)) out.push(`${label}: location "${row.source_location}" not found`);
   if (row.shipping_type && !byName(L.shippingTypes, row.shipping_type)) out.push(`${label}: shipping type "${row.shipping_type}" not found`);
-  const clean2 = (v) => String(v ?? "").trim().toLowerCase();
+  const clean3 = (v) => String(v ?? "").trim().toLowerCase();
   for (const c of CHEM_COLS) {
     const chemName = row[`${c.key}_chem`];
-    if (chemName !== void 0 && !L.chems.some((ch) => clean2(ch.name) === clean2(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
+    if (chemName !== void 0 && !L.chems.some((ch) => clean3(ch.name) === clean3(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
   }
   return out;
 }
@@ -703,7 +703,7 @@ async function applyRow(db, productId, row, L, warn) {
   const chemTouched = CHEM_COLS.filter((c2) => row[c2.key] !== void 0 || row[`${c2.key}_chem`] !== void 0);
   if (chemTouched.length) {
     const { data: fin } = await db.from("cogs_items").select("*").eq("product_id", productId).eq("cogs_type", "Finishing Materials");
-    const clean2 = (v) => String(v ?? "").trim().toLowerCase();
+    const clean3 = (v) => String(v ?? "").trim().toLowerCase();
     for (const c2 of chemTouched) {
       const liters = row[c2.key];
       const chemName = row[`${c2.key}_chem`];
@@ -713,7 +713,7 @@ async function applyRow(db, productId, row, L, warn) {
       });
       let chem;
       if (chemName !== void 0) {
-        chem = L.chems.find((ch) => clean2(ch.name) === clean2(chemName));
+        chem = L.chems.find((ch) => clean3(ch.name) === clean3(chemName));
         if (!chem) {
           warn(`${label}: ${c2.name} chemical "${chemName}" not found \u2014 row left unchanged`);
           continue;
@@ -1123,9 +1123,9 @@ var PHOTO_BUCKET = "product-photos";
 var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 var EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 function decodeBase64(b64) {
-  const clean2 = b64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean2)) throw new ToolError("image_base64 is not valid base64.");
-  const bin = atob(clean2);
+  const clean3 = b64.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean3)) throw new ToolError("image_base64 is not valid base64.");
+  const bin = atob(clean3);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
@@ -1544,16 +1544,16 @@ async function savedInquiryFinancials(db, ids) {
   const products = [];
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
-    const read = (cols) => pageAll(
+    const read2 = (cols) => pageAll(
       (a, b) => db.from("products").select(cols).in("customer_rfq_id", chunk).is("archived_at", null).order("id").range(a, b),
       "Could not read inquiry products"
     );
     const base = "id, customer_rfq_id, quantity, calculated_unit_price_usd, calculated_unit_cost_usd";
     try {
-      products.push(...await read(`${base}, calculated_man_hours_per_unit`));
+      products.push(...await read2(`${base}, calculated_man_hours_per_unit`));
     } catch (e) {
       if (!String(e.message).includes("calculated_man_hours_per_unit")) throw e;
-      products.push(...await read(base));
+      products.push(...await read2(base));
     }
   }
   const cost = {};
@@ -2351,6 +2351,297 @@ var SALES_TOOLS = [
   logJobRunTool
 ];
 
+// src/lib/mcp/tools/traction-tools.ts
+import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z17 } from "npm:zod@^3.25.76";
+
+// src/lib/sales/traction.ts
+var IDEA_STATUSES = ["idea", "proposed", "approved", "running", "done", "dropped", "not_for_now"];
+var CLOSED = /* @__PURE__ */ new Set(["done", "dropped"]);
+var COMMUNITY_STATUSES = ["candidate", "joined", "active", "dropped"];
+function orderIdeas(ideas) {
+  return [...ideas].sort((a, b) => Number(CLOSED.has(a.status)) - Number(CLOSED.has(b.status)) || a.rank - b.rank || Number(a.free_or_paid === "paid") - Number(b.free_or_paid === "paid"));
+}
+function inquiriesPerChannel(channels, inquiries) {
+  const byName2 = new Map(channels.map((c) => [c.name.toLowerCase(), c.id]));
+  const counts = /* @__PURE__ */ new Map();
+  let untagged = 0;
+  for (const q of inquiries) {
+    const v = q.source_channel?.trim();
+    if (!v) {
+      untagged++;
+      continue;
+    }
+    const id = /^\d+$/.test(v) ? Number(v) : byName2.get(v.toLowerCase());
+    if (id == null) {
+      untagged++;
+      continue;
+    }
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return { counts, untagged };
+}
+var CONTENT_STATUSES = ["idea", "draft", "review", "approved", "scheduled", "posted", "dropped"];
+var CONTENT_KINDS = ["post", "article", "case_study", "chart", "design", "drip", "video", "other"];
+var SLOT_STATUSES = ["planned", "scheduled", "posted", "skipped"];
+
+// src/lib/mcp/traction.ts
+var clean2 = (v) => v?.trim() ? v.trim() : null;
+var pick = (o, keys) => Object.fromEntries(Object.entries(o).filter(([k, v]) => keys.includes(k) && v !== void 0));
+var IDEA_COLUMNS = "id, channel_id, rank, title, pitch, free_or_paid, hours_per_week, reach, soonest_inquiry, deadline, evidence, status, proposed_at, decision_note, task_id";
+async function listTractionBoard(db, input) {
+  const channels = check(await db.from("traction_channels").select("id, name, ring, fit, cost, test_ends, map_note, ring_changed_at, ring_changed_by").order("sort_order"), "Could not read the Traction channels") ?? [];
+  let iq = db.from("traction_ideas").select(IDEA_COLUMNS);
+  if (input.channel_id) iq = iq.eq("channel_id", input.channel_id);
+  const ideas = orderIdeas(check(await iq.order("rank"), "Could not read the ideas") ?? []);
+  let cq = db.from("communities").select("id, name, grp, status, priority, high_value, interaction_plan, who_acts, next_touch, link, promotion_allowed");
+  if (input.community_status) cq = cq.eq("status", input.community_status);
+  const communities = check(await cq.order("name"), "Could not read the communities") ?? [];
+  const inquiries = check(await db.from("customer_rfqs").select("source_channel, status"), "Could not read inquiries") ?? [];
+  const per = inquiriesPerChannel(channels, inquiries);
+  const board = channels.filter((c) => !input.channel_id || c.id === input.channel_id).map((c) => ({
+    ...c,
+    inquiries: per.counts.get(c.id) ?? 0,
+    ideas: ideas.filter((i) => i.channel_id === c.id && (input.include_closed || !["done", "dropped"].includes(i.status))).slice(0, input.include_closed ? 50 : 5)
+  }));
+  return {
+    channels: board,
+    inner_ring: board.filter((c) => c.ring === "inner").map((c) => c.name),
+    communities,
+    untagged_inquiries: per.untagged
+  };
+}
+async function saveTractionIdea(db, input) {
+  if (input.deadline && !isValidYmd(input.deadline)) throw new ToolError("deadline must be YYYY-MM-DD.");
+  if (input.status && !IDEA_STATUSES.includes(input.status)) throw new ToolError(`status must be one of ${IDEA_STATUSES.join(", ")}.`);
+  const fields = pick({
+    rank: input.rank,
+    title: clean2(input.title) ?? void 0,
+    pitch: input.pitch === void 0 ? void 0 : clean2(input.pitch),
+    free_or_paid: input.free_or_paid,
+    hours_per_week: input.hours_per_week,
+    reach: input.reach,
+    soonest_inquiry: input.soonest_inquiry,
+    deadline: input.deadline,
+    evidence: input.evidence,
+    status: input.status,
+    decision_note: input.decision_note
+  }, ["rank", "title", "pitch", "free_or_paid", "hours_per_week", "reach", "soonest_inquiry", "deadline", "evidence", "status", "decision_note"]);
+  if (input.id) {
+    const found = check(await db.from("traction_ideas").select(IDEA_COLUMNS).eq("id", input.id).maybeSingle(), "Could not read the idea");
+    if (!found) throw new ToolError(`No idea with id ${input.id}.`);
+    if (input.dry_run) return { idea: { ...found, ...fields }, created: false, dry_run: true };
+    const idea2 = check(await db.from("traction_ideas").update(fields).eq("id", input.id).select(IDEA_COLUMNS).single(), "Could not update the idea");
+    return { idea: idea2, created: false, dry_run: false };
+  }
+  if (!input.channel_id) throw new ToolError("Give channel_id (1-19, see list_traction_board) for a new idea.");
+  if (!fields.title) throw new ToolError("Give the idea a title.");
+  const channel2 = check(await db.from("traction_channels").select("id, name").eq("id", input.channel_id).maybeSingle(), "Could not read the channel");
+  if (!channel2) throw new ToolError(`No Traction channel ${input.channel_id}.`);
+  let rank = input.rank;
+  if (rank == null) {
+    const existing = check(await db.from("traction_ideas").select("id, rank").eq("channel_id", input.channel_id), "Could not read the ideas") ?? [];
+    rank = existing.reduce((m, r) => Math.max(m, r.rank), 0) + 1;
+  }
+  const paid = input.free_or_paid === "paid";
+  const row = { channel_id: input.channel_id, ...fields, rank, free_or_paid: paid ? "paid" : "free", status: input.status ?? (paid ? "not_for_now" : "proposed"), proposed_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) };
+  if (input.dry_run) return { idea: row, channel: channel2.name, created: false, would_create: true, dry_run: true };
+  const idea = check(await db.from("traction_ideas").insert(row).select(IDEA_COLUMNS).single(), "Could not add the idea");
+  return { idea, channel: channel2.name, created: true, dry_run: false };
+}
+async function saveCommunity(db, input) {
+  const name = input.name?.trim();
+  if (!name) throw new ToolError("Give the community's name.");
+  for (const k of ["last_touch", "next_touch"]) if (input[k] && !isValidYmd(input[k])) throw new ToolError(`${k} must be YYYY-MM-DD.`);
+  const fields = pick(input, ["grp", "audience", "cost", "promotion_allowed", "link", "status", "priority", "high_value", "interaction_plan", "who_acts", "hours_per_month", "last_touch", "next_touch", "notes"]);
+  const found = (check(await db.from("communities").select("id, name, status").ilike("name", name.replace(/[\\%_]/g, (m) => `\\${m}`)).limit(1), "Could not search communities") ?? [])[0];
+  if (found) {
+    if (input.dry_run) return { community: { ...found, ...fields }, created: false, dry_run: true };
+    const community2 = check(await db.from("communities").update(fields).eq("id", found.id).select("id, name, status, interaction_plan, next_touch").single(), "Could not update the community");
+    return { community: community2, created: false, dry_run: false };
+  }
+  const row = { name, status: "candidate", ...fields };
+  if (input.dry_run) return { community: row, created: false, would_create: true, dry_run: true };
+  const community = check(await db.from("communities").insert(row).select("id, name, status").single(), "Could not add the community");
+  return { community, created: true, dry_run: false };
+}
+async function listContent(db, input) {
+  const day = 864e5;
+  const from = input.from ?? new Date(Date.now() - 14 * day).toISOString().slice(0, 10);
+  const to = input.to ?? new Date(Date.now() + 56 * day).toISOString().slice(0, 10);
+  if (!isValidYmd(from) || !isValidYmd(to)) throw new ToolError("from and to must be YYYY-MM-DD.");
+  let pq = db.from("content_pieces").select("id, slug, title, kind, pillar, status, body, proof, target_search, parent_id, notes, updated_at");
+  if (input.status) pq = pq.eq("status", input.status);
+  const pieces = check(await pq.order("created_at").limit(Math.min(input.limit ?? 200, 500)), "Could not read content pieces") ?? [];
+  const all = check(await db.from("content_slots").select("id, piece_id, channel, slot_date, slot_time_ct, status, variant, test_id, post_url, qualified_comments, profile_views_3d, accepts_3d").order("slot_date"), "Could not read the calendar") ?? [];
+  const slots = all.filter((s) => s.slot_date >= from && s.slot_date <= to);
+  return { pieces, slots, from, to };
+}
+async function saveContent(db, input) {
+  for (const s of input.slots ?? []) if (!isValidYmd(s.slot_date)) throw new ToolError(`slot_date ${s.slot_date} must be YYYY-MM-DD.`);
+  let found = null;
+  if (input.id) found = check(await db.from("content_pieces").select("id, slug, title, status").eq("id", input.id).maybeSingle(), "Could not read the piece");
+  else if (input.slug) found = check(await db.from("content_pieces").select("id, slug, title, status").eq("slug", input.slug.trim()).maybeSingle(), "Could not read the piece");
+  if (input.id && !found) throw new ToolError(`No content piece with id ${input.id}.`);
+  let parent_id;
+  if (input.parent_slug) {
+    const p = check(await db.from("content_pieces").select("id").eq("slug", input.parent_slug.trim()).maybeSingle(), "Could not read the parent piece");
+    if (!p) throw new ToolError(`No piece with slug ${input.parent_slug} to cut from.`);
+    parent_id = p.id;
+  }
+  const fields = {
+    ...pick(input, ["title", "kind", "pillar", "status", "body", "format_note", "proof", "target_search", "asset_url", "source", "notes"]),
+    ...parent_id !== void 0 ? { parent_id } : {}
+  };
+  const slots = (input.slots ?? []).map((s) => ({ channel: "linkedin", status: "planned", ...s }));
+  if (!found && !clean2(input.title)) throw new ToolError("Give a title for a new piece.");
+  if (input.dry_run) return { piece: found ? { ...found, ...fields } : { slug: clean2(input.slug), status: "draft", kind: "post", ...fields }, slots, created: false, would_create: !found, dry_run: true };
+  const piece = found ? check(await db.from("content_pieces").update(fields).eq("id", found.id).select("id, slug, title, status").single(), "Could not update the piece") : check(await db.from("content_pieces").insert({ slug: clean2(input.slug), status: "draft", kind: "post", ...fields }).select("id, slug, title, status").single(), "Could not add the piece");
+  const savedSlots = [];
+  for (const s of slots) {
+    const existing = check(await db.from("content_slots").select("id").eq("piece_id", piece.id).eq("channel", s.channel).eq("slot_date", s.slot_date).maybeSingle(), "Could not read the slot");
+    savedSlots.push(existing ? check(await db.from("content_slots").update(s).eq("id", existing.id).select("id, slot_date, status, variant, test_id").single(), "Could not update the slot") : check(await db.from("content_slots").insert({ piece_id: piece.id, ...s }).select("id, slot_date, status, variant, test_id").single(), "Could not add the slot"));
+  }
+  return { piece, slots: savedSlots, created: !found, dry_run: false };
+}
+
+// src/lib/mcp/tools/traction-tools.ts
+var write2 = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+var read = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
+var json2 = (r) => r;
+var ymd = z17.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+var listTractionBoardTool = defineTool18({
+  name: "list_traction_board",
+  title: "Read the Traction bullseye",
+  description: "The 19 Traction channels with their ring (inner holds at most 3, the ones being tested now), each channel's top 5 open ideas, inquiries tagged to each channel, and the communities list with interaction plans. Read this before proposing channel work.",
+  inputSchema: {
+    channel_id: z17.number().int().min(1).max(50).optional(),
+    include_closed: z17.boolean().optional().describe("Include done and dropped ideas."),
+    community_status: z17.enum(COMMUNITY_STATUSES).optional()
+  },
+  annotations: read,
+  handler: withUserDb(async (db, input) => {
+    const r = await listTractionBoard(db, input);
+    return ok(JSON.stringify(r), json2(r));
+  })
+});
+var saveTractionIdeaTool = defineTool18({
+  name: "save_traction_idea",
+  title: "Add or update a Traction idea",
+  description: "Add an idea to a channel (status proposed, or not for now when paid), or update one by id: rank, pitch, evidence, status, decision note. Ideas Caleb approves become tasks from the app. Never moves a channel's ring. Use dry_run first.",
+  inputSchema: {
+    id: z17.string().uuid().optional(),
+    channel_id: z17.number().int().min(1).max(50).optional(),
+    rank: z17.number().int().min(1).max(100).optional(),
+    title: z17.string().max(300).optional(),
+    pitch: z17.string().max(4e3).optional(),
+    free_or_paid: z17.enum(["free", "paid"]).optional(),
+    hours_per_week: z17.number().min(0).max(80).optional(),
+    reach: z17.string().max(500).optional(),
+    soonest_inquiry: z17.string().max(200).optional(),
+    deadline: ymd.optional(),
+    evidence: z17.string().max(4e3).optional(),
+    status: z17.enum(IDEA_STATUSES).optional(),
+    decision_note: z17.string().max(2e3).optional(),
+    dry_run: z17.boolean().optional()
+  },
+  annotations: write2,
+  handler: withUserDb(async (db, input) => {
+    const r = await saveTractionIdea(db, input);
+    const t = r.idea.title;
+    return ok(`${r.dry_run ? "Dry run: would save" : r.created ? "Added" : "Updated"} idea "${t}".`, json2(r));
+  })
+});
+var saveCommunityTool = defineTool18({
+  name: "save_community",
+  title: "Add or update a community",
+  description: "Find a community (forum, group, newsletter, association) by name and update its status, interaction plan, who acts, last and next touch; or add it as a candidate. Use dry_run first.",
+  inputSchema: {
+    name: z17.string().min(1).max(300),
+    grp: z17.string().max(100).optional(),
+    audience: z17.string().max(1e3).optional(),
+    cost: z17.string().max(200).optional(),
+    promotion_allowed: z17.string().max(500).optional(),
+    link: z17.string().max(500).optional(),
+    status: z17.enum(COMMUNITY_STATUSES).optional(),
+    priority: z17.enum(["A", "B", "C", "X"]).optional(),
+    high_value: z17.boolean().optional(),
+    interaction_plan: z17.string().max(4e3).optional(),
+    who_acts: z17.string().max(100).optional(),
+    hours_per_month: z17.number().min(0).max(200).optional(),
+    last_touch: ymd.optional(),
+    next_touch: ymd.optional(),
+    notes: z17.string().max(4e3).optional(),
+    dry_run: z17.boolean().optional()
+  },
+  annotations: write2,
+  handler: withUserDb(async (db, input) => {
+    const r = await saveCommunity(db, input);
+    return ok(`${r.dry_run ? "Dry run: would save" : r.created ? "Added" : "Updated"} ${input.name}.`, json2(r));
+  })
+});
+var listContentTool = defineTool18({
+  name: "list_content",
+  title: "List content and the posting calendar",
+  description: "Content pieces (posts, articles, case studies, charts, drips) and the posting calendar with scores, default 2 weeks back to 8 weeks ahead.",
+  inputSchema: {
+    status: z17.enum(CONTENT_STATUSES).optional(),
+    from: ymd.optional(),
+    to: ymd.optional(),
+    limit: z17.number().int().min(1).max(500).optional()
+  },
+  annotations: read,
+  handler: withUserDb(async (db, input) => {
+    const r = await listContent(db, input);
+    return ok(JSON.stringify(r), json2(r));
+  })
+});
+var saveContentTool = defineTool18({
+  name: "save_content",
+  title: "Add or update a content piece",
+  description: "Add a piece or update it by id or slug (body, status, proof, target search, cut-from parent), and add or update its calendar slots (one per channel and date) with variant, test and the 3-day score: qualified comments, profile views, accepts. Posts go on Caleb's profile only, through Buffer, after he approves. Use dry_run first.",
+  inputSchema: {
+    id: z17.string().uuid().optional(),
+    slug: z17.string().max(120).optional(),
+    title: z17.string().max(300).optional(),
+    kind: z17.enum(CONTENT_KINDS).optional(),
+    pillar: z17.string().max(100).optional(),
+    status: z17.enum(CONTENT_STATUSES).optional(),
+    body: z17.string().max(2e4).optional(),
+    format_note: z17.string().max(1e3).optional(),
+    proof: z17.string().max(2e3).optional(),
+    target_search: z17.string().max(300).optional(),
+    parent_slug: z17.string().max(120).optional().describe("The long piece this was cut from."),
+    asset_url: z17.string().max(1e3).optional(),
+    source: z17.string().max(300).optional(),
+    notes: z17.string().max(4e3).optional(),
+    slots: z17.array(z17.object({
+      slot_date: ymd,
+      channel: z17.enum(["linkedin", "website", "drip", "other"]).optional(),
+      slot_time_ct: z17.string().max(10).optional(),
+      status: z17.enum(SLOT_STATUSES).optional(),
+      variant: z17.string().max(20).optional(),
+      test_id: z17.string().max(100).optional(),
+      post_url: z17.string().max(1e3).optional(),
+      impressions: z17.number().int().min(0).optional(),
+      reactions: z17.number().int().min(0).optional(),
+      comments: z17.number().int().min(0).optional(),
+      qualified_comments: z17.number().int().min(0).optional(),
+      profile_views_3d: z17.number().int().min(0).optional(),
+      accepts_3d: z17.number().int().min(0).optional(),
+      notes: z17.string().max(2e3).optional()
+    })).max(20).optional(),
+    dry_run: z17.boolean().optional()
+  },
+  annotations: write2,
+  handler: withUserDb(async (db, input) => {
+    const r = await saveContent(db, input);
+    const t = r.piece.title;
+    return ok(`${r.dry_run ? "Dry run: would save" : r.created ? "Added" : "Updated"} "${t}"${r.slots.length ? ` and ${r.slots.length} calendar slot(s)` : ""}.`, json2(r));
+  })
+});
+var TRACTION_TOOLS = [listTractionBoardTool, saveTractionIdeaTool, saveCommunityTool, listContentTool, saveContentTool];
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var TOOLS = [
@@ -2370,13 +2661,14 @@ var TOOLS = [
   create_task_default,
   add_cogs_item_default,
   update_cogs_item_default,
-  ...SALES_TOOLS
+  ...SALES_TOOLS,
+  ...TRACTION_TOOLS
 ];
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.4.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`.",
+  version: "0.5.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

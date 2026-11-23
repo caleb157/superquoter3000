@@ -66,6 +66,9 @@ export function CreateInquiryDialog({
   const [durationTouched, setDurationTouched] = useState(false);
   const [payingShipping, setPayingShipping] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Where the inquiry came from (a Traction channel): the inner ring is judged on these.
+  const [channels, setChannels] = useState<{ id: number; name: string }[]>([]);
+  const [sourceChannel, setSourceChannel] = useState<string>('auto');
 
   // Repeat of a past order: products copied in at today's costs
   const [repeatOpen, setRepeatOpen] = useState(false);
@@ -103,10 +106,13 @@ export function CreateInquiryDialog({
     setPicked([]);
     loadProjectionDefaults().then(d => setRepeatCertPct(Math.round(d.repeatCertainty * 100)));
     (async () => {
-      const [{ data: cust }, { data: ent }] = await Promise.all([
+      const [{ data: cust }, { data: ent }, ch] = await Promise.all([
         supabase.from('customers').select('id, name, company').order('name'),
         (supabase as any).from('company_entities').select('id, name, entity_type').order('name'),
+        supabase.from('traction_channels').select('id, name').order('sort_order'),
       ]);
+      setChannels(ch?.error ? [] : (ch?.data ?? []));
+      setSourceChannel('auto');
       setCustomers((cust ?? []) as Customer[]);
       setEntities((ent ?? []) as Entity[]);
       const firstEntity = ent?.[0]?.id ?? '';
@@ -182,6 +188,7 @@ export function CreateInquiryDialog({
         title: title.trim() || null,
         priority: 'normal',
         status: mode,
+        ...(sourceChannel !== 'auto' ? { source_channel: sourceChannel } : {}),
         ...(isRepeat ? { repeat_of_inquiry_id: repeatSourceInquiry(picked) } : {}),
       } as any)
       .select('id, rfq_number, title')
@@ -312,6 +319,19 @@ export function CreateInquiryDialog({
               <Label className="text-xs">Title</Label>
               <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Q2 dining set" />
             </div>
+
+            {channels.length > 0 && (
+              <div>
+                <Label className="text-xs">Came from</Label>
+                <Select value={sourceChannel} onValueChange={setSourceChannel}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Not sure (Sales if the account is in outreach)</SelectItem>
+                    {channels.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <Collapsible open={repeatOpen} onOpenChange={setRepeatOpen} className="rounded-md border border-input">
               <CollapsibleTrigger className="flex w-full items-center gap-2 px-2.5 py-2 text-sm">
