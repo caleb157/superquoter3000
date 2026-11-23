@@ -25,6 +25,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const STATUS_TABS = [
   { value: 'all', label: 'All' },
+  { value: 'prospect', label: 'Prospects' },
   { value: 'lead', label: 'Leads' },
   { value: 'active', label: 'Live inquiry' },
   { value: 'won', label: 'Customers' },
@@ -94,6 +95,8 @@ const Customers = () => {
   };
 
   const filtered = customers.filter((c: any) => {
+    // Prospects (the Sales pipeline) can run to hundreds, so All leaves them out; they have their own tab.
+    if (statusFilter === 'all' && c.lead_status === 'prospect') return false;
     if (statusFilter !== 'all' && (c.lead_status || 'lead') !== statusFilter) return false;
     const q = search.toLowerCase();
     if (!q) return true;

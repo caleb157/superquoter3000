@@ -493,6 +493,113 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          apollo_contact_id: string | null
+          created_at: string
+          customer_id: string | null
+          dnc: boolean
+          dnc_at: string | null
+          dnc_reason: string | null
+          dnc_source: string | null
+          drip_enrolled: boolean
+          drip_enrolled_at: string | null
+          drip_paused_reason: string | null
+          drip_track: string | null
+          email: string | null
+          email_check_result: string | null
+          email_checked_at: string | null
+          email_source: string | null
+          engaged: boolean
+          engaged_at: string | null
+          full_name: string
+          id: string
+          linkedin_account: string | null
+          linkedin_url: string | null
+          lookup_cost_usd: number | null
+          never_email: boolean
+          notes: string | null
+          persona: string | null
+          phone: string | null
+          title: string | null
+          updated_at: string
+          waalaxy_prospect_id: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          apollo_contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          dnc?: boolean
+          dnc_at?: string | null
+          dnc_reason?: string | null
+          dnc_source?: string | null
+          drip_enrolled?: boolean
+          drip_enrolled_at?: string | null
+          drip_paused_reason?: string | null
+          drip_track?: string | null
+          email?: string | null
+          email_check_result?: string | null
+          email_checked_at?: string | null
+          email_source?: string | null
+          engaged?: boolean
+          engaged_at?: string | null
+          full_name: string
+          id?: string
+          linkedin_account?: string | null
+          linkedin_url?: string | null
+          lookup_cost_usd?: number | null
+          never_email?: boolean
+          notes?: string | null
+          persona?: string | null
+          phone?: string | null
+          title?: string | null
+          updated_at?: string
+          waalaxy_prospect_id?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          apollo_contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          dnc?: boolean
+          dnc_at?: string | null
+          dnc_reason?: string | null
+          dnc_source?: string | null
+          drip_enrolled?: boolean
+          drip_enrolled_at?: string | null
+          drip_paused_reason?: string | null
+          drip_track?: string | null
+          email?: string | null
+          email_check_result?: string | null
+          email_checked_at?: string | null
+          email_source?: string | null
+          engaged?: boolean
+          engaged_at?: string | null
+          full_name?: string
+          id?: string
+          linkedin_account?: string | null
+          linkedin_url?: string | null
+          lookup_cost_usd?: number | null
+          never_email?: boolean
+          notes?: string | null
+          persona?: string | null
+          phone?: string | null
+          title?: string | null
+          updated_at?: string
+          waalaxy_prospect_id?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       container_types: {
         Row: {
           created_at: string
@@ -706,6 +813,8 @@ export type Database = {
           requirements: string | null
           rfq_number: string
           shipping_type_id_override: string | null
+          source_channel: string | null
+          source_community: string | null
           status: string
           target_completion_date: string | null
           title: string | null
@@ -745,6 +854,8 @@ export type Database = {
           requirements?: string | null
           rfq_number?: string
           shipping_type_id_override?: string | null
+          source_channel?: string | null
+          source_community?: string | null
           status?: string
           target_completion_date?: string | null
           title?: string | null
@@ -784,6 +895,8 @@ export type Database = {
           requirements?: string | null
           rfq_number?: string
           shipping_type_id_override?: string | null
+          source_channel?: string | null
+          source_community?: string | null
           status?: string
           target_completion_date?: string | null
           title?: string | null
@@ -862,9 +975,19 @@ export type Database = {
       }
       customers: {
         Row: {
+          brief: Json | null
+          brief_updated_at: string | null
           company: string | null
+          country: string | null
           created_at: string | null
+          customer_type: string | null
+          dnc: boolean
+          dnc_at: string | null
+          dnc_reason: string | null
+          dnc_source: string | null
+          domain: string | null
           email: string | null
+          fit_score: number | null
           id: string
           last_contacted_at: string | null
           lead_score: number
@@ -872,14 +995,31 @@ export type Database = {
           linkedin_url: string | null
           logo_url: string | null
           name: string
+          next_step: string | null
+          next_step_date: string | null
+          not_now_until: string | null
           notes: string | null
+          owner: string | null
+          persona: string | null
           phone: string | null
+          sales_stage: string | null
+          sales_stage_changed_at: string | null
           source: string | null
         }
         Insert: {
+          brief?: Json | null
+          brief_updated_at?: string | null
           company?: string | null
+          country?: string | null
           created_at?: string | null
+          customer_type?: string | null
+          dnc?: boolean
+          dnc_at?: string | null
+          dnc_reason?: string | null
+          dnc_source?: string | null
+          domain?: string | null
           email?: string | null
+          fit_score?: number | null
           id?: string
           last_contacted_at?: string | null
           lead_score?: number
@@ -887,14 +1027,31 @@ export type Database = {
           linkedin_url?: string | null
           logo_url?: string | null
           name: string
+          next_step?: string | null
+          next_step_date?: string | null
+          not_now_until?: string | null
           notes?: string | null
+          owner?: string | null
+          persona?: string | null
           phone?: string | null
+          sales_stage?: string | null
+          sales_stage_changed_at?: string | null
           source?: string | null
         }
         Update: {
+          brief?: Json | null
+          brief_updated_at?: string | null
           company?: string | null
+          country?: string | null
           created_at?: string | null
+          customer_type?: string | null
+          dnc?: boolean
+          dnc_at?: string | null
+          dnc_reason?: string | null
+          dnc_source?: string | null
+          domain?: string | null
           email?: string | null
+          fit_score?: number | null
           id?: string
           last_contacted_at?: string | null
           lead_score?: number
@@ -902,8 +1059,15 @@ export type Database = {
           linkedin_url?: string | null
           logo_url?: string | null
           name?: string
+          next_step?: string | null
+          next_step_date?: string | null
+          not_now_until?: string | null
           notes?: string | null
+          owner?: string | null
+          persona?: string | null
           phone?: string | null
+          sales_stage?: string | null
+          sales_stage_changed_at?: string | null
           source?: string | null
         }
         Relationships: []
@@ -2463,6 +2627,52 @@ export type Database = {
         }
         Relationships: []
       }
+      job_runs: {
+        Row: {
+          cost_usd: number | null
+          counts: Json
+          created_at: string
+          credits: Json
+          finished_at: string | null
+          id: string
+          job: string
+          needs_review: number
+          run_by: string | null
+          started_at: string
+          status: string
+          summary: string | null
+        }
+        Insert: {
+          cost_usd?: number | null
+          counts?: Json
+          created_at?: string
+          credits?: Json
+          finished_at?: string | null
+          id?: string
+          job: string
+          needs_review?: number
+          run_by?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Update: {
+          cost_usd?: number | null
+          counts?: Json
+          created_at?: string
+          credits?: Json
+          finished_at?: string | null
+          id?: string
+          job?: string
+          needs_review?: number
+          run_by?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Relationships: [
+        ]
+      }
       labor_employees: {
         Row: {
           created_at: string | null
@@ -3554,6 +3764,140 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_stage_events: {
+        Row: {
+          actor: string | null
+          customer_id: string
+          from_stage: string | null
+          id: string
+          occurred_at: string
+          reason: string | null
+          to_stage: string | null
+        }
+        Insert: {
+          actor?: string | null
+          customer_id: string
+          from_stage?: string | null
+          id?: string
+          occurred_at?: string
+          reason?: string | null
+          to_stage?: string | null
+        }
+        Update: {
+          actor?: string | null
+          customer_id?: string
+          from_stage?: string | null
+          id?: string
+          occurred_at?: string
+          reason?: string | null
+          to_stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_stage_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_touches: {
+        Row: {
+          angle: string | null
+          auto_sent: boolean
+          body: string | null
+          channel: string
+          contact_id: string | null
+          created_at: string
+          customer_id: string | null
+          direction: string
+          drip_issue: string | null
+          external_id: string | null
+          id: string
+          is_drip: boolean
+          logged_by: string | null
+          occurred_at: string
+          opened_at: string | null
+          opener_type: string | null
+          persona: string | null
+          replied_at: string | null
+          sender_account: string | null
+          step: number | null
+          subject: string | null
+          test_name: string | null
+          variant: string | null
+          word_count: number | null
+        }
+        Insert: {
+          angle?: string | null
+          auto_sent?: boolean
+          body?: string | null
+          channel: string
+          contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction: string
+          drip_issue?: string | null
+          external_id?: string | null
+          id?: string
+          is_drip?: boolean
+          logged_by?: string | null
+          occurred_at?: string
+          opened_at?: string | null
+          opener_type?: string | null
+          persona?: string | null
+          replied_at?: string | null
+          sender_account?: string | null
+          step?: number | null
+          subject?: string | null
+          test_name?: string | null
+          variant?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          angle?: string | null
+          auto_sent?: boolean
+          body?: string | null
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction?: string
+          drip_issue?: string | null
+          external_id?: string | null
+          id?: string
+          is_drip?: boolean
+          logged_by?: string | null
+          occurred_at?: string
+          opened_at?: string | null
+          opener_type?: string | null
+          persona?: string | null
+          replied_at?: string | null
+          sender_account?: string | null
+          step?: number | null
+          subject?: string | null
+          test_name?: string | null
+          variant?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_touches_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_touches_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sample_requests: {
         Row: {
           created_at: string
@@ -3687,6 +4031,51 @@ export type Database = {
           },
         ]
       }
+      send_blocks: {
+        Row: {
+          blocked_at: string
+          channel: string
+          contact_id: string | null
+          customer_id: string | null
+          id: string
+          reason: string
+          sender: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          channel: string
+          contact_id?: string | null
+          customer_id?: string | null
+          id?: string
+          reason: string
+          sender?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          channel?: string
+          contact_id?: string | null
+          customer_id?: string | null
+          id?: string
+          reason?: string
+          sender?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "send_blocks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "send_blocks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipping_items: {
         Row: {
           created_at: string | null
@@ -3805,12 +4194,17 @@ export type Database = {
           association_label: string | null
           association_type: string | null
           completed_at: string | null
+          contact_id: string | null
           created_at: string
           customer_id: string | null
           description: string | null
+          draft_channel: string | null
+          draft_status: string | null
+          draft_text: string | null
           due_date: string | null
           id: string
           inquiry_id: string | null
+          nudge_step: number | null
           photo_urls: Json
           priority: string
           product_id: string | null
@@ -3826,12 +4220,17 @@ export type Database = {
           association_label?: string | null
           association_type?: string | null
           completed_at?: string | null
+          contact_id?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
+          draft_channel?: string | null
+          draft_status?: string | null
+          draft_text?: string | null
           due_date?: string | null
           id?: string
           inquiry_id?: string | null
+          nudge_step?: number | null
           photo_urls?: Json
           priority?: string
           product_id?: string | null
@@ -3847,12 +4246,17 @@ export type Database = {
           association_label?: string | null
           association_type?: string | null
           completed_at?: string | null
+          contact_id?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
+          draft_channel?: string | null
+          draft_status?: string | null
+          draft_text?: string | null
           due_date?: string | null
           id?: string
           inquiry_id?: string | null
+          nudge_step?: number | null
           photo_urls?: Json
           priority?: string
           product_id?: string | null
