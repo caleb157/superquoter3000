@@ -479,7 +479,8 @@ type Done = { checked: boolean; onChange: (v: boolean) => void };
  * Where the SKU stands, read left to right like the sheet: COGS + labour + shipping (+ capital)
  * = unit cost, then today's price and how it sits against the target.
  */
-function FlowStrip({ row }: { row: WorkspaceRow }) {
+/** The cost sum in one line: COGS + labour + shipping = unit cost, then the price and where it sits against the target. `plain` drops the tinted band. */
+export function FlowStrip({ row, plain }: { row: WorkspaceRow; plain?: boolean }) {
   const s = stepTotals(row);
   const op = (ch: string) => <span className="pb-px text-base text-muted-foreground/60">{ch}</span>;
   const term = (label: string, value: React.ReactNode, color?: string, strong?: boolean) => (
@@ -491,7 +492,7 @@ function FlowStrip({ row }: { row: WorkspaceRow }) {
     </div>
   );
   return (
-    <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-b bg-muted/30 px-4 py-3">
+    <div className={cn('flex flex-wrap items-end gap-x-3 gap-y-2', plain ? 'py-1' : 'border-b bg-muted/30 px-4 py-3')}>
       {term(band('cogs').label, inr(s.cogs), band('cogs').color)}{op('+')}
       {term(band('labour').label, inr(s.labour), band('labour').color)}{op('+')}
       {term(band('shipping').label, inr(s.shipping), band('shipping').color)}
