@@ -62,10 +62,11 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@ai-sdk/openai": "^4.0.122",
     "@anthropic-ai/sdk": "0.39.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-plugin-dev-server-bridge": "^1.0.2",
-    "@lovable.dev/vite-plugin-hmr-gate": "^1.8.0",
+    "@lovable.dev/vite-plugin-hmr-gate": "^1.8.3",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
@@ -74,6 +75,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
+    "ai": "^7.0.179",
     "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.11",
     "drizzle-orm": "^0.45.3",

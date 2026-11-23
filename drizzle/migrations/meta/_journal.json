@@ -148,6 +148,13 @@
       "when": 1795437134645,
       "tag": "0020_sales_crm_core",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795448389575,
+      "tag": "0021_sales_traction_content",
+      "breakpoints": true
     }
   ]
 }
