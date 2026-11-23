@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -1689,6 +1689,442 @@
           "required": [
             "job"
           ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_traction_board",
+        "title": "Read the Traction bullseye",
+        "description": "The 19 Traction channels with their ring (inner holds at most 3, the ones being tested now), each channel's top 5 open ideas, inquiries tagged to each channel, and the communities list with interaction plans. Read this before proposing channel work.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "channel_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "include_closed": {
+              "type": "boolean",
+              "description": "Include done and dropped ideas."
+            },
+            "community_status": {
+              "type": "string",
+              "enum": [
+                "candidate",
+                "joined",
+                "active",
+                "dropped"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_traction_idea",
+        "title": "Add or update a Traction idea",
+        "description": "Add an idea to a channel (status proposed, or not for now when paid), or update one by id: rank, pitch, evidence, status, decision note. Ideas Caleb approves become tasks from the app. Never moves a channel's ring. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "channel_id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "rank": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "pitch": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "free_or_paid": {
+              "type": "string",
+              "enum": [
+                "free",
+                "paid"
+              ]
+            },
+            "hours_per_week": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 80
+            },
+            "reach": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "soonest_inquiry": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "deadline": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "evidence": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "proposed",
+                "approved",
+                "running",
+                "done",
+                "dropped",
+                "not_for_now"
+              ]
+            },
+            "decision_note": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_community",
+        "title": "Add or update a community",
+        "description": "Find a community (forum, group, newsletter, association) by name and update its status, interaction plan, who acts, last and next touch; or add it as a candidate. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "grp": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "audience": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "cost": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "promotion_allowed": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "link": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "candidate",
+                "joined",
+                "active",
+                "dropped"
+              ]
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "X"
+              ]
+            },
+            "high_value": {
+              "type": "boolean"
+            },
+            "interaction_plan": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "who_acts": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "hours_per_month": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "last_touch": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "next_touch": {
+              "$ref": "#/properties/last_touch"
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_content",
+        "title": "List content and the posting calendar",
+        "description": "Content pieces (posts, articles, case studies, charts, drips) and the posting calendar with scores, default 2 weeks back to 8 weeks ahead.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "draft",
+                "review",
+                "approved",
+                "scheduled",
+                "posted",
+                "dropped"
+              ]
+            },
+            "from": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "to": {
+              "$ref": "#/properties/from"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_content",
+        "title": "Add or update a content piece",
+        "description": "Add a piece or update it by id or slug (body, status, proof, target search, cut-from parent), and add or update its calendar slots (one per channel and date) with variant, test and the 3-day score: qualified comments, profile views, accepts. Posts go on Caleb's profile only, through Buffer, after he approves. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "slug": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "post",
+                "article",
+                "case_study",
+                "chart",
+                "design",
+                "drip",
+                "video",
+                "other"
+              ]
+            },
+            "pillar": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "draft",
+                "review",
+                "approved",
+                "scheduled",
+                "posted",
+                "dropped"
+              ]
+            },
+            "body": {
+              "type": "string",
+              "maxLength": 20000
+            },
+            "format_note": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "proof": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "target_search": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "parent_slug": {
+              "type": "string",
+              "maxLength": 120,
+              "description": "The long piece this was cut from."
+            },
+            "asset_url": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "slots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slot_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "linkedin",
+                      "website",
+                      "drip",
+                      "other"
+                    ]
+                  },
+                  "slot_time_ct": {
+                    "type": "string",
+                    "maxLength": 10
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "planned",
+                      "scheduled",
+                      "posted",
+                      "skipped"
+                    ]
+                  },
+                  "variant": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "test_id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "post_url": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "impressions": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "reactions": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "comments": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "qualified_comments": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "profile_views_3d": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "accepts_3d": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "slot_date"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 20
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
