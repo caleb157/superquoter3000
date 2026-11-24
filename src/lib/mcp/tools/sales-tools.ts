@@ -203,7 +203,7 @@ export const saveFollowUpTool = defineTool({
   name: "save_follow_up",
   title: "Save a follow-up and its draft",
   description:
-    "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+    "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted, and a new follow-up on an account Caleb marked Done or Ignored on Needs you until a new message comes in. Use dry_run first.",
   inputSchema: {
     task_id: z.string().uuid().optional().describe("Update this follow-up instead of creating one."),
     customer_id: z.string().uuid().optional(),
@@ -216,6 +216,7 @@ export const saveFollowUpTool = defineTool({
     draft_status: z.enum(["draft", "approved", "sent", "skipped"]).optional(),
     assignee: z.string().max(10).optional().describe("Default the account owner, else CQ."),
     priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+    override_dismissal: z.boolean().optional().describe("Only when Caleb asked for this follow-up although he marked the account done or ignored on Needs you."),
     dry_run: z.boolean().optional(),
   },
   annotations: write,
@@ -254,7 +255,7 @@ export const logJobRunTool = defineTool({
 export const listSalesPipelineTool = defineTool({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups. Empty (null) fields are left out.",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them). Empty (null) fields are left out.",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z.string().uuid().optional(),

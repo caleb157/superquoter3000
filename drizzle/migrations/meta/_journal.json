@@ -162,6 +162,20 @@
       "when": 1795492086330,
       "tag": "0022_sales_prospects_tam",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795496393389,
+      "tag": "0023_prospects_load_speed",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795496448994,
+      "tag": "0024_prospects_search_speed",
+      "breakpoints": true
     }
   ]
 }

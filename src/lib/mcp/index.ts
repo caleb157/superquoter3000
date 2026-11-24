@@ -19,6 +19,7 @@ import { SALES_TOOLS } from "./tools/sales-tools";
 import { TRACTION_TOOLS } from "./tools/traction-tools";
 import { PROSPECT_TOOLS } from "./tools/prospect-tools";
 import { COMMAND_CENTER_TOOLS } from "./tools/command-center-tools";
+import { NEEDS_YOU_TOOLS } from "./tools/needs-you-tools";
 
 // Build the OAuth issuer from the Supabase project ref so it stays on the
 // direct supabase.co host (not the .lovable.cloud proxy). Vite inlines this
@@ -46,12 +47,13 @@ export const TOOLS = [
   ...TRACTION_TOOLS,
   ...PROSPECT_TOOLS,
   ...COMMAND_CENTER_TOOLS,
+  ...NEEDS_YOU_TOOLS,
 ];
 
 export default defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.7.0",
+  version: "0.8.0",
   instructions:
     "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. " +
     "Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). " +
@@ -65,7 +67,8 @@ export default defineMcp({
     "Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). " +
     "Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. " +
     "Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. " +
-    "Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email).",
+    "Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email). " +
+    "Needs you: `list_needs_you` is the list as the Sales page shows it; `dismiss_needs_you` marks an item Done or Ignored (with a snooze or forever) or undoes it. Done and Ignored items stay off until a new inbound message, the Ignore date or Undo; `list_sales_pipeline` shows them as needs_you_held and `save_follow_up` will not add a new follow-up for them, so watchdog and sync re-runs never bring them back.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

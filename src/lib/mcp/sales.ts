@@ -1,8 +1,9 @@
 // Sales CRM logic for the PD HQ connector: (db, input) functions, tested with the fake db.
 // Relative imports only (see AGENTS.md).
 import { check, isValidYmd, ToolError, type Db } from "./shared";
+import { activeAccountDismissals, liveDismissals } from "./needs-you";
 import {
-  ALL_SALES_STAGES, BRIEF_PARTS, canContact, normalizeDomain, normalizeEmail, normalizeLinkedin, wordCount,
+  ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, wordCount,
   type Brief, type SalesStage, type TouchChannel,
 } from "../sales/sales-core";
 
@@ -358,6 +359,8 @@ export type SaveFollowUpInput = {
   draft_status?: "draft" | "approved" | "sent" | "skipped";
   assignee?: string;
   priority?: "low" | "normal" | "high" | "urgent";
+  /** Create it even though Caleb marked this account's Needs you item done or ignored (only when he asked). */
+  override_dismissal?: boolean;
   dry_run?: boolean;
 };
 
@@ -380,6 +383,15 @@ export async function saveFollowUp(db: Db, input: SaveFollowUpInput) {
   if (!input.due_date) throw new ToolError("A new follow-up needs due_date.");
   const { contact, account } = await resolveWho(db, { customer_id: input.customer_id, contact_id: input.contact_id });
   if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  if (!input.override_dismissal) {
+    // Caleb's Done / Ignore holds until a new message comes in; a re-run must not put the account back on Needs you.
+    const held = await activeAccountDismissals(db, account);
+    if (held.length) {
+      const d = held[0];
+      const what = d.action === "done" ? "marked it done" : d.until ? `ignored it until ${d.until}` : "ignored it";
+      throw new ToolError(`No follow-up saved: Caleb ${what} on Needs you (${d.item_key}, ${d.dismissed_at.slice(0, 10)}) and no new message has come in since. Pass override_dismissal only if he asked for this follow-up.`);
+    }
+  }
   if (input.draft_text && input.draft_channel) {
     // Judged on the due date, so a draft for the end of a Not now period is fine.
     const v = canContact(contact, account, input.draft_channel, input.due_date);
@@ -463,6 +475,29 @@ export async function listPipeline(db: Db, input: ListPipelineInput) {
     ? check(await db.from("sales_touches").select("id, customer_id, contact_id, channel, direction, occurred_at, body, auto_sent, is_drip").in("customer_id", ids).order("occurred_at", { ascending: false }).limit(n * ids.length), "Could not read touches") ?? []
     : [];
   const tasks = check(await db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_status").in("customer_id", ids).eq("status", "open"), "Could not read follow-ups") ?? [];
+  // What Caleb marked done or ignored on Needs you and is still holding (a new inbound message or the Ignore date ends it).
+  const live = await liveDismissals(db, ids);
+  const heldBy = new Map<string, { item: string; action: string; until: string | null; dismissed_at: string; note: string | null }[]>();
+  if (live.length) {
+    const withD = [...new Set(live.map(d => d.customer_id))];
+    const recent = check(await db.from("sales_touches").select("customer_id, direction, occurred_at").in("customer_id", withD).order("occurred_at", { ascending: false }).limit(5000), "Could not read messages") ?? [];
+    const lastIn = new Map<string, string>();
+    const lastAny = new Map<string, string>();
+    for (const t of recent as { customer_id: string; direction: string; occurred_at: string }[]) {
+      if (!lastAny.has(t.customer_id) || t.occurred_at > lastAny.get(t.customer_id)!) lastAny.set(t.customer_id, t.occurred_at);
+      if (t.direction === "in" && (!lastIn.has(t.customer_id) || t.occurred_at > lastIn.get(t.customer_id)!)) lastIn.set(t.customer_id, t.occurred_at);
+    }
+    const stageAt = new Map<string, string | null>(accounts.map((a: { id: string; sales_stage_changed_at?: string | null }) => [a.id, a.sales_stage_changed_at ?? null] as [string, string | null]));
+    const today = new Date().toISOString().slice(0, 10);
+    const seen = new Set<string>();
+    for (const d of live) {
+      const k = `${d.customer_id}|${d.item_key}`;
+      if (seen.has(k)) continue; // newest per item wins (liveDismissals is newest first)
+      seen.add(k);
+      if (!isDismissalActive(d, { lastInboundAt: lastIn.get(d.customer_id) ?? null, lastTouchAt: lastAny.get(d.customer_id) ?? null, stageChangedAt: stageAt.get(d.customer_id) ?? null, today })) continue;
+      (heldBy.get(d.customer_id) ?? heldBy.set(d.customer_id, []).get(d.customer_id)!).push({ item: d.item_key, action: d.action, until: d.until ?? null, dismissed_at: d.dismissed_at, note: d.note });
+    }
+  }
   // Every job reads this into Claude's context: leave out empty fields and the parent id repeated on each child.
   const lean = ({ customer_id: _, ...row }: Record<string, unknown>) => dropNulls(row);
   const of = (rows: { customer_id: string }[], id: string) => rows.filter((r) => r.customer_id === id).map(lean);
@@ -473,6 +508,7 @@ export async function listPipeline(db: Db, input: ListPipelineInput) {
       contacts: of(contacts, a.id),
       touches: of(touches, a.id).slice(0, n),
       open_follow_ups: of(tasks, a.id),
+      needs_you_held: heldBy.get(a.id) ?? [],
     })),
   };
 }

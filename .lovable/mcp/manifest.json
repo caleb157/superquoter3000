@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.6.0",
+      "version": "0.8.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -893,7 +893,7 @@
       {
         "name": "list_sales_pipeline",
         "title": "List the sales pipeline",
-        "description": "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+        "description": "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them). Empty (null) fields are left out.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -1534,7 +1534,7 @@
       {
         "name": "save_follow_up",
         "title": "Save a follow-up and its draft",
-        "description": "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+        "description": "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted, and a new follow-up on an account Caleb marked Done or Ignored on Needs you until a new message comes in. Use dry_run first.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -1607,6 +1607,10 @@
                 "high",
                 "urgent"
               ]
+            },
+            "override_dismissal": {
+              "type": "boolean",
+              "description": "Only when Caleb asked for this follow-up although he marked the account done or ignored on Needs you."
             },
             "dry_run": {
               "type": "boolean"
@@ -2558,6 +2562,395 @@
               "type": "boolean"
             }
           },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_sales_overview",
+        "title": "Sales command center",
+        "description": "The Sales Command center in numbers: this week's LinkedIn and email sends, bounces, replies, meetings, inquiries and customers against last week (same point and full week) and the targets; the funnel by stage now and a week ago; every scheduled run with its state, last report, last fire, next fire and credits; latest Claude and tool usage with the weekly pace; Caleb's tasks overdue, today and the next 7 days. Weeks start Monday 00:00 IST. Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "assignee": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "Tasks for this assignee code (default CQ)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "log_usage",
+        "title": "Log usage readings",
+        "description": "Log Claude plan use (source claude: weekly_pct, session_pct, with resets_at and plan) or a tool's balance (firecrawl, reoon, waalaxy, apollo: credits_left, credits_used) so the Command center can show usage over time for the Pro vs Max call. Readings share one taken_at. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "readings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "metric": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "description": "pct, credits or usd."
+                  },
+                  "resets_at": {
+                    "type": "string"
+                  },
+                  "plan": {
+                    "type": "string",
+                    "maxLength": 50
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "source",
+                  "metric",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 50
+            },
+            "taken_at": {
+              "type": "string",
+              "description": "ISO date-time the readings were taken. Default now."
+            },
+            "logged_by": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "readings"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "sync_schedules",
+        "title": "Sync the run board",
+        "description": "Bring the Command center's run board in line with the scheduled tasks: for each run (by id) its last fire time and status, next fire, and any change to its cadence, cron (IST), budget or status. A new id needs job, name and cadence. Never deletes; set status retired instead. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "schedules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "job": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "cadence": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "cron": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runs_where": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "what_it_does": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "paused",
+                      "planned",
+                      "retired"
+                    ]
+                  },
+                  "run_once_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "credit_budget": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "last_fired_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "last_fire_status": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "next_run_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "schedules"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "mark_bounced",
+        "title": "Mark an email bounced",
+        "description": "Mark the latest outbound email to an address (or one email touch by external_id) as bounced, for the Command center's bounce rate (the email ramp holds while bounces stay under 2%). A hard bounce (default) also sets never-email on the contact. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "touch_external_id": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "bounced_at": {
+              "type": "string"
+            },
+            "hard": {
+              "type": "boolean",
+              "description": "Default true. A soft bounce only marks the touch."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_needs_you",
+        "title": "List Needs you",
+        "description": "The Sales page's Needs you list, in its order: forgotten conversations, qualified accounts, nudges, drafted replies, due tasks, warm accounts with nothing planned, accounts back from Not now. Items Caleb marked Done or Ignored are left out until a new inbound message arrives, the Ignore date comes or he undoes it; include_hidden lists them too. The watchdog reads this before adding anything. Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include_hidden": {
+              "type": "boolean",
+              "description": "Also list the items Done or Ignore is holding back."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "forgotten",
+                "qualified",
+                "nudge",
+                "draft",
+                "task",
+                "quiet",
+                "back"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max items (default 200)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "dismiss_needs_you",
+        "title": "Mark a Needs you item done or ignored",
+        "description": "Done: handled (optionally with a note); it stays off Needs you until a new inbound message comes in, and a task item is closed. Ignore: off Needs you for ignore_days or until a date, or forever (until a new inbound message). Undo: puts the newest one back (and reopens a task Done closed). Name the item as forgotten, qualified, quiet or back for account items, or task_id for a follow-up or due task. Jobs use this only when Caleb asked. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "item": {
+              "type": "string",
+              "enum": [
+                "forgotten",
+                "qualified",
+                "quiet",
+                "back",
+                "task"
+              ]
+            },
+            "task_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "done",
+                "ignore",
+                "undo"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "ignore_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3650,
+              "description": "Ignore only. Leave out (and until) for forever."
+            },
+            "until": {
+              "type": "string",
+              "description": "Ignore only: YYYY-MM-DD it may show again."
+            },
+            "dismissal_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Undo this one instead of the newest for the item."
+            },
+            "actor": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Who asked, e.g. caleb-via-chat."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer_id",
+            "action"
+          ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
