@@ -27,7 +27,9 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
 import { CHANNEL_ICON } from '@/components/sales/SalesAccountPanel';
 import { SALES_EXITS, SALES_STAGES, SALES_STAGE_LABELS } from '@/lib/sales/sales-core';
-import { buildNeedsYou, groupByStage, summarizeJobs, type AccountRow, type JobRunRow, type NeedsYouEntry, type TaskRow, type TouchRow } from '@/lib/sales/needs-you';
+import { applyDismissals, buildNeedsYou, groupByStage, lastInboundBy, summarizeJobs, type AccountRow, type JobRunRow, type NeedsYouEntry, type TaskRow, type TouchRow } from '@/lib/sales/needs-you';
+import { BulkBar, DismissButtons, DismissedList, DISMISSAL_SELECT, type DismissalRow } from '@/components/sales/NeedsYouDismiss';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
@@ -60,11 +62,14 @@ export default function Sales() {
   const [engagedIds, setEngagedIds] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
   const [needsFilter, setNeedsFilter] = useState<string>('all');
+  const [dismissals, setDismissals] = useState<DismissalRow[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const since90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const [a, t, k, r, b, e, s] = await Promise.all([
+    const since90d = since90;
+    const [a, t, k, r, b, e, s, d] = await Promise.all([
       db.from('customers').select('id, name, company, sales_stage, dnc, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
       db.from('sales_touches').select('customer_id, direction, occurred_at, channel, body').gte('occurred_at', since90).order('occurred_at', { ascending: false }).limit(5000),
       db.from('tasks').select('id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority').eq('status', 'open').not('customer_id', 'is', null).limit(2000),
@@ -72,17 +77,29 @@ export default function Sales() {
       db.from('send_blocks').select('id, channel, sender, reason, blocked_at, customer_id').gte('blocked_at', since30).order('blocked_at', { ascending: false }).limit(200),
       db.from('contacts').select('customer_id').eq('engaged', true).limit(5000),
       db.from('sales_schedules').select('*').neq('status', 'retired').order('sort_order'),
+      // Done and Ignore (a missing table before the migration is applied just means none yet).
+      db.from('needs_you_dismissals').select(DISMISSAL_SELECT).gte('dismissed_at', since90d).order('dismissed_at', { ascending: false }).limit(2000),
     ]);
     if (a.error) { setMissing(true); setLoading(false); return; }
-    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []);
+    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []); setDismissals(d.error ? [] : d.data ?? []);
     setEngagedIds(new Set((e.data ?? []).map((x: { customer_id: string | null }) => x.customer_id).filter(Boolean)));
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
 
-  const needs = useMemo(() => buildNeedsYou(accounts, touches, tasks, new Date(), 7, engagedIds), [accounts, touches, tasks, engagedIds]);
+  const allNeeds = useMemo(() => buildNeedsYou(accounts, touches, tasks, new Date(), 7, engagedIds), [accounts, touches, tasks, engagedIds]);
+  const { shown: needs, hidden: heldBack } = useMemo(() => applyDismissals(allNeeds, dismissals, touches), [allNeeds, dismissals, touches]);
+  const doneIgnored = dismissals.filter(x => !x.undone_at);
   const urgent = needs.filter(n => n.kind !== 'quiet' && n.kind !== 'back').length;
   const shownNeeds = needsFilter === 'all' ? needs : needs.filter(n => needsFilter === 'now' ? n.kind !== 'quiet' && n.kind !== 'back' : n.kind === needsFilter);
+  const visibleNeeds = shownNeeds.slice(0, 150);
+  const pickedEntries = visibleNeeds.filter(n => picked.has(n.key));
+  const allPicked = visibleNeeds.length > 0 && pickedEntries.length === visibleNeeds.length;
+  const togglePick = (key: string) => setPicked(p => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  const names = useMemo(() => new Map(accounts.map(a => [a.id, a.company || a.name])), [accounts]);
+  const inboundBy = useMemo(() => lastInboundBy(touches), [touches]);
+  const touchBy = useMemo(() => lastInboundBy(touches, true), [touches]);
+  const stageAt = useMemo(() => new Map(accounts.map(a => [a.id, a.sales_stage_changed_at ?? null])), [accounts]);
   const match = (a: PipelineAccount) => !q.trim() || `${a.company ?? ''} ${a.name} ${a.persona ?? ''} ${a.customer_type ?? ''}`.toLowerCase().includes(q.trim().toLowerCase());
   const byStage = useMemo(() => groupByStage(accounts.filter(match), [...SALES_STAGES, ...SALES_EXITS]), [accounts, q]);
   const allByStage = useMemo(() => groupByStage(accounts, [...SALES_STAGES, ...SALES_EXITS]), [accounts]);
@@ -127,13 +144,28 @@ export default function Sales() {
             <TabsContent value="overview" className="mt-3"><CommandCenterTab accounts={accounts} needs={needs} runs={runs} schedules={schedules} onOpen={setTab} /></TabsContent>
 
             <TabsContent value="needs" className="mt-3 space-y-2">
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap items-center gap-1">
+                {needsFilter !== 'dismissed' && visibleNeeds.length > 0 && (
+                  <label className="flex items-center gap-1.5 mr-1 text-xs text-muted-foreground cursor-pointer select-none" title="Select every item shown">
+                    <Checkbox checked={allPicked} onCheckedChange={v => setPicked(v ? new Set(visibleNeeds.map(n => n.key)) : new Set())} aria-label="Select all shown" />
+                  </label>
+                )}
                 {[['all', `All ${needs.length}`], ['now', `Do now ${urgent}`], ['quiet', `Warm, nothing planned ${needs.filter(n => n.kind === 'quiet').length}`], ['back', `Back from Not now ${needs.filter(n => n.kind === 'back').length}`]].map(([v, l]) => (
-                  <Button key={v} size="sm" variant={needsFilter === v ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setNeedsFilter(v)}>{l}</Button>
+                  <Button key={v} size="sm" variant={needsFilter === v ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => { setNeedsFilter(v); setPicked(new Set()); }}>{l}</Button>
                 ))}
+                <Button size="sm" variant={needsFilter === 'dismissed' ? 'default' : 'ghost'} className="h-7 text-xs ml-auto" onClick={() => { setNeedsFilter('dismissed'); setPicked(new Set()); }}>
+                  Done and ignored {doneIgnored.length}{heldBack.length !== doneIgnored.length ? ` (${heldBack.length} hidden)` : ''}
+                </Button>
               </div>
-              {shownNeeds.length === 0 && <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Nothing waits for you here. Forgotten conversations, qualified accounts, nudges, drafted replies and warm accounts with nothing planned show here.</CardContent></Card>}
-              {shownNeeds.slice(0, 150).map(e => <NeedsCard key={e.key} entry={e} onChanged={load} />)}
+              {needsFilter === 'dismissed' ? (
+                <DismissedList rows={dismissals} names={names} lastInbound={inboundBy} lastTouch={touchBy} stageChanged={stageAt} onChanged={load} />
+              ) : (
+                <>
+                  <BulkBar selected={pickedEntries} onClear={() => setPicked(new Set())} onChanged={load} />
+                  {shownNeeds.length === 0 && <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Nothing waits for you here. Forgotten conversations, qualified accounts, nudges, drafted replies and warm accounts with nothing planned show here.</CardContent></Card>}
+                  {visibleNeeds.map(e => <NeedsCard key={e.key} entry={e} onChanged={load} picked={picked.has(e.key)} onPick={() => togglePick(e.key)} />)}
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="pipeline" className="mt-3 space-y-3">
@@ -266,7 +298,7 @@ export default function Sales() {
   );
 }
 
-function NeedsCard({ entry, onChanged }: { entry: NeedsYouEntry; onChanged: () => void }) {
+function NeedsCard({ entry, onChanged, picked, onPick }: { entry: NeedsYouEntry; onChanged: () => void; picked: boolean; onPick: () => void }) {
   const [draft, setDraft] = useState(entry.task?.draft_text ?? '');
   const [busy, setBusy] = useState(false);
   const a = entry.account;
@@ -283,14 +315,16 @@ function NeedsCard({ entry, onChanged }: { entry: NeedsYouEntry; onChanged: () =
   };
   const hasDraft = !!entry.task?.draft_text;
   return (
-    <Card className={cn(entry.kind === 'forgotten' && 'border-destructive/40')}>
+    <Card className={cn(entry.kind === 'forgotten' && 'border-destructive/40', picked && 'ring-2 ring-primary/40')}>
       <CardContent className="py-3 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
+          <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`Select ${a.company || a.name}`} />
           <Badge variant="secondary" className={cn('text-[10px]', KIND_COLOR[entry.kind])}>{entry.kind === 'forgotten' && <AlertTriangle className="h-3 w-3 mr-1" />}{KIND_LABEL[entry.kind]}</Badge>
           <Link to={`/customers/${a.id}?tab=sales`} className="font-medium hover:underline">{a.company || a.name}</Link>
           <SalesStageBadge stage={a.sales_stage} />
           <span className="text-sm text-muted-foreground">{entry.title}</span>
-          {entry.due_date && <span className="text-xs text-muted-foreground ml-auto">due {format(new Date(entry.due_date), 'd MMM')}</span>}
+          {entry.due_date && <span className="text-xs text-muted-foreground">due {format(new Date(entry.due_date), 'd MMM')}</span>}
+          <div className="ml-auto"><DismissButtons entry={entry} onChanged={onChanged} /></div>
         </div>
         {entry.engaged && <span className="text-[11px] text-success">Engaged contact</span>}
         {entry.kind === 'forgotten' && entry.detail && <p className="text-sm rounded-md bg-muted/50 p-2 whitespace-pre-line line-clamp-4">“{entry.detail}”</p>}

@@ -164,3 +164,56 @@ export const isBriefStale = (updatedAt?: string | null, now = new Date()) =>
 
 /** Words in a message, for A/B records. */
 export const wordCount = (text?: string | null) => (text?.trim() ? text.trim().split(/\s+/).length : 0);
+
+// ---------- Needs you: Done and Ignore ----------
+
+/** Snooze choices for Ignore, in days; null = forever (until a new message arrives). */
+export const IGNORE_CHOICES = [
+  { days: 7, label: "For a week" },
+  { days: 30, label: "For 30 days" },
+  { days: 90, label: "For 3 months" },
+  { days: null, label: "Forever" },
+] as const;
+
+export type DismissalLite = {
+  id?: string;
+  customer_id: string;
+  item_key: string;
+  action: "done" | "ignored";
+  until?: string | null;
+  dismissed_at: string;
+  undone_at?: string | null;
+};
+
+/** The key a dismissal is stored under: the kind for account items, task:<id> for task items. */
+export const needsItemKey = (e: { kind: NeedsYouItem["kind"]; task?: { id: string } | null }) =>
+  e.task ? `task:${e.task.id}` : e.kind;
+
+/**
+ * A dismissal keeps its item hidden until it is undone, its Ignore date comes, a new inbound message
+ * lands on the account after it, or (account items other than forgotten) the account changes stage after it.
+ * A quiet (warm, nothing planned) item also ends on any new message either way, so a fresh quiet spell shows again.
+ * Done never expires on its own; Ignore forever has no date.
+ */
+export function isDismissalActive(
+  d: DismissalLite,
+  ctx: DismissalCtx,
+): boolean {
+  return dismissalEndedBy(d, ctx) === null;
+}
+
+export type DismissalCtx = { lastInboundAt?: string | null; lastTouchAt?: string | null; stageChangedAt?: string | null; today?: string };
+
+/** Why a dismissal stopped holding, for the Done and ignored view. */
+export function dismissalEndedBy(
+  d: DismissalLite,
+  ctx: DismissalCtx,
+): "undone" | "date" | "new_message" | "stage" | null {
+  if (d.undone_at) return "undone";
+  const today = ctx.today ?? new Date().toISOString().slice(0, 10);
+  if (d.action === "ignored" && d.until && d.until <= today) return "date";
+  if (ctx.lastInboundAt && ctx.lastInboundAt > d.dismissed_at) return "new_message";
+  if (d.item_key === "quiet" && ctx.lastTouchAt && ctx.lastTouchAt > d.dismissed_at) return "new_message";
+  if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
+  return null;
+}

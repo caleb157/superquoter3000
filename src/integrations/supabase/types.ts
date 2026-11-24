@@ -3017,6 +3017,75 @@ export type Database = {
         }
         Relationships: []
       }
+      needs_you_dismissals: {
+        Row: {
+          action: string
+          actor: string | null
+          customer_id: string
+          detail: string | null
+          dismissed_at: string
+          dismissed_by: string | null
+          id: string
+          item_key: string
+          kind: string
+          note: string | null
+          task_id: string | null
+          task_prev: Json | null
+          title: string | null
+          undone_at: string | null
+          until: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          customer_id: string
+          detail?: string | null
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_key: string
+          kind: string
+          note?: string | null
+          task_id?: string | null
+          task_prev?: Json | null
+          title?: string | null
+          undone_at?: string | null
+          until?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          customer_id?: string
+          detail?: string | null
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_key?: string
+          kind?: string
+          note?: string | null
+          task_id?: string | null
+          task_prev?: Json | null
+          title?: string | null
+          undone_at?: string | null
+          until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "needs_you_dismissals_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_you_dismissals_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_unit_cogs: {
         Row: {
           cost_each_inr: number | null
@@ -4310,39 +4379,60 @@ export type Database = {
       sales_schedules: {
         Row: {
           cadence: string
+          credit_budget: string | null
           cron: string | null
           id: string
           job: string
+          last_fire_status: string | null
+          last_fired_at: string | null
           name: string
+          next_run_at: string | null
+          note: string | null
+          run_once_at: string | null
           runs_where: string | null
           sort_order: number
           status: string
+          synced_at: string | null
           timezone: string
           updated_at: string
           what_it_does: string | null
         }
         Insert: {
           cadence: string
+          credit_budget?: string | null
           cron?: string | null
           id: string
           job: string
+          last_fire_status?: string | null
+          last_fired_at?: string | null
           name: string
+          next_run_at?: string | null
+          note?: string | null
+          run_once_at?: string | null
           runs_where?: string | null
           sort_order?: number
           status?: string
+          synced_at?: string | null
           timezone?: string
           updated_at?: string
           what_it_does?: string | null
         }
         Update: {
           cadence?: string
+          credit_budget?: string | null
           cron?: string | null
           id?: string
           job?: string
+          last_fire_status?: string | null
+          last_fired_at?: string | null
           name?: string
+          next_run_at?: string | null
+          note?: string | null
+          run_once_at?: string | null
           runs_where?: string | null
           sort_order?: number
           status?: string
+          synced_at?: string | null
           timezone?: string
           updated_at?: string
           what_it_does?: string | null
@@ -4392,6 +4482,7 @@ export type Database = {
           angle: string | null
           auto_sent: boolean
           body: string | null
+          bounced_at: string | null
           channel: string
           contact_id: string | null
           created_at: string
@@ -4418,6 +4509,7 @@ export type Database = {
           angle?: string | null
           auto_sent?: boolean
           body?: string | null
+          bounced_at?: string | null
           channel: string
           contact_id?: string | null
           created_at?: string
@@ -4444,6 +4536,7 @@ export type Database = {
           angle?: string | null
           auto_sent?: boolean
           body?: string | null
+          bounced_at?: string | null
           channel?: string
           contact_id?: string | null
           created_at?: string
@@ -5042,6 +5135,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      usage_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          logged_by: string | null
+          metric: string
+          note: string | null
+          plan: string | null
+          resets_at: string | null
+          source: string
+          taken_at: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          metric: string
+          note?: string | null
+          plan?: string | null
+          resets_at?: string | null
+          source: string
+          taken_at?: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          metric?: string
+          note?: string | null
+          plan?: string | null
+          resets_at?: string | null
+          source?: string
+          taken_at?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

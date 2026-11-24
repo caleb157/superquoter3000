@@ -3,10 +3,10 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.1";
 
 // src/lib/mcp/tools/whoami.ts
-import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.1";
 var whoami_default = defineTool({
   name: "whoami",
   title: "Who am I",
@@ -30,7 +30,7 @@ var whoami_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-customers.ts
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z } from "npm:zod@^3.25.76";
 
 // src/lib/mcp/shared.ts
@@ -110,7 +110,7 @@ var list_customers_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-inquiries.ts
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z2 } from "npm:zod@^3.25.76";
 var INQUIRY_COLUMNS = "id, rfq_number, title, status, priority, customer_id, received_date, quoted_date, target_completion_date, quoting_currency, requirements, notes, drive_url, created_at, updated_at";
 var INQUIRY_STATUSES = ["active", "paused", "projected_po", "po", "complete", "cancelled"];
@@ -140,7 +140,7 @@ var list_inquiries_default = defineTool3({
 });
 
 // src/lib/mcp/tools/list-products.ts
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z3 } from "npm:zod@^3.25.76";
 var PRODUCT_COLUMNS = "id, sku, name, customer_rfq_id, product_type_id, quantity, target_price_usd, photo_url, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, created_at";
 async function listProducts(db, input) {
@@ -169,7 +169,7 @@ var list_products_default = defineTool4({
 });
 
 // src/lib/mcp/tools/list-tasks.ts
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z4 } from "npm:zod@^3.25.76";
 var TASK_COLUMNS = "id, title, description, status, priority, due_date, assignee, association_type, association_id, association_label, inquiry_id, customer_id, source_event, created_at";
 async function listTasks(db, input) {
@@ -201,7 +201,7 @@ var list_tasks_default = defineTool5({
 });
 
 // src/lib/mcp/tools/add-cogs-item.ts
-import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z5 } from "npm:zod@^3.25.76";
 var COGS_TYPES = [
   "Raw Piece",
@@ -271,7 +271,7 @@ var add_cogs_item_default = defineTool6({
 });
 
 // src/lib/mcp/tools/list-cogs-items.ts
-import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z6 } from "npm:zod@^3.25.76";
 var inputSchema2 = {
   product_id: z6.string().uuid().describe("UUID of the product."),
@@ -296,7 +296,7 @@ var list_cogs_items_default = defineTool7({
 });
 
 // src/lib/mcp/tools/update-cogs-item.ts
-import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z7 } from "npm:zod@^3.25.76";
 var COGS_TYPES2 = [
   "Raw Piece",
@@ -397,7 +397,7 @@ var update_cogs_item_default = defineTool8({
 });
 
 // src/lib/mcp/tools/list-lookups.ts
-import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z8 } from "npm:zod@^3.25.76";
 
 // src/lib/costing-intake-core.ts
@@ -835,7 +835,7 @@ var list_lookups_default = defineTool9({
 });
 
 // src/lib/mcp/tools/find-or-create-customer.ts
-import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z9 } from "npm:zod@^3.25.76";
 var LEAD_STATUSES = ["lead", "active", "won", "inactive", "churned"];
 var exact = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
@@ -897,7 +897,7 @@ var find_or_create_customer_default = defineTool10({
 });
 
 // src/lib/mcp/tools/create-inquiry.ts
-import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z10 } from "npm:zod@^3.25.76";
 
 // src/lib/inquiry-list-totals.ts
@@ -1045,7 +1045,7 @@ var create_inquiry_default = defineTool11({
 });
 
 // src/lib/mcp/tools/import-costing-intake.ts
-import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z11 } from "npm:zod@^3.25.76";
 var MAX_INTAKE_ROWS = 100;
 async function importCostingIntake(db, input) {
@@ -1117,7 +1117,7 @@ Warnings:
 });
 
 // src/lib/mcp/tools/attach-product-photo.ts
-import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z12 } from "npm:zod@^3.25.76";
 var PHOTO_BUCKET = "product-photos";
 var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -1174,7 +1174,7 @@ var attach_product_photo_default = defineTool13({
 });
 
 // src/lib/mcp/tools/create-sample-request.ts
-import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z13 } from "npm:zod@^3.25.76";
 async function createSampleRequest(db, input, today = todayInIndia()) {
   const ids = [...new Set(input.product_ids)];
@@ -1250,7 +1250,7 @@ var create_sample_request_default = defineTool14({
 });
 
 // src/lib/mcp/tools/create-task.ts
-import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z14 } from "npm:zod@^3.25.76";
 var PRIORITIES2 = ["low", "normal", "high", "urgent"];
 var recurrence = z14.object({
@@ -1350,7 +1350,7 @@ var create_task_default = defineTool15({
 });
 
 // src/lib/mcp/tools/get-sales-analytics.ts
-import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z15 } from "npm:zod@^3.25.76";
 
 // src/lib/inquiry-financials.ts
@@ -1728,7 +1728,7 @@ var get_sales_analytics_default = defineTool16({
 });
 
 // src/lib/mcp/tools/sales-tools.ts
-import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z16 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/sales-core.ts
@@ -1746,6 +1746,12 @@ var BRIEF_PARTS = [
   "suggested_next_move",
   "watch_outs"
 ];
+var FORGOTTEN_DAYS = 4;
+var DAY = 864e5;
+var addDaysYmd = (from, days) => {
+  const d = typeof from === "string" ? new Date(from) : from;
+  return new Date(d.getTime() + days * DAY).toISOString().slice(0, 10);
+};
 function normalizeLinkedin(url) {
   if (!url) return null;
   const m = url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^(www\.|[a-z]{2}\.)/, "").split(/[?#]/)[0].replace(/\/+$/, "");
@@ -1779,7 +1785,251 @@ function canContact(contact, account, channel2, today = (/* @__PURE__ */ new Dat
   if (channel2 === "whatsapp" && contact && !contact.whatsapp && !contact.phone) return { allowed: false, reason: "No WhatsApp number" };
   return { allowed: true, reason: null };
 }
+function isForgotten(touches, now = /* @__PURE__ */ new Date()) {
+  const lastIn = touches.filter((t) => t.direction === "in").map((t) => t.occurred_at).sort().pop();
+  const lastOut = touches.filter((t) => t.direction === "out").map((t) => t.occurred_at).sort().pop();
+  if (!lastIn || lastOut && lastOut >= lastIn) return { forgotten: false, waitingDays: 0 };
+  const days = Math.floor((now.getTime() - new Date(lastIn).getTime()) / DAY);
+  return { forgotten: days >= FORGOTTEN_DAYS, waitingDays: days };
+}
+var NEEDS_RANK = { forgotten: 0, qualified: 1, nudge: 2, draft: 3, task: 4, quiet: 5, back: 6 };
+var QUIET_DAYS = 10;
+function sortNeedsYou(items) {
+  return [...items].sort((a, b) => NEEDS_RANK[a.kind] - NEEDS_RANK[b.kind] || Number(!!b.engaged) - Number(!!a.engaged) || (b.waitingDays ?? 0) - (a.waitingDays ?? 0) || String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999")));
+}
 var wordCount = (text) => text?.trim() ? text.trim().split(/\s+/).length : 0;
+var needsItemKey = (e) => e.task ? `task:${e.task.id}` : e.kind;
+function isDismissalActive(d, ctx) {
+  return dismissalEndedBy(d, ctx) === null;
+}
+function dismissalEndedBy(d, ctx) {
+  if (d.undone_at) return "undone";
+  const today = ctx.today ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  if (d.action === "ignored" && d.until && d.until <= today) return "date";
+  if (ctx.lastInboundAt && ctx.lastInboundAt > d.dismissed_at) return "new_message";
+  if (d.item_key === "quiet" && ctx.lastTouchAt && ctx.lastTouchAt > d.dismissed_at) return "new_message";
+  if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
+  return null;
+}
+
+// src/lib/sales/needs-you.ts
+var QUALIFIED = /* @__PURE__ */ new Set(["in_conversation", "inquiry"]);
+function buildNeedsYou(accounts, touches, tasks, now = /* @__PURE__ */ new Date(), horizonDays = 7, engagedIds = /* @__PURE__ */ new Set()) {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const horizon = new Date(now.getTime() + horizonDays * 864e5).toISOString().slice(0, 10);
+  const out = [];
+  const forgottenIds = /* @__PURE__ */ new Set();
+  const touchesBy = /* @__PURE__ */ new Map();
+  for (const t of touches) if (t.customer_id) (touchesBy.get(t.customer_id) ?? touchesBy.set(t.customer_id, []).get(t.customer_id)).push(t);
+  for (const a of accounts) {
+    if (a.dnc || a.sales_stage === "dnc" || a.sales_stage === "not_a_fit") continue;
+    const list = touchesBy.get(a.id) ?? [];
+    const f = isForgotten(list, now);
+    if (f.forgotten) {
+      const lastIn = list.filter((t) => t.direction === "in").sort((x, y) => x.occurred_at.localeCompare(y.occurred_at)).pop();
+      forgottenIds.add(a.id);
+      out.push({ key: `f-${a.id}`, kind: "forgotten", account: a, waitingDays: f.waitingDays, title: `Waiting on us ${f.waitingDays} days`, detail: lastIn?.body ?? null });
+    }
+  }
+  for (const t of tasks) {
+    if (t.status !== "open" || !t.customer_id) continue;
+    const a = byId.get(t.customer_id);
+    if (!a || a.dnc) continue;
+    if (t.draft_status && t.draft_status !== "draft") continue;
+    const due = t.due_date ?? null;
+    const hasDraft = !!t.draft_text && t.draft_status === "draft";
+    if (!hasDraft && due && due > horizon) continue;
+    const kind = QUALIFIED.has(a.sales_stage ?? "") ? "qualified" : t.nudge_step ? "nudge" : hasDraft ? "draft" : "task";
+    out.push({ key: `t-${t.id}`, kind, account: a, task: t, due_date: due, title: t.title, detail: t.draft_text ?? null });
+  }
+  for (const a of accounts) {
+    if (!QUALIFIED.has(a.sales_stage ?? "") || a.dnc || forgottenIds.has(a.id)) continue;
+    if (out.some((e) => e.account.id === a.id)) continue;
+    out.push({ key: `q-${a.id}`, kind: "qualified", account: a, due_date: a.next_step_date ?? null, title: a.next_step ? `Next step: ${a.next_step}` : "No next step set" });
+  }
+  const today = now.toISOString().slice(0, 10);
+  const hasOpenTask = new Set(tasks.filter((t) => t.status === "open" && t.customer_id).map((t) => t.customer_id));
+  const quietBefore = new Date(now.getTime() - QUIET_DAYS * 864e5).toISOString();
+  for (const a of accounts) {
+    if (a.dnc || forgottenIds.has(a.id) || hasOpenTask.has(a.id) || out.some((e) => e.account.id === a.id)) continue;
+    if (a.sales_stage === "responded") {
+      const list = touchesBy.get(a.id) ?? [];
+      const last = list.map((t) => t.occurred_at).sort().pop() ?? a.last_contacted_at ?? null;
+      if (last && last > quietBefore) continue;
+      const engaged = engagedIds.has(a.id);
+      const days = last ? Math.floor((now.getTime() - new Date(last).getTime()) / 864e5) : 0;
+      out.push({
+        key: `w-${a.id}`,
+        kind: "quiet",
+        account: a,
+        engaged,
+        waitingDays: days,
+        title: `${engaged ? "Said they're interested" : "Replied"}, ${last ? `quiet ${days} days` : "no messages logged"}, nothing planned`
+      });
+    } else if (a.sales_stage === "not_now" && a.not_now_until && a.not_now_until <= today) {
+      out.push({ key: `b-${a.id}`, kind: "back", account: a, engaged: engagedIds.has(a.id), due_date: a.not_now_until, title: `Back from Not now (${a.not_now_until})` });
+    }
+  }
+  return sortNeedsYou(out);
+}
+function lastInboundBy(touches, anyDirection = false) {
+  const m = /* @__PURE__ */ new Map();
+  for (const t of touches) {
+    if (!anyDirection && t.direction !== "in" || !t.customer_id) continue;
+    const cur = m.get(t.customer_id);
+    if (!cur || t.occurred_at > cur) m.set(t.customer_id, t.occurred_at);
+  }
+  return m;
+}
+function applyDismissals(entries, dismissals, touches, now = /* @__PURE__ */ new Date()) {
+  const today = now.toISOString().slice(0, 10);
+  const inbound = lastInboundBy(touches);
+  const anyTouch = lastInboundBy(touches, true);
+  const latest = /* @__PURE__ */ new Map();
+  for (const d of dismissals) {
+    if (d.undone_at) continue;
+    const k = `${d.customer_id}|${d.item_key}`;
+    const cur = latest.get(k);
+    if (!cur || d.dismissed_at > cur.dismissed_at) latest.set(k, d);
+  }
+  const shown = [];
+  const hidden = [];
+  for (const e of entries) {
+    const d = latest.get(`${e.account.id}|${needsItemKey(e)}`);
+    if (d && isDismissalActive(d, { lastInboundAt: inbound.get(e.account.id), lastTouchAt: anyTouch.get(e.account.id), stageChangedAt: e.account.sales_stage_changed_at, today })) hidden.push({ ...e, dismissal: d });
+    else shown.push(e);
+  }
+  return { shown, hidden };
+}
+
+// src/lib/mcp/needs-you.ts
+var DISMISSAL_COLUMNS = "id, customer_id, item_key, kind, action, note, until, task_id, task_prev, title, detail, actor, dismissed_at, undone_at";
+var ACCOUNT_KINDS = ["forgotten", "qualified", "quiet", "back"];
+async function liveDismissals(db, customerIds) {
+  let q = db.from("needs_you_dismissals").select(DISMISSAL_COLUMNS).is("undone_at", null);
+  if (customerIds) {
+    if (!customerIds.length) return [];
+    q = q.in("customer_id", customerIds);
+  }
+  return check(await q.order("dismissed_at", { ascending: false }).limit(5e3), "Could not read Done and ignored items") ?? [];
+}
+async function activeAccountDismissals(db, account) {
+  const live = (await liveDismissals(db, [account.id])).filter((d) => !d.item_key.startsWith("task:"));
+  if (!live.length) return [];
+  const last = check(await db.from("sales_touches").select("occurred_at").eq("customer_id", account.id).order("occurred_at", { ascending: false }).limit(1), "Could not read messages") ?? [];
+  const lastAt = last[0]?.occurred_at ?? null;
+  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const newest = /* @__PURE__ */ new Map();
+  for (const d of live) if (!newest.has(d.item_key)) newest.set(d.item_key, d);
+  return [...newest.values()].filter((d) => isDismissalActive(d, { lastInboundAt: lastAt, stageChangedAt: account.sales_stage_changed_at ?? null, today }));
+}
+var clip = (s, n = 280) => s && s.length > n ? `${s.slice(0, n - 1)}\u2026` : s ?? null;
+async function listNeedsYou(db, input = {}) {
+  const now = /* @__PURE__ */ new Date();
+  const since90 = new Date(now.getTime() - 90 * 864e5).toISOString();
+  const [a, t, k, e, d] = await Promise.all([
+    db.from("customers").select("id, name, company, sales_stage, dnc, next_step, next_step_date, not_now_until, last_contacted_at, sales_stage_changed_at, brief_updated_at").not("sales_stage", "is", null).limit(5e3),
+    db.from("sales_touches").select("customer_id, direction, occurred_at, channel, body").gte("occurred_at", since90).order("occurred_at", { ascending: false }).limit(2e4),
+    db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority").eq("status", "open").not("customer_id", "is", null).limit(5e3),
+    db.from("contacts").select("customer_id").eq("engaged", true).limit(1e4),
+    db.from("needs_you_dismissals").select(DISMISSAL_COLUMNS).is("undone_at", null).limit(5e3)
+  ]);
+  const accounts = check(a, "Could not read the accounts") ?? [];
+  const touches = check(t, "Could not read messages") ?? [];
+  const tasks = check(k, "Could not read tasks") ?? [];
+  const engaged = new Set((check(e, "Could not read contacts") ?? []).map((x) => x.customer_id).filter(Boolean));
+  const dismissals = check(d, "Could not read Done and ignored items") ?? [];
+  const all = buildNeedsYou(accounts, touches, tasks, now, 7, engaged);
+  const { shown, hidden } = applyDismissals(all, dismissals, touches, now);
+  const slim = (x) => ({
+    customer_id: x.account.id,
+    company: x.account.company ?? x.account.name,
+    stage: x.account.sales_stage,
+    kind: x.kind,
+    item: x.task ? "task" : x.kind,
+    task_id: x.task?.id ?? null,
+    title: x.title,
+    detail: clip(x.detail),
+    due_date: x.due_date ?? null,
+    waiting_days: x.waitingDays ?? null,
+    engaged: !!x.engaged
+  });
+  const pick2 = (l) => (input.kind ? l.filter((x) => x.kind === input.kind) : l).slice(0, Math.min(input.limit ?? 200, 500));
+  return {
+    count: shown.length,
+    hidden_count: hidden.length,
+    items: pick2(shown).map(slim),
+    ...input.include_hidden ? {
+      hidden: pick2(hidden).map((h) => ({ ...slim(h), dismissal: { id: h.dismissal.id, action: h.dismissal.action, until: h.dismissal.until ?? null, dismissed_at: h.dismissal.dismissed_at, note: h.dismissal.note } }))
+    } : {}
+  };
+}
+async function dismissNeedsYou(db, input) {
+  const account = check(await db.from("customers").select("id, company, name").eq("id", input.customer_id).maybeSingle(), "Could not read the account");
+  if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  const name = account.company ?? account.name;
+  const item = input.task_id ? "task" : input.item;
+  if (!item) throw new ToolError("Say which item: item (forgotten, qualified, quiet, back) or task_id.");
+  if (item !== "task" && !ACCOUNT_KINDS.includes(item)) throw new ToolError(`Unknown item ${item}. Use forgotten, qualified, quiet, back, or task_id.`);
+  if (item === "task" && !input.task_id) throw new ToolError("A task item needs task_id.");
+  const item_key = item === "task" ? `task:${input.task_id}` : item;
+  if (input.action === "undo") {
+    let target = null;
+    if (input.dismissal_id) {
+      target = check(await db.from("needs_you_dismissals").select(DISMISSAL_COLUMNS).eq("id", input.dismissal_id).maybeSingle(), "Could not read the item");
+      if (!target || target.customer_id !== account.id) throw new ToolError(`Done or ignored item ${input.dismissal_id} not found on ${name}.`);
+    } else {
+      target = (await liveDismissals(db, [account.id])).find((d) => d.item_key === item_key) ?? null;
+    }
+    if (!target) throw new ToolError(`Nothing on ${name} is marked done or ignored for ${item}.`);
+    if (target.undone_at) return { undone: false, already: true, dismissal_id: target.id, dry_run: !!input.dry_run };
+    const reopen = target.task_id && target.task_prev ? { status: "open", completed_at: null, ...target.task_prev } : null;
+    if (input.dry_run) return { undone: true, dismissal_id: target.id, reopens_task: target.task_id && reopen ? target.task_id : null, dry_run: true };
+    check(await db.from("needs_you_dismissals").update({ undone_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", target.id), "Could not undo");
+    if (reopen && target.task_id) check(await db.from("tasks").update(reopen).eq("id", target.task_id), "Could not reopen the task");
+    return { undone: true, dismissal_id: target.id, reopened_task: reopen ? target.task_id : null, dry_run: false };
+  }
+  if (input.action !== "done" && input.action !== "ignore") throw new ToolError("action is done, ignore or undo.");
+  let until = null;
+  if (input.action === "ignore") {
+    if (input.until) {
+      if (!isValidYmd(input.until)) throw new ToolError("until must be YYYY-MM-DD.");
+      until = input.until;
+    } else if (input.ignore_days != null) {
+      if (input.ignore_days < 1 || input.ignore_days > 3650) throw new ToolError("ignore_days is 1 to 3650; leave it out to ignore until a new message.");
+      until = addDaysYmd(/* @__PURE__ */ new Date(), input.ignore_days);
+    }
+  }
+  let task = null;
+  if (input.task_id) {
+    task = check(await db.from("tasks").select("id, title, status, customer_id, draft_status, draft_text").eq("id", input.task_id).maybeSingle(), "Could not read the task");
+    if (!task) throw new ToolError(`Task ${input.task_id} not found.`);
+    if (task.customer_id && task.customer_id !== account.id) throw new ToolError(`Task ${input.task_id} belongs to another account.`);
+  }
+  const closesTask = input.action === "done" && task && task.status === "open";
+  const row2 = {
+    customer_id: account.id,
+    item_key,
+    kind: item,
+    action: input.action === "done" ? "done" : "ignored",
+    note: input.note?.trim() || null,
+    until,
+    task_id: task?.id ?? null,
+    task_prev: closesTask ? { status: "open", completed_at: null, ...task.draft_status ? { draft_status: task.draft_status } : {} } : null,
+    title: input.title?.trim() || task?.title || null,
+    detail: clip(input.detail?.trim() || task?.draft_text || null, 1e3),
+    actor: input.actor?.trim() || null,
+    dismissed_at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (input.dry_run) return { dismissal: row2, closes_task: !!closesTask, dry_run: true };
+  const dismissal = check(await db.from("needs_you_dismissals").insert(row2).select(DISMISSAL_COLUMNS).single(), "Could not save");
+  if (closesTask) {
+    const patch = { status: "done", completed_at: (/* @__PURE__ */ new Date()).toISOString() };
+    if (task.draft_status === "draft") patch.draft_status = "skipped";
+    check(await db.from("tasks").update(patch).eq("id", task.id), "Could not close the task");
+  }
+  return { dismissal, closes_task: !!closesTask, dry_run: false };
+}
 
 // src/lib/mcp/sales.ts
 var ACCOUNT_COLUMNS = "id, name, company, email, domain, country, persona, customer_type, fit_score, owner, lead_status, sales_stage, sales_stage_changed_at, not_now_until, next_step, next_step_date, brief_updated_at, dnc, last_contacted_at, source, linkedin_url";
@@ -2030,6 +2280,14 @@ async function saveFollowUp(db, input) {
   if (!input.due_date) throw new ToolError("A new follow-up needs due_date.");
   const { contact, account } = await resolveWho(db, { customer_id: input.customer_id, contact_id: input.contact_id });
   if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
+  if (!input.override_dismissal) {
+    const held = await activeAccountDismissals(db, account);
+    if (held.length) {
+      const d = held[0];
+      const what = d.action === "done" ? "marked it done" : d.until ? `ignored it until ${d.until}` : "ignored it";
+      throw new ToolError(`No follow-up saved: Caleb ${what} on Needs you (${d.item_key}, ${d.dismissed_at.slice(0, 10)}) and no new message has come in since. Pass override_dismissal only if he asked for this follow-up.`);
+    }
+  }
   if (input.draft_text && input.draft_channel) {
     const v = canContact(contact, account, input.draft_channel, input.due_date);
     if (!v.allowed) throw new ToolError(`No draft saved: ${v.reason}.`);
@@ -2087,13 +2345,36 @@ async function listPipeline(db, input) {
   const n = Math.min(input.include_touches ?? 5, 50);
   const touches = n ? check(await db.from("sales_touches").select("id, customer_id, contact_id, channel, direction, occurred_at, body, auto_sent, is_drip").in("customer_id", ids).order("occurred_at", { ascending: false }).limit(n * ids.length), "Could not read touches") ?? [] : [];
   const tasks = check(await db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_status").in("customer_id", ids).eq("status", "open"), "Could not read follow-ups") ?? [];
+  const live = await liveDismissals(db, ids);
+  const heldBy = /* @__PURE__ */ new Map();
+  if (live.length) {
+    const withD = [...new Set(live.map((d) => d.customer_id))];
+    const recent = check(await db.from("sales_touches").select("customer_id, direction, occurred_at").in("customer_id", withD).order("occurred_at", { ascending: false }).limit(5e3), "Could not read messages") ?? [];
+    const lastIn = /* @__PURE__ */ new Map();
+    const lastAny = /* @__PURE__ */ new Map();
+    for (const t of recent) {
+      if (!lastAny.has(t.customer_id) || t.occurred_at > lastAny.get(t.customer_id)) lastAny.set(t.customer_id, t.occurred_at);
+      if (t.direction === "in" && (!lastIn.has(t.customer_id) || t.occurred_at > lastIn.get(t.customer_id))) lastIn.set(t.customer_id, t.occurred_at);
+    }
+    const stageAt = new Map(accounts.map((a) => [a.id, a.sales_stage_changed_at ?? null]));
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const seen = /* @__PURE__ */ new Set();
+    for (const d of live) {
+      const k = `${d.customer_id}|${d.item_key}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (!isDismissalActive(d, { lastInboundAt: lastIn.get(d.customer_id) ?? null, lastTouchAt: lastAny.get(d.customer_id) ?? null, stageChangedAt: stageAt.get(d.customer_id) ?? null, today })) continue;
+      (heldBy.get(d.customer_id) ?? heldBy.set(d.customer_id, []).get(d.customer_id)).push({ item: d.item_key, action: d.action, until: d.until ?? null, dismissed_at: d.dismissed_at, note: d.note });
+    }
+  }
   return {
     count: accounts.length,
     accounts: accounts.map((a) => ({
       ...a,
       contacts: contacts.filter((c) => c.customer_id === a.id),
       touches: touches.filter((t) => t.customer_id === a.id).slice(0, n),
-      open_follow_ups: tasks.filter((t) => t.customer_id === a.id)
+      open_follow_ups: tasks.filter((t) => t.customer_id === a.id),
+      needs_you_held: heldBy.get(a.id) ?? []
     }))
   };
 }
@@ -2277,7 +2558,7 @@ var saveBriefTool = defineTool17({
 var saveFollowUpTool = defineTool17({
   name: "save_follow_up",
   title: "Save a follow-up and its draft",
-  description: "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+  description: "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted, and a new follow-up on an account Caleb marked Done or Ignored on Needs you until a new message comes in. Use dry_run first.",
   inputSchema: {
     task_id: z16.string().uuid().optional().describe("Update this follow-up instead of creating one."),
     customer_id: z16.string().uuid().optional(),
@@ -2290,6 +2571,7 @@ var saveFollowUpTool = defineTool17({
     draft_status: z16.enum(["draft", "approved", "sent", "skipped"]).optional(),
     assignee: z16.string().max(10).optional().describe("Default the account owner, else CQ."),
     priority: z16.enum(["low", "normal", "high", "urgent"]).optional(),
+    override_dismissal: z16.boolean().optional().describe("Only when Caleb asked for this follow-up although he marked the account done or ignored on Needs you."),
     dry_run: z16.boolean().optional()
   },
   annotations: write,
@@ -2325,7 +2607,7 @@ var logJobRunTool = defineTool17({
 var listSalesPipelineTool = defineTool17({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them).",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z16.string().uuid().optional(),
@@ -2352,7 +2634,7 @@ var SALES_TOOLS = [
 ];
 
 // src/lib/mcp/tools/traction-tools.ts
-import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z17 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/traction.ts
@@ -2643,7 +2925,7 @@ var saveContentTool = defineTool18({
 var TRACTION_TOOLS = [listTractionBoardTool, saveTractionIdeaTool, saveCommunityTool, listContentTool, saveContentTool];
 
 // src/lib/mcp/tools/prospect-tools.ts
-import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z18 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/prospects.ts
@@ -2857,11 +3139,11 @@ var importProspectsTool = defineTool19({
 var PROSPECT_TOOLS = [searchProspectsTool, setProspectRankTool, promoteProspectTool, importProspectsTool];
 
 // src/lib/mcp/tools/command-center-tools.ts
-import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z19 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/prospecting.ts
-var DAY = 864e5;
+var DAY2 = 864e5;
 var SEND_TARGETS = {
   linkedinPerWeekday: 35,
   linkedinWeeklyCap: 200,
@@ -2871,16 +3153,16 @@ var SEND_TARGETS = {
 function weekStart(d) {
   const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const dow = (x.getUTCDay() + 6) % 7;
-  return new Date(x.getTime() - dow * DAY);
+  return new Date(x.getTime() - dow * DAY2);
 }
 function emailTargetToday(firstEmailAt, now = /* @__PURE__ */ new Date()) {
   if (!firstEmailAt) return SEND_TARGETS.emailRamp[0];
-  const weeks = Math.floor((weekStart(now).getTime() - weekStart(new Date(firstEmailAt)).getTime()) / (7 * DAY));
+  const weeks = Math.floor((weekStart(now).getTime() - weekStart(new Date(firstEmailAt)).getTime()) / (7 * DAY2));
   return SEND_TARGETS.emailRamp[Math.min(Math.max(weeks, 0), SEND_TARGETS.emailRamp.length - 1)];
 }
 
 // src/lib/sales/command-center.ts
-var DAY2 = 864e5;
+var DAY3 = 864e5;
 var MIN = 6e4;
 var IST_OFFSET_MS = 330 * MIN;
 var ist = (d) => new Date(d.getTime() + IST_OFFSET_MS);
@@ -2994,11 +3276,11 @@ function countWeek(touches, events, inquiries, from, to, pipelineIds) {
 }
 function weekOverWeek(touches, events, inquiries, pipelineIds, now = /* @__PURE__ */ new Date()) {
   const ws = istWeekStart(now);
-  const lws = new Date(ws.getTime() - 7 * DAY2);
+  const lws = new Date(ws.getTime() - 7 * DAY3);
   return {
     weekStart: ws,
     thisWeek: countWeek(touches, events, inquiries, ws, now, pipelineIds),
-    lastWeekSamePoint: countWeek(touches, events, inquiries, lws, new Date(now.getTime() - 7 * DAY2), pipelineIds),
+    lastWeekSamePoint: countWeek(touches, events, inquiries, lws, new Date(now.getTime() - 7 * DAY3), pipelineIds),
     lastWeek: countWeek(touches, events, inquiries, lws, ws, pipelineIds)
   };
 }
@@ -3015,7 +3297,7 @@ function weekTargets(now = /* @__PURE__ */ new Date(), firstEmailAt = null) {
   };
 }
 function funnelWeekAgo(accounts, events, now = /* @__PURE__ */ new Date()) {
-  const cutoff = new Date(now.getTime() - 7 * DAY2).toISOString();
+  const cutoff = new Date(now.getTime() - 7 * DAY3).toISOString();
   const firstAfter = /* @__PURE__ */ new Map();
   for (const e of [...events].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))) {
     if (e.occurred_at > cutoff && !firstAfter.has(e.customer_id)) firstAfter.set(e.customer_id, e);
@@ -3107,15 +3389,15 @@ function claudePace(weekly, now = /* @__PURE__ */ new Date()) {
   if (!weekly?.resets_at) return null;
   const reset = new Date(weekly.resets_at).getTime();
   const taken = new Date(weekly.taken_at).getTime();
-  const start = reset - 7 * DAY2;
-  const elapsed = (taken - start) / (7 * DAY2);
+  const start = reset - 7 * DAY3;
+  const elapsed = (taken - start) / (7 * DAY3);
   if (!(elapsed > 0.02) || elapsed > 1) return null;
   const pct2 = Number(weekly.value);
   return { pct: pct2, elapsed, projected: Math.round(pct2 / elapsed), resetsAt: new Date(reset), stale: now.getTime() - taken > 36 * 36e5 };
 }
 function creditsByTool(runs, now = /* @__PURE__ */ new Date()) {
   const ws = istWeekStart(now).toISOString();
-  const lws = new Date(istWeekStart(now).getTime() - 7 * DAY2).toISOString();
+  const lws = new Date(istWeekStart(now).getTime() - 7 * DAY3).toISOString();
   const tools = /* @__PURE__ */ new Map();
   let costThis = 0, costLast = 0;
   for (const r of runs) {
@@ -3133,7 +3415,7 @@ function creditsByTool(runs, now = /* @__PURE__ */ new Date()) {
 }
 function tasksDue(tasks, now = /* @__PURE__ */ new Date(), assignee) {
   const today = istToday(now);
-  const week = istToday(new Date(now.getTime() + 7 * DAY2));
+  const week = istToday(new Date(now.getTime() + 7 * DAY3));
   const rank = { urgent: 0, high: 1, normal: 2, low: 3 };
   const mine = tasks.filter((t) => t.status === "open" && t.due_date && (!assignee || t.assignee === assignee)).sort((a, b) => a.due_date.localeCompare(b.due_date) || (rank[a.priority ?? "normal"] ?? 2) - (rank[b.priority ?? "normal"] ?? 2));
   return {
@@ -3351,6 +3633,50 @@ var markBouncedTool = defineTool20({
 });
 var COMMAND_CENTER_TOOLS = [getSalesOverviewTool, logUsageTool, syncSchedulesTool, markBouncedTool];
 
+// src/lib/mcp/tools/needs-you-tools.ts
+import { defineTool as defineTool21 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z20 } from "npm:zod@^3.25.76";
+var json5 = (r) => r;
+var listNeedsYouTool = defineTool21({
+  name: "list_needs_you",
+  title: "List Needs you",
+  description: "The Sales page's Needs you list, in its order: forgotten conversations, qualified accounts, nudges, drafted replies, due tasks, warm accounts with nothing planned, accounts back from Not now. Items Caleb marked Done or Ignored are left out until a new inbound message arrives, the Ignore date comes or he undoes it; include_hidden lists them too. The watchdog reads this before adding anything. Read-only.",
+  inputSchema: {
+    include_hidden: z20.boolean().optional().describe("Also list the items Done or Ignore is holding back."),
+    kind: z20.enum(["forgotten", "qualified", "nudge", "draft", "task", "quiet", "back"]).optional(),
+    limit: z20.number().int().min(1).max(500).optional().describe("Max items (default 200).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await listNeedsYou(db, input);
+    return ok(JSON.stringify(r), json5(r));
+  })
+});
+var dismissNeedsYouTool = defineTool21({
+  name: "dismiss_needs_you",
+  title: "Mark a Needs you item done or ignored",
+  description: "Done: handled (optionally with a note); it stays off Needs you until a new inbound message comes in, and a task item is closed. Ignore: off Needs you for ignore_days or until a date, or forever (until a new inbound message). Undo: puts the newest one back (and reopens a task Done closed). Name the item as forgotten, qualified, quiet or back for account items, or task_id for a follow-up or due task. Jobs use this only when Caleb asked. Use dry_run first.",
+  inputSchema: {
+    customer_id: z20.string().uuid(),
+    item: z20.enum(["forgotten", "qualified", "quiet", "back", "task"]).optional(),
+    task_id: z20.string().uuid().optional(),
+    action: z20.enum(["done", "ignore", "undo"]),
+    note: z20.string().max(2e3).optional(),
+    ignore_days: z20.number().int().min(1).max(3650).optional().describe("Ignore only. Leave out (and until) for forever."),
+    until: z20.string().optional().describe("Ignore only: YYYY-MM-DD it may show again."),
+    dismissal_id: z20.string().uuid().optional().describe("Undo this one instead of the newest for the item."),
+    actor: z20.string().max(100).optional().describe("Who asked, e.g. caleb-via-chat."),
+    dry_run: z20.boolean().optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: withUserDb(async (db, input) => {
+    const r = await dismissNeedsYou(db, input);
+    const verb = input.action === "undo" ? "Put back" : input.action === "done" ? "Marked done" : "Ignored";
+    return ok(`${r.dry_run ? "Dry run: " : ""}${verb}.`, json5(r));
+  })
+});
+var NEEDS_YOU_TOOLS = [listNeedsYouTool, dismissNeedsYouTool];
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var TOOLS = [
@@ -3373,13 +3699,14 @@ var TOOLS = [
   ...SALES_TOOLS,
   ...TRACTION_TOOLS,
   ...PROSPECT_TOOLS,
-  ...COMMAND_CENTER_TOOLS
+  ...COMMAND_CENTER_TOOLS,
+  ...NEEDS_YOU_TOOLS
 ];
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.7.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email).",
+  version: "0.8.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email). Needs you: `list_needs_you` is the list as the Sales page shows it; `dismiss_needs_you` marks an item Done or Ignored (with a snooze or forever) or undoes it. Done and Ignored items stay off until a new inbound message, the Ignore date or Undo; `list_sales_pipeline` shows them as needs_you_held and `save_follow_up` will not add a new follow-up for them, so watchdog and sync re-runs never bring them back.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
@@ -3388,5 +3715,5 @@ var mcp_default = defineMcp({
 });
 
 // lovable-mcp-supabase-entry.ts
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.0/stacks/supabase";
+import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.1/stacks/supabase";
 Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
