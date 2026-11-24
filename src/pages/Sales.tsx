@@ -1,4 +1,4 @@
-// Sales section: Needs you (what to do next), Pipeline, Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
+// Sales section: Command center (the birds-eye landing page), Needs you (what to do next), Pipeline, Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
 // Content (pieces, calendar, post tests) and Jobs (runs, credits, cost).
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -20,6 +20,8 @@ import { ProspectingTab } from '@/components/sales/ProspectingTab';
 import { ProspectsTab } from '@/components/sales/ProspectsTab';
 import { TractionTab } from '@/components/sales/TractionTab';
 import { ContentTab } from '@/components/sales/ContentTab';
+import { CommandCenterTab } from '@/components/sales/CommandCenterTab';
+import type { CcSchedule } from '@/lib/sales/command-center';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
@@ -32,7 +34,7 @@ const db = supabase as any;
 
 type PipelineAccount = AccountRow & { persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null; source: string | null };
 type JobRun = JobRunRow & { id: string; summary: string | null; finished_at: string | null; run_by: string | null };
-type Schedule = { id: string; job: string; name: string; cadence: string; runs_where: string | null; what_it_does: string | null; status: string; sort_order: number };
+type Schedule = CcSchedule & { runs_where: string | null; what_it_does: string | null };
 type Block = { id: string; channel: string; sender: string | null; reason: string; blocked_at: string; customer_id: string | null };
 
 const KIND_LABEL: Record<NeedsYouEntry['kind'], string> = { forgotten: 'Forgotten', qualified: 'Qualified', nudge: 'Nudge', draft: 'Draft reply', task: 'Due', quiet: 'Warm, nothing planned', back: 'Back from Not now' };
@@ -44,7 +46,7 @@ const KIND_COLOR: Record<NeedsYouEntry['kind'], string> = {
 export default function Sales() {
   useDocumentTitle('Sales');
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') || 'needs';
+  const tab = params.get('tab') || 'overview';
   const setTab = (t: string) => setParams(p => { p.set('tab', t); return p; }, { replace: true });
 
   const [accounts, setAccounts] = useState<PipelineAccount[]>([]);
@@ -69,7 +71,7 @@ export default function Sales() {
       db.from('job_runs').select('id, job, status, started_at, finished_at, summary, counts, credits, cost_usd, needs_review, run_by').gte('started_at', since30).order('started_at', { ascending: false }).limit(500),
       db.from('send_blocks').select('id, channel, sender, reason, blocked_at, customer_id').gte('blocked_at', since30).order('blocked_at', { ascending: false }).limit(200),
       db.from('contacts').select('customer_id').eq('engaged', true).limit(5000),
-      db.from('sales_schedules').select('id, job, name, cadence, runs_where, what_it_does, status, sort_order').neq('status', 'retired').order('sort_order'),
+      db.from('sales_schedules').select('*').neq('status', 'retired').order('sort_order'),
     ]);
     if (a.error) { setMissing(true); setLoading(false); return; }
     setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []);
@@ -112,6 +114,7 @@ export default function Sales() {
         ) : (
           <Tabs value={tab} onValueChange={setTab}>
             <ResponsiveTabs value={tab} onValueChange={setTab} options={[
+              { value: 'overview', label: 'Command center' },
               { value: 'needs', label: `Needs you (${needs.length})` },
               { value: 'pipeline', label: 'Pipeline' },
               { value: 'prospects', label: 'Prospects' },
@@ -120,6 +123,8 @@ export default function Sales() {
               { value: 'content', label: 'Content' },
               { value: 'jobs', label: 'Jobs and cost' },
             ]} />
+
+            <TabsContent value="overview" className="mt-3"><CommandCenterTab accounts={accounts} needs={needs} runs={runs} schedules={schedules} onOpen={setTab} /></TabsContent>
 
             <TabsContent value="needs" className="mt-3 space-y-2">
               <div className="flex flex-wrap gap-1">

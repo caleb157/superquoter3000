@@ -67,6 +67,8 @@ class Query implements PromiseLike<any> {
   delete() { this.op = "delete"; return this; }
   eq(c: string, v: any) { this.filters.push(r => r[c] === v); return this; }
   neq(c: string, v: any) { this.filters.push(r => r[c] !== v); return this; }
+  gte(c: string, v: any) { this.filters.push(r => r[c] != null && r[c] >= v); return this; }
+  lte(c: string, v: any) { this.filters.push(r => r[c] != null && r[c] <= v); return this; }
   is(c: string, v: any) { this.filters.push(r => (r[c] ?? null) === v); return this; }
   in(c: string, vs: any[]) { this.filters.push(r => vs.includes(r[c])); return this; }
   ilike(c: string, p: string) { const re = likeToRegex(p); this.filters.push(r => re.test(String(r[c] ?? ""))); return this; }
