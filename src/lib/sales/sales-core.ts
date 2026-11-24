@@ -18,6 +18,61 @@ export const SALES_STAGE_LABELS: Record<SalesStage, string> = {
   dnc: "Do not contact",
 };
 
+/**
+ * One source of truth: sales_stage. The old lead_status column is only a mirror the database keeps
+ * in step (trigger in 20261124210000_unify_stage_lead_status.sql), kept for older code and exports.
+ * Keep these two maps identical to the SQL functions lead_status_from_sales_stage / sales_stage_from_lead_status.
+ */
+export const LEAD_STATUS_FROM_STAGE: Record<SalesStage, string> = {
+  queued: "prospect",
+  in_outreach: "prospect",
+  responded: "lead",
+  in_conversation: "lead",
+  inquiry: "active",
+  customer: "won",
+  not_now: "inactive",
+  not_a_fit: "inactive",
+  dnc: "inactive",
+};
+
+/** An old lead status written by older code or an import becomes this stage. */
+export const STAGE_FROM_LEAD_STATUS: Record<string, SalesStage> = {
+  prospect: "queued",
+  lead: "responded",
+  active: "inquiry",
+  won: "customer",
+  inactive: "not_now",
+  churned: "not_now",
+};
+
+export const stageFromLeadStatus = (status?: string | null): SalesStage =>
+  STAGE_FROM_LEAD_STATUS[(status ?? "").toLowerCase()] ?? "responded";
+
+/** Customers page groups, in tab order. Each stage sits in exactly one group. */
+export const CUSTOMER_GROUPS = [
+  { key: "customers", label: "Customers", stages: ["customer"] },
+  { key: "inquiries", label: "Live inquiry", stages: ["inquiry"] },
+  { key: "leads", label: "Leads", stages: ["responded", "in_conversation"] },
+  { key: "prospects", label: "Prospects", stages: ["queued", "in_outreach"] },
+  { key: "not_now", label: "Not now", stages: ["not_now"] },
+  { key: "closed", label: "Not a fit / DNC", stages: ["not_a_fit", "dnc"] },
+] as const satisfies readonly { key: string; label: string; stages: readonly SalesStage[] }[];
+
+/**
+ * Where a logged message moves the account (null = stays). Used by the app's Log message and the
+ * connector's log_touch, so both move stages the same way:
+ * a reply from Queued, In outreach or Not now = Responded; a later engaged reply on Responded = In conversation;
+ * our first message from Queued = In outreach. Inquiry, Customer, Not a fit and DNC never move on a message.
+ */
+export function stageAfterTouch(stage: string | null | undefined, direction: "in" | "out", engaged = false): SalesStage | null {
+  if (direction === "in") {
+    if (!stage || stage === "queued" || stage === "in_outreach" || stage === "not_now") return "responded";
+    if (stage === "responded" && engaged) return "in_conversation";
+    return null;
+  }
+  return !stage || stage === "queued" ? "in_outreach" : null;
+}
+
 export const TOUCH_CHANNELS = ["linkedin", "email", "whatsapp", "call", "meeting", "other"] as const;
 export type TouchChannel = (typeof TOUCH_CHANNELS)[number];
 
@@ -229,12 +284,9 @@ export type StageMoveAccount = { dnc?: boolean | null; sales_stage?: string | nu
 /** Stages that mean we are about to write to them: a do not contact account can never go back there. */
 export const OUTREACH_STAGES = ["queued", "in_outreach"] as const;
 
-/** The customers patch for a stage move: clears Not now unless moving there, and a prospect reaching Inquiry/Customer gets its lead status. */
-export function stageMovePatch(account: StageMoveAccount, stage: SalesStage, notNowUntil?: string | null): Record<string, unknown> {
-  const patch: Record<string, unknown> = { sales_stage: stage, not_now_until: stage === "not_now" ? notNowUntil ?? null : null };
-  if (stage === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
-  if (stage === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
-  return patch;
+/** The customers patch for a stage move: clears Not now unless moving there. Lead status is never written; the database sets it from the stage. */
+export function stageMovePatch(_account: StageMoveAccount, stage: SalesStage, notNowUntil?: string | null): Record<string, unknown> {
+  return { sales_stage: stage, not_now_until: stage === "not_now" ? notNowUntil ?? null : null };
 }
 
 /**

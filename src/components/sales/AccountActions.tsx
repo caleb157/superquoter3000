@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { MessageSquarePlus, CalendarPlus, FilePlus2 } from 'lucide-react';
-import { ALL_SALES_STAGES, SALES_STAGE_LABELS, TOUCH_CHANNELS, addDaysYmd, canContact, stageMovePatch, type SalesStage, type TouchChannel } from '@/lib/sales/sales-core';
+import { ALL_SALES_STAGES, SALES_STAGE_LABELS, TOUCH_CHANNELS, addDaysYmd, canContact, stageAfterTouch, stageMovePatch, type SalesStage, type TouchChannel } from '@/lib/sales/sales-core';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
@@ -105,8 +105,9 @@ export function LogMessageDialog({ account, open, onOpenChange, onSaved }: { acc
     if (error) { setBusy(false); toast.error(error.message); return; }
     // A reply that says more than thanks makes the person engaged (nudges only go to engaged people).
     if (direction === 'in' && contact && engaged && !contact.engaged) await db.from('contacts').update({ engaged: true }).eq('id', contact.id);
-    if (direction === 'in' && ['queued', 'in_outreach', 'not_now'].includes(account.sales_stage ?? '')) await db.from('customers').update({ sales_stage: 'responded', not_now_until: null }).eq('id', account.id);
-    else if (direction === 'in' && account.sales_stage === 'responded' && engaged) await db.from('customers').update({ sales_stage: 'in_conversation' }).eq('id', account.id);
+    // Same stage rule as the connector's log_touch.
+    const next = stageAfterTouch(account.sales_stage, direction, engaged);
+    if (next) await db.from('customers').update({ sales_stage: next, not_now_until: null }).eq('id', account.id);
     setBusy(false);
     toast.success('Message logged');
     onOpenChange(false); onSaved();

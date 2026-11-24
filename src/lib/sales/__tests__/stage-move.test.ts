@@ -21,9 +21,9 @@ describe('canMoveStage (Pipeline drag and drop)', () => {
 });
 
 describe('stageMovePatch (shared with set_sales_stage)', () => {
-  it('clears Not now and gives a prospect its lead status at Inquiry and Customer', () => {
-    expect(stageMovePatch({ lead_status: 'prospect' }, 'inquiry')).toEqual({ sales_stage: 'inquiry', not_now_until: null, lead_status: 'active' });
-    expect(stageMovePatch({ lead_status: 'prospect' }, 'customer')).toEqual({ sales_stage: 'customer', not_now_until: null, lead_status: 'won' });
+  it('clears Not now and never writes lead status (the database sets it from the stage)', () => {
+    expect(stageMovePatch({ lead_status: 'prospect' }, 'inquiry')).toEqual({ sales_stage: 'inquiry', not_now_until: null });
+    expect(stageMovePatch({ lead_status: 'prospect' }, 'customer')).toEqual({ sales_stage: 'customer', not_now_until: null });
     expect(stageMovePatch({ lead_status: 'active' }, 'customer')).toEqual({ sales_stage: 'customer', not_now_until: null });
     expect(stageMovePatch({}, 'not_now', '2027-05-01')).toEqual({ sales_stage: 'not_now', not_now_until: '2027-05-01' });
   });

@@ -4,7 +4,7 @@
 
 export const TASK_TRIGGERS = [
   { value: 'inquiry_created', label: 'Inquiry created', hint: 'A new inquiry is created in HQ', source: 'hq' },
-  { value: 'customer_status_lead', label: 'Customer set to Lead', hint: 'A customer is added as, or changed to, Lead status in HQ', source: 'hq' },
+  { value: 'customer_status_lead', label: 'Customer becomes a lead', hint: 'A customer is added as, or moves to, Responded or In conversation (from Queued, In outreach, Not now or Not a fit)', source: 'hq' },
   { value: 'sample_requested', label: 'Sample requested', hint: 'A sample request is created on an inquiry in HQ', source: 'hq' },
   { value: 'so_created', label: 'Sales order created', hint: 'Quotation created in Odoo', source: 'odoo' },
   { value: 'so_confirmed', label: 'Sales order confirmed', hint: 'Quotation confirmed into a sales order', source: 'odoo' },

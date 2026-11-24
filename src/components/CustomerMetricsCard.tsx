@@ -1,41 +1,32 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, Trophy, TrendingDown, Users, Zap } from 'lucide-react';
+import { CalendarClock, MessageCircle, Trophy, Zap } from 'lucide-react';
 
-type Customer = { id: string; lead_status: string; created_at: string | null };
+type Customer = { id: string; sales_stage: string | null; not_now_until?: string | null };
 
 interface Props {
   customers: Customer[];
 }
 
+/** Stages from a first reply on: the base for conversion. Queued / In outreach have not answered yet. */
+const REPLIED = new Set(['responded', 'in_conversation', 'inquiry', 'customer', 'not_now']);
+
+/** Headline counts for the Customers page, all read from the one sales stage. */
 export function CustomerMetricsCard({ customers }: Props) {
   const stats = useMemo(() => {
-    const terminal = customers.filter(c =>
-      ['won', 'churned', 'inactive'].includes(c.lead_status) && c.created_at
-    );
-    const activeCustomers = customers.filter(c => c.lead_status === 'won' && c.created_at);
-    const lostCustomers = customers.filter(c => ['churned', 'inactive'].includes(c.lead_status) && c.created_at);
-
-    const daysFor = (list: Customer[]) => {
-      if (list.length === 0) return null;
-      const totalMs = list.reduce((acc, c) => {
-        const created = new Date(c.created_at!).getTime();
-        return acc + (Date.now() - created);
-      }, 0);
-      return Math.round(totalMs / list.length / (1000 * 60 * 60 * 24));
-    };
-
-    const totalLeads = customers.length;
-    const activeCount = activeCustomers.length;
-    const conversionRate = totalLeads > 0 ? Math.round((activeCount / totalLeads) * 100) : 0;
-
+    const by = (s: string) => customers.filter(c => c.sales_stage === s).length;
+    const soon = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    const replied = customers.filter(c => REPLIED.has(c.sales_stage ?? '')).length;
+    const won = by('customer');
     return {
-      avgCycle: daysFor(terminal),
-      avgActiveCycle: daysFor(activeCustomers),
-      avgLostCycle: daysFor(lostCustomers),
-      totalLeads,
-      activeCount,
-      conversionRate,
+      won,
+      inquiries: by('inquiry'),
+      leads: by('responded') + by('in_conversation'),
+      inConversation: by('in_conversation'),
+      conversion: replied > 0 ? Math.round((won / replied) * 100) : 0,
+      replied,
+      notNow: by('not_now'),
+      backSoon: customers.filter(c => c.sales_stage === 'not_now' && c.not_now_until && c.not_now_until <= soon).length,
     };
   }, [customers]);
 
@@ -56,30 +47,10 @@ export function CustomerMetricsCard({ customers }: Props) {
     <Card>
       <CardContent className="p-3 sm:p-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {tile(
-            <Users className="h-4 w-4" />,
-            'Total Customers',
-            String(stats.totalLeads),
-            `${stats.activeCount} active`
-          )}
-          {tile(
-            <Zap className="h-4 w-4 text-success" />,
-            'Conversion',
-            `${stats.conversionRate}%`,
-            'leads → active'
-          )}
-          {tile(
-            <Clock className="h-4 w-4 text-info" />,
-            'Avg cycle (active)',
-            stats.avgActiveCycle != null ? `${stats.avgActiveCycle}d` : '—',
-            'lead → active'
-          )}
-          {tile(
-            <TrendingDown className="h-4 w-4 text-warning" />,
-            'Avg cycle (lost)',
-            stats.avgLostCycle != null ? `${stats.avgLostCycle}d` : '—',
-            'lead → churned/inactive'
-          )}
+          {tile(<Trophy className="h-4 w-4 text-success" />, 'Customers', String(stats.won), `${stats.inquiries} live inquir${stats.inquiries === 1 ? 'y' : 'ies'}`)}
+          {tile(<MessageCircle className="h-4 w-4 text-warning" />, 'Leads', String(stats.leads), `${stats.inConversation} in conversation`)}
+          {tile(<Zap className="h-4 w-4 text-info" />, 'Conversion', `${stats.conversion}%`, `customers of ${stats.replied} who replied`)}
+          {tile(<CalendarClock className="h-4 w-4" />, 'Not now', String(stats.notNow), `${stats.backSoon} due back in 30 days`)}
         </div>
       </CardContent>
     </Card>

@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
 import { CHANNEL_ICON } from '@/components/sales/SalesAccountPanel';
-import { PIPELINE_MOVE_REASON, PIPELINE_UNDO_REASON, SALES_EXITS, SALES_STAGES, SALES_STAGE_LABELS, canMoveStage, stageMovePatch, type SalesStage } from '@/lib/sales/sales-core';
+import { PIPELINE_MOVE_REASON, PIPELINE_UNDO_REASON, SALES_EXITS, SALES_STAGES, SALES_STAGE_LABELS, LEAD_STATUS_FROM_STAGE, canMoveStage, stageMovePatch, type SalesStage } from '@/lib/sales/sales-core';
 import { PipelineBoard, type BoardAccount } from '@/components/sales/PipelineBoard';
 import { applyDismissals, buildNeedsYou, groupByStage, lastInboundBy, summarizeJobs, type AccountRow, type JobRunRow, type NeedsYouEntry, type TaskRow, type TouchRow } from '@/lib/sales/needs-you';
 import { BulkBar, DismissButtons, DismissedList, DISMISSAL_SELECT, type DismissalRow } from '@/components/sales/NeedsYouDismiss';
@@ -114,12 +114,11 @@ export default function Sales() {
     const nowIso = new Date().toISOString();
     const patch = stageMovePatch(prev, to);
     setAccounts(list => list.map(x => x.id === account.id
-      ? { ...x, ...patch, ...(undoOf ? { lead_status: undoOf.lead_status ?? null, sales_stage_changed_at: undoOf.at ?? nowIso } : { sales_stage_changed_at: nowIso }) } as PipelineAccount
+      ? { ...x, ...patch, lead_status: LEAD_STATUS_FROM_STAGE[to], sales_stage_changed_at: undoOf ? undoOf.at ?? nowIso : nowIso } as PipelineAccount
       : x));
     const name = account.company || account.name;
     void (async () => {
       const err = await moveStageWithReason(prev, to, undoOf ? PIPELINE_UNDO_REASON : PIPELINE_MOVE_REASON);
-      if (!err && undoOf && prev.lead_status !== undoOf.lead_status) await db.from('customers').update({ lead_status: undoOf.lead_status ?? null }).eq('id', account.id);
       if (err) {
         setAccounts(list => list.map(x => x.id === account.id ? { ...x, sales_stage: before.stage, lead_status: before.lead_status, sales_stage_changed_at: before.at } as PipelineAccount : x));
         toast.error(`Could not move ${name}: ${err}`);

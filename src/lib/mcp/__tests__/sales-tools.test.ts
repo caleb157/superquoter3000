@@ -109,7 +109,9 @@ describe("sales connector tools", () => {
     expect(db.writes).toHaveLength(0);
     const made = await upsertAccount(db, { company: "Luxe Home", domain: "luxehome.com" });
     expect(made.created).toBe(true);
-    expect(db.writesTo("customers", "insert")[0].rows![0]).toMatchObject({ lead_status: "prospect", sales_stage: "queued", domain: "luxehome.com" });
+    expect(db.writesTo("customers", "insert")[0].rows![0]).toMatchObject({ sales_stage: "queued", domain: "luxehome.com" });
+    // lead_status is mirrored by the database from the stage, never written by the connector.
+    expect(db.writesTo("customers", "insert")[0].rows![0]).not.toHaveProperty("lead_status");
     const again = await upsertAccount(db, { company: "Acme Decor Ltd", website: "www.acmedecor.com/about", fit_score: 80 });
     expect(again).toMatchObject({ created: false, matched_on: "domain", updated: ["fit_score"] });
   });
@@ -135,6 +137,19 @@ describe("sales connector tools", () => {
     expect(reply.stage_move).toBe("responded");
     expect(db.rows("customers")[0].sales_stage).toBe("responded");
     expect(db.rows("contacts")[0].engaged).toBe(true);
+    // A later engaged reply on Responded = In conversation (same rule as the app's Log message).
+    const more = await logTouch(db, { contact_id: ANN, channel: "linkedin", direction: "in", body: "Can you do 200 of these?", engaged: true, external_id: "li-3" });
+    expect(more.stage_move).toBe("in_conversation");
+  });
+
+  it("brings a Not now account back on a new reply, but not on an older message a sync logs late", async () => {
+    const db = seed();
+    Object.assign(db.rows("customers")[0], { sales_stage: "not_now", not_now_until: "2027-05-24", sales_stage_changed_at: "2026-11-20T00:00:00Z" });
+    const old = await logTouch(db, { customer_id: ACME, channel: "email", direction: "in", body: "old", occurred_at: "2026-10-01T09:00:00Z", external_id: "e-old" });
+    expect(old.stage_move).toBeNull();
+    expect(db.rows("customers")[0].sales_stage).toBe("not_now");
+    const fresh = await logTouch(db, { customer_id: ACME, channel: "email", direction: "in", body: "We are ready now", occurred_at: "2026-11-24T09:00:00Z", external_id: "e-new" });
+    expect(fresh.stage_move).toBe("responded");
   });
 
   it("needs a reason and a date for Not now, and keeps the reason on the stage log", async () => {
@@ -145,7 +160,8 @@ describe("sales connector tools", () => {
     db.rows("sales_stage_events").push({ id: "ev1", customer_id: ACME, to_stage: "inquiry", occurred_at: "2026-11-23T10:00:00Z" });
     const r = await setSalesStage(db, { customer_id: ACME, stage: "inquiry", reason: "Asked for a rough price on 2 lamps", actor: "crm-watchdog" });
     expect(r).toMatchObject({ from: "queued", to: "inquiry", changed: true });
-    expect(db.rows("customers")[0]).toMatchObject({ sales_stage: "inquiry", lead_status: "active" });
+    expect(db.rows("customers")[0]).toMatchObject({ sales_stage: "inquiry" });
+    expect(db.writesTo("customers", "update").every(w => !("lead_status" in (w.patch ?? {})))).toBe(true);
     expect(db.rows("sales_stage_events")[0]).toMatchObject({ reason: "Asked for a rough price on 2 lamps", actor: "crm-watchdog" });
   });
 

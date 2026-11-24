@@ -31,7 +31,7 @@ const P_OTHER = "33333333-3333-4333-8333-333333333339";
 
 function seed() {
   return new FakeDb({
-    customers: [{ id: CUST, name: "Jordan Lee", company: "CCT Furniture", email: "Jordan@cct.example", lead_status: "active", created_at: "2026-01-01" }],
+    customers: [{ id: CUST, name: "Jordan Lee", company: "CCT Furniture", email: "Jordan@cct.example", sales_stage: "inquiry", created_at: "2026-01-01" }],
     customer_rfqs: [
       { id: INQ, customer_id: CUST, rfq_number: "RFQ-2026-001", title: "Accent tables", status: "active", updated_at: "2026-11-01" },
       { id: OTHER_INQ, customer_id: CUST, rfq_number: "RFQ-2026-002", title: "Old order", status: "complete", updated_at: "2026-10-01" },
@@ -148,8 +148,10 @@ describe("read tools match the real schema", () => {
     expect((await listTasks(db, { only_open: true, assignee: "cq" })).map((t: any) => t.id)).toEqual(["t1"]);
   });
 
-  it("list_customers matches on company", async () => {
+  it("list_customers matches on company and filters by stage", async () => {
     expect(await listCustomers(seed(), { search: "cct" })).toHaveLength(1);
+    expect(await listCustomers(seed(), { stage: ["customer"] })).toHaveLength(0);
+    expect(await listCustomers(seed(), { stage: ["inquiry"] })).toHaveLength(1);
   });
 
   it("list_lookups returns names and, on request, the intake columns", async () => {
@@ -182,9 +184,19 @@ describe("find_or_create_customer", () => {
     expect(db.writes).toEqual([]);
     const r: any = await findOrCreateCustomer(db, { name: "Sam Ortiz", company: "Luxe Designs" });
     expect(r.created).toBe(true);
-    expect(r.customer).toMatchObject({ name: "Sam Ortiz", company: "Luxe Designs", lead_status: "active" });
+    expect(r.customer).toMatchObject({ name: "Sam Ortiz", company: "Luxe Designs", sales_stage: "inquiry" });
+    expect(r.customer).not.toHaveProperty("lead_status");
     const have = schemaColumns(types, "customers");
     expect(Object.keys(db.writesTo("customers", "insert")[0].rows![0]).filter(k => !FAKE_KEYS.has(k) && !have.has(k))).toEqual([]);
+  });
+
+  it("turns an old lead_status into a stage, and parks inactive ones for about 6 months", async () => {
+    const lead: any = await findOrCreateCustomer(seed(), { company: "Warm Co", lead_status: "lead", dry_run: true });
+    expect(lead.customer).toMatchObject({ sales_stage: "responded" });
+    const parked: any = await findOrCreateCustomer(seed(), { company: "Quiet Co", lead_status: "inactive", dry_run: true });
+    expect(parked.customer.sales_stage).toBe("not_now");
+    expect(parked.customer.not_now_until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    await expect(findOrCreateCustomer(seed(), { company: "X", sales_stage: "dnc" })).rejects.toThrow(/set_do_not_contact/);
   });
 
   it("needs a name, company or email", async () => {

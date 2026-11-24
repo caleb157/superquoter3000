@@ -86,10 +86,112 @@ function todayInIndia(now = /* @__PURE__ */ new Date()) {
   return new Date(now.getTime() + 5.5 * 3600 * 1e3).toISOString().slice(0, 10);
 }
 
+// src/lib/sales/sales-core.ts
+var SALES_STAGES = ["queued", "in_outreach", "responded", "in_conversation", "inquiry", "customer"];
+var SALES_EXITS = ["not_now", "not_a_fit", "dnc"];
+var ALL_SALES_STAGES = [...SALES_STAGES, ...SALES_EXITS];
+var STAGE_FROM_LEAD_STATUS = {
+  prospect: "queued",
+  lead: "responded",
+  active: "inquiry",
+  won: "customer",
+  inactive: "not_now",
+  churned: "not_now"
+};
+var stageFromLeadStatus = (status) => STAGE_FROM_LEAD_STATUS[(status ?? "").toLowerCase()] ?? "responded";
+function stageAfterTouch(stage2, direction, engaged = false) {
+  if (direction === "in") {
+    if (!stage2 || stage2 === "queued" || stage2 === "in_outreach" || stage2 === "not_now") return "responded";
+    if (stage2 === "responded" && engaged) return "in_conversation";
+    return null;
+  }
+  return !stage2 || stage2 === "queued" ? "in_outreach" : null;
+}
+var TOUCH_CHANNELS = ["linkedin", "email", "whatsapp", "call", "meeting", "other"];
+var BRIEF_PARTS = [
+  "company",
+  "products_close_to_ours",
+  "market",
+  "india_buying",
+  "qualification",
+  "conversation_so_far",
+  "suggested_next_move",
+  "watch_outs"
+];
+var FORGOTTEN_DAYS = 4;
+var DAY = 864e5;
+var addDaysYmd = (from, days) => {
+  const d = typeof from === "string" ? new Date(from) : from;
+  return new Date(d.getTime() + days * DAY).toISOString().slice(0, 10);
+};
+function normalizeLinkedin(url) {
+  if (!url) return null;
+  const m = url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^(www\.|[a-z]{2}\.)/, "").split(/[?#]/)[0].replace(/\/+$/, "");
+  if (!m.startsWith("linkedin.com/")) return null;
+  return `https://www.${m}`;
+}
+var normalizeEmail = (e) => {
+  const v = e?.trim().toLowerCase();
+  return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
+};
+var FREE_MAIL = /* @__PURE__ */ new Set(["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "aol.com", "live.com", "msn.com", "proton.me", "protonmail.com"]);
+function normalizeDomain(v) {
+  if (!v) return null;
+  let s = v.trim().toLowerCase();
+  if (s.includes("@")) s = s.split("@").pop() ?? "";
+  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s) || FREE_MAIL.has(s)) return null;
+  return s;
+}
+function canContact(contact, account, channel2, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  if (contact?.dnc) return { allowed: false, reason: "Person is on do not contact" };
+  if (account?.dnc || account?.sales_stage === "dnc") return { allowed: false, reason: "Account is on do not contact" };
+  if (account?.sales_stage === "not_a_fit") return { allowed: false, reason: "Account is marked not a fit" };
+  if (account?.sales_stage === "not_now" && account.not_now_until && account.not_now_until > today)
+    return { allowed: false, reason: `Not now until ${account.not_now_until}` };
+  if (channel2 === "email") {
+    if (contact?.never_email) return { allowed: false, reason: "Never email (bounced or unsubscribed)" };
+    if (contact && !contact.email) return { allowed: false, reason: "No email address" };
+  }
+  if (channel2 === "linkedin" && contact && !contact.linkedin_url) return { allowed: false, reason: "No LinkedIn profile" };
+  if (channel2 === "whatsapp" && contact && !contact.whatsapp && !contact.phone) return { allowed: false, reason: "No WhatsApp number" };
+  return { allowed: true, reason: null };
+}
+function isForgotten(touches, now = /* @__PURE__ */ new Date()) {
+  const lastIn = touches.filter((t) => t.direction === "in").map((t) => t.occurred_at).sort().pop();
+  const lastOut = touches.filter((t) => t.direction === "out").map((t) => t.occurred_at).sort().pop();
+  if (!lastIn || lastOut && lastOut >= lastIn) return { forgotten: false, waitingDays: 0 };
+  const days = Math.floor((now.getTime() - new Date(lastIn).getTime()) / DAY);
+  return { forgotten: days >= FORGOTTEN_DAYS, waitingDays: days };
+}
+var NEEDS_RANK = { forgotten: 0, qualified: 1, nudge: 2, draft: 3, task: 4, quiet: 5, back: 6 };
+var QUIET_DAYS = 10;
+function sortNeedsYou(items) {
+  return [...items].sort((a, b) => NEEDS_RANK[a.kind] - NEEDS_RANK[b.kind] || Number(!!b.engaged) - Number(!!a.engaged) || (b.waitingDays ?? 0) - (a.waitingDays ?? 0) || String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999")));
+}
+var wordCount = (text) => text?.trim() ? text.trim().split(/\s+/).length : 0;
+var needsItemKey = (e) => e.task ? `task:${e.task.id}` : e.kind;
+function isDismissalActive(d, ctx) {
+  return dismissalEndedBy(d, ctx) === null;
+}
+function dismissalEndedBy(d, ctx) {
+  if (d.undone_at) return "undone";
+  const today = ctx.today ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  if (d.action === "ignored" && d.until && d.until <= today) return "date";
+  if (ctx.lastInboundAt && ctx.lastInboundAt > d.dismissed_at) return "new_message";
+  if (d.item_key === "quiet" && ctx.lastTouchAt && ctx.lastTouchAt > d.dismissed_at) return "new_message";
+  if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
+  return null;
+}
+function stageMovePatch(_account, stage2, notNowUntil) {
+  return { sales_stage: stage2, not_now_until: stage2 === "not_now" ? notNowUntil ?? null : null };
+}
+
 // src/lib/mcp/tools/list-customers.ts
-var CUSTOMER_COLUMNS = "id, name, company, email, phone, linkedin_url, lead_status, source, notes, created_at";
+var CUSTOMER_COLUMNS = "id, name, company, email, phone, linkedin_url, sales_stage, not_now_until, source, notes, created_at";
 async function listCustomers(db, input) {
   let q = db.from("customers").select(CUSTOMER_COLUMNS).order("created_at", { ascending: false }).limit(input.limit ?? 50);
+  if (input.stage?.length) q = q.in("sales_stage", input.stage);
   const s = input.search ? cleanSearch(input.search) : "";
   if (s) q = q.or(`name.ilike.%${s}%,company.ilike.%${s}%,email.ilike.%${s}%`);
   return check(await q, "Could not list customers") ?? [];
@@ -97,9 +199,10 @@ async function listCustomers(db, input) {
 var list_customers_default = defineTool2({
   name: "list_customers",
   title: "List customers",
-  description: "List customers visible to the signed-in user, optionally filtered by a search string on name, company or email.",
+  description: "List customers (accounts) visible to the signed-in user with their sales stage, optionally filtered by stage and by a search string on name, company or email. The sales stage is the customer's only status: Queued, In outreach, Responded, In conversation, Inquiry, Customer, Not now, Not a fit, Do not contact.",
   inputSchema: {
     search: z.string().optional().describe("Optional text to match against name, company or email."),
+    stage: z.array(z.enum(ALL_SALES_STAGES)).optional().describe('Only these sales stages, e.g. ["customer"] or ["responded","in_conversation"].'),
     limit: z.number().int().min(1).max(200).optional().describe("Max rows to return (default 50).")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -837,7 +940,7 @@ var list_lookups_default = defineTool9({
 // src/lib/mcp/tools/find-or-create-customer.ts
 import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z9 } from "npm:zod@^3.25.76";
-var LEAD_STATUSES = ["lead", "active", "won", "inactive", "churned"];
+var LEAD_STATUSES = ["prospect", "lead", "active", "won", "inactive", "churned"];
 var exact = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
 async function findOrCreateCustomer(db, input) {
   const name = input.name?.trim() || "";
@@ -857,6 +960,7 @@ async function findOrCreateCustomer(db, input) {
       return { customer: rows[0], created: false, matched_on: field2, other_matches: rows.slice(1), dry_run: !!input.dry_run };
     }
   }
+  if (input.sales_stage === "dnc") throw new ToolError("Use set_do_not_contact for do not contact, so every sender is told.");
   if (!name && !company) throw new ToolError(`No customer has the email ${email}. Give a name or company to create one.`);
   const row2 = {
     name: name || company,
@@ -866,7 +970,9 @@ async function findOrCreateCustomer(db, input) {
     linkedin_url: input.linkedin_url?.trim() || null,
     source: input.source?.trim() || null,
     notes: input.notes?.trim() || null,
-    lead_status: input.lead_status ?? "active"
+    // The stage is the one status; the database mirrors lead_status from it. Default Inquiry, as before (old default "active").
+    sales_stage: input.sales_stage ?? (input.lead_status ? stageFromLeadStatus(input.lead_status) : "inquiry"),
+    ...input.sales_stage === "not_now" || !input.sales_stage && (input.lead_status === "inactive" || input.lead_status === "churned") ? { not_now_until: new Date(Date.now() + 182 * 864e5).toISOString().slice(0, 10) } : {}
   };
   if (input.dry_run) return { customer: row2, created: false, would_create: true, matched_on: null, dry_run: true };
   const customer = check(await db.from("customers").insert(row2).select(CUSTOMER_COLUMNS).single(), "Could not create the customer");
@@ -875,7 +981,7 @@ async function findOrCreateCustomer(db, input) {
 var find_or_create_customer_default = defineTool10({
   name: "find_or_create_customer",
   title: "Find or create a customer",
-  description: 'Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers default to lead_status active, like the app; lead_status lead also starts the "Customer set to Lead" task rule. Use dry_run to see what would happen without writing.',
+  description: 'Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers start in sales stage Inquiry unless sales_stage is given (Responded or In conversation also starts the "Customer becomes a lead" task rule). Use dry_run to see what would happen without writing.',
   inputSchema: {
     name: z9.string().max(200).optional().describe("Contact or customer name."),
     company: z9.string().max(200).optional().describe("Company name."),
@@ -884,7 +990,8 @@ var find_or_create_customer_default = defineTool10({
     linkedin_url: z9.string().max(500).optional(),
     source: z9.string().max(100).optional().describe("Where the lead came from, e.g. Email, LinkedIn, Referral."),
     notes: z9.string().max(5e3).optional(),
-    lead_status: z9.enum(LEAD_STATUSES).optional().describe("Only used when creating. Default active."),
+    sales_stage: z9.enum(ALL_SALES_STAGES).optional().describe("Only used when creating. Default inquiry. Not now parks the customer for about 6 months."),
+    lead_status: z9.enum(LEAD_STATUSES).optional().describe("Deprecated, use sales_stage. Old names are turned into a stage (lead = responded, active = inquiry, won = customer, inactive/churned = not_now)."),
     dry_run: z9.boolean().optional().describe("Report the match or the record that would be created, without writing.")
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -1731,93 +1838,6 @@ var get_sales_analytics_default = defineTool16({
 import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z16 } from "npm:zod@^3.25.76";
 
-// src/lib/sales/sales-core.ts
-var SALES_STAGES = ["queued", "in_outreach", "responded", "in_conversation", "inquiry", "customer"];
-var SALES_EXITS = ["not_now", "not_a_fit", "dnc"];
-var ALL_SALES_STAGES = [...SALES_STAGES, ...SALES_EXITS];
-var TOUCH_CHANNELS = ["linkedin", "email", "whatsapp", "call", "meeting", "other"];
-var BRIEF_PARTS = [
-  "company",
-  "products_close_to_ours",
-  "market",
-  "india_buying",
-  "qualification",
-  "conversation_so_far",
-  "suggested_next_move",
-  "watch_outs"
-];
-var FORGOTTEN_DAYS = 4;
-var DAY = 864e5;
-var addDaysYmd = (from, days) => {
-  const d = typeof from === "string" ? new Date(from) : from;
-  return new Date(d.getTime() + days * DAY).toISOString().slice(0, 10);
-};
-function normalizeLinkedin(url) {
-  if (!url) return null;
-  const m = url.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^(www\.|[a-z]{2}\.)/, "").split(/[?#]/)[0].replace(/\/+$/, "");
-  if (!m.startsWith("linkedin.com/")) return null;
-  return `https://www.${m}`;
-}
-var normalizeEmail = (e) => {
-  const v = e?.trim().toLowerCase();
-  return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
-};
-var FREE_MAIL = /* @__PURE__ */ new Set(["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "aol.com", "live.com", "msn.com", "proton.me", "protonmail.com"]);
-function normalizeDomain(v) {
-  if (!v) return null;
-  let s = v.trim().toLowerCase();
-  if (s.includes("@")) s = s.split("@").pop() ?? "";
-  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
-  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s) || FREE_MAIL.has(s)) return null;
-  return s;
-}
-function canContact(contact, account, channel2, today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
-  if (contact?.dnc) return { allowed: false, reason: "Person is on do not contact" };
-  if (account?.dnc || account?.sales_stage === "dnc") return { allowed: false, reason: "Account is on do not contact" };
-  if (account?.sales_stage === "not_a_fit") return { allowed: false, reason: "Account is marked not a fit" };
-  if (account?.sales_stage === "not_now" && account.not_now_until && account.not_now_until > today)
-    return { allowed: false, reason: `Not now until ${account.not_now_until}` };
-  if (channel2 === "email") {
-    if (contact?.never_email) return { allowed: false, reason: "Never email (bounced or unsubscribed)" };
-    if (contact && !contact.email) return { allowed: false, reason: "No email address" };
-  }
-  if (channel2 === "linkedin" && contact && !contact.linkedin_url) return { allowed: false, reason: "No LinkedIn profile" };
-  if (channel2 === "whatsapp" && contact && !contact.whatsapp && !contact.phone) return { allowed: false, reason: "No WhatsApp number" };
-  return { allowed: true, reason: null };
-}
-function isForgotten(touches, now = /* @__PURE__ */ new Date()) {
-  const lastIn = touches.filter((t) => t.direction === "in").map((t) => t.occurred_at).sort().pop();
-  const lastOut = touches.filter((t) => t.direction === "out").map((t) => t.occurred_at).sort().pop();
-  if (!lastIn || lastOut && lastOut >= lastIn) return { forgotten: false, waitingDays: 0 };
-  const days = Math.floor((now.getTime() - new Date(lastIn).getTime()) / DAY);
-  return { forgotten: days >= FORGOTTEN_DAYS, waitingDays: days };
-}
-var NEEDS_RANK = { forgotten: 0, qualified: 1, nudge: 2, draft: 3, task: 4, quiet: 5, back: 6 };
-var QUIET_DAYS = 10;
-function sortNeedsYou(items) {
-  return [...items].sort((a, b) => NEEDS_RANK[a.kind] - NEEDS_RANK[b.kind] || Number(!!b.engaged) - Number(!!a.engaged) || (b.waitingDays ?? 0) - (a.waitingDays ?? 0) || String(a.due_date ?? "9999").localeCompare(String(b.due_date ?? "9999")));
-}
-var wordCount = (text) => text?.trim() ? text.trim().split(/\s+/).length : 0;
-var needsItemKey = (e) => e.task ? `task:${e.task.id}` : e.kind;
-function isDismissalActive(d, ctx) {
-  return dismissalEndedBy(d, ctx) === null;
-}
-function dismissalEndedBy(d, ctx) {
-  if (d.undone_at) return "undone";
-  const today = ctx.today ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  if (d.action === "ignored" && d.until && d.until <= today) return "date";
-  if (ctx.lastInboundAt && ctx.lastInboundAt > d.dismissed_at) return "new_message";
-  if (d.item_key === "quiet" && ctx.lastTouchAt && ctx.lastTouchAt > d.dismissed_at) return "new_message";
-  if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
-  return null;
-}
-function stageMovePatch(account, stage2, notNowUntil) {
-  const patch = { sales_stage: stage2, not_now_until: stage2 === "not_now" ? notNowUntil ?? null : null };
-  if (stage2 === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
-  if (stage2 === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
-  return patch;
-}
-
 // src/lib/sales/needs-you.ts
 var QUALIFIED = /* @__PURE__ */ new Set(["in_conversation", "inquiry"]);
 function buildNeedsYou(accounts, touches, tasks, now = /* @__PURE__ */ new Date(), horizonDays = 7, engagedIds = /* @__PURE__ */ new Set()) {
@@ -2077,7 +2097,7 @@ async function upsertAccount(db, input) {
     const account2 = check(await db.from("customers").update(patch).eq("id", found.id).select(ACCOUNT_COLUMNS).single(), "Could not update the account");
     return { account: account2, created: false, updated: Object.keys(patch), matched_on, dry_run: false };
   }
-  const row2 = { name: company, company, lead_status: "prospect", sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
+  const row2 = { name: company, company, sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
   if (input.dry_run) return { account: row2, created: false, would_create: true, matched_on: null, dry_run: true };
   const account = check(await db.from("customers").insert(row2).select(ACCOUNT_COLUMNS).single(), "Could not create the account");
   return { account, created: true, matched_on: null, dry_run: false };
@@ -2223,7 +2243,9 @@ async function logTouch(db, input) {
     word_count: input.direction === "out" ? wordCount(input.body) : null,
     logged_by: clean(input.logged_by)
   };
-  const stageMove = input.direction === "in" && account && (!account.sales_stage || account.sales_stage === "queued" || account.sales_stage === "in_outreach") ? "responded" : input.direction === "out" && account && account.sales_stage === "queued" ? "in_outreach" : null;
+  const occurredAt = row2.occurred_at;
+  const parkedLater = account?.sales_stage === "not_now" && !!account.sales_stage_changed_at && occurredAt < account.sales_stage_changed_at;
+  const stageMove = account && !parkedLater ? stageAfterTouch(account.sales_stage, input.direction, !!input.engaged) : null;
   if (input.dry_run) return { touch: row2, created: false, dry_run: true, stage_move: stageMove, marks_engaged: !!input.engaged && !!contact && !contact.engaged };
   const touch = check(await db.from("sales_touches").insert(row2).select("id, channel, direction, occurred_at, customer_id, contact_id").single(), "Could not log the touch");
   if (input.engaged && contact && !contact.engaged) check(await db.from("contacts").update({ engaged: true }).eq("id", contact.id), "Could not mark the contact engaged");
@@ -2243,7 +2265,7 @@ async function setSalesStage(db, input) {
   if (account.dnc) throw new ToolError(`${account.company ?? account.name} is on do not contact; only Caleb can clear that in PD HQ.`);
   const patch = stageMovePatch(account, input.stage, input.not_now_until);
   if (input.dry_run) return { from: account.sales_stage, to: input.stage, patch, changed: account.sales_stage !== input.stage, dry_run: true };
-  if (account.sales_stage === input.stage && !patch.lead_status) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
+  if (account.sales_stage === input.stage && (input.stage !== "not_now" || account.not_now_until === input.not_now_until)) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
   check(await db.from("customers").update(patch).eq("id", account.id), "Could not move the stage");
   const ev = check(await db.from("sales_stage_events").select("id").eq("customer_id", account.id).eq("to_stage", input.stage).order("occurred_at", { ascending: false }).limit(1), "Could not read the stage log") ?? [];
   if (ev.length) check(await db.from("sales_stage_events").update({ reason, ...input.actor ? { actor: input.actor } : {} }).eq("id", ev[0].id), "Could not save the reason");
@@ -3712,8 +3734,8 @@ var TOOLS = [
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.8.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email). Needs you: `list_needs_you` is the list as the Sales page shows it; `dismiss_needs_you` marks an item Done or Ignored (with a snooze or forever) or undoes it. Done and Ignored items stay off until a new inbound message, the Ignore date or Undo; `list_sales_pipeline` shows them as needs_you_held and `save_follow_up` will not add a new follow-up for them, so watchdog and sync re-runs never bring them back.",
+  version: "0.9.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: a customer's one status is its sales stage (lead status is only a mirror the database keeps; never set it); `list_customers` filters by stage; `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email). Needs you: `list_needs_you` is the list as the Sales page shows it; `dismiss_needs_you` marks an item Done or Ignored (with a snooze or forever) or undoes it. Done and Ignored items stay off until a new inbound message, the Ignore date or Undo; `list_sales_pipeline` shows them as needs_you_held and `save_follow_up` will not add a new follow-up for them, so watchdog and sync re-runs never bring them back.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

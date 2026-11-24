@@ -147,7 +147,7 @@ export function CreateInquiryDialog({
         company,
         email: newCust.email.trim() || null,
         phone: newCust.phone.trim() || null,
-        lead_status: 'active',
+        sales_stage: 'inquiry',
       })
       .select('id, name, company')
       .single();
