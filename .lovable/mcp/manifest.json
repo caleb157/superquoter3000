@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -2120,6 +2120,439 @@
                 "additionalProperties": false
               },
               "maxItems": 20
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_prospects",
+        "title": "Search prospects",
+        "description": "Search every company in Prospects (full TAM, filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy, Apollo) by text and filter by list ids, prospect type, tier (A-D, X failed the fit gate), country, tag and status. Best first by default. Companies that failed the fit gate are hidden unless lists includes tam-raw or a status is given. include_facets adds the lists with counts.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "lists": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 50
+            },
+            "types": {
+              "$ref": "#/properties/lists"
+            },
+            "countries": {
+              "$ref": "#/properties/lists"
+            },
+            "tags": {
+              "$ref": "#/properties/lists"
+            },
+            "tiers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "X"
+                ]
+              }
+            },
+            "status": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "researching",
+                  "ready",
+                  "promoted",
+                  "excluded"
+                ]
+              }
+            },
+            "in_crm": {
+              "type": "boolean"
+            },
+            "has_people": {
+              "type": "boolean"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "rank",
+                "name",
+                "trade",
+                "recent"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "include_facets": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "set_prospect_rank",
+        "title": "Move a prospect up or down",
+        "description": "Move a prospect one tier up (move 1) or down (move -1), set its tier (A-D, or auto to go back to the score), or pin it to the top of its tier. A reason is required and is logged. Caleb's own moves come first: do not undo a tier he set unless he asks. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "tier": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "D",
+                "auto"
+              ]
+            },
+            "move": {
+              "type": "number",
+              "enum": [
+                1,
+                -1
+              ]
+            },
+            "pinned": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 1000
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "reason"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "promote_prospect",
+        "title": "Put a prospect into the pipeline",
+        "description": "Add a prospect to the Sales pipeline as a Queued account with its people as contacts, or link it to the account already in the CRM (matched on domain, then name). Refuses do not contact. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "owner": {
+              "type": "string",
+              "maxLength": 20
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "import_prospects",
+        "title": "Load prospects",
+        "description": "Load up to 500 companies (and their people) into Prospects, optionally onto a list, e.g. this week's picks (kind weekly_outreach, id weekly-main-YYYY-MM-DD). Matches on domain, then name and country, so nothing is doubled; links accounts already in the CRM and carries do not contact over. Never overwrites a tier set by hand. replace_list clears the list's old members first. The full monthly run goes through Sales > Prospects > Load file instead. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "list": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "tam_raw",
+                    "tam_filtered",
+                    "research",
+                    "trade_research",
+                    "weekly_outreach",
+                    "waalaxy",
+                    "apollo",
+                    "linkedin",
+                    "customers",
+                    "custom"
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "run_date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "replace_list": {
+              "type": "boolean"
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "domain": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "website": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "country": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "state": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "city": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "prospect_type": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "maxItems": 30
+                  },
+                  "industry": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "employees": {
+                    "type": "integer"
+                  },
+                  "linkedin_url": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "products": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "trade_value_2025": {
+                    "type": "number"
+                  },
+                  "trade_shipments": {
+                    "type": "integer"
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "A",
+                      "B",
+                      "C",
+                      "D",
+                      "X"
+                    ]
+                  },
+                  "rank": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "researching",
+                      "ready",
+                      "promoted",
+                      "excluded"
+                    ]
+                  },
+                  "excluded_reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "dnc": {
+                    "type": "boolean"
+                  },
+                  "list_rank": {
+                    "type": "integer"
+                  },
+                  "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": true
+              },
+              "maxItems": 500
+            },
+            "people": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "full_name": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "linkedin_url": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "company": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "domain": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "country": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "location": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "outreach_state": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "decision_maker": {
+                    "type": "boolean"
+                  },
+                  "dnc": {
+                    "type": "boolean"
+                  },
+                  "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "full_name"
+                ],
+                "additionalProperties": true
+              },
+              "maxItems": 2000
             },
             "dry_run": {
               "type": "boolean"
