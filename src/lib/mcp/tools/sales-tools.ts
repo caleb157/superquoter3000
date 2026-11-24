@@ -254,7 +254,7 @@ export const logJobRunTool = defineTool({
 export const listSalesPipelineTool = defineTool({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups. Empty (null) fields are left out.",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z.string().uuid().optional(),

@@ -2087,16 +2087,19 @@ async function listPipeline(db, input) {
   const n = Math.min(input.include_touches ?? 5, 50);
   const touches = n ? check(await db.from("sales_touches").select("id, customer_id, contact_id, channel, direction, occurred_at, body, auto_sent, is_drip").in("customer_id", ids).order("occurred_at", { ascending: false }).limit(n * ids.length), "Could not read touches") ?? [] : [];
   const tasks = check(await db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_status").in("customer_id", ids).eq("status", "open"), "Could not read follow-ups") ?? [];
+  const lean = ({ customer_id: _, ...row2 }) => dropNulls(row2);
+  const of = (rows, id) => rows.filter((r) => r.customer_id === id).map(lean);
   return {
     count: accounts.length,
     accounts: accounts.map((a) => ({
-      ...a,
-      contacts: contacts.filter((c) => c.customer_id === a.id),
-      touches: touches.filter((t) => t.customer_id === a.id).slice(0, n),
-      open_follow_ups: tasks.filter((t) => t.customer_id === a.id)
+      ...dropNulls(a),
+      contacts: of(contacts, a.id),
+      touches: of(touches, a.id).slice(0, n),
+      open_follow_ups: of(tasks, a.id)
     }))
   };
 }
+var dropNulls = (row2) => Object.fromEntries(Object.entries(row2).filter(([, v]) => v !== null));
 
 // src/lib/mcp/tools/sales-tools.ts
 var write = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -2325,7 +2328,7 @@ var logJobRunTool = defineTool17({
 var listSalesPipelineTool = defineTool17({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups. Empty (null) fields are left out.",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z16.string().uuid().optional(),

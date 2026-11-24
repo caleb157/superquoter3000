@@ -463,13 +463,18 @@ export async function listPipeline(db: Db, input: ListPipelineInput) {
     ? check(await db.from("sales_touches").select("id, customer_id, contact_id, channel, direction, occurred_at, body, auto_sent, is_drip").in("customer_id", ids).order("occurred_at", { ascending: false }).limit(n * ids.length), "Could not read touches") ?? []
     : [];
   const tasks = check(await db.from("tasks").select("id, customer_id, title, due_date, status, nudge_step, draft_status").in("customer_id", ids).eq("status", "open"), "Could not read follow-ups") ?? [];
+  // Every job reads this into Claude's context: leave out empty fields and the parent id repeated on each child.
+  const lean = ({ customer_id: _, ...row }: Record<string, unknown>) => dropNulls(row);
+  const of = (rows: { customer_id: string }[], id: string) => rows.filter((r) => r.customer_id === id).map(lean);
   return {
     count: accounts.length,
     accounts: accounts.map((a: { id: string }) => ({
-      ...a,
-      contacts: contacts.filter((c: { customer_id: string }) => c.customer_id === a.id),
-      touches: touches.filter((t: { customer_id: string }) => t.customer_id === a.id).slice(0, n),
-      open_follow_ups: tasks.filter((t: { customer_id: string }) => t.customer_id === a.id),
+      ...dropNulls(a),
+      contacts: of(contacts, a.id),
+      touches: of(touches, a.id).slice(0, n),
+      open_follow_ups: of(tasks, a.id),
     })),
   };
 }
+
+const dropNulls = (row: object) => Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null));
