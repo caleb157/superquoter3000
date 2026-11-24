@@ -3017,6 +3017,75 @@ export type Database = {
         }
         Relationships: []
       }
+      needs_you_dismissals: {
+        Row: {
+          action: string
+          actor: string | null
+          customer_id: string
+          detail: string | null
+          dismissed_at: string
+          dismissed_by: string | null
+          id: string
+          item_key: string
+          kind: string
+          note: string | null
+          task_id: string | null
+          task_prev: Json | null
+          title: string | null
+          undone_at: string | null
+          until: string | null
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          customer_id: string
+          detail?: string | null
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_key: string
+          kind: string
+          note?: string | null
+          task_id?: string | null
+          task_prev?: Json | null
+          title?: string | null
+          undone_at?: string | null
+          until?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          customer_id?: string
+          detail?: string | null
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_key?: string
+          kind?: string
+          note?: string | null
+          task_id?: string | null
+          task_prev?: Json | null
+          title?: string | null
+          undone_at?: string | null
+          until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "needs_you_dismissals_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_you_dismissals_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_unit_cogs: {
         Row: {
           cost_each_inr: number | null

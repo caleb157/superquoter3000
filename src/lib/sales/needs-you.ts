@@ -1,5 +1,5 @@
 // Builds the Sales page's "Needs you" list from accounts, touches and open tasks. Pure, no imports outside sales-core.
-import { isForgotten, QUIET_DAYS, sortNeedsYou, type NeedsYouItem, type TouchLite } from "./sales-core";
+import { isDismissalActive, isForgotten, needsItemKey, QUIET_DAYS, sortNeedsYou, type DismissalLite, type NeedsYouItem, type TouchLite } from "./sales-core";
 
 export type AccountRow = {
   id: string; name: string; company: string | null; sales_stage: string | null; dnc: boolean; next_step?: string | null; next_step_date?: string | null;
@@ -80,6 +80,42 @@ export function buildNeedsYou(accounts: AccountRow[], touches: TouchRow[], tasks
     }
   }
   return sortNeedsYou(out);
+}
+
+/** Latest message per account (inbound only unless anyDirection), for dismissal checks. */
+export function lastInboundBy(touches: { customer_id: string | null; direction: string; occurred_at: string }[], anyDirection = false): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const t of touches) {
+    if ((!anyDirection && t.direction !== "in") || !t.customer_id) continue;
+    const cur = m.get(t.customer_id);
+    if (!cur || t.occurred_at > cur) m.set(t.customer_id, t.occurred_at);
+  }
+  return m;
+}
+
+/**
+ * Splits Needs you into what shows and what Done or Ignore is holding back (see isDismissalActive).
+ * The newest live dismissal for an account and item wins.
+ */
+export function applyDismissals<E extends NeedsYouEntry>(entries: E[], dismissals: DismissalLite[], touches: TouchRow[], now = new Date()) {
+  const today = now.toISOString().slice(0, 10);
+  const inbound = lastInboundBy(touches);
+  const anyTouch = lastInboundBy(touches, true);
+  const latest = new Map<string, DismissalLite>();
+  for (const d of dismissals) {
+    if (d.undone_at) continue;
+    const k = `${d.customer_id}|${d.item_key}`;
+    const cur = latest.get(k);
+    if (!cur || d.dismissed_at > cur.dismissed_at) latest.set(k, d);
+  }
+  const shown: E[] = [];
+  const hidden: (E & { dismissal: DismissalLite })[] = [];
+  for (const e of entries) {
+    const d = latest.get(`${e.account.id}|${needsItemKey(e)}`);
+    if (d && isDismissalActive(d, { lastInboundAt: inbound.get(e.account.id), lastTouchAt: anyTouch.get(e.account.id), stageChangedAt: e.account.sales_stage_changed_at, today })) hidden.push({ ...e, dismissal: d });
+    else shown.push(e);
+  }
+  return { shown, hidden };
 }
 
 /** Pipeline columns: count and accounts per stage. */
