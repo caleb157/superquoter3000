@@ -8,6 +8,9 @@
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
+-- promote_prospect() copies the website onto the new account.
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS website text;
+
 -- ---------- lists ----------
 CREATE TABLE IF NOT EXISTS public.prospect_lists (
   id text PRIMARY KEY,                       -- slug, e.g. 'tam-filtered', 'research-2026-11-23'
@@ -157,7 +160,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.prospects_log_manual()
  RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public'
 AS $$
-DECLARE who text := coalesce(nullif(current_setting('app.actor', true), ''), (SELECT email FROM auth.users WHERE id = auth.uid()), 'system');
+DECLARE who text := coalesce(nullif(current_setting('app.actor', true), ''), nullif(auth.jwt() ->> 'email', ''), 'system');
         why text := nullif(current_setting('app.reason', true), '');
 BEGIN
   IF NEW.tier_override IS DISTINCT FROM OLD.tier_override THEN
