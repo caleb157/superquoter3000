@@ -54,6 +54,7 @@ export function ProspectsTab() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<ProspectRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [capped, setCapped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [missing, setMissing] = useState(false);
@@ -91,7 +92,7 @@ export function ProspectsTab() {
     if (id !== reqId.current) return;
     setLoading(false);
     if (error) { if (isMissingSchema(error)) setMissing(true); else toast.error(error.message); return; }
-    setRows(data?.rows ?? []); setTotal(data?.total ?? 0);
+    setRows(data?.rows ?? []); setTotal(data?.total ?? 0); setCapped(!!data?.capped);
   };
   useEffect(() => { void search(); }, [filters, page]);
 
@@ -195,8 +196,8 @@ export function ProspectsTab() {
       {/* results */}
       <Card><CardContent className="p-0">
         <div className="flex items-center justify-between px-3 py-2 text-sm border-b">
-          <span className="text-muted-foreground">{loading ? 'Searching…' : `${n(total)} ${total === 1 ? 'company' : 'companies'}`}</span>
-          <Pager page={page} total={total} onPage={setPage} />
+          <span className="text-muted-foreground">{loading ? 'Searching…' : capped ? 'Over 10,000 companies' : `${n(total)} ${total === 1 ? 'company' : 'companies'}`}</span>
+          <Pager page={page} total={total} capped={capped} onPage={setPage} />
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -237,7 +238,7 @@ export function ProspectsTab() {
             </TableBody>
           </Table>
         </div>
-        {total > PAGE && <div className="flex justify-end px-3 py-2 border-t"><Pager page={page} total={total} onPage={setPage} /></div>}
+        {total > PAGE && <div className="flex justify-end px-3 py-2 border-t"><Pager page={page} total={total} capped={capped} onPage={setPage} /></div>}
       </CardContent></Card>
 
       <ProspectSheet id={open} onClose={() => setOpen(null)} lists={listName} onChanged={(id, patch) => { patchRow(id, patch); }} />
@@ -292,13 +293,13 @@ function Multi({ label, options, value, onToggle }: { label: string; options: Op
   );
 }
 
-function Pager({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
+function Pager({ page, total, capped, onPage }: { page: number; total: number; capped?: boolean; onPage: (p: number) => void }) {
   const last = Math.max(0, Math.ceil(total / PAGE) - 1);
   if (total <= PAGE) return null;
   return (
     <div className="flex items-center gap-1 text-xs">
       <Button variant="ghost" size="sm" className="h-7" disabled={page === 0} onClick={() => onPage(page - 1)}>Previous</Button>
-      <span className="tabular-nums text-muted-foreground">{n(page * PAGE + 1)}–{n(Math.min(total, (page + 1) * PAGE))} of {n(total)}</span>
+      <span className="tabular-nums text-muted-foreground">{n(page * PAGE + 1)}–{n(Math.min(total, (page + 1) * PAGE))} of {capped ? 'over 10,000' : n(total)}</span>
       <Button variant="ghost" size="sm" className="h-7" disabled={page >= last} onClick={() => onPage(page + 1)}>Next</Button>
     </div>
   );
@@ -586,7 +587,8 @@ function LoadDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
       }
       const last = batcher.flush(); if (last) await send(last);
       st.phase = 'Counting list members…'; setProgress({ ...st });
-      await db.rpc('refresh_prospect_counts');
+      // the counts are kept as rows change; this only re-checks list totals, so a slow answer must not fail the load
+      await db.rpc('refresh_prospect_counts').then(() => undefined, () => undefined);
       writeCheckpoint(null);
       st.phase = 'Done'; st.done = st.total; setProgress({ ...st });
       setFinished(true); onDone();
