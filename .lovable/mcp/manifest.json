@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -2553,6 +2553,279 @@
                 "additionalProperties": true
               },
               "maxItems": 2000
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_sales_overview",
+        "title": "Sales command center",
+        "description": "The Sales Command center in numbers: this week's LinkedIn and email sends, bounces, replies, meetings, inquiries and customers against last week (same point and full week) and the targets; the funnel by stage now and a week ago; every scheduled run with its state, last report, last fire, next fire and credits; latest Claude and tool usage with the weekly pace; Caleb's tasks overdue, today and the next 7 days. Weeks start Monday 00:00 IST. Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "assignee": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "Tasks for this assignee code (default CQ)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "log_usage",
+        "title": "Log usage readings",
+        "description": "Log Claude plan use (source claude: weekly_pct, session_pct, with resets_at and plan) or a tool's balance (firecrawl, reoon, waalaxy, apollo: credits_left, credits_used) so the Command center can show usage over time for the Pro vs Max call. Readings share one taken_at. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "readings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "metric": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "description": "pct, credits or usd."
+                  },
+                  "resets_at": {
+                    "type": "string"
+                  },
+                  "plan": {
+                    "type": "string",
+                    "maxLength": 50
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "source",
+                  "metric",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 50
+            },
+            "taken_at": {
+              "type": "string",
+              "description": "ISO date-time the readings were taken. Default now."
+            },
+            "logged_by": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "readings"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "sync_schedules",
+        "title": "Sync the run board",
+        "description": "Bring the Command center's run board in line with the scheduled tasks: for each run (by id) its last fire time and status, next fire, and any change to its cadence, cron (IST), budget or status. A new id needs job, name and cadence. Never deletes; set status retired instead. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "schedules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "job": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "cadence": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "cron": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runs_where": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "what_it_does": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "paused",
+                      "planned",
+                      "retired"
+                    ]
+                  },
+                  "run_once_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "credit_budget": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "last_fired_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "last_fire_status": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "next_run_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 100
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "schedules"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "mark_bounced",
+        "title": "Mark an email bounced",
+        "description": "Mark the latest outbound email to an address (or one email touch by external_id) as bounced, for the Command center's bounce rate (the email ramp holds while bounces stay under 2%). A hard bounce (default) also sets never-email on the contact. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "maxLength": 320
+            },
+            "touch_external_id": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "bounced_at": {
+              "type": "string"
+            },
+            "hard": {
+              "type": "boolean",
+              "description": "Default true. A soft bounce only marks the touch."
             },
             "dry_run": {
               "type": "boolean"

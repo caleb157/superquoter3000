@@ -3,10 +3,10 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/whoami.ts
-import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 var whoami_default = defineTool({
   name: "whoami",
   title: "Who am I",
@@ -30,7 +30,7 @@ var whoami_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-customers.ts
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z } from "npm:zod@^3.25.76";
 
 // src/lib/mcp/shared.ts
@@ -110,7 +110,7 @@ var list_customers_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-inquiries.ts
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z2 } from "npm:zod@^3.25.76";
 var INQUIRY_COLUMNS = "id, rfq_number, title, status, priority, customer_id, received_date, quoted_date, target_completion_date, quoting_currency, requirements, notes, drive_url, created_at, updated_at";
 var INQUIRY_STATUSES = ["active", "paused", "projected_po", "po", "complete", "cancelled"];
@@ -140,7 +140,7 @@ var list_inquiries_default = defineTool3({
 });
 
 // src/lib/mcp/tools/list-products.ts
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
 var PRODUCT_COLUMNS = "id, sku, name, customer_rfq_id, product_type_id, quantity, target_price_usd, photo_url, design_stage, quote_stage, sample_stage, calculated_unit_price_usd, created_at";
 async function listProducts(db, input) {
@@ -169,7 +169,7 @@ var list_products_default = defineTool4({
 });
 
 // src/lib/mcp/tools/list-tasks.ts
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z4 } from "npm:zod@^3.25.76";
 var TASK_COLUMNS = "id, title, description, status, priority, due_date, assignee, association_type, association_id, association_label, inquiry_id, customer_id, source_event, created_at";
 async function listTasks(db, input) {
@@ -201,7 +201,7 @@ var list_tasks_default = defineTool5({
 });
 
 // src/lib/mcp/tools/add-cogs-item.ts
-import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z5 } from "npm:zod@^3.25.76";
 var COGS_TYPES = [
   "Raw Piece",
@@ -271,7 +271,7 @@ var add_cogs_item_default = defineTool6({
 });
 
 // src/lib/mcp/tools/list-cogs-items.ts
-import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z6 } from "npm:zod@^3.25.76";
 var inputSchema2 = {
   product_id: z6.string().uuid().describe("UUID of the product."),
@@ -296,7 +296,7 @@ var list_cogs_items_default = defineTool7({
 });
 
 // src/lib/mcp/tools/update-cogs-item.ts
-import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z7 } from "npm:zod@^3.25.76";
 var COGS_TYPES2 = [
   "Raw Piece",
@@ -397,7 +397,7 @@ var update_cogs_item_default = defineTool8({
 });
 
 // src/lib/mcp/tools/list-lookups.ts
-import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z8 } from "npm:zod@^3.25.76";
 
 // src/lib/costing-intake-core.ts
@@ -835,7 +835,7 @@ var list_lookups_default = defineTool9({
 });
 
 // src/lib/mcp/tools/find-or-create-customer.ts
-import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z9 } from "npm:zod@^3.25.76";
 var LEAD_STATUSES = ["lead", "active", "won", "inactive", "churned"];
 var exact = (v) => v.trim().replace(/[\\%_]/g, (m) => `\\${m}`);
@@ -897,7 +897,7 @@ var find_or_create_customer_default = defineTool10({
 });
 
 // src/lib/mcp/tools/create-inquiry.ts
-import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z10 } from "npm:zod@^3.25.76";
 
 // src/lib/inquiry-list-totals.ts
@@ -1045,7 +1045,7 @@ var create_inquiry_default = defineTool11({
 });
 
 // src/lib/mcp/tools/import-costing-intake.ts
-import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z11 } from "npm:zod@^3.25.76";
 var MAX_INTAKE_ROWS = 100;
 async function importCostingIntake(db, input) {
@@ -1117,7 +1117,7 @@ Warnings:
 });
 
 // src/lib/mcp/tools/attach-product-photo.ts
-import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z12 } from "npm:zod@^3.25.76";
 var PHOTO_BUCKET = "product-photos";
 var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -1174,7 +1174,7 @@ var attach_product_photo_default = defineTool13({
 });
 
 // src/lib/mcp/tools/create-sample-request.ts
-import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z13 } from "npm:zod@^3.25.76";
 async function createSampleRequest(db, input, today = todayInIndia()) {
   const ids = [...new Set(input.product_ids)];
@@ -1250,7 +1250,7 @@ var create_sample_request_default = defineTool14({
 });
 
 // src/lib/mcp/tools/create-task.ts
-import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z14 } from "npm:zod@^3.25.76";
 var PRIORITIES2 = ["low", "normal", "high", "urgent"];
 var recurrence = z14.object({
@@ -1350,7 +1350,7 @@ var create_task_default = defineTool15({
 });
 
 // src/lib/mcp/tools/get-sales-analytics.ts
-import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z15 } from "npm:zod@^3.25.76";
 
 // src/lib/inquiry-financials.ts
@@ -1728,7 +1728,7 @@ var get_sales_analytics_default = defineTool16({
 });
 
 // src/lib/mcp/tools/sales-tools.ts
-import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z16 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/sales-core.ts
@@ -2352,7 +2352,7 @@ var SALES_TOOLS = [
 ];
 
 // src/lib/mcp/tools/traction-tools.ts
-import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z17 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/traction.ts
@@ -2643,7 +2643,7 @@ var saveContentTool = defineTool18({
 var TRACTION_TOOLS = [listTractionBoardTool, saveTractionIdeaTool, saveCommunityTool, listContentTool, saveContentTool];
 
 // src/lib/mcp/tools/prospect-tools.ts
-import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z18 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/prospects.ts
@@ -2857,7 +2857,7 @@ var importProspectsTool = defineTool19({
 var PROSPECT_TOOLS = [searchProspectsTool, setProspectRankTool, promoteProspectTool, importProspectsTool];
 
 // src/lib/mcp/tools/command-center-tools.ts
-import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z19 } from "npm:zod@^3.25.76";
 
 // src/lib/sales/prospecting.ts
@@ -3388,5 +3388,5 @@ var mcp_default = defineMcp({
 });
 
 // lovable-mcp-supabase-entry.ts
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.1/stacks/supabase";
+import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.0/stacks/supabase";
 Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
