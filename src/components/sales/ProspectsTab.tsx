@@ -504,6 +504,29 @@ async function* readRecords(file: File) {
   if (rest.trim()) yield* splitLines(rest + '\n').lines;
 }
 
+/**
+ * Sends rows in one call; if the database runs out of time, halves the rows and tries each half,
+ * down to SPLIT_MIN rows. Imports are idempotent, so re-sending rows is safe. Counts are added per part that succeeds.
+ */
+const SPLIT_MIN = 25;
+const isTimeout = (msg?: string) => !!msg && /statement timeout|canceling statement|timed out|504|Gateway/i.test(msg);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RpcResult = { data: any; error: { message: string } | null };
+async function sendSplitting(
+  rows: Record<string, unknown>[],
+  call: (part: Record<string, unknown>[]) => PromiseLike<RpcResult>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  count: (data: any) => void,
+): Promise<{ error: { message: string } | null }> {
+  const res = await call(rows);
+  if (!res.error) { count(res.data); return { error: null }; }
+  if (!isTimeout(res.error.message) || rows.length <= SPLIT_MIN) return { error: res.error };
+  const mid = Math.ceil(rows.length / 2);
+  const a = await sendSplitting(rows.slice(0, mid), call, count);
+  if (a.error) return a;
+  return sendSplitting(rows.slice(mid), call, count);
+}
+
 function LoadDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [running, setRunning] = useState(false);
@@ -537,11 +560,13 @@ function LoadDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
           }
           if (!res.error) st.lists += rows.length;
         } else if (b.kind === 'prospects') {
-          res = await db.rpc('import_prospects', { p_list_id: null, p_rows: rows, p_source: source, p_replace_list: false });
-          if (!res.error) { st.created += res.data?.created ?? 0; st.updated += res.data?.updated ?? 0; st.linked += res.data?.linked_to_accounts ?? 0; }
+          res = await sendSplitting(rows, (part) => db.rpc('import_prospects', { p_list_id: null, p_rows: part, p_source: source, p_replace_list: false }), (d) => {
+            st.created += d?.created ?? 0; st.updated += d?.updated ?? 0; st.linked += d?.linked_to_accounts ?? 0;
+          });
         } else {
-          res = await db.rpc('import_prospect_people', { p_rows: rows, p_source: source });
-          if (!res.error) st.people += (res.data?.created ?? 0) + (res.data?.updated ?? 0);
+          res = await sendSplitting(rows, (part) => db.rpc('import_prospect_people', { p_rows: part, p_source: source }), (d) => {
+            st.people += (d?.created ?? 0) + (d?.updated ?? 0);
+          });
         }
         if (res.error) throw new Error(res.error.message);
         st.done = b.start + b.rows.length;
