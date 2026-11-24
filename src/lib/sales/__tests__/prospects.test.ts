@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Batcher, batchRecords, filtersToParams, moveTier, paramsToFilters, searchArgs, splitLines, type LoadRecord } from '../prospects';
+import { Batcher, batchRecords, filtersToParams, isMissingSchema, moveTier, paramsToFilters, searchArgs, splitLines, type LoadRecord } from '../prospects';
 
 describe('moveTier', () => {
   it('moves up and down on A-D and stops at the ends', () => {
@@ -70,5 +70,16 @@ describe('load file', () => {
     const b = splitLines(a.rest + 'me":"B"}\n\n');
     expect(b.lines[0]).toEqual({ t: 'p', name: 'B' });
     expect(b.rest).toBe('');
+  });
+});
+
+describe("isMissingSchema", () => {
+  it("is true only for missing table or function codes, never for a timeout", () => {
+    expect(isMissingSchema({ code: "42883", message: "function public.prospect_facets() does not exist" })).toBe(true);
+    expect(isMissingSchema({ code: "PGRST202", message: "Could not find the function" })).toBe(true);
+    expect(isMissingSchema({ code: "42P01", message: "relation does not exist" })).toBe(true);
+    expect(isMissingSchema({ code: "57014", message: "canceling statement due to statement timeout in function search_prospects" })).toBe(false);
+    expect(isMissingSchema({ message: "Failed to fetch" })).toBe(false);
+    expect(isMissingSchema(null)).toBe(false);
   });
 });

@@ -22,7 +22,7 @@ import { ArrowDown, ArrowUp, Ban, ChevronDown, ExternalLink, Pin, PinOff, Rotate
 import { cn } from '@/lib/utils';
 import {
   Batcher, LIST_KIND_LABELS, LIST_KIND_ORDER, PROSPECT_STATUS_LABELS, PROSPECT_TIERS, TAG_LABELS, TIER_LABELS,
-  filtersToParams, moveTier, paramsToFilters, searchArgs, splitLines, typeLabel,
+  filtersToParams, isMissingSchema, moveTier, paramsToFilters, searchArgs, splitLines, typeLabel,
   type LoadBatch, type ProspectFilters, type ProspectStatus, type ProspectTier,
 } from '@/lib/sales/prospects';
 
@@ -63,7 +63,7 @@ export function ProspectsTab() {
 
   const loadFacets = async () => {
     const { data, error } = await db.rpc('prospect_facets');
-    if (error) { setMissing(true); return; }
+    if (error) { if (isMissingSchema(error)) setMissing(true); else toast.error(`Could not load the filter counts: ${error.message}`); return; }
     setFacets(data);
   };
   useEffect(() => { void loadFacets(); }, []);
@@ -90,7 +90,7 @@ export function ProspectsTab() {
     const { data, error } = await db.rpc('search_prospects', searchArgs(filters, page, PAGE));
     if (id !== reqId.current) return;
     setLoading(false);
-    if (error) { if (/function|does not exist/i.test(error.message)) setMissing(true); else toast.error(error.message); return; }
+    if (error) { if (isMissingSchema(error)) setMissing(true); else toast.error(error.message); return; }
     setRows(data?.rows ?? []); setTotal(data?.total ?? 0);
   };
   useEffect(() => { void search(); }, [filters, page]);
@@ -119,7 +119,11 @@ export function ProspectsTab() {
   };
 
   if (missing) {
-    return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">The Prospects tables are not in the database yet. They arrive when this release's migration is applied.</CardContent></Card>;
+    // keep Load file mounted, so a load that is running is never cut off by this card
+    return <>
+      <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">The Prospects tables are not in the database yet. They arrive when this release's migration is applied.</CardContent></Card>
+      <LoadDialog open={loader} onOpenChange={setLoader} onDone={() => { setMissing(false); void loadFacets(); void search(); }} />
+    </>;
   }
 
   return (
@@ -485,7 +489,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 // ---------- load file ----------
 const CHECKPOINT = 'pdhq.prospects.load';
-type Checkpoint = { file: string; size: number; done: number };
+type Checkpoint = { file: string; size: number; done: number; total?: number };
 const readCheckpoint = (): Checkpoint | null => { try { return JSON.parse(localStorage.getItem(CHECKPOINT) ?? 'null'); } catch { return null; } };
 const writeCheckpoint = (c: Checkpoint | null) => { try { if (c) localStorage.setItem(CHECKPOINT, JSON.stringify(c)); else localStorage.removeItem(CHECKPOINT); } catch { /* private window */ } };
 
@@ -510,12 +514,10 @@ async function* readRecords(file: File) {
  */
 const SPLIT_MIN = 25;
 const isTimeout = (msg?: string) => !!msg && /statement timeout|canceling statement|timed out|504|Gateway/i.test(msg);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RpcResult = { data: any; error: { message: string } | null };
 async function sendSplitting(
   rows: Record<string, unknown>[],
   call: (part: Record<string, unknown>[]) => PromiseLike<RpcResult>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   count: (data: any) => void,
 ): Promise<{ error: { message: string } | null }> {
   const res = await call(rows);
@@ -545,7 +547,9 @@ function LoadDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
     setProgress({ ...st });
     try {
       // first pass: count records so the bar means something (fast, no network)
-      let total = 0; for await (const _ of readRecords(file)) total++;
+      // count records once so the bar means something; a resumed load reuses the count it saved
+      let total = from && cp?.total ? cp.total : 0;
+      if (!total) for await (const _ of readRecords(file)) total++;
       st.total = total; st.phase = from ? 'Picking up where it stopped…' : 'Loading…'; setProgress({ ...st });
       const source = file.name.replace(/\.jsonl(\.gz)?$/, '');
       const send = async (b: LoadBatch) => {
@@ -571,7 +575,7 @@ function LoadDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
         if (res.error) throw new Error(res.error.message);
         st.done = b.start + b.rows.length;
         st.phase = b.kind === 'people' ? 'Loading people…' : b.kind === 'prospects' ? 'Loading companies…' : 'Loading lists…';
-        writeCheckpoint({ file: file.name, size: file.size, done: st.done });
+        writeCheckpoint({ file: file.name, size: file.size, done: st.done, total: st.total });
         setProgress({ ...st });
       };
       const batcher = new Batcher(500);
