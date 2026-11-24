@@ -5,6 +5,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
+import { stageFromLeadStatus, type SalesStage } from '@/lib/sales/sales-core';
 import { Upload, Loader2, Sparkles, FileSpreadsheet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +21,7 @@ interface ParsedCustomer {
   company: string | null;
   linkedin_url: string | null;
   source: string | null;
-  lead_status: string;
+  sales_stage: SalesStage;
   notes: string | null;
   confidence: 'high' | 'medium' | 'low';
   selected: boolean;
@@ -76,7 +78,8 @@ export function CustomerImportDialog({ open, onOpenChange, onImported }: Props) 
         company: c.company || null,
         linkedin_url: c.linkedin_url || null,
         source: c.source || null,
-        lead_status: ['lead', 'active', 'inactive', 'churned'].includes(c.lead_status) ? c.lead_status : 'lead',
+        // The file may carry an old lead status; it becomes the one sales stage.
+        sales_stage: stageFromLeadStatus(c.lead_status),
         notes: c.notes || null,
         confidence: c.confidence || 'medium',
         selected: c.name && c.name !== '(missing)',
@@ -106,7 +109,7 @@ export function CustomerImportDialog({ open, onOpenChange, onImported }: Props) 
       company: p.company?.trim() || null,
       linkedin_url: p.linkedin_url?.trim() || null,
       source: p.source?.trim() || null,
-      lead_status: p.lead_status,
+      sales_stage: p.sales_stage,
       notes: p.notes?.trim() || null,
     }));
     const { error } = await (supabase as any).from('customers').insert(rows);
@@ -219,7 +222,7 @@ export function CustomerImportDialog({ open, onOpenChange, onImported }: Props) 
                           className="h-7 text-xs w-24" />
                       </td>
                       <td className="py-1.5">
-                        <Badge variant="secondary" className="text-[10px]">{c.lead_status}</Badge>
+                        <SalesStageBadge stage={c.sales_stage} />
                       </td>
                       <td className="py-1.5">
                         <Badge variant={c.confidence === 'high' ? 'default' : 'outline'} className="text-[10px] capitalize">

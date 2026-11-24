@@ -13,7 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Users, ArrowLeft, Mail, Building2, Linkedin, Upload, FileText, LayoutGrid, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { CustomerImportDialog } from '@/components/CustomerImportDialog';
-import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER, type LeadStatus } from '@/components/LeadStatusBadge';
+import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
+import { StageSelect, PICKABLE_STAGES } from '@/components/sales/StageSelect';
+import { moveAccountStage } from '@/components/sales/AccountActions';
+import { CUSTOMER_GROUPS, SALES_STAGE_LABELS, type SalesStage } from '@/lib/sales/sales-core';
 import { CustomersKanban } from '@/components/CustomersKanban';
 import { CustomerMetricsCard } from '@/components/CustomerMetricsCard';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -23,14 +26,14 @@ import { usePersistentState, useScrollRestoration } from '@/hooks/use-persistent
 import { useDocumentTitle } from '@/hooks/use-document-title';
 
 
-const STATUS_TABS = [
-  { value: 'all', label: 'All' },
-  { value: 'prospect', label: 'Prospects' },
-  { value: 'lead', label: 'Leads' },
-  { value: 'active', label: 'Live inquiry' },
-  { value: 'won', label: 'Customers' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'churned', label: 'Churned' },
+// One status per account: its sales stage (the old lead status is only a database mirror now).
+// "Active" = everyone who has answered and is not parked or closed. Prospects (Queued, In outreach) can run to
+// hundreds, so only their own tab and All show them.
+const ACTIVE_STAGES: string[] = ['responded', 'in_conversation', 'inquiry', 'customer'];
+const STATUS_TABS: { value: string; label: string; stages: readonly string[] | null }[] = [
+  { value: 'active', label: 'Active', stages: ACTIVE_STAGES },
+  ...CUSTOMER_GROUPS.map(g => ({ value: g.key, label: g.label, stages: g.stages })),
+  { value: 'all', label: 'All', stages: null },
 ];
 
 
@@ -43,14 +46,14 @@ const Customers = () => {
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = usePersistentState<string>('customers.search', '');
-  const [statusFilter, setStatusFilter] = usePersistentState<string>('customers.statusFilter', 'all');
+  const [statusFilter, setStatusFilter] = usePersistentState<string>('customers.stageGroup', 'active');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [view, setView] = usePersistentState<'list' | 'kanban'>('customers.view', 'list');
   useScrollRestoration('customers.scroll', !loading);
   const [form, setForm] = useState({
     name: '', email: '', company: '', phone: '',
-    linkedin_url: '', source: '', lead_status: 'lead',
+    linkedin_url: '', source: '', sales_stage: 'in_conversation' as SalesStage,
   });
   
 
@@ -76,28 +79,24 @@ const Customers = () => {
     return map;
   }, [inquiries]);
 
+  const tab = STATUS_TABS.find(t => t.value === statusFilter) ?? STATUS_TABS[0];
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: customers.length, lead: 0, active: 0, won: 0, inactive: 0, churned: 0 };
-    customers.forEach((cu: any) => { c[cu.lead_status || 'lead'] = (c[cu.lead_status || 'lead'] || 0) + 1; });
+    const c: Record<string, number> = {};
+    STATUS_TABS.forEach(t => { c[t.value] = t.stages ? customers.filter((cu: any) => t.stages!.includes(cu.sales_stage)).length : customers.length; });
     return c;
   }, [customers]);
 
-  const updateStatus = async (customerId: string, next: LeadStatus) => {
-    // Optimistic
-    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, lead_status: next } : c));
-    const { error } = await (supabase as any).from('customers').update({ lead_status: next }).eq('id', customerId);
-    if (error) {
-      toast.error(error.message);
-      fetchAll();
-    } else {
-      toast.success(`Marked as ${LEAD_STATUS_LABELS[next]}`);
-    }
+  const updateStage = async (customerId: string, next: SalesStage) => {
+    const account = customers.find((c: any) => c.id === customerId);
+    if (!account) return;
+    // Same move as the Sales tab: Not now gets its ~6 month date, the database logs the move and mirrors lead_status.
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, sales_stage: next } : c));
+    if (!(await moveAccountStage(account, next))) { fetchAll(); return; }
+    fetchAll();
   };
 
   const filtered = customers.filter((c: any) => {
-    // Prospects (the Sales pipeline) can run to hundreds, so All leaves them out; they have their own tab.
-    if (statusFilter === 'all' && c.lead_status === 'prospect') return false;
-    if (statusFilter !== 'all' && (c.lead_status || 'lead') !== statusFilter) return false;
+    if (tab.stages && !tab.stages.includes(c.sales_stage)) return false;
     const q = search.toLowerCase();
     if (!q) return true;
     return c.name.toLowerCase().includes(q)
@@ -105,7 +104,7 @@ const Customers = () => {
       || (c.email || '').toLowerCase().includes(q);
   });
 
-  const resetForm = () => setForm({ name: '', email: '', company: '', phone: '', linkedin_url: '', source: '', lead_status: 'lead' });
+  const resetForm = () => setForm({ name: '', email: '', company: '', phone: '', linkedin_url: '', source: '', sales_stage: 'in_conversation' });
 
   const createCustomer = async () => {
     const company = form.company.trim();
@@ -118,7 +117,8 @@ const Customers = () => {
       phone: form.phone.trim() || null,
       linkedin_url: form.linkedin_url.trim() || null,
       source: form.source.trim() || null,
-      lead_status: form.lead_status,
+      sales_stage: form.sales_stage,
+      ...(form.sales_stage === 'not_now' ? { not_now_until: new Date(Date.now() + 182 * 86_400_000).toISOString().slice(0, 10) } : {}),
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Customer created');
@@ -151,11 +151,11 @@ const Customers = () => {
                   <Input placeholder="LinkedIn URL" value={form.linkedin_url} onChange={e => setForm(f => ({ ...f, linkedin_url: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-2">
                     <Input placeholder="Source (Apollo, Referral...)" value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} />
-                    <Select value={form.lead_status} onValueChange={(v) => setForm(f => ({ ...f, lead_status: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select value={form.sales_stage} onValueChange={(v) => setForm(f => ({ ...f, sales_stage: v as SalesStage }))}>
+                      <SelectTrigger aria-label="Sales stage"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {LEAD_STATUS_ORDER.map(s => (
-                          <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
+                        {PICKABLE_STAGES.map(s => (
+                          <SelectItem key={s} value={s}>{SALES_STAGE_LABELS[s]}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -207,13 +207,14 @@ const Customers = () => {
           <CustomersKanban
             customers={customers as any}
             inquiriesByCustomer={inquiriesByCustomer}
-            onStatusChange={updateStatus}
+            onStageChange={updateStage}
             onOpenCustomer={(id) => navigate(`/customers/${id}`)}
           />
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
             <p>No customers match this filter.</p>
+            {tab.value === 'prospects' && <p className="text-xs mt-1">Prospects you are working are in Sales &gt; Pipeline; the whole list is in Sales &gt; Prospects.</p>}
           </CardContent></Card>
         ) : (
           <>
@@ -223,7 +224,7 @@ const Customers = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Company</TableHead>
-                      <TableHead className="text-xs w-[160px]">Status</TableHead>
+                      <TableHead className="text-xs w-[170px]">Sales stage</TableHead>
                       <TableHead className="text-xs">Contact</TableHead>
                       <TableHead className="text-xs">Email</TableHead>
                       <TableHead className="text-xs">Source</TableHead>
@@ -242,17 +243,10 @@ const Customers = () => {
                           <span className="hover:underline">{primary}</span>
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Select
-                            value={c.lead_status || 'lead'}
-                            onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
-                          >
-                            <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {LEAD_STATUS_ORDER.map(s => (
-                                <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <StageSelect stage={c.sales_stage} dnc={c.dnc} onChange={(v) => updateStage(c.id, v)} />
+                          {c.sales_stage === 'not_now' && c.not_now_until && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">until {c.not_now_until}</div>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{secondary || '—'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{c.email || '—'}</TableCell>
@@ -281,21 +275,11 @@ const Customers = () => {
                             <div className="text-xs text-muted-foreground truncate">{c.name}</div>
                           )}
                         </div>
-                        <LeadStatusBadge status={c.lead_status} />
+                        <SalesStageBadge stage={c.sales_stage} />
                       </div>
                       </RowContextMenu>
                       <div className="flex items-center gap-2">
-                        <Select
-                          value={c.lead_status || 'lead'}
-                          onValueChange={(v) => updateStatus(c.id, v as LeadStatus)}
-                        >
-                          <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {LEAD_STATUS_ORDER.map(s => (
-                              <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <StageSelect stage={c.sales_stage} dnc={c.dnc} onChange={(v) => updateStage(c.id, v)} className="flex-1 w-auto" />
                         <span className="shrink-0 text-xs text-muted-foreground"><FileText className="inline h-3 w-3 mr-0.5" />{inqCount}</span>
                       </div>
                     </CardContent>

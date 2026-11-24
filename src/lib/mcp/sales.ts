@@ -3,7 +3,7 @@
 import { check, isValidYmd, ToolError, type Db } from "./shared";
 import { activeAccountDismissals, liveDismissals } from "./needs-you";
 import {
-  ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, wordCount,
+  ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, stageAfterTouch, wordCount,
   type Brief, type SalesStage, type TouchChannel,
 } from "../sales/sales-core";
 
@@ -65,7 +65,8 @@ export async function upsertAccount(db: Db, input: UpsertAccountInput) {
     const account = check(await db.from("customers").update(patch).eq("id", found.id).select(ACCOUNT_COLUMNS).single(), "Could not update the account");
     return { account, created: false, updated: Object.keys(patch), matched_on, dry_run: false };
   }
-  const row = { name: company, company, lead_status: "prospect", sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
+  // lead_status is not written: the database mirrors it from sales_stage.
+  const row = { name: company, company, sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
   if (input.dry_run) return { account: row, created: false, would_create: true, matched_on: null, dry_run: true };
   const account = check(await db.from("customers").insert(row).select(ACCOUNT_COLUMNS).single(), "Could not create the account");
   return { account, created: true, matched_on: null, dry_run: false };
@@ -248,7 +249,8 @@ export type LogTouchInput = {
 /**
  * Log one message in or out. Safe to repeat with the same external_id (returns the existing touch).
  * Outbound to do-not-contact is refused here and at the database.
- * An inbound touch moves a queued or in-outreach account to Responded.
+ * Stage moves follow stageAfterTouch: a reply from Queued, In outreach or Not now = Responded, an engaged reply
+ * on Responded = In conversation, our first message from Queued = In outreach.
  */
 export async function logTouch(db: Db, input: LogTouchInput) {
   if (!input.contact_id && !input.customer_id) throw new ToolError("Give contact_id or customer_id.");
@@ -287,9 +289,13 @@ export async function logTouch(db: Db, input: LogTouchInput) {
     word_count: input.direction === "out" ? wordCount(input.body) : null,
     logged_by: clean(input.logged_by),
   };
-  const stageMove = input.direction === "in" && account && (!account.sales_stage || account.sales_stage === "queued" || account.sales_stage === "in_outreach")
-    ? "responded"
-    : input.direction === "out" && account && account.sales_stage === "queued" ? "in_outreach" : null;
+  // Same rule as the app's Log message (stageAfterTouch in sales-core). An older message logged late (a sync
+  // catching up) never brings a Not now account back: only a reply after it was parked does.
+  const occurredAt = (row.occurred_at as string);
+  const parkedLater = account?.sales_stage === "not_now" && !!account.sales_stage_changed_at && occurredAt < account.sales_stage_changed_at;
+  const stageMove = account && !parkedLater
+    ? stageAfterTouch(account.sales_stage, input.direction, !!input.engaged)
+    : null;
   if (input.dry_run) return { touch: row, created: false, dry_run: true, stage_move: stageMove, marks_engaged: !!input.engaged && !!contact && !contact.engaged };
   const touch = check(await db.from("sales_touches").insert(row).select("id, channel, direction, occurred_at, customer_id, contact_id").single(), "Could not log the touch");
   if (input.engaged && contact && !contact.engaged) check(await db.from("contacts").update({ engaged: true }).eq("id", contact.id), "Could not mark the contact engaged");
@@ -314,10 +320,8 @@ export async function setSalesStage(db: Db, input: SetStageInput) {
   if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
   if (account.dnc) throw new ToolError(`${account.company ?? account.name} is on do not contact; only Caleb can clear that in PD HQ.`);
   const patch: Record<string, unknown> = { sales_stage: input.stage, not_now_until: input.stage === "not_now" ? input.not_now_until : null };
-  if (input.stage === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
-  if (input.stage === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
   if (input.dry_run) return { from: account.sales_stage, to: input.stage, patch, changed: account.sales_stage !== input.stage, dry_run: true };
-  if (account.sales_stage === input.stage && !patch.lead_status) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
+  if (account.sales_stage === input.stage && (input.stage !== "not_now" || account.not_now_until === input.not_now_until)) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
   check(await db.from("customers").update(patch).eq("id", account.id), "Could not move the stage");
   // The trigger logged the move; write the reason and actor on that newest row.
   const ev = check(await db.from("sales_stage_events").select("id").eq("customer_id", account.id).eq("to_stage", input.stage).order("occurred_at", { ascending: false }).limit(1), "Could not read the stage log") ?? [];

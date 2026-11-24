@@ -11,12 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, FileText, ListTodo, Clock, History } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { LeadStatusBadge, LEAD_STATUS_LABELS, LEAD_STATUS_ORDER } from '@/components/LeadStatusBadge';
+import { StageSelect } from '@/components/sales/StageSelect';
+import { moveAccountStage } from '@/components/sales/AccountActions';
+import { ALL_SALES_STAGES, SALES_STAGE_LABELS, type SalesStage } from '@/lib/sales/sales-core';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { TaskList } from '@/components/TaskList';
 import { TaskDialog } from '@/components/TaskDialog';
@@ -38,8 +39,9 @@ type Customer = {
   company: string | null;
   source: string | null;
   linkedin_url: string | null;
-  lead_score: number;
-  lead_status: string;
+  sales_stage: string | null;
+  not_now_until: string | null;
+  dnc: boolean;
   last_contacted_at: string | null;
   notes: string | null;
 };
@@ -71,6 +73,7 @@ export default function CustomerDetail() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [taskRefresh, setTaskRefresh] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [salesKey, setSalesKey] = useState(0);
 
   useKeyboardShortcuts({ onNewItem: () => setShowNewInquiry(true) });
 
@@ -130,6 +133,16 @@ export default function CustomerDetail() {
     return <AppLayout><div className="p-12 text-center text-sm text-muted-foreground">Customer not found.</div></AppLayout>;
   }
 
+  // The one status: the sales stage. Same move as the Sales tab (Not now gets a date, the move is logged).
+  const changeStage = async (next: SalesStage) => {
+    if (!customer) return;
+    if (await moveAccountStage(customer, next)) {
+      const { data } = await supabase.from('customers').select('*').eq('id', customer.id).maybeSingle();
+      if (data) setCustomer(data as unknown as Customer);
+      setSalesKey(k => k + 1);
+    }
+  };
+
   const updateField = async (patch: Partial<Customer>) => {
     if (!customer) return;
     const prev = customer;
@@ -180,12 +193,10 @@ export default function CustomerDetail() {
               className="text-xl sm:text-2xl font-bold tracking-tight"
               onSave={(v) => updateField({ company: v.trim() || null })}
             />
-            <InlineSelect
-              value={customer.lead_status}
-              options={LEAD_STATUS_ORDER.map(s => ({ value: s, label: LEAD_STATUS_LABELS[s] }))}
-              onSave={(v) => updateField({ lead_status: v })}
-              renderDisplay={() => <LeadStatusBadge status={customer.lead_status} />}
-            />
+            <StageSelect badge stage={customer.sales_stage} dnc={customer.dnc} onChange={changeStage} />
+            {customer.sales_stage === 'not_now' && customer.not_now_until && (
+              <span className="text-xs text-muted-foreground">until {customer.not_now_until}</span>
+            )}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs sm:text-sm text-muted-foreground">
             <InlineText value={customer.name || ''} placeholder="Contact name" onSave={(v) => updateField({ name: v.trim() || customer.company || 'Customer' })} />
@@ -236,30 +247,24 @@ export default function CustomerDetail() {
                 <Input value={customer.source ?? ''} onChange={(e) => setCustomer(c => c ? { ...c, source: e.target.value } : c)}
                   onBlur={(e) => updateField({ source: e.target.value.trim() || null })} />
               </DetailField>
-              <DetailField label="Lead status">
+              <DetailField label="Sales stage">
                 <div className="flex items-center gap-1">
-                  <Select value={customer.lead_status} onValueChange={(v) => updateField({ lead_status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {LEAD_STATUS_ORDER.map(s => (
-                        <SelectItem key={s} value={s}>{LEAD_STATUS_LABELS[s]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <StageSelect stage={customer.sales_stage} dnc={customer.dnc} onChange={changeStage} className="h-9 text-sm w-full" />
                   <Button
                     variant="ghost" size="icon" className="h-9 w-9 shrink-0"
-                    title="Edit history (backdate)"
+                    title="Stage history (backdate)"
                     onClick={() => setHistoryOpen(true)}
                   >
                     <History className="h-4 w-4" />
                   </Button>
                 </div>
               </DetailField>
-              <DetailField label="Lead score">
-                <Input type="number" value={customer.lead_score ?? 0}
-                  onChange={(e) => setCustomer(c => c ? { ...c, lead_score: parseInt(e.target.value) || 0 } : c)}
-                  onBlur={(e) => updateField({ lead_score: parseInt(e.target.value) || 0 })} />
-              </DetailField>
+              {customer.sales_stage === 'not_now' ? (
+                <DetailField label="Not now until">
+                  <Input type="date" value={customer.not_now_until ?? ''}
+                    onChange={(e) => { if (e.target.value) updateField({ not_now_until: e.target.value }); }} />
+                </DetailField>
+              ) : <div className="hidden sm:block" />}
               <DetailField label="Last contacted">
                 <Input type="date"
                   value={customer.last_contacted_at ? new Date(customer.last_contacted_at).toISOString().slice(0, 10) : ''}
@@ -403,7 +408,7 @@ export default function CustomerDetail() {
           </TabsContent>
 
           <TabsContent value="sales" className="mt-3">
-            <SalesAccountPanel customerId={customer.id} />
+            <SalesAccountPanel key={salesKey} customerId={customer.id} onStageChanged={fetchAll} />
           </TabsContent>
         </Tabs>
       </div>
@@ -428,14 +433,15 @@ export default function CustomerDetail() {
         open={historyOpen}
         onOpenChange={setHistoryOpen}
         config={{
-          table: 'customer_status_events',
+          table: 'sales_stage_events',
           parentColumn: 'customer_id',
           parentId: customer.id,
-          options: [...LEAD_STATUS_ORDER],
-          optionLabels: LEAD_STATUS_LABELS,
-          valueColumn: 'to_status',
-          fromColumn: 'from_status',
-          label: `${customer.name} — lead status`,
+          options: [...ALL_SALES_STAGES],
+          optionLabels: SALES_STAGE_LABELS,
+          valueColumn: 'to_stage',
+          fromColumn: 'from_stage',
+          noteColumn: 'reason',
+          label: `${customer.company || customer.name}: sales stage`,
         }}
       />
     </AppLayout>
@@ -506,24 +512,3 @@ function InlineText({
     </button>
   );
 }
-
-function InlineSelect({
-  value, options, onSave, renderDisplay,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onSave: (v: string) => void;
-  renderDisplay?: () => React.ReactNode;
-}) {
-  return (
-    <Select value={value} onValueChange={(v) => { if (v !== value) onSave(v); }}>
-      <SelectTrigger className="h-auto border-none p-0 bg-transparent shadow-none focus:ring-0 hover:bg-muted/60 rounded px-1 -mx-1 [&>svg]:hidden gap-0">
-        {renderDisplay ? renderDisplay() : <SelectValue />}
-      </SelectTrigger>
-      <SelectContent>
-        {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-}
-

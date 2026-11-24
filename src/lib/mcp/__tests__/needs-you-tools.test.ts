@@ -32,11 +32,11 @@ const seed = () => new FakeDb({
 });
 
 describe("Needs you tools", () => {
-  it("registers list_needs_you and dismiss_needs_you on connector 0.8.0", () => {
+  it("registers list_needs_you and dismiss_needs_you (connector 0.8.0 and later)", () => {
     const names = TOOLS.map(t => (t as { name: string }).name);
     expect(names).toEqual(expect.arrayContaining(["list_needs_you", "dismiss_needs_you"]));
     const src = readFileSync(path.resolve(__dirname, "../index.ts"), "utf8");
-    expect(src).toContain('version: "0.8.0"');
+    expect(src).toMatch(/version: "0\.(8|9|[1-9]\d)\.\d+"/);
   });
 
   it("lists the same items as the page, hides Done and Ignored ones, and undo puts them back", async () => {

@@ -2,8 +2,10 @@ import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { check, ok, ToolError, withUserDb, type Db } from "../shared";
 import { CUSTOMER_COLUMNS } from "./list-customers";
+import { ALL_SALES_STAGES, stageFromLeadStatus, type SalesStage } from "../../sales/sales-core";
 
-export const LEAD_STATUSES = ["lead", "active", "won", "inactive", "churned"] as const;
+/** Old status names, still accepted from older playbooks and turned into a stage. */
+export const LEAD_STATUSES = ["prospect", "lead", "active", "won", "inactive", "churned"] as const;
 
 export type FindOrCreateCustomerInput = {
   name?: string;
@@ -13,6 +15,8 @@ export type FindOrCreateCustomerInput = {
   linkedin_url?: string;
   source?: string;
   notes?: string;
+  sales_stage?: SalesStage;
+  /** Deprecated: use sales_stage. */
   lead_status?: (typeof LEAD_STATUSES)[number];
   dry_run?: boolean;
 };
@@ -44,6 +48,7 @@ export async function findOrCreateCustomer(db: Db, input: FindOrCreateCustomerIn
     }
   }
 
+  if (input.sales_stage === "dnc") throw new ToolError("Use set_do_not_contact for do not contact, so every sender is told.");
   if (!name && !company) throw new ToolError(`No customer has the email ${email}. Give a name or company to create one.`);
   const row = {
     name: name || company,
@@ -53,7 +58,10 @@ export async function findOrCreateCustomer(db: Db, input: FindOrCreateCustomerIn
     linkedin_url: input.linkedin_url?.trim() || null,
     source: input.source?.trim() || null,
     notes: input.notes?.trim() || null,
-    lead_status: input.lead_status ?? "active",
+    // The stage is the one status; the database mirrors lead_status from it. Default Inquiry, as before (old default "active").
+    sales_stage: input.sales_stage ?? (input.lead_status ? stageFromLeadStatus(input.lead_status) : "inquiry"),
+    ...(input.sales_stage === "not_now" || (!input.sales_stage && (input.lead_status === "inactive" || input.lead_status === "churned"))
+      ? { not_now_until: new Date(Date.now() + 182 * 86_400_000).toISOString().slice(0, 10) } : {}),
   };
   if (input.dry_run) return { customer: row, created: false, would_create: true, matched_on: null, dry_run: true };
   const customer = check(await db.from("customers").insert(row).select(CUSTOMER_COLUMNS).single(), "Could not create the customer");
@@ -64,7 +72,7 @@ export default defineTool({
   name: "find_or_create_customer",
   title: "Find or create a customer",
   description:
-    "Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers default to lead_status active, like the app; lead_status lead also starts the \"Customer set to Lead\" task rule. Use dry_run to see what would happen without writing.",
+    "Look up a customer by email, then company, then name (exact, case-insensitive). Returns the existing record when one matches and creates a new customer only when none does. New customers start in sales stage Inquiry unless sales_stage is given (Responded or In conversation also starts the \"Customer becomes a lead\" task rule). Use dry_run to see what would happen without writing.",
   inputSchema: {
     name: z.string().max(200).optional().describe("Contact or customer name."),
     company: z.string().max(200).optional().describe("Company name."),
@@ -73,7 +81,8 @@ export default defineTool({
     linkedin_url: z.string().max(500).optional(),
     source: z.string().max(100).optional().describe("Where the lead came from, e.g. Email, LinkedIn, Referral."),
     notes: z.string().max(5000).optional(),
-    lead_status: z.enum(LEAD_STATUSES).optional().describe("Only used when creating. Default active."),
+    sales_stage: z.enum(ALL_SALES_STAGES).optional().describe("Only used when creating. Default inquiry. Not now parks the customer for about 6 months."),
+    lead_status: z.enum(LEAD_STATUSES).optional().describe("Deprecated, use sales_stage. Old names are turned into a stage (lead = responded, active = inquiry, won = customer, inactive/churned = not_now)."),
     dry_run: z.boolean().optional().describe("Report the match or the record that would be created, without writing."),
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },

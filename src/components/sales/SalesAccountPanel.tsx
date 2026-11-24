@@ -12,7 +12,7 @@ import { Linkedin, Mail, MessageCircle, Phone, Users, Ban, ExternalLink, ArrowDo
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { SalesStageBadge } from './SalesStageBadge';
-import { AccountActions } from './AccountActions';
+import { AccountActions, moveAccountStage } from './AccountActions';
 import { Plus } from 'lucide-react';
 import {
   ALL_SALES_STAGES, BRIEF_PARTS, BRIEF_PART_LABELS, SALES_STAGE_LABELS, isBriefStale, type Brief, type SalesStage,
@@ -36,7 +36,7 @@ type StageEvent = { id: string; from_stage: string | null; to_stage: string | nu
 
 export const CHANNEL_ICON: Record<string, typeof Mail> = { linkedin: Linkedin, email: Mail, whatsapp: MessageCircle, call: Phone, meeting: Users, other: MessageCircle };
 
-export function SalesAccountPanel({ customerId }: { customerId: string }) {
+export function SalesAccountPanel({ customerId, onStageChanged }: { customerId: string; onStageChanged?: () => void }) {
   const { isAdmin } = useAuth();
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -68,12 +68,8 @@ export function SalesAccountPanel({ customerId }: { customerId: string }) {
     void load();
   };
 
-  const moveStage = (stage: string) => {
-    if (stage === 'not_now') {
-      const until = new Date(Date.now() + 182 * 86_400_000).toISOString().slice(0, 10);
-      return save({ sales_stage: 'not_now', not_now_until: until }, `Not now until ${until}`);
-    }
-    return save({ sales_stage: stage, not_now_until: null }, `Moved to ${SALES_STAGE_LABELS[stage as SalesStage]}`);
+  const moveStage = async (stage: string) => {
+    if (await moveAccountStage(account, stage)) { void load(); onStageChanged?.(); }
   };
 
   const patchContact = async (id: string, patch: Record<string, unknown>) => {

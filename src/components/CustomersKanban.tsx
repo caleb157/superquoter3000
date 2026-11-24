@@ -1,26 +1,27 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Building2, FileText } from 'lucide-react';
-import { LEAD_STATUS_ORDER, LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, type LeadStatus } from '@/components/LeadStatusBadge';
+import { SALES_STAGE_LABELS, type SalesStage } from '@/lib/sales/sales-core';
+import { SALES_STAGE_COLORS } from '@/components/sales/SalesStageBadge';
 import { cn } from '@/lib/utils';
 
-type Customer = { id: string; name: string; company: string | null; lead_status: string };
+type Customer = { id: string; name: string; company: string | null; sales_stage: string | null; dnc?: boolean };
+
+/** The board runs from a first reply to a customer, plus Not now. Queued and In outreach live in Sales > Prospects / Pipeline. */
+export const KANBAN_STAGES = ['responded', 'in_conversation', 'inquiry', 'customer', 'not_now'] as const satisfies readonly SalesStage[];
 
 interface Props {
   customers: Customer[];
-  inquiriesByCustomer: Record<string, any[]>;
-  onStatusChange: (customerId: string, next: LeadStatus) => void;
+  inquiriesByCustomer: Record<string, unknown[]>;
+  onStageChange: (customerId: string, next: SalesStage) => void;
   onOpenCustomer: (id: string) => void;
 }
 
-export function CustomersKanban({ customers, inquiriesByCustomer, onStatusChange, onOpenCustomer }: Props) {
+export function CustomersKanban({ customers, inquiriesByCustomer, onStageChange, onOpenCustomer }: Props) {
   const grouped = useMemo(() => {
     const g: Record<string, Customer[]> = {};
-    LEAD_STATUS_ORDER.forEach(s => (g[s] = []));
-    customers.forEach(c => {
-      const s = (c.lead_status || 'lead') as LeadStatus;
-      (g[s] ||= []).push(c);
-    });
+    KANBAN_STAGES.forEach(s => (g[s] = []));
+    customers.forEach(c => { if (c.sales_stage && g[c.sales_stage] && !c.dnc) g[c.sales_stage].push(c); });
     return g;
   }, [customers]);
 
@@ -32,26 +33,27 @@ export function CustomersKanban({ customers, inquiriesByCustomer, onStatusChange
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-  const handleDrop = (e: React.DragEvent, status: LeadStatus) => {
+  const handleDrop = (e: React.DragEvent, stage: SalesStage) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/customer-id');
-    if (id) onStatusChange(id, status);
+    const c = customers.find(x => x.id === id);
+    if (c && c.sales_stage !== stage) onStageChange(id, stage);
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-      {LEAD_STATUS_ORDER.map(status => {
-        const items = grouped[status] || [];
+      {KANBAN_STAGES.map(stage => {
+        const items = grouped[stage] || [];
         return (
           <div
-            key={status}
+            key={stage}
             onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, status)}
+            onDrop={(e) => handleDrop(e, stage)}
             className="rounded-lg border bg-muted/30 flex flex-col min-h-[300px]"
           >
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-b sticky top-0 bg-muted/50 backdrop-blur rounded-t-lg">
-              <span className={cn('text-xs font-semibold px-2 py-0.5 rounded', LEAD_STATUS_COLORS[status])}>
-                {LEAD_STATUS_LABELS[status]}
+              <span className={cn('text-xs font-semibold px-2 py-0.5 rounded', SALES_STAGE_COLORS[stage])}>
+                {SALES_STAGE_LABELS[stage]}
               </span>
               <span className="text-xs text-muted-foreground">{items.length}</span>
             </div>

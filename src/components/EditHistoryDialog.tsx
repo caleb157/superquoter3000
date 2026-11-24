@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 
 export type HistoryConfig = {
   /** Table that stores the events */
-  table: 'customer_status_events' | 'inquiry_status_events' | 'product_stage_events';
+  table: 'customer_status_events' | 'inquiry_status_events' | 'product_stage_events' | 'sales_stage_events';
   /** FK column linking events to the parent record */
   parentColumn: 'customer_id' | 'inquiry_id' | 'product_id';
   /** Parent record id */
@@ -34,6 +34,8 @@ export type HistoryConfig = {
   valueColumn: 'to_status' | 'to_stage';
   /** Column name for the previous value */
   fromColumn: 'from_status' | 'from_stage';
+  /** Column holding the free-text note (sales_stage_events calls it reason). Default note. */
+  noteColumn?: 'note' | 'reason';
   /** Optional extra column required when inserting (e.g. product_stage_events.track) */
   extraInsert?: Record<string, any>;
   /** Optional filter applied when loading events (e.g. {track: 'design'}) */
@@ -51,6 +53,7 @@ type EventRow = {
   to_stage?: string | null;
   actor?: string | null;
   note?: string | null;
+  reason?: string | null;
   track?: string | null;
 };
 
@@ -84,6 +87,7 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
 
   const valueCol = config.valueColumn;
   const fromCol = config.fromColumn;
+  const noteCol = config.noteColumn ?? 'note';
 
   const load = async () => {
     setLoading(true);
@@ -144,7 +148,7 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
       [valueCol]: newValue,
       [fromCol]: prevValue,
       occurred_at,
-      note: newNote.trim() || null,
+      [noteCol]: newNote.trim() || null,
       ...(config.extraInsert || {}),
     };
     setSaving('__new__');
@@ -211,10 +215,10 @@ export function EditHistoryDialog({ open, onOpenChange, config, onChanged }: Pro
                     <Label className="text-[10px] text-muted-foreground">Note</Label>
                     <Input
                       className="h-8 text-xs"
-                      defaultValue={r.note ?? ''}
+                      defaultValue={((r as any)[noteCol] as string | null) ?? ''}
                       onBlur={(e) => {
                         const v = e.target.value.trim() || null;
-                        if (v !== (r.note ?? null)) updateRow(r.id, { note: v });
+                        if (v !== (((r as any)[noteCol] as string | null) ?? null)) updateRow(r.id, { [noteCol]: v });
                       }}
                     />
                   </div>
