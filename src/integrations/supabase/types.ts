@@ -3773,6 +3773,333 @@ export type Database = {
         }
         Relationships: []
       }
+      prospect_events: {
+        Row: {
+          actor: string | null
+          from_value: string | null
+          id: string
+          kind: string
+          occurred_at: string
+          prospect_id: string
+          reason: string | null
+          to_value: string | null
+        }
+        Insert: {
+          actor?: string | null
+          from_value?: string | null
+          id?: string
+          kind: string
+          occurred_at?: string
+          prospect_id: string
+          reason?: string | null
+          to_value?: string | null
+        }
+        Update: {
+          actor?: string | null
+          from_value?: string | null
+          id?: string
+          kind?: string
+          occurred_at?: string
+          prospect_id?: string
+          reason?: string | null
+          to_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_events_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_list_members: {
+        Row: {
+          added_at: string
+          list_id: string
+          list_rank: number | null
+          prospect_id: string
+        }
+        Insert: {
+          added_at?: string
+          list_id: string
+          list_rank?: number | null
+          prospect_id: string
+        }
+        Update: {
+          added_at?: string
+          list_id?: string
+          list_rank?: number | null
+          prospect_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_list_members_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_list_members_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_lists: {
+        Row: {
+          archived: boolean
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          member_count: number
+          name: string
+          run_date: string | null
+          sort_order: number
+          source_file: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string
+          description?: string | null
+          id: string
+          kind?: string
+          member_count?: number
+          name: string
+          run_date?: string | null
+          sort_order?: number
+          source_file?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          member_count?: number
+          name?: string
+          run_date?: string | null
+          sort_order?: number
+          source_file?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      prospect_people: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          data: Json
+          decision_maker: boolean | null
+          dnc: boolean
+          email: string | null
+          full_name: string
+          id: string
+          linkedin_url: string | null
+          location: string | null
+          match_key: string
+          outreach_state: string | null
+          prospect_id: string | null
+          score: number | null
+          source: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          data?: Json
+          decision_maker?: boolean | null
+          dnc?: boolean
+          email?: string | null
+          full_name: string
+          id?: string
+          linkedin_url?: string | null
+          location?: string | null
+          match_key: string
+          outreach_state?: string | null
+          prospect_id?: string | null
+          score?: number | null
+          source?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          data?: Json
+          decision_maker?: boolean | null
+          dnc?: boolean
+          email?: string | null
+          full_name?: string
+          id?: string
+          linkedin_url?: string | null
+          location?: string | null
+          match_key?: string
+          outreach_state?: string | null
+          prospect_id?: string | null
+          score?: number | null
+          source?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_people_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_people_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospects: {
+        Row: {
+          apollo_org_id: string | null
+          best_contact: string | null
+          best_contact_title: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          customer_id: string | null
+          data: Json
+          dnc: boolean
+          domain: string | null
+          effective_tier: string | null
+          email: string | null
+          employees: number | null
+          excluded_reason: string | null
+          id: string
+          industry: string | null
+          linkedin_url: string | null
+          match_key: string
+          name: string
+          people_count: number
+          phone: string | null
+          pinned: boolean
+          products: string | null
+          prospect_type: string | null
+          rank: number | null
+          revenue: string | null
+          score: number | null
+          scored_at: string | null
+          search: string | null
+          sources: string[]
+          state: string | null
+          status: string
+          tags: string[]
+          tier: string | null
+          tier_override: string | null
+          trade_last_shipment: string | null
+          trade_shipments: number | null
+          trade_value_2025: number | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          apollo_org_id?: string | null
+          best_contact?: string | null
+          best_contact_title?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id?: string | null
+          data?: Json
+          dnc?: boolean
+          domain?: string | null
+          email?: string | null
+          employees?: number | null
+          excluded_reason?: string | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          match_key: string
+          name: string
+          people_count?: number
+          phone?: string | null
+          pinned?: boolean
+          products?: string | null
+          prospect_type?: string | null
+          rank?: number | null
+          revenue?: string | null
+          score?: number | null
+          scored_at?: string | null
+          sources?: string[]
+          state?: string | null
+          status?: string
+          tags?: string[]
+          tier?: string | null
+          tier_override?: string | null
+          trade_last_shipment?: string | null
+          trade_shipments?: number | null
+          trade_value_2025?: number | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          apollo_org_id?: string | null
+          best_contact?: string | null
+          best_contact_title?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id?: string | null
+          data?: Json
+          dnc?: boolean
+          domain?: string | null
+          email?: string | null
+          employees?: number | null
+          excluded_reason?: string | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          match_key?: string
+          name?: string
+          people_count?: number
+          phone?: string | null
+          pinned?: boolean
+          products?: string | null
+          prospect_type?: string | null
+          rank?: number | null
+          revenue?: string | null
+          score?: number | null
+          scored_at?: string | null
+          sources?: string[]
+          state?: string | null
+          status?: string
+          tags?: string[]
+          tier?: string | null
+          tier_override?: string | null
+          trade_last_shipment?: string | null
+          trade_shipments?: number | null
+          trade_value_2025?: number | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_snapshots: {
         Row: {
           approved_at: string | null
@@ -3970,6 +4297,48 @@ export type Database = {
           notes?: string | null
           unit_type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_schedules: {
+        Row: {
+          cadence: string
+          cron: string | null
+          id: string
+          job: string
+          name: string
+          runs_where: string | null
+          sort_order: number
+          status: string
+          timezone: string
+          updated_at: string
+          what_it_does: string | null
+        }
+        Insert: {
+          cadence: string
+          cron?: string | null
+          id: string
+          job: string
+          name: string
+          runs_where?: string | null
+          sort_order?: number
+          status?: string
+          timezone?: string
+          updated_at?: string
+          what_it_does?: string | null
+        }
+        Update: {
+          cadence?: string
+          cron?: string | null
+          id?: string
+          job?: string
+          name?: string
+          runs_where?: string | null
+          sort_order?: number
+          status?: string
+          timezone?: string
+          updated_at?: string
+          what_it_does?: string | null
         }
         Relationships: []
       }

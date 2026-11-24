@@ -74,7 +74,7 @@ export async function importProspects(db: Db, input: ImportProspectsInput) {
     ? await rpc(db, "import_prospects", { p_list_id: input.list?.id ?? null, p_rows: rows, p_source: source, p_replace_list: !!input.replace_list }, "Could not import")
     : { created: 0, updated: 0, linked_to_accounts: 0, skipped: 0 };
   const ppl = people.length
-    ? await rpc(db, "import_prospect_people", { p_rows: input.list ? people.map(x => ({ lists: [{ id: input.list!.id }], ...x })) : people, p_source: source }, "Could not import people")
+    ? await rpc(db, "import_prospect_people", { p_rows: input.list ? people.map(x => ({ lists: [input.list!.id], ...x })) : people, p_source: source }, "Could not import people")
     : null;
   await rpc(db, "refresh_prospect_counts", {}, "Could not refresh list counts");
   return { ...res, people: ppl, list: input.list?.id ?? null, dry_run: false };

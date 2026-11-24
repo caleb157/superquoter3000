@@ -112,8 +112,8 @@ export const importProspectsTool = defineTool({
     dry_run: z.boolean().optional(),
   },
   annotations: write,
-  handler: withUserDb(async (db, input: ImportProspectsInput) => {
-    const r = await importProspects(db, input);
+  handler: withUserDb(async (db, input) => {
+    const r = await importProspects(db, input as ImportProspectsInput);
     return ok(r.dry_run ? `Dry run: would load ${(r as { would_import: number }).would_import} companies.` : `Loaded: ${JSON.stringify(r)}`, json(r));
   }),
 });

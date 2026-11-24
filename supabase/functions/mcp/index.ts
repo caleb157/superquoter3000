@@ -243,7 +243,7 @@ var add_cogs_item_default = defineTool6({
     }
     const { data: maxRow } = await sb.from("cogs_items").select("sort_order").eq("product_id", input.product_id).order("sort_order", { ascending: false }).limit(1).maybeSingle();
     const nextSort = (maxRow?.sort_order ?? -1) + 1;
-    const row = {
+    const row2 = {
       product_id: input.product_id,
       cogs_type: input.cogs_type,
       component_name: input.component_name,
@@ -256,7 +256,7 @@ var add_cogs_item_default = defineTool6({
       is_auto_calculated: false,
       sort_order: nextSort
     };
-    const { data, error } = await sb.from("cogs_items").insert(row).select().single();
+    const { data, error } = await sb.from("cogs_items").insert(row2).select().single();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [
@@ -526,7 +526,7 @@ function intakeCell(key, v) {
   return col.type === "num" ? toNum(v) : col.type === "pct" ? toPct(v) : col.type === "bool" ? toBool(v) : v == null || v === "" ? null : String(v).trim();
 }
 function intakeRowFromRecord(rec, rowNo) {
-  const row = { _row: rowNo };
+  const row2 = { _row: rowNo };
   const unknown = [];
   for (const [k, v] of Object.entries(rec || {})) {
     if (k === "_row") continue;
@@ -536,9 +536,9 @@ function intakeRowFromRecord(rec, rowNo) {
       continue;
     }
     const val = intakeCell(key, v);
-    if (val !== null) row[key] = val;
+    if (val !== null) row2[key] = val;
   }
-  return { row, unknown };
+  return { row: row2, unknown };
 }
 async function loadIntakeLookups(db, mcHeightBuffer) {
   const [pt, st, loc, ch] = await Promise.all([
@@ -555,25 +555,25 @@ async function loadIntakeLookups(db, mcHeightBuffer) {
   return { productTypes: pt.data || [], shippingTypes: st.data || [], locations: loc.data || [], chems: ch.data || [], mcHeightBuffer: buffer };
 }
 var byName = (list, name) => name ? list.find((x) => (x.name || "").toLowerCase().trim() === name.toLowerCase().trim()) : void 0;
-function checkIntakeRowNames(row, L) {
-  const label = row.sku || row.name || `row ${row._row}`;
+function checkIntakeRowNames(row2, L) {
+  const label = row2.sku || row2.name || `row ${row2._row}`;
   const out = [];
-  if (row.product_type && !byName(L.productTypes, row.product_type)) out.push(`${label}: product type "${row.product_type}" not found`);
-  if (row.source_location && !byName(L.locations, row.source_location)) out.push(`${label}: location "${row.source_location}" not found`);
-  if (row.shipping_type && !byName(L.shippingTypes, row.shipping_type)) out.push(`${label}: shipping type "${row.shipping_type}" not found`);
+  if (row2.product_type && !byName(L.productTypes, row2.product_type)) out.push(`${label}: product type "${row2.product_type}" not found`);
+  if (row2.source_location && !byName(L.locations, row2.source_location)) out.push(`${label}: location "${row2.source_location}" not found`);
+  if (row2.shipping_type && !byName(L.shippingTypes, row2.shipping_type)) out.push(`${label}: shipping type "${row2.shipping_type}" not found`);
   const clean3 = (v) => String(v ?? "").trim().toLowerCase();
   for (const c of CHEM_COLS) {
-    const chemName = row[`${c.key}_chem`];
+    const chemName = row2[`${c.key}_chem`];
     if (chemName !== void 0 && !L.chems.some((ch) => clean3(ch.name) === clean3(chemName))) out.push(`${label}: ${c.name} chemical "${chemName}" not found`);
   }
   return out;
 }
-async function scaffoldProduct(db, inquiryId, row, sort, L) {
+async function scaffoldProduct(db, inquiryId, row2, sort, L) {
   const { data: prod, error } = await db.from("products").insert({
     customer_rfq_id: inquiryId,
-    name: row.name || row.sku,
-    sku: row.sku || null,
-    quantity: row.quantity ?? 100,
+    name: row2.name || row2.sku,
+    sku: row2.sku || null,
+    quantity: row2.quantity ?? 100,
     finishing_difficulty: "Medium",
     percent_wood: 1,
     sort_order: sort
@@ -601,8 +601,8 @@ async function scaffoldProduct(db, inquiryId, row, sort, L) {
   ]);
   return id;
 }
-async function applyRow(db, productId, row, L, warn) {
-  const label = row.sku || row.name || `row ${row._row}`;
+async function applyRow(db, productId, row2, L, warn) {
+  const label = row2.sku || row2.name || `row ${row2._row}`;
   const p = {};
   for (const k of [
     "name",
@@ -623,43 +623,43 @@ async function applyRow(db, productId, row, L, warn) {
     "is_outsourced",
     "outsourced_unit_cost_inr"
   ]) {
-    if (row[k] !== void 0) p[k] = row[k];
+    if (row2[k] !== void 0) p[k] = row2[k];
   }
-  if (row.markup_pct !== void 0) p.markup_percent = row.markup_pct;
-  if (row.cost_of_capital !== void 0) p.cost_of_capital_enabled = row.cost_of_capital;
-  if (row.coc_monthly_rate !== void 0) p.cost_of_capital_monthly_rate = row.coc_monthly_rate;
-  if (row.coc_months !== void 0) p.cost_of_capital_months = row.coc_months;
-  if (row.product_type) {
-    const t = byName(L.productTypes, row.product_type);
+  if (row2.markup_pct !== void 0) p.markup_percent = row2.markup_pct;
+  if (row2.cost_of_capital !== void 0) p.cost_of_capital_enabled = row2.cost_of_capital;
+  if (row2.coc_monthly_rate !== void 0) p.cost_of_capital_monthly_rate = row2.coc_monthly_rate;
+  if (row2.coc_months !== void 0) p.cost_of_capital_months = row2.coc_months;
+  if (row2.product_type) {
+    const t = byName(L.productTypes, row2.product_type);
     if (t) p.product_type_id = t.id;
-    else warn(`${label}: product type "${row.product_type}" not found`);
+    else warn(`${label}: product type "${row2.product_type}" not found`);
   }
-  if (row.source_location) {
-    const l = byName(L.locations, row.source_location);
+  if (row2.source_location) {
+    const l = byName(L.locations, row2.source_location);
     if (l) p.source_location_id = l.id;
-    else warn(`${label}: location "${row.source_location}" not found`);
+    else warn(`${label}: location "${row2.source_location}" not found`);
   }
   if (Object.keys(p).length) {
     const { error } = await db.from("products").update(p).eq("id", productId);
     if (error) warn(`${label}: ${error.message}`);
   }
   const c = {};
-  for (const k of ["ic_type", "products_per_ic", "ic_width", "ic_depth", "ic_height", "include_mc"]) if (row[k] !== void 0) c[k] = row[k];
+  for (const k of ["ic_type", "products_per_ic", "ic_width", "ic_depth", "ic_height", "include_mc"]) if (row2[k] !== void 0) c[k] = row2[k];
   if (Object.keys(c).length) {
     const { data: ex } = await db.from("cbm_estimates").select("id").eq("product_id", productId).maybeSingle();
     if (ex) await db.from("cbm_estimates").update(c).eq("id", ex.id);
     else await db.from("cbm_estimates").insert({ product_id: productId, mc_height_buffer_inch: L.mcHeightBuffer, ...c });
   }
   const types = /* @__PURE__ */ new Set();
-  for (const cc of COST_COLS) if (row[cc.key] !== void 0) types.add(cc.cogsType);
-  const filledSlots = SLOTS.filter((sl) => row[sl.nameKey] !== void 0 || row[sl.costKey] !== void 0);
+  for (const cc of COST_COLS) if (row2[cc.key] !== void 0) types.add(cc.cogsType);
+  const filledSlots = SLOTS.filter((sl) => row2[sl.nameKey] !== void 0 || row2[sl.costKey] !== void 0);
   for (const sl of filledSlots) types.add(sl.cogsType);
   for (const t of types) {
     await db.from("cogs_items").delete().eq("product_id", productId).eq("cogs_type", t).eq("is_auto_calculated", false);
   }
   const inserts = [];
   for (const cc of COST_COLS) {
-    const v = row[cc.key];
+    const v = row2[cc.key];
     if (v === void 0) continue;
     if (cc.cogsType === "Finishing Materials" || cc.cogsType === "Packaging") {
       await db.from("cogs_items").update({ include: v > 0 ? "No" : "Yes" }).eq("product_id", productId).eq("cogs_type", cc.cogsType).eq("is_auto_calculated", true);
@@ -674,25 +674,25 @@ async function applyRow(db, productId, row, L, warn) {
       waste_factor: 0,
       include: "Yes",
       is_auto_calculated: false,
-      vendor_name: cc.cogsType === "Raw Piece" ? row.raw_vendor ?? null : null,
+      vendor_name: cc.cogsType === "Raw Piece" ? row2.raw_vendor ?? null : null,
       sort_order: COST_COLS.indexOf(cc)
     });
   }
   filledSlots.forEach((sl, i) => {
-    const cost = row[sl.costKey] ?? 0;
-    const name = row[sl.nameKey] || sl.label;
-    if (!row[sl.nameKey] && !cost) return;
+    const cost = row2[sl.costKey] ?? 0;
+    const name = row2[sl.nameKey] || sl.label;
+    if (!row2[sl.nameKey] && !cost) return;
     inserts.push({
       product_id: productId,
       cogs_type: sl.cogsType,
       component_name: name,
-      components_per_product: row[sl.qtyKey] ?? 1,
+      components_per_product: row2[sl.qtyKey] ?? 1,
       unit_cost_inr: cost,
       units: sl.units,
       waste_factor: 0,
       include: "Yes",
       is_auto_calculated: false,
-      vendor_name: row[sl.vendorKey] ?? null,
+      vendor_name: row2[sl.vendorKey] ?? null,
       sort_order: 20 + i
     });
   });
@@ -700,13 +700,13 @@ async function applyRow(db, productId, row, L, warn) {
     const { error } = await db.from("cogs_items").insert(inserts);
     if (error) warn(`${label}: ${error.message}`);
   }
-  const chemTouched = CHEM_COLS.filter((c2) => row[c2.key] !== void 0 || row[`${c2.key}_chem`] !== void 0);
+  const chemTouched = CHEM_COLS.filter((c2) => row2[c2.key] !== void 0 || row2[`${c2.key}_chem`] !== void 0);
   if (chemTouched.length) {
     const { data: fin } = await db.from("cogs_items").select("*").eq("product_id", productId).eq("cogs_type", "Finishing Materials");
     const clean3 = (v) => String(v ?? "").trim().toLowerCase();
     for (const c2 of chemTouched) {
-      const liters = row[c2.key];
-      const chemName = row[`${c2.key}_chem`];
+      const liters = row2[c2.key];
+      const chemName = row2[`${c2.key}_chem`];
       const ex = (fin || []).find((x) => {
         const linked = x.chemical_price_id ? L.chems.find((ch) => ch.id === x.chemical_price_id) : null;
         return (linked?.category || "").toLowerCase() === c2.category.toLowerCase() || (x.component_name || "").toLowerCase().includes(c2.name.toLowerCase());
@@ -734,19 +734,19 @@ async function applyRow(db, productId, row, L, warn) {
       else if (liters > 0) await db.from("cogs_items").insert({ product_id: productId, cogs_type: "Finishing Materials", component_name: c2.name, waste_factor: 0, sort_order: 4, ...patch });
     }
   }
-  if (row.raw_vendor !== void 0 && row.raw_piece_inr === void 0) {
-    await db.from("cogs_items").update({ vendor_name: row.raw_vendor }).eq("product_id", productId).eq("cogs_type", "Raw Piece");
+  if (row2.raw_vendor !== void 0 && row2.raw_piece_inr === void 0) {
+    await db.from("cogs_items").update({ vendor_name: row2.raw_vendor }).eq("product_id", productId).eq("cogs_type", "Raw Piece");
   }
   for (const lc of LABOR_COLS) {
-    const v = row[lc.key];
+    const v = row2[lc.key];
     if (v === void 0) continue;
     const { data: ex } = await db.from("overhead_items").select("id").eq("product_id", productId).eq("labor_type", lc.laborType).limit(1);
     if (ex?.length) await db.from("overhead_items").update({ man_hours_per_unit: v, is_auto_estimated: false, include: "Yes" }).eq("id", ex[0].id);
     else await db.from("overhead_items").insert({ product_id: productId, labor_type: lc.laborType, man_hours_per_unit: v, include: "Yes", sort_order: LABOR_COLS.indexOf(lc) });
   }
-  if (row.shipping_type) {
-    const st = byName(L.shippingTypes, row.shipping_type);
-    if (!st) warn(`${label}: shipping type "${row.shipping_type}" not found`);
+  if (row2.shipping_type) {
+    const st = byName(L.shippingTypes, row2.shipping_type);
+    if (!st) warn(`${label}: shipping type "${row2.shipping_type}" not found`);
     else {
       const { data: ex } = await db.from("shipping_items").select("id").eq("product_id", productId).limit(1);
       if (ex?.length) await db.from("shipping_items").update({ shipping_type_id: st.id }).eq("id", ex[0].id);
@@ -761,31 +761,31 @@ async function applyIntakeRows(db, inquiryId, rows, L, opts) {
   const res = { created: 0, updated: 0, warnings: [], ids: [] };
   const warn = (m) => res.warnings.push(m);
   for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const match = matchProduct(prods, row);
+    const row2 = rows[i];
+    const match = matchProduct(prods, row2);
     try {
       if (match) {
         if (!opts.updateExisting) continue;
-        await applyRow(db, match.id, row, L, warn);
+        await applyRow(db, match.id, row2, L, warn);
         res.updated++;
         res.ids.push(match.id);
       } else if (opts.createMissing) {
-        if (!row.name && !row.sku) continue;
-        const id = await scaffoldProduct(db, inquiryId, row, sort++, L);
-        await applyRow(db, id, row, L, warn);
+        if (!row2.name && !row2.sku) continue;
+        const id = await scaffoldProduct(db, inquiryId, row2, sort++, L);
+        await applyRow(db, id, row2, L, warn);
         res.created++;
         res.ids.push(id);
       }
     } catch (e) {
-      warn(`${row.sku || row.name}: ${e.message}`);
+      warn(`${row2.sku || row2.name}: ${e.message}`);
     }
     opts.onProgress?.(i + 1, rows.length);
   }
   return res;
 }
-function matchProduct(prods, row) {
-  const sku = (row.sku || "").toLowerCase().trim();
-  const name = (row.name || "").toLowerCase().trim();
+function matchProduct(prods, row2) {
+  const sku = (row2.sku || "").toLowerCase().trim();
+  const name = (row2.name || "").toLowerCase().trim();
   return sku && prods.find((p) => (p.sku || "").toLowerCase().trim() === sku) || name && prods.find((p) => (p.name || "").toLowerCase().trim() === name) || null;
 }
 
@@ -858,7 +858,7 @@ async function findOrCreateCustomer(db, input) {
     }
   }
   if (!name && !company) throw new ToolError(`No customer has the email ${email}. Give a name or company to create one.`);
-  const row = {
+  const row2 = {
     name: name || company,
     company: company || null,
     email: email || null,
@@ -868,8 +868,8 @@ async function findOrCreateCustomer(db, input) {
     notes: input.notes?.trim() || null,
     lead_status: input.lead_status ?? "active"
   };
-  if (input.dry_run) return { customer: row, created: false, would_create: true, matched_on: null, dry_run: true };
-  const customer = check(await db.from("customers").insert(row).select(CUSTOMER_COLUMNS).single(), "Could not create the customer");
+  if (input.dry_run) return { customer: row2, created: false, would_create: true, matched_on: null, dry_run: true };
+  const customer = check(await db.from("customers").insert(row2).select(CUSTOMER_COLUMNS).single(), "Could not create the customer");
   return { customer, created: true, matched_on: null, dry_run: false };
 }
 var find_or_create_customer_default = defineTool10({
@@ -970,7 +970,7 @@ async function createInquiry(db, input, today = todayInIndia()) {
   if (open.length && !input.allow_duplicate) {
     return { inquiry: open[0], created: false, duplicate_of: open[0], dry_run: !!input.dry_run };
   }
-  const row = {
+  const row2 = {
     customer_id: input.customer_id,
     title,
     priority: input.priority ?? "normal",
@@ -1006,9 +1006,9 @@ async function createInquiry(db, input, today = todayInIndia()) {
   };
   const entityName = (id) => entities.find((e) => e.id === id)?.name ?? null;
   const plan = { selling_entity: entityName(selling), producing_entity: entityName(producing) };
-  if (input.dry_run) return { inquiry: row, projection, ...plan, created: false, would_create: true, dry_run: true };
+  if (input.dry_run) return { inquiry: row2, projection, ...plan, created: false, would_create: true, dry_run: true };
   const inquiry = check(
-    await db.from("customer_rfqs").insert(row).select("id, rfq_number, title, status, customer_id, received_date").single(),
+    await db.from("customer_rfqs").insert(row2).select("id, rfq_number, title, status, customer_id, received_date").single(),
     "Could not create the inquiry"
   );
   const projRes = await db.from("inquiry_projections").insert({ inquiry_id: inquiry.id, ...projection });
@@ -1062,10 +1062,10 @@ async function importCostingIntake(db, input) {
   const unknown = /* @__PURE__ */ new Set();
   const rows = [];
   input.rows.forEach((rec, i) => {
-    const { row, unknown: u } = intakeRowFromRecord(rec, i + 2);
+    const { row: row2, unknown: u } = intakeRowFromRecord(rec, i + 2);
     u.forEach((k) => unknown.add(k));
-    if (!row.sku && !row.name) warnings.push(`row ${i + 2}: no SKU or product name, skipped`);
-    else rows.push(row);
+    if (!row2.sku && !row2.name) warnings.push(`row ${i + 2}: no SKU or product name, skipped`);
+    else rows.push(row2);
   });
   if (unknown.size) warnings.push(`Columns not on the Costing Intake sheet were ignored: ${[...unknown].join(", ")}`);
   const L = await loadIntakeLookups(db);
@@ -1291,7 +1291,7 @@ async function createTask(db, input) {
     ) ?? []).map((p) => p.assignee_code.toUpperCase());
     if (codes.length && !codes.includes(assignee)) throw new ToolError(`Unknown assignee "${assignee}". Use one of: ${codes.join(", ")}.`);
   }
-  const row = {
+  const row2 = {
     title: title.slice(0, 500),
     description: input.description?.trim() || null,
     status: "open",
@@ -1307,18 +1307,18 @@ async function createTask(db, input) {
   if (input.inquiry_id) {
     const inq = check(await db.from("customer_rfqs").select("id, rfq_number, title").eq("id", input.inquiry_id).maybeSingle(), "Could not read the inquiry");
     if (!inq) throw new ToolError(`Inquiry ${input.inquiry_id} not found or not visible to you.`);
-    Object.assign(row, { inquiry_id: inq.id, association_type: "inquiry", association_id: inq.id, association_label: `${inq.rfq_number} ${inq.title ?? ""}`.trim() });
+    Object.assign(row2, { inquiry_id: inq.id, association_type: "inquiry", association_id: inq.id, association_label: `${inq.rfq_number} ${inq.title ?? ""}`.trim() });
   } else if (input.customer_id) {
     const c = check(await db.from("customers").select("id, name").eq("id", input.customer_id).maybeSingle(), "Could not read the customer");
     if (!c) throw new ToolError(`Customer ${input.customer_id} not found or not visible to you.`);
-    Object.assign(row, { customer_id: c.id, association_type: "customer", association_id: c.id, association_label: c.name });
+    Object.assign(row2, { customer_id: c.id, association_type: "customer", association_id: c.id, association_label: c.name });
   } else if (input.project_id || input.project) {
     const p = await findProject(db, input);
-    Object.assign(row, { association_type: "project", association_id: p.id, association_label: p.name });
+    Object.assign(row2, { association_type: "project", association_id: p.id, association_label: p.name });
   }
-  if (input.dry_run) return { task: row, created: false, dry_run: true };
+  if (input.dry_run) return { task: row2, created: false, dry_run: true };
   const task = check(
-    await db.from("tasks").insert(row).select("id, title, due_date, assignee, priority, association_label").single(),
+    await db.from("tasks").insert(row2).select("id, title, due_date, assignee, priority, association_label").single(),
     "Could not create the task"
   );
   return { task, created: true, dry_run: false };
@@ -1544,16 +1544,16 @@ async function savedInquiryFinancials(db, ids) {
   const products = [];
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
-    const read2 = (cols) => pageAll(
+    const read3 = (cols) => pageAll(
       (a, b) => db.from("products").select(cols).in("customer_rfq_id", chunk).is("archived_at", null).order("id").range(a, b),
       "Could not read inquiry products"
     );
     const base = "id, customer_rfq_id, quantity, calculated_unit_price_usd, calculated_unit_cost_usd";
     try {
-      products.push(...await read2(`${base}, calculated_man_hours_per_unit`));
+      products.push(...await read3(`${base}, calculated_man_hours_per_unit`));
     } catch (e) {
       if (!String(e.message).includes("calculated_man_hours_per_unit")) throw e;
-      products.push(...await read2(base));
+      products.push(...await read3(base));
     }
   }
   const cost = {};
@@ -1821,9 +1821,9 @@ async function upsertAccount(db, input) {
     const account2 = check(await db.from("customers").update(patch).eq("id", found.id).select(ACCOUNT_COLUMNS).single(), "Could not update the account");
     return { account: account2, created: false, updated: Object.keys(patch), matched_on, dry_run: false };
   }
-  const row = { name: company, company, lead_status: "prospect", sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
-  if (input.dry_run) return { account: row, created: false, would_create: true, matched_on: null, dry_run: true };
-  const account = check(await db.from("customers").insert(row).select(ACCOUNT_COLUMNS).single(), "Could not create the account");
+  const row2 = { name: company, company, lead_status: "prospect", sales_stage: input.sales_stage ?? "queued", notes: clean(input.notes), ...fields };
+  if (input.dry_run) return { account: row2, created: false, would_create: true, matched_on: null, dry_run: true };
+  const account = check(await db.from("customers").insert(row2).select(ACCOUNT_COLUMNS).single(), "Could not create the account");
   return { account, created: true, matched_on: null, dry_run: false };
 }
 async function findContact(db, keys) {
@@ -1945,7 +1945,7 @@ async function logTouch(db, input) {
     const v = canContact(contact, account, input.channel);
     if (!v.allowed) throw new ToolError(`Not logged: ${v.reason}.`);
   }
-  const row = {
+  const row2 = {
     contact_id: contact?.id ?? null,
     customer_id: account?.id ?? contact?.customer_id ?? null,
     channel: input.channel,
@@ -1968,8 +1968,8 @@ async function logTouch(db, input) {
     logged_by: clean(input.logged_by)
   };
   const stageMove = input.direction === "in" && account && (!account.sales_stage || account.sales_stage === "queued" || account.sales_stage === "in_outreach") ? "responded" : input.direction === "out" && account && account.sales_stage === "queued" ? "in_outreach" : null;
-  if (input.dry_run) return { touch: row, created: false, dry_run: true, stage_move: stageMove, marks_engaged: !!input.engaged && !!contact && !contact.engaged };
-  const touch = check(await db.from("sales_touches").insert(row).select("id, channel, direction, occurred_at, customer_id, contact_id").single(), "Could not log the touch");
+  if (input.dry_run) return { touch: row2, created: false, dry_run: true, stage_move: stageMove, marks_engaged: !!input.engaged && !!contact && !contact.engaged };
+  const touch = check(await db.from("sales_touches").insert(row2).select("id, channel, direction, occurred_at, customer_id, contact_id").single(), "Could not log the touch");
   if (input.engaged && contact && !contact.engaged) check(await db.from("contacts").update({ engaged: true }).eq("id", contact.id), "Could not mark the contact engaged");
   if (stageMove && account) {
     await setSalesStage(db, { customer_id: account.id, stage: stageMove, reason: input.direction === "in" ? `Reply on ${input.channel}` : `First ${input.channel} message sent` });
@@ -2036,7 +2036,7 @@ async function saveFollowUp(db, input) {
   }
   const who2 = contact?.full_name ? ` (${contact.full_name})` : "";
   const name = account.company ?? account.name;
-  const row = {
+  const row2 = {
     title: (input.title?.trim() || (input.nudge_step ? `Nudge ${input.nudge_step}: ${name}${who2}` : `Reply to ${name}${who2}`)).slice(0, 500),
     status: "open",
     priority: input.priority ?? (input.nudge_step ? "normal" : "high"),
@@ -2053,14 +2053,14 @@ async function saveFollowUp(db, input) {
     draft_status: input.draft_text ? input.draft_status ?? "draft" : input.draft_status ?? null,
     source_event: "sales_follow_up"
   };
-  if (input.dry_run) return { task: row, created: false, dry_run: true };
-  const task = check(await db.from("tasks").insert(row).select("id, title, due_date, draft_status, nudge_step").single(), "Could not create the follow-up");
+  if (input.dry_run) return { task: row2, created: false, dry_run: true };
+  const task = check(await db.from("tasks").insert(row2).select("id, title, due_date, draft_status, nudge_step").single(), "Could not create the follow-up");
   return { task, created: true, dry_run: false };
 }
 async function logJobRun(db, input) {
   const job = input.job?.trim();
   if (!job) throw new ToolError("Give the job name, e.g. crm-watchdog.");
-  const row = {
+  const row2 = {
     job,
     status: input.status ?? "ok",
     started_at: input.started_at ?? (/* @__PURE__ */ new Date()).toISOString(),
@@ -2072,8 +2072,8 @@ async function logJobRun(db, input) {
     needs_review: input.needs_review ?? 0,
     run_by: clean(input.run_by)
   };
-  if (input.dry_run) return { run: row, created: false, dry_run: true };
-  const run = check(await db.from("job_runs").insert(row).select("id, job, status, started_at").single(), "Could not log the run");
+  if (input.dry_run) return { run: row2, created: false, dry_run: true };
+  const run = check(await db.from("job_runs").insert(row2).select("id, job, status, started_at").single(), "Could not log the run");
   return { run, created: true, dry_run: false };
 }
 async function listPipeline(db, input) {
@@ -2444,9 +2444,9 @@ async function saveTractionIdea(db, input) {
     rank = existing.reduce((m, r) => Math.max(m, r.rank), 0) + 1;
   }
   const paid = input.free_or_paid === "paid";
-  const row = { channel_id: input.channel_id, ...fields, rank, free_or_paid: paid ? "paid" : "free", status: input.status ?? (paid ? "not_for_now" : "proposed"), proposed_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) };
-  if (input.dry_run) return { idea: row, channel: channel2.name, created: false, would_create: true, dry_run: true };
-  const idea = check(await db.from("traction_ideas").insert(row).select(IDEA_COLUMNS).single(), "Could not add the idea");
+  const row2 = { channel_id: input.channel_id, ...fields, rank, free_or_paid: paid ? "paid" : "free", status: input.status ?? (paid ? "not_for_now" : "proposed"), proposed_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) };
+  if (input.dry_run) return { idea: row2, channel: channel2.name, created: false, would_create: true, dry_run: true };
+  const idea = check(await db.from("traction_ideas").insert(row2).select(IDEA_COLUMNS).single(), "Could not add the idea");
   return { idea, channel: channel2.name, created: true, dry_run: false };
 }
 async function saveCommunity(db, input) {
@@ -2460,9 +2460,9 @@ async function saveCommunity(db, input) {
     const community2 = check(await db.from("communities").update(fields).eq("id", found.id).select("id, name, status, interaction_plan, next_touch").single(), "Could not update the community");
     return { community: community2, created: false, dry_run: false };
   }
-  const row = { name, status: "candidate", ...fields };
-  if (input.dry_run) return { community: row, created: false, would_create: true, dry_run: true };
-  const community = check(await db.from("communities").insert(row).select("id, name, status").single(), "Could not add the community");
+  const row2 = { name, status: "candidate", ...fields };
+  if (input.dry_run) return { community: row2, created: false, would_create: true, dry_run: true };
+  const community = check(await db.from("communities").insert(row2).select("id, name, status").single(), "Could not add the community");
   return { community, created: true, dry_run: false };
 }
 async function listContent(db, input) {
@@ -2642,6 +2642,220 @@ var saveContentTool = defineTool18({
 });
 var TRACTION_TOOLS = [listTractionBoardTool, saveTractionIdeaTool, saveCommunityTool, listContentTool, saveContentTool];
 
+// src/lib/mcp/tools/prospect-tools.ts
+import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z18 } from "npm:zod@^3.25.76";
+
+// src/lib/sales/prospects.ts
+var PROSPECT_TIERS = ["A", "B", "C", "D", "X"];
+var PROSPECT_STATUSES = ["new", "researching", "ready", "promoted", "excluded"];
+function searchArgs(f, page, pageSize) {
+  const arr = (v) => v && v.length ? v : null;
+  const wantsRaw = (f.lists ?? []).includes("tam-raw");
+  const status = arr(f.status) ?? (wantsRaw ? null : ["new", "researching", "ready", "promoted"]);
+  return {
+    p_q: f.q?.trim() || null,
+    p_lists: arr(f.lists),
+    p_types: arr(f.types),
+    p_tiers: arr(f.tiers),
+    p_countries: arr(f.countries),
+    p_tags: arr(f.tags),
+    p_status: status,
+    p_in_crm: f.inCrm ?? null,
+    p_has_people: f.hasPeople ?? null,
+    p_sort: f.sort ?? "rank",
+    p_limit: pageSize,
+    p_offset: page * pageSize
+  };
+}
+
+// src/lib/mcp/prospects.ts
+var ACTOR = "PD HQ connector";
+var rpc = async (db, fn, args, what) => {
+  const { data, error } = await db.rpc(fn, args);
+  if (error) throw new ToolError(`${what}: ${error.message}`);
+  return data;
+};
+async function searchProspects(db, input) {
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 500);
+  const args = searchArgs({ ...input, inCrm: input.in_crm ?? null, hasPeople: input.has_people ?? null }, 0, limit);
+  args.p_offset = Math.max(input.offset ?? 0, 0);
+  const res = await rpc(db, "search_prospects", args, "Could not search prospects");
+  const facets = input.include_facets ? await rpc(db, "prospect_facets", {}, "Could not read the list counts") : void 0;
+  return { total: res?.total ?? 0, offset: args.p_offset, rows: res?.rows ?? [], ...facets ? { facets } : {} };
+}
+async function setProspectRank(db, input) {
+  if (!input.reason?.trim()) throw new ToolError("Give a reason. Every tier move is logged with why.");
+  if (input.tier == null && input.move == null && input.pinned == null) throw new ToolError("Give tier, move or pinned.");
+  if (input.tier && input.tier !== "auto" && !PROSPECT_TIERS.includes(input.tier)) throw new ToolError("tier must be A, B, C, D or auto.");
+  const { data: cur, error } = await db.from("prospects").select("id, name, tier, tier_override, effective_tier, pinned, dnc").eq("id", input.id).maybeSingle();
+  if (error) throw new ToolError(`Could not read the prospect: ${error.message}`);
+  if (!cur) throw new ToolError(`No prospect with id ${input.id}.`);
+  if (input.dry_run) return { prospect: cur, would_set: { tier: input.tier, move: input.move, pinned: input.pinned }, dry_run: true };
+  const after = await rpc(db, "set_prospect_rank", { p_id: input.id, p_tier: input.tier ?? null, p_move: input.move ?? null, p_pinned: input.pinned ?? null, p_reason: input.reason.trim(), p_actor: ACTOR }, "Could not change the tier");
+  return { prospect: { ...cur, ...after }, from_tier: cur.effective_tier, dry_run: false };
+}
+async function promoteProspect(db, input) {
+  const { data: p, error } = await db.from("prospects").select("id, name, domain, dnc, customer_id, status, people_count").eq("id", input.id).maybeSingle();
+  if (error) throw new ToolError(`Could not read the prospect: ${error.message}`);
+  if (!p) throw new ToolError(`No prospect with id ${input.id}.`);
+  if (p.dnc) throw new ToolError(`${p.name} is on do not contact. It cannot go into the pipeline.`);
+  if (input.dry_run) return { prospect: p, already_in_crm: !!p.customer_id, would_add_people: p.people_count, dry_run: true };
+  const r = await rpc(db, "promote_prospect", { p_id: input.id, p_reason: input.reason?.trim() || null, p_owner: input.owner ?? "CQ" }, "Could not promote");
+  return { prospect: { ...p, customer_id: r?.customer_id, status: "promoted" }, ...r, dry_run: false };
+}
+async function importProspects(db, input) {
+  const rows = input.rows ?? [];
+  const people = input.people ?? [];
+  if (!rows.length && !people.length && !input.list) throw new ToolError("Give rows, people or a list.");
+  if (rows.length > 500) throw new ToolError("At most 500 companies per call. Bigger loads go through Sales > Prospects > Load file.");
+  if (people.length > 2e3) throw new ToolError("At most 2,000 people per call.");
+  const bad = rows.filter((r) => !String(r.name ?? "").trim()).length;
+  for (const r of rows) {
+    if (r.status && !PROSPECT_STATUSES.includes(String(r.status))) throw new ToolError(`status must be one of ${PROSPECT_STATUSES.join(", ")}.`);
+    if ("tier_override" in r || "pinned" in r) throw new ToolError("Imports never set tier_override or pinned; those are Caleb's calls. Use set_prospect_rank.");
+  }
+  if (input.dry_run) return { would_import: rows.length - bad, without_name: bad, people: people.length, list: input.list ?? null, replace_list: !!input.replace_list, dry_run: true };
+  const source = input.source ?? (input.list ? `connector: ${input.list.id}` : "connector");
+  if (input.list) await rpc(db, "upsert_prospect_lists", { p_lists: [{ kind: "custom", ...input.list }] }, "Could not save the list");
+  const res = rows.length || input.replace_list ? await rpc(db, "import_prospects", { p_list_id: input.list?.id ?? null, p_rows: rows, p_source: source, p_replace_list: !!input.replace_list }, "Could not import") : { created: 0, updated: 0, linked_to_accounts: 0, skipped: 0 };
+  const ppl = people.length ? await rpc(db, "import_prospect_people", { p_rows: input.list ? people.map((x) => ({ lists: [input.list.id], ...x })) : people, p_source: source }, "Could not import people") : null;
+  await rpc(db, "refresh_prospect_counts", {}, "Could not refresh list counts");
+  return { ...res, people: ppl, list: input.list?.id ?? null, dry_run: false };
+}
+
+// src/lib/mcp/tools/prospect-tools.ts
+var write3 = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+var read2 = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
+var json3 = (r) => r;
+var strs = z18.array(z18.string().max(200)).max(50).optional();
+var searchProspectsTool = defineTool19({
+  name: "search_prospects",
+  title: "Search prospects",
+  description: "Search every company in Prospects (full TAM, filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy, Apollo) by text and filter by list ids, prospect type, tier (A-D, X failed the fit gate), country, tag and status. Best first by default. Companies that failed the fit gate are hidden unless lists includes tam-raw or a status is given. include_facets adds the lists with counts.",
+  inputSchema: {
+    q: z18.string().max(200).optional(),
+    lists: strs,
+    types: strs,
+    countries: strs,
+    tags: strs,
+    tiers: z18.array(z18.enum(PROSPECT_TIERS)).optional(),
+    status: z18.array(z18.enum(PROSPECT_STATUSES)).optional(),
+    in_crm: z18.boolean().optional(),
+    has_people: z18.boolean().optional(),
+    sort: z18.enum(["rank", "name", "trade", "recent"]).optional(),
+    limit: z18.number().int().min(1).max(500).optional(),
+    offset: z18.number().int().min(0).optional(),
+    include_facets: z18.boolean().optional()
+  },
+  annotations: read2,
+  handler: withUserDb(async (db, input) => {
+    const r = await searchProspects(db, input);
+    return ok(`${r.total} companies match; showing ${r.rows.length} from ${r.offset}.
+${JSON.stringify(r)}`, json3(r));
+  })
+});
+var setProspectRankTool = defineTool19({
+  name: "set_prospect_rank",
+  title: "Move a prospect up or down",
+  description: "Move a prospect one tier up (move 1) or down (move -1), set its tier (A-D, or auto to go back to the score), or pin it to the top of its tier. A reason is required and is logged. Caleb's own moves come first: do not undo a tier he set unless he asks. Use dry_run first.",
+  inputSchema: {
+    id: z18.string().uuid(),
+    tier: z18.enum(["A", "B", "C", "D", "auto"]).optional(),
+    move: z18.union([z18.literal(1), z18.literal(-1)]).optional(),
+    pinned: z18.boolean().optional(),
+    reason: z18.string().min(3).max(1e3),
+    dry_run: z18.boolean().optional()
+  },
+  annotations: write3,
+  handler: withUserDb(async (db, input) => {
+    const r = await setProspectRank(db, input);
+    const p = r.prospect;
+    return ok(r.dry_run ? `Dry run: ${p.name} is tier ${p.effective_tier}.` : `${p.name}: tier ${r.from_tier} \u2192 ${p.effective_tier}.`, json3(r));
+  })
+});
+var promoteProspectTool = defineTool19({
+  name: "promote_prospect",
+  title: "Put a prospect into the pipeline",
+  description: "Add a prospect to the Sales pipeline as a Queued account with its people as contacts, or link it to the account already in the CRM (matched on domain, then name). Refuses do not contact. Use dry_run first.",
+  inputSchema: {
+    id: z18.string().uuid(),
+    reason: z18.string().max(1e3).optional(),
+    owner: z18.string().max(20).optional(),
+    dry_run: z18.boolean().optional()
+  },
+  annotations: write3,
+  handler: withUserDb(async (db, input) => {
+    const r = await promoteProspect(db, input);
+    const p = r.prospect;
+    return ok(r.dry_run ? `Dry run: would put ${p.name} into the pipeline.` : `${p.name} is in the pipeline.`, json3(r));
+  })
+});
+var row = z18.object({
+  name: z18.string().max(300),
+  domain: z18.string().max(300).optional(),
+  website: z18.string().max(500).optional(),
+  country: z18.string().max(100).optional(),
+  state: z18.string().max(100).optional(),
+  city: z18.string().max(100).optional(),
+  prospect_type: z18.string().max(100).optional(),
+  tags: z18.array(z18.string().max(100)).max(30).optional(),
+  industry: z18.string().max(200).optional(),
+  employees: z18.number().int().optional(),
+  linkedin_url: z18.string().max(500).optional(),
+  email: z18.string().max(300).optional(),
+  products: z18.string().max(4e3).optional(),
+  trade_value_2025: z18.number().optional(),
+  trade_shipments: z18.number().int().optional(),
+  score: z18.number().optional(),
+  tier: z18.enum(PROSPECT_TIERS).optional(),
+  rank: z18.number().int().optional(),
+  status: z18.enum(PROSPECT_STATUSES).optional(),
+  excluded_reason: z18.string().max(500).optional(),
+  dnc: z18.boolean().optional(),
+  list_rank: z18.number().int().optional(),
+  data: z18.record(z18.unknown()).optional()
+}).passthrough();
+var importProspectsTool = defineTool19({
+  name: "import_prospects",
+  title: "Load prospects",
+  description: "Load up to 500 companies (and their people) into Prospects, optionally onto a list, e.g. this week's picks (kind weekly_outreach, id weekly-main-YYYY-MM-DD). Matches on domain, then name and country, so nothing is doubled; links accounts already in the CRM and carries do not contact over. Never overwrites a tier set by hand. replace_list clears the list's old members first. The full monthly run goes through Sales > Prospects > Load file instead. Use dry_run first.",
+  inputSchema: {
+    list: z18.object({
+      id: z18.string().min(1).max(100),
+      name: z18.string().min(1).max(200),
+      kind: z18.enum(["tam_raw", "tam_filtered", "research", "trade_research", "weekly_outreach", "waalaxy", "apollo", "linkedin", "customers", "custom"]).optional(),
+      description: z18.string().max(1e3).optional(),
+      run_date: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+    }).optional(),
+    replace_list: z18.boolean().optional(),
+    source: z18.string().max(200).optional(),
+    rows: z18.array(row).max(500).optional(),
+    people: z18.array(z18.object({
+      full_name: z18.string().max(300),
+      title: z18.string().max(300).optional(),
+      linkedin_url: z18.string().max(500).optional(),
+      email: z18.string().max(300).optional(),
+      company: z18.string().max(300).optional(),
+      domain: z18.string().max(300).optional(),
+      country: z18.string().max(100).optional(),
+      location: z18.string().max(300).optional(),
+      source: z18.string().max(100).optional(),
+      outreach_state: z18.string().max(100).optional(),
+      decision_maker: z18.boolean().optional(),
+      dnc: z18.boolean().optional(),
+      data: z18.record(z18.unknown()).optional()
+    }).passthrough()).max(2e3).optional(),
+    dry_run: z18.boolean().optional()
+  },
+  annotations: write3,
+  handler: withUserDb(async (db, input) => {
+    const r = await importProspects(db, input);
+    return ok(r.dry_run ? `Dry run: would load ${r.would_import} companies.` : `Loaded: ${JSON.stringify(r)}`, json3(r));
+  })
+});
+var PROSPECT_TOOLS = [searchProspectsTool, setProspectRankTool, promoteProspectTool, importProspectsTool];
+
 // src/lib/mcp/index.ts
 var projectRef = "yunhcegxsgxloasvwugx";
 var TOOLS = [
@@ -2662,13 +2876,14 @@ var TOOLS = [
   add_cogs_item_default,
   update_cogs_item_default,
   ...SALES_TOOLS,
-  ...TRACTION_TOOLS
+  ...TRACTION_TOOLS,
+  ...PROSPECT_TOOLS
 ];
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.5.0",
-  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer.",
+  version: "0.6.0",
+  instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
