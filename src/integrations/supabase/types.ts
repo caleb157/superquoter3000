@@ -4310,39 +4310,60 @@ export type Database = {
       sales_schedules: {
         Row: {
           cadence: string
+          credit_budget: string | null
           cron: string | null
           id: string
           job: string
+          last_fire_status: string | null
+          last_fired_at: string | null
           name: string
+          next_run_at: string | null
+          note: string | null
+          run_once_at: string | null
           runs_where: string | null
           sort_order: number
           status: string
+          synced_at: string | null
           timezone: string
           updated_at: string
           what_it_does: string | null
         }
         Insert: {
           cadence: string
+          credit_budget?: string | null
           cron?: string | null
           id: string
           job: string
+          last_fire_status?: string | null
+          last_fired_at?: string | null
           name: string
+          next_run_at?: string | null
+          note?: string | null
+          run_once_at?: string | null
           runs_where?: string | null
           sort_order?: number
           status?: string
+          synced_at?: string | null
           timezone?: string
           updated_at?: string
           what_it_does?: string | null
         }
         Update: {
           cadence?: string
+          credit_budget?: string | null
           cron?: string | null
           id?: string
           job?: string
+          last_fire_status?: string | null
+          last_fired_at?: string | null
           name?: string
+          next_run_at?: string | null
+          note?: string | null
+          run_once_at?: string | null
           runs_where?: string | null
           sort_order?: number
           status?: string
+          synced_at?: string | null
           timezone?: string
           updated_at?: string
           what_it_does?: string | null
@@ -4392,6 +4413,7 @@ export type Database = {
           angle: string | null
           auto_sent: boolean
           body: string | null
+          bounced_at: string | null
           channel: string
           contact_id: string | null
           created_at: string
@@ -4418,6 +4440,7 @@ export type Database = {
           angle?: string | null
           auto_sent?: boolean
           body?: string | null
+          bounced_at?: string | null
           channel: string
           contact_id?: string | null
           created_at?: string
@@ -4444,6 +4467,7 @@ export type Database = {
           angle?: string | null
           auto_sent?: boolean
           body?: string | null
+          bounced_at?: string | null
           channel?: string
           contact_id?: string | null
           created_at?: string
@@ -5042,6 +5066,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      usage_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          logged_by: string | null
+          metric: string
+          note: string | null
+          plan: string | null
+          resets_at: string | null
+          source: string
+          taken_at: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          metric: string
+          note?: string | null
+          plan?: string | null
+          resets_at?: string | null
+          source: string
+          taken_at?: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logged_by?: string | null
+          metric?: string
+          note?: string | null
+          plan?: string | null
+          resets_at?: string | null
+          source?: string
+          taken_at?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
