@@ -168,7 +168,8 @@ BEGIN
     INSERT INTO prospect_events (prospect_id, kind, from_value, to_value, reason, actor)
     VALUES (NEW.id, 'pin', OLD.pinned::text, NEW.pinned::text, why, who);
   END IF;
-  IF NEW.status IS DISTINCT FROM OLD.status THEN
+  -- status changes made by a list load are not hand moves; only log them when they come from a person or a tool call
+  IF NEW.status IS DISTINCT FROM OLD.status AND coalesce(current_setting('app.importing', true), '') <> 'on' THEN
     INSERT INTO prospect_events (prospect_id, kind, from_value, to_value, reason, actor)
     VALUES (NEW.id, CASE WHEN NEW.status = 'promoted' THEN 'promote' ELSE 'status' END, OLD.status, NEW.status, coalesce(why, NEW.excluded_reason), who);
   END IF;
@@ -207,6 +208,7 @@ BEGIN
   IF p_list_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM prospect_lists WHERE id = p_list_id) THEN
     RAISE EXCEPTION 'No prospect list %', p_list_id;
   END IF;
+  PERFORM set_config('app.importing', 'on', true);
   IF p_replace_list AND p_list_id IS NOT NULL THEN DELETE FROM prospect_list_members WHERE list_id = p_list_id; END IF;
   FOR r IN SELECT * FROM jsonb_array_elements(p_rows) LOOP
     IF nullif(trim(coalesce(r->>'name','')), '') IS NULL THEN skipped := skipped + 1; CONTINUE; END IF;
@@ -288,6 +290,7 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+  PERFORM set_config('app.importing', '', true);
   RETURN jsonb_build_object('created', created, 'updated', updated, 'linked_to_accounts', linked, 'skipped', skipped);
 END $$;
 
@@ -329,7 +332,7 @@ BEGIN
       linkedin_url = coalesce(li, pp.linkedin_url),
       email = coalesce(em, pp.email),
       location = coalesce(nullif(r->>'location',''), pp.location),
-      source = coalesce(pp.source, p_source, nullif(r->>'source','')),
+      source = coalesce(pp.source, nullif(r->>'source',''), p_source),
       outreach_state = coalesce(nullif(r->>'outreach_state',''), pp.outreach_state),
       score = coalesce(nullif(r->>'score','')::numeric, pp.score),
       decision_maker = coalesce((r->>'decision_maker')::boolean, pp.decision_maker),

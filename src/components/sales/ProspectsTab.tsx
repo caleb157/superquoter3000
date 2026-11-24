@@ -391,7 +391,7 @@ function ProspectSheet({ id, onClose, lists, onChanged }: { id: string | null; o
             </SheetHeader>
 
             <div className="grid grid-cols-3 gap-2 text-sm">
-              <Fact k="Score" v={p.score ?? '—'} /><Fact k="Rank in run" v={p.rank ?? '—'} /><Fact k="Employees" v={p.employees ?? '—'} />
+              <Fact k="Score" v={p.score ?? '—'} /><Fact k={memberOf.some(m => m.list_id === 'cooling') ? 'Place in queue (cooling: contacted lately)' : 'Place in queue'} v={p.rank ?? '—'} /><Fact k="Employees" v={p.employees ?? '—'} />
               <Fact k="India imports 2025" v={money(p.trade_value_2025)} /><Fact k="Shipments" v={p.trade_shipments ?? '—'} /><Fact k="Last shipment" v={p.trade_last_shipment ?? '—'} />
             </div>
 
