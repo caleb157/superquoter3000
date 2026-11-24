@@ -117,3 +117,13 @@ export function splitLines(buffer: string): { lines: LoadRecord[]; rest: string 
   for (const p of parts) { const s = p.trim(); if (s) lines.push(JSON.parse(s)); }
   return { lines, rest };
 }
+
+/**
+ * True only when the Prospects tables or functions are really not in the database yet:
+ * Postgres undefined_table (42P01) or undefined_function (42883), or PostgREST's "not in the schema cache" (PGRST202, PGRST205).
+ * A timeout or a network error is not a missing migration.
+ */
+export function isMissingSchema(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  return ["42P01", "42883", "PGRST202", "PGRST205"].includes(error.code ?? "");
+}
