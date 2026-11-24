@@ -255,7 +255,7 @@ export const logJobRunTool = defineTool({
 export const listSalesPipelineTool = defineTool({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them).",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them). Empty (null) fields are left out.",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z.string().uuid().optional(),

@@ -190,5 +190,9 @@ describe("sales connector tools", () => {
     const p = await listPipeline(db, {});
     expect(p.count).toBe(1);
     expect(p.accounts[0].contacts).toHaveLength(2);
+    // lean output: no nulls, no repeated parent id
+    expect(Object.values(p.accounts[0])).not.toContain(null);
+    expect(Object.values(p.accounts[0].contacts[0])).not.toContain(null);
+    expect(p.accounts[0].contacts[0]).not.toHaveProperty("customer_id");
   });
 });

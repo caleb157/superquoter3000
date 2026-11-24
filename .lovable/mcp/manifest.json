@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "product-hq-mcp",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "title": "Product HQ"
     },
     "tools": [
@@ -893,7 +893,7 @@
       {
         "name": "list_sales_pipeline",
         "title": "List the sales pipeline",
-        "description": "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages and open follow-ups.",
+        "description": "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them). Empty (null) fields are left out.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -1534,7 +1534,7 @@
       {
         "name": "save_follow_up",
         "title": "Save a follow-up and its draft",
-        "description": "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted. Use dry_run first.",
+        "description": "Create or update a follow-up task on an account, beside Caleb's other tasks: a reply he owes, or nudge 1 to 3 (1 week, 1 month, 1 quarter; engaged people only), with the drafted message for his approval. Statuses: draft, approved, sent, skipped (sent and skipped close the task). Refuses a draft to someone who cannot be contacted, and a new follow-up on an account Caleb marked Done or Ignored on Needs you until a new message comes in. Use dry_run first.",
         "annotations": {
           "readOnlyHint": false,
           "destructiveHint": false,
@@ -1607,6 +1607,10 @@
                 "high",
                 "urgent"
               ]
+            },
+            "override_dismissal": {
+              "type": "boolean",
+              "description": "Only when Caleb asked for this follow-up although he marked the account done or ignored on Needs you."
             },
             "dry_run": {
               "type": "boolean"
@@ -2831,6 +2835,122 @@
               "type": "boolean"
             }
           },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_needs_you",
+        "title": "List Needs you",
+        "description": "The Sales page's Needs you list, in its order: forgotten conversations, qualified accounts, nudges, drafted replies, due tasks, warm accounts with nothing planned, accounts back from Not now. Items Caleb marked Done or Ignored are left out until a new inbound message arrives, the Ignore date comes or he undoes it; include_hidden lists them too. The watchdog reads this before adding anything. Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include_hidden": {
+              "type": "boolean",
+              "description": "Also list the items Done or Ignore is holding back."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "forgotten",
+                "qualified",
+                "nudge",
+                "draft",
+                "task",
+                "quiet",
+                "back"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max items (default 200)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "dismiss_needs_you",
+        "title": "Mark a Needs you item done or ignored",
+        "description": "Done: handled (optionally with a note); it stays off Needs you until a new inbound message comes in, and a task item is closed. Ignore: off Needs you for ignore_days or until a date, or forever (until a new inbound message). Undo: puts the newest one back (and reopens a task Done closed). Name the item as forgotten, qualified, quiet or back for account items, or task_id for a follow-up or due task. Jobs use this only when Caleb asked. Use dry_run first.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "item": {
+              "type": "string",
+              "enum": [
+                "forgotten",
+                "qualified",
+                "quiet",
+                "back",
+                "task"
+              ]
+            },
+            "task_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "done",
+                "ignore",
+                "undo"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "ignore_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3650,
+              "description": "Ignore only. Leave out (and until) for forever."
+            },
+            "until": {
+              "type": "string",
+              "description": "Ignore only: YYYY-MM-DD it may show again."
+            },
+            "dismissal_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Undo this one instead of the newest for the item."
+            },
+            "actor": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Who asked, e.g. caleb-via-chat."
+            },
+            "dry_run": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer_id",
+            "action"
+          ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },

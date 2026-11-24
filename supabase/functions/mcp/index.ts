@@ -2367,17 +2367,20 @@ async function listPipeline(db, input) {
       (heldBy.get(d.customer_id) ?? heldBy.set(d.customer_id, []).get(d.customer_id)).push({ item: d.item_key, action: d.action, until: d.until ?? null, dismissed_at: d.dismissed_at, note: d.note });
     }
   }
+  const lean = ({ customer_id: _, ...row2 }) => dropNulls(row2);
+  const of = (rows, id) => rows.filter((r) => r.customer_id === id).map(lean);
   return {
     count: accounts.length,
     accounts: accounts.map((a) => ({
-      ...a,
-      contacts: contacts.filter((c) => c.customer_id === a.id),
-      touches: touches.filter((t) => t.customer_id === a.id).slice(0, n),
-      open_follow_ups: tasks.filter((t) => t.customer_id === a.id),
+      ...dropNulls(a),
+      contacts: of(contacts, a.id),
+      touches: of(touches, a.id).slice(0, n),
+      open_follow_ups: of(tasks, a.id),
       needs_you_held: heldBy.get(a.id) ?? []
     }))
   };
 }
+var dropNulls = (row2) => Object.fromEntries(Object.entries(row2).filter(([, v]) => v !== null));
 
 // src/lib/mcp/tools/sales-tools.ts
 var write = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -2607,7 +2610,7 @@ var logJobRunTool = defineTool17({
 var listSalesPipelineTool = defineTool17({
   name: "list_sales_pipeline",
   title: "List the sales pipeline",
-  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them).",
+  description: "Accounts in the pipeline (optionally one stage or one account) with their contacts, latest messages, open follow-ups and needs_you_held: the Needs you items Caleb marked Done or Ignored that still hold (do not re-flag those; a new inbound message or the Ignore date releases them). Empty (null) fields are left out.",
   inputSchema: {
     stage: stage.optional(),
     customer_id: z16.string().uuid().optional(),

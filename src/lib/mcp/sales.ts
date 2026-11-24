@@ -498,14 +498,19 @@ export async function listPipeline(db: Db, input: ListPipelineInput) {
       (heldBy.get(d.customer_id) ?? heldBy.set(d.customer_id, []).get(d.customer_id)!).push({ item: d.item_key, action: d.action, until: d.until ?? null, dismissed_at: d.dismissed_at, note: d.note });
     }
   }
+  // Every job reads this into Claude's context: leave out empty fields and the parent id repeated on each child.
+  const lean = ({ customer_id: _, ...row }: Record<string, unknown>) => dropNulls(row);
+  const of = (rows: { customer_id: string }[], id: string) => rows.filter((r) => r.customer_id === id).map(lean);
   return {
     count: accounts.length,
     accounts: accounts.map((a: { id: string }) => ({
-      ...a,
-      contacts: contacts.filter((c: { customer_id: string }) => c.customer_id === a.id),
-      touches: touches.filter((t: { customer_id: string }) => t.customer_id === a.id).slice(0, n),
-      open_follow_ups: tasks.filter((t: { customer_id: string }) => t.customer_id === a.id),
+      ...dropNulls(a),
+      contacts: of(contacts, a.id),
+      touches: of(touches, a.id).slice(0, n),
+      open_follow_ups: of(tasks, a.id),
       needs_you_held: heldBy.get(a.id) ?? [],
     })),
   };
 }
+
+const dropNulls = (row: object) => Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null));
