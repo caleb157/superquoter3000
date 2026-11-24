@@ -1811,6 +1811,12 @@ function dismissalEndedBy(d, ctx) {
   if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
   return null;
 }
+function stageMovePatch(account, stage2, notNowUntil) {
+  const patch = { sales_stage: stage2, not_now_until: stage2 === "not_now" ? notNowUntil ?? null : null };
+  if (stage2 === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
+  if (stage2 === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
+  return patch;
+}
 
 // src/lib/sales/needs-you.ts
 var QUALIFIED = /* @__PURE__ */ new Set(["in_conversation", "inquiry"]);
@@ -2235,9 +2241,7 @@ async function setSalesStage(db, input) {
   const account = check(await db.from("customers").select(ACCOUNT_COLUMNS).eq("id", input.customer_id).maybeSingle(), "Could not read the account");
   if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
   if (account.dnc) throw new ToolError(`${account.company ?? account.name} is on do not contact; only Caleb can clear that in PD HQ.`);
-  const patch = { sales_stage: input.stage, not_now_until: input.stage === "not_now" ? input.not_now_until : null };
-  if (input.stage === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
-  if (input.stage === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
+  const patch = stageMovePatch(account, input.stage, input.not_now_until);
   if (input.dry_run) return { from: account.sales_stage, to: input.stage, patch, changed: account.sales_stage !== input.stage, dry_run: true };
   if (account.sales_stage === input.stage && !patch.lead_status) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
   check(await db.from("customers").update(patch).eq("id", account.id), "Could not move the stage");
