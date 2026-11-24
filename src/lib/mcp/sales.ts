@@ -3,7 +3,7 @@
 import { check, isValidYmd, ToolError, type Db } from "./shared";
 import { activeAccountDismissals, liveDismissals } from "./needs-you";
 import {
-  ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, wordCount,
+  ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, stageMovePatch, wordCount,
   type Brief, type SalesStage, type TouchChannel,
 } from "../sales/sales-core";
 
@@ -313,9 +313,7 @@ export async function setSalesStage(db: Db, input: SetStageInput) {
   const account = check(await db.from("customers").select(ACCOUNT_COLUMNS).eq("id", input.customer_id).maybeSingle(), "Could not read the account");
   if (!account) throw new ToolError(`Account ${input.customer_id} not found.`);
   if (account.dnc) throw new ToolError(`${account.company ?? account.name} is on do not contact; only Caleb can clear that in PD HQ.`);
-  const patch: Record<string, unknown> = { sales_stage: input.stage, not_now_until: input.stage === "not_now" ? input.not_now_until : null };
-  if (input.stage === "customer" && account.lead_status === "prospect") patch.lead_status = "won";
-  if (input.stage === "inquiry" && account.lead_status === "prospect") patch.lead_status = "active";
+  const patch = stageMovePatch(account, input.stage, input.not_now_until);
   if (input.dry_run) return { from: account.sales_stage, to: input.stage, patch, changed: account.sales_stage !== input.stage, dry_run: true };
   if (account.sales_stage === input.stage && !patch.lead_status) return { from: account.sales_stage, to: input.stage, changed: false, dry_run: false };
   check(await db.from("customers").update(patch).eq("id", account.id), "Could not move the stage");

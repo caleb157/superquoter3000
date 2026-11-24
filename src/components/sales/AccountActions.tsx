@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreateInquiryDialog } from '@/components/CreateInquiryDialog';
 import { MessageSquarePlus, CalendarPlus, FilePlus2 } from 'lucide-react';
-import { ALL_SALES_STAGES, SALES_STAGE_LABELS, TOUCH_CHANNELS, addDaysYmd, canContact, type SalesStage, type TouchChannel } from '@/lib/sales/sales-core';
+import { ALL_SALES_STAGES, SALES_STAGE_LABELS, TOUCH_CHANNELS, addDaysYmd, canContact, stageMovePatch, type SalesStage, type TouchChannel } from '@/lib/sales/sales-core';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
@@ -32,6 +32,18 @@ function useContacts(customerId: string, open: boolean) {
       .then(({ data }: { data: ContactLite[] | null }) => setContacts(data ?? []));
   }, [customerId, open]);
   return contacts;
+}
+
+/**
+ * The app's set_sales_stage: the same patch as the connector (stageMovePatch), then the one-line reason
+ * written on the sales_stage_events row the trigger just logged. Returns an error message, or null.
+ */
+export async function moveStageWithReason(account: ActionAccount & { lead_status?: string | null }, stage: SalesStage, reason: string): Promise<string | null> {
+  const { error } = await db.from('customers').update(stageMovePatch(account, stage)).eq('id', account.id);
+  if (error) return error.message;
+  const ev = await db.from('sales_stage_events').select('id').eq('customer_id', account.id).eq('to_stage', stage).order('occurred_at', { ascending: false }).limit(1);
+  if (ev.data?.length) await db.from('sales_stage_events').update({ reason }).eq('id', ev.data[0].id);
+  return null;
 }
 
 /** Moves the stage; Not now asks for nothing and defaults to about 6 months out. */
