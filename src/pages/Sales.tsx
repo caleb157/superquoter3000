@@ -1,6 +1,6 @@
 // Sales section: Command center (the birds-eye landing page), Needs you (what to do next), Pipeline, Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
 // Content (pieces, calendar, post tests) and Jobs (runs, credits, cost).
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -15,7 +15,7 @@ import { ResponsiveTabs } from '@/components/ResponsiveTabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Check, SkipForward, Ban, AlertTriangle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { AccountActions } from '@/components/sales/AccountActions';
+import { AccountActions, moveStageWithReason } from '@/components/sales/AccountActions';
 import { ProspectingTab } from '@/components/sales/ProspectingTab';
 import { ProspectsTab } from '@/components/sales/ProspectsTab';
 import { TractionTab } from '@/components/sales/TractionTab';
@@ -26,7 +26,8 @@ import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
 import { CHANNEL_ICON } from '@/components/sales/SalesAccountPanel';
-import { SALES_EXITS, SALES_STAGES, SALES_STAGE_LABELS } from '@/lib/sales/sales-core';
+import { PIPELINE_MOVE_REASON, PIPELINE_UNDO_REASON, SALES_EXITS, SALES_STAGES, SALES_STAGE_LABELS, LEAD_STATUS_FROM_STAGE, canMoveStage, stageMovePatch, type SalesStage } from '@/lib/sales/sales-core';
+import { PipelineBoard, type BoardAccount } from '@/components/sales/PipelineBoard';
 import { applyDismissals, buildNeedsYou, groupByStage, lastInboundBy, summarizeJobs, type AccountRow, type JobRunRow, type NeedsYouEntry, type TaskRow, type TouchRow } from '@/lib/sales/needs-you';
 import { BulkBar, DismissButtons, DismissedList, DISMISSAL_SELECT, type DismissalRow } from '@/components/sales/NeedsYouDismiss';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,7 +35,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
 
-type PipelineAccount = AccountRow & { persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null; source: string | null };
+type PipelineAccount = AccountRow & { lead_status?: string | null; persona: string | null; customer_type: string | null; fit_score: number | null; last_contacted_at: string | null; not_now_until: string | null; owner: string | null; source: string | null };
 type JobRun = JobRunRow & { id: string; summary: string | null; finished_at: string | null; run_by: string | null };
 type Schedule = CcSchedule & { runs_where: string | null; what_it_does: string | null };
 type Block = { id: string; channel: string; sender: string | null; reason: string; blocked_at: string; customer_id: string | null };
@@ -70,7 +71,7 @@ export default function Sales() {
     const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const since90d = since90;
     const [a, t, k, r, b, e, s, d] = await Promise.all([
-      db.from('customers').select('id, name, company, sales_stage, dnc, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
+      db.from('customers').select('id, name, company, sales_stage, dnc, lead_status, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
       db.from('sales_touches').select('customer_id, direction, occurred_at, channel, body').gte('occurred_at', since90).order('occurred_at', { ascending: false }).limit(5000),
       db.from('tasks').select('id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority').eq('status', 'open').not('customer_id', 'is', null).limit(2000),
       db.from('job_runs').select('id, job, status, started_at, finished_at, summary, counts, credits, cost_usd, needs_review, run_by').gte('started_at', since30).order('started_at', { ascending: false }).limit(500),
@@ -105,6 +106,40 @@ export default function Sales() {
   const allByStage = useMemo(() => groupByStage(accounts, [...SALES_STAGES, ...SALES_EXITS]), [accounts]);
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const jobs = useMemo(() => summarizeJobs(runs, weekAgo), [runs, weekAgo]);
+  // Drag and drop on the Pipeline: show the move at once, save it with a reason, roll back on error, offer Undo.
+  const moveCard = useCallback((account: BoardAccount, to: SalesStage, undoOf?: { stage: string | null; lead_status: string | null | undefined; at: string | null | undefined }) => {
+    const prev = accounts.find(x => x.id === account.id);
+    if (!prev) return;
+    const before = { stage: prev.sales_stage, lead_status: prev.lead_status, at: prev.sales_stage_changed_at };
+    const nowIso = new Date().toISOString();
+    const patch = stageMovePatch(prev, to);
+    setAccounts(list => list.map(x => x.id === account.id
+      ? { ...x, ...patch, lead_status: LEAD_STATUS_FROM_STAGE[to], sales_stage_changed_at: undoOf ? undoOf.at ?? nowIso : nowIso } as PipelineAccount
+      : x));
+    const name = account.company || account.name;
+    void (async () => {
+      const err = await moveStageWithReason(prev, to, undoOf ? PIPELINE_UNDO_REASON : PIPELINE_MOVE_REASON);
+      if (err) {
+        setAccounts(list => list.map(x => x.id === account.id ? { ...x, sales_stage: before.stage, lead_status: before.lead_status, sales_stage_changed_at: before.at } as PipelineAccount : x));
+        toast.error(`Could not move ${name}: ${err}`);
+        return;
+      }
+      if (undoOf) { toast.success(`${name} is back in ${SALES_STAGE_LABELS[to]}`); }
+      else {
+        toast.success(`${name} moved to ${SALES_STAGE_LABELS[to]}`, {
+          description: to === 'inquiry' ? 'No inquiry was created. Use Start inquiry on the account to add one.' : undefined,
+          action: before.stage && canMoveStage({ ...prev, ...patch }, before.stage).allowed
+            ? { label: 'Undo', onClick: () => moveCardRef.current({ ...account, ...patch } as BoardAccount, before.stage as SalesStage, before) }
+            : undefined,
+          duration: 8000,
+        });
+      }
+      void load();
+    })();
+  }, [accounts]);
+  const moveCardRef = useRef(moveCard);
+  moveCardRef.current = moveCard;
+
   const lastTouch = useMemo(() => {
     const m = new Map<string, TouchRow>();
     for (const t of touches) if (t.customer_id && !m.has(t.customer_id)) m.set(t.customer_id, t);
@@ -170,32 +205,8 @@ export default function Sales() {
 
             <TabsContent value="pipeline" className="mt-3 space-y-3">
               <div className="relative max-w-xs"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="h-9 pl-8" placeholder="Find an account" value={q} onChange={e => setQ(e.target.value)} /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
-                {SALES_STAGES.map(s => (
-                  <div key={s} className="rounded-lg bg-muted/40 p-2 space-y-2 min-w-0">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{SALES_STAGE_LABELS[s]}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">{byStage[s].length}</span>
-                    </div>
-                    {byStage[s].slice(0, 60).map(a => {
-                      const lt = lastTouch.get(a.id);
-                      const I = lt ? CHANNEL_ICON[lt.channel] : null;
-                      return (
-                        <Link key={a.id} to={`/customers/${a.id}?tab=sales`} className="block rounded-md border bg-card p-2 hover:bg-accent/40">
-                          <div className="text-sm font-medium truncate">{a.company || a.name}</div>
-                          <div className="flex flex-wrap items-center gap-1 mt-1 text-[11px] text-muted-foreground">
-                            {a.persona && <span>{a.persona}</span>}
-                            {a.fit_score != null && <Badge variant="outline" className="text-[10px] px-1 py-0">Fit {a.fit_score}</Badge>}
-                            {I && <I className="h-3 w-3 ml-auto" />}
-                            {a.last_contacted_at && <span>{formatDistanceToNow(new Date(a.last_contacted_at), { addSuffix: true })}</span>}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                    {byStage[s].length > 60 && <div className="text-[11px] text-center text-muted-foreground">+{byStage[s].length - 60} more</div>}
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs text-muted-foreground">Drag a card to another column to move its stage (press and hold on a phone; Space and the arrow keys from the keyboard).</p>
+              <PipelineBoard byStage={byStage} lastTouch={lastTouch} onMove={moveCard} />
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 {SALES_EXITS.map(s => <span key={s} className="flex items-center gap-1"><SalesStageBadge stage={s} /> {byStage[s].length}</span>)}
               </div>

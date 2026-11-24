@@ -272,3 +272,33 @@ export function dismissalEndedBy(
   if (!d.item_key.startsWith("task:") && d.item_key !== "forgotten" && ctx.stageChangedAt && ctx.stageChangedAt > d.dismissed_at) return "stage";
   return null;
 }
+
+// ---------- stage moves (Pipeline drag and drop, the stage picker and set_sales_stage) ----------
+
+/** The reason logged on sales_stage_events when Caleb drags a card in the Pipeline. */
+export const PIPELINE_MOVE_REASON = "Moved by Caleb in the Pipeline";
+export const PIPELINE_UNDO_REASON = "Undo of a Pipeline move";
+
+export type StageMoveAccount = { dnc?: boolean | null; sales_stage?: string | null; lead_status?: string | null; not_now_until?: string | null };
+
+/** Stages that mean we are about to write to them: a do not contact account can never go back there. */
+export const OUTREACH_STAGES = ["queued", "in_outreach"] as const;
+
+/** The customers patch for a stage move: clears Not now unless moving there. Lead status is never written; the database sets it from the stage. */
+export function stageMovePatch(_account: StageMoveAccount, stage: SalesStage, notNowUntil?: string | null): Record<string, unknown> {
+  return { sales_stage: stage, not_now_until: stage === "not_now" ? notNowUntil ?? null : null };
+}
+
+/**
+ * Can this account be dropped on this stage? Do not contact is set only with its own control, and a
+ * do not contact account never moves into Queued or In outreach. Dropping on the same stage does nothing.
+ */
+export function canMoveStage(account: StageMoveAccount, to: string): { allowed: boolean; reason: string | null; noop?: boolean } {
+  if (!(ALL_SALES_STAGES as readonly string[]).includes(to)) return { allowed: false, reason: `Unknown stage ${to}` };
+  if (account.sales_stage === to) return { allowed: false, reason: null, noop: true };
+  if (to === "dnc") return { allowed: false, reason: "Set do not contact on the account page, so every sender is told" };
+  if (to === "not_now") return { allowed: false, reason: "Not now needs a date; use the stage picker on the account" };
+  if ((account.dnc || account.sales_stage === "dnc") && (OUTREACH_STAGES as readonly string[]).includes(to))
+    return { allowed: false, reason: "On do not contact, so it can't go back into outreach" };
+  return { allowed: true, reason: null };
+}
