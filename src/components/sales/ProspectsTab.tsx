@@ -3,6 +3,7 @@
 // exclude it, or put it into the pipeline. The Load file button brings in a whole list run in one go.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { accountPath, fromSalesTab } from '@/lib/sales/account-link';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -317,7 +318,7 @@ function TierBadge({ r }: { r: Pick<ProspectRow, 'effective_tier' | 'tier' | 'ti
 
 function StatusCell({ r }: { r: ProspectRow }) {
   if (r.dnc) return <span className="text-xs text-destructive inline-flex items-center gap-1"><Ban className="h-3 w-3" /> Do not contact</span>;
-  if (r.customer_id) return <Link to={`/customers/${r.customer_id}?tab=sales`} className="text-xs text-primary hover:underline">In CRM</Link>;
+  if (r.customer_id) return <Link to={accountPath(r.customer_id)} state={fromSalesTab('prospects')} className="text-xs text-primary hover:underline">In CRM</Link>;
   return <span className={cn('text-xs', r.status === 'excluded' && 'text-muted-foreground')} title={r.excluded_reason ?? undefined}>{PROSPECT_STATUS_LABELS[r.status]}{r.status === 'excluded' && r.excluded_reason ? `: ${r.excluded_reason}` : ''}</span>;
 }
 
@@ -413,7 +414,7 @@ function ProspectSheet({ id, onClose, lists, onChanged }: { id: string | null; o
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {p.customer_id
-                  ? <Button size="sm" asChild className="h-7"><Link to={`/customers/${p.customer_id}?tab=sales`}>Open in CRM</Link></Button>
+                  ? <Button size="sm" asChild className="h-7"><Link to={accountPath(p.customer_id)} state={fromSalesTab('prospects')}>Open in CRM</Link></Button>
                   : <Button size="sm" className="h-7 gap-1" disabled={busy || p.dnc} onClick={promote}><Send className="h-3.5 w-3.5" /> Put in pipeline</Button>}
                 {p.status === 'excluded'
                   ? <Button size="sm" variant="outline" className="h-7" disabled={busy} onClick={() => setStatus('new')}>Restore</Button>

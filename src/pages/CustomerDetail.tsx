@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 
 import { INQUIRY_STATUS_COLORS, statusLabel } from '@/lib/inquiry-status';
 import { SalesAccountPanel } from '@/components/sales/SalesAccountPanel';
+import { ACCOUNTS_PATH, accountBackTarget } from '@/lib/sales/account-link';
 
 type Customer = {
   id: string;
@@ -59,6 +60,9 @@ type ProductCount = { customer_rfq_id: string };
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Set once on arrival: tab switches and stage moves on this page must not lose where Back goes.
+  const [backTo] = useState(() => accountBackTarget(location.state));
   const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'inquiries';
@@ -158,15 +162,20 @@ export default function CustomerDetail() {
     <AppLayout>
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" onClick={() => {
+          {/* Back goes to the page this account was opened from (Needs you, Pipeline, Accounts, Tasks...), else Sales > Accounts. */}
+          <Button variant="ghost" size="sm" className="gap-1.5 -ml-2 h-7 px-2" title={`Back to ${backTo.label}`} onClick={() => {
             const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-            if (idx > 0) navigate(-1);
-            else navigate('/customers');
+            const cameFrom = (location.state as { from?: unknown } | null)?.from;
+            if (cameFrom) navigate(backTo.path);
+            else if (idx > 0) navigate(-1);
+            else navigate(ACCOUNTS_PATH);
           }}>
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </Button>
           <PageBreadcrumbs
-            canonical={[{ label: 'Customers', to: '/customers' }]}
+            canonical={backTo.path === ACCOUNTS_PATH || !backTo.path.startsWith('/sales')
+              ? [{ label: 'Sales', to: '/sales' }, { label: 'Accounts', to: ACCOUNTS_PATH }]
+              : [{ label: 'Sales', to: '/sales' }, { label: backTo.label, to: backTo.path }]}
             current={customer.company || customer.name || 'Customer'}
           />
           {isAdmin && (
@@ -177,7 +186,7 @@ export default function CustomerDetail() {
                 onConfirm={async () => {
                   const { error } = await (supabase as any).from('customers').delete().eq('id', customer.id);
                   if (error) throw new Error(error.message);
-                  navigate('/customers', { replace: true });
+                  navigate(ACCOUNTS_PATH, { replace: true });
                 }}
               />
             </div>

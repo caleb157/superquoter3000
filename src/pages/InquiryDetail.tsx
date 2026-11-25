@@ -349,7 +349,7 @@ export default function InquiryDetail() {
                   {titleEl}
                   <span className="shrink-0 font-mono text-xs text-muted-foreground">{inquiry.rfq_number}</span>
                   {customer && (
-                    <button className="hidden min-w-0 truncate text-sm text-muted-foreground hover:text-foreground hover:underline md:block" onClick={() => navigate('/customers')}>
+                    <button className="hidden min-w-0 truncate text-sm text-muted-foreground hover:text-foreground hover:underline md:block" onClick={() => navigate(`/customers/${customer.id}`)}>
                       {customerFullLabel(customer)}
                     </button>
                   )}
@@ -390,7 +390,7 @@ export default function InquiryDetail() {
             {customer && (
               <button
                 className="block text-sm text-muted-foreground hover:text-foreground hover:underline mt-1"
-                onClick={() => navigate('/customers')}
+                onClick={() => navigate(`/customers/${customer.id}`)}
               >
                 {customerFullLabel(customer)}
               </button>

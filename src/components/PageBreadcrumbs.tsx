@@ -28,9 +28,9 @@ export function PageBreadcrumbs({
   const location = useLocation();
   const fromState = (location.state as RowNavState | null)?.from;
 
-  // Avoid double-listing the origin if it already matches the first canonical crumb.
+  // Avoid double-listing the origin if it already matches a canonical crumb.
   const origin: BreadcrumbOrigin | null =
-    fromState && fromState.path !== canonical[0]?.to ? fromState : null;
+    fromState && !canonical.some(c => c.to === fromState.path) ? fromState : null;
 
   const crumbs: Crumb[] = origin
     ? [{ label: origin.label, to: origin.path }, ...canonical]
