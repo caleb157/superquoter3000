@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  claudePace, creditsByTool, funnelWeekAgo, istWeekStart, nextCronRun, prevCronRun, runBoard, tasksDue, weekOverWeek, weekTargets,
+  claudePace, claudeRunCounts, claudeWeekTotal, creditsByTool, pctUsed, resetSinceReading, funnelWeekAgo, istWeekStart, nextCronRun, prevCronRun, runBoard, tasksDue, weekOverWeek, weekTargets,
   type CcSchedule,
 } from "../command-center";
 
@@ -139,5 +139,27 @@ describe("tasks due", () => {
     expect(t.today.map(x => x.id)).toEqual(["3", "2"]);
     expect(t.week.map(x => x.id)).toEqual(["5"]);
     expect(t.isSales(t.today[1])).toBe(true);
+  });
+});
+
+describe("Claude use per run", () => {
+  it("takes end minus start, or the end reading when the limit reset mid-run", () => {
+    expect(pctUsed(60, 63)).toBe(3);
+    expect(pctUsed(98, 2)).toBe(2);
+    expect(pctUsed(undefined, 5)).toBeNull();
+  });
+  it("builds the counts keys and sums the measured runs", () => {
+    expect(claudeRunCounts({ week_start: 70, week_end: 71.5 })).toEqual({ claude_week_pct_start: 70, claude_week_pct_end: 71.5, claude_week_pct_used: 1.5 });
+    expect(claudeWeekTotal([{ counts: { claude_week_pct_used: 1.5 } }, { counts: { claude_week_pct_used: 2 } }, { counts: {} }])).toEqual({ pct: 3.5, measured: 2, runs: 3 });
+    expect(claudeWeekTotal([{ counts: null }]).pct).toBeNull();
+  });
+  it("shows a run's Claude use on the run board", () => {
+    const s = [{ id: "crm-watchdog", job: "crm-watchdog", name: "CRM watchdog", cadence: "x", cron: "44 9 * * 1-5", status: "live", sort_order: 1 }] as unknown as CcSchedule[];
+    const [row] = runBoard(s, [{ job: "crm-watchdog", status: "ok", started_at: "2026-11-24T03:20:00Z", counts: { claude_week_pct_used: 1.2 } }], NOW);
+    expect(row.claudeWeek).toBe(1.2);
+  });
+  it("knows when a reading is from before the last reset", () => {
+    expect(resetSinceReading({ taken_at: "2026-11-25T02:14:00Z", source: "claude", metric: "weekly_pct", value: 75, resets_at: "2026-11-25T03:00:00Z" }, new Date("2026-11-25T04:00:00Z"))).toBe(true);
+    expect(resetSinceReading({ taken_at: "2026-11-25T02:14:00Z", source: "claude", metric: "weekly_pct", value: 75, resets_at: "2026-11-25T03:00:00Z" }, new Date("2026-11-25T02:30:00Z"))).toBe(false);
   });
 });

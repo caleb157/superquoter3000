@@ -1,5 +1,6 @@
 // Builds the Sales page's "Needs you" list from accounts, touches and open tasks. Pure, no imports outside sales-core.
 import { isDismissalActive, isForgotten, needsItemKey, QUIET_DAYS, sortNeedsYou, type DismissalLite, type NeedsYouItem, type TouchLite } from "./sales-core";
+import { claudeWeekUsed } from "./command-center";
 
 export type AccountRow = {
   id: string; name: string; company: string | null; sales_stage: string | null; dnc: boolean; next_step?: string | null; next_step_date?: string | null;
@@ -125,15 +126,17 @@ export function groupByStage<T extends { sales_stage: string | null }>(accounts:
   return g;
 }
 
-export type JobRunRow = { job: string; status: string; started_at: string; cost_usd: number | null; needs_review: number; credits?: Record<string, number> | null };
+export type JobRunRow = { job: string; status: string; started_at: string; cost_usd: number | null; needs_review: number; credits?: Record<string, number> | null; counts?: Record<string, unknown> | null };
 
-/** This week's job totals for the Jobs tab: runs, failures, cost and credits per job. */
+/** This week's job totals for the Jobs tab: runs, failures, Claude plan use, cost and credits per job. */
 export function summarizeJobs(runs: JobRunRow[], since: string) {
   const recent = runs.filter(r => r.started_at >= since);
-  const jobs = new Map<string, { job: string; runs: number; failed: number; cost: number; needs_review: number; last: string; lastStatus: string; credits: Record<string, number> }>();
+  const jobs = new Map<string, { job: string; runs: number; failed: number; cost: number; needs_review: number; last: string; lastStatus: string; credits: Record<string, number>; claudeWeek: number | null; claudeMeasured: number }>();
   for (const r of [...recent].sort((a, b) => a.started_at.localeCompare(b.started_at))) {
-    const j = jobs.get(r.job) ?? { job: r.job, runs: 0, failed: 0, cost: 0, needs_review: 0, last: r.started_at, lastStatus: r.status, credits: {} };
+    const j = jobs.get(r.job) ?? { job: r.job, runs: 0, failed: 0, cost: 0, needs_review: 0, last: r.started_at, lastStatus: r.status, credits: {}, claudeWeek: null, claudeMeasured: 0 };
     j.runs++;
+    const used = claudeWeekUsed(r.counts);
+    if (used !== null) { j.claudeWeek = Math.round(((j.claudeWeek ?? 0) + used) * 10) / 10; j.claudeMeasured++; }
     if (r.status === "failed") j.failed++;
     j.cost += Number(r.cost_usd ?? 0);
     j.needs_review = r.needs_review; // latest run's queue
@@ -143,5 +146,10 @@ export function summarizeJobs(runs: JobRunRow[], since: string) {
     jobs.set(r.job, j);
   }
   const list = [...jobs.values()].sort((a, b) => b.last.localeCompare(a.last));
-  return { jobs: list, totalCost: list.reduce((s, j) => s + j.cost, 0), runs: recent.length, failed: list.reduce((s, j) => s + j.failed, 0) };
+  const measured = list.filter(j => j.claudeWeek !== null);
+  return {
+    jobs: list, totalCost: list.reduce((s, j) => s + j.cost, 0), runs: recent.length, failed: list.reduce((s, j) => s + j.failed, 0),
+    claudeWeek: measured.length ? Math.round(measured.reduce((s, j) => s + (j.claudeWeek ?? 0), 0) * 10) / 10 : null,
+    claudeMeasured: list.reduce((s, j) => s + j.claudeMeasured, 0),
+  };
 }

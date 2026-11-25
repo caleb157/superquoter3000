@@ -1838,6 +1838,325 @@ var get_sales_analytics_default = defineTool16({
 import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z16 } from "npm:zod@^3.25.76";
 
+// src/lib/sales/prospecting.ts
+var DAY2 = 864e5;
+var SEND_TARGETS = {
+  linkedinPerWeekday: 35,
+  linkedinWeeklyCap: 200,
+  emailRamp: [8, 12, 16, 20],
+  researchedPerWeek: 500
+};
+function weekStart(d) {
+  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dow = (x.getUTCDay() + 6) % 7;
+  return new Date(x.getTime() - dow * DAY2);
+}
+function emailTargetToday(firstEmailAt, now = /* @__PURE__ */ new Date()) {
+  if (!firstEmailAt) return SEND_TARGETS.emailRamp[0];
+  const weeks = Math.floor((weekStart(now).getTime() - weekStart(new Date(firstEmailAt)).getTime()) / (7 * DAY2));
+  return SEND_TARGETS.emailRamp[Math.min(Math.max(weeks, 0), SEND_TARGETS.emailRamp.length - 1)];
+}
+
+// src/lib/sales/command-center.ts
+var DAY3 = 864e5;
+var MIN = 6e4;
+var IST_OFFSET_MS = 330 * MIN;
+var ist = (d) => new Date(d.getTime() + IST_OFFSET_MS);
+var fromIst = (y, m, day, h = 0, mi = 0) => new Date(Date.UTC(y, m, day, h, mi) - IST_OFFSET_MS);
+function istWeekStart(d) {
+  const x = ist(d);
+  const dow = (x.getUTCDay() + 6) % 7;
+  return fromIst(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate() - dow);
+}
+var istToday = (now = /* @__PURE__ */ new Date()) => ist(now).toISOString().slice(0, 10);
+function field(src, lo, hi) {
+  if (src === "*" || src === "?") return null;
+  const out = /* @__PURE__ */ new Set();
+  for (const part of src.split(",")) {
+    const [range, stepS] = part.split("/");
+    const step = stepS ? Number(stepS) : 1;
+    let a = lo, b = hi;
+    if (range !== "*") {
+      const [x, y] = range.split("-").map(Number);
+      a = x;
+      b = y ?? (stepS ? hi : x);
+    }
+    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(step) || step < 1) throw new Error(`Bad cron field "${src}"`);
+    for (let v = a; v <= b; v += step) out.add(hi === 7 && v === 7 ? 0 : v);
+  }
+  return out;
+}
+function parseCron(expr) {
+  const parts = expr.replace(/^CRON_TZ=\S+\s+/, "").trim().split(/\s+/);
+  if (parts.length !== 5) throw new Error(`Cron needs 5 fields: "${expr}"`);
+  const [m, h, dom, mon, dow] = parts;
+  return { min: field(m, 0, 59) ?? new Set(Array.from({ length: 60 }, (_, i) => i)), hour: field(h, 0, 23) ?? new Set(Array.from({ length: 24 }, (_, i) => i)), dom: field(dom, 1, 31), mon: field(mon, 1, 12), dow: field(dow, 0, 7) };
+}
+var dayOk = (s, x) => (!s.mon || s.mon.has(x.getUTCMonth() + 1)) && (!s.dom || s.dom.has(x.getUTCDate())) && (!s.dow || s.dow.has(x.getUTCDay()));
+function* times(s) {
+  const hs = [...s.hour].sort((a, b) => a - b), ms = [...s.min].sort((a, b) => a - b);
+  for (const h of hs) for (const m of ms) yield [h, m];
+}
+function nextCronRun(cron, from) {
+  let best = null;
+  for (const e of cron.split(";").map((x) => x.trim()).filter(Boolean)) {
+    const s = parseCron(e);
+    const base = ist(from);
+    for (let i = 0; i <= 400; i++) {
+      const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
+      if (!dayOk(s, day)) continue;
+      let hit = null;
+      for (const [h, m] of times(s)) {
+        const t = fromIst(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m);
+        if (t > from) {
+          hit = t;
+          break;
+        }
+      }
+      if (hit) {
+        if (!best || hit < best) best = hit;
+        break;
+      }
+    }
+  }
+  return best;
+}
+function prevCronRun(cron, at) {
+  let best = null;
+  for (const e of cron.split(";").map((x) => x.trim()).filter(Boolean)) {
+    const s = parseCron(e);
+    const base = ist(at);
+    for (let i = 0; i <= 400; i++) {
+      const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() - i));
+      if (!dayOk(s, day)) continue;
+      let hit = null;
+      for (const [h, m] of [...times(s)].reverse()) {
+        const t = fromIst(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m);
+        if (t <= at) {
+          hit = t;
+          break;
+        }
+      }
+      if (hit) {
+        if (!best || hit > best) best = hit;
+        break;
+      }
+    }
+  }
+  return best;
+}
+var isBackfill = (e) => /\b(load|sync|import|seed)\b/i.test(e.actor ?? "");
+function countWeek(touches, events, inquiries, from, to, pipelineIds) {
+  const f = from.toISOString(), t = to.toISOString();
+  const inWin = (x) => !!x && x >= f && x < t;
+  const out = touches.filter((x) => x.direction === "out" && !x.is_drip && inWin(x.occurred_at));
+  const email = out.filter((x) => x.channel === "email");
+  const bounces = email.filter((x) => !!x.bounced_at).length;
+  const ev = events.filter((e) => inWin(e.occurred_at) && !isBackfill(e));
+  const fd = istToday(from), td = istToday(new Date(to.getTime() - 1));
+  return {
+    linkedin: out.filter((x) => x.channel === "linkedin").length,
+    email: email.length,
+    bounces,
+    bounceRate: email.length ? bounces / email.length : null,
+    replies: touches.filter((x) => x.direction === "in" && inWin(x.occurred_at)).length,
+    meetings: touches.filter((x) => (x.channel === "meeting" || x.channel === "call") && inWin(x.occurred_at)).length,
+    newResponded: new Set(ev.filter((e) => e.to_stage === "responded").map((e) => e.customer_id)).size,
+    inquiries: inquiries.filter((q) => {
+      if (!q.customer_id || !pipelineIds.has(q.customer_id)) return false;
+      const d = q.received_date ?? q.created_at?.slice(0, 10) ?? null;
+      return !!d && d >= fd && d <= td;
+    }).length,
+    customers: new Set(ev.filter((e) => e.to_stage === "customer").map((e) => e.customer_id)).size
+  };
+}
+function weekOverWeek(touches, events, inquiries, pipelineIds, now = /* @__PURE__ */ new Date()) {
+  const ws = istWeekStart(now);
+  const lws = new Date(ws.getTime() - 7 * DAY3);
+  return {
+    weekStart: ws,
+    thisWeek: countWeek(touches, events, inquiries, ws, now, pipelineIds),
+    lastWeekSamePoint: countWeek(touches, events, inquiries, lws, new Date(now.getTime() - 7 * DAY3), pipelineIds),
+    lastWeek: countWeek(touches, events, inquiries, lws, ws, pipelineIds)
+  };
+}
+function weekTargets(now = /* @__PURE__ */ new Date(), firstEmailAt = null) {
+  const x = ist(now);
+  const weekdaysSoFar = Math.min(5, (x.getUTCDay() + 6) % 7 + 1);
+  const emailDaily = emailTargetToday(firstEmailAt, now);
+  const liWeek = Math.min(SEND_TARGETS.linkedinWeeklyCap, SEND_TARGETS.linkedinPerWeekday * 5);
+  return {
+    linkedin: { daily: SEND_TARGETS.linkedinPerWeekday, week: liWeek, dueSoFar: Math.min(liWeek, SEND_TARGETS.linkedinPerWeekday * weekdaysSoFar), cap: SEND_TARGETS.linkedinWeeklyCap },
+    email: { daily: emailDaily, week: emailDaily * 5, dueSoFar: emailDaily * weekdaysSoFar },
+    maxBounceRate: 0.02,
+    weekdaysSoFar
+  };
+}
+function funnelWeekAgo(accounts, events, now = /* @__PURE__ */ new Date()) {
+  const cutoff = new Date(now.getTime() - 7 * DAY3).toISOString();
+  const firstAfter = /* @__PURE__ */ new Map();
+  for (const e of [...events].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))) {
+    if (e.occurred_at > cutoff && !firstAfter.has(e.customer_id)) firstAfter.set(e.customer_id, e);
+  }
+  const stages = [...SALES_STAGES, ...SALES_EXITS];
+  const nowC = Object.fromEntries(stages.map((s) => [s, 0]));
+  const agoC = Object.fromEntries(stages.map((s) => [s, 0]));
+  const loadedC = Object.fromEntries(stages.map((s) => [s, 0]));
+  for (const a of accounts) {
+    if (a.sales_stage && a.sales_stage in nowC) nowC[a.sales_stage]++;
+    const e = firstAfter.get(a.id);
+    const then = e ? e.from_stage : a.sales_stage;
+    if (then && then in agoC) agoC[then]++;
+    if (e && !e.from_stage && isBackfill(e) && a.sales_stage && a.sales_stage in loadedC) loadedC[a.sales_stage]++;
+  }
+  return stages.map((s) => ({ stage: s, now: nowC[s], weekAgo: agoC[s], change: nowC[s] - agoC[s], loaded: loadedC[s] }));
+}
+var REPORT_GRACE_HOURS = 3;
+function runBoard(schedules, runs, now = /* @__PURE__ */ new Date()) {
+  const ws = istWeekStart(now).toISOString();
+  const rows = schedules.filter((s) => s.status !== "retired").map((s) => {
+    const mine = runs.filter((r) => r.job === s.job || r.job === s.id).sort((a, b) => b.started_at.localeCompare(a.started_at));
+    const lastRun = mine[0] ?? null;
+    let nextRun = null, prevFire = null;
+    if (s.run_once_at) {
+      const t = new Date(s.run_once_at);
+      if (t > now) nextRun = t;
+      else prevFire = t;
+    } else if (s.cron) {
+      try {
+        nextRun = nextCronRun(s.cron, now);
+        prevFire = prevCronRun(s.cron, now);
+      } catch {
+      }
+    }
+    if (prevFire && s.live_since && prevFire < new Date(s.live_since)) prevFire = null;
+    if (s.next_run_at && new Date(s.next_run_at) > now && (!nextRun || s.run_once_at)) nextRun = new Date(s.next_run_at);
+    const lastFired = s.last_fired_at ? new Date(s.last_fired_at) : null;
+    const week = mine.filter((r) => r.started_at >= ws);
+    const creditsWeek = {};
+    for (const r of week) for (const [k, v] of Object.entries(r.credits ?? {})) creditsWeek[k] = (creditsWeek[k] ?? 0) + Number(v);
+    const graceAgo = new Date(now.getTime() - REPORT_GRACE_HOURS * 36e5);
+    let state, stateNote;
+    if (s.status === "paused") {
+      state = "paused";
+      stateNote = "Paused";
+    } else if (s.status === "planned") {
+      state = "planned";
+      stateNote = "Planned, not scheduled yet";
+    } else if (lastRun && lastRun.status === "failed" && (!prevFire || lastRun.started_at >= new Date(prevFire.getTime() - 30 * MIN).toISOString())) {
+      state = "failed";
+      stateNote = lastRun.summary || "Last run failed";
+    } else if (prevFire && prevFire < graceAgo && (!lastRun || lastRun.started_at < new Date(prevFire.getTime() - 30 * MIN).toISOString())) {
+      state = "no_report";
+      stateNote = lastFired && lastFired >= new Date(prevFire.getTime() - 30 * MIN) ? "Fired, but the job logged no run" : "No run logged since it was due";
+    } else if (s.run_once_at && !nextRun && lastRun) {
+      state = "done";
+      stateNote = "Ran once";
+    } else if (lastRun) {
+      state = "ok";
+      stateNote = lastRun.summary || lastRun.status;
+    } else {
+      state = "upcoming";
+      stateNote = "Not due yet";
+    }
+    return {
+      ...s,
+      lastRun,
+      lastFired,
+      nextRun,
+      state,
+      stateNote,
+      creditsWeek,
+      costWeek: week.reduce((n, r) => n + Number(r.cost_usd ?? 0), 0),
+      runsWeek: week.length,
+      claudeWeek: claudeWeekTotal(week).pct
+    };
+  });
+  return rows.sort((a, b) => (a.nextRun?.getTime() ?? Infinity) - (b.nextRun?.getTime() ?? Infinity) || a.sort_order - b.sort_order);
+}
+function latestUsage(rows) {
+  const m = /* @__PURE__ */ new Map();
+  for (const r of [...rows].sort((a, b) => b.taken_at.localeCompare(a.taken_at))) {
+    const k = `${r.source}|${r.metric}`;
+    if (!m.has(k)) m.set(k, r);
+  }
+  return m;
+}
+function claudePace(weekly, now = /* @__PURE__ */ new Date()) {
+  if (!weekly?.resets_at) return null;
+  const reset = new Date(weekly.resets_at).getTime();
+  const taken = new Date(weekly.taken_at).getTime();
+  const start = reset - 7 * DAY3;
+  const elapsed = (taken - start) / (7 * DAY3);
+  if (!(elapsed > 0.02) || elapsed > 1) return null;
+  const pct2 = Number(weekly.value);
+  return { pct: pct2, elapsed, projected: Math.round(pct2 / elapsed), resetsAt: new Date(reset), stale: now.getTime() - taken > 36 * 36e5 };
+}
+function creditsByTool(runs, now = /* @__PURE__ */ new Date()) {
+  const ws = istWeekStart(now).toISOString();
+  const lws = new Date(istWeekStart(now).getTime() - 7 * DAY3).toISOString();
+  const tools = /* @__PURE__ */ new Map();
+  let costThis = 0, costLast = 0;
+  for (const r of runs) {
+    const bucket = r.started_at >= ws ? "thisWeek" : r.started_at >= lws ? "lastWeek" : null;
+    if (!bucket) continue;
+    if (bucket === "thisWeek") costThis += Number(r.cost_usd ?? 0);
+    else costLast += Number(r.cost_usd ?? 0);
+    for (const [k, v] of Object.entries(r.credits ?? {})) {
+      const t = tools.get(k) ?? { tool: k, thisWeek: 0, lastWeek: 0 };
+      t[bucket] += Number(v);
+      tools.set(k, t);
+    }
+  }
+  return { tools: [...tools.values()].sort((a, b) => b.thisWeek - a.thisWeek || b.lastWeek - a.lastWeek), costThis, costLast };
+}
+function tasksDue(tasks, now = /* @__PURE__ */ new Date(), assignee) {
+  const today = istToday(now);
+  const week = istToday(new Date(now.getTime() + 7 * DAY3));
+  const rank = { urgent: 0, high: 1, normal: 2, low: 3 };
+  const mine = tasks.filter((t) => t.status === "open" && t.due_date && (!assignee || t.assignee === assignee)).sort((a, b) => a.due_date.localeCompare(b.due_date) || (rank[a.priority ?? "normal"] ?? 2) - (rank[b.priority ?? "normal"] ?? 2));
+  return {
+    overdue: mine.filter((t) => t.due_date < today),
+    today: mine.filter((t) => t.due_date === today),
+    week: mine.filter((t) => t.due_date > today && t.due_date <= week),
+    isSales: (t) => /^Sales\b/.test(t.title) || !!t.customer_id
+  };
+}
+function pctUsed(start, end) {
+  if (typeof start !== "number" || typeof end !== "number" || !Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return Math.round((end >= start ? end - start : end) * 10) / 10;
+}
+function claudeRunCounts(c) {
+  const out = {};
+  if (!c) return out;
+  const put = (k, v) => {
+    if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+  };
+  put("claude_week_pct_start", c.week_start);
+  put("claude_week_pct_end", c.week_end);
+  put("claude_week_pct_used", pctUsed(c.week_start, c.week_end));
+  put("claude_session_pct_start", c.session_start);
+  put("claude_session_pct_end", c.session_end);
+  put("claude_session_pct_used", pctUsed(c.session_start, c.session_end));
+  return out;
+}
+function claudeWeekUsed(counts) {
+  const v = counts?.claude_week_pct_used;
+  return typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
+}
+function claudeWeekTotal(runs) {
+  let sum2 = 0, measured = 0;
+  for (const r of runs) {
+    const v = claudeWeekUsed(r.counts);
+    if (v !== null) {
+      sum2 += v;
+      measured++;
+    }
+  }
+  return { pct: measured ? Math.round(sum2 * 10) / 10 : null, measured, runs: runs.length };
+}
+var resetSinceReading = (r, now = /* @__PURE__ */ new Date()) => !!r?.resets_at && new Date(r.resets_at).getTime() <= now.getTime();
+
 // src/lib/sales/needs-you.ts
 var QUALIFIED = /* @__PURE__ */ new Set(["in_conversation", "inquiry"]);
 function buildNeedsYou(accounts, touches, tasks, now = /* @__PURE__ */ new Date(), horizonDays = 7, engagedIds = /* @__PURE__ */ new Set()) {
@@ -2341,24 +2660,41 @@ async function saveFollowUp(db, input) {
   const task = check(await db.from("tasks").insert(row2).select("id, title, due_date, draft_status, nudge_step").single(), "Could not create the follow-up");
   return { task, created: true, dry_run: false };
 }
+var pctOk = (v) => v === void 0 || v === null || typeof v === "number" && v >= 0 && v <= 100;
 async function logJobRun(db, input) {
   const job = input.job?.trim();
   if (!job) throw new ToolError("Give the job name, e.g. crm-watchdog.");
+  const c = input.claude;
+  if (c && ![c.week_start, c.week_end, c.session_start, c.session_end].every(pctOk)) throw new ToolError("Claude readings are percentages from 0 to 100.");
+  const claudeCounts = claudeRunCounts(c);
+  const finished_at = input.finished_at ?? (/* @__PURE__ */ new Date()).toISOString();
   const row2 = {
     job,
     status: input.status ?? "ok",
     started_at: input.started_at ?? (/* @__PURE__ */ new Date()).toISOString(),
-    finished_at: input.finished_at ?? (/* @__PURE__ */ new Date()).toISOString(),
+    finished_at,
     summary: clean(input.summary),
-    counts: input.counts ?? {},
+    counts: { ...input.counts ?? {}, ...claudeCounts },
     credits: input.credits ?? {},
     cost_usd: input.cost_usd ?? null,
     needs_review: input.needs_review ?? 0,
     run_by: clean(input.run_by)
   };
-  if (input.dry_run) return { run: row2, created: false, dry_run: true };
+  const iso2 = (v) => v && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null;
+  const snapshots = [
+    typeof c?.week_end === "number" ? { metric: "weekly_pct", value: c.week_end, resets_at: iso2(c.week_resets_at) } : null,
+    typeof c?.session_end === "number" ? { metric: "session_pct", value: c.session_end, resets_at: iso2(c.session_resets_at) } : null
+  ].filter(Boolean).map((r) => ({ taken_at: finished_at, source: "claude", unit: "pct", plan: clean(c?.plan), note: `End of ${job} run`, logged_by: job, ...r }));
+  const claude_week_pct_used = claudeCounts.claude_week_pct_used ?? null;
+  if (input.dry_run) return { run: row2, usage_snapshots: snapshots, claude_week_pct_used, created: false, dry_run: true };
   const run = check(await db.from("job_runs").insert(row2).select("id, job, status, started_at").single(), "Could not log the run");
-  return { run, created: true, dry_run: false };
+  let usage_logged = 0, usage_error;
+  if (snapshots.length) {
+    const r = await db.from("usage_snapshots").insert(snapshots);
+    if (r.error) usage_error = `Run logged, but the usage reading was not: ${r.error.message}`;
+    else usage_logged = snapshots.length;
+  }
+  return { run, claude_week_pct_used, created: true, dry_run: false, usage_logged, ...usage_error ? { usage_error } : {} };
 }
 async function listPipeline(db, input) {
   let q = db.from("customers").select(ACCOUNT_COLUMNS).not("sales_stage", "is", null);
@@ -2613,7 +2949,7 @@ var saveFollowUpTool = defineTool17({
 var logJobRunTool = defineTool17({
   name: "log_job_run",
   title: "Log a job run",
-  description: "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used, cost in USD and how many items wait for Caleb. Feeds the Jobs tab. Use dry_run first.",
+  description: "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used and how many items wait for Caleb. Pass `claude` with the plan's weekly and session percent read from claude.ai/settings/usage at the start and at the end of the run: PD HQ works out the points the run used (shown on the Jobs tab and the run board) and logs the end reading as the latest usage. Leave cost_usd out unless the run paid real money. Use dry_run first.",
   inputSchema: {
     job: z16.string().min(1).max(100),
     status: z16.enum(["ok", "partial", "failed", "skipped"]).optional(),
@@ -2625,12 +2961,22 @@ var logJobRunTool = defineTool17({
     cost_usd: z16.number().min(0).max(1e4).optional(),
     needs_review: z16.number().int().min(0).max(1e4).optional(),
     run_by: z16.string().max(100).optional(),
+    claude: z16.object({
+      week_start: z16.number().min(0).max(100).optional().describe("Weekly limit % used, read at the start of the run."),
+      week_end: z16.number().min(0).max(100).optional().describe("Weekly limit % used, read at the end of the run."),
+      session_start: z16.number().min(0).max(100).optional().describe("Current session (5-hour) % at the start."),
+      session_end: z16.number().min(0).max(100).optional().describe("Current session % at the end."),
+      week_resets_at: z16.string().optional().describe("ISO time the weekly limit resets."),
+      session_resets_at: z16.string().optional().describe("ISO time the session resets."),
+      plan: z16.string().max(50).optional().describe("e.g. Max 5x.")
+    }).optional().describe("Claude plan use for this run. The difference includes anything else using the plan at the same time."),
     dry_run: z16.boolean().optional()
   },
   annotations: write,
   handler: withUserDb(async (db, input) => {
     const r = await logJobRun(db, input);
-    return ok(`${r.dry_run ? "Dry run: would log" : "Logged"} ${input.job} run.`, json(r));
+    const used = r.claude_week_pct_used;
+    return ok(`${r.dry_run ? "Dry run: would log" : "Logged"} ${input.job} run${typeof used === "number" ? `, Claude ${used}% of the week` : ""}.`, json(r));
   })
 });
 var listSalesPipelineTool = defineTool17({
@@ -3171,290 +3517,6 @@ var PROSPECT_TOOLS = [searchProspectsTool, setProspectRankTool, promoteProspectT
 import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z19 } from "npm:zod@^3.25.76";
 
-// src/lib/sales/prospecting.ts
-var DAY2 = 864e5;
-var SEND_TARGETS = {
-  linkedinPerWeekday: 35,
-  linkedinWeeklyCap: 200,
-  emailRamp: [8, 12, 16, 20],
-  researchedPerWeek: 500
-};
-function weekStart(d) {
-  const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const dow = (x.getUTCDay() + 6) % 7;
-  return new Date(x.getTime() - dow * DAY2);
-}
-function emailTargetToday(firstEmailAt, now = /* @__PURE__ */ new Date()) {
-  if (!firstEmailAt) return SEND_TARGETS.emailRamp[0];
-  const weeks = Math.floor((weekStart(now).getTime() - weekStart(new Date(firstEmailAt)).getTime()) / (7 * DAY2));
-  return SEND_TARGETS.emailRamp[Math.min(Math.max(weeks, 0), SEND_TARGETS.emailRamp.length - 1)];
-}
-
-// src/lib/sales/command-center.ts
-var DAY3 = 864e5;
-var MIN = 6e4;
-var IST_OFFSET_MS = 330 * MIN;
-var ist = (d) => new Date(d.getTime() + IST_OFFSET_MS);
-var fromIst = (y, m, day, h = 0, mi = 0) => new Date(Date.UTC(y, m, day, h, mi) - IST_OFFSET_MS);
-function istWeekStart(d) {
-  const x = ist(d);
-  const dow = (x.getUTCDay() + 6) % 7;
-  return fromIst(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate() - dow);
-}
-var istToday = (now = /* @__PURE__ */ new Date()) => ist(now).toISOString().slice(0, 10);
-function field(src, lo, hi) {
-  if (src === "*" || src === "?") return null;
-  const out = /* @__PURE__ */ new Set();
-  for (const part of src.split(",")) {
-    const [range, stepS] = part.split("/");
-    const step = stepS ? Number(stepS) : 1;
-    let a = lo, b = hi;
-    if (range !== "*") {
-      const [x, y] = range.split("-").map(Number);
-      a = x;
-      b = y ?? (stepS ? hi : x);
-    }
-    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(step) || step < 1) throw new Error(`Bad cron field "${src}"`);
-    for (let v = a; v <= b; v += step) out.add(hi === 7 && v === 7 ? 0 : v);
-  }
-  return out;
-}
-function parseCron(expr) {
-  const parts = expr.replace(/^CRON_TZ=\S+\s+/, "").trim().split(/\s+/);
-  if (parts.length !== 5) throw new Error(`Cron needs 5 fields: "${expr}"`);
-  const [m, h, dom, mon, dow] = parts;
-  return { min: field(m, 0, 59) ?? new Set(Array.from({ length: 60 }, (_, i) => i)), hour: field(h, 0, 23) ?? new Set(Array.from({ length: 24 }, (_, i) => i)), dom: field(dom, 1, 31), mon: field(mon, 1, 12), dow: field(dow, 0, 7) };
-}
-var dayOk = (s, x) => (!s.mon || s.mon.has(x.getUTCMonth() + 1)) && (!s.dom || s.dom.has(x.getUTCDate())) && (!s.dow || s.dow.has(x.getUTCDay()));
-function* times(s) {
-  const hs = [...s.hour].sort((a, b) => a - b), ms = [...s.min].sort((a, b) => a - b);
-  for (const h of hs) for (const m of ms) yield [h, m];
-}
-function nextCronRun(cron, from) {
-  let best = null;
-  for (const e of cron.split(";").map((x) => x.trim()).filter(Boolean)) {
-    const s = parseCron(e);
-    const base = ist(from);
-    for (let i = 0; i <= 400; i++) {
-      const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i));
-      if (!dayOk(s, day)) continue;
-      let hit = null;
-      for (const [h, m] of times(s)) {
-        const t = fromIst(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m);
-        if (t > from) {
-          hit = t;
-          break;
-        }
-      }
-      if (hit) {
-        if (!best || hit < best) best = hit;
-        break;
-      }
-    }
-  }
-  return best;
-}
-function prevCronRun(cron, at) {
-  let best = null;
-  for (const e of cron.split(";").map((x) => x.trim()).filter(Boolean)) {
-    const s = parseCron(e);
-    const base = ist(at);
-    for (let i = 0; i <= 400; i++) {
-      const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() - i));
-      if (!dayOk(s, day)) continue;
-      let hit = null;
-      for (const [h, m] of [...times(s)].reverse()) {
-        const t = fromIst(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m);
-        if (t <= at) {
-          hit = t;
-          break;
-        }
-      }
-      if (hit) {
-        if (!best || hit > best) best = hit;
-        break;
-      }
-    }
-  }
-  return best;
-}
-var isBackfill = (e) => /\b(load|sync|import|seed)\b/i.test(e.actor ?? "");
-function countWeek(touches, events, inquiries, from, to, pipelineIds) {
-  const f = from.toISOString(), t = to.toISOString();
-  const inWin = (x) => !!x && x >= f && x < t;
-  const out = touches.filter((x) => x.direction === "out" && !x.is_drip && inWin(x.occurred_at));
-  const email = out.filter((x) => x.channel === "email");
-  const bounces = email.filter((x) => !!x.bounced_at).length;
-  const ev = events.filter((e) => inWin(e.occurred_at) && !isBackfill(e));
-  const fd = istToday(from), td = istToday(new Date(to.getTime() - 1));
-  return {
-    linkedin: out.filter((x) => x.channel === "linkedin").length,
-    email: email.length,
-    bounces,
-    bounceRate: email.length ? bounces / email.length : null,
-    replies: touches.filter((x) => x.direction === "in" && inWin(x.occurred_at)).length,
-    meetings: touches.filter((x) => (x.channel === "meeting" || x.channel === "call") && inWin(x.occurred_at)).length,
-    newResponded: new Set(ev.filter((e) => e.to_stage === "responded").map((e) => e.customer_id)).size,
-    inquiries: inquiries.filter((q) => {
-      if (!q.customer_id || !pipelineIds.has(q.customer_id)) return false;
-      const d = q.received_date ?? q.created_at?.slice(0, 10) ?? null;
-      return !!d && d >= fd && d <= td;
-    }).length,
-    customers: new Set(ev.filter((e) => e.to_stage === "customer").map((e) => e.customer_id)).size
-  };
-}
-function weekOverWeek(touches, events, inquiries, pipelineIds, now = /* @__PURE__ */ new Date()) {
-  const ws = istWeekStart(now);
-  const lws = new Date(ws.getTime() - 7 * DAY3);
-  return {
-    weekStart: ws,
-    thisWeek: countWeek(touches, events, inquiries, ws, now, pipelineIds),
-    lastWeekSamePoint: countWeek(touches, events, inquiries, lws, new Date(now.getTime() - 7 * DAY3), pipelineIds),
-    lastWeek: countWeek(touches, events, inquiries, lws, ws, pipelineIds)
-  };
-}
-function weekTargets(now = /* @__PURE__ */ new Date(), firstEmailAt = null) {
-  const x = ist(now);
-  const weekdaysSoFar = Math.min(5, (x.getUTCDay() + 6) % 7 + 1);
-  const emailDaily = emailTargetToday(firstEmailAt, now);
-  const liWeek = Math.min(SEND_TARGETS.linkedinWeeklyCap, SEND_TARGETS.linkedinPerWeekday * 5);
-  return {
-    linkedin: { daily: SEND_TARGETS.linkedinPerWeekday, week: liWeek, dueSoFar: Math.min(liWeek, SEND_TARGETS.linkedinPerWeekday * weekdaysSoFar), cap: SEND_TARGETS.linkedinWeeklyCap },
-    email: { daily: emailDaily, week: emailDaily * 5, dueSoFar: emailDaily * weekdaysSoFar },
-    maxBounceRate: 0.02,
-    weekdaysSoFar
-  };
-}
-function funnelWeekAgo(accounts, events, now = /* @__PURE__ */ new Date()) {
-  const cutoff = new Date(now.getTime() - 7 * DAY3).toISOString();
-  const firstAfter = /* @__PURE__ */ new Map();
-  for (const e of [...events].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))) {
-    if (e.occurred_at > cutoff && !firstAfter.has(e.customer_id)) firstAfter.set(e.customer_id, e);
-  }
-  const stages = [...SALES_STAGES, ...SALES_EXITS];
-  const nowC = Object.fromEntries(stages.map((s) => [s, 0]));
-  const agoC = Object.fromEntries(stages.map((s) => [s, 0]));
-  const loadedC = Object.fromEntries(stages.map((s) => [s, 0]));
-  for (const a of accounts) {
-    if (a.sales_stage && a.sales_stage in nowC) nowC[a.sales_stage]++;
-    const e = firstAfter.get(a.id);
-    const then = e ? e.from_stage : a.sales_stage;
-    if (then && then in agoC) agoC[then]++;
-    if (e && !e.from_stage && isBackfill(e) && a.sales_stage && a.sales_stage in loadedC) loadedC[a.sales_stage]++;
-  }
-  return stages.map((s) => ({ stage: s, now: nowC[s], weekAgo: agoC[s], change: nowC[s] - agoC[s], loaded: loadedC[s] }));
-}
-var REPORT_GRACE_HOURS = 3;
-function runBoard(schedules, runs, now = /* @__PURE__ */ new Date()) {
-  const ws = istWeekStart(now).toISOString();
-  const rows = schedules.filter((s) => s.status !== "retired").map((s) => {
-    const mine = runs.filter((r) => r.job === s.job || r.job === s.id).sort((a, b) => b.started_at.localeCompare(a.started_at));
-    const lastRun = mine[0] ?? null;
-    let nextRun = null, prevFire = null;
-    if (s.run_once_at) {
-      const t = new Date(s.run_once_at);
-      if (t > now) nextRun = t;
-      else prevFire = t;
-    } else if (s.cron) {
-      try {
-        nextRun = nextCronRun(s.cron, now);
-        prevFire = prevCronRun(s.cron, now);
-      } catch {
-      }
-    }
-    if (prevFire && s.live_since && prevFire < new Date(s.live_since)) prevFire = null;
-    if (s.next_run_at && new Date(s.next_run_at) > now && (!nextRun || s.run_once_at)) nextRun = new Date(s.next_run_at);
-    const lastFired = s.last_fired_at ? new Date(s.last_fired_at) : null;
-    const week = mine.filter((r) => r.started_at >= ws);
-    const creditsWeek = {};
-    for (const r of week) for (const [k, v] of Object.entries(r.credits ?? {})) creditsWeek[k] = (creditsWeek[k] ?? 0) + Number(v);
-    const graceAgo = new Date(now.getTime() - REPORT_GRACE_HOURS * 36e5);
-    let state, stateNote;
-    if (s.status === "paused") {
-      state = "paused";
-      stateNote = "Paused";
-    } else if (s.status === "planned") {
-      state = "planned";
-      stateNote = "Planned, not scheduled yet";
-    } else if (lastRun && lastRun.status === "failed" && (!prevFire || lastRun.started_at >= new Date(prevFire.getTime() - 30 * MIN).toISOString())) {
-      state = "failed";
-      stateNote = lastRun.summary || "Last run failed";
-    } else if (prevFire && prevFire < graceAgo && (!lastRun || lastRun.started_at < new Date(prevFire.getTime() - 30 * MIN).toISOString())) {
-      state = "no_report";
-      stateNote = lastFired && lastFired >= new Date(prevFire.getTime() - 30 * MIN) ? "Fired, but the job logged no run" : "No run logged since it was due";
-    } else if (s.run_once_at && !nextRun && lastRun) {
-      state = "done";
-      stateNote = "Ran once";
-    } else if (lastRun) {
-      state = "ok";
-      stateNote = lastRun.summary || lastRun.status;
-    } else {
-      state = "upcoming";
-      stateNote = "Not due yet";
-    }
-    return {
-      ...s,
-      lastRun,
-      lastFired,
-      nextRun,
-      state,
-      stateNote,
-      creditsWeek,
-      costWeek: week.reduce((n, r) => n + Number(r.cost_usd ?? 0), 0),
-      runsWeek: week.length
-    };
-  });
-  return rows.sort((a, b) => (a.nextRun?.getTime() ?? Infinity) - (b.nextRun?.getTime() ?? Infinity) || a.sort_order - b.sort_order);
-}
-function latestUsage(rows) {
-  const m = /* @__PURE__ */ new Map();
-  for (const r of [...rows].sort((a, b) => b.taken_at.localeCompare(a.taken_at))) {
-    const k = `${r.source}|${r.metric}`;
-    if (!m.has(k)) m.set(k, r);
-  }
-  return m;
-}
-function claudePace(weekly, now = /* @__PURE__ */ new Date()) {
-  if (!weekly?.resets_at) return null;
-  const reset = new Date(weekly.resets_at).getTime();
-  const taken = new Date(weekly.taken_at).getTime();
-  const start = reset - 7 * DAY3;
-  const elapsed = (taken - start) / (7 * DAY3);
-  if (!(elapsed > 0.02) || elapsed > 1) return null;
-  const pct2 = Number(weekly.value);
-  return { pct: pct2, elapsed, projected: Math.round(pct2 / elapsed), resetsAt: new Date(reset), stale: now.getTime() - taken > 36 * 36e5 };
-}
-function creditsByTool(runs, now = /* @__PURE__ */ new Date()) {
-  const ws = istWeekStart(now).toISOString();
-  const lws = new Date(istWeekStart(now).getTime() - 7 * DAY3).toISOString();
-  const tools = /* @__PURE__ */ new Map();
-  let costThis = 0, costLast = 0;
-  for (const r of runs) {
-    const bucket = r.started_at >= ws ? "thisWeek" : r.started_at >= lws ? "lastWeek" : null;
-    if (!bucket) continue;
-    if (bucket === "thisWeek") costThis += Number(r.cost_usd ?? 0);
-    else costLast += Number(r.cost_usd ?? 0);
-    for (const [k, v] of Object.entries(r.credits ?? {})) {
-      const t = tools.get(k) ?? { tool: k, thisWeek: 0, lastWeek: 0 };
-      t[bucket] += Number(v);
-      tools.set(k, t);
-    }
-  }
-  return { tools: [...tools.values()].sort((a, b) => b.thisWeek - a.thisWeek || b.lastWeek - a.lastWeek), costThis, costLast };
-}
-function tasksDue(tasks, now = /* @__PURE__ */ new Date(), assignee) {
-  const today = istToday(now);
-  const week = istToday(new Date(now.getTime() + 7 * DAY3));
-  const rank = { urgent: 0, high: 1, normal: 2, low: 3 };
-  const mine = tasks.filter((t) => t.status === "open" && t.due_date && (!assignee || t.assignee === assignee)).sort((a, b) => a.due_date.localeCompare(b.due_date) || (rank[a.priority ?? "normal"] ?? 2) - (rank[b.priority ?? "normal"] ?? 2));
-  return {
-    overdue: mine.filter((t) => t.due_date < today),
-    today: mine.filter((t) => t.due_date === today),
-    week: mine.filter((t) => t.due_date > today && t.due_date <= week),
-    isSales: (t) => /^Sales\b/.test(t.title) || !!t.customer_id
-  };
-}
-
 // src/lib/mcp/command-center.ts
 var clean3 = (v) => v?.trim() ? v.trim() : null;
 var iso = (v, name) => {
@@ -3537,7 +3599,7 @@ async function getSalesOverview(db, input = {}) {
     db.from("sales_stage_events").select("customer_id, from_stage, to_stage, occurred_at, actor").gte("occurred_at", since21).limit(2e4),
     db.from("customer_rfqs").select("id, customer_id, received_date, created_at").gte("created_at", since21).limit(2e3),
     db.from("sales_schedules").select("*"),
-    db.from("job_runs").select("job, status, started_at, credits, cost_usd, needs_review, summary").gte("started_at", since14).limit(2e3),
+    db.from("job_runs").select("job, status, started_at, credits, counts, cost_usd, needs_review, summary").gte("started_at", since14).limit(2e3),
     db.from("usage_snapshots").select("taken_at, source, metric, value, unit, resets_at, plan, note").order("taken_at", { ascending: false }).limit(500),
     db.from("tasks").select("id, title, due_date, status, priority, assignee, customer_id").eq("status", "open").limit(3e3),
     db.from("sales_touches").select("occurred_at").eq("channel", "email").eq("direction", "out").eq("is_drip", false).order("occurred_at", { ascending: true }).limit(1)
@@ -3556,7 +3618,8 @@ async function getSalesOverview(db, input = {}) {
     last_fired: r.lastFired?.toISOString() ?? null,
     next_run: r.nextRun?.toISOString() ?? null,
     credit_budget: r.credit_budget ?? null,
-    credits_this_week: r.creditsWeek
+    credits_this_week: r.creditsWeek,
+    claude_week_pct_this_week: r.claudeWeek
   }));
   const latest = latestUsage(usage.data ?? []);
   const due = tasksDue(tasks.data ?? [], now, input.assignee ?? "CQ");
@@ -3571,6 +3634,23 @@ async function getSalesOverview(db, input = {}) {
     runs: board,
     usage: Object.fromEntries([...latest.entries()].map(([k, v]) => [k, v])),
     claude_pace: claudePace(latest.get("claude|weekly_pct"), now),
+    claude: (() => {
+      const w = latest.get("claude|weekly_pct"), sn = latest.get("claude|session_pct");
+      const ws = istWeekStart(now).toISOString();
+      const jobs = claudeWeekTotal((runs.data ?? []).filter((r) => r.started_at >= ws));
+      return {
+        weekly_pct: w ? Number(w.value) : null,
+        weekly_resets_at: w?.resets_at ?? null,
+        weekly_reset_since_reading: resetSinceReading(w, now),
+        session_pct: sn ? Number(sn.value) : null,
+        session_resets_at: sn?.resets_at ?? null,
+        session_reset_since_reading: resetSinceReading(sn, now),
+        read_at: w?.taken_at ?? sn?.taken_at ?? null,
+        jobs_week_pct: jobs.pct,
+        runs_measured: jobs.measured,
+        runs_this_week: jobs.runs
+      };
+    })(),
     credits: creditsByTool(runs.data ?? [], now),
     tasks: { overdue: due.overdue.map(slim), today: due.today.map(slim), next_7_days: due.week.map(slim) }
   };
@@ -3734,7 +3814,7 @@ var TOOLS = [
 var mcp_default = defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.9.0",
+  version: "0.10.0",
   instructions: "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). To turn a customer inquiry into PD HQ work: `find_or_create_customer`, then `create_inquiry` (PD HQ adds the Inquiry created tasks), then `import_costing_intake` with one Costing Intake row per SKU, `attach_product_photo` for the customer's pictures, `create_sample_request` when samples are agreed, and `create_task` for anything else. Every write tool takes dry_run; run it first and show the person the plan before writing. Never invent costs or prices. COGS lines: `add_cogs_item` and `update_cogs_item`. All tools run under the signed-in user's Row-Level Security policies. No tool deletes a customer, inquiry, product or task; import_costing_intake with update_existing replaces a category's manual COGS lines, like the app's Bulk Editor. Sales CRM: a customer's one status is its sales stage (lead status is only a mirror the database keeps; never set it); `list_customers` filters by stage; `list_sales_pipeline`; `upsert_sales_account` and `upsert_contact` (match on domain, LinkedIn URL, email); `log_touch` for every message in or out (external_id keeps syncs idempotent); `set_sales_stage` with a reason; `save_brief`; `save_follow_up` for replies and nudges with drafts for approval; `log_job_run` at the end of every job. Do not contact is one master flag: every sender calls `check_can_contact` right before sending, and removal requests go through `set_do_not_contact`. Traction and content: `list_traction_board` (bullseye rings, top ideas per channel, communities, inquiries per channel; only Caleb moves rings, in the app), `save_traction_idea`, `save_community`, `list_content` and `save_content` (pieces plus posting calendar slots and their 3-day scores). Prospects (the whole TAM, the filtered TAM, persona lists, weekly picks, trade buyers, Waalaxy and Apollo people): `search_prospects` with list, type, tier, country and tag filters; `set_prospect_rank` moves one up or down a tier or pins it, always with a reason, and never undoes a tier Caleb set unless he asks; `promote_prospect` puts one into the pipeline as Queued with its people; `import_prospects` loads up to 500 companies onto a list (the weekly list run). Imports never overwrite a tier set by hand. Inquiries created for a pipeline account move it to Inquiry and are tagged to the Sales channel automatically; a PO moves it to Customer. Command center (the Sales landing page): `get_sales_overview` gives the week in numbers against last week and the targets, the funnel vs a week ago, every scheduled run with its state and next fire, usage and tasks due; `log_usage` records Claude plan use and tool balances; `sync_schedules` copies the scheduled tasks' last and next fires onto the run board; `mark_bounced` records an email bounce (hard bounces set never-email). Needs you: `list_needs_you` is the list as the Sales page shows it; `dismiss_needs_you` marks an item Done or Ignored (with a snooze or forever) or undoes it. Done and Ignored items stay off until a new inbound message, the Ignore date or Undo; `list_sales_pipeline` shows them as needs_you_held and `save_follow_up` will not add a new follow-up for them, so watchdog and sync re-runs never bring them back.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,

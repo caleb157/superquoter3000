@@ -206,12 +206,14 @@ export type CcSchedule = {
   runs_where?: string | null; what_it_does?: string | null; run_once_at?: string | null; credit_budget?: string | null;
   last_fired_at?: string | null; last_fire_status?: string | null; next_run_at?: string | null; note?: string | null; live_since?: string | null;
 };
-export type CcRun = { job: string; status: string; started_at: string; credits?: Record<string, number> | null; cost_usd?: number | string | null; needs_review?: number | null; summary?: string | null };
+export type CcRun = { job: string; status: string; started_at: string; credits?: Record<string, number> | null; counts?: Record<string, unknown> | null; cost_usd?: number | string | null; needs_review?: number | null; summary?: string | null };
 
 export type RunState = "ok" | "failed" | "no_report" | "upcoming" | "paused" | "planned" | "done";
 export type BoardRow = CcSchedule & {
   lastRun: CcRun | null; lastFired: Date | null; nextRun: Date | null; state: RunState; stateNote: string;
   creditsWeek: Record<string, number>; costWeek: number; runsWeek: number;
+  /** Weekly Claude limit points this week's runs used (null when none measured it). */
+  claudeWeek: number | null;
 };
 
 /** Hours a run has to report after it fires before the board calls it missing. */
@@ -252,6 +254,7 @@ export function runBoard(schedules: CcSchedule[], runs: CcRun[], now = new Date(
     return {
       ...s, lastRun, lastFired, nextRun, state, stateNote, creditsWeek,
       costWeek: week.reduce((n, r) => n + Number(r.cost_usd ?? 0), 0), runsWeek: week.length,
+      claudeWeek: claudeWeekTotal(week).pct,
     };
   });
   return rows.sort((a, b) => (a.nextRun?.getTime() ?? Infinity) - (b.nextRun?.getTime() ?? Infinity) || a.sort_order - b.sort_order);
@@ -327,3 +330,48 @@ export function tasksDue(tasks: CcTask[], now = new Date(), assignee?: string) {
     isSales: (t: CcTask) => /^Sales\b/.test(t.title) || !!t.customer_id,
   };
 }
+
+// ---------- Claude use per run ----------
+
+/** Claude plan readings a job takes from claude.ai/settings/usage at the start and end of its run (percent). */
+export type ClaudeRunReading = {
+  week_start?: number | null; week_end?: number | null; session_start?: number | null; session_end?: number | null;
+};
+
+/**
+ * Percentage points used between two readings. If the limit reset in between (end below start), the end
+ * reading is what was used since the reset, so that is the best figure. Null without both readings.
+ */
+export function pctUsed(start?: number | null, end?: number | null): number | null {
+  if (typeof start !== "number" || typeof end !== "number" || !Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return Math.round((end >= start ? end - start : end) * 10) / 10;
+}
+
+/** The counts keys a run stores its Claude readings under (job_runs.counts, so no new column is needed). */
+export function claudeRunCounts(c: ClaudeRunReading | null | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!c) return out;
+  const put = (k: string, v: number | null | undefined) => { if (typeof v === "number" && Number.isFinite(v)) out[k] = v; };
+  put("claude_week_pct_start", c.week_start); put("claude_week_pct_end", c.week_end);
+  put("claude_week_pct_used", pctUsed(c.week_start, c.week_end));
+  put("claude_session_pct_start", c.session_start); put("claude_session_pct_end", c.session_end);
+  put("claude_session_pct_used", pctUsed(c.session_start, c.session_end));
+  return out;
+}
+
+/** Weekly-limit points one run used, from its counts; null when the run did not measure it. */
+export function claudeWeekUsed(counts: Record<string, unknown> | null | undefined): number | null {
+  const v = counts?.claude_week_pct_used;
+  return typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
+}
+
+/** Sum of the weekly-limit points the runs measured, and how many measured it (null sum when none did). */
+export function claudeWeekTotal(runs: { counts?: Record<string, unknown> | null }[]) {
+  let sum = 0, measured = 0;
+  for (const r of runs) { const v = claudeWeekUsed(r.counts); if (v !== null) { sum += v; measured++; } }
+  return { pct: measured ? Math.round(sum * 10) / 10 : null, measured, runs: runs.length };
+}
+
+/** True when the plan limit has reset since this reading was taken (the reading no longer says what is left). */
+export const resetSinceReading = (r: CcUsage | undefined, now = new Date()) =>
+  !!r?.resets_at && new Date(r.resets_at).getTime() <= now.getTime();

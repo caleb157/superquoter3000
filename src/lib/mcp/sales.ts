@@ -2,6 +2,7 @@
 // Relative imports only (see AGENTS.md).
 import { check, isValidYmd, ToolError, type Db } from "./shared";
 import { activeAccountDismissals, liveDismissals } from "./needs-you";
+import { claudeRunCounts, type ClaudeRunReading } from "../sales/command-center";
 import {
   ALL_SALES_STAGES, BRIEF_PARTS, canContact, isDismissalActive, normalizeDomain, normalizeEmail, normalizeLinkedin, stageAfterTouch, stageMovePatch, wordCount,
   type Brief, type SalesStage, type TouchChannel,
@@ -438,27 +439,47 @@ export type LogJobRunInput = {
   cost_usd?: number;
   needs_review?: number;
   run_by?: string;
+  /** Claude plan readings (percent) from claude.ai/settings/usage at the start and end of the run. */
+  claude?: ClaudeRunReading & { week_resets_at?: string; session_resets_at?: string; plan?: string };
   dry_run?: boolean;
 };
+
+const pctOk = (v: unknown) => v === undefined || v === null || (typeof v === "number" && v >= 0 && v <= 100);
 
 export async function logJobRun(db: Db, input: LogJobRunInput) {
   const job = input.job?.trim();
   if (!job) throw new ToolError("Give the job name, e.g. crm-watchdog.");
+  const c = input.claude;
+  if (c && ![c.week_start, c.week_end, c.session_start, c.session_end].every(pctOk)) throw new ToolError("Claude readings are percentages from 0 to 100.");
+  const claudeCounts = claudeRunCounts(c);
+  const finished_at = input.finished_at ?? new Date().toISOString();
   const row = {
     job,
     status: input.status ?? "ok",
     started_at: input.started_at ?? new Date().toISOString(),
-    finished_at: input.finished_at ?? new Date().toISOString(),
+    finished_at,
     summary: clean(input.summary),
-    counts: input.counts ?? {},
+    counts: { ...(input.counts ?? {}), ...claudeCounts },
     credits: input.credits ?? {},
     cost_usd: input.cost_usd ?? null,
     needs_review: input.needs_review ?? 0,
     run_by: clean(input.run_by),
   };
-  if (input.dry_run) return { run: row, created: false, dry_run: true };
+  // The end readings also go into usage_snapshots, so the Command center's plan bars stay current with every run.
+  const iso = (v?: string) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null);
+  const snapshots = [
+    typeof c?.week_end === "number" ? { metric: "weekly_pct", value: c.week_end, resets_at: iso(c.week_resets_at) } : null,
+    typeof c?.session_end === "number" ? { metric: "session_pct", value: c.session_end, resets_at: iso(c.session_resets_at) } : null,
+  ].filter(Boolean).map(r => ({ taken_at: finished_at, source: "claude", unit: "pct", plan: clean(c?.plan), note: `End of ${job} run`, logged_by: job, ...r }));
+  const claude_week_pct_used = claudeCounts.claude_week_pct_used ?? null;
+  if (input.dry_run) return { run: row, usage_snapshots: snapshots, claude_week_pct_used, created: false, dry_run: true };
   const run = check(await db.from("job_runs").insert(row).select("id, job, status, started_at").single(), "Could not log the run");
-  return { run, created: true, dry_run: false };
+  let usage_logged = 0, usage_error: string | undefined;
+  if (snapshots.length) {
+    const r = await db.from("usage_snapshots").insert(snapshots);
+    if (r.error) usage_error = `Run logged, but the usage reading was not: ${r.error.message}`; else usage_logged = snapshots.length;
+  }
+  return { run, claude_week_pct_used, created: true, dry_run: false, usage_logged, ...(usage_error ? { usage_error } : {}) };
 }
 
 // ---------- read ----------
