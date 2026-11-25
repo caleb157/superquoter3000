@@ -92,7 +92,7 @@ describe("sales connector tools", () => {
     await saveFollowUp(db, { customer_id: ACME, contact_id: BOB, due_date: "2026-11-30", nudge_step: 1, draft_text: "Hi Bob", draft_channel: "linkedin" });
     await setSalesStage(db, { customer_id: ACME, stage: "not_now", not_now_until: "2027-05-01", reason: "Budget set for spring" });
     await saveBrief(db, { customer_id: ACME, parts: { company: { text: "Decor importer", source: "https://acmedecor.com" } } });
-    await logJobRun(db, { job: "crm-watchdog", counts: { forgotten: 2 }, cost_usd: 0.4 });
+    await logJobRun(db, { job: "crm-watchdog", counts: { forgotten: 2 }, cost_usd: 0.4, claude: { week_start: 60, week_end: 62, session_end: 14, week_resets_at: "2026-12-02T03:00:00Z", plan: "Max 5x" } });
     await setDoNotContact(db, { contact_id: ANN, reason: "Asked to be removed", source: "linkedin" });
     await checkCanContact(db, { channel: "email", people: [{ contact_id: ANN }] });
     for (const w of db.writes) {
@@ -100,6 +100,24 @@ describe("sales connector tools", () => {
       const cols = [...(w.rows ?? []).flatMap(r => Object.keys(r)), ...Object.keys(w.patch ?? {})].filter(c => c !== "id" && c !== "created_at");
       for (const c of cols) expect(have.has(c), `${w.table}.${c}`).toBe(true);
     }
+  });
+
+  it("stores a run's Claude use in counts and logs the end reading as the latest usage", async () => {
+    const db = seed();
+    const dry = await logJobRun(db, { job: "crm-watchdog", counts: { forgotten: 2 }, claude: { week_start: 60, week_end: 62.5, session_start: 10, session_end: 14 }, dry_run: true });
+    expect(dry.claude_week_pct_used).toBe(2.5);
+    expect(db.writes).toHaveLength(0);
+    const r = await logJobRun(db, { job: "crm-watchdog", counts: { forgotten: 2 }, finished_at: "2026-11-25T05:00:00Z", claude: { week_start: 60, week_end: 62.5, session_start: 10, session_end: 14, week_resets_at: "2026-12-02T03:00:00Z" } });
+    expect(r).toMatchObject({ created: true, claude_week_pct_used: 2.5, usage_logged: 2 });
+    const run = db.writes.find(w => w.table === "job_runs")!.rows![0] as { counts: Record<string, number> };
+    expect(run.counts).toMatchObject({ forgotten: 2, claude_week_pct_start: 60, claude_week_pct_end: 62.5, claude_week_pct_used: 2.5, claude_session_pct_used: 4 });
+    const snaps = db.writes.find(w => w.table === "usage_snapshots")!.rows as { metric: string; value: number; taken_at: string; resets_at: string | null }[];
+    expect(snaps.map(x => [x.metric, x.value])).toEqual([["weekly_pct", 62.5], ["session_pct", 14]]);
+    expect(snaps[0]).toMatchObject({ taken_at: "2026-11-25T05:00:00Z", resets_at: "2026-12-02T03:00:00.000Z" });
+  });
+
+  it("refuses Claude readings outside 0 to 100", async () => {
+    await expect(logJobRun(seed(), { job: "x", claude: { week_end: 140 } })).rejects.toThrow(/0 to 100/);
   });
 
   it("adds a new account as a prospect and matches an existing one on domain", async () => {

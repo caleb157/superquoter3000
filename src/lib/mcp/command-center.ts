@@ -3,7 +3,7 @@
 import { check, ToolError, type Db } from "./shared";
 import { normalizeEmail } from "../sales/sales-core";
 import {
-  claudePace, creditsByTool, funnelWeekAgo, latestUsage, runBoard, tasksDue, weekOverWeek, weekTargets,
+  claudePace, claudeWeekTotal, creditsByTool, istWeekStart, resetSinceReading, funnelWeekAgo, latestUsage, runBoard, tasksDue, weekOverWeek, weekTargets,
   type CcSchedule,
 } from "../sales/command-center";
 
@@ -120,7 +120,7 @@ export async function getSalesOverview(db: Db, input: { assignee?: string } = {}
     db.from("sales_stage_events").select("customer_id, from_stage, to_stage, occurred_at, actor").gte("occurred_at", since21).limit(20000),
     db.from("customer_rfqs").select("id, customer_id, received_date, created_at").gte("created_at", since21).limit(2000),
     db.from("sales_schedules").select("*"),
-    db.from("job_runs").select("job, status, started_at, credits, cost_usd, needs_review, summary").gte("started_at", since14).limit(2000),
+    db.from("job_runs").select("job, status, started_at, credits, counts, cost_usd, needs_review, summary").gte("started_at", since14).limit(2000),
     db.from("usage_snapshots").select("taken_at, source, metric, value, unit, resets_at, plan, note").order("taken_at", { ascending: false }).limit(500),
     db.from("tasks").select("id, title, due_date, status, priority, assignee, customer_id").eq("status", "open").limit(3000),
     db.from("sales_touches").select("occurred_at").eq("channel", "email").eq("direction", "out").eq("is_drip", false).order("occurred_at", { ascending: true }).limit(1),
@@ -132,6 +132,7 @@ export async function getSalesOverview(db: Db, input: { assignee?: string } = {}
   const board = runBoard((schedules.data ?? []) as CcSchedule[], runs.data ?? [], now).map(r => ({
     id: r.id, name: r.name, cadence: r.cadence, state: r.state, note: r.stateNote, last_report: r.lastRun?.started_at ?? null,
     last_fired: r.lastFired?.toISOString() ?? null, next_run: r.nextRun?.toISOString() ?? null, credit_budget: r.credit_budget ?? null, credits_this_week: r.creditsWeek,
+    claude_week_pct_this_week: r.claudeWeek,
   }));
   const latest = latestUsage(usage.data ?? []);
   const due = tasksDue(tasks.data ?? [], now, input.assignee ?? "CQ");
@@ -143,6 +144,17 @@ export async function getSalesOverview(db: Db, input: { assignee?: string } = {}
     runs: board,
     usage: Object.fromEntries([...latest.entries()].map(([k, v]) => [k, v])),
     claude_pace: claudePace(latest.get("claude|weekly_pct"), now),
+    claude: (() => {
+      const w = latest.get("claude|weekly_pct"), sn = latest.get("claude|session_pct");
+      const ws = istWeekStart(now).toISOString();
+      const jobs = claudeWeekTotal((runs.data ?? []).filter((r: { started_at: string }) => r.started_at >= ws));
+      return {
+        weekly_pct: w ? Number(w.value) : null, weekly_resets_at: w?.resets_at ?? null, weekly_reset_since_reading: resetSinceReading(w, now),
+        session_pct: sn ? Number(sn.value) : null, session_resets_at: sn?.resets_at ?? null, session_reset_since_reading: resetSinceReading(sn, now),
+        read_at: w?.taken_at ?? sn?.taken_at ?? null,
+        jobs_week_pct: jobs.pct, runs_measured: jobs.measured, runs_this_week: jobs.runs,
+      };
+    })(),
     credits: creditsByTool(runs.data ?? [], now),
     tasks: { overdue: due.overdue.map(slim), today: due.today.map(slim), next_7_days: due.week.map(slim) },
   };

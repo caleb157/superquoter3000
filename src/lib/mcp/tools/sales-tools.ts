@@ -231,7 +231,7 @@ export const logJobRunTool = defineTool({
   name: "log_job_run",
   title: "Log a job run",
   description:
-    "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used, cost in USD and how many items wait for Caleb. Feeds the Jobs tab. Use dry_run first.",
+    "Every playbook job (crm-watchdog, outreach, list-building, waalaxy-ops, drip, ...) calls this at the end of a run: status, a one-line summary, counts, credits used and how many items wait for Caleb. Pass `claude` with the plan's weekly and session percent read from claude.ai/settings/usage at the start and at the end of the run: PD HQ works out the points the run used (shown on the Jobs tab and the run board) and logs the end reading as the latest usage. Leave cost_usd out unless the run paid real money. Use dry_run first.",
   inputSchema: {
     job: z.string().min(1).max(100),
     status: z.enum(["ok", "partial", "failed", "skipped"]).optional(),
@@ -243,12 +243,22 @@ export const logJobRunTool = defineTool({
     cost_usd: z.number().min(0).max(10000).optional(),
     needs_review: z.number().int().min(0).max(10000).optional(),
     run_by: z.string().max(100).optional(),
+    claude: z.object({
+      week_start: z.number().min(0).max(100).optional().describe("Weekly limit % used, read at the start of the run."),
+      week_end: z.number().min(0).max(100).optional().describe("Weekly limit % used, read at the end of the run."),
+      session_start: z.number().min(0).max(100).optional().describe("Current session (5-hour) % at the start."),
+      session_end: z.number().min(0).max(100).optional().describe("Current session % at the end."),
+      week_resets_at: z.string().optional().describe("ISO time the weekly limit resets."),
+      session_resets_at: z.string().optional().describe("ISO time the session resets."),
+      plan: z.string().max(50).optional().describe("e.g. Max 5x."),
+    }).optional().describe("Claude plan use for this run. The difference includes anything else using the plan at the same time."),
     dry_run: z.boolean().optional(),
   },
   annotations: write,
   handler: withUserDb(async (db, input: LogJobRunInput) => {
     const r = await logJobRun(db, input);
-    return ok(`${r.dry_run ? "Dry run: would log" : "Logged"} ${input.job} run.`, json(r));
+    const used = r.claude_week_pct_used;
+    return ok(`${r.dry_run ? "Dry run: would log" : "Logged"} ${input.job} run${typeof used === "number" ? `, Claude ${used}% of the week` : ""}.`, json(r));
   }),
 });
 

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { SALES_STAGE_LABELS, type SalesStage } from '@/lib/sales/sales-core';
 import type { NeedsYouEntry } from '@/lib/sales/needs-you';
 import {
-  claudePace, comingUp, creditsByTool, funnelWeekAgo, latestUsage, runBoard, tasksDue, weekOverWeek, weekTargets,
+  claudePace, claudeWeekTotal, comingUp, istWeekStart, resetSinceReading, creditsByTool, funnelWeekAgo, latestUsage, runBoard, tasksDue, weekOverWeek, weekTargets,
   type BoardRow, type CcRun, type CcSchedule, type CcStageEvent, type CcTask, type CcTouch, type CcUsage, type RunState
 } from '@/lib/sales/command-center';
 
@@ -75,6 +75,7 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
   const soon = useMemo(() => comingUp(board, now, 24), [board, now]);
   const latest = useMemo(() => latestUsage(usage), [usage]);
   const pace = useMemo(() => claudePace(latest.get('claude|weekly_pct'), now), [latest, now]);
+  const jobsClaude = useMemo(() => { const ws = istWeekStart(now).toISOString(); return claudeWeekTotal(runs.filter(r => r.started_at >= ws)); }, [runs, now]);
   const credits = useMemo(() => creditsByTool(runs, now), [runs, now]);
   const due = useMemo(() => tasksDue(tasks, now, 'CQ'), [tasks, now]);
   const queued = useMemo(() => accounts.filter(a => a.sales_stage === 'queued').sort((a, b) => (b.fit_score ?? -1) - (a.fit_score ?? -1)).slice(0, 8), [accounts]);
@@ -95,7 +96,7 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
           <Headline ok={urgent.length === 0} text={`${urgent.length} need${urgent.length === 1 ? 's' : ''} you now`} onClick={() => onOpen('needs')} />
           <Headline ok={attention === 0} text={attention ? `${attention} run${attention === 1 ? '' : 's'} to check` : 'All runs reporting'} />
           <Headline ok={due.overdue.length === 0} text={`${due.overdue.length} task${due.overdue.length === 1 ? '' : 's'} overdue`} />
-          {pace && <Headline ok={pace.projected < 90} text={`Claude ${pace.pct}% of the week, pace ${pace.projected}%`} />}
+          {pace && !resetSinceReading(latest.get('claude|weekly_pct'), now) && <Headline ok={pace.projected < 90} text={`Claude ${pace.pct}% of the week, pace ${pace.projected}%`} />}
           <span className="text-xs text-muted-foreground ml-auto">Updated {istTime(now)} IST</span>
         </CardContent>
       </Card>
@@ -160,7 +161,7 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <Table>
               <TableHeader><TableRow>
-                <TableHead>Run</TableHead><TableHead>When (IST)</TableHead><TableHead>Next</TableHead><TableHead>Last</TableHead><TableHead>State</TableHead><TableHead>Credits this week</TableHead>
+                <TableHead>Run</TableHead><TableHead>When (IST)</TableHead><TableHead>Next</TableHead><TableHead>Last</TableHead><TableHead>State</TableHead><TableHead title="Tool credits, and points of the weekly Claude limit the runs used (end reading minus start)">Credits and Claude this week</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {board.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">No runs are set up yet.</TableCell></TableRow>}
@@ -178,13 +179,16 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
             <SectionTitle>Claude usage</SectionTitle>
             <UsageBar label="This week" reading={latest.get('claude|weekly_pct')} />
             <UsageBar label="Current session" reading={latest.get('claude|session_pct')} />
+            {jobsClaude.pct !== null
+              ? <div className="text-xs">Logged job runs used <span className="font-semibold">{jobsClaude.pct}%</span> of the week so far ({jobsClaude.measured} of {jobsClaude.runs} runs measured). Per run in the board above.</div>
+              : <div className="text-xs text-muted-foreground">No job run has logged its Claude use yet. Each run reads the usage page at its start and end.</div>}
             {latest.get('claude|claude_code_share_pct') && <div className="text-xs text-muted-foreground">Claude Code is {Number(latest.get('claude|claude_code_share_pct')!.value)}% of the week's use.</div>}
-            {pace ? (
+            {pace && !resetSinceReading(latest.get('claude|weekly_pct'), now) ? (
               <p className="text-xs">
                 {Math.round(pace.elapsed * 100)}% of the week gone; at this pace the week ends near <span className={cn('font-semibold', pace.projected >= 100 ? 'text-destructive' : pace.projected >= 85 ? 'text-warning' : 'text-success')}>{pace.projected}%</span>.
                 {' '}Resets {istTime(pace.resetsAt)}.{pace.stale ? ' Reading is over a day old.' : ''}
               </p>
-            ) : <p className="text-xs text-muted-foreground">No weekly reading yet. The daily usage snapshot at 9:47 PM logs one.</p>}
+            ) : latest.get('claude|weekly_pct') ? <p className="text-xs text-muted-foreground">The week has reset. The next run or the daily snapshot logs a fresh reading.</p> : <p className="text-xs text-muted-foreground">No weekly reading yet. The daily usage snapshot at 5:07 PM logs one, and so does every job run.</p>}
             {latest.get('claude|weekly_pct')?.plan && <div className="text-xs text-muted-foreground">Plan: {latest.get('claude|weekly_pct')!.plan}. The Friday report makes the Pro vs Max call.</div>}
           </CardContent>
         </Card>
@@ -349,13 +353,22 @@ function RunRow({ r, now }: { r: BoardRow; now: Date }) {
           : <span className="text-muted-foreground">Never</span>}
       </TableCell>
       <TableCell className="py-2 text-xs max-w-[260px]"><span className={cn('inline-flex items-center gap-1 font-medium', s.cls)}><s.icon className="h-3.5 w-3.5" />{s.label}</span>{r.state !== 'upcoming' && r.stateNote !== s.label && <div className="text-muted-foreground line-clamp-2">{r.stateNote}</div>}</TableCell>
-      <TableCell className="py-2 text-xs">{credits || <span className="text-muted-foreground">—</span>}{r.credit_budget && <div className="text-muted-foreground">{r.credit_budget}</div>}{r.costWeek > 0 && <div>${r.costWeek.toFixed(2)}</div>}</TableCell>
+      <TableCell className="py-2 text-xs">{credits || <span className="text-muted-foreground">—</span>}{r.credit_budget && <div className="text-muted-foreground">{r.credit_budget}</div>}{r.costWeek > 0 && <div>${r.costWeek.toFixed(2)}</div>}{r.claudeWeek !== null && <div>Claude {r.claudeWeek}% of week</div>}</TableCell>
     </TableRow>
   );
 }
 
 function UsageBar({ label, reading }: { label: string; reading: CcUsage | undefined }) {
-  const v = reading ? Number(reading.value) : null;
+  // Once the limit has reset, the last reading no longer says what is used: show it as reset, not as the old %.
+  const reset = resetSinceReading(reading);
+  const v = reading && !reset ? Number(reading.value) : null;
+  if (reading && reset) return (
+    <div className="space-y-1">
+      <div className="flex items-baseline text-xs"><span>{label}</span><span className="ml-auto font-semibold text-sm">Reset</span></div>
+      <Progress value={0} className="h-2" />
+      <div className="text-[11px] text-muted-foreground">Was {Number(reading.value)}% {ago(reading.taken_at)}; reset {istTime(new Date(reading.resets_at as string))}, no reading since</div>
+    </div>
+  );
   return (
     <div className="space-y-1">
       <div className="flex items-baseline text-xs"><span>{label}</span><span className="ml-auto font-semibold text-sm tabular-nums">{v == null ? '—' : `${v}%`}</span></div>

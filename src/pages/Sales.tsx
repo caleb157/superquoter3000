@@ -21,7 +21,7 @@ import { ProspectsTab } from '@/components/sales/ProspectsTab';
 import { TractionTab } from '@/components/sales/TractionTab';
 import { ContentTab } from '@/components/sales/ContentTab';
 import { CommandCenterTab } from '@/components/sales/CommandCenterTab';
-import type { CcSchedule } from '@/lib/sales/command-center';
+import { latestUsage, resetSinceReading, type CcSchedule, type CcUsage } from '@/lib/sales/command-center';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { SalesStageBadge } from '@/components/sales/SalesStageBadge';
@@ -58,6 +58,7 @@ export default function Sales() {
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [claudeUsage, setClaudeUsage] = useState<CcUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [engagedIds, setEngagedIds] = useState<Set<string>>(new Set());
@@ -70,7 +71,7 @@ export default function Sales() {
     const since90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const since90d = since90;
-    const [a, t, k, r, b, e, s, d] = await Promise.all([
+    const [a, t, k, r, b, e, s, d, u] = await Promise.all([
       db.from('customers').select('id, name, company, sales_stage, dnc, lead_status, next_step, next_step_date, persona, customer_type, fit_score, last_contacted_at, not_now_until, owner, source, sales_stage_changed_at, brief_updated_at').not('sales_stage', 'is', null).order('sales_stage_changed_at', { ascending: false }).limit(2000),
       db.from('sales_touches').select('customer_id, direction, occurred_at, channel, body').gte('occurred_at', since90).order('occurred_at', { ascending: false }).limit(5000),
       db.from('tasks').select('id, customer_id, title, due_date, status, nudge_step, draft_text, draft_status, draft_channel, priority').eq('status', 'open').not('customer_id', 'is', null).limit(2000),
@@ -80,9 +81,11 @@ export default function Sales() {
       db.from('sales_schedules').select('*').neq('status', 'retired').order('sort_order'),
       // Done and Ignore (a missing table before the migration is applied just means none yet).
       db.from('needs_you_dismissals').select(DISMISSAL_SELECT).gte('dismissed_at', since90d).order('dismissed_at', { ascending: false }).limit(2000),
+      // Latest Claude plan readings for the Jobs tab.
+      db.from('usage_snapshots').select('taken_at, source, metric, value, unit, resets_at, plan, note').eq('source', 'claude').order('taken_at', { ascending: false }).limit(50),
     ]);
     if (a.error) { setMissing(true); setLoading(false); return; }
-    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []); setDismissals(d.error ? [] : d.data ?? []);
+    setAccounts(a.data ?? []); setTouches(t.data ?? []); setTasks(k.data ?? []); setRuns(r.data ?? []); setBlocks(b.data ?? []); setSchedules(s.data ?? []); setDismissals(d.error ? [] : d.data ?? []); setClaudeUsage(u.error ? [] : u.data ?? []);
     setEngagedIds(new Set((e.data ?? []).map((x: { customer_id: string | null }) => x.customer_id).filter(Boolean)));
     setLoading(false);
   };
@@ -106,6 +109,10 @@ export default function Sales() {
   const allByStage = useMemo(() => groupByStage(accounts, [...SALES_STAGES, ...SALES_EXITS]), [accounts]);
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const jobs = useMemo(() => summarizeJobs(runs, weekAgo), [runs, weekAgo]);
+  const claudeNow = useMemo(() => {
+    const l = latestUsage(claudeUsage);
+    return { week: l.get('claude|weekly_pct'), session: l.get('claude|session_pct') };
+  }, [claudeUsage]);
   // Drag and drop on the Pipeline: show the move at once, save it with a reason, roll back on error, offer Undo.
   const moveCard = useCallback((account: BoardAccount, to: SalesStage, undoOf?: { stage: string | null; lead_status: string | null | undefined; at: string | null | undefined }) => {
     const prev = accounts.find(x => x.id === account.id);
@@ -173,7 +180,7 @@ export default function Sales() {
               { value: 'prospecting', label: 'Prospecting' },
               { value: 'traction', label: 'Traction' },
               { value: 'content', label: 'Content' },
-              { value: 'jobs', label: 'Jobs and cost' },
+              { value: 'jobs', label: 'Jobs and usage' },
             ]} />
 
             <TabsContent value="overview" className="mt-3"><CommandCenterTab accounts={accounts} needs={needs} runs={runs} schedules={schedules} onOpen={setTab} /></TabsContent>
@@ -221,14 +228,14 @@ export default function Sales() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Stat boxed label="Runs this week" value={jobs.runs} />
                 <Stat boxed label="Failed" value={jobs.failed} warn={jobs.failed > 0} />
-                <Stat boxed label="Cost this week" value={`$${jobs.totalCost.toFixed(2)}`} />
+                <ClaudeStat week={claudeNow.week} session={claudeNow.session} jobsWeek={jobs.claudeWeek} />
                 <Stat boxed label="Sends blocked (30 days)" value={blocks.length} />
               </div>
               <Card>
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader><TableRow>
-                      <TableHead>Job</TableHead><TableHead>Last run</TableHead><TableHead>Runs (7 days)</TableHead><TableHead>Waiting for you</TableHead><TableHead>Credits</TableHead><TableHead className="text-right">Cost</TableHead>
+                      <TableHead>Job</TableHead><TableHead>Last run</TableHead><TableHead>Runs (7 days)</TableHead><TableHead>Waiting for you</TableHead><TableHead>Credits</TableHead><TableHead className="text-right" title="Points of the weekly Claude limit this job's runs used in the last 7 days (reading at the end minus the start of each run)">Claude (week)</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {jobs.jobs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No job has reported a run yet. Each playbook job logs one at the end of every run.</TableCell></TableRow>}
@@ -238,8 +245,8 @@ export default function Sales() {
                           <TableCell><span className={cn(j.lastStatus === 'failed' && 'text-destructive')}>{j.lastStatus}</span> · {formatDistanceToNow(new Date(j.last), { addSuffix: true })}</TableCell>
                           <TableCell>{j.runs}{j.failed ? ` (${j.failed} failed)` : ''}</TableCell>
                           <TableCell>{j.needs_review}</TableCell>
-                          <TableCell className="text-xs">{Object.entries(j.credits).map(([k, v]) => `${k} ${v}`).join(', ') || '—'}</TableCell>
-                          <TableCell className="text-right tabular-nums">${j.cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs">{[...Object.entries(j.credits).map(([k, v]) => `${k} ${v}`), ...(j.cost > 0 ? [`$${j.cost.toFixed(2)}`] : [])].join(', ') || '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{j.claudeWeek !== null ? `${j.claudeWeek}%` : <span className="text-muted-foreground" title="This job has not logged Claude readings yet">—</span>}{j.claudeWeek !== null && j.claudeMeasured < j.runs && <div className="text-[11px] text-muted-foreground">{j.claudeMeasured} of {j.runs} runs</div>}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -351,6 +358,27 @@ function NeedsCard({ entry, onChanged, picked, onPick }: { entry: NeedsYouEntry;
         <AccountActions account={a} onChanged={onChanged} compact />
       </CardContent>
     </Card>
+  );
+}
+
+const istShort = (iso: string) => new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', '');
+
+/** The plan's weekly and session use from the latest reading, and what the logged job runs used this week. */
+function ClaudeStat({ week, session, jobsWeek }: { week?: CcUsage; session?: CcUsage; jobsWeek: number | null }) {
+  const weekReset = resetSinceReading(week);
+  const v = week ? Number(week.value) : null;
+  return (
+    <Card><CardContent className="py-3">
+      <div className={cn('text-lg font-semibold tabular-nums', !weekReset && v !== null && v >= 90 && 'text-destructive')}>
+        {v === null ? '—' : weekReset ? 'Reset' : `${v}%`}
+        {session && !resetSinceReading(session) && <span className="text-xs font-normal text-muted-foreground"> · session {Number(session.value)}%</span>}
+      </div>
+      <div className="text-[11px] text-muted-foreground">Claude plan this week</div>
+      <div className="text-[11px] text-muted-foreground">
+        {week ? (weekReset ? `Reset ${istShort(week.resets_at as string)}, no reading since` : `${week.resets_at ? `Resets ${istShort(week.resets_at)} · ` : ''}read ${formatDistanceToNow(new Date(week.taken_at), { addSuffix: true })}`) : 'No reading yet'}
+        {jobsWeek !== null && <> · jobs used {jobsWeek}%</>}
+      </div>
+    </CardContent></Card>
   );
 }
 

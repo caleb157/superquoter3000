@@ -53,7 +53,7 @@ export const TOOLS = [
 export default defineMcp({
   name: "product-hq-mcp",
   title: "Product HQ",
-  version: "0.9.0",
+  version: "0.10.0",
   instructions:
     "Tools for the Product HQ costing, quoting, sampling and CRM app. Use `whoami` to check the connection. " +
     "Read: `list_lookups` (names PD HQ matches on), `list_customers`, `list_inquiries`, `list_products`, `list_tasks`, `list_cogs_items`, and `get_sales_analytics` (the Analytics page's real and projected revenue by month, quarter and year, split trading / manufacturing). " +
