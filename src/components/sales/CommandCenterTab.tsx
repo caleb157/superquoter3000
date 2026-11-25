@@ -3,6 +3,7 @@
 // Claude and tool usage, the best prospects waiting, and his tasks due. Maths in src/lib/sales/command-center.ts.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { accountPath, fromSalesTab } from '@/lib/sales/account-link';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -138,7 +139,7 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
             </div>
             <div className="space-y-1 pt-1">
               {urgent.slice(0, 6).map(n => (
-                <Link key={n.key} to={`/customers/${n.account.id}?tab=sales`} className="flex items-center gap-2 text-sm rounded px-1 py-0.5 hover:bg-accent/40">
+                <Link key={n.key} to={accountPath(n.account.id)} state={fromSalesTab('overview')} className="flex items-center gap-2 text-sm rounded px-1 py-0.5 hover:bg-accent/40">
                   <span className="font-medium truncate">{n.account.company || n.account.name}</span>
                   <span className="text-xs text-muted-foreground truncate flex-1">{n.title}</span>
                   {n.due_date && <span className="text-[11px] text-muted-foreground whitespace-nowrap">{n.due_date.slice(5)}</span>}
@@ -222,7 +223,7 @@ export function CommandCenterTab({ accounts, needs, runs, schedules, onOpen }: {
             <div className="flex items-center"><SectionTitle>Top prospects waiting</SectionTitle><Button size="sm" variant="ghost" className="h-7 ml-auto text-xs gap-1" onClick={() => onOpen('prospects')}>Prospects <ArrowRight className="h-3 w-3" /></Button></div>
             {queued.length > 0 && <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Queued in the pipeline</div>}
             {queued.map(a => (
-              <Link key={a.id} to={`/customers/${a.id}?tab=sales`} className="flex items-center gap-2 text-sm hover:bg-accent/40 rounded px-1">
+              <Link key={a.id} to={accountPath(a.id)} state={fromSalesTab('overview')} className="flex items-center gap-2 text-sm hover:bg-accent/40 rounded px-1">
                 <span className="truncate font-medium">{a.company || a.name}</span>
                 {a.persona && <span className="text-xs text-muted-foreground truncate">{a.persona}</span>}
                 {a.fit_score != null && <Badge variant="outline" className="ml-auto text-[10px] px-1 py-0">Fit {a.fit_score}</Badge>}

@@ -107,7 +107,7 @@ export function GlobalSearch({ open, onOpenChange, onShowHelp }: Props) {
 
   const navItems: { label: string; to: string; icon: React.ComponentType<{ className?: string }>; hint: string }[] = [
     { label: 'Inquiries', to: '/', icon: Inbox, hint: 'g i' },
-    { label: 'Customers', to: '/customers', icon: Users, hint: 'g c' },
+    { label: 'Sales accounts', to: '/sales?tab=accounts', icon: Users, hint: 'g c' },
     { label: 'Products', to: '/products', icon: ShoppingCart, hint: 'g p' },
     { label: 'Tasks', to: '/tasks', icon: CheckSquare, hint: 'g t' },
     { label: 'Quotes', to: '/quotes', icon: FileText, hint: 'g q' },

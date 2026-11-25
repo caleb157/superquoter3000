@@ -79,7 +79,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}) {
       if (goPrefixActive.current) {
         const dest: Record<string, string> = {
           i: '/',
-          c: '/customers',
+          c: '/sales?tab=accounts',
           p: '/products',
           t: '/tasks',
           q: '/quotes',

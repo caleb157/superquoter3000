@@ -1,4 +1,4 @@
-// Sales section: Command center (the birds-eye landing page), Needs you (what to do next), Pipeline, Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
+// Sales section: Command center (the birds-eye landing page), Needs you (what to do next), Pipeline, Accounts (every account; the old Customers page), Prospecting (funnel, pace, A/B), Traction (bullseye, ideas, communities),
 // Content (pieces, calendar, post tests) and Jobs (runs, credits, cost).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -21,6 +21,8 @@ import { ProspectsTab } from '@/components/sales/ProspectsTab';
 import { TractionTab } from '@/components/sales/TractionTab';
 import { ContentTab } from '@/components/sales/ContentTab';
 import { CommandCenterTab } from '@/components/sales/CommandCenterTab';
+import { AccountsTab } from '@/components/sales/AccountsTab';
+import { accountPath, fromSalesTab } from '@/lib/sales/account-link';
 import { latestUsage, resetSinceReading, type CcSchedule, type CcUsage } from '@/lib/sales/command-center';
 import { cn } from '@/lib/utils';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -176,6 +178,7 @@ export default function Sales() {
               { value: 'overview', label: 'Command center' },
               { value: 'needs', label: `Needs you (${needs.length})` },
               { value: 'pipeline', label: 'Pipeline' },
+              { value: 'accounts', label: 'Accounts' },
               { value: 'prospects', label: 'Prospects' },
               { value: 'prospecting', label: 'Prospecting' },
               { value: 'traction', label: 'Traction' },
@@ -219,6 +222,7 @@ export default function Sales() {
               </div>
             </TabsContent>
 
+            <TabsContent value="accounts" className="mt-3"><AccountsTab /></TabsContent>
             <TabsContent value="prospects" className="mt-3"><ProspectsTab /></TabsContent>
             <TabsContent value="prospecting" className="mt-3"><ProspectingTab accounts={accounts} /></TabsContent>
             <TabsContent value="traction" className="mt-3"><TractionTab /></TabsContent>
@@ -302,7 +306,7 @@ export default function Sales() {
                         <span className="text-xs text-muted-foreground w-32">{format(new Date(b.blocked_at), 'd MMM, HH:mm')}</span>
                         <span>{b.channel}{b.sender ? ` · ${b.sender}` : ''}</span>
                         <span className="text-muted-foreground">{b.reason}</span>
-                        {b.customer_id && <Link className="text-primary text-xs ml-auto" to={`/customers/${b.customer_id}?tab=sales`}>Account</Link>}
+                        {b.customer_id && <Link className="text-primary text-xs ml-auto" to={accountPath(b.customer_id)} state={fromSalesTab('jobs')}>Account</Link>}
                       </div>
                     ))}
                   </CardContent></Card>
@@ -338,7 +342,7 @@ function NeedsCard({ entry, onChanged, picked, onPick }: { entry: NeedsYouEntry;
         <div className="flex flex-wrap items-center gap-2">
           <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`Select ${a.company || a.name}`} />
           <Badge variant="secondary" className={cn('text-[10px]', KIND_COLOR[entry.kind])}>{entry.kind === 'forgotten' && <AlertTriangle className="h-3 w-3 mr-1" />}{KIND_LABEL[entry.kind]}</Badge>
-          <Link to={`/customers/${a.id}?tab=sales`} className="font-medium hover:underline">{a.company || a.name}</Link>
+          <Link to={accountPath(a.id)} state={fromSalesTab('needs')} className="font-medium hover:underline">{a.company || a.name}</Link>
           <SalesStageBadge stage={a.sales_stage} />
           <span className="text-sm text-muted-foreground">{entry.title}</span>
           {entry.due_date && <span className="text-xs text-muted-foreground">due {format(new Date(entry.due_date), 'd MMM')}</span>}

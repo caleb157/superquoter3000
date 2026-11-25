@@ -174,8 +174,8 @@ function GeneralPart({ id, title, children }: { id: string; title: string; child
   );
 }
 
-// Vendors and Customers are edited on their own pages now; old links land there.
-const MOVED: Record<string, string> = { vendors: '/vendors?edit=1', customers: '/customers' };
+// Vendors are edited on their own page and customers in Sales > Accounts now; old links land there.
+const MOVED: Record<string, string> = { vendors: '/vendors?edit=1', customers: '/sales?tab=accounts' };
 
 const Settings = () => {
   useDocumentTitle('Settings');
