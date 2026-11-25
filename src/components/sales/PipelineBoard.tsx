@@ -3,6 +3,7 @@
 // update the page at once, roll back on error, and offer Undo. Rules in canMoveStage (sales-core.ts).
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { accountPath, fromSalesTab } from '@/lib/sales/account-link';
 import { formatDistanceToNow } from 'date-fns';
 import {
   DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors,
@@ -136,7 +137,7 @@ function Column({ stage, accounts, lastTouch, active, onCardClick }: {
 const DraggableCard = memo(function DraggableCard({ account, touch, onClick }: { account: BoardAccount; touch?: TouchRow; onClick: (e: React.MouseEvent) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: account.id, data: { stage: account.sales_stage } });
   return (
-    <Link ref={setNodeRef} to={`/customers/${account.id}?tab=sales`} draggable={false} onClick={onClick}
+    <Link ref={setNodeRef} to={accountPath(account.id)} state={fromSalesTab('pipeline')} draggable={false} onClick={onClick}
       {...listeners} {...attributes} aria-roledescription="Draggable account" aria-label={`${nameOf(account)}, ${label(account.sales_stage)}`}
       className={cn('group block rounded-md border bg-card p-2 hover:bg-accent/40 touch-manipulation select-none cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary', isDragging && 'opacity-40')}>
       <CardInner account={account} touch={touch} />

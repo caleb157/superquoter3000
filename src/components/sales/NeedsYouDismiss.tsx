@@ -2,6 +2,7 @@
 // Rules for when a dismissal stops holding live in src/lib/sales/sales-core.ts (isDismissalActive), shared with the connector.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { accountPath, fromSalesTab } from '@/lib/sales/account-link';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Check, ChevronDown, EyeOff, RotateCcw, X } from 'lucide-react';
@@ -173,7 +174,7 @@ export function DismissedList({ rows, names, lastInbound, lastTouch, stageChange
               <Badge variant="secondary" className={cn('text-[10px]', r.action === 'done' ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground')}>
                 {r.action === 'done' ? 'Done' : r.until ? `Ignored until ${format(new Date(r.until), 'd MMM')}` : 'Ignored'}
               </Badge>
-              <Link to={`/customers/${r.customer_id}?tab=sales`} className="font-medium hover:underline">{names.get(r.customer_id) ?? 'Account'}</Link>
+              <Link to={accountPath(r.customer_id)} state={fromSalesTab('needs')} className="font-medium hover:underline">{names.get(r.customer_id) ?? 'Account'}</Link>
               <span className="text-xs text-muted-foreground">{KIND_NAME[r.kind] ?? r.kind}{r.title ? ` · ${r.title}` : ''}</span>
               {ended && <Badge variant="outline" className="text-[10px]">{ENDED_LABEL[ended]}</Badge>}
               <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.dismissed_at), 'd MMM, HH:mm')}{r.actor && r.actor !== 'app' ? ` · ${r.actor}` : ''}</span>

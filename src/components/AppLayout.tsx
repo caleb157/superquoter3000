@@ -66,8 +66,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     { to: '/learnings', label: 'Learnings', icon: Lightbulb },
     ...(isAdmin ? [{ to: '/hr-notes', label: 'HR Notes', icon: Users }] : []),
   ] : [];
+  // Customers is folded into Sales (Sales > Accounts); account pages (/customers/:id) count as Sales.
   const directoryNav = isAdminOrTeam ? [
-    { to: '/customers', label: 'Customers', icon: Users },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/quotes', label: 'Quotes', icon: FileText },
     { to: '/samples', label: 'Samples', icon: Package2 },
@@ -79,6 +79,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   // Detail pages show the section they belong to, never the app name a second time.
   const extraLabels = [
     { to: '/inquiry', label: 'Inquiries' },
+    { to: '/customers', label: 'Sales' },
     { to: '/product', label: 'Products' },
     { to: '/assembly', label: 'Products' },
     { to: '/vendor-rfq', label: 'Vendor RFQs' },
@@ -89,6 +90,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const isActive = (to: string) => {
     if (to === '/') return location.pathname === '/' || location.pathname === '/inquiries';
+    if (to === '/sales' && location.pathname.startsWith('/customers')) return true;
     return location.pathname === to || location.pathname.startsWith(to + '/');
   };
   const inDirectories = directoryNav.some(i => isActive(i.to));
@@ -99,7 +101,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   // Bottom-nav primary set on mobile (4 most-used + Menu)
   const bottomNav = isAdminOrTeam ? [
     { to: '/', label: 'Inquiries', icon: Inbox },
-    { to: '/customers', label: 'Customers', icon: Users },
+    { to: '/sales', label: 'Sales', icon: Handshake },
     { to: '/products', label: 'Products', icon: ShoppingCart },
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   ] : [];
